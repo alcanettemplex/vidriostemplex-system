@@ -1,0 +1,21 @@
+src/
+  config/
+    database.ts
+  models/
+    index.ts
+    usuario.model.ts
+    cliente.model.ts
+    odp.model.ts
+    odp_item.model.ts
+    evidencia_instalacion.model.ts
+    vehiculo.model.ts
+    programacion_instalacion.model.ts
+    historial_estado_odp.model.ts
+  routes/
+    index.ts
+  controllers/
+    index.ts
+  middlewares/
+    index.ts
+  app.ts
+  server.ts

@@ -1,0 +1,52 @@
+import { DataTypes, Model } from 'sequelize';
+import sequelize from '../config/database';
+
+class ODP extends Model { }
+
+ODP.init({
+  id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+  numero_odp: { type: DataTypes.STRING(30), allowNull: false, unique: true },
+  cliente_id: { type: DataTypes.INTEGER, allowNull: false },
+  asesor_id: { type: DataTypes.INTEGER, allowNull: false },
+  estado_produccion: {
+    type: DataTypes.ENUM('EN_ESPERA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA'),
+    defaultValue: 'EN_ESPERA',
+    allowNull: false
+  },
+  estado_facturacion: { type: DataTypes.ENUM('PENDIENTE', 'FACTURADA'), defaultValue: 'PENDIENTE' },
+  estado_caja: { type: DataTypes.ENUM('PENDIENTE', 'ABONADO', 'CANCELADO', 'CREDITO_APROBADO'), defaultValue: 'PENDIENTE' },
+  factura_electronica: { type: DataTypes.STRING(100) },
+  url_documento_factura: { type: DataTypes.STRING(255) },
+  autorizacion_especial_despacho: { type: DataTypes.BOOLEAN, defaultValue: false },
+  observacion_autorizacion: { type: DataTypes.TEXT },
+  croquis_url: { type: DataTypes.STRING(255) },
+  fecha_creacion: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  fecha_entrega: { type: DataTypes.DATE },
+  nombre_recibe: { type: DataTypes.STRING(100) },
+  telefono_recibe: { type: DataTypes.STRING(20) },
+  cantidad_total: { type: DataTypes.INTEGER, defaultValue: 1 },
+  tipo_servicio: { type: DataTypes.STRING(100) },
+  descripcion_pedido: { type: DataTypes.TEXT },
+  servicios_detalle: { type: DataTypes.JSON },
+  observaciones: { type: DataTypes.TEXT },
+  direccion_instalacion: { type: DataTypes.STRING(255) },
+  matizado: { type: DataTypes.BOOLEAN, defaultValue: false },
+  pelicula: { type: DataTypes.BOOLEAN, defaultValue: false },
+  acarreo: { type: DataTypes.BOOLEAN, defaultValue: false },
+  instalacion: { type: DataTypes.BOOLEAN, defaultValue: false },
+  huacal: { type: DataTypes.BOOLEAN, defaultValue: false },
+  carton: { type: DataTypes.BOOLEAN, defaultValue: false },
+  forma_pago: { type: DataTypes.STRING(50) },
+  abono: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },
+  pendiente: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },
+  foto_instalacion_url: { type: DataTypes.STRING(1000) },
+  proveedor_vidrio: { type: DataTypes.STRING(100) },
+  numero_pedido_proveedor: { type: DataTypes.STRING(100) },
+}, {
+  sequelize,
+  modelName: 'ODP',
+  tableName: 'odp',
+  timestamps: false,
+});
+
+export default ODP;

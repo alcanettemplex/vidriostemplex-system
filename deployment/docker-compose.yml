@@ -1,0 +1,47 @@
+# Docker Compose para Backend, Frontend y Base de Datos
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: templex-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: templex_db
+      MYSQL_USER: templex_user
+      MYSQL_PASSWORD: templex_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ../database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --default-authentication-plugin=mysql_native_password
+
+  backend:
+    build: ../backend-api
+    container_name: templex-backend
+    restart: always
+    environment:
+      DB_HOST: mysql
+      DB_USER: templex_user
+      DB_PASSWORD: templex_pass
+      DB_NAME: templex_db
+      DB_PORT: 3306
+      JWT_SECRET: supersecretkey
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mysql
+
+  frontend:
+    build: ../frontend-web
+    container_name: templex-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
