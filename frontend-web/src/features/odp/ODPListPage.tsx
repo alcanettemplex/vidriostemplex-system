@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Plus, Search, FileText, CheckCircle2, Clock, Truck, Eye, Trash2, Edit3, AlertCircle } from 'lucide-react';
+import { useSelector } from 'react-redux';
+import { Plus, Search, FileText, CheckCircle2, Clock, Truck, Eye, Trash2, Edit3, AlertCircle, Package, DollarSign, Ruler } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPForm from './components/ODPForm';
 import ODPDetailModal from './components/ODPDetailModal';
+import SAPModal from './components/SAPModal';
+import COTModal from './components/COTModal';
+import TMModal from './components/TMModal';
 
 interface ODP {
     id: number;
@@ -49,6 +53,11 @@ const ODPListPage: React.FC = () => {
     const [selectedOdpDetail, setSelectedOdpDetail] = useState<ODP | null>(null);
     const [editingOdp, setEditingOdp] = useState<ODP | null>(null);
     const [deletingOdp, setDeletingOdp] = useState<ODP | null>(null);
+    const [sapOdp, setSapOdp] = useState<ODP | null>(null);
+    const [cotOdp, setCotOdp] = useState<ODP | null>(null);
+    const [tmOdp, setTmOdp] = useState<ODP | null>(null);
+    const user = useSelector((state: any) => state.auth.user);
+    const userRole = (user?.rol || user?.role)?.toLowerCase() || '';
 
     useEffect(() => {
         fetchODPs();
@@ -182,28 +191,36 @@ const ODPListPage: React.FC = () => {
                                                 {odp.estado_caja.replace(/_/g, ' ')}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-right flex justify-end gap-2">
-                                            <button
-                                                onClick={() => setSelectedOdpDetail(odp)}
-                                                className="text-slate-400 hover:text-blue-600 transition p-2 hover:bg-blue-50 rounded"
-                                                title="Ver Detalles"
-                                            >
-                                                <Eye className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => setEditingOdp(odp)}
-                                                className="text-slate-400 hover:text-emerald-600 transition p-2 hover:bg-emerald-50 rounded"
-                                                title="Editar"
-                                            >
-                                                <Edit3 className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => setDeletingOdp(odp)}
-                                                className="text-slate-400 hover:text-red-600 transition p-2 hover:bg-red-50 rounded"
-                                                title="Eliminar"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                        <td className="px-6 py-4 text-right">
+                                           <div className="flex justify-end gap-1">
+                                             <button onClick={() => setSelectedOdpDetail(odp)} className="text-slate-400 hover:text-blue-600 transition p-1.5 hover:bg-blue-50 rounded" title="Ver Detalles">
+                                                 <Eye className="w-4 h-4" />
+                                             </button>
+                                             {/* SAP: solo asesor_comercial y admin */}
+                                             {['admin', 'asesor_comercial', 'gerente'].includes(userRole) && (
+                                               <button onClick={() => setSapOdp(odp)} className="text-slate-400 hover:text-indigo-600 transition p-1.5 hover:bg-indigo-50 rounded" title="Solicitud Accesorios (SAP)">
+                                                 <Package className="w-4 h-4" />
+                                               </button>
+                                             )}
+                                             {/* COT: solo asesor_comercial y admin */}
+                                             {['admin', 'asesor_comercial', 'gerente'].includes(userRole) && (
+                                               <button onClick={() => setCotOdp(odp)} className="text-slate-400 hover:text-blue-600 transition p-1.5 hover:bg-blue-50 rounded" title="Cotización (COT)">
+                                                 <DollarSign className="w-4 h-4" />
+                                               </button>
+                                             )}
+                                             {/* TM: solo jefe_produccion y admin */}
+                                             {['admin', 'jefe_produccion', 'gerente'].includes(userRole) && (
+                                               <button onClick={() => setTmOdp(odp)} className="text-slate-400 hover:text-amber-600 transition p-1.5 hover:bg-amber-50 rounded" title="Toma de Medidas (TM)">
+                                                 <Ruler className="w-4 h-4" />
+                                               </button>
+                                             )}
+                                             <button onClick={() => setEditingOdp(odp)} className="text-slate-400 hover:text-emerald-600 transition p-1.5 hover:bg-emerald-50 rounded" title="Editar">
+                                                 <Edit3 className="w-4 h-4" />
+                                             </button>
+                                             <button onClick={() => setDeletingOdp(odp)} className="text-slate-400 hover:text-red-600 transition p-1.5 hover:bg-red-50 rounded" title="Eliminar">
+                                                 <Trash2 className="w-4 h-4" />
+                                             </button>
+                                           </div>
                                         </td>
                                     </motion.tr>
                                 ))
@@ -230,12 +247,14 @@ const ODPListPage: React.FC = () => {
                 )}
 
                 {selectedOdpDetail && (
-                    <ODPDetailModal
-                        odp={selectedOdpDetail}
-                        onClose={() => setSelectedOdpDetail(null)}
-                    />
+                    <ODPDetailModal odp={selectedOdpDetail} onClose={() => setSelectedOdpDetail(null)} />
                 )}
             </AnimatePresence>
+
+            {/* Modales de Documentos Bloque B */}
+            {sapOdp && <SAPModal odp={sapOdp} onClose={() => setSapOdp(null)} />}
+            {cotOdp && <COTModal odp={cotOdp} onClose={() => setCotOdp(null)} />}
+            {tmOdp && <TMModal odp={tmOdp} onClose={() => setTmOdp(null)} />}
 
             {/* Modal de Eliminación */}
             {deletingOdp && (

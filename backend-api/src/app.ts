@@ -11,6 +11,7 @@ import evidenciaRoutes from './routes/evidencia.routes';
 import produccionRoutes from './routes/produccion.routes';
 import indexRoutes from './routes/index';
 import dashboardRoutes from './routes/dashboard.routes';
+import documentosRoutes from './routes/documentos.routes';
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use('/api/instalaciones', instalacionRoutes);
 app.use('/api/evidencias', evidenciaRoutes);
 app.use('/api/produccion', produccionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/documentos', documentosRoutes);
 
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
