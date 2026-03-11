@@ -5,7 +5,7 @@ import {
   X, FileText, ShoppingCart, Wrench, Truck, DollarSign, Package, Ruler,
   CheckCircle2, Clock, AlertCircle, MapPin, User, Calendar, Phone,
   Building2, ChevronRight, ExternalLink, CreditCard, Camera, History,
-  ClipboardList, TrendingUp
+  ClipboardList, TrendingUp, Printer
 } from 'lucide-react';
 
 // ─── Paleta de estado ─────────────────────────────────────────────────────────
@@ -494,7 +494,185 @@ const TabHistorial: React.FC<{ odp: any }> = ({ odp }) => {
   );
 };
 
-// ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
+// ─── Tab Imprimir (Formato Taller) ───────────────────────────────────────────
+const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => (
+  <div className="p-4">
+    <div className="flex gap-3 mb-4 print:hidden">
+      <button onClick={() => window.print()}
+        className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white font-bold text-sm rounded-xl hover:bg-slate-900 transition shadow-md">
+        <Printer className="w-4 h-4" /> Imprimir / Guardar PDF
+      </button>
+      <p className="text-xs text-slate-400 self-center">Se imprimirá el formato completo de taller con todos los datos de la ODP</p>
+    </div>
+
+    <div id="odp-ficha-print" className="bg-white text-black text-sm font-sans p-6 border border-slate-200 rounded-xl">
+      {/* Encabezado */}
+      <div className="flex justify-between items-start border-b-4 border-black pb-4 mb-5">
+        <div>
+          <h1 className="text-3xl font-black uppercase tracking-widest">Vidrios Templex</h1>
+          <p className="font-semibold text-gray-700 uppercase mt-0.5">Orden de Producción — Formato Taller</p>
+          <div className="grid grid-cols-2 gap-x-8 mt-2 text-xs">
+            <span className="font-bold">ORDEN N°: <span className="font-normal text-red-600 text-base">{odp.numero_odp}</span></span>
+            <span className="font-bold">FECHA: <span className="font-normal">{new Date(odp.fecha_creacion).toLocaleDateString('es-CO')}</span></span>
+            <span className="font-bold">CLIENTE: <span className="font-normal">{odp.cliente?.nombre_razon_social}</span></span>
+            <span className="font-bold">TIPO SERVICIO: <span className="font-normal">{odp.tipo_servicio || '—'}</span></span>
+            <span className="font-bold">ASESOR: <span className="font-normal">{odp.asesor?.nombre_completo}</span></span>
+            <span className="font-bold">FECHA ENTREGA: <span className="font-normal">{odp.fecha_entrega ? new Date(odp.fecha_entrega + 'T00:00:00').toLocaleDateString('es-CO') : '—'}</span></span>
+          </div>
+        </div>
+        <div className="text-right border-l-4 border-black pl-4">
+          <p className="font-bold text-xs mb-1">PROVEEDOR VIDRIO</p>
+          <p className="text-xl font-black">{odp.proveedor_vidrio || 'N/A'}</p>
+          <p className="font-bold mt-2 text-xs">PEDIDO N°:</p>
+          <p className="text-base font-mono bg-yellow-100 px-2 py-1 inline-block mt-1">{odp.numero_pedido_proveedor || 'S/N'}</p>
+        </div>
+      </div>
+
+      {/* Tabla de items */}
+      <div className="mb-5">
+        <h3 className="font-bold bg-black text-white px-2 py-1 mb-0 text-xs uppercase">Detalle de Cristales / Ítems</h3>
+        <table className="w-full border-collapse border border-black text-xs text-center">
+          <thead className="bg-gray-100">
+            <tr>
+              {['#','Cant','Tipo Vidrio','Esp.','Ancho','Alto','Color','Pulidos','Perf','Boq','Descuentos/Otros'].map(h =>
+                <th key={h} className="border border-black py-1 px-1">{h}</th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {(odp.items || []).map((item: any, i: number) => (
+              <tr key={i} className={i % 2 === 0 ? '' : 'bg-gray-50'}>
+                <td className="border border-black py-1.5 px-1 font-bold">{i+1}</td>
+                <td className="border border-black py-1.5 px-1 font-bold text-base">{item.cantidad}</td>
+                <td className="border border-black py-1.5 px-1 text-left">{item.tipo_vidrio}</td>
+                <td className="border border-black py-1.5 px-1 font-bold">{item.espesor}mm</td>
+                <td className="border border-black py-1.5 px-1">{item.ancho_mm}</td>
+                <td className="border border-black py-1.5 px-1">{item.alto_mm}</td>
+                <td className="border border-black py-1.5 px-1">{item.color || '—'}</td>
+                <td className="border border-black py-1.5 px-1 text-left">{item.pulidos || '—'}</td>
+                <td className="border border-black py-1.5 px-1 font-bold text-red-600">{item.perforaciones > 0 ? item.perforaciones : '—'}</td>
+                <td className="border border-black py-1.5 px-1 font-bold text-red-600">{item.boquetes > 0 ? item.boquetes : '—'}</td>
+                <td className="border border-black py-1.5 px-1 text-left text-[10px]">{[item.descuentos, item.otros].filter(Boolean).join(' / ') || '—'}</td>
+              </tr>
+            ))}
+            {(odp.items || []).length === 0 && (
+              <tr><td colSpan={11} className="border border-black py-4 text-gray-400 italic">Sin ítems registrados</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Descripción y Observaciones */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="border border-black p-2 min-h-[70px]">
+          <h4 className="font-bold text-xs uppercase border-b border-gray-300 pb-1 mb-1">Descripción del Pedido / Proyecto</h4>
+          <p className="text-xs whitespace-pre-wrap">{odp.descripcion_pedido || '—'}</p>
+        </div>
+        <div className="border border-black p-2 min-h-[70px]">
+          <h4 className="font-bold text-xs uppercase border-b border-gray-300 pb-1 mb-1">Observaciones</h4>
+          <p className="text-xs text-red-700 font-semibold whitespace-pre-wrap">{odp.observaciones || 'Sin observaciones'}</p>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <div className="border border-black p-2">
+          <h4 className="font-bold text-xs uppercase border-b border-gray-300 pb-1 mb-1">Dirección de Entrega / Instalación</h4>
+          <p className="text-xs">{odp.direccion_instalacion || '— Misma del cliente —'}</p>
+          {odp.nombre_recibe && <p className="text-xs mt-0.5">Recibe: <strong>{odp.nombre_recibe}</strong> · {odp.telefono_recibe}</p>}
+        </div>
+      </div>
+
+      {/* Grid servicios + pedido externo */}
+      <div className="grid grid-cols-[1fr,1.5fr] gap-4 mb-5">
+        <table className="w-full border-collapse border border-black text-xs">
+          <tbody>
+            {[['MATIZADO', odp.matizado, 'PELÍCULA', odp.pelicula], ['ACARREO', odp.acarreo, 'HUACAL', odp.huacal], ['INSTALACIÓN', odp.instalacion, 'CARTÓN', odp.carton]].map(([k1, v1, k2, v2], i) => (
+              <tr key={i}>
+                <td className="border border-black p-1 font-bold">{k1}</td>
+                <td className="border border-black p-1 text-center font-bold text-lg">{v1 ? 'X' : ''}</td>
+                <td className="border border-black p-1 font-bold">{k2}</td>
+                <td className="border border-black p-1 text-center font-bold text-lg">{v2 ? 'X' : ''}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <table className="w-full border-collapse border border-black text-xs text-center">
+          <tbody>
+            <tr>
+              <td className="border border-black p-1 font-bold align-middle" rowSpan={3}>PEDIDO EXTERNO<br /><span className="text-[10px] font-normal italic">Registro Llegada</span></td>
+              <td className="border border-black p-1.5 font-bold bg-gray-100">RECEPCIÓN</td><td className="border border-black p-1.5 w-1/4"></td>
+              <td className="border border-black p-1.5 font-bold bg-gray-100">ODC Ref</td><td className="border border-black p-1.5 w-1/4"></td>
+            </tr>
+            <tr>
+              <td className="border border-black p-1.5 font-bold bg-gray-100">GUÍA / LOTE</td><td className="border border-black p-1.5"></td>
+              <td className="border border-black p-1.5 font-bold bg-gray-100">CONFIRMÓ</td><td className="border border-black p-1.5"></td>
+            </tr>
+            <tr>
+              <td className="border border-black p-1.5 font-bold bg-gray-100">TM / NOTA</td><td className="border border-black p-1.5">{odp.tomas_medidas?.[0]?.numero_tm || ''}</td>
+              <td className="border border-black p-1.5 font-bold bg-gray-100">FECHA</td><td className="border border-black p-1.5"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* SAP si existe */}
+      {(odp.saps || []).length > 0 && (
+        <div className="mb-5">
+          <h3 className="font-bold bg-black text-white px-2 py-1 mb-0 text-xs uppercase">SAP — Solicitud de Accesorios y Perfilería ({odp.saps[0].numero_sap})</h3>
+          <table className="w-full border-collapse border border-black text-xs">
+            <thead className="bg-gray-100">
+              <tr>
+                {['#','Descripción','Referencia','Color','Cantidad','Unidad','Obs'].map(h =>
+                  <th key={h} className="border border-black p-1">{h}</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {(odp.saps[0].items || []).map((item: any, i: number) => (
+                <tr key={i} className={i % 2 === 0 ? '' : 'bg-gray-50'}>
+                  <td className="border border-black p-1 text-center font-bold">{i+1}</td>
+                  <td className="border border-black p-1">{item.descripcion}</td>
+                  <td className="border border-black p-1 font-mono">{item.referencia || '—'}</td>
+                  <td className="border border-black p-1">{item.color || '—'}</td>
+                  <td className="border border-black p-1 text-center font-bold">{item.cantidad}</td>
+                  <td className="border border-black p-1 text-center">{item.unidad}</td>
+                  <td className="border border-black p-1">{item.observacion || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Firmas */}
+      <div className="grid grid-cols-3 gap-6 mt-8">
+        {['Asesor / Encargado', 'Jefe de Producción', 'Taller / Verificó'].map(l => (
+          <div key={l} className="text-center text-xs">
+            <div className="border-t-2 border-black pt-2 mt-12">
+              <p className="font-bold uppercase tracking-wider">{l}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="border-t-2 border-black pt-3 mt-6 flex justify-between text-[10px] text-gray-500">
+        <span>Vidrios Templex — Sistema Integral</span>
+        <span>{odp.numero_odp} · Generado: {new Date().toLocaleDateString('es-CO')}</span>
+      </div>
+    </div>
+
+    <style dangerouslySetInnerHTML={{ __html: `
+      @media print {
+        body * { visibility: hidden; }
+        #odp-ficha-print, #odp-ficha-print * { visibility: visible; }
+        #odp-ficha-print { position: absolute; left: 0; top: 0; width: 100%; padding: 15px; border: none !important; }
+        @page { margin: 1cm; size: portrait; }
+      }
+    ` }} />
+  </div>
+);
+
+
 interface Props { odpId: number; onClose: () => void; }
 
 const ODPFichaModal: React.FC<Props> = ({ odpId, onClose }) => {
@@ -536,6 +714,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose }) => {
     { id: 'instalacion', label: 'Instalación', icon: <Truck className="w-4 h-4" />, badge: (odp?.evidencias?.length || 0) + (odp?.programaciones?.length || 0) },
     { id: 'financiero', label: 'Financiero', icon: <TrendingUp className="w-4 h-4" /> },
     { id: 'historial', label: 'Historial', icon: <History className="w-4 h-4" /> },
+    { id: 'imprimir', label: 'Imprimir ODP', icon: <Printer className="w-4 h-4" /> },
   ];
 
   return (
@@ -571,9 +750,15 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose }) => {
                   </p>
                 </div>
               </div>
-              <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition flex-shrink-0">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setActiveTab('imprimir')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition print:hidden">
+                  <Printer className="w-3.5 h-3.5" /> Imprimir
+                </button>
+                <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition flex-shrink-0">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -607,6 +792,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose }) => {
                 {activeTab === 'instalacion' && <TabInstalacion odp={odp} />}
                 {activeTab === 'financiero' && <TabFinanciero odp={odp} />}
                 {activeTab === 'historial' && <TabHistorial odp={odp} />}
+                {activeTab === 'imprimir' && <TabImprimir odp={odp} />}
               </motion.div>
             </AnimatePresence>
           )}

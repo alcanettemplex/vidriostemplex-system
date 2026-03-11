@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
-import { Plus, Search, FileText, CheckCircle2, Clock, Truck, Eye, Trash2, Edit3, AlertCircle, Package, DollarSign, Ruler } from 'lucide-react';
+import { Plus, Search, FileText, CheckCircle2, Clock, Truck, Eye, Trash2, Edit3, AlertCircle, Package, DollarSign, Ruler, Printer } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPForm from './components/ODPForm';
 import ODPFichaModal from './components/ODPFichaModal';
 import SAPModal from './components/SAPModal';
 import COTModal from './components/COTModal';
 import TMModal from './components/TMModal';
+import ODPMatrixModal from '../produccion/components/ODPMatrixModal';
+
 
 interface ODP {
     id: number;
@@ -56,6 +58,7 @@ const ODPListPage: React.FC = () => {
     const [sapOdp, setSapOdp] = useState<ODP | null>(null);
     const [cotOdp, setCotOdp] = useState<ODP | null>(null);
     const [tmOdp, setTmOdp] = useState<ODP | null>(null);
+    const [printOdp, setPrintOdp] = useState<ODP | null>(null);
     const user = useSelector((state: any) => state.auth.user);
     const userRole = (user?.rol || user?.role)?.toLowerCase() || '';
 
@@ -213,8 +216,12 @@ const ODPListPage: React.FC = () => {
                                                <button onClick={() => setTmOdp(odp)} className="text-slate-400 hover:text-amber-600 transition p-1.5 hover:bg-amber-50 rounded" title="Toma de Medidas (TM)">
                                                  <Ruler className="w-4 h-4" />
                                                </button>
-                                             )}
-                                             <button onClick={() => setEditingOdp(odp)} className="text-slate-400 hover:text-emerald-600 transition p-1.5 hover:bg-emerald-50 rounded" title="Editar">
+                                              )}
+                                              {/* Imprimir: visible para todos */}
+                                              <button onClick={() => setPrintOdp(odp)} className="text-slate-400 hover:text-slate-700 transition p-1.5 hover:bg-slate-100 rounded" title="Imprimir Formato Taller">
+                                                <Printer className="w-4 h-4" />
+                                              </button>
+                                              <button onClick={() => setEditingOdp(odp)} className="text-slate-400 hover:text-emerald-600 transition p-1.5 hover:bg-emerald-50 rounded" title="Editar">
                                                  <Edit3 className="w-4 h-4" />
                                              </button>
                                              <button onClick={() => setDeletingOdp(odp)} className="text-slate-400 hover:text-red-600 transition p-1.5 hover:bg-red-50 rounded" title="Eliminar">
@@ -255,6 +262,8 @@ const ODPListPage: React.FC = () => {
             {sapOdp && <SAPModal odp={sapOdp} onClose={() => setSapOdp(null)} />}
             {cotOdp && <COTModal odp={cotOdp} onClose={() => setCotOdp(null)} />}
             {tmOdp && <TMModal odp={tmOdp} onClose={() => setTmOdp(null)} />}
+            {/* Imprimible formato taller */}
+            {printOdp && <ODPMatrixModal odp={printOdp} onClose={() => setPrintOdp(null)} />}
 
             {/* Modal de Eliminación */}
             {deletingOdp && (
