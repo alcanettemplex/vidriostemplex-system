@@ -42,6 +42,10 @@ ODP.init({
   foto_instalacion_url: { type: DataTypes.STRING(1000) },
   proveedor_vidrio: { type: DataTypes.STRING(100) },
   numero_pedido_proveedor: { type: DataTypes.STRING(100) },
+  chk_medicion: { type: DataTypes.BOOLEAN, defaultValue: false },
+  chk_corte: { type: DataTypes.BOOLEAN, defaultValue: false },
+  chk_vidrio: { type: DataTypes.BOOLEAN, defaultValue: false },
+  chk_accesorios: { type: DataTypes.BOOLEAN, defaultValue: false },
 }, {
   sequelize,
   modelName: 'ODP',

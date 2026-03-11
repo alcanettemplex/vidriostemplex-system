@@ -57,6 +57,10 @@ const odpSchema = z.object({
   pendiente: z.number().nullable().optional(),
   proveedor_vidrio: z.string().optional(),
   numero_pedido_proveedor: z.string().optional(),
+  chk_medicion: z.boolean().optional().default(false),
+  chk_corte: z.boolean().optional().default(false),
+  chk_vidrio: z.boolean().optional().default(false),
+  chk_accesorios: z.boolean().optional().default(false),
   items: z.array(odpItemSchema).optional()
 });
 
