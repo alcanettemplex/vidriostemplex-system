@@ -83,19 +83,58 @@ export const getODPs = async (req: Request, res: Response) => {
 export const getODP = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    // Importar modelos dinámicamente para evitar circular imports
+    const { SAP, SAPItem, Cotizacion, TomaMedidas, EvidenciaInstalacion, ProgramacionInstalacion, HistorialEstadoODP } = await import('../models');
+
     const odp = await ODP.findByPk(id, {
       include: [
         { model: Cliente, as: 'cliente' },
-        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
-        { model: ODPItem, as: 'items' }
-      ]
+        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username', 'email'] },
+        { model: ODPItem, as: 'items' },
+        {
+          model: SAP, as: 'saps',
+          include: [
+            { model: SAPItem, as: 'items' },
+            { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+          ],
+          order: [['fecha_creacion', 'DESC']],
+        },
+        {
+          model: Cotizacion, as: 'cotizaciones',
+          include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
+        },
+        {
+          model: TomaMedidas, as: 'tomas_medidas',
+          include: [{ model: Usuario, as: 'realizador', attributes: ['id', 'nombre_completo'] }],
+        },
+        {
+          model: EvidenciaInstalacion, as: 'evidencias',
+          include: [{ model: Usuario, as: 'instalador', attributes: ['id', 'nombre_completo'] }],
+        },
+        {
+          model: ProgramacionInstalacion, as: 'programaciones',
+          include: [
+            { model: Usuario, as: 'instalador', attributes: ['id', 'nombre_completo'] },
+          ],
+        },
+        {
+          model: HistorialEstadoODP, as: 'historial_estados',
+          include: [{ model: Usuario, as: 'usuario', attributes: ['id', 'nombre_completo'] }],
+          order: [['fecha_cambio', 'DESC']],
+          separate: true,
+        },
+      ],
     });
+
     if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
     res.json(odp);
-  } catch (error) {
+  } catch (error: any) {
+    console.error('Error getODP:', error.message);
     res.status(500).json({ error: 'Error al obtener ODP' });
   }
 };
+
 
 export const createODP = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();

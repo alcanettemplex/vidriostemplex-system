@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import { Plus, Search, FileText, CheckCircle2, Clock, Truck, Eye, Trash2, Edit3, AlertCircle, Package, DollarSign, Ruler } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPForm from './components/ODPForm';
-import ODPDetailModal from './components/ODPDetailModal';
+import ODPFichaModal from './components/ODPFichaModal';
 import SAPModal from './components/SAPModal';
 import COTModal from './components/COTModal';
 import TMModal from './components/TMModal';
@@ -50,7 +50,7 @@ const ODPListPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isFormOpen, setIsFormOpen] = useState(false);
-    const [selectedOdpDetail, setSelectedOdpDetail] = useState<ODP | null>(null);
+    const [selectedOdpDetail, setSelectedOdpDetail] = useState<number | null>(null);
     const [editingOdp, setEditingOdp] = useState<ODP | null>(null);
     const [deletingOdp, setDeletingOdp] = useState<ODP | null>(null);
     const [sapOdp, setSapOdp] = useState<ODP | null>(null);
@@ -193,7 +193,7 @@ const ODPListPage: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                            <div className="flex justify-end gap-1">
-                                             <button onClick={() => setSelectedOdpDetail(odp)} className="text-slate-400 hover:text-blue-600 transition p-1.5 hover:bg-blue-50 rounded" title="Ver Detalles">
+                                             <button onClick={() => setSelectedOdpDetail(odp.id)} className="text-slate-400 hover:text-blue-600 transition p-1.5 hover:bg-blue-50 rounded" title="Ver Ficha Completa">
                                                  <Eye className="w-4 h-4" />
                                              </button>
                                              {/* SAP: solo asesor_comercial y admin */}
@@ -246,8 +246,8 @@ const ODPListPage: React.FC = () => {
                     />
                 )}
 
-                {selectedOdpDetail && (
-                    <ODPDetailModal odp={selectedOdpDetail} onClose={() => setSelectedOdpDetail(null)} />
+                {selectedOdpDetail !== null && (
+                    <ODPFichaModal odpId={selectedOdpDetail} onClose={() => setSelectedOdpDetail(null)} />
                 )}
             </AnimatePresence>
 
