@@ -6,9 +6,8 @@ interface PrintableDetalleTecnicoProps {
 }
 
 const PrintableDetalleTecnico: React.FC<PrintableDetalleTecnicoProps> = ({ odp }) => {
-
     return (
-        <div className="hidden print:block w-[21.5cm] min-h-[29cm] bg-white text-black font-sans text-[10px] mx-auto overflow-hidden">
+        <div className="block print:block w-[21.5cm] min-h-[29cm] bg-white shadow-xl print:shadow-none text-black font-sans text-[10px] mx-auto overflow-hidden">
             <style>
                 {`
                 .excel-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
@@ -16,56 +15,86 @@ const PrintableDetalleTecnico: React.FC<PrintableDetalleTecnicoProps> = ({ odp }
                 .excel-table th { font-weight: bold; text-align: center; }
                 
                 @media print {
-                    .print-container { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin-top: 2cm; }
+                    .print-container { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0 !important; }
                 }
                 `}
             </style>
 
-            <div className="print-container p-2">
+            <div className="print-container p-6">
                 {/* ---------- CABECERA ---------- */}
-                <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center w-1/3">
-                        <div className="flex flex-col">
-                            <TemplexLogo className="h-12 w-48 justify-start" />
+                <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6">
+                    <div className="flex items-center gap-6">
+                        <TemplexLogo className="h-10 w-40 justify-start" />
+                        <div>
+                            <h2 className="font-bold text-lg uppercase">DETALLE TÉCNICO (CORTES Y MANUFACTURA)</h2>
+                            <p className="font-semibold text-slate-700">ORDEN N°: <span className="font-black text-red-600 ml-1">{odp.numero_odp}</span></p>
                         </div>
                     </div>
                 </div>
 
-                <table className="excel-table mb-1">
-                    <tbody>
-                        <tr>
-                            <td className="font-bold text-center uppercase tracking-[0.2em] text-sm py-1 bg-gray-50">
-                                DETALLE TECNICO
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="h-[600px] align-top p-4">
-                                {/* Aqui va el croquis si existe, si no vacio */}
-                                {odp.croquis_url ? (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                        <img src={odp.croquis_url} className="max-w-full max-h-full object-contain" alt="Croquis" />
-                                    </div>
-                                ) : null}
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-                <table className="excel-table">
-                    <tbody>
-                        <tr>
-                            <td className="font-bold text-center uppercase tracking-[0.2em] py-1 bg-gray-50">
-                                OBSERVACION DE INSTALACION
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="h-40 align-top p-2 text-sm uppercase">
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-                <div className="text-right mt-2 font-bold tracking-[0.3em]">
-                    ...................................
+                <div className="mb-2 uppercase text-xs font-bold bg-slate-100 p-2 border border-black grid grid-cols-2">
+                    <div>
+                        CLIENTE: <span className="font-normal">{odp.cliente?.nombre_razon_social}</span>
+                    </div>
+                    <div>
+                        FECHA: <span className="font-normal">{odp.fecha_creacion ? new Date(odp.fecha_creacion).toLocaleDateString() : ''}</span>
+                    </div>
                 </div>
+
+                {/* ITEMS TABLE */}
+                <div className="mb-6">
+                    <table className="excel-table text-xs text-center">
+                        <thead className="bg-gray-100">
+                            <tr>
+                                <th className="py-2 px-1 w-8">ITEM</th>
+                                <th className="py-2 px-1 w-10">CANT</th>
+                                <th className="py-2 px-1">TIPO VIDRIO</th>
+                                <th className="py-2 px-1 w-12">ESP.</th>
+                                <th className="py-2 px-1 w-16">ANCHO</th>
+                                <th className="py-2 px-1 w-16">ALTO</th>
+                                <th className="py-2 px-1">PULIDOS / ACABADOS</th>
+                                <th className="py-2 px-1 w-10">PERF</th>
+                                <th className="py-2 px-1 w-10">BOQ</th>
+                                <th className="py-2 px-1">OTROS / DETALLES</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {odp.items?.map((item: any, idx: number) => (
+                                <tr key={idx}>
+                                    <td className="py-2 px-1 font-bold">{idx + 1}</td>
+                                    <td className="py-2 px-1 font-bold text-lg">{item.cantidad}</td>
+                                    <td className="py-2 px-1 font-semibold uppercase">{item.tipo_vidrio}</td>
+                                    <td className="py-2 px-1 font-bold">{item.espesor || ''}</td>
+                                    <td className="py-2 px-1 font-bold">{item.ancho_mm || ''}</td>
+                                    <td className="py-2 px-1 font-bold">{item.alto_mm || ''}</td>
+                                    <td className="py-2 px-1 text-left uppercase text-[10px] leading-tight font-medium">{item.pulidos || '-'}</td>
+                                    <td className="py-2 px-1 font-bold text-red-600 text-sm">{item.perforaciones > 0 ? item.perforaciones : '-'}</td>
+                                    <td className="py-2 px-1 font-bold text-red-600 text-sm">{item.boquetes > 0 ? item.boquetes : '-'}</td>
+                                    <td className="py-2 px-1 text-left text-[10px] uppercase">
+                                        {item.descuentos && <p className="mb-0.5"><span className="font-bold">DESC:</span> {item.descuentos}</p>}
+                                        {item.otros && <p><span className="font-bold">OTR:</span> {item.otros}</p>}
+                                    </td>
+                                </tr>
+                            ))}
+                            {(!odp.items || odp.items.length === 0) && (
+                                <tr>
+                                    <td colSpan={10} className="text-gray-400 py-8 italic uppercase text-sm">NO HAY ÍTEMS REGISTRADOS EN LA MODALIDAD TÉCNICA</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                    <p className="text-[10px] font-bold mt-1 text-right italic uppercase">
+                        * P/B: PULIDO Y BRILLADO | PC: PULIDO CORRIDO | RAD: RADIAR | CHA: CHAFLÁN
+                    </p>
+                </div>
+
+                {/* CROQUIS */}
+                {odp.croquis_url && (
+                    <div className="border border-black p-4 mt-8 flex flex-col items-center">
+                        <p className="font-bold text-sm tracking-widest uppercase mb-4 border-b border-black w-full text-center pb-2">CROQUIS ADJUNTO</p>
+                        <img src={odp.croquis_url} className="max-w-[15cm] max-h-[12cm] object-contain" alt="Croquis" />
+                    </div>
+                )}
             </div>
         </div>
     );
