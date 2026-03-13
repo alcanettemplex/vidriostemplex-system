@@ -57,12 +57,8 @@ const ComprasPage: React.FC = () => {
       setOdps(odpsRes.data.filter((o: any) => !['INSTALADA', 'ENTREGADA'].includes(o.estado_produccion)));
       setCompras(comprasRes.data);
     } catch (e) {
-      // Fallback demo
-      setCompras([
-        { id: 1, odp_id: 1, numero_odp: 'ODP-2026-001', proveedor: 'Vidrio del Sur', odc: 'ODC-0451', monto: 1200, estado: 'recibido', fecha_entrega: '2026-03-10', descripcion: 'Vidrio templado 8mm' },
-        { id: 2, odp_id: 1, numero_odp: 'ODP-2026-001', proveedor: 'Alumiflex S.A', odc: 'ODC-0452', monto: 380, estado: 'en_transito', fecha_entrega: '2026-03-14', descripcion: 'Perfiles aluminio negro' },
-        { id: 3, odp_id: 2, numero_odp: 'ODP-2026-002', proveedor: 'Herrajes Plus', odc: 'ODC-0453', monto: 95, estado: 'pendiente', fecha_entrega: '2026-03-18', descripcion: 'Bisagras y tornillería especial' },
-      ]);
+      toast.error('Error al cargar datos de compras');
+      setCompras([]);
     } finally {
       setLoading(false);
     }
@@ -81,16 +77,7 @@ const ComprasPage: React.FC = () => {
       setForm({ odp_id: '', proveedor: '', odc: '', monto: '', descripcion: '', estado: 'pendiente', fecha_entrega: '' });
       fetchData();
     } catch {
-      // Optimistic UI fallback para demo
-      const nuevaCompra: OrdenCompra = {
-        id: Date.now(), odp_id: Number(form.odp_id),
-        numero_odp: odps.find(o => o.id === Number(form.odp_id))?.numero_odp || 'N/A',
-        proveedor: form.proveedor, odc: form.odc, monto: Number(form.monto),
-        estado: form.estado, fecha_entrega: form.fecha_entrega, descripcion: form.descripcion,
-      };
-      setCompras(prev => [nuevaCompra, ...prev]);
-      toast.success('Compra registrada (modo demo)');
-      setShowForm(false);
+      toast.error('Error al registrar la orden de compra');
     }
   };
 

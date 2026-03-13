@@ -1,0 +1,13 @@
+node_modules
+dist
+.env
+.env.*
+*.log
+.git
+.gitignore
+*.md
+*.txt
+test-*.js
+add-*.ts
+migrate-*.ts
+database.sqlite

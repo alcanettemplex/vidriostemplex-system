@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend
+} from 'recharts';
 import { 
   TrendingUp, 
   Wallet, 
@@ -8,15 +12,42 @@ import {
   AlertTriangle, 
   Percent,
   AlertCircle,
-  PackageX,
   Clock,
   Briefcase,
   PlaySquare,
   BarChart3,
   CalendarDays,
-  Users
+  Users,
+  Package
 } from 'lucide-react';
 import KPICard from './KPICard';
+
+/** Colores para gráfico de distribución de estados */
+const ESTADO_COLORS: Record<string, string> = {
+  EN_ESPERA: '#94a3b8',
+  MEDICION: '#818cf8',
+  PEDIDO_PROVEEDOR: '#f59e0b',
+  ALUMINIO_CORTADO: '#06b6d4',
+  VIDRIO_RECIBIDO: '#3b82f6',
+  ACCESORIOS_SEPARADOS: '#8b5cf6',
+  LISTO_INSTALAR: '#f97316',
+  PROGRAMADA: '#14b8a6',
+  INSTALADA: '#22c55e',
+  ENTREGADA: '#10b981',
+};
+
+const ESTADO_LABELS: Record<string, string> = {
+  EN_ESPERA: 'En Espera',
+  MEDICION: 'Medición',
+  PEDIDO_PROVEEDOR: 'Ped. Proveedor',
+  ALUMINIO_CORTADO: 'Aluminio Cortado',
+  VIDRIO_RECIBIDO: 'Vidrio Recibido',
+  ACCESORIOS_SEPARADOS: 'Accesorios Sep.',
+  LISTO_INSTALAR: 'Listo p/ Instalar',
+  PROGRAMADA: 'Programada',
+  INSTALADA: 'Instalada',
+  ENTREGADA: 'Entregada',
+};
 
 const DashboardHome: React.FC = () => {
   const [data, setData] = useState<any>(null);
@@ -31,40 +62,8 @@ const DashboardHome: React.FC = () => {
         });
         setData(res.data);
       } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-        // Fallback data simulada para propósitos de UI Gerencial
-        setData({
-          // 5 Critical Numbers
-          ventas_mes: "$1,245,600.00",
-          en_produccion: 87,
-          pedidos_atrasados: 12,
-          flujo_caja: "$450,200.00",
-          margen_promedio: "34.5%",
-          
-          // Alertas
-          alertas_inventario: [
-            { item: "Vidrio Templado 6mm Claro", stock: "15 m²", status: "Crítico" },
-            { item: "Herraje Bisagra M-M Negra", stock: "4 und", status: "Crítico" },
-            { item: "Vidrio Laminado 4+4", stock: "28 m²", status: "Bajo" }
-          ],
-          alertas_atrasos: [
-            { odp: "ODP-1042", cliente: "Constructora Apex", dias: 4 },
-            { odp: "ODP-1055", cliente: "Hotel Marina", dias: 2 },
-            { odp: "ODP-1058", cliente: "Residencial Los Pinos", dias: 1 }
-          ],
-          alertas_cartera: [
-            { cliente: "Fachadas Modernas", monto: "$12,500", dias_vencido: 45 },
-            { cliente: "Edificio Central", monto: "$8,200", dias_vencido: 30 }
-          ],
-
-          // Actividad Reciente
-          actividad: [
-            { tipo: 'nueva_venta', texto: 'ODP-1089 aprobada por Asesor Carlos', tiempo: 'hace 10 min' },
-            { tipo: 'produccion', texto: 'ODP-1060 pasó a estado Templado', tiempo: 'hace 45 min' },
-            { tipo: 'alerta', texto: 'Máquina canteadora detenida (Mantenimiento)', tiempo: 'hace 2 horas' },
-            { tipo: 'entrega', texto: 'ODP-1050 entregada exitosamente', tiempo: 'hace 3 horas' }
-          ]
-        });
+        console.error("Error al cargar dashboard:", error);
+        setData(null);
       } finally {
         setLoading(false);
       }
@@ -80,192 +79,220 @@ const DashboardHome: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-32 bg-slate-200 rounded-2xl animate-pulse"></div>)}
         </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+          <div className="lg:col-span-2 h-80 bg-slate-200 rounded-2xl animate-pulse"></div>
+          <div className="h-80 bg-slate-200 rounded-2xl animate-pulse"></div>
+        </div>
       </div>
     );
   }
 
+  if (!data) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 text-center">
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+          <h2 className="text-xl font-bold text-slate-800">No se pudieron cargar los datos</h2>
+          <p className="text-slate-500 mt-2">Verifica tu conexión o intenta de nuevo más tarde.</p>
+          <button onClick={() => window.location.reload()} className="mt-4 px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition">
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Preparar datos para Recharts
+  const tendenciaData = (data.tendencia_mensual || []).map((item: any) => ({
+    mes: new Date(item.mes).toLocaleDateString('es-CO', { month: 'short', year: '2-digit' }),
+    odps: Number(item.total) || 0,
+    abonos: Number(item.total_abonos) || 0,
+    pendiente: Number(item.total_pendiente) || 0,
+  }));
+
+  const distribucionData = (data.distribucion_estados || []).map((item: any) => ({
+    name: ESTADO_LABELS[item.estado_produccion] || item.estado_produccion,
+    value: Number(item.total) || 0,
+    key: item.estado_produccion,
+  }));
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
-      {/* HEADER PRINCIPAL */}
+      {/* HEADER */}
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Panel de Control Gerencial</h1>
           <p className="text-slate-500 font-medium mt-1">Indicadores clave de negocio y alertas operativas en tiempo real.</p>
         </div>
-        <div className="flex gap-2">
-          <button className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2">
-            <CalendarDays className="w-4 h-4" />
-            Este Mes
-          </button>
+        <div className="flex gap-3 items-center">
+          {data.total_clientes !== undefined && (
+            <span className="flex items-center gap-1.5 text-sm font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg">
+              <Users className="w-4 h-4" /> {data.total_clientes} clientes
+            </span>
+          )}
+          <span className="flex items-center gap-1.5 text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg">
+            <CalendarDays className="w-4 h-4" /> Este Mes
+          </span>
         </div>
       </div>
 
-      {/* FILA 1: 5 NÚMEROS CRÍTICOS (RESUMEN) */}
+      {/* KPIs PRINCIPALES */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <KPICard
           title="Ventas del Mes"
-          value={data?.ventas_mes}
+          value={data.ventas_mes}
           icon={<TrendingUp className="w-6 h-6" />}
-          trend="15%" trendUp={true}
           colorClass="text-emerald-700 bg-emerald-100"
           delay={0.1}
         />
         <KPICard
           title="Flujo de Caja"
-          value={data?.flujo_caja}
+          value={data.flujo_caja}
           icon={<Wallet className="w-6 h-6" />}
-          trend="8%" trendUp={true}
           colorClass="text-blue-700 bg-blue-100"
           delay={0.2}
         />
         <KPICard
-          title="Margen Promedio"
-          value={data?.margen_promedio}
+          title="Recaudo"
+          value={data.margen_recaudo || data.margen_promedio}
           icon={<Percent className="w-6 h-6" />}
-          trend="2.1%" trendUp={true}
           colorClass="text-indigo-700 bg-indigo-100"
           delay={0.3}
         />
         <KPICard
           title="En Producción"
-          value={data?.en_produccion}
+          value={data.en_produccion}
           icon={<Wrench className="w-6 h-6" />}
-          trend="5%" trendUp={false}
           colorClass="text-amber-700 bg-amber-100"
           delay={0.4}
         />
         <KPICard
           title="Atrasados"
-          value={data?.pedidos_atrasados}
+          value={data.pedidos_atrasados}
           icon={<AlertTriangle className="w-6 h-6" />}
-          trend="3" trendUp={false}
           colorClass="text-rose-700 bg-rose-100"
           delay={0.5}
         />
       </div>
 
-      {/* FILA 2: GRÁFICOS Y ESTADO GENERAL */}
+      {/* KPIs SECUNDARIOS */}
+      {(data.total_por_cobrar || data.odps_este_mes) && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <KPICard
+            title="Por Cobrar Total"
+            value={data.total_por_cobrar}
+            icon={<Briefcase className="w-6 h-6" />}
+            colorClass="text-rose-700 bg-rose-100"
+            delay={0.6}
+          />
+          <KPICard
+            title="ODPs Este Mes"
+            value={data.odps_este_mes}
+            icon={<Package className="w-6 h-6" />}
+            colorClass="text-cyan-700 bg-cyan-100"
+            delay={0.7}
+          />
+          <KPICard
+            title="Total ODPs"
+            value={data.total_odps}
+            icon={<BarChart3 className="w-6 h-6" />}
+            colorClass="text-violet-700 bg-violet-100"
+            delay={0.8}
+          />
+        </div>
+      )}
+
+      {/* GRÁFICOS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* GRAFICO VENTAS */}
+        {/* Tendencia Mensual */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3 }}
-          className="lg:col-span-2 glass-panel p-6 border border-slate-200 shadow-sm rounded-2xl bg-white"
+          initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}
+          className="lg:col-span-2 p-6 border border-slate-200 shadow-sm rounded-2xl bg-white"
         >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-indigo-500" />
-              Rendimiento de Ventas y Producción (Mensual)
-            </h2>
-          </div>
-          <div className="h-72 w-full bg-slate-50/50 rounded-xl flex items-end justify-between px-4 pt-10 pb-4 gap-3 relative">
-             {/* Simulación Gráfico de Barras */}
-             {[45, 60, 55, 80, 75, 95, 85, 100, 90].map((h, i) => (
-                <div key={i} className="w-full flex justify-center group h-full items-end">
-                  <div 
-                    className="w-full max-w-[40px] bg-gradient-to-t from-indigo-500 to-blue-400 rounded-t-md transition-all group-hover:opacity-80 relative" 
-                    style={{ height: `${h}%` }}
-                  >
-                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 bg-slate-800 text-white text-xs py-1 px-2 rounded transition-opacity">
-                      {h}k
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <div className="absolute bottom-2 w-full flex justify-between px-6 text-xs text-slate-400 font-medium">
-                <span>Sem 1</span><span>Sem 2</span><span>Sem 3</span><span>Sem 4</span>
-              </div>
-          </div>
+          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-6">
+            <BarChart3 className="w-5 h-5 text-indigo-500" />
+            Tendencia Mensual de ODPs
+          </h2>
+          {tendenciaData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={tendenciaData} barCategoryGap="20%">
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="mes" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontWeight: 600 }}
+                  formatter={(value: any) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(value) || 0)}
+                />
+                <Bar dataKey="abonos" name="Cobrado" fill="#22c55e" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="pendiente" name="Pendiente" fill="#f97316" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-72 flex items-center justify-center text-slate-400 font-bold">
+              Sin datos de tendencia disponibles
+            </div>
+          )}
         </motion.div>
 
-        {/* FEED ACTIVIDAD (Semáforo de estado general oculto aquí como listado rápido) */}
+        {/* Distribución de Estados */}
         <motion.div
-           initial={{ opacity: 0, scale: 0.95 }}
-           animate={{ opacity: 1, scale: 1 }}
-           transition={{ delay: 0.4 }}
-           className="glass-panel p-6 border border-slate-200 shadow-sm rounded-2xl bg-white flex flex-col"
+          initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }}
+          className="p-6 border border-slate-200 shadow-sm rounded-2xl bg-white"
         >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <PlaySquare className="w-5 h-5 text-emerald-500" />
-              Resumen en Vivo
-            </h2>
-          </div>
-          
-          <div className="space-y-4 overflow-y-auto pr-2 flex-grow">
-            {data?.actividad?.map((act: any, idx: number) => (
-               <div key={idx} className="flex items-start gap-4 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
-                  <div className={`mt-1 p-2 rounded-full 
-                    ${act.tipo === 'nueva_venta' ? 'bg-emerald-100 text-emerald-600' :
-                      act.tipo === 'produccion' ? 'bg-blue-100 text-blue-600' :
-                      act.tipo === 'entrega' ? 'bg-indigo-100 text-indigo-600' :
-                      'bg-rose-100 text-rose-600'}
-                  `}>
-                    {act.tipo === 'nueva_venta' ? <Wallet className="w-4 h-4"/> : 
-                     act.tipo === 'alerta' ? <AlertCircle className="w-4 h-4"/> : <Wrench className="w-4 h-4" />}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-700">{act.texto}</p>
-                    <p className="text-xs font-medium text-slate-400 mt-0.5">{act.tiempo}</p>
-                  </div>
-               </div>
-            ))}
-          </div>
-
-          <button className="w-full mt-4 py-2 text-sm font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors">
-            Ver Todo el Historial
-          </button>
+          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 mb-6">
+            <PlaySquare className="w-5 h-5 text-emerald-500" />
+            Estados de Producción
+          </h2>
+          {distribucionData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  data={distribucionData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={90}
+                  innerRadius={50}
+                  paddingAngle={2}
+                  label={({ name, value }) => `${name}: ${value}`}
+                  labelLine={{ stroke: '#94a3b8', strokeWidth: 1 }}
+                >
+                  {distribucionData.map((entry: any) => (
+                    <Cell key={entry.key} fill={ESTADO_COLORS[entry.key] || '#94a3b8'} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value: any) => `${value} ODPs`} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-72 flex items-center justify-center text-slate-400 font-bold">
+              Sin datos de estados disponibles
+            </div>
+          )}
         </motion.div>
       </div>
 
-      {/* FILA 3: ALERTAS (3 COLUMNAS) */}
+      {/* ALERTAS */}
       <h2 className="text-2xl font-bold text-slate-800 mt-10 mb-4 flex items-center gap-2">
         <AlertTriangle className="w-6 h-6 text-rose-500" />
         Alertas Críticas
       </h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* INVENTARIO */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Retrasos en Producción */}
         <motion.div
-           initial={{ opacity: 0, y: 20 }}
-           animate={{ opacity: 1, y: 0 }}
-           transition={{ delay: 0.5 }}
-           className="glass-panel border-t-4 border-t-amber-400 p-5 bg-white shadow-sm rounded-b-xl"
-        >
-          <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
-            <PackageX className="w-5 h-5 text-amber-500" />
-            Control de Inventario
-          </h3>
-          <div className="space-y-3">
-            {data?.alertas_inventario?.map((item: any, i: number) => (
-              <div key={i} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
-                <div>
-                  <p className="text-sm font-semibold text-slate-700">{item.item}</p>
-                  <p className="text-xs text-amber-600 font-bold mt-1">Stock: {item.stock}</p>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-full font-bold ${item.status === 'Crítico' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
-                  {item.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* PRODUCCION ATRASADA */}
-        <motion.div
-           initial={{ opacity: 0, y: 20 }}
-           animate={{ opacity: 1, y: 0 }}
-           transition={{ delay: 0.6 }}
-           className="glass-panel border-t-4 border-t-rose-500 p-5 bg-white shadow-sm rounded-b-xl"
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+          className="border-t-4 border-t-rose-500 p-5 bg-white shadow-sm rounded-b-2xl border border-slate-200"
         >
           <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
             <Clock className="w-5 h-5 text-rose-500" />
             Retrasos en Producción
+            {data.pedidos_atrasados > 0 && (
+              <span className="ml-auto text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">{data.pedidos_atrasados} total</span>
+            )}
           </h3>
           <div className="space-y-3">
-            {data?.alertas_atrasos?.map((item: any, i: number) => (
+            {data.alertas_atrasos?.length > 0 ? data.alertas_atrasos.map((item: any, i: number) => (
               <div key={i} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
                 <div>
                   <p className="text-sm font-bold text-slate-700">{item.odp}</p>
@@ -273,40 +300,66 @@ const DashboardHome: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <span className="text-rose-600 font-bold text-sm block">+{item.dias} días</span>
-                  <span className="text-xs text-slate-400">atraso</span>
+                  {item.estado && <span className="text-xs text-slate-400">{ESTADO_LABELS[item.estado] || item.estado}</span>}
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="text-center text-slate-400 py-4 font-medium">🎉 Sin atrasos — ¡Excelente!</p>
+            )}
           </div>
         </motion.div>
 
-        {/* CARTERA / FINANZAS */}
+        {/* Cuentas por Cobrar */}
         <motion.div
-           initial={{ opacity: 0, y: 20 }}
-           animate={{ opacity: 1, y: 0 }}
-           transition={{ delay: 0.7 }}
-           className="glass-panel border-t-4 border-t-blue-500 p-5 bg-white shadow-sm rounded-b-xl"
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+          className="border-t-4 border-t-blue-500 p-5 bg-white shadow-sm rounded-b-2xl border border-slate-200"
         >
           <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
             <Briefcase className="w-5 h-5 text-blue-500" />
             Cuentas por Cobrar (Riesgo)
           </h3>
           <div className="space-y-3">
-            {data?.alertas_cartera?.map((item: any, i: number) => (
+            {data.alertas_cartera?.length > 0 ? data.alertas_cartera.map((item: any, i: number) => (
               <div key={i} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border-l-2 border-slate-300">
                 <div>
-                  <p className="text-sm font-semibold text-slate-700 truncate max-w-[140px]">{item.cliente}</p>
+                  <p className="text-sm font-semibold text-slate-700 truncate max-w-[180px]">{item.cliente}</p>
+                  {item.odp && <p className="text-xs text-slate-400 font-mono">{item.odp}</p>}
                   <p className="text-xs text-rose-500 font-bold mt-1">Vencido: {item.dias_vencido} días</p>
                 </div>
-                <div className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded text-sm font-bold">
+                <div className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded text-sm font-bold whitespace-nowrap">
                   {item.monto}
+                </div>
+              </div>
+            )) : (
+              <p className="text-center text-slate-400 py-4 font-medium">✅ Cartera al día</p>
+            )}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* ACTIVIDAD */}
+      {data.actividad?.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}
+          className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm">
+          <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
+            <PlaySquare className="w-5 h-5 text-emerald-500" />
+            Resumen del Mes
+          </h3>
+          <div className="space-y-3">
+            {data.actividad.map((act: any, idx: number) => (
+              <div key={idx} className="flex items-start gap-4 p-3 rounded-lg bg-slate-50">
+                <div className="mt-1 p-2 rounded-full bg-indigo-100 text-indigo-600">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">{act.texto}</p>
+                  {act.detalle && <p className="text-xs text-slate-500 font-medium mt-0.5">{act.detalle}</p>}
                 </div>
               </div>
             ))}
           </div>
         </motion.div>
-      </div>
-
+      )}
     </div>
   );
 };

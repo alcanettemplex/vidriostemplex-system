@@ -11,6 +11,8 @@ import SAP from './sap.model';
 import SAPItem from './sap_item.model';
 import Cotizacion from './cotizacion.model';
 import TomaMedidas from './toma_medidas.model';
+import OrdenCompra from './orden_compra.model';
+import Pago from './pago.model';
 
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
@@ -65,6 +67,19 @@ TomaMedidas.belongsTo(ODP, { foreignKey: 'odp_id' });
 Usuario.hasMany(TomaMedidas, { foreignKey: 'realizado_por', as: 'tomas_realizadas' });
 TomaMedidas.belongsTo(Usuario, { foreignKey: 'realizado_por', as: 'realizador' });
 
+// ─── Bloque C: Compras y Pagos ───────────────────────────────────────────────
+ODP.hasMany(OrdenCompra, { foreignKey: 'odp_id', as: 'compras' });
+OrdenCompra.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
+
+Usuario.hasMany(OrdenCompra, { foreignKey: 'creado_por', as: 'compras_creadas' });
+OrdenCompra.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
+
+ODP.hasMany(Pago, { foreignKey: 'odp_id', as: 'pagos' });
+Pago.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
+
+Usuario.hasMany(Pago, { foreignKey: 'registrado_por', as: 'pagos_registrados' });
+Pago.belongsTo(Usuario, { foreignKey: 'registrado_por', as: 'registrador' });
+
 export {
   sequelize,
   Usuario,
@@ -79,4 +94,6 @@ export {
   SAPItem,
   Cotizacion,
   TomaMedidas,
+  OrdenCompra,
+  Pago,
 };

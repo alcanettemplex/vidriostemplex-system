@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import { globalLimiter } from './middlewares/rateLimiter';
 import usuarioRoutes from './routes/usuario.routes';
 import authRoutes from './routes/auth.routes';
 import clienteRoutes from './routes/cliente.routes';
@@ -12,13 +13,36 @@ import produccionRoutes from './routes/produccion.routes';
 import indexRoutes from './routes/index';
 import dashboardRoutes from './routes/dashboard.routes';
 import documentosRoutes from './routes/documentos.routes';
+import comprasRoutes from './routes/compras.routes';
+import contabilidadRoutes from './routes/contabilidad.routes';
 
 const app = express();
 
-app.use(cors());
+// ─── Seguridad: CORS restringido a orígenes autorizados ──────────────────────
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  process.env.FRONTEND_URL,
+].filter(Boolean) as string[];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permitir peticiones sin origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`Origen no autorizado por CORS: ${origin}`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
 app.use(helmet());
 app.use(morgan('dev'));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+
+// ─── Seguridad: Rate limiting global ─────────────────────────────────────────
+app.use(globalLimiter);
 
 app.use('/', indexRoutes);
 app.use('/api/auth', authRoutes);
@@ -30,11 +54,12 @@ app.use('/api/evidencias', evidenciaRoutes);
 app.use('/api/produccion', produccionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/documentos', documentosRoutes);
+app.use('/api/compras', comprasRoutes);
+app.use('/api/contabilidad', contabilidadRoutes);
 
-// Global Error Handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error('SERVER ERROR CAUGHT:', err);
-    res.status(500).json({ error: 'Error interno de servidor', message: err.message || err });
-});
+import { errorHandler } from './middlewares/errorHandler';
+
+// ─── Manejo de errores centralizado ──────────────────────────────────────────
+app.use(errorHandler);
 
 export default app;

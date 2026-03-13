@@ -4,9 +4,10 @@ import { TemplexLogo } from '../../../components/ui/TemplexLogo';
 
 interface PrintableGarantiaProps {
     data?: any; // future use
+    odp?: any;
 }
 
-const PrintableGarantia: React.FC<PrintableGarantiaProps> = ({ data }) => {
+const PrintableGarantia: React.FC<PrintableGarantiaProps> = ({ data, odp }) => {
 
     return (
         <div className="hidden print:block w-[21.5cm] min-h-[29cm] bg-white text-black font-sans text-[11px] mx-auto overflow-hidden">

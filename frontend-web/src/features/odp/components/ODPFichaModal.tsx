@@ -10,6 +10,9 @@ import {
 import PrintableTalonario from './PrintableTalonario';
 import PrintableOP from './PrintableOP';
 import PrintableDetalleTecnico from './PrintableDetalleTecnico';
+import PrintableGarantia from './PrintableGarantia';
+import PrintableNoConformidad from './PrintableNoConformidad';
+import PrintableProduccion from './PrintableProduccion';
 
 // ─── Paleta de estado ─────────────────────────────────────────────────────────
 const estadoProdColor: Record<string, string> = {
@@ -471,71 +474,45 @@ const TabHistorial: React.FC<{ odp: any }> = ({ odp }) => {
 
 // ─── Centro de Impresión: Sistema de Formatos por Rol ──────────────────────────
 const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const role = user?.rol?.toLowerCase() || '';
-
-  // Reglas de acceso a formatos
-  const canViewCompra = ['admin', 'gerente', 'gerencia', 'asesor_comercial', 'contabilidad', 'jefe_produccion'].includes(role);
-  const canViewTecnico = ['admin', 'gerente', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'taller', 'compras'].includes(role);
-
-  // Estado inicial según permisos
-  const [selectedFormat, setSelectedFormat] = useState<'compra' | 'op' | 'tecnico'>(
-    canViewTecnico && !canViewCompra ? 'op' : 'compra'
-  );
+  const [selectedFormat, setSelectedFormat] = useState<'compra' | 'op' | 'tecnico' | 'garantia' | 'noconformidad' | 'produccion'>('compra');
 
   return (
     <div className="flex flex-col bg-slate-100 min-h-screen">
-      {/* Panel de Control de Impresión */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-4 bg-white border-b border-slate-200 print:hidden shadow-sm">
         
-        {/* Selector de formatos */}
-        <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-          {canViewCompra && (
-            <button
-              onClick={() => setSelectedFormat('compra')}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition ${
-                selectedFormat === 'compra' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <FileText className="w-4 h-4" /> Orden de Compra (Cliente)
-            </button>
-          )}
-
-          {canViewTecnico && (
-            <>
-              <button
-                onClick={() => setSelectedFormat('op')}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition ${
-                  selectedFormat === 'op' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                <Package className="w-4 h-4" /> OP (Logística y Taller)
-              </button>
-              
-              <button
-                onClick={() => setSelectedFormat('tecnico')}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition ${
-                  selectedFormat === 'tecnico' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                <Ruler className="w-4 h-4" /> Detalle Técnico (Cortes)
-              </button>
-            </>
-          )}
+        <div className="flex flex-wrap gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+          <button onClick={() => setSelectedFormat('compra')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'compra' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+            <FileText className="w-3 h-3" /> Ord. Compra
+          </button>
+          <button onClick={() => setSelectedFormat('op')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'op' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+            <Package className="w-3 h-3" /> OP
+          </button>
+          <button onClick={() => setSelectedFormat('tecnico')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'tecnico' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+            <Ruler className="w-3 h-3" /> Det. Técnico
+          </button>
+          <button onClick={() => setSelectedFormat('garantia')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'garantia' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+            <CheckCircle2 className="w-3 h-3" /> Garantía
+          </button>
+          <button onClick={() => setSelectedFormat('noconformidad')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'noconformidad' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+            <AlertCircle className="w-3 h-3" /> No Conform.
+          </button>
+          <button onClick={() => setSelectedFormat('produccion')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'produccion' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+            <Wrench className="w-3 h-3" /> Prod (Base)
+          </button>
         </div>
 
-        {/* Boton de Ejecución */}
-        <button onClick={() => window.print()}
-          className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white font-black text-sm rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30">
-          <Printer className="w-4 h-4" /> IMPRIMIR FORMATO SELECCIONADO
+        <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white font-black text-xs rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30">
+          <Printer className="w-3 h-3" /> IMPRIMIR
         </button>
       </div>
 
-      {/* Lienzo de Impresión Activo */}
       <div className="p-8 overflow-y-auto flex-1 flex flex-col items-center justify-start print:p-0 print:block" id="printable-area">
         {selectedFormat === 'compra' && <PrintableTalonario odp={odp} />}
         {selectedFormat === 'op' && <PrintableOP odp={odp} />}
         {selectedFormat === 'tecnico' && <PrintableDetalleTecnico odp={odp} />}
+        {selectedFormat === 'garantia' && <PrintableGarantia odp={odp} />}
+        {selectedFormat === 'noconformidad' && <PrintableNoConformidad odp={odp} />}
+        {selectedFormat === 'produccion' && <PrintableProduccion odp={odp} />}
       </div>
 
       <style dangerouslySetInnerHTML={{

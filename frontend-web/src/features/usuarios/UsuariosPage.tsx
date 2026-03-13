@@ -6,12 +6,12 @@ import { toast } from 'react-toastify';
 
 const ROLES = [
   { value: 'admin', label: 'Administrador', color: 'bg-rose-100 text-rose-700' },
-  { value: 'gerente', label: 'Gerente', color: 'bg-purple-100 text-purple-700' },
+  { value: 'gerencia', label: 'Gerencia', color: 'bg-purple-100 text-purple-700' },
   { value: 'asesor_comercial', label: 'Asesor Comercial', color: 'bg-blue-100 text-blue-700' },
   { value: 'jefe_produccion', label: 'Jefe de Producción', color: 'bg-indigo-100 text-indigo-700' },
-  { value: 'taller', label: 'Taller', color: 'bg-slate-100 text-slate-700' },
+  { value: 'produccion', label: 'Producción', color: 'bg-cyan-100 text-cyan-700' },
+  { value: 'auxiliar_produccion', label: 'Auxiliar de Producción', color: 'bg-slate-100 text-slate-700' },
   { value: 'instalador', label: 'Instalador', color: 'bg-amber-100 text-amber-700' },
-  { value: 'compras', label: 'Compras', color: 'bg-teal-100 text-teal-700' },
   { value: 'contabilidad', label: 'Contabilidad', color: 'bg-emerald-100 text-emerald-700' },
 ];
 

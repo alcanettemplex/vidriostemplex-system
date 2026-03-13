@@ -6,6 +6,9 @@ import produccionReducer from '../features/produccion/produccionSlice';
 import instalacionesReducer from '../features/instalaciones/instalacionesSlice';
 import evidenciasReducer from '../features/evidencias/evidenciasSlice';
 import reportesReducer from '../features/reportes/reportesSlice';
+import comprasReducer from '../features/compras/comprasSlice';
+import contabilidadReducer from '../features/contabilidad/contabilidadSlice';
+import usuariosReducer from '../features/usuarios/usuariosSlice';
 import notificationsReducer from './notificationsSlice';
 
 const rootReducer = combineReducers({
@@ -16,6 +19,9 @@ const rootReducer = combineReducers({
   instalaciones: instalacionesReducer,
   evidencias: evidenciasReducer,
   reportes: reportesReducer,
+  compras: comprasReducer,
+  contabilidad: contabilidadReducer,
+  usuarios: usuariosReducer,
   notifications: notificationsReducer,
 });
 

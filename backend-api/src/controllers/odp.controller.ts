@@ -140,7 +140,11 @@ export const createODP = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
     const data = odpSchema.parse(req.body);
-    const userId = (req as any).user?.id || 1; // Fallback to 1 if not extracted properly by middleware
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      await t.rollback();
+      return res.status(401).json({ error: 'Usuario no autenticado' });
+    }
 
     const odpData = {
       numero_odp: data.numero_odp || `ODP-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
