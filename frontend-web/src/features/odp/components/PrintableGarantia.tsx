@@ -9,7 +9,7 @@ interface PrintableGarantiaProps {
 const PrintableGarantia: React.FC<PrintableGarantiaProps> = ({ odp }) => {
 
     return (
-        <div className="hidden print:block w-[21.5cm] min-h-[29cm] bg-white text-black font-sans text-[11px] mx-auto overflow-hidden">
+        <div className="block print:block shadow-xl print:shadow-none w-[21.5cm] min-h-[29cm] bg-white text-black font-sans text-[11px] mx-auto overflow-hidden">
             <style>
                 {`
                 .excel-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }

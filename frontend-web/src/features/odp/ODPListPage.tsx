@@ -263,7 +263,7 @@ const ODPListPage: React.FC = () => {
             {cotOdp && <COTModal odp={cotOdp} onClose={() => setCotOdp(null)} />}
             {tmOdp && <TMModal odp={tmOdp} onClose={() => setTmOdp(null)} />}
             {/* Imprimible formato taller */}
-            {printOdp && <ODPMatrixModal odp={printOdp} onClose={() => setPrintOdp(null)} />}
+            {printOdp && <ODPFichaModal odpId={printOdp.id} initialTab="imprimir" onClose={() => setPrintOdp(null)} />}
 
             {/* Modal de Eliminación */}
             {deletingOdp && (

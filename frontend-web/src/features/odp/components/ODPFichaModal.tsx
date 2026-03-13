@@ -8,11 +8,10 @@ import {
   ClipboardList, TrendingUp, Printer
 } from 'lucide-react';
 import PrintableTalonario from './PrintableTalonario';
-import PrintableOP from './PrintableOP';
-import PrintableDetalleTecnico from './PrintableDetalleTecnico';
 import PrintableGarantia from './PrintableGarantia';
 import PrintableNoConformidad from './PrintableNoConformidad';
 import PrintableProduccion from './PrintableProduccion';
+import PrintableDetalleTecnico from './PrintableDetalleTecnico';
 
 // ─── Paleta de estado ─────────────────────────────────────────────────────────
 const estadoProdColor: Record<string, string> = {
@@ -474,7 +473,7 @@ const TabHistorial: React.FC<{ odp: any }> = ({ odp }) => {
 
 // ─── Centro de Impresión: Sistema de Formatos por Rol ──────────────────────────
 const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
-  const [selectedFormat, setSelectedFormat] = useState<'compra' | 'op' | 'tecnico' | 'garantia' | 'noconformidad' | 'produccion'>('compra');
+  const [selectedFormat, setSelectedFormat] = useState<'compra' | 'op' | 'tecnico' | 'garantia' | 'noconformidad'>('op');
 
   return (
     <div className="flex flex-col bg-slate-100 min-h-screen">
@@ -496,9 +495,6 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
           <button onClick={() => setSelectedFormat('noconformidad')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'noconformidad' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
             <AlertCircle className="w-3 h-3" /> No Conform.
           </button>
-          <button onClick={() => setSelectedFormat('produccion')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'produccion' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
-            <Wrench className="w-3 h-3" /> Prod (Base)
-          </button>
         </div>
 
         <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white font-black text-xs rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30">
@@ -508,11 +504,10 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
 
       <div className="p-8 overflow-y-auto flex-1 flex flex-col items-center justify-start print:p-0 print:block" id="printable-area">
         {selectedFormat === 'compra' && <PrintableTalonario odp={odp} />}
-        {selectedFormat === 'op' && <PrintableOP odp={odp} />}
+        {selectedFormat === 'op' && <PrintableProduccion odp={odp} />}
         {selectedFormat === 'tecnico' && <PrintableDetalleTecnico odp={odp} />}
         {selectedFormat === 'garantia' && <PrintableGarantia odp={odp} />}
         {selectedFormat === 'noconformidad' && <PrintableNoConformidad odp={odp} />}
-        {selectedFormat === 'produccion' && <PrintableProduccion odp={odp} />}
       </div>
 
       <style dangerouslySetInnerHTML={{
@@ -530,12 +525,12 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
 };
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────
-interface Props { odpId: number; onClose: () => void; }
+interface Props { odpId: number; onClose: () => void; initialTab?: string; }
 
-const ODPFichaModal: React.FC<Props> = ({ odpId, onClose }) => {
+const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general' }) => {
   const [odp, setOdp] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('general');
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const token = localStorage.getItem('token');
