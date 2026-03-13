@@ -64,9 +64,9 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                         </tr>
                         <tr>
                             <td colSpan={2} className="font-bold border-r-0">
-                                <div className="flex">
-                                    <span className="w-1/2">INCON DUP INFO METODO:</span>
-                                    <span className="w-1/2 border-l border-black pl-2">CORREO FACTURA ELECTRONICA: <span className="font-normal lowercase ml-1">{odp.cliente?.email}</span></span>
+                                <div className="flex items-center justify-between">
+                                    <span>FECHA ODP LISTO MATERIAL: <span className="font-normal uppercase ml-1">{odp.fecha_entrega ? format(new Date(odp.fecha_entrega), 'dd/MM/yyyy') : ''}</span></span>
+                                    <span className="border-l border-black pl-2 ml-2">CORREO FACTURA ELECTRONICA: <span className="font-normal lowercase ml-1">{odp.cliente?.email}</span></span>
                                 </div>
                             </td>
                             <td className="font-bold">SEGM: <span className="font-normal uppercase ml-1">{odp.cliente?.segmento}</span></td>
@@ -107,25 +107,28 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                 <table className="excel-table text-center uppercase">
                     <thead>
                         <tr className="font-bold">
-                            <th rowSpan={2} className="w-8">ITEM</th>
-                            <th rowSpan={2} className="w-6">CL</th>
-                            <th rowSpan={2} className="w-8">ESP<br />mm</th>
-                            <th rowSpan={2} className="w-8">CANT</th>
-                            <th colSpan={2} className="w-[12%]">MEDIDAS EXACTAS</th>
+                            <th rowSpan={3} className="w-8">ITEM</th>
+                            <th rowSpan={3} className="w-6">CL</th>
+                            <th rowSpan={3} className="w-8">ESP<br />mm</th>
+                            <th rowSpan={3} className="w-8">CANT</th>
+                            <th colSpan={2} className="w-[18%]">MEDIDA EXACTA</th>
                             <th colSpan={6}>ACABADOS</th>
-                            <th rowSpan={2} className="w-10">MTS<br />PT</th>
-                            <th rowSpan={2} className="w-[15%]">VERIFICACIÓN</th>
-                            <th rowSpan={2} className="w-10">PROD</th>
+                            <th rowSpan={3} className="w-10">MTS<br />PT</th>
+                            <th rowSpan={3} className="w-[15%]">VERIFICACIÓN</th>
+                            <th rowSpan={3} className="w-10">PROD</th>
                         </tr>
                         <tr className="font-bold fs-[8px]">
-                            <th>Ancho [A]</th>
-                            <th>Alto [H]</th>
-                            <th className="w-6 border-r-0 translate-x-[2px]">T</th>
-                            <th className="w-6 border-l-0 translate-x-[-2px]">T/P</th>
-                            <th className="w-6">Pul.</th>
-                            <th className="w-6">Boq.</th>
-                            <th className="w-6">Per.</th>
-                            <th className="w-6">Bisc**</th>
+                            <th rowSpan={2}>Ancho (A)</th>
+                            <th rowSpan={2}>Alto (H)</th>
+                            <th colSpan={2}>PUL *</th>
+                            <th rowSpan={2} className="w-7">Perf</th>
+                            <th rowSpan={2} className="w-7">Boq.</th>
+                            <th rowSpan={2} className="w-7">Des</th>
+                            <th rowSpan={2} className="w-7">Otro**</th>
+                        </tr>
+                        <tr className="font-bold fs-[8px]">
+                            <th className="w-6">A</th>
+                            <th className="w-6">H</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -140,51 +143,35 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                                     <td className="font-bold">{item?.cantidad || ''}</td>
                                     <td className="font-bold">{item?.ancho_mm || ''}</td>
                                     <td className="font-bold">{item?.alto_mm || ''}</td>
-                                    <td></td> {/* T */}
-                                    <td></td> {/* T/P */}
-                                    <td className="font-bold">{item?.pulidos || ''}</td>
-                                    <td className="font-bold">{item?.boquetes || ''}</td>
+                                    <td className="font-bold"></td> {/* PUL A */}
+                                    <td className="font-bold"></td> {/* PUL H */}
                                     <td className="font-bold">{item?.perforaciones || ''}</td>
-                                    <td></td> {/* Bisc */}
-                                    <td></td> {/* MTS */}
+                                    <td className="font-bold">{item?.boquetes || ''}</td>
+                                    <td className="font-bold"></td> {/* Des */}
+                                    <td className="font-bold">{item?.otros || ''}</td> {/* Otro */}
+                                    <td></td> {/* MTS PT */}
                                     <td></td> {/* VERIFICACION */}
                                     <td></td> {/* PROD */}
                                 </tr>
                             );
                         })}
-
-                        {/* Summary lines mimicking Excel blank rows */}
-                        <tr className="h-6">
-                            <td colSpan={13} className="text-left align-top font-bold border-l-0 border-b-0">
-                                ======
-                            </td>
-                            <td className="border-t border-b-0 border-black"></td>
-                            <td className="bg-slate-200 border-none"></td>
+                        <tr className="h-[5px]">
+                            <td colSpan={15} className="bg-slate-200 border-none"></td>
                         </tr>
-                        <tr className="h-6">
-                            <td colSpan={13} className="text-left font-bold border-l-0 border-b-0 border-t-0">
-                                =================================
-                            </td>
-                            <td className="border-b-0 border-t-0 border-black"></td>
-                            <td className="bg-slate-200 border-none"></td>
-                        </tr>
-                        <tr className="h-6">
-                            <td colSpan={13} className="text-left border-l-0 border-t-0 font-bold">
-                                =====================
-                            </td>
-                            <td className="border-b border-t-0 border-black"></td>
-                            <td className="bg-slate-200 border-none"></td>
-                        </tr>
-
                         <tr>
-                            <td colSpan={15} className="text-left font-bold p-1 border-t-2 border-t-black">ENTREGA SOLICITADA - DIREC:</td>
+                            <td colSpan={15} className="text-left font-bold border-none">Asesor: <span className="font-normal ml-2 uppercase text-[9px]">{odp.asesor?.first_name} {odp.asesor?.last_name}</span></td>
                         </tr>
                     </tbody>
                 </table>
 
+                <div className="text-[7.5px] mt-1 italic font-bold">
+                    *BORDE PUL: Pulido/Brillado (P/B) - Pulido cerrado (PC) -Matado (MF) <br />
+                    ** ACABADOS: Radios (RAD), Chaflan (CHA).
+                </div>
+
                 {/* ---------- OBSERVACIONES (TALLER) ---------- */}
-                <div className="border-l-[2px] border-r-[2px] border-b-[2px] border-black p-2 bg-white min-h-[120px]">
-                    <p className="font-bold uppercase tracking-widest mb-1 text-[11px]">ENTREGA SOLICITADA - DIREC: <span className="font-normal">{odp.direccion_instalacion}</span></p>
+                <div className="border-[2px] border-black p-2 mt-1 bg-white min-h-[120px]">
+                    <p className="font-bold uppercase tracking-widest mb-1 text-[11px]">ENTREGA SOLICITADA - DIRECCION: <span className="font-normal">{odp.direccion_instalacion}</span></p>
                     <p className="font-bold uppercase tracking-widest mt-2 mb-1">OBSERVACIONES:</p>
                     <p className="text-sm uppercase font-semibold text-slate-700 whitespace-pre-line">
                         {odp.observaciones}
