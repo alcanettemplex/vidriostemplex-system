@@ -7,6 +7,7 @@ import {
   Building2, ExternalLink, CreditCard, Camera, History,
   ClipboardList, TrendingUp, Printer
 } from 'lucide-react';
+import PrintableTalonario from './PrintableTalonario';
 
 // ─── Paleta de estado ─────────────────────────────────────────────────────────
 const estadoProdColor: Record<string, string> = {
@@ -466,153 +467,22 @@ const TabHistorial: React.FC<{ odp: any }> = ({ odp }) => {
   );
 };
 
-// ─── Tab Imprimir — Formato Excel digitalizado (igual a ODPMatrixModal) ────────
+// ─── Tab Imprimir — Formato Excel digitalizado (Talonario ODP Templex Original) ────────
 const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => (
-  <div className="flex flex-col">
-    <div className="flex items-center gap-3 px-6 py-3 bg-white border-b border-slate-100 print:hidden">
+  <div className="flex flex-col bg-slate-100 min-h-screen">
+    <div className="flex items-center justify-between gap-3 px-6 py-4 bg-white border-b border-slate-200 print:hidden shadow-sm">
+      <p className="text-sm font-bold text-slate-700 flex items-center gap-2">
+        <FileText className="w-5 h-5 text-indigo-600" />
+        Vista previa del talonario (Formato ODP Templex Original)
+      </p>
       <button onClick={() => window.print()}
-        className="flex items-center gap-2 px-5 py-2 bg-slate-800 text-white font-bold text-sm rounded-xl hover:bg-slate-900 transition shadow-sm">
-        <Printer className="w-4 h-4" /> Imprimir / Guardar PDF
+        className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white font-black text-sm rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30">
+        <Printer className="w-4 h-4" /> IMPRIMIR ODP
       </button>
-      <p className="text-xs text-slate-400">Formato de taller: producción, cliente y detalle técnico</p>
     </div>
 
-    <div className="p-8 overflow-y-auto bg-white text-black print:p-0 print:overflow-visible text-sm" id="printable-area">
-      {/* ENCABEZADO */}
-      <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-black uppercase tracking-wider">Vidrios Templex</h1>
-          <p className="font-semibold text-gray-700">ORDEN DE PRODUCCIÓN (TALLER)</p>
-          <div className="mt-2 text-sm grid grid-cols-2 gap-x-8 gap-y-1">
-            <span className="font-bold">ORDEN N°: <span className="font-normal text-red-600 text-base">{odp.numero_odp}</span></span>
-            <span className="font-bold">FECHA: <span className="font-normal">{new Date(odp.fecha_creacion).toLocaleDateString()}</span></span>
-            <span className="font-bold">CLIENTE: <span className="font-normal">{odp.cliente?.nombre_razon_social}</span></span>
-            <span className="font-bold">TIPO DE SERVICIO: <span className="font-normal">{odp.tipo_servicio}</span></span>
-          </div>
-        </div>
-        <div className="text-right border-l-2 border-black pl-4">
-          <h2 className="font-bold text-lg mb-1">PROVEEDOR VIDRIO</h2>
-          <p className="text-xl font-black">{odp.proveedor_vidrio || 'N/A'}</p>
-          <p className="font-bold mt-2">PEDIDO N°:</p>
-          <p className="text-lg font-mono bg-yellow-100 px-2 py-1 inline-block mt-1 print:border print:border-black print:bg-transparent">
-            {odp.numero_pedido_proveedor || 'N/A'}
-          </p>
-        </div>
-      </div>
-
-      {/* ITEMS */}
-      <div className="mb-6">
-        <h3 className="font-bold bg-black text-white px-2 py-1 mb-2">DETALLE DE CRISTALES / ÍTEMS</h3>
-        <table className="w-full border-collapse border border-black text-xs text-center">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border border-black py-1 px-1 w-8">ITEM</th>
-              <th className="border border-black py-1 px-1">CANT</th>
-              <th className="border border-black py-1 px-1">TIPO VIDRIO</th>
-              <th className="border border-black py-1 px-1 w-12">ESP.</th>
-              <th className="border border-black py-1 px-1">ANCHO</th>
-              <th className="border border-black py-1 px-1">ALTO</th>
-              <th className="border border-black py-1 px-1">PULIDOS/ACABADOS</th>
-              <th className="border border-black py-1 px-1">PERF</th>
-              <th className="border border-black py-1 px-1">BOQ</th>
-              <th className="border border-black py-1 px-1">DESCUENTOS / OTROS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {odp.items?.map((item: any, idx: number) => (
-              <tr key={idx}>
-                <td className="border border-black py-1.5 px-1 font-bold">{idx + 1}</td>
-                <td className="border border-black py-1.5 px-1 font-bold text-base">{item.cantidad}</td>
-                <td className="border border-black py-1.5 px-1">{item.tipo_vidrio}</td>
-                <td className="border border-black py-1.5 px-1 font-bold">{item.espesor}mm</td>
-                <td className="border border-black py-1.5 px-1">{item.ancho_mm}</td>
-                <td className="border border-black py-1.5 px-1">{item.alto_mm}</td>
-                <td className="border border-black py-1.5 px-1 text-left line-clamp-2">{item.pulidos || '-'}</td>
-                <td className="border border-black py-1.5 px-1 font-bold text-red-600">{item.perforaciones > 0 ? item.perforaciones : '-'}</td>
-                <td className="border border-black py-1.5 px-1 font-bold text-red-600">{item.boquetes > 0 ? item.boquetes : '-'}</td>
-                <td className="border border-black py-1.5 px-1 text-left">
-                  {item.descuentos && <span className="block mb-0.5"><span className="font-semibold">Des:</span> {item.descuentos}</span>}
-                  {item.otros && <span><span className="font-semibold">Otr:</span> {item.otros}</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="text-[10px] font-bold mt-1 text-right italic">
-          *P/B: Pulido y Brillado | PC: Pulido Corrido | RAD: Radiar | CHA: Chaflán
-        </p>
-      </div>
-
-      {/* DESCRIPCIÓN Y OBSERVACIONES */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="border border-black p-2 min-h-[80px]">
-          <h4 className="font-bold text-xs uppercase mb-1 border-b border-gray-300 pb-1">Descripción del Pedido / Proyecto</h4>
-          <p className="text-xs whitespace-pre-wrap">{odp.descripcion_pedido}</p>
-        </div>
-        <div className="border border-black p-2 min-h-[80px]">
-          <h4 className="font-bold text-xs uppercase mb-1 border-b border-gray-300 pb-1">Observaciones Cliente / Cuidado</h4>
-          <p className="text-xs text-red-700 font-semibold whitespace-pre-wrap">{odp.observaciones || 'Sin observaciones'}</p>
-        </div>
-      </div>
-
-      <div className="mb-6">
-        <div className="border border-black p-2">
-          <h4 className="font-bold text-xs uppercase mb-1 border-b border-gray-300 pb-1">Entrega Solicitada - Dirección / Notas</h4>
-          <p className="text-xs">{odp.direccion_instalacion || '-- Misma del Cliente --'}</p>
-        </div>
-      </div>
-
-      {/* GRID INFERIOR ESTILO EXCEL */}
-      <div className="grid grid-cols-[1fr,1.5fr] gap-4">
-        <table className="w-full border-collapse border border-black text-xs">
-          <tbody>
-            <tr>
-              <td className="border border-black p-1 font-bold">MATIZADO</td>
-              <td className="border border-black p-1 text-center font-bold text-lg">{odp.matizado ? 'X' : ''}</td>
-              <td className="border border-black p-1 font-bold">PELÍCULA</td>
-              <td className="border border-black p-1 text-center font-bold text-lg">{odp.pelicula ? 'X' : ''}</td>
-            </tr>
-            <tr>
-              <td className="border border-black p-1 font-bold">ACARREO</td>
-              <td className="border border-black p-1 text-center font-bold text-lg">{odp.acarreo ? 'X' : ''}</td>
-              <td className="border border-black p-1 font-bold">HUACAL</td>
-              <td className="border border-black p-1 text-center font-bold text-lg">{odp.huacal ? 'X' : ''}</td>
-            </tr>
-            <tr>
-              <td className="border border-black p-1 font-bold">INSTALACIÓN</td>
-              <td className="border border-black p-1 text-center font-bold text-lg">{odp.instalacion ? 'X' : ''}</td>
-              <td className="border border-black p-1 font-bold">CARTÓN</td>
-              <td className="border border-black p-1 text-center font-bold text-lg">{odp.carton ? 'X' : ''}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <table className="w-full border-collapse border border-black text-xs text-center">
-          <tbody>
-            <tr>
-              <td className="border border-black p-1 font-bold align-middle w-1/3" rowSpan={3}>
-                PEDIDO EXTERNO<br /><span className="text-[10px] font-normal italic">Registro Llegada</span>
-              </td>
-              <td className="border border-black p-1.5 font-bold bg-gray-100">RECEPCIÓN</td>
-              <td className="border border-black p-1.5 w-1/4"></td>
-              <td className="border border-black p-1.5 font-bold bg-gray-100">ODC Ref</td>
-              <td className="border border-black p-1.5 w-1/4"></td>
-            </tr>
-            <tr>
-              <td className="border border-black p-1.5 font-bold bg-gray-100">GUÍA / LOTE</td>
-              <td className="border border-black p-1.5"></td>
-              <td className="border border-black p-1.5 font-bold bg-gray-100">CONFIRMÓ</td>
-              <td className="border border-black p-1.5"></td>
-            </tr>
-            <tr>
-              <td className="border border-black p-1.5 font-bold bg-gray-100">TM / NOTA</td>
-              <td className="border border-black p-1.5"></td>
-              <td className="border border-black p-1.5 font-bold bg-gray-100">FECHA</td>
-              <td className="border border-black p-1.5"></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <div className="p-8 overflow-y-auto flex-1 flex justify-center print:p-0 print:block" id="printable-area">
+      <PrintableTalonario odp={odp} />
     </div>
 
     <style dangerouslySetInnerHTML={{
@@ -620,7 +490,7 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => (
         @media print {
           body * { visibility: hidden; }
           #printable-area, #printable-area * { visibility: visible; }
-          #printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+          #printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
           @page { margin: 1cm; size: portrait; }
         }
       `
