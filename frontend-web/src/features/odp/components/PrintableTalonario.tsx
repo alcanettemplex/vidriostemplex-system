@@ -56,11 +56,11 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                         <tr>
                             <td colSpan={2} className="font-bold border-r-0">
                                 <div className="flex items-center justify-between">
-                                    <span>DIRECCION: <span className="font-normal uppercase ml-1">{odp.cliente?.direccion}</span></span>
-                                    <span className="border-l border-black pl-2 ml-2">NIT O C.C: <span className="font-normal uppercase ml-1">{odp.cliente?.numero_documento}</span></span>
+                                    <span>DIRECCION: <span className="font-normal uppercase ml-1">{odp.direccion_instalacion || odp.cliente?.direccion}</span></span>
+                                    <span className="border-l border-black pl-2 ml-2">NIT O C.C: <span className="font-normal uppercase ml-1">{odp.cliente?.numero_documento || odp.cliente?.ruc_rut}</span></span>
                                 </div>
                             </td>
-                            <td className="font-bold">CEL: <span className="font-normal uppercase ml-1">{odp.cliente?.celular}</span></td>
+                            <td className="font-bold">CEL: <span className="font-normal uppercase ml-1">{odp.cliente?.celular || odp.cliente?.telefono}</span></td>
                         </tr>
                         <tr>
                             <td colSpan={2} className="font-bold border-r-0">
@@ -143,11 +143,11 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                                     <td className="font-bold">{item?.alto_mm || ''}</td>
                                     <td></td> {/* T placeholder */}
                                     <td></td> {/* T/P placeholder */}
-                                    <td className="font-bold">{item?.pulidos || ''}</td>
-                                    <td className="font-bold">{item?.boquetes || ''}</td>
-                                    <td className="font-bold">{item?.perforaciones || ''}</td>
+                                    <td className="font-bold text-[8px] max-w-[20px] truncate">{item?.pulidos || ''}</td>
+                                    <td className="font-bold">{item?.boquetes > 0 ? item.boquetes : ''}</td>
+                                    <td className="font-bold">{item?.perforaciones > 0 ? item.perforaciones : ''}</td>
                                     <td></td> {/* Bisc placeholder */}
-                                    <td className="font-bold fs-7">{item?.otros || ''}</td>
+                                    <td className="font-bold text-[8px] max-w-[30px] truncate">{item?.otros || item?.descuentos || ''}</td>
                                     <td></td>
                                     <td></td>
                                     <td></td>

@@ -57,10 +57,10 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                             <td colSpan={2} className="font-bold border-r-0">
                                 <div className="flex items-center justify-between">
                                     <span>DIRECCION: <span className="font-normal uppercase ml-1">{odp.cliente?.direccion}</span></span>
-                                    <span className="border-l border-black pl-2 ml-2">NIT O C.C: <span className="font-normal uppercase ml-1">{odp.cliente?.numero_documento}</span></span>
+                                    <span className="border-l border-black pl-2 ml-2">NIT O C.C: <span className="font-normal uppercase ml-1">{odp.cliente?.numero_documento || odp.cliente?.ruc_rut}</span></span>
                                 </div>
                             </td>
-                            <td className="font-bold">CEL: <span className="font-normal uppercase ml-1">{odp.cliente?.celular}</span></td>
+                            <td className="font-bold">CEL: <span className="font-normal uppercase ml-1">{odp.cliente?.celular || odp.cliente?.telefono}</span></td>
                         </tr>
                         <tr>
                             <td colSpan={2} className="font-bold border-r-0">
@@ -143,12 +143,12 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                                     <td className="font-bold">{item?.cantidad || ''}</td>
                                     <td className="font-bold">{item?.ancho_mm || ''}</td>
                                     <td className="font-bold">{item?.alto_mm || ''}</td>
-                                    <td className="font-bold"></td> {/* PUL A */}
+                                    <td className="font-bold text-[8px] max-w-[20px] truncate">{item?.pulidos || ''}</td> {/* PUL A */}
                                     <td className="font-bold"></td> {/* PUL H */}
-                                    <td className="font-bold">{item?.perforaciones || ''}</td>
-                                    <td className="font-bold">{item?.boquetes || ''}</td>
-                                    <td className="font-bold"></td> {/* Des */}
-                                    <td className="font-bold">{item?.otros || ''}</td> {/* Otro */}
+                                    <td className="font-bold">{item?.perforaciones > 0 ? item.perforaciones : ''}</td>
+                                    <td className="font-bold">{item?.boquetes > 0 ? item.boquetes : ''}</td>
+                                    <td className="font-bold text-[8px] max-w-[20px] truncate">{item?.descuentos || ''}</td> {/* Des */}
+                                    <td className="font-bold text-[8px] max-w-[30px] truncate">{item?.otros || ''}</td> {/* Otro */}
                                     <td></td> {/* MTS PT */}
                                     <td></td> {/* VERIFICACION */}
                                     <td></td> {/* PROD */}
@@ -159,7 +159,7 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                             <td colSpan={15} className="bg-slate-200 border-none"></td>
                         </tr>
                         <tr>
-                            <td colSpan={15} className="text-left font-bold border-none">Asesor: <span className="font-normal ml-2 uppercase text-[9px]">{odp.asesor?.first_name} {odp.asesor?.last_name}</span></td>
+                            <td colSpan={15} className="text-left font-bold border-none pt-1">Asesor: <span className="font-normal ml-2 uppercase text-[9px]">{odp.asesor?.nombre_completo || `${odp.asesor?.first_name} ${odp.asesor?.last_name}`}</span></td>
                         </tr>
                     </tbody>
                 </table>
