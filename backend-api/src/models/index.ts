@@ -28,7 +28,7 @@ ODP.hasMany(EvidenciaInstalacion, { foreignKey: 'odp_id', as: 'evidencias' });
 EvidenciaInstalacion.belongsTo(ODP, { foreignKey: 'odp_id' });
 
 Usuario.hasMany(EvidenciaInstalacion, { foreignKey: 'instalador_id', as: 'evidencias_subidas' });
-EvidenciaInstalacion.belongsTo(Usuario, { foreignKey: 'instalador_id' });
+EvidenciaInstalacion.belongsTo(Usuario, { foreignKey: 'instalador_id', as: 'instalador' });
 
 ODP.hasMany(ProgramacionInstalacion, { foreignKey: 'odp_id', as: 'programaciones' });
 ProgramacionInstalacion.belongsTo(ODP, { foreignKey: 'odp_id' });

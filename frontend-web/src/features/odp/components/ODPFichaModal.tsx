@@ -541,16 +541,9 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
         setLoading(true);
         const res = await axios.get(`${API}/api/odp/${odpId}`, { headers: { Authorization: `Bearer ${token}` } });
         setOdp(res.data);
-      } catch {
-        setOdp({
-          id: odpId, numero_odp: `ODP-2026-00${odpId}`, fecha_creacion: new Date().toISOString(),
-          estado_produccion: 'EN_ESPERA', estado_facturacion: 'PENDIENTE', estado_caja: 'PENDIENTE',
-          tipo_servicio: 'Vidrio Templado', abono: 0, pendiente: 0,
-          cliente: { nombre_razon_social: 'Cliente Demo S.A.' },
-          asesor: { nombre_completo: 'Asesor Demo', username: 'asesor1', email: 'asesor@templex.com' },
-          items: [], saps: [], cotizaciones: [], tomas_medidas: [], evidencias: [], programaciones: [], historial_estados: [],
-          chk_medicion: false, chk_corte: false, chk_vidrio: false, chk_accesorios: false,
-        });
+      } catch (err) {
+        console.error("Error al cargar ODP:", err);
+        setOdp(null);
       } finally {
         setLoading(false);
       }
