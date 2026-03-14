@@ -121,7 +121,7 @@ export const getODP = async (req: Request, res: Response) => {
         {
           model: HistorialEstadoODP, as: 'historial_estados',
           include: [{ model: Usuario, as: 'usuario', attributes: ['id', 'nombre_completo'] }],
-          order: [['fecha_cambio', 'DESC']],
+          order: [['fecha', 'DESC']],
           separate: true,
         },
       ],
