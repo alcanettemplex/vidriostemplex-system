@@ -190,7 +190,7 @@ export const getVentasData = async (_req: Request, res: Response) => {
       const diff = Math.ceil((today.getTime() - new Date(o.getDataValue('fecha_entrega')).getTime()) / (1000 * 3600 * 24));
       return {
         cliente_id: o.getDataValue('cliente_id'),
-        nombre: o.cliente?.nombre_razon_social || 'Cliente desconocido',
+        nombre: (o as any).cliente?.nombre_razon_social || 'Cliente desconocido',
         monto: Number(o.getDataValue('pendiente')),
         dias_vencido: diff,
         riesgo: diff > 60 ? 'critico' : (diff > 30 ? 'alerta' : 'normal')
@@ -205,8 +205,8 @@ export const getVentasData = async (_req: Request, res: Response) => {
 
     const asesores = await Usuario.findAll({ where: { rol: 'asesor_comercial' } });
     const meta_vs_real_asesores = await Promise.all(asesores.map(async (u) => {
-      const real = await ODP.count({ where: { asesor_id: u.id, estado_produccion: 'ENTREGADA', fecha_creacion: { [Op.gte]: firstDayCurrent } } });
-      return { asesor_id: u.id, nombre: u.nombre_completo, real, meta: 12 };
+      const real = await ODP.count({ where: { asesor_id: u.getDataValue('id'), estado_produccion: 'ENTREGADA', fecha_creacion: { [Op.gte]: firstDayCurrent } } });
+      return { asesor_id: u.getDataValue('id'), nombre: (u as any).nombre_completo, real, meta: 12 };
     }));
 
     res.json({
@@ -272,7 +272,7 @@ export const getProduccionData = async (_req: Request, res: Response) => {
       return {
         odp_id: o.getDataValue('id'),
         numero_odp: o.getDataValue('numero_odp'),
-        cliente: o.cliente?.nombre_razon_social || 'Desconocido',
+        cliente: (o as any).cliente?.nombre_razon_social || 'Desconocido',
         estado_produccion: o.getDataValue('estado_produccion'),
         fecha_entrega: o.getDataValue('fecha_entrega'),
         dias_restantes: rest,
@@ -303,15 +303,15 @@ export const getEquipoData = async (_req: Request, res: Response) => {
 
     const asesores = await Usuario.findAll({ where: { rol: 'asesor_comercial' } });
     const ranking_asesores = await Promise.all(asesores.map(async (u) => {
-      const cerradas = await ODP.count({ where: { asesor_id: u.id, estado_produccion: 'ENTREGADA' } });
-      return { asesor_id: u.id, nombre: u.nombre_completo, odps_cerradas_mes: cerradas, tiempo_promedio_cierre_dias: 10 + Math.random() * 5, meta: 12 };
+      const cerradas = await ODP.count({ where: { asesor_id: u.getDataValue('id'), estado_produccion: 'ENTREGADA' } });
+      return { asesor_id: u.getDataValue('id'), nombre: (u as any).nombre_completo, odps_cerradas_mes: cerradas, tiempo_promedio_cierre_dias: 10 + Math.random() * 5, meta: 12 };
     }));
 
     const instaladores = await Usuario.findAll({ where: { rol: 'instalador' } });
     const carga_instaladores = await Promise.all(instaladores.map(async (u) => {
-      const instas = await ProgramacionInstalacion.count({ where: { instalador_id: u.id } }); // O jo field names
-      const evidencias = await EvidenciaInstalacion.count({ where: { instalador_id: u.id } });
-      return { instalador_id: u.id, nombre: u.nombre_completo, instalaciones_mes: instas, con_evidencia: evidencias, sin_evidencia: Math.max(0, instas - evidencias) };
+      const instas = await ProgramacionInstalacion.count({ where: { instalador_id: u.getDataValue('id') } }); // O jo field names
+      const evidencias = await EvidenciaInstalacion.count({ where: { instalador_id: u.getDataValue('id') } });
+      return { instalador_id: u.getDataValue('id'), nombre: (u as any).nombre_completo, instalaciones_mes: instas, con_evidencia: evidencias, sin_evidencia: Math.max(0, instas - evidencias) };
     }));
 
     res.json({ total_asesores, total_instaladores, odps_por_asesor_promedio, eficiencia_taller_pct, ranking_asesores, carga_instaladores });
@@ -342,7 +342,7 @@ export const getAlertas = async (_req: Request, res: Response) => {
       limit: 5
     });
     carteraCritica.forEach(o => {
-      alerts.push({ tipo: 'critico', categoria: 'cartera', titulo: 'Cartera vencida crítica', mensaje: `${o.cliente?.nombre_razon_social} tiene deuda de $${o.getDataValue('pendiente')} a más de 60 días.`, cliente_id: o.getDataValue('cliente_id'), accion: 'Ver cliente' });
+      alerts.push({ tipo: 'critico', categoria: 'cartera', titulo: 'Cartera vencida crítica', mensaje: `${(o as any).cliente?.nombre_razon_social} tiene deuda de $${o.getDataValue('pendiente')} a más de 60 días.`, cliente_id: o.getDataValue('cliente_id'), accion: 'Ver cliente' });
     });
 
     res.json(alerts);
