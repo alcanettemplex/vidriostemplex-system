@@ -15,10 +15,10 @@ import dashboardRoutes from './routes/dashboard.routes';
 import documentosRoutes from './routes/documentos.routes';
 import comprasRoutes from './routes/compras.routes';
 import contabilidadRoutes from './routes/contabilidad.routes';
+import noConformidadRoutes from './routes/no_conformidad.routes';
 
 const app = express();
 
-// ─── Seguridad: CORS restringido a orígenes autorizados ──────────────────────
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
@@ -27,7 +27,6 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Permitir peticiones sin origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error(`Origen no autorizado por CORS: ${origin}`));
@@ -41,7 +40,6 @@ app.use(helmet());
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 
-// ─── Seguridad: Rate limiting global ─────────────────────────────────────────
 app.use(globalLimiter);
 
 app.use('/', indexRoutes);
@@ -56,10 +54,9 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/documentos', documentosRoutes);
 app.use('/api/compras', comprasRoutes);
 app.use('/api/contabilidad', contabilidadRoutes);
+app.use('/api/no-conformidad', noConformidadRoutes);
 
 import { errorHandler } from './middlewares/errorHandler';
-
-// ─── Manejo de errores centralizado ──────────────────────────────────────────
 app.use(errorHandler);
 
 export default app;

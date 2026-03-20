@@ -309,3 +309,25 @@ export const finalizarInstalacionODP = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Error al finalizar instalación de la ODP', details: error?.message || error });
   }
 };
+
+export const uploadCroquisODP = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const odp = await ODP.findByPk(id);
+    if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
+
+    const croquisUrl = (req.file as any)?.path || (req.file as any)?.url;
+
+    if (!croquisUrl) {
+      return res.status(400).json({ error: 'Se requiere una imagen del croquis.' });
+    }
+
+    await odp.update({ croquis_url: croquisUrl });
+
+    res.json({ message: 'Croquis subido con éxito', croquis_url: croquisUrl, odp });
+  } catch (error: any) {
+    console.error('Error al subir croquis ODP:', error);
+    res.status(500).json({ error: 'Error al subir el croquis', details: error?.message || error });
+  }
+};
+

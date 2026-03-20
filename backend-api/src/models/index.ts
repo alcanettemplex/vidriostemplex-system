@@ -14,6 +14,8 @@ import TomaMedidas from './toma_medidas.model';
 import OrdenCompra from './orden_compra.model';
 import Pago from './pago.model';
 
+import NoConformidad from './no_conformidad.model';
+
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
 ODP.belongsTo(Cliente, { foreignKey: 'cliente_id', as: 'cliente' });
@@ -44,6 +46,13 @@ HistorialEstadoODP.belongsTo(ODP, { foreignKey: 'odp_id' });
 
 Usuario.hasMany(HistorialEstadoODP, { foreignKey: 'usuario_id' });
 HistorialEstadoODP.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
+
+// ─── No Conformidades ────────────────────────────────────────────────────────
+ODP.hasMany(NoConformidad, { foreignKey: 'odp_id', as: 'no_conformidades' });
+NoConformidad.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
+
+Usuario.hasMany(NoConformidad, { foreignKey: 'usuario_reporta_id', as: 'reportes_no_conformidad' });
+NoConformidad.belongsTo(Usuario, { foreignKey: 'usuario_reporta_id', as: 'usuario_reporta' });
 
 // ─── Bloque B: SAP, Cotizacion, TomaMedidas ──────────────────────────────────
 ODP.hasMany(SAP, { foreignKey: 'odp_id', as: 'saps' });
@@ -90,6 +99,7 @@ export {
   Vehiculo,
   ProgramacionInstalacion,
   HistorialEstadoODP,
+  NoConformidad,
   SAP,
   SAPItem,
   Cotizacion,
@@ -97,3 +107,4 @@ export {
   OrdenCompra,
   Pago,
 };
+

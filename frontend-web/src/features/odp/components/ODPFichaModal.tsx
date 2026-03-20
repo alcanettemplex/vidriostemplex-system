@@ -3,7 +3,7 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, FileText, Wrench, Truck, DollarSign, Package, Ruler,
-  CheckCircle2, AlertCircle, MapPin, User, Calendar, Phone,
+  CheckCircle2, AlertCircle, AlertTriangle, MapPin, User, Calendar, Phone,
   Building2, ExternalLink, CreditCard, Camera, History,
   ClipboardList, TrendingUp, Printer
 } from 'lucide-react';
@@ -12,6 +12,7 @@ import PrintableGarantia from './PrintableGarantia';
 import PrintableNoConformidad from './PrintableNoConformidad';
 import PrintableProduccion from './PrintableProduccion';
 import PrintableDetalleTecnico from './PrintableDetalleTecnico';
+import ReportarProblemaForm from './ReportarProblemaForm';
 
 // ─── Paleta de estado ─────────────────────────────────────────────────────────
 const estadoProdColor: Record<string, string> = {
@@ -218,7 +219,8 @@ const TabComercial: React.FC<{ odp: any }> = ({ odp }) => {
   );
 };
 
-const TabProduccion: React.FC<{ odp: any }> = ({ odp }) => {
+const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void }> = ({ odp, onUpdate }) => {
+  const [uploading, setUploading] = useState(false);
   const tms = odp.tomas_medidas || [];
   const chks = [
     { key: 'chk_medicion', label: 'Toma de Medidas', icon: <Ruler className="w-4 h-4" /> },
@@ -228,29 +230,90 @@ const TabProduccion: React.FC<{ odp: any }> = ({ odp }) => {
   ];
   const completados = chks.filter(c => odp[c.key]).length;
 
+  const handleCroquisUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append('croquis', file);
+
+      const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+      const token = localStorage.getItem('token');
+
+      await axios.post(`${API}/api/odp/${odp.id}/croquis`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      if (onUpdate) onUpdate();
+    } catch (error) {
+      console.error('Error uploading croquis:', error);
+      alert('Error al subir el croquis');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-        <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
-          <Wrench className="w-4 h-4 text-amber-600" /> Estado de Componentes de Producción
-        </h3>
-        <div className="flex items-center gap-2 mb-4">
-          <div className="flex-1 bg-slate-100 rounded-full h-2.5">
-            <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-700" style={{ width: `${(completados / 4) * 100}%` }} />
-          </div>
-          <span className="text-sm font-black text-slate-700">{completados}/4</span>
-          <Badge className={completados === 4 ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200'}>
-            {completados === 4 ? 'LISTO' : 'EN CURSO'}
-          </Badge>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {chks.map(chk => (
-            <div key={chk.key} className={`p-4 rounded-xl border-2 text-center transition-all ${odp[chk.key] ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
-              <div className="flex justify-center mb-2">{chk.icon}</div>
-              <p className="text-xs font-bold">{chk.label}</p>
-              <p className="text-xs mt-1">{odp[chk.key] ? '✓ Completado' : 'Pendiente'}</p>
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
+            <Wrench className="w-4 h-4 text-amber-600" /> Estado de Componentes de Producción
+          </h3>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="flex-1 bg-slate-100 rounded-full h-2.5">
+              <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-700" style={{ width: `${(completados / 4) * 100}%` }} />
             </div>
-          ))}
+            <span className="text-sm font-black text-slate-700">{completados}/4</span>
+            <Badge className={completados === 4 ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200'}>
+              {completados === 4 ? 'LISTO' : 'EN CURSO'}
+            </Badge>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {chks.map(chk => (
+              <div key={chk.key} className={`p-4 rounded-xl border-2 text-center transition-all ${odp[chk.key] ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                <div className="flex justify-center mb-2">{chk.icon}</div>
+                <p className="text-xs font-bold">{chk.label}</p>
+                <p className="text-xs mt-1">{odp[chk.key] ? '✓ Completado' : 'Pendiente'}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-indigo-600" /> Croquis / Plano Técnico
+          </h3>
+          <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl p-4 min-h-[160px] relative overflow-hidden group">
+            {odp.croquis_url ? (
+              <>
+                <img src={odp.croquis_url} alt="Croquis" className="absolute inset-0 w-full h-full object-contain p-2" />
+                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                  <label className="cursor-pointer bg-white text-slate-900 px-4 py-2 rounded-lg font-bold text-xs shadow-xl flex items-center gap-2 hover:scale-105 transition-transform">
+                    <Camera className="w-4 h-4" /> CAMBIAR DIBUJO
+                    <input type="file" className="hidden" accept="image/*" onChange={handleCroquisUpload} />
+                  </label>
+                </div>
+              </>
+            ) : (
+              <div className="text-center">
+                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                  <Camera className="w-6 h-6" />
+                </div>
+                <p className="text-slate-500 text-xs font-bold mb-3 uppercase tracking-wider">Aún no hay un dibujo técnico</p>
+                <label className="cursor-pointer bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-black text-xs shadow-lg shadow-indigo-600/20 flex items-center gap-2 hover:bg-indigo-700 transition">
+                  {uploading ? 'SUBIENDO...' : 'SUBIR CROQUIS'}
+                  <input type="file" className="hidden" accept="image/*" onChange={handleCroquisUpload} disabled={uploading} />
+                </label>
+              </div>
+            )}
+          </div>
+          <p className="text-[10px] text-slate-400 mt-3 italic text-center uppercase tracking-tighter">Este dibujo aparecerá automáticamente en el formato impreso de Detalle Técnico</p>
         </div>
       </div>
 
@@ -428,6 +491,8 @@ const TabHistorial: React.FC<{ odp: any }> = ({ odp }) => {
   (odp.tomas_medidas || []).forEach((t: any) => timeline.push({ fecha: t.fecha_creacion, tipo: 'TM', titulo: `Toma de Medidas ${t.numero_tm}`, detalle: `${t.realizador?.nombre_completo} · ${t.medidas_json?.length || 0} medidas`, color: 'bg-amber-500', icon: <Ruler className="w-3.5 h-3.5" /> }));
   historial.forEach((h: any) => timeline.push({ fecha: h.fecha || h.fecha_cambio || h.creado_en, tipo: 'ESTADO', titulo: `Estado → ${(h.estado_nuevo || h.nuevo_estado || '').replace(/_/g, ' ')}`, detalle: `Por ${h.usuario?.nombre_completo || 'Sistema'} ${h.notas ? `· "${h.notas}"` : ''}`, color: 'bg-slate-500', icon: <History className="w-3.5 h-3.5" /> }));
   (odp.evidencias || []).forEach((e: any) => timeline.push({ fecha: e.fecha_subida || e.creado_en, tipo: 'EVIDENCIA', titulo: 'Evidencia de Instalación', detalle: `Instalador: ${e.instalador?.nombre_completo || '—'}`, color: 'bg-emerald-500', icon: <Camera className="w-3.5 h-3.5" /> }));
+  (odp.no_conformidades || []).forEach((nc: any) => timeline.push({ fecha: nc.creado_en, tipo: 'FALLA', titulo: `No Conformidad ${nc.numero_reporte}`, detalle: `${nc.tipo_error?.replace(/_/g, ' ')} · ${nc.area_error}`, color: 'bg-rose-500', icon: <AlertTriangle className="w-3.5 h-3.5" /> }));
+
   timeline.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
   return (
@@ -474,6 +539,7 @@ const TabHistorial: React.FC<{ odp: any }> = ({ odp }) => {
 // ─── Centro de Impresión: Sistema de Formatos por Rol ──────────────────────────
 const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
   const [selectedFormat, setSelectedFormat] = useState<'compra' | 'op' | 'tecnico' | 'garantia' | 'noconformidad'>('op');
+  const [ncIndex, setNcIndex] = useState(0);
 
   return (
     <div className="flex flex-col bg-slate-100 min-h-screen">
@@ -494,8 +560,20 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
           </button>
           <button onClick={() => setSelectedFormat('noconformidad')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'noconformidad' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
             <AlertCircle className="w-3 h-3" /> No Conform.
+            {odp?.no_conformidades?.length > 0 && <span className="text-[10px] bg-rose-500 text-white px-1.5 rounded-full">{odp.no_conformidades.length}</span>}
           </button>
         </div>
+
+        {selectedFormat === 'noconformidad' && odp?.no_conformidades?.length > 1 && (
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1 px-3">
+                <span className="text-[10px] font-black text-slate-400 uppercase">REPORTE:</span>
+                <select className="bg-transparent text-xs font-bold outline-none" value={ncIndex} onChange={e => setNcIndex(parseInt(e.target.value))}>
+                    {odp.no_conformidades.map((nc: any, idx: number) => (
+                        <option key={idx} value={idx}>{nc.numero_reporte} - {new Date(nc.creado_en).toLocaleDateString()}</option>
+                    ))}
+                </select>
+            </div>
+        )}
 
         <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white font-black text-xs rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30">
           <Printer className="w-3 h-3" /> IMPRIMIR
@@ -507,7 +585,7 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
         {selectedFormat === 'op' && <PrintableProduccion odp={odp} />}
         {selectedFormat === 'tecnico' && <PrintableDetalleTecnico odp={odp} />}
         {selectedFormat === 'garantia' && <PrintableGarantia odp={odp} />}
-        {selectedFormat === 'noconformidad' && <PrintableNoConformidad odp={odp} />}
+        {selectedFormat === 'noconformidad' && <PrintableNoConformidad odp={odp} data={odp?.no_conformidades?.[ncIndex]} />}
       </div>
 
       <style dangerouslySetInnerHTML={{
@@ -531,23 +609,25 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
   const [odp, setOdp] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [showReportarForm, setShowReportarForm] = useState(false);
 
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const token = localStorage.getItem('token');
 
+  const fetchODP = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${API}/api/odp/${odpId}`, { headers: { Authorization: `Bearer ${token}` } });
+      setOdp(res.data);
+    } catch (err) {
+      console.error("Error al cargar ODP:", err);
+      setOdp(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchODP = async () => {
-      try {
-        setLoading(true);
-        const res = await axios.get(`${API}/api/odp/${odpId}`, { headers: { Authorization: `Bearer ${token}` } });
-        setOdp(res.data);
-      } catch (err) {
-        console.error("Error al cargar ODP:", err);
-        setOdp(null);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchODP();
   }, [odpId]);
 
@@ -557,14 +637,26 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
     { id: 'produccion',  label: 'Producción',        icon: <Wrench className="w-4 h-4" />,         badge: odp?.tomas_medidas?.length || 0 },
     { id: 'instalacion', label: 'Instalación',       icon: <Truck className="w-4 h-4" />,          badge: (odp?.evidencias?.length || 0) + (odp?.programaciones?.length || 0) },
     { id: 'financiero',  label: 'Financiero',         icon: <TrendingUp className="w-4 h-4" /> },
-    { id: 'historial',   label: 'Historial',          icon: <History className="w-4 h-4" /> },
+    { id: 'historial',   label: 'Historial',          icon: <History className="w-4 h-4" />,        badge: odp?.no_conformidades?.length || 0 },
     { id: 'imprimir',    label: 'Imprimir ODP',       icon: <Printer className="w-4 h-4" /> },
   ];
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-3">
       <motion.div initial={{ opacity: 0, scale: 0.96, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[96vh] flex flex-col border border-slate-200 overflow-hidden">
+        className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[96vh] flex flex-col border border-slate-200 overflow-hidden relative">
+
+        {/* MODAL REPORTAR PROBLEMA */}
+        <AnimatePresence>
+          {showReportarForm && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 z-[70] bg-white flex items-center justify-center overflow-y-auto">
+              <div className="w-full max-w-3xl">
+                <ReportarProblemaForm odp={odp} onClose={() => setShowReportarForm(false)} onSuccess={fetchODP} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* HEADER */}
         {loading ? (
@@ -594,6 +686,10 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <button onClick={() => setShowReportarForm(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-rose-50 border border-rose-200 text-rose-600 rounded-lg hover:bg-rose-100 transition print:hidden">
+                  <AlertCircle className="w-3.5 h-3.5" /> REPORTAR PROBLEMA
+                </button>
                 <button onClick={() => setActiveTab('imprimir')}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition print:hidden">
                   <Printer className="w-3.5 h-3.5" /> Imprimir
@@ -631,7 +727,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
               <motion.div key={activeTab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
                 {activeTab === 'general'     && <TabDatosGenerales odp={odp} />}
                 {activeTab === 'comercial'   && <TabComercial odp={odp} />}
-                {activeTab === 'produccion'  && <TabProduccion odp={odp} />}
+                {activeTab === 'produccion'  && <TabProduccion odp={odp} onUpdate={fetchODP} />}
                 {activeTab === 'instalacion' && <TabInstalacion odp={odp} />}
                 {activeTab === 'financiero'  && <TabFinanciero odp={odp} />}
                 {activeTab === 'historial'   && <TabHistorial odp={odp} />}
