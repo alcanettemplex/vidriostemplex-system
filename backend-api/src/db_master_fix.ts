@@ -58,13 +58,16 @@ async function migrateProd() {
         "mes" INTEGER NOT NULL,
         "anio" INTEGER NOT NULL,
         "meta_venta" DECIMAL(15, 2) DEFAULT 0,
-        "meta_instalaciones" INTEGER DEFAULT 0,
+        "meta_instalacion" INTEGER DEFAULT 0,
         "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );`,
 
       // 7. Seed Data por defecto para evitar 500s en componentes que esperan datos.
-      `INSERT INTO "metas_mensuales" (mes, anio, meta_venta, meta_instalaciones) 
+      `ALTER TABLE "metas_mensuales" ADD COLUMN IF NOT EXISTS "meta_venta" DECIMAL(15, 2) DEFAULT 0;`,
+      `ALTER TABLE "metas_mensuales" ADD COLUMN IF NOT EXISTS "meta_instalacion" INTEGER DEFAULT 0;`,
+      
+      `INSERT INTO "metas_mensuales" (mes, anio, meta_venta, meta_instalacion) 
        VALUES (3, 2026, 150000.00, 20) 
        ON CONFLICT DO NOTHING;`,
 
