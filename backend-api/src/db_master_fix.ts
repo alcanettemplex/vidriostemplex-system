@@ -57,14 +57,14 @@ async function migrateProd() {
         "id" SERIAL PRIMARY KEY,
         "mes" INTEGER NOT NULL,
         "anio" INTEGER NOT NULL,
-        "meta_ventas" DECIMAL(15, 2) DEFAULT 0,
+        "meta_venta" DECIMAL(15, 2) DEFAULT 0,
         "meta_instalaciones" INTEGER DEFAULT 0,
         "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );`,
 
       // 7. Seed Data por defecto para evitar 500s en componentes que esperan datos.
-      `INSERT INTO "metas_mensuales" (mes, anio, meta_ventas, meta_instalaciones) 
+      `INSERT INTO "metas_mensuales" (mes, anio, meta_venta, meta_instalaciones) 
        VALUES (3, 2026, 150000.00, 20) 
        ON CONFLICT DO NOTHING;`,
 
