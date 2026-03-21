@@ -38,6 +38,7 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
   const items: any[] = odp?.items || [];
 
   // Cuando se selecciona un ítem dañado, pre-llenar el formulario de solución
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (selectedItemIndex !== null && items[selectedItemIndex]) {
       const src = items[selectedItemIndex];

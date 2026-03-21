@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Trash2, Printer, CheckCircle2, FileText, Package } from 'lucide-react';
+import { X, Plus, Trash2, Printer, FileText, Package } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 interface SAPItem {
@@ -44,6 +44,7 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const token = localStorage.getItem('token');
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchSAPs(); }, []);
 
   const fetchSAPs = async () => {

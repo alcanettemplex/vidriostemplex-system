@@ -40,6 +40,7 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const token = localStorage.getItem('token');
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchTMs(); }, []);
 
   const fetchTMs = async () => {

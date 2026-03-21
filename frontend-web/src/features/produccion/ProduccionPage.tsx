@@ -5,17 +5,14 @@ import { toast } from 'react-toastify';
 import { 
     CheckCircle2, 
     QrCode, 
-    FileText, 
     Ruler, 
     Scissors, 
     Layers, 
     Wrench,
-    Clock,
     Truck,
     AlertCircle,
     Package,
     Lock,
-    Unlock,
     MessageSquare,
     ChevronDown,
     ChevronUp,
@@ -24,8 +21,7 @@ import {
     Film,
     Box,
     Archive,
-    Search,
-    Filter
+    Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPMatrixModal from './components/ODPMatrixModal';
@@ -64,6 +60,8 @@ interface ODP {
     es_no_conformidad?: boolean;
 }
 
+const activeStates = ['EN_ESPERA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'PAUSADA'];
+
 const ProduccionPage: React.FC = () => {
     const [activeOdps, setActiveOdps] = useState<ODP[]>([]);
     const [readyOdps, setReadyOdps] = useState<ODP[]>([]);
@@ -78,8 +76,6 @@ const ProduccionPage: React.FC = () => {
 
     const [notes, setNotes] = useState<{ [key: number]: Nota[] }>({});
     const [newNote, setNewNote] = useState('');
-
-    const activeStates = ['EN_ESPERA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'PAUSADA'];
 
     const fetchData = useCallback(async () => {
         try {
