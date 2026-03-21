@@ -7,7 +7,9 @@ import {
   HistorialEstadoODP, 
   ProgramacionInstalacion, 
   EvidenciaInstalacion,
-  ODPItem
+  ODPItem,
+  ConfiguracionGlobal,
+  MetaMensual
 } from '../models';
 import sequelize from '../config/database';
 
@@ -15,6 +17,13 @@ import sequelize from '../config/database';
 export const getGeneralData = async (_req: Request, res: Response) => {
   try {
     const today = new Date();
+    const currentMonth = today.getMonth() + 1;
+    const currentYear = today.getFullYear();
+    
+    const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } }) || { meta_facturacion_mensual: 120000000 };
+    const meta_mes_db = await MetaMensual.findOne({ where: { anio: currentYear, mes: currentMonth } });
+    const meta_facturacion_actual = meta_mes_db ? meta_mes_db.getDataValue('meta_facturacion') : (config as any)?.meta_facturacion_mensual;
+    
     const firstDayCurrent = new Date(today.getFullYear(), today.getMonth(), 1);
     const firstDayPrev = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     const lastDayPrev = new Date(today.getFullYear(), today.getMonth(), 0);
@@ -29,14 +38,16 @@ export const getGeneralData = async (_req: Request, res: Response) => {
     });
     const odps_activas_delta_pct = prev_odps_activas > 0 ? Math.round(((odps_activas - prev_odps_activas) / prev_odps_activas) * 100) : 0;
 
-    // Facturado Mes (Basado en abonos este mes)
-    const facturado_mes = await ODP.sum('abono', { where: { fecha_creacion: { [Op.gte]: firstDayCurrent } } }) || 0;
-    const prev_facturado_mes = await ODP.sum('abono', { 
-      where: { 
-        fecha_creacion: { [Op.between]: [firstDayPrev, lastDayPrev] } 
-      } 
-    }) || 0;
-    const facturado_mes_delta_pct = prev_facturado_mes > 0 ? Math.round(((Number(facturado_mes) - Number(prev_facturado_mes)) / Number(prev_facturado_mes)) * 100) : 0;
+    // Facturado Mes (Valor total = abono + pendiente)
+    const currentAbonos = await ODP.sum('abono', { where: { fecha_creacion: { [Op.gte]: firstDayCurrent } } }) || 0;
+    const currentPendientes = await ODP.sum('pendiente', { where: { fecha_creacion: { [Op.gte]: firstDayCurrent } } }) || 0;
+    const facturado_mes = Number(currentAbonos) + Number(currentPendientes);
+
+    const prevAbonos = await ODP.sum('abono', { where: { fecha_creacion: { [Op.between]: [firstDayPrev, lastDayPrev] } } }) || 0;
+    const prevPendientes = await ODP.sum('pendiente', { where: { fecha_creacion: { [Op.between]: [firstDayPrev, lastDayPrev] } } }) || 0;
+    const prev_facturado_mes = Number(prevAbonos) + Number(prevPendientes);
+
+    const facturado_mes_delta_pct = prev_facturado_mes > 0 ? Math.round(((facturado_mes - prev_facturado_mes) / prev_facturado_mes) * 100) : 0;
 
     // Cartera Vencida Total (pendiente > 0, fecha_entrega < hoy, estado_caja != CANCELADO)
     const carteraVencidaItems = await ODP.findAll({
@@ -87,7 +98,7 @@ export const getGeneralData = async (_req: Request, res: Response) => {
     const facturationRaw = await ODP.findAll({
       attributes: [
         [fn('DATE_TRUNC', 'month', col('fecha_creacion')), 'mes'],
-        [fn('SUM', col('abono')), 'total_abono']
+        [fn('SUM', literal('abono + pendiente')), 'total_abono']
       ],
       where: { fecha_creacion: { [Op.gte]: sixMonthsAgo } },
       group: [fn('DATE_TRUNC', 'month', col('fecha_creacion'))],
@@ -95,12 +106,28 @@ export const getGeneralData = async (_req: Request, res: Response) => {
       raw: true
     }) as unknown as { mes: Date, total_abono: string }[];
 
-    const facturacion_6_meses = facturationRaw.map((fr, idx) => {
-      const metas = [98000000, 110000000, 105000000, 115000000, 120000000, 125000000];
+    // Retrieve all metas mensuales for the last 6 months to match against
+    const metas_6_meses = await MetaMensual.findAll({
+      where: {
+        [Op.or]: facturationRaw.map(fr => {
+          const d = new Date(fr.mes);
+          return { anio: d.getFullYear(), mes: d.getMonth() + 1 };
+        })
+      }
+    });
+
+    const facturacion_6_meses = facturationRaw.map((fr) => {
+      const frDate = new Date(fr.mes);
+      const mAnio = frDate.getFullYear();
+      const mMes = frDate.getMonth() + 1;
+      
+      const metaDb = metas_6_meses.find(m => m.getDataValue('anio') === mAnio && m.getDataValue('mes') === mMes);
+      const metaValue = metaDb ? metaDb.getDataValue('meta_facturacion') : (config as any)?.meta_facturacion_mensual || 120000000;
+
       return {
-        mes: new Date(fr.mes).toLocaleDateString('es-CO', { month: 'short' }),
+        mes: frDate.toLocaleDateString('es-CO', { month: 'short' }),
         real: Number(fr.total_abono) || 0,
-        meta: metas[idx] || 120000000
+        meta: Number(metaValue) || 120000000
       };
     });
 
@@ -126,6 +153,7 @@ export const getGeneralData = async (_req: Request, res: Response) => {
     }));
 
     res.json({
+      meta_facturacion_actual: Number(meta_facturacion_actual),
       odps_activas,
       odps_activas_delta_pct,
       facturado_mes: Number(facturado_mes),
@@ -147,21 +175,34 @@ export const getGeneralData = async (_req: Request, res: Response) => {
 // ─── 2. PANEL VENTAS ─────────────────────────────────────────────────────────
 export const getVentasData = async (_req: Request, res: Response) => {
   try {
+    const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } }) || { meta_odps_cerradas_asesor: 12, dias_alerta_cartera_vencida: 60 };
     const today = new Date();
+    
+    const currentMonth = today.getMonth() + 1;
+    const currentYear = today.getFullYear();
+    const meta_mes_db = await MetaMensual.findOne({ where: { anio: currentYear, mes: currentMonth } });
+    const meta_odps_asesor = meta_mes_db ? meta_mes_db.getDataValue('meta_odps_asesor') : ((config as any)?.meta_odps_cerradas_asesor || 12);
+
     const firstDayCurrent = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    const total_abonado = await ODP.sum('abono', { where: { fecha_creacion: { [Op.gte]: firstDayCurrent } } }) || 0;
+    const currentAbono = await ODP.sum('abono', { where: { fecha_creacion: { [Op.gte]: firstDayCurrent } } }) || 0;
+    const currentPdte = await ODP.sum('pendiente', { where: { fecha_creacion: { [Op.gte]: firstDayCurrent } } }) || 0;
+    const total_facturado_mes = Number(currentAbono) + Number(currentPdte);
+    
+    // Lo "Recaudado" es solo abonos de cualquier ODP pagado este mes, lo mantenemos como métrica
+    const total_abonado = currentAbono; 
+
     const total_pendiente = await ODP.sum('pendiente', { where: { pendiente: { [Op.gt]: 0 } } }) || 0;
     const odps_sin_facturar = await ODP.count({ where: { factura_electronica: null } });
 
     const countMes = await ODP.count({ where: { fecha_creacion: { [Op.gte]: firstDayCurrent } } });
-    const ticket_promedio = countMes > 0 ? Math.round(Number(total_abonado) / countMes) : 0;
+    const ticket_promedio = countMes > 0 ? Math.round(total_facturado_mes / countMes) : 0;
     const ticket_promedio_delta_pct = 5;
 
     const top_clientes_raw = await ODP.findAll({
       attributes: [
         'cliente_id',
-        [fn('SUM', col('abono')), 'total'],
+        [fn('SUM', literal('abono + pendiente')), 'total'],
         [fn('COUNT', col('id')), 'odps_count']
       ],
       include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
@@ -188,12 +229,13 @@ export const getVentasData = async (_req: Request, res: Response) => {
 
     const cartera_vencida_detalle = carteraVencida.map(o => {
       const diff = Math.ceil((today.getTime() - new Date(o.getDataValue('fecha_entrega')).getTime()) / (1000 * 3600 * 24));
+      const configDiasAlerta = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
       return {
         cliente_id: o.getDataValue('cliente_id'),
         nombre: (o as any).cliente?.nombre_razon_social || 'Cliente desconocido',
         monto: Number(o.getDataValue('pendiente')),
         dias_vencido: diff,
-        riesgo: diff > 60 ? 'critico' : (diff > 30 ? 'alerta' : 'normal')
+        riesgo: diff > configDiasAlerta ? 'critico' : (diff > Math.floor(configDiasAlerta/2) ? 'alerta' : 'normal')
       };
     });
 
@@ -206,7 +248,7 @@ export const getVentasData = async (_req: Request, res: Response) => {
     const asesores = await Usuario.findAll({ where: { rol: 'asesor_comercial' } });
     const meta_vs_real_asesores = await Promise.all(asesores.map(async (u) => {
       const real = await ODP.count({ where: { asesor_id: u.getDataValue('id'), estado_produccion: 'ENTREGADA', fecha_creacion: { [Op.gte]: firstDayCurrent } } });
-      return { asesor_id: u.getDataValue('id'), nombre: (u as any).nombre_completo, real, meta: 12 };
+      return { asesor_id: u.getDataValue('id'), nombre: (u as any).nombre_completo, real, meta: meta_odps_asesor };
     }));
 
     res.json({

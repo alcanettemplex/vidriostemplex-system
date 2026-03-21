@@ -45,6 +45,28 @@ export const createEvidencia = async (req: any, res: Response) => {
     if (odp) {
       await odp.update({ estado_produccion: 'ENTREGADA' });
 
+      // ─── ODP padre → INSTALADA si esta es ODP de reproceso ───
+      if (odp.getDataValue('es_no_conformidad') && odp.getDataValue('odp_padre_id')) {
+        try {
+          const { HistorialEstadoODP } = require('../models');
+          const odpPadre = await ODP.findByPk(odp.getDataValue('odp_padre_id'));
+          if (odpPadre && odpPadre.getDataValue('estado_produccion') === 'PAUSADA') {
+            await odpPadre.update({ estado_produccion: 'INSTALADA' });
+            await HistorialEstadoODP.create({
+              odp_id: odpPadre.getDataValue('id'),
+              estado_anterior: 'PAUSADA',
+              estado_nuevo: 'INSTALADA',
+              usuario_id: instalador_id,
+              fecha: new Date(),
+              observacion: `Completada automáticamente: la ODP de reproceso ${odp.getDataValue('numero_odp')} resolvió la no conformidad.`
+            });
+            console.log(`✅ ODP padre ${odpPadre.getDataValue('numero_odp')} → INSTALADA (desde evidencia)`);
+          }
+        } catch (autoErr) {
+          console.error('⚠️ Error al completar ODP padre desde evidencia:', autoErr);
+        }
+      }
+
       // Broadcast
       import('../server').then(({ io }) => {
         io.emit('notification', {

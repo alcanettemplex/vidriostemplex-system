@@ -15,6 +15,9 @@ import OrdenCompra from './orden_compra.model';
 import Pago from './pago.model';
 
 import NoConformidad from './no_conformidad.model';
+import ConfiguracionGlobal from './configuracion.model';
+import MetaMensual from './meta_mensual.model';
+import NotaProduccion from './nota_produccion.model';
 
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
@@ -47,12 +50,25 @@ HistorialEstadoODP.belongsTo(ODP, { foreignKey: 'odp_id' });
 Usuario.hasMany(HistorialEstadoODP, { foreignKey: 'usuario_id' });
 HistorialEstadoODP.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
 
+// ─── Notas de Producción ───────────────────────────────────────────────────
+ODP.hasMany(NotaProduccion, { foreignKey: 'odp_id', as: 'notas_produccion' });
+NotaProduccion.belongsTo(ODP, { foreignKey: 'odp_id' });
+
+Usuario.hasMany(NotaProduccion, { foreignKey: 'usuario_id', as: 'notas_enviadas' });
+NotaProduccion.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
+
 // ─── No Conformidades ────────────────────────────────────────────────────────
 ODP.hasMany(NoConformidad, { foreignKey: 'odp_id', as: 'no_conformidades' });
 NoConformidad.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
 
+ODP.hasOne(NoConformidad, { foreignKey: 'nueva_odp_id', as: 'no_conformidad_origen' });
+NoConformidad.belongsTo(ODP, { foreignKey: 'nueva_odp_id', as: 'nueva_odp' });
+
 Usuario.hasMany(NoConformidad, { foreignKey: 'usuario_reporta_id', as: 'reportes_no_conformidad' });
 NoConformidad.belongsTo(Usuario, { foreignKey: 'usuario_reporta_id', as: 'usuario_reporta' });
+
+ODP.hasMany(ODP, { foreignKey: 'odp_padre_id', as: 'odps_derivadas' });
+ODP.belongsTo(ODP, { foreignKey: 'odp_padre_id', as: 'odp_padre' });
 
 // ─── Bloque B: SAP, Cotizacion, TomaMedidas ──────────────────────────────────
 ODP.hasMany(SAP, { foreignKey: 'odp_id', as: 'saps' });
@@ -106,5 +122,8 @@ export {
   TomaMedidas,
   OrdenCompra,
   Pago,
+  ConfiguracionGlobal,
+  MetaMensual,
+  NotaProduccion
 };
 

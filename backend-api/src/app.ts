@@ -16,6 +16,9 @@ import documentosRoutes from './routes/documentos.routes';
 import comprasRoutes from './routes/compras.routes';
 import contabilidadRoutes from './routes/contabilidad.routes';
 import noConformidadRoutes from './routes/no_conformidad.routes';
+import configuracionRoutes from './routes/configuracion.routes';
+import notaProduccionRoutes from './routes/nota_produccion.routes';
+
 
 const app = express();
 
@@ -28,7 +31,9 @@ const allowedOrigins = [
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    const cleanOrigin = origin.replace(/\/$/, "");
+    const isAllowed = allowedOrigins.some(allowed => allowed.replace(/\/$/, "") === cleanOrigin);
+    if (isAllowed) return callback(null, true);
     return callback(new Error(`Origen no autorizado por CORS: ${origin}`));
   },
   credentials: true,
@@ -55,6 +60,8 @@ app.use('/api/documentos', documentosRoutes);
 app.use('/api/compras', comprasRoutes);
 app.use('/api/contabilidad', contabilidadRoutes);
 app.use('/api/no-conformidad', noConformidadRoutes);
+app.use('/api/configuracion', configuracionRoutes);
+app.use('/api/notas-produccion', notaProduccionRoutes);
 
 import { errorHandler } from './middlewares/errorHandler';
 app.use(errorHandler);

@@ -9,7 +9,7 @@ ODP.init({
   cliente_id: { type: DataTypes.INTEGER, allowNull: false },
   asesor_id: { type: DataTypes.INTEGER, allowNull: false },
   estado_produccion: {
-    type: DataTypes.ENUM('EN_ESPERA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA'),
+    type: DataTypes.ENUM('EN_ESPERA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA'),
     defaultValue: 'EN_ESPERA',
     allowNull: false
   },
@@ -46,6 +46,13 @@ ODP.init({
   chk_corte: { type: DataTypes.BOOLEAN, defaultValue: false },
   chk_vidrio: { type: DataTypes.BOOLEAN, defaultValue: false },
   chk_accesorios: { type: DataTypes.BOOLEAN, defaultValue: false },
+  chk_ensamble: { type: DataTypes.BOOLEAN, defaultValue: false },
+  chk_matizado: { type: DataTypes.BOOLEAN, defaultValue: false },
+  chk_pelicula: { type: DataTypes.BOOLEAN, defaultValue: false },
+  chk_huacal: { type: DataTypes.BOOLEAN, defaultValue: false },
+  chk_carton: { type: DataTypes.BOOLEAN, defaultValue: false },
+  es_no_conformidad: { type: DataTypes.BOOLEAN, defaultValue: false },
+  odp_padre_id: { type: DataTypes.INTEGER, allowNull: true },
 }, {
   sequelize,
   modelName: 'ODP',

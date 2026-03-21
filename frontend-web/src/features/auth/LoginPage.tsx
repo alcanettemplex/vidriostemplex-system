@@ -33,6 +33,7 @@ const LoginPage: React.FC = () => {
       const res = await axios.post(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/auth/login`, data);
       dispatch(loginSuccess(res.data));
       localStorage.setItem('token', res.data.token);
+      localStorage.setItem('user', JSON.stringify(res.data.user));
       axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
       toast.success('¡Bienvenido a Templex!');
       navigate('/');

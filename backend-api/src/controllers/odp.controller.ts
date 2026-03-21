@@ -29,7 +29,7 @@ const odpSchema = z.object({
   numero_odp: z.string().optional(),
   cliente_id: z.number().int().positive('ID de cliente requerido'),
   asesor_id: z.number().int().positive('ID de asesor requerido').optional(),
-  estado_produccion: z.enum(['EN_ESPERA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA']).default('EN_ESPERA'),
+  estado_produccion: z.enum(['EN_ESPERA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA']).default('EN_ESPERA'),
   estado_facturacion: z.enum(['PENDIENTE', 'FACTURADA']).default('PENDIENTE'),
   estado_caja: z.enum(['PENDIENTE', 'ABONADO', 'CANCELADO', 'CREDITO_APROBADO']).default('PENDIENTE'),
   factura_electronica: z.string().optional(),
@@ -61,6 +61,13 @@ const odpSchema = z.object({
   chk_corte: z.boolean().optional().default(false),
   chk_vidrio: z.boolean().optional().default(false),
   chk_accesorios: z.boolean().optional().default(false),
+  chk_ensamble: z.boolean().optional().default(false),
+  chk_matizado: z.boolean().optional().default(false),
+  chk_pelicula: z.boolean().optional().default(false),
+  chk_huacal: z.boolean().optional().default(false),
+  chk_carton: z.boolean().optional().default(false),
+  es_no_conformidad: z.boolean().optional().default(false),
+  odp_padre_id: z.number().optional().nullable(),
   items: z.array(odpItemSchema).optional()
 });
 
@@ -85,13 +92,21 @@ export const getODP = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // Importar modelos dinámicamente para evitar circular imports
-    const { SAP, SAPItem, Cotizacion, TomaMedidas, EvidenciaInstalacion, ProgramacionInstalacion, HistorialEstadoODP } = await import('../models');
+    const { SAP, SAPItem, Cotizacion, TomaMedidas, EvidenciaInstalacion, ProgramacionInstalacion, HistorialEstadoODP, NoConformidad } = await import('../models');
 
     const odp = await ODP.findByPk(id, {
       include: [
         { model: Cliente, as: 'cliente' },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username', 'email'] },
         { model: ODPItem, as: 'items' },
+        { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp'] },
+        {
+          model: NoConformidad, as: 'no_conformidades',
+          include: [
+            { model: Usuario, as: 'usuario_reporta', attributes: ['id', 'nombre_completo'] },
+            { model: ODP, as: 'nueva_odp', attributes: ['id', 'numero_odp', 'estado_produccion'] }
+          ]
+        },
         {
           model: SAP, as: 'saps',
           include: [
@@ -124,6 +139,11 @@ export const getODP = async (req: Request, res: Response) => {
           order: [['fecha', 'DESC']],
           separate: true,
         },
+        { 
+          model: (await import('../models')).NotaProduccion, 
+          as: 'notas_produccion', 
+          include: [{ model: (await import('../models')).Usuario, as: 'usuario', attributes: ['nombre_completo'] }]
+        }
       ],
     });
 
@@ -209,8 +229,45 @@ export const updateODP = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'ODP no encontrada' });
     }
 
+    // ─── Lógica de dependencias de producción ───
+    if (data.chk_pelicula || data.chk_matizado || data.chk_huacal || data.chk_carton) {
+      if (!odp.getDataValue('chk_vidrio') && !data.chk_vidrio) {
+         await transaction.rollback();
+         return res.status(400).json({ error: 'No se puede procesar (película/matizado/huacal/cartón) sin haber recibido el vidrio primero.' });
+      }
+    }
+
     // Actualizar campos de la ODP (incluyendo los booleanos, JSONs, y observaciones nuevas)
     await odp.update(data as any, { transaction });
+
+    // ─── Lógica de autocompletado LISTO_INSTALAR ───
+    const updatedOdp = await ODP.findByPk(id, { transaction });
+    if (updatedOdp && updatedOdp.getDataValue('estado_produccion') !== 'LISTO_INSTALAR') {
+      const needsMedicion = true;
+      const needsCorte = true;
+      const needsVidrio = true;
+      const needsAccesorios = true;
+      const needsEnsamble = true;
+      const needsMatizado = updatedOdp.getDataValue('matizado');
+      const needsPelicula = updatedOdp.getDataValue('pelicula');
+      const needsHuacal = updatedOdp.getDataValue('huacal');
+      const needsCarton = updatedOdp.getDataValue('carton');
+
+      const isMedicionDone = updatedOdp.getDataValue('chk_medicion');
+      const isCorteDone = updatedOdp.getDataValue('chk_corte');
+      const isVidrioDone = updatedOdp.getDataValue('chk_vidrio');
+      const isAccesoriosDone = updatedOdp.getDataValue('chk_accesorios');
+      const isEnsambleDone = updatedOdp.getDataValue('chk_ensamble');
+      const isMatizadoDone = !needsMatizado || updatedOdp.getDataValue('chk_matizado');
+      const isPeliculaDone = !needsPelicula || updatedOdp.getDataValue('chk_pelicula');
+      const isHuacalDone = !needsHuacal || updatedOdp.getDataValue('chk_huacal');
+      const isCartonDone = !needsCarton || updatedOdp.getDataValue('chk_carton');
+
+      if (isMedicionDone && isCorteDone && isVidrioDone && isAccesoriosDone && isEnsambleDone && isMatizadoDone && isPeliculaDone && isHuacalDone && isCartonDone) {
+        await updatedOdp.update({ estado_produccion: 'LISTO_INSTALAR' }, { transaction });
+        console.log(`✅ ODP ${updatedOdp.getDataValue('numero_odp')} marcada automáticamente como LISTO_INSTALAR.`);
+      }
+    }
 
     // Actualizar cristales si vienen en la data
     if (data.items && Array.isArray(data.items)) {
@@ -229,6 +286,28 @@ export const updateODP = async (req: Request, res: Response) => {
 
     await transaction.commit();
 
+    // ─── Regla automática: ODP padre → INSTALADA cuando el reproceso se completa ───
+    if (data.estado_produccion === 'INSTALADA' && odp.getDataValue('es_no_conformidad') && odp.getDataValue('odp_padre_id')) {
+      try {
+        const { HistorialEstadoODP } = await import('../models');
+        const odpPadre = await ODP.findByPk(odp.getDataValue('odp_padre_id'));
+        if (odpPadre && odpPadre.getDataValue('estado_produccion') === 'PAUSADA') {
+          await odpPadre.update({ estado_produccion: 'INSTALADA' });
+          await HistorialEstadoODP.create({
+            odp_id: odpPadre.getDataValue('id'),
+            estado_anterior: 'PAUSADA',
+            estado_nuevo: 'INSTALADA',
+            usuario_id: (req as any).user?.id || null,
+            fecha: new Date(),
+            observacion: `Completada automáticamente: la ODP de reproceso ${odp.getDataValue('numero_odp')} resolvió la no conformidad.`
+          });
+          console.log(`✅ ODP padre ${odpPadre.getDataValue('numero_odp')} → INSTALADA (reproceso completado)`);
+        }
+      } catch (autoErr) {
+        console.error('⚠️ Error al completar ODP padre:', autoErr);
+      }
+    }
+
     // Broadcast change
     import('../server').then(({ io }) => {
       let msg = `La orden ${odp.getDataValue('numero_odp')} ha sido actualizada.`;
@@ -237,6 +316,10 @@ export const updateODP = async (req: Request, res: Response) => {
         const pedExterior = odp.getDataValue('numero_pedido_proveedor');
         const prov = odp.getDataValue('proveedor_vidrio');
         msg = `¡ATENCIÓN! El vidrio de la ODP ${odp.getDataValue('numero_odp')} (Pedido externo: ${pedExterior || 'N/A'} - ${prov || 'N/A'}) acaba de llegar al taller.`;
+      }
+
+      if (data.estado_produccion === 'INSTALADA' && odp.getDataValue('es_no_conformidad')) {
+        msg = `✅ ODP de reproceso ${odp.getDataValue('numero_odp')} ha sido instalada. La ODP original ha sido reactivada automáticamente.`;
       }
 
       io.emit('notification', {

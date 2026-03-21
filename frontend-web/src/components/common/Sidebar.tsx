@@ -12,7 +12,8 @@ import {
   Calculator,
   HardHat,
   Truck,
-  Settings
+  Settings,
+  Sliders
 } from 'lucide-react';
 
 /**
@@ -90,6 +91,13 @@ const MENU_ITEMS_CONFIG = [
     icon: Settings,
     path: '/usuarios',
     allowedRoles: ['admin'],
+    section: 'admin'
+  },
+  {
+    text: 'Configuración',
+    icon: Sliders,
+    path: '/configuracion',
+    allowedRoles: ['admin', 'gerencia'],
     section: 'admin'
   },
 ];

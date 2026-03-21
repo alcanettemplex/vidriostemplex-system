@@ -1,16 +1,16 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { PieChart, List, FileCheck, CheckCircle2, FileText, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Settings } from 'lucide-react';
 import BarrasVerticales from '../charts/BarrasVerticales';
 import LineaVsBarras from '../charts/LineaVsBarras';
 import DonutChart from '../charts/DonutChart';
 
 /** Constantes de Formato y UX */
-const fmtCOP = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 const fmtM = (n: number) => {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return fmtCOP(n);
+  return `$${n}`;
 };
 
 const ESTADO_COLORS: Record<string, string> = {
@@ -24,6 +24,7 @@ const ESTADO_COLORS: Record<string, string> = {
   PROGRAMADA: '#14b8a6',
   INSTALADA: '#22c55e',
   ENTREGADA: '#10b981',
+  PAUSADA: '#e11d48',
 };
 
 const ESTADO_LABELS: Record<string, string> = {
@@ -37,30 +38,26 @@ const ESTADO_LABELS: Record<string, string> = {
   PROGRAMADA: 'Prog.',
   INSTALADA: 'Instalada',
   ENTREGADA: 'Entregada',
+  PAUSADA: 'Pausada',
 };
 
 export const PanelGeneral: React.FC<{ data: any, isLoading: boolean }> = ({ data, isLoading }) => {
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => <div key={i} className="h-32 bg-slate-200 animate-pulse rounded-2xl" />)}
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          {[1,2,3,4].map(i => <div key={i} className="h-20 bg-white border border-slate-200 animate-pulse rounded" />)}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-80 bg-slate-200 animate-pulse rounded-2xl" />
-          <div className="h-80 bg-slate-200 animate-pulse rounded-2xl" />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-72 bg-slate-200 animate-pulse rounded-2xl" />
-          <div className="h-72 bg-slate-200 animate-pulse rounded-2xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div className="h-60 bg-white border border-slate-200 animate-pulse rounded" />
+          <div className="h-60 bg-white border border-slate-200 animate-pulse rounded" />
         </div>
       </div>
     );
   }
 
-  if (!data) return <div className="p-8 text-center text-slate-500">Sin datos disponibles.</div>;
+  if (!data) return <div className="p-8 text-center text-[12px] text-slate-500">Sin datos operativos.</div>;
 
-  // -- Procesar datos para gráficos
   const chartDataEstados = data.odps_por_estado?.map((s: any) => ({
     name: ESTADO_LABELS[s.estado] || s.estado,
     cantidad: s.cantidad,
@@ -72,186 +69,155 @@ export const PanelGeneral: React.FC<{ data: any, isLoading: boolean }> = ({ data
     pct: c.pct
   })) || [];
 
-  const cajaColors = {
-    CANCELADO: '#22c55e',
-    ABONADO: '#eab308',
+  const cajaColors: any = {
+    CANCELADO: '#10b981',
+    ABONADO: '#f59e0b',
     CREDITO_APROBADO: '#3b82f6',
-    PENDIENTE: '#ef4444'
+    PENDIENTE: '#e24b4a'
   };
 
-  const embudoData = [
-    { key: 'creadas', label: 'ODP Creadas', val: data.embudo_conversion?.creadas || 0 },
-    { key: 'en_produccion', label: 'En Producción', val: data.embudo_conversion?.en_produccion || 0 },
-    { key: 'instaladas', label: 'Instaladas', val: data.embudo_conversion?.instaladas || 0 },
-    { key: 'entregadas', label: 'Entregadas', val: data.embudo_conversion?.entregadas || 0 },
-    { key: 'facturadas', label: 'Facturadas', val: data.embudo_conversion?.facturadas || 0 },
-  ];
-  const maxEmbudo = Math.max(...embudoData.map(d => d.val), 1);
+  const embudoKeys = ['creadas', 'en_produccion', 'instaladas', 'entregadas', 'facturadas'];
+  const embudoLabels = ['ODP creadas', 'En producción', 'Instaladas', 'Entregadas', 'Facturadas'];
+  const embudoColors = ['#3266ad', '#5a8dc2', '#7baed4', '#a2c8e0', '#c5dded'];
+  
+  const embudoVals = embudoKeys.map(k => data.embudo_conversion?.[k] || 0);
+  const maxEmbudo = Math.max(...embudoVals, 1);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+    <div className="space-y-4">
       
       {/* ─── 1. KPI CARDS ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* ODPs activas */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-          <p className="text-sm font-semibold text-slate-500 mb-1">ODPs Activas (en Taller)</p>
-          <div className="flex items-end justify-between">
-            <h3 className="text-3xl font-extrabold text-slate-800">{data.odps_activas}</h3>
-            {data.odps_activas_delta_pct !== undefined && (
-              <span className={`text-xs font-bold px-2 py-1 rounded-full ${data.odps_activas_delta_pct > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                {data.odps_activas_delta_pct > 0 ? '+' : ''}{data.odps_activas_delta_pct}%
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Facturado Mes */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-          <p className="text-sm font-semibold text-slate-500 mb-1">Facturado Este Mes</p>
-          <div className="flex items-end justify-between">
-            <h3 className="text-3xl font-extrabold text-slate-800">{fmtM(data.facturado_mes)}</h3>
-            {data.facturado_mes_delta_pct !== undefined && (
-              <span className={`text-xs font-bold px-2 py-1 rounded-full ${data.facturado_mes_delta_pct > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                {data.facturado_mes_delta_pct > 0 ? '+' : ''}{data.facturado_mes_delta_pct}%
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Cartera Vencida */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-          <p className="text-sm font-semibold text-slate-500 mb-1">Cartera Vencida</p>
-          <div className="flex items-end justify-between">
-            <h3 className={`text-3xl font-extrabold ${data.cartera_vencida_total > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-              {fmtM(data.cartera_vencida_total)}
-            </h3>
-            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
-              {data.cartera_vencida_clientes} clientes
-            </span>
-          </div>
-        </div>
-
-        {/* Tasa Entrega */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-1">
-            <p className="text-sm font-semibold text-slate-500">Tasa Entrega a Tiempo</p>
-            <span className="text-xs font-bold text-slate-400">Meta: {data.meta_entrega_tiempo_pct}%</span>
-          </div>
-          <div className="mt-2">
-            <div className="flex justify-between items-end mb-1">
-              <h3 className="text-2xl font-extrabold text-slate-800">{data.tasa_entrega_tiempo_pct}%</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white p-3 border border-slate-200 rounded text-[11px]">
+          <div className="text-slate-500 mb-1">ODPs activas</div>
+          <div className="text-[20px] font-medium text-slate-800">{data.odps_activas}</div>
+          {data.odps_activas_delta_pct !== undefined && (
+            <div className={`mt-0.5 ${data.odps_activas_delta_pct > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {data.odps_activas_delta_pct > 0 ? '+' : ''}{data.odps_activas_delta_pct}% vs mes ant.
             </div>
-            <div className="w-full bg-slate-100 rounded-full h-2">
-              <div 
-                className={`h-2 rounded-full ${data.tasa_entrega_tiempo_pct >= data.meta_entrega_tiempo_pct ? 'bg-emerald-500' : 'bg-amber-500'}`} 
-                style={{ width: `${Math.min(data.tasa_entrega_tiempo_pct, 100)}%` }}>
-              </div>
+          )}
+        </div>
+
+        <div className="bg-white p-3 border border-slate-200 rounded text-[11px] relative">
+          <div className="text-slate-500 mb-1 flex justify-between items-center group">
+            <span>Facturado mes</span>
+            <div className="flex items-center gap-1.5">
+              {data.meta_facturacion_actual > 0 && <span>Meta: {fmtM(data.meta_facturacion_actual)}</span>}
+              <Link to="/configuracion" title="Ajustar Meta Variable Mensual" className="inline-flex p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors opacity-60 group-hover:opacity-100">
+                <Settings className="w-3.5 h-3.5" />
+              </Link>
             </div>
+          </div>
+          <div className="text-[20px] font-medium text-slate-800">{fmtM(data.facturado_mes)}</div>
+          {data.facturado_mes_delta_pct !== undefined && (
+            <div className={`mt-0.5 ${data.facturado_mes_delta_pct > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {data.facturado_mes_delta_pct > 0 ? '+' : ''}{data.facturado_mes_delta_pct}%
+            </div>
+          )}
+          {data.meta_facturacion_actual > 0 && (
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-100 rounded-b overflow-hidden">
+               <div className="h-full bg-blue-600" style={{ width: `${Math.min((data.facturado_mes / data.meta_facturacion_actual) * 100, 100)}%` }}></div>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white p-3 border border-slate-200 rounded text-[11px]">
+          <div className="text-slate-500 mb-1">Cartera vencida</div>
+          <div className="text-[20px] font-medium text-slate-800">{fmtM(data.cartera_vencida_total)}</div>
+          <div className="mt-0.5 text-rose-600">{data.cartera_vencida_clientes} clientes</div>
+        </div>
+
+        <div className="bg-white p-3 border border-slate-200 rounded text-[11px]">
+          <div className="text-slate-500 mb-1 flex justify-between">
+            <span>Tasa entrega a tiempo</span>
+            <span>Meta: {data.meta_entrega_tiempo_pct}%</span>
+          </div>
+          <div className="text-[20px] font-medium text-slate-800">{data.tasa_entrega_tiempo_pct}%</div>
+          <div className={`mt-0.5 ${data.tasa_entrega_tiempo_pct >= data.meta_entrega_tiempo_pct ? 'text-emerald-600' : 'text-amber-500'}`}>
+             vs {data.meta_entrega_tiempo_pct}% requerido
           </div>
         </div>
       </div>
 
       {/* ─── 2. CHARTS PRIMCIPAL ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* ODPs por Estado */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h4 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <List className="w-5 h-5 text-indigo-500"/> ODPs Activas por Estado
-          </h4>
-          <BarrasVerticales 
-            data={chartDataEstados} 
-            dataKeyName="name" 
-            dataKeyValue="cantidad"
-            color="#818cf8"
-          />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="bg-white p-3 border border-slate-200 rounded">
+          <div className="text-[12px] font-medium text-slate-500 uppercase tracking-wider mb-3">ODPs por estado actual</div>
+          <div className="h-[200px]">
+            <BarrasVerticales 
+              data={chartDataEstados} 
+              dataKeyName="name" 
+              dataKeyValue="cantidad"
+              color="#818cf8"
+            />
+          </div>
         </div>
 
-        {/* Facturación 6 Meses */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h4 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <PieChart className="w-5 h-5 text-emerald-500"/> Facturación Histórica vs Meta
-          </h4>
-          <LineaVsBarras 
-            data={data.facturacion_6_meses || []} 
-            xKey="mes" 
-            barsKey="real" 
-            lineKey="meta" 
-            yAxisFormatter={fmtM}
-          />
+        <div className="bg-white p-3 border border-slate-200 rounded">
+          <div className="text-[12px] font-medium text-slate-500 uppercase tracking-wider mb-3">Facturación últimos 6 meses (COP)</div>
+          <div className="h-[200px]">
+            <LineaVsBarras 
+              data={data.facturacion_6_meses || []} 
+              xKey="mes" 
+              barsKey="real" 
+              lineKey="meta" 
+              yAxisFormatter={fmtM}
+            />
+          </div>
         </div>
       </div>
 
       {/* ─── 3. EMBUDO & CAJA ────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         
-        {/* Embudo */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h4 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <ArrowRight className="w-5 h-5 text-blue-500"/> Embudo Operativo Mensual
-          </h4>
-          <div className="space-y-4 pt-2">
-            {embudoData.map((d, i) => {
-              const widthPct = Math.max((d.val / maxEmbudo) * 100, 5); // min 5% visual
-              const isLast = i === embudoData.length - 1;
-              const nextVal = isLast ? 0 : embudoData[i+1].val;
-              const conversion = d.val > 0 ? Math.round((nextVal / d.val) * 100) : 0;
-
+        <div className="bg-white p-3 border border-slate-200 rounded">
+          <div className="text-[12px] font-medium text-slate-500 uppercase tracking-wider mb-2">Embudo de conversión de órdenes</div>
+          <div className="mt-2 text-[11px]">
+            {embudoLabels.map((lbl, i) => {
+              const val = embudoVals[i];
+              const wPct = Math.max((val / maxEmbudo) * 100, 5); // at least 5% bar
+              const pctOfTotal = embudoVals[0] > 0 ? Math.round((val / embudoVals[0]) * 100) : 0;
               return (
-                <div key={d.key} className="relative">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-slate-600 w-32 truncate">{d.label}</span>
-                    <div className="flex-1 bg-slate-50 rounded-r-md h-8 relative flex items-center">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${widthPct}%` }}
-                        className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-r-md"
-                      />
-                      <span className="relative z-10 text-white font-bold text-sm pl-3 shadow-sm">{d.val}</span>
-                    </div>
+                <div key={lbl} className="flex items-center gap-2 mb-1.5">
+                  <span className="text-slate-500 w-[120px] shrink-0">{lbl}</span>
+                  <div 
+                    className="h-[22px] rounded text-white flex items-center px-2 font-medium" 
+                    style={{ width: `${wPct}%`, background: embudoColors[i], minWidth: '30px' }}
+                  >
+                    {val}
                   </div>
-                  {/* Etiqueta de conversión intermedia */}
-                  {!isLast && d.val > 0 && (
-                     <div className="ml-[140px] border-l-2 border-slate-200 pl-2 py-1 mt-1 mb-1 relative">
-                       <span className="text-[10px] font-bold text-slate-400 bg-white absolute -left-2.5 px-1 top-1.5">{conversion}% pasan</span>
-                     </div>
-                  )}
+                  <span className="text-slate-500 ml-1">{pctOfTotal}%</span>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Donut Caja */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-          <h4 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-amber-500"/> Estado de Ingresos y Cartera
-          </h4>
-          <div className="flex-1 flex items-center px-4">
-            <div className="w-1/2">
+        <div className="bg-white p-3 border border-slate-200 rounded">
+          <div className="text-[12px] font-medium text-slate-500 uppercase tracking-wider mb-2">Estado de caja</div>
+          <div className="flex items-center gap-5 h-[200px]">
+            <div className="w-[140px] h-[140px] shrink-0">
               <DonutChart 
                 data={chartDataCaja} 
                 nameKey="name" 
                 dataKey="pct" 
-                colors={chartDataCaja.map((c: any) => (cajaColors as any)[c.name] || '#94a3b8')} 
+                colors={chartDataCaja.map((c: any) => cajaColors[c.name] || '#94a3b8')} 
               />
             </div>
-            <div className="w-1/2 pl-6 space-y-3">
+            <div className="flex-1 space-y-2">
               {chartDataCaja.map((c: any) => (
-                <div key={c.name} className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: (cajaColors as any)[c.name] || '#94a3b8' }}></span>
-                    <span className="text-xs font-bold text-slate-600 capitalize">{c.name.replace('_', ' ')}</span>
-                  </div>
-                  <span className="text-sm font-extrabold text-slate-800">{c.pct}%</span>
+                <div key={c.name} className="flex items-center text-[12px] text-slate-800">
+                  <span className="w-2.5 h-2.5 rounded-sm shrink-0 mr-2" style={{ background: cajaColors[c.name] || '#94a3b8' }}></span>
+                  <span className="capitalize">{c.name.replace('_', ' ')}</span>
+                  <span className="ml-auto font-medium">{c.pct}%</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
-
       </div>
-    </motion.div>
+
+    </div>
   );
 };
 

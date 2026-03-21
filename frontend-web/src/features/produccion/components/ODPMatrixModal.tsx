@@ -176,6 +176,19 @@ const ODPMatrixModal: React.FC<ODPMatrixModalProps> = ({ odp, onClose }) => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Bitácora de Notas (Print only if there are notes) */}
+                    <div className="mt-6">
+                        <h3 className="font-bold bg-black text-white px-2 py-1 mb-2">BITÁCORA DE PRODUCCIÓN / NOTAS TÉCNICAS</h3>
+                        <div className="border border-black min-h-[60px] p-2 space-y-1">
+                            {/* Este espacio se llena manualmente o se muestra si hay registradas */}
+                            <p className="text-[10px] italic text-gray-500 mb-2">Espacio para anotaciones adicionales del taller...</p>
+                            <div className="h-4 border-b border-gray-300"></div>
+                            <div className="h-4 border-b border-gray-300"></div>
+                            <div className="h-4 border-b border-gray-300"></div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <style dangerouslySetInnerHTML={{

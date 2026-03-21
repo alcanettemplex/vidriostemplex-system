@@ -14,6 +14,7 @@ import ReportesPage from '../features/reportes/ReportesPage';
 import ComprasPage from '../features/compras/ComprasPage';
 import ContabilidadPage from '../features/contabilidad/ContabilidadPage';
 import UsuariosPage from '../features/usuarios/UsuariosPage';
+import ConfiguracionPage from '../features/configuracion/ConfiguracionPage';
 
 const AppRoutes: React.FC = () => (
   <Router>
@@ -34,6 +35,7 @@ const AppRoutes: React.FC = () => (
             <Route path="/compras" element={<ComprasPage />} />
             <Route path="/contabilidad" element={<ContabilidadPage />} />
             <Route path="/usuarios" element={<UsuariosPage />} />
+            <Route path="/configuracion" element={<ConfiguracionPage />} />
           </Route>
         </Routes>
       </main>

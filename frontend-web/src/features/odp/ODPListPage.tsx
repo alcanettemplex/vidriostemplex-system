@@ -33,6 +33,7 @@ const getStatusColor = (estado: string) => {
         case 'LISTO_INSTALAR': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
         case 'PROGRAMADA': return 'bg-amber-100 text-amber-800 border-amber-200';
         case 'ENTREGADA': case 'INSTALADA': return 'bg-gray-100 text-gray-800 border-gray-200';
+        case 'PAUSADA': return 'bg-rose-100 text-rose-800 border-rose-200';
         default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
 };
@@ -179,7 +180,12 @@ const ODPListPage: React.FC = () => {
                                         key={odp.id}
                                         className="hover:bg-slate-50/80 transition group"
                                     >
-                                        <td className="px-6 py-4 font-medium text-blue-600">#{odp.numero_odp}</td>
+                                        <td className="px-6 py-4 font-medium text-blue-600">
+                                            <div className="flex items-center gap-1.5">
+                                                {(odp as any).es_no_conformidad && <span className="text-[9px] font-black bg-amber-500 text-white px-1 py-0.5 rounded leading-none">NC</span>}
+                                                #{odp.numero_odp}
+                                            </div>
+                                        </td>
                                         <td className="px-6 py-4 text-slate-700 font-medium">{odp.cliente.nombre_razon_social}</td>
                                         <td className="px-6 py-4 text-slate-500">{odp.asesor.nombre_completo}</td>
                                         <td className="px-6 py-4 text-slate-600 font-medium">{odp.items?.length || 0}</td>

@@ -26,6 +26,7 @@ const estadoProdColor: Record<string, string> = {
   PROGRAMADA: 'bg-amber-100 text-amber-700 border-amber-200',
   INSTALADA: 'bg-green-100 text-green-700 border-green-200',
   ENTREGADA: 'bg-gray-100 text-gray-700 border-gray-200',
+  PAUSADA: 'bg-rose-100 text-rose-700 border-rose-200',
 };
 
 const cajaColor: Record<string, string> = {
@@ -610,9 +611,18 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(initialTab);
   const [showReportarForm, setShowReportarForm] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const token = localStorage.getItem('token');
+
+  // Obtener usuario actual para validar permisos
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      if (stored) setCurrentUser(JSON.parse(stored));
+    } catch { /* ignorar */ }
+  }, []);
 
   const fetchODP = async () => {
     try {
@@ -663,13 +673,33 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
           <div className="h-24 bg-white border-b border-slate-200 animate-pulse" />
         ) : odp && (
           <div className="bg-white border-b border-slate-200 px-6 py-4 flex-shrink-0">
+            {/* Banner visual: ODP de Reproceso */}
+            {odp.es_no_conformidad && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 mb-3 flex items-center gap-2 text-xs">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                <span className="font-black text-amber-700">ODP DE REPROCESO</span>
+                <span className="text-amber-600">·</span>
+                <span className="text-amber-600">Referencia: <strong>{odp.odp_padre?.numero_odp || `ODP Padre #${odp.odp_padre_id}`}</strong></span>
+              </div>
+            )}
+            {/* Banner: ODP Pausada por No Conformidad */}
+            {odp.estado_produccion === 'PAUSADA' && (
+              <div className="bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5 mb-3 flex items-center gap-2 text-xs">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                <span className="font-black text-rose-700">ODP PAUSADA</span>
+                <span className="text-rose-500">Esta ODP tiene un reporte de No Conformidad activo. Se marcará como completada al instalar la ODP de reproceso.</span>
+              </div>
+            )}
             <div className="flex justify-between items-start">
               <div className="flex items-start gap-4">
                 <div className="hidden md:flex flex-col items-center gap-1 pt-1">
-                  <div className={`w-3 h-3 rounded-full ${odp.estado_produccion === 'INSTALADA' || odp.estado_produccion === 'ENTREGADA' ? 'bg-emerald-500' : 'bg-amber-400'} animate-pulse`} />
+                  <div className={`w-3 h-3 rounded-full ${odp.estado_produccion === 'INSTALADA' || odp.estado_produccion === 'ENTREGADA' ? 'bg-emerald-500' : odp.estado_produccion === 'PAUSADA' ? 'bg-rose-500' : 'bg-amber-400'} animate-pulse`} />
                 </div>
                 <div>
                   <div className="flex items-center gap-3 flex-wrap">
+                    {odp.es_no_conformidad && (
+                      <span className="text-[10px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded">REPROCESO</span>
+                    )}
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">{odp.numero_odp}</h1>
                     <Badge className={estadoProdColor[odp.estado_produccion] || 'bg-slate-100 text-slate-700 border-slate-200'}>
                       {odp.estado_produccion?.replace(/_/g, ' ')}
@@ -686,10 +716,20 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => setShowReportarForm(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-rose-50 border border-rose-200 text-rose-600 rounded-lg hover:bg-rose-100 transition print:hidden">
-                  <AlertCircle className="w-3.5 h-3.5" /> REPORTAR PROBLEMA
-                </button>
+                {/* Botón Reportar: solo asesor dueño, producción, gerencia o admin */}
+                {(() => {
+                  if (!currentUser) return null;
+                  const role = currentUser.rol;
+                  const isOwner = role === 'asesor' && currentUser.id === odp.asesor_id;
+                  const canReport = ['admin', 'gerencia', 'produccion'].includes(role) || isOwner;
+                  if (!canReport || odp.estado_produccion === 'PAUSADA') return null;
+                  return (
+                    <button onClick={() => setShowReportarForm(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-rose-50 border border-rose-200 text-rose-600 rounded-lg hover:bg-rose-100 transition print:hidden">
+                      <AlertCircle className="w-3.5 h-3.5" /> REPORTAR PROBLEMA
+                    </button>
+                  );
+                })()}
                 <button onClick={() => setActiveTab('imprimir')}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition print:hidden">
                   <Printer className="w-3.5 h-3.5" /> Imprimir

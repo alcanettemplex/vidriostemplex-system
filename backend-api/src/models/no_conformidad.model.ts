@@ -6,6 +6,7 @@ class NoConformidad extends Model { }
 NoConformidad.init({
   id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
   odp_id: { type: DataTypes.INTEGER, allowNull: false },
+  nueva_odp_id: { type: DataTypes.INTEGER, allowNull: true },
   numero_reporte: { type: DataTypes.STRING(20) },
   fecha: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   tipo_error: { 

@@ -14,7 +14,13 @@ const allowedOrigins = [
 
 export const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const cleanOrigin = origin.replace(/\/$/, "");
+      const isAllowed = allowedOrigins.some(allowed => allowed.replace(/\/$/, "") === cleanOrigin);
+      if (isAllowed) return callback(null, true);
+      return callback(new Error(`Origen no autorizado por CORS en Socket.io: ${origin}`));
+    },
     methods: ['GET', 'POST'],
     credentials: true,
   },
