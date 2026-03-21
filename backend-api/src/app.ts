@@ -32,7 +32,9 @@ app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
     const cleanOrigin = origin.replace(/\/$/, "");
-    const isAllowed = allowedOrigins.some(allowed => allowed.replace(/\/$/, "") === cleanOrigin);
+    const isAllowed = allowedOrigins.some(allowed => allowed.replace(/\/$/, "") === cleanOrigin) || 
+                      cleanOrigin.endsWith('.netlify.app') || 
+                      cleanOrigin.endsWith('.vercel.app');
     if (isAllowed) return callback(null, true);
     return callback(new Error(`Origen no autorizado por CORS: ${origin}`));
   },
