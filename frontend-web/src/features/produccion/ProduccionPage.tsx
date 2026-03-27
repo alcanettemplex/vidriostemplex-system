@@ -58,6 +58,7 @@ interface ODP {
     chk_huacal: boolean;
     chk_carton: boolean;
     es_no_conformidad?: boolean;
+    tomas_medidas?: { numero_tm: string; croquis_url: string | null }[];
 }
 
 const activeStates = ['EN_ESPERA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'PAUSADA'];
@@ -407,7 +408,24 @@ const ProduccionPage: React.FC = () => {
                                                         <div>
                                                             <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Checklist de Requisitos</h4>
                                                             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                                                                {renderCheckItem(odp, 'chk_medicion', 'Medición', Ruler, true)}
+                                                                {(() => {
+                                                                    const tm = odp.tomas_medidas?.find(t => t.croquis_url);
+                                                                    const checked = odp.chk_medicion;
+                                                                    return (
+                                                                        <div
+                                                                            className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all select-none
+                                                                                ${checked ? 'bg-emerald-50 border-emerald-500 text-emerald-700 cursor-default' : 'bg-white border-slate-200 text-slate-500 cursor-pointer hover:border-indigo-300 hover:bg-slate-50'}`}
+                                                                            onClick={() => !checked && toggleCheck(odp, 'chk_medicion')}
+                                                                        >
+                                                                            <div className="relative">
+                                                                                <Ruler className={`w-6 h-6 mb-1 ${checked ? 'text-emerald-500' : 'text-slate-400'}`} />
+                                                                                {checked && <CheckCircle2 className="w-4 h-4 absolute -bottom-1 -right-1 text-emerald-500 bg-white rounded-full" />}
+                                                                            </div>
+                                                                            <span className="text-[10px] font-black uppercase tracking-tight text-center leading-none">Medición</span>
+                                                                            {tm && <span className="text-[9px] font-bold text-emerald-600 mt-0.5 leading-none">{tm.numero_tm}</span>}
+                                                                        </div>
+                                                                    );
+                                                                })()}
                                                                 {renderCheckItem(odp, 'chk_corte', 'Aluminio', Scissors, true)}
                                                                 {renderCheckItem(odp, 'chk_vidrio', 'Vidrio', Layers, true)}
                                                                 {renderCheckItem(odp, 'chk_accesorios', 'Herrajes', Package, true)}

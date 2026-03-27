@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { getSAPsByODP, createSAP, updateSAP } from '../controllers/sap.controller';
 import { getCotizacionesByODP, createCotizacion, updateCotizacion } from '../controllers/cotizacion.controller';
-import { getTMsByODP, createTM, updateTM } from '../controllers/toma_medidas.controller';
+import { getTMsByODP, getTMPanel, createTM, updateTM, uploadFotoTM } from '../controllers/toma_medidas.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
+import { uploadConfig } from '../config/upload';
 
 const router = Router();
 
@@ -18,8 +19,10 @@ router.post('/cotizacion', authMiddleware, requireRole('admin', 'gerencia', 'ase
 router.put('/cotizacion/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial'), updateCotizacion);
 
 // TM routes — Solo jefe_produccion y admin
+router.get('/tm/panel', authMiddleware, requireRole('admin', 'jefe_produccion'), getTMPanel);
 router.get('/tm/odp/:odp_id', authMiddleware, getTMsByODP);
 router.post('/tm', authMiddleware, requireRole('admin', 'jefe_produccion'), createTM);
 router.put('/tm/:id', authMiddleware, requireRole('admin', 'jefe_produccion'), updateTM);
+router.post('/tm/:id/foto', authMiddleware, requireRole('admin', 'jefe_produccion'), uploadConfig.single('foto'), uploadFotoTM);
 
 export default router;

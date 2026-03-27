@@ -119,6 +119,24 @@ export const getPagos = async (_req: Request, res: Response) => {
 };
 
 /**
+ * Lista los pagos de una ODP específica.
+ */
+export const getPagosPorODP = async (req: Request, res: Response) => {
+  try {
+    const { odp_id } = req.params;
+    const pagos = await Pago.findAll({
+      where: { odp_id: Number(odp_id) },
+      include: [{ model: Usuario, as: 'registrador', attributes: ['id', 'nombre_completo'] }],
+      order: [['fecha', 'ASC']],
+    });
+    res.json(pagos);
+  } catch (error) {
+    console.error('Error al obtener pagos por ODP:', error);
+    res.status(500).json({ error: 'Error al obtener pagos de la ODP' });
+  }
+};
+
+/**
  * Registra un pago y actualiza automáticamente el abono y pendiente de la ODP.
  * Cambia el estado_caja a ABONADO o CANCELADO según corresponda.
  */

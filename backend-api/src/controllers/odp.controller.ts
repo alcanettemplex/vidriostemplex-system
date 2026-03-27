@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ODP, ODPItem, Cliente, Usuario, sequelize } from '../models';
+import Pago from '../models/pago.model';
 import { z } from 'zod';
 
 const odpItemSchema = z.object({
@@ -16,12 +17,14 @@ const odpItemSchema = z.object({
   huacal: z.boolean().optional(),
   accesorios: z.string().optional(),
   pulidos: z.string().optional(),
+  pulidos_h: z.string().optional(),
   perforaciones: z.number().int().nonnegative().nullable().optional().default(0),
   boquetes: z.number().int().nonnegative().nullable().optional().default(0),
   descuentos: z.string().optional(),
   otros: z.string().optional(),
   mts_pt_a: z.string().optional(),
   mts_pt_h: z.string().optional(),
+  prod: z.string().optional(),
   verificacion_prod: z.boolean().optional().default(false)
 });
 
@@ -29,10 +32,11 @@ const odpSchema = z.object({
   numero_odp: z.string().optional(),
   cliente_id: z.number().int().positive('ID de cliente requerido'),
   asesor_id: z.number().int().positive('ID de asesor requerido').optional(),
-  estado_produccion: z.enum(['EN_ESPERA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA']).default('EN_ESPERA'),
+  estado_produccion: z.enum(['EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA']).default('EN_ESPERA'),
   estado_facturacion: z.enum(['PENDIENTE', 'FACTURADA']).default('PENDIENTE'),
   estado_caja: z.enum(['PENDIENTE', 'ABONADO', 'CANCELADO', 'CREDITO_APROBADO']).default('PENDIENTE'),
   factura_electronica: z.string().optional(),
+  fecha_factura: z.string().optional(),
   url_documento_factura: z.string().optional(),
   autorizacion_especial_despacho: z.boolean().default(false),
   observacion_autorizacion: z.string().optional(),
@@ -53,6 +57,7 @@ const odpSchema = z.object({
   huacal: z.boolean().optional().default(false),
   carton: z.boolean().optional().default(false),
   forma_pago: z.string().optional(),
+  valor_total: z.number().nullable().optional(),
   abono: z.number().nullable().optional(),
   pendiente: z.number().nullable().optional(),
   proveedor_vidrio: z.string().optional(),
@@ -77,7 +82,8 @@ export const getODPs = async (req: Request, res: Response) => {
       include: [
         { model: Cliente, as: 'cliente' },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
-        { model: ODPItem, as: 'items' }
+        { model: ODPItem, as: 'items' },
+        { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'fecha'], separate: true, order: [['fecha', 'ASC']] }
       ],
       order: [['fecha_creacion', 'DESC']]
     });
@@ -139,11 +145,12 @@ export const getODP = async (req: Request, res: Response) => {
           order: [['fecha', 'DESC']],
           separate: true,
         },
-        { 
-          model: (await import('../models')).NotaProduccion, 
-          as: 'notas_produccion', 
+        {
+          model: (await import('../models')).NotaProduccion,
+          as: 'notas_produccion',
           include: [{ model: (await import('../models')).Usuario, as: 'usuario', attributes: ['nombre_completo'] }]
-        }
+        },
+        { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'fecha'], separate: true, order: [['fecha', 'ASC']] }
       ],
     });
 
@@ -194,8 +201,9 @@ export const createODP = async (req: Request, res: Response) => {
       huacal: data.huacal,
       carton: data.carton,
       forma_pago: data.forma_pago,
+      valor_total: data.valor_total || 0,
       abono: data.abono || 0,
-      pendiente: data.pendiente || 0
+      pendiente: data.valor_total ? Math.max(0, (data.valor_total || 0) - (data.abono || 0)) : (data.pendiente || 0),
     };
 
     const newOdp = await ODP.create(odpData as any, { transaction: t });
@@ -235,6 +243,13 @@ export const updateODP = async (req: Request, res: Response) => {
          await transaction.rollback();
          return res.status(400).json({ error: 'No se puede procesar (película/matizado/huacal/cartón) sin haber recibido el vidrio primero.' });
       }
+    }
+
+    // Recalcular pendiente si viene valor_total o abono
+    if (data.valor_total !== undefined || data.abono !== undefined) {
+      const nuevoValorTotal = data.valor_total !== undefined ? (data.valor_total || 0) : (Number(odp.getDataValue('valor_total')) || 0);
+      const nuevoAbono = data.abono !== undefined ? (data.abono || 0) : (Number(odp.getDataValue('abono')) || 0);
+      (data as any).pendiente = Math.max(0, nuevoValorTotal - nuevoAbono);
     }
 
     // Actualizar campos de la ODP (incluyendo los booleanos, JSONs, y observaciones nuevas)

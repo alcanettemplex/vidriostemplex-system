@@ -18,7 +18,7 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                 .thick-b { border-bottom: 2px solid #000 !important; }
                 .fs-8 { font-size: 8px; }
                 .fs-7 { font-size: 7px; }
-                
+
                 @media print {
                     .print-container { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 }
@@ -56,7 +56,7 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                         <tr>
                             <td colSpan={2} className="font-bold border-r-0">
                                 <div className="flex items-center justify-between">
-                                    <span>DIRECCION: <span className="font-normal uppercase ml-1">{odp.direccion_instalacion || odp.cliente?.direccion}</span></span>
+                                    <span>DIRECCION: <span className="font-normal uppercase ml-1">{odp.cliente?.direccion}</span></span>
                                     <span className="border-l border-black pl-2 ml-2">NIT O C.C: <span className="font-normal uppercase ml-1">{odp.cliente?.numero_documento || odp.cliente?.ruc_rut}</span></span>
                                 </div>
                             </td>
@@ -64,9 +64,9 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                         </tr>
                         <tr>
                             <td colSpan={2} className="font-bold border-r-0">
-                                <div className="flex">
-                                    <span className="w-1/2">INCON DUP INFO METODO:</span>
-                                    <span className="w-1/2 border-l border-black pl-2">CORREO FACTURA ELECTRONICA: <span className="font-normal lowercase ml-1">{odp.cliente?.email}</span></span>
+                                <div className="flex items-center justify-between">
+                                    <span>FECHA ODP LISTO MATERIAL: <span className="font-normal uppercase ml-1">{odp.fecha_entrega ? format(new Date(odp.fecha_entrega), 'dd/MM/yyyy') : ''}</span></span>
+                                    <span className="border-l border-black pl-2 ml-2">CORREO FACTURA ELECTRONICA: <span className="font-normal lowercase ml-1">{odp.cliente?.email}</span></span>
                                 </div>
                             </td>
                             <td className="font-bold">SEGM: <span className="font-normal uppercase ml-1">{odp.cliente?.segmento}</span></td>
@@ -107,30 +107,32 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                 <table className="excel-table text-center uppercase">
                     <thead>
                         <tr className="font-bold">
-                            <th rowSpan={2} className="w-8">ITEM</th>
-                            <th rowSpan={2} className="w-8">CL</th>
-                            <th rowSpan={2} className="w-10">ESP<br />mm</th>
-                            <th rowSpan={2} className="w-10">CANT</th>
-                            <th colSpan={2} className="w-[12%]">MEDIDAS EXACTAS</th>
-                            <th colSpan={7}>ACABADOS</th>
-                            <th rowSpan={2} className="w-10">MTS<br />PT</th>
-                            <th rowSpan={2} className="w-[15%]">VALOR</th>
-                            <th rowSpan={2} className="w-10">PROD</th>
+                            <th rowSpan={3} className="w-8">ITEM</th>
+                            <th rowSpan={3} className="w-6">CL</th>
+                            <th rowSpan={3} className="w-8">ESP<br />mm</th>
+                            <th rowSpan={3} className="w-8">CANT</th>
+                            <th colSpan={2} className="w-[18%]">MEDIDA EXACTA</th>
+                            <th colSpan={6}>ACABADOS</th>
+                            <th rowSpan={3} className="w-10">MTS<br />PT</th>
+                            <th rowSpan={3} className="w-[15%]">VALOR</th>
+                            <th rowSpan={3} className="w-10">PROD</th>
                         </tr>
                         <tr className="font-bold fs-[8px]">
-                            <th>Ancho [A]</th>
-                            <th>Alto [H]</th>
-                            <th className="w-6 border-r-0 translate-x-[2px]">T</th>
-                            <th className="w-6 border-l-0 translate-x-[-2px]">T/P</th>
-                            <th className="w-6">Pul.</th>
-                            <th className="w-6">Boq.</th>
-                            <th className="w-6">Per.</th>
-                            <th className="w-6">Bisc*</th>
-                            <th className="w-6">Otro</th>
+                            <th rowSpan={2}>Ancho (A)</th>
+                            <th rowSpan={2}>Alto (H)</th>
+                            <th colSpan={2}>PUL *</th>
+                            <th rowSpan={2} className="w-7">Perf</th>
+                            <th rowSpan={2} className="w-7">Boq.</th>
+                            <th rowSpan={2} className="w-7">Des</th>
+                            <th rowSpan={2} className="w-7">Otro**</th>
+                        </tr>
+                        <tr className="font-bold fs-[8px]">
+                            <th className="w-6">A</th>
+                            <th className="w-6">H</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {Array.from({ length: 11 }).map((_, idx) => {
+                        {Array.from({ length: 10 }).map((_, idx) => {
                             const item = odp.items?.[idx];
                             const letter = String.fromCharCode(65 + idx); // A, B, C...
                             return (
@@ -141,58 +143,49 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                                     <td className="font-bold">{item?.cantidad || ''}</td>
                                     <td className="font-bold">{item?.ancho_mm || ''}</td>
                                     <td className="font-bold">{item?.alto_mm || ''}</td>
-                                    <td></td> {/* T placeholder */}
-                                    <td></td> {/* T/P placeholder */}
-                                    <td className="font-bold text-[8px] max-w-[20px] truncate">{item?.pulidos || ''}</td>
-                                    <td className="font-bold">{item?.boquetes > 0 ? item.boquetes : ''}</td>
+                                    <td className="font-bold text-[8px]">{item?.pulidos || ''}</td> {/* PUL A */}
+                                    <td className="font-bold text-[8px]">{item?.pulidos_h || ''}</td> {/* PUL H */}
                                     <td className="font-bold">{item?.perforaciones > 0 ? item.perforaciones : ''}</td>
-                                    <td></td> {/* Bisc placeholder */}
-                                    <td className="font-bold text-[8px] max-w-[30px] truncate">{item?.otros || item?.descuentos || ''}</td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
+                                    <td className="font-bold">{item?.boquetes > 0 ? item.boquetes : ''}</td>
+                                    <td className="font-bold text-[8px] max-w-[20px] truncate">{item?.descuentos || ''}</td> {/* Des */}
+                                    <td className="font-bold text-[8px] max-w-[30px] truncate">{item?.otros || ''}</td> {/* Otro */}
+                                    <td className="font-bold text-[8px] text-center">{item?.ancho_mm && item?.alto_mm ? ((item.ancho_mm / 1000) * (item.alto_mm / 1000)).toFixed(3) : ''}</td> {/* MTS PT */}
+                                    <td></td> {/* VALOR */}
+                                    <td className="font-bold text-[8px] text-center">{item?.prod || ''}</td> {/* PROD */}
                                 </tr>
                             );
                         })}
-
-                        {/* Summary lines mimicking Excel blank rows under table */}
-                        <tr className="h-6">
-                            <td colSpan={14} className="text-left align-top font-bold border-l-0 border-b-0">
-                                ======
-                            </td>
-                            <td className="border-t border-b-0 border-black"></td>
-                            <td className="bg-slate-200 border-none"></td>
-                        </tr>
-                        <tr className="h-6">
-                            <td colSpan={14} className="text-left font-bold border-l-0 border-b-0 border-t-0">
-                                =================================
-                            </td>
-                            <td className="border-b-0 border-t-0 border-black"></td>
-                            <td className="bg-slate-200 border-none"></td>
-                        </tr>
-                        <tr className="h-6">
-                            <td colSpan={14} className="text-left border-l-0 border-t-0 font-bold">
-                                =====================
-                            </td>
-                            <td className="border-b border-t-0 border-black"></td>
-                            <td className="bg-slate-200 border-none"></td>
-                        </tr>
-
-                        <tr>
-                            <td colSpan={16} className="text-left font-bold p-1 border-t-2 border-t-black">ENTREGA SOLICITADA - DIREC: <span className="font-normal uppercase ml-1">{odp.direccion_instalacion}</span></td>
+                        <tr className="h-[5px]">
+                            <td colSpan={15} className="bg-slate-200 border-none"></td>
                         </tr>
                         <tr>
-                            <td colSpan={16} className="text-left font-bold p-1">OBSERVACIONES: <span className="font-normal uppercase ml-1 text-[9px]">{odp.observaciones}</span></td>
+                            <td colSpan={15} className="text-left font-bold border-none pt-1">Asesor: <span className="font-normal ml-2 uppercase text-[9px]">{odp.asesor?.nombre_completo || `${odp.asesor?.first_name} ${odp.asesor?.last_name}`}</span></td>
                         </tr>
                     </tbody>
                 </table>
 
-                {/* ---------- LEGAL & FOOTER ---------- */}
+                <div className="flex justify-between items-end mt-1">
+                    <div className="text-[7.5px] italic font-bold">
+                        *BORDE PUL: Pulido/Brillado (P/B) - Pulido cerrado (PC) -Matado (MF) <br />
+                        ** ACABADOS: Radios (RAD), Chaflan (CHA).
+                    </div>
+                </div>
+
+                {/* ---------- OBSERVACIONES ---------- */}
+                <div className="border-[2px] border-black p-2 mt-1 bg-white min-h-[50px]">
+                    <p className="font-bold uppercase tracking-widest mb-1 text-[11px]">ENTREGA SOLICITADA - DIRECCION: <span className="font-normal">{odp.direccion_instalacion}</span></p>
+                    <p className="font-bold uppercase tracking-widest mt-2 mb-1">OBSERVACIONES:</p>
+                    <p className="text-sm uppercase font-semibold text-slate-700 whitespace-pre-line">
+                        {odp.observaciones}
+                    </p>
+                </div>
+
+                {/* ---------- LEGAL & FIRMA ---------- */}
                 <div className="border-l-[2px] border-r-[2px] border-b-[2px] border-black p-1 text-center bg-white">
                     <p className="text-[5.5px] leading-[7px] text-justify px-2 font-medium text-slate-900 uppercase">
-                        Autorizo a Vidrios y Aluminios TEMPLEX S.A.S. o a quien este designe, ceda o mutue sus derechos para que de manera permanente e irrevocable, con fines de control crediticio, financiero y comercial mi información sea reportada a las centrales de riesgo y/o bases de datos que manejen información de este mismo tipo. La firma de este documento equivale a su aceptación firme según ley en las condiciones indicadas, aceptando que la mercancía se entrega en buen estado y no se aceptan devoluciones pasados los 8 días.
+                        Autorizo de manera voluntaria, previa, expresa e informada a VIDRIOS Y ALUMINIOS TEMPLEX S.A.S. con NIT 900.XXX.XXX-X, para que en los terminos del articulo 10 de la ley 1581 de 2012 en concordancia con el decreto 1377 de 2013, recopile, almacene, use, circule y en general realice el tratamiento de los datos personales de caracter financiero, crediticio, comercial y de servicios, que me identifican o que me hacen identificable, con el proposito de consulta y reporte ante las Centrales de Riesgo y Bases de Datos (CIFIN - DATACRÉDITO - FENALCO - PROCREDITO) que administran informacion de habitos de pago. El incumplimiento de las obligaciones contraidas con VIDRIOS Y ALUMINIOS TEMPLEX S.A.S. autoriza el reporte de dicha informacion. La firma de este documento equivale a su aceptacion firme segun ley en las condiciones indicadas. La mercancia se entrega en buen estado y no se aceptan devoluciones pasados 8 dias.
                     </p>
-                    <p className="font-bold italic mt-2 text-[10px] uppercase">ACEPTO LAS DESCRIPCIONES DEL PRODUCTO Y LAS CONDICIONALES COMERCIALES</p>
+                    <p className="font-bold italic mt-2 text-[10px] uppercase">ACEPTO LA DESCRIPCION DEL PRODUCTO Y LAS CONDICIONES COMERCIALES</p>
 
                     <div className="mt-6 mb-1">
                         <div className="w-64 border-b border-black mx-auto"></div>
@@ -200,22 +193,30 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                     </div>
                 </div>
 
-                {/* Forma de pago */}
+                {/* ---------- FORMA DE PAGO ---------- */}
                 <table className="excel-table mt-1 bg-white">
                     <tbody>
-                        <tr><td colSpan={4} className="font-bold text-center fs-8 uppercase tracking-widest">FORMA DE PAGO</td></tr>
-                        <tr>
-                            <td className="w-1/6 font-bold uppercase pl-2">ABONO:</td>
-                            <td className="w-[30%] text-right font-bold pr-2 bg-slate-50">${Number(odp.abono || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                            <td className="w-1/6 font-bold uppercase pl-2">CODIGO:</td>
-                            <td className="w-[30%]"></td>
-                        </tr>
-                        <tr>
-                            <td className="font-bold uppercase pl-2">SALDO:</td>
-                            <td className="text-right font-bold pr-2 bg-slate-50">${Number(odp.pendiente || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                            <td className="font-bold uppercase pl-2">TEL.:</td>
-                            <td></td>
-                        </tr>
+                        <tr><td colSpan={6} className="font-bold text-center fs-8 uppercase tracking-widest">FORMA DE PAGO</td></tr>
+                        {[0, 1].map((i) => {
+                            const pago = odp.pagos?.[i];
+                            return (
+                                <tr key={i}>
+                                    <td className="w-[10%] font-bold uppercase pl-2">RECIBO No:</td>
+                                    <td className="w-[20%] text-[9px] font-bold pl-2">{pago?.referencia_pago || ''}</td>
+                                    <td className="w-[15%] text-[9px] font-bold pl-2 uppercase">{pago?.metodo_pago || ''}</td>
+                                    <td className="w-[25%] text-[9px] font-bold pl-2">{pago ? `$ ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(pago.monto))}` : ''}</td>
+                                    <td className="w-[15%] font-bold uppercase pl-2">{i === 0 ? 'CODIGO:' : 'FE No.:'}</td>
+                                    <td className="w-[15%] text-[9px] font-bold uppercase pl-2">
+                                        {i === 0
+                                            ? (odp.tipo_servicio || odp.servicios_detalle?.[0]?.tipo_servicio || '')
+                                            : (odp.factura_electronica
+                                                ? `FE-${odp.factura_electronica} — ${odp.fecha_factura ? format(new Date(odp.fecha_factura), 'dd/MM/yyyy') : ''}`
+                                                : '')
+                                        }
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
 
@@ -240,24 +241,29 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                             <tr>
                                 <td rowSpan={3} className="font-bold align-top text-center border-r-2 border-r-black w-24 pt-1">PEDIDO EXTERNO</td>
                                 <td className="font-bold text-center w-12 py-1">SAP</td>
-                                <td className="w-16"></td>
-                                <td className="w-16"></td>
+                                <td className="w-16 text-center text-[9px] font-bold">{odp.saps?.[0]?.numero_sap || ''}</td>
+                                <td className="font-bold text-center w-12 py-1">ODC</td>
                                 <td className="w-16"></td>
                             </tr>
                             <tr>
                                 <td className="font-bold text-center py-1">COT</td>
-                                <td></td>
-                                <td></td>
+                                <td className="text-center text-[9px] font-bold">{odp.cotizaciones?.[0]?.numero_cot || ''}</td>
+                                <td className="font-bold text-center py-1">ODC</td>
                                 <td></td>
                             </tr>
                             <tr>
                                 <td className="font-bold text-center py-1">TM</td>
-                                <td></td>
-                                <td></td>
+                                <td className="text-center text-[9px] font-bold">{odp.tomas_medidas?.[0]?.numero_tm || ''}</td>
+                                <td className="font-bold text-center py-1">ODC</td>
                                 <td></td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                {/* ---------- PIE DE PÁGINA ---------- */}
+                <div className="flex justify-end mt-1">
+                    <span className="text-[7px] text-slate-500">VTS-2026-003</span>
                 </div>
 
             </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import axios from 'axios';
@@ -14,10 +14,12 @@ const itemSchema = z.object({
     alto_mm: z.coerce.number().positive(),
     cantidad: z.coerce.number().int().positive(),
     pulidos: z.string().optional(),
+    pulidos_h: z.string().optional(),
     perforaciones: z.coerce.number().int().nonnegative().optional(),
     boquetes: z.coerce.number().int().nonnegative().optional(),
     descuentos: z.string().optional(),
-    otros: z.string().optional()
+    otros: z.string().optional(),
+    prod: z.string().optional()
 });
 
 const servicioSchema = z.object({
@@ -28,16 +30,19 @@ const servicioSchema = z.object({
 
 const odpSchema = z.object({
     cliente_id: z.coerce.number().positive('Debe seleccionar cliente'),
+    fecha_entrega: z.string().optional(),
     servicios_detalle: z.array(servicioSchema).min(1, 'Debe agregar al menos un servicio'),
+    nombre_recibe: z.string().min(1, 'Nombre del contacto en obra requerido'),
+    telefono_recibe: z.string().min(1, 'Teléfono del contacto en obra requerido'),
     observaciones: z.string().optional(),
-    direccion_instalacion: z.string().optional(),
+    direccion_instalacion: z.string().min(1, 'Dirección requerida'),
     matizado: z.boolean().optional().default(false),
     pelicula: z.boolean().optional().default(false),
     acarreo: z.boolean().optional().default(false),
     instalacion: z.boolean().optional().default(false),
     huacal: z.boolean().optional().default(false),
     carton: z.boolean().optional().default(false),
-    abono: z.coerce.number().min(0, 'No puede ser negativo').optional(),
+    valor_total: z.coerce.number().min(0, 'No puede ser negativo').optional(),
     proveedor_vidrio: z.string().optional(),
     numero_pedido_proveedor: z.string().optional(),
     items: z.array(itemSchema).optional()
@@ -50,10 +55,12 @@ type ItemFormValues = {
     alto_mm: number;
     cantidad: number;
     pulidos?: string | undefined;
+    pulidos_h?: string | undefined;
     perforaciones?: number | undefined;
     boquetes?: number | undefined;
     descuentos?: string | undefined;
     otros?: string | undefined;
+    prod?: string | undefined;
 };
 
 type ServicioFormValues = {
@@ -64,19 +71,23 @@ type ServicioFormValues = {
 
 type ODPFormValues = {
     cliente_id: number;
+    fecha_entrega?: string;
     servicios_detalle: ServicioFormValues[];
+    nombre_recibe: string;
+    telefono_recibe: string;
     observaciones?: string;
-    direccion_instalacion?: string;
+    direccion_instalacion: string;
     matizado: boolean;
     pelicula: boolean;
     acarreo: boolean;
     instalacion: boolean;
     huacal: boolean;
     carton: boolean;
-    abono?: number | undefined;
+    valor_total?: number | undefined;
     proveedor_vidrio?: string;
     numero_pedido_proveedor?: string;
     items: ItemFormValues[];
+    requiere_visita_tecnica?: boolean;
 };
 
 interface ODPFormProps {
@@ -93,6 +104,9 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
         resolver: zodResolver(odpSchema as any),
         defaultValues: {
             servicios_detalle: [{ cantidad: 1, tipo_servicio: '', descripcion: '' }],
+            fecha_entrega: '',
+            nombre_recibe: '',
+            telefono_recibe: '',
             observaciones: '',
             direccion_instalacion: '',
             matizado: false,
@@ -101,8 +115,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
             instalacion: false,
             huacal: false,
             carton: false,
-            items: [], // Array vacío por defecto, permitiendo que avance si no sabe medidas
-            abono: 0
+            items: [],
+            valor_total: 0
         }
     });
 
@@ -110,6 +124,12 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
         control,
         name: 'items'
     });
+
+    const valorTotalRaw = useWatch({ control, name: 'valor_total' }) || 0;
+    const IVA_RATE = 0.19;
+    const subtotal = Number(valorTotalRaw) / (1 + IVA_RATE);
+    const ivaValor = Number(valorTotalRaw) - subtotal;
+    const fmtCOP = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 
     const { fields: servicioFields, append: appendServicio, remove: removeServicio } = useFieldArray({
         control,
@@ -144,7 +164,10 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
         if (odpToEdit) {
             reset({
                 cliente_id: odpToEdit.cliente_id,
+                fecha_entrega: odpToEdit.fecha_entrega ? odpToEdit.fecha_entrega.split('T')[0] : '',
                 servicios_detalle: odpToEdit.servicios_detalle?.length ? odpToEdit.servicios_detalle : [{ cantidad: odpToEdit.cantidad_total || 1, tipo_servicio: odpToEdit.tipo_servicio || '', descripcion: odpToEdit.descripcion_pedido || '' }],
+                nombre_recibe: odpToEdit.nombre_recibe || '',
+                telefono_recibe: odpToEdit.telefono_recibe || '',
                 observaciones: odpToEdit.observaciones || '',
                 direccion_instalacion: odpToEdit.direccion_instalacion || '',
                 matizado: odpToEdit.matizado || false,
@@ -154,7 +177,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                 huacal: odpToEdit.huacal || false,
                 carton: odpToEdit.carton || false,
                 items: odpToEdit.items || [],
-                abono: odpToEdit.abono || 0,
+                valor_total: odpToEdit.valor_total || 0,
                 proveedor_vidrio: odpToEdit.proveedor_vidrio || '',
                 numero_pedido_proveedor: odpToEdit.numero_pedido_proveedor || ''
             });
@@ -168,11 +191,13 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
     const onSubmit = async (data: ODPFormValues) => {
         try {
             const token = localStorage.getItem('token');
+            const { requiere_visita_tecnica, ...rest } = data;
             const payload = {
-                ...data,
+                ...rest,
                 cantidad_total: data.servicios_detalle.reduce((acc, curr) => acc + curr.cantidad, 0),
                 tipo_servicio: data.servicios_detalle[0].tipo_servicio,
-                descripcion_pedido: data.servicios_detalle.map(s => `${s.cantidad}x ${s.tipo_servicio}: ${s.descripcion}`).join('\n')
+                descripcion_pedido: data.servicios_detalle.map(s => `${s.cantidad}x ${s.tipo_servicio}: ${s.descripcion}`).join('\n'),
+                ...(!odpToEdit && requiere_visita_tecnica ? { estado_produccion: 'VISITA_TECNICA' } : {}),
             };
 
             if (odpToEdit) {
@@ -257,20 +282,47 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                                         {errors.cliente_id && <p className="text-red-500 text-xs mt-1">{errors.cliente_id.message}</p>}
                                     </div>
 
-                                    {/* Anticipo */}
+                                    {/* Fecha Entrega */}
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Anticipo / Abono Inicial</label>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Fecha ODP Listo Material</label>
+                                        <input
+                                            type="date"
+                                            {...register('fecha_entrega')}
+                                            className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+
+                                    {/* Valor Total de la Obra */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Valor Total de la Obra (con IVA)</label>
                                         <div className="relative">
                                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                                 <DollarSign className="w-4 h-4 text-slate-400" />
                                             </div>
                                             <input
                                                 type="number"
-                                                step="0.01"
-                                                {...register('abono')}
+                                                step="1"
+                                                {...register('valor_total')}
+                                                placeholder="0"
                                                 className="w-full pl-9 p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                                             />
                                         </div>
+                                        {Number(valorTotalRaw) > 0 && (
+                                            <div className="mt-2 p-2.5 bg-blue-50 border border-blue-100 rounded-lg text-xs space-y-0.5">
+                                                <div className="flex justify-between text-slate-600">
+                                                    <span>Subtotal (sin IVA):</span>
+                                                    <span className="font-semibold">{fmtCOP(subtotal)}</span>
+                                                </div>
+                                                <div className="flex justify-between text-slate-600">
+                                                    <span>IVA 19%:</span>
+                                                    <span className="font-semibold">{fmtCOP(ivaValor)}</span>
+                                                </div>
+                                                <div className="flex justify-between text-blue-800 font-bold border-t border-blue-200 pt-1 mt-1">
+                                                    <span>Total:</span>
+                                                    <span>{fmtCOP(Number(valorTotalRaw))}</span>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -404,24 +456,62 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
 
                                 <div className="space-y-4 mt-6">
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Dirección de Instalación / Entrega</label>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Dirección de Instalación / Entrega <span className="text-rose-500">*</span></label>
                                         <input
                                             type="text"
                                             {...register('direccion_instalacion')}
-                                            placeholder="Ej. Calle 123... (Opcional si es la misma del cliente)"
-                                            className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Ej. Cra 45 #23-10, Barrio El Centro"
+                                            className={`w-full p-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-blue-500 ${errors.direccion_instalacion ? 'border-rose-400' : 'border-slate-200'}`}
                                         />
+                                        {errors.direccion_instalacion && <p className="text-xs text-rose-500 mt-1">{errors.direccion_instalacion.message}</p>}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Contacto en Obra <span className="text-rose-500">*</span></label>
+                                            <input
+                                                type="text"
+                                                {...register('nombre_recibe')}
+                                                placeholder="Nombre de quien recibe"
+                                                className={`w-full p-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-blue-500 ${errors.nombre_recibe ? 'border-rose-400' : 'border-slate-200'}`}
+                                            />
+                                            {errors.nombre_recibe && <p className="text-xs text-rose-500 mt-1">{errors.nombre_recibe.message}</p>}
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Teléfono Contacto <span className="text-rose-500">*</span></label>
+                                            <input
+                                                type="text"
+                                                {...register('telefono_recibe')}
+                                                placeholder="Cel. o fijo de contacto"
+                                                className={`w-full p-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-blue-500 ${errors.telefono_recibe ? 'border-rose-400' : 'border-slate-200'}`}
+                                            />
+                                            {errors.telefono_recibe && <p className="text-xs text-rose-500 mt-1">{errors.telefono_recibe.message}</p>}
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1">Observaciones Esp. Cliente</label>
                                         <textarea
                                             {...register('observaciones')}
-                                            placeholder="Notas, cuidados, horarios límite, etc..."
+                                            placeholder="Notas, cuidados, horarios límite, indicaciones para la visita técnica, etc..."
                                             rows={3}
                                             className="w-full p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
                                         />
                                     </div>
                                 </div>
+                                {/* Visita técnica — solo para nuevas ODPs */}
+                                {!odpToEdit && (
+                                    <div className="flex items-start gap-3 p-4 bg-orange-50 border border-orange-200 rounded-xl">
+                                        <input
+                                            type="checkbox"
+                                            id="requiere_visita_tecnica"
+                                            {...register('requiere_visita_tecnica')}
+                                            className="mt-0.5 w-4 h-4 text-orange-500 rounded border-orange-300 focus:ring-orange-400"
+                                        />
+                                        <label htmlFor="requiere_visita_tecnica" className="cursor-pointer">
+                                            <p className="text-sm font-bold text-orange-800">Requiere visita técnica</p>
+                                            <p className="text-xs text-orange-600 mt-0.5">El cliente no tiene medidas. El jefe de producción debe realizar una visita antes de iniciar la orden.</p>
+                                        </label>
+                                    </div>
+                                )}
                                 <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-slate-200">
                                     <button
                                         type="button"
@@ -456,7 +546,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                                     </h3>
                                     <button
                                         type="button"
-                                        onClick={() => appendItem({ tipo_vidrio: '', espesor: 6, ancho_mm: 0, alto_mm: 0, cantidad: 1, pulidos: '', perforaciones: 0, boquetes: 0, descuentos: '', otros: '' })}
+                                        onClick={() => appendItem({ tipo_vidrio: '', espesor: 6, ancho_mm: 0, alto_mm: 0, cantidad: 1, pulidos: '', pulidos_h: '', perforaciones: 0, boquetes: 0, descuentos: '', otros: '', prod: '' })}
                                         className="px-3 py-1.5 bg-slate-900 text-white text-sm rounded-md hover:bg-slate-800 transition flex items-center gap-1"
                                     >
                                         <Plus className="w-4 h-4" /> Agregar Cristal
@@ -523,19 +613,23 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                                                     />
                                                 </div>
 
-                                                {/* Additional Finishes specifically requested from Excel format */}
-                                                <div className="w-full lg:flex-1 grid grid-cols-5 gap-2 border-l border-slate-200 pl-4">
+                                                {/* Acabados + MTS PT + PROD */}
+                                                <div className="w-full lg:flex-1 grid grid-cols-4 gap-2 border-l border-slate-200 pl-4">
                                                     <div>
-                                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Pul*</label>
-                                                        <input {...register(`items.${index}.pulidos`)} className="w-full p-1.5 text-xs border border-slate-200 rounded" placeholder="P/B, PC" />
+                                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">PUL A*</label>
+                                                        <input type="number" min="0" max="9" {...register(`items.${index}.pulidos`)} className="w-full p-1.5 text-xs border border-slate-200 rounded text-center" placeholder="0" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">PUL H*</label>
+                                                        <input type="number" min="0" max="9" {...register(`items.${index}.pulidos_h`)} className="w-full p-1.5 text-xs border border-slate-200 rounded text-center" placeholder="0" />
                                                     </div>
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Perf.</label>
-                                                        <input type="number" {...register(`items.${index}.perforaciones`)} className="w-full p-1.5 text-xs border border-slate-200 rounded" />
+                                                        <input type="number" {...register(`items.${index}.perforaciones`)} className="w-full p-1.5 text-xs border border-slate-200 rounded text-center" />
                                                     </div>
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Boq.</label>
-                                                        <input type="number" {...register(`items.${index}.boquetes`)} className="w-full p-1.5 text-xs border border-slate-200 rounded" />
+                                                        <input type="number" {...register(`items.${index}.boquetes`)} className="w-full p-1.5 text-xs border border-slate-200 rounded text-center" />
                                                     </div>
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Des.</label>
@@ -544,6 +638,37 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                                                     <div>
                                                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Otros**</label>
                                                         <input {...register(`items.${index}.otros`)} className="w-full p-1.5 text-xs border border-slate-200 rounded" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">MTS PT</label>
+                                                        <input
+                                                            readOnly
+                                                            value={(() => {
+                                                                const a = parseFloat(String(itemFields[index]?.ancho_mm || 0));
+                                                                const h = parseFloat(String(itemFields[index]?.alto_mm || 0));
+                                                                if (a > 0 && h > 0) return ((a / 1000) * (h / 1000)).toFixed(3);
+                                                                return '';
+                                                            })()}
+                                                            className="w-full p-1.5 text-xs border border-slate-100 rounded bg-slate-50 text-slate-500 text-center"
+                                                            placeholder="m²"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">PROD</label>
+                                                        <select {...register(`items.${index}.prod`)} className="w-full p-1.5 text-xs border border-slate-200 rounded bg-white">
+                                                            <option value="">—</option>
+                                                            <option value="PV">PV</option>
+                                                            <option value="CAMARA">CAMARA</option>
+                                                            <option value="CR">CR</option>
+                                                            <option value="CR-LAM">CR-LAM</option>
+                                                            <option value="ESP">ESP</option>
+                                                            <option value="LAM">LAM</option>
+                                                            <option value="S/T">S/T</option>
+                                                            <option value="TE">TE</option>
+                                                            <option value="TEM-MULTILAMINADO">TEM-MULTILAMINADO</option>
+                                                            <option value="TEM-LAM">TEM-LAM</option>
+                                                            <option value="N.A.">N.A.</option>
+                                                        </select>
                                                     </div>
                                                 </div>
                                                 <div className="pt-6">

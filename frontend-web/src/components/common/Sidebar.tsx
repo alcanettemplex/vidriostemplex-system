@@ -13,7 +13,8 @@ import {
   HardHat,
   Truck,
   Settings,
-  Sliders
+  Sliders,
+  Ruler
 } from 'lucide-react';
 
 /**
@@ -49,6 +50,13 @@ const MENU_ITEMS_CONFIG = [
     icon: Wrench,
     path: '/produccion',
     allowedRoles: ['admin', 'gerente', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion'],
+    section: 'produccion'
+  },
+  {
+    text: 'Toma de Medidas',
+    icon: Ruler,
+    path: '/toma-medidas',
+    allowedRoles: ['admin', 'jefe_produccion'],
     section: 'produccion'
   },
   {

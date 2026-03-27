@@ -323,10 +323,11 @@ const ClientesListPage: React.FC = () => {
                     className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Seleccione Segmento...</option>
-                    <option value="ARQUITECTO">Arquitecto</option>
-                    <option value="INGENIERO">Ingeniero</option>
                     <option value="CLIENTE FINAL">Cliente Final</option>
-                    <option value="INTERMEDIARIO">Intermediario</option>
+                    <option value="INSTITUCIONAL">Institucional</option>
+                    <option value="INTERVID">Intervid</option>
+                    <option value="ARQUITECTO">Arquitecto</option>
+                    <option value="INDUSTRIAL">Industrial</option>
                   </select>
                 </div>
 

@@ -12,6 +12,7 @@ import PrintableGarantia from './PrintableGarantia';
 import PrintableNoConformidad from './PrintableNoConformidad';
 import PrintableProduccion from './PrintableProduccion';
 import PrintableDetalleTecnico from './PrintableDetalleTecnico';
+import PrintableSAP from './PrintableSAP';
 import ReportarProblemaForm from './ReportarProblemaForm';
 
 // ─── Paleta de estado ─────────────────────────────────────────────────────────
@@ -427,7 +428,7 @@ const TabInstalacion: React.FC<{ odp: any }> = ({ odp }) => {
 };
 
 const TabFinanciero: React.FC<{ odp: any }> = ({ odp }) => {
-  const valorTotal = odp.cotizaciones?.[0]?.valor_total || 0;
+  const valorTotal = Number(odp.valor_total) || 0;
   const abono = Number(odp.abono) || 0;
   const pendiente = Number(odp.pendiente) || 0;
   const pctCobrado = valorTotal > 0 ? Math.min(100, (abono / valorTotal) * 100) : (abono > 0 ? 100 : 0);
@@ -436,7 +437,7 @@ const TabFinanciero: React.FC<{ odp: any }> = ({ odp }) => {
     <div className="p-6 space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Valor Total COT', value: fmt(valorTotal), color: 'bg-slate-50 border-slate-200 text-slate-800' },
+          { label: 'Valor Total ODP', value: fmt(valorTotal), color: 'bg-slate-50 border-slate-200 text-slate-800' },
           { label: 'Abonado', value: fmt(abono), color: 'bg-emerald-50 border-emerald-200 text-emerald-800' },
           { label: 'Por Cobrar', value: fmt(pendiente), color: pendiente > 0 ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800' },
           { label: 'Estado Caja', value: odp.estado_caja?.replace(/_/g, ' '), color: cajaColor[odp.estado_caja] || 'bg-slate-100' },
@@ -539,7 +540,7 @@ const TabHistorial: React.FC<{ odp: any }> = ({ odp }) => {
 
 // ─── Centro de Impresión: Sistema de Formatos por Rol ──────────────────────────
 const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
-  const [selectedFormat, setSelectedFormat] = useState<'compra' | 'op' | 'tecnico' | 'garantia' | 'noconformidad'>('op');
+  const [selectedFormat, setSelectedFormat] = useState<'compra' | 'op' | 'tecnico' | 'garantia' | 'noconformidad' | 'sap'>('op');
   const [ncIndex, setNcIndex] = useState(0);
 
   return (
@@ -562,6 +563,10 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
           <button onClick={() => setSelectedFormat('noconformidad')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'noconformidad' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
             <AlertCircle className="w-3 h-3" /> No Conform.
             {odp?.no_conformidades?.length > 0 && <span className="text-[10px] bg-rose-500 text-white px-1.5 rounded-full">{odp.no_conformidades.length}</span>}
+          </button>
+          <button onClick={() => setSelectedFormat('sap')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'sap' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+            <Package className="w-3 h-3" /> SAP
+            {odp?.saps?.length > 0 && <span className="text-[10px] bg-indigo-500 text-white px-1.5 rounded-full">{odp.saps.length}</span>}
           </button>
         </div>
 
@@ -587,6 +592,7 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
         {selectedFormat === 'tecnico' && <PrintableDetalleTecnico odp={odp} />}
         {selectedFormat === 'garantia' && <PrintableGarantia odp={odp} />}
         {selectedFormat === 'noconformidad' && <PrintableNoConformidad odp={odp} data={odp?.no_conformidades?.[ncIndex]} />}
+        {selectedFormat === 'sap' && <PrintableSAP odp={odp} sap={odp?.saps?.[0]} />}
       </div>
 
       <style dangerouslySetInnerHTML={{

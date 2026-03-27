@@ -132,7 +132,7 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {Array.from({ length: 11 }).map((_, idx) => {
+                        {Array.from({ length: 10 }).map((_, idx) => {
                             const item = odp.items?.[idx];
                             const letter = String.fromCharCode(65 + idx); // A, B, C...
                             return (
@@ -143,15 +143,15 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                                     <td className="font-bold">{item?.cantidad || ''}</td>
                                     <td className="font-bold">{item?.ancho_mm || ''}</td>
                                     <td className="font-bold">{item?.alto_mm || ''}</td>
-                                    <td className="font-bold text-[8px] max-w-[20px] truncate">{item?.pulidos || ''}</td> {/* PUL A */}
-                                    <td className="font-bold"></td> {/* PUL H */}
+                                    <td className="font-bold text-[8px]">{item?.pulidos || ''}</td> {/* PUL A */}
+                                    <td className="font-bold text-[8px]">{item?.pulidos_h || ''}</td> {/* PUL H */}
                                     <td className="font-bold">{item?.perforaciones > 0 ? item.perforaciones : ''}</td>
                                     <td className="font-bold">{item?.boquetes > 0 ? item.boquetes : ''}</td>
                                     <td className="font-bold text-[8px] max-w-[20px] truncate">{item?.descuentos || ''}</td> {/* Des */}
                                     <td className="font-bold text-[8px] max-w-[30px] truncate">{item?.otros || ''}</td> {/* Otro */}
-                                    <td></td> {/* MTS PT */}
+                                    <td className="font-bold text-[8px] text-center">{item?.ancho_mm && item?.alto_mm ? ((item.ancho_mm / 1000) * (item.alto_mm / 1000)).toFixed(3) : ''}</td> {/* MTS PT */}
                                     <td></td> {/* VERIFICACION */}
-                                    <td></td> {/* PROD */}
+                                    <td className="font-bold text-[8px] text-center">{item?.prod || ''}</td> {/* PROD */}
                                 </tr>
                             );
                         })}
@@ -164,9 +164,11 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                     </tbody>
                 </table>
 
-                <div className="text-[7.5px] mt-1 italic font-bold">
-                    *BORDE PUL: Pulido/Brillado (P/B) - Pulido cerrado (PC) -Matado (MF) <br />
-                    ** ACABADOS: Radios (RAD), Chaflan (CHA).
+                <div className="flex justify-between items-end mt-1">
+                    <div className="text-[7.5px] italic font-bold">
+                        *BORDE PUL: Pulido/Brillado (P/B) - Pulido cerrado (PC) -Matado (MF) <br />
+                        ** ACABADOS: Radios (RAD), Chaflan (CHA).
+                    </div>
                 </div>
 
                 {/* ---------- OBSERVACIONES (TALLER) ---------- */}
@@ -199,25 +201,30 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                             <tr>
                                 <td rowSpan={3} className="font-bold align-top text-center border-r-2 border-r-black w-24 pt-1">PEDIDO EXTERNO</td>
                                 <td className="font-bold text-center w-12 py-1">SAP</td>
-                                <td className="w-16"></td>
+                                <td className="w-16 text-center text-[9px] font-bold">{odp.saps?.[0]?.numero_sap || ''}</td>
                                 <td className="font-bold text-center w-12 py-1">ODC</td>
                                 <td className="w-16"></td>
                             </tr>
                             <tr>
                                 <td className="font-bold text-center py-1">COT</td>
-                                <td></td>
+                                <td className="text-center text-[9px] font-bold">{odp.cotizaciones?.[0]?.numero_cot || ''}</td>
                                 <td className="font-bold text-center py-1">ODC</td>
                                 <td></td>
                             </tr>
                             <tr>
                                 <td className="font-bold text-center py-1">TM</td>
-                                <td></td>
+                                <td className="text-center text-[9px] font-bold">{odp.tomas_medidas?.[0]?.numero_tm || ''}</td>
                                 <td className="font-bold text-center py-1">ODC</td>
                                 <td></td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
+                {/* ---------- PIE DE PÁGINA ---------- */}
+                <div className="flex justify-end mt-1">
+                    <span className="text-[7px] text-slate-500">VTS-2026-003</span>
+                </div>
+
             </div>
         </div>
     );

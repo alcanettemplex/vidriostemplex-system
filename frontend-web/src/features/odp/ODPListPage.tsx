@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
+import { toast } from 'react-toastify';
 import { Plus, Search, FileText, CheckCircle2, Clock, Truck, Eye, Trash2, Edit3, AlertCircle, Package, DollarSign, Ruler, Printer } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPForm from './components/ODPForm';
@@ -26,6 +27,7 @@ interface ODP {
 const getStatusColor = (estado: string) => {
     switch (estado) {
         case 'EN_ESPERA': return 'bg-slate-100 text-slate-800 border-slate-200';
+        case 'VISITA_TECNICA': return 'bg-orange-100 text-orange-800 border-orange-200';
         case 'PEDIDO_PROVEEDOR': return 'bg-purple-100 text-purple-800 border-purple-200';
         case 'ALUMINIO_CORTADO': return 'bg-blue-100 text-blue-800 border-blue-200';
         case 'VIDRIO_RECIBIDO': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
@@ -41,6 +43,7 @@ const getStatusColor = (estado: string) => {
 const getStatusIcon = (estado: string) => {
     switch (estado) {
         case 'EN_ESPERA': return <FileText className="w-4 h-4 mr-1" />;
+        case 'VISITA_TECNICA': return <Ruler className="w-4 h-4 mr-1" />;
         case 'ALUMINIO_CORTADO': case 'VIDRIO_RECIBIDO': return <Clock className="w-4 h-4 mr-1" />;
         case 'LISTO_INSTALAR': return <CheckCircle2 className="w-4 h-4 mr-1" />;
         case 'PROGRAMADA': return <Truck className="w-4 h-4 mr-1" />;
@@ -52,6 +55,7 @@ const ODPListPage: React.FC = () => {
     const [odps, setOdps] = useState<ODP[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [activeTab, setActiveTab] = useState<'activas' | 'visita'>('activas');
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [selectedOdpDetail, setSelectedOdpDetail] = useState<number | null>(null);
     const [editingOdp, setEditingOdp] = useState<ODP | null>(null);
@@ -90,6 +94,21 @@ const ODPListPage: React.FC = () => {
         }
     };
 
+    const handleSolicitarVisita = async (odp: ODP) => {
+        if (!window.confirm(`¿Solicitar visita técnica para ${odp.numero_odp}? El estado cambiará a VISITA TÉCNICA.`)) return;
+        try {
+            const tkn = localStorage.getItem('token');
+            await axios.put(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/odp/${odp.id}`,
+                { estado_produccion: 'VISITA_TECNICA' },
+                { headers: { Authorization: `Bearer ${tkn}` } }
+            );
+            toast.success(`${odp.numero_odp} — Visita técnica solicitada`);
+            fetchODPs();
+        } catch {
+            toast.error('Error al solicitar visita técnica');
+        }
+    };
+
     const handleDelete = async (id: number) => {
         try {
             const token = localStorage.getItem('token');
@@ -103,7 +122,10 @@ const ODPListPage: React.FC = () => {
         }
     };
 
-    const filteredOdps = odps.filter(odp =>
+    const odpsActivas = odps.filter(o => o.estado_produccion !== 'VISITA_TECNICA');
+    const odpsVisita = odps.filter(o => o.estado_produccion === 'VISITA_TECNICA');
+
+    const filteredOdps = (activeTab === 'visita' ? odpsVisita : odpsActivas).filter(odp =>
         odp.numero_odp.toLowerCase().includes(searchTerm.toLowerCase()) ||
         odp.cliente.nombre_razon_social.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -121,6 +143,28 @@ const ODPListPage: React.FC = () => {
                 >
                     <Plus className="w-4 h-4" />
                     Nueva Orden
+                </button>
+            </div>
+
+            {/* Pestañas */}
+            <div className="flex gap-2 mb-4">
+                <button
+                    onClick={() => setActiveTab('activas')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition border ${activeTab === 'activas' ? 'bg-white border-slate-200 text-slate-800 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white/60'}`}
+                >
+                    <FileText className="w-4 h-4" />
+                    Activas
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-black ${activeTab === 'activas' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{odpsActivas.length}</span>
+                </button>
+                <button
+                    onClick={() => setActiveTab('visita')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition border ${activeTab === 'visita' ? 'bg-white border-orange-200 text-orange-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white/60'}`}
+                >
+                    <Ruler className="w-4 h-4" />
+                    Pendientes visita técnica
+                    {odpsVisita.length > 0 && (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-black ${activeTab === 'visita' ? 'bg-orange-100 text-orange-700' : 'bg-orange-100 text-orange-600'}`}>{odpsVisita.length}</span>
+                    )}
                 </button>
             </div>
 
@@ -215,6 +259,12 @@ const ODPListPage: React.FC = () => {
                                              {['admin', 'asesor_comercial', 'gerente'].includes(userRole) && (
                                                <button onClick={() => setCotOdp(odp)} className="text-slate-400 hover:text-blue-600 transition p-1.5 hover:bg-blue-50 rounded" title="Cotización (COT)">
                                                  <DollarSign className="w-4 h-4" />
+                                               </button>
+                                             )}
+                                             {/* Solicitar Visita Técnica: solo para ODPs en EN_ESPERA */}
+                                             {['admin', 'asesor_comercial', 'gerencia', 'gerente'].includes(userRole) && odp.estado_produccion === 'EN_ESPERA' && (
+                                               <button onClick={() => handleSolicitarVisita(odp)} className="text-slate-400 hover:text-orange-600 transition p-1.5 hover:bg-orange-50 rounded" title="Solicitar Visita Técnica">
+                                                 <Ruler className="w-4 h-4" />
                                                </button>
                                              )}
                                              {/* TM: solo jefe_produccion y admin */}

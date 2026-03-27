@@ -16,10 +16,14 @@ export const createUsuario = async (req: Request, res: Response) => {
 
 export const updateUsuario = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { username, rol, nombre_completo, email } = req.body;
+  const { username, rol, nombre_completo, email, password } = req.body;
   const usuario = await Usuario.findByPk(id);
   if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
-  await usuario.update({ username, rol, nombre_completo, email });
+  const updates: Record<string, unknown> = { username, rol, nombre_completo, email };
+  if (password && password.trim() !== '') {
+    updates.password_hash = await bcrypt.hash(password, 12);
+  }
+  await usuario.update(updates);
   res.json(usuario);
 };
 

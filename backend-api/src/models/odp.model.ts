@@ -9,13 +9,14 @@ ODP.init({
   cliente_id: { type: DataTypes.INTEGER, allowNull: false },
   asesor_id: { type: DataTypes.INTEGER, allowNull: false },
   estado_produccion: {
-    type: DataTypes.ENUM('EN_ESPERA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA'),
+    type: DataTypes.ENUM('EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA'),
     defaultValue: 'EN_ESPERA',
     allowNull: false
   },
   estado_facturacion: { type: DataTypes.ENUM('PENDIENTE', 'FACTURADA'), defaultValue: 'PENDIENTE' },
   estado_caja: { type: DataTypes.ENUM('PENDIENTE', 'ABONADO', 'CANCELADO', 'CREDITO_APROBADO'), defaultValue: 'PENDIENTE' },
   factura_electronica: { type: DataTypes.STRING(100) },
+  fecha_factura: { type: DataTypes.DATE },
   url_documento_factura: { type: DataTypes.STRING(255) },
   autorizacion_especial_despacho: { type: DataTypes.BOOLEAN, defaultValue: false },
   observacion_autorizacion: { type: DataTypes.TEXT },
@@ -37,6 +38,7 @@ ODP.init({
   huacal: { type: DataTypes.BOOLEAN, defaultValue: false },
   carton: { type: DataTypes.BOOLEAN, defaultValue: false },
   forma_pago: { type: DataTypes.STRING(50) },
+  valor_total: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0 },
   abono: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },
   pendiente: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },
   foto_instalacion_url: { type: DataTypes.STRING(1000) },
