@@ -273,12 +273,16 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                                         <select
                                             {...register('cliente_id')}
                                             className={`w-full p-2.5 bg-white border ${errors.cliente_id ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:ring-2 focus:ring-blue-500`}
+                                            disabled={!!odpToEdit}
                                         >
-                                            <option value={0}>Seleccione un cliente...</option>
+                                            {!odpToEdit && <option value={0}>Seleccione un cliente...</option>}
                                             {clientes.map(c => (
                                                 <option key={c.id} value={c.id}>{c.nombre_razon_social}</option>
                                             ))}
                                         </select>
+                                        {odpToEdit && (
+                                            <p className="text-xs text-slate-400 mt-1">El cliente no se puede cambiar al editar una ODP.</p>
+                                        )}
                                         {errors.cliente_id && <p className="text-red-500 text-xs mt-1">{errors.cliente_id.message}</p>}
                                     </div>
 
