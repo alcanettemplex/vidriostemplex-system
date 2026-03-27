@@ -26,6 +26,7 @@ ODPItem.init({
   otros: { type: DataTypes.STRING(100) },
   mts_pt_a: { type: DataTypes.STRING(20) },
   mts_pt_h: { type: DataTypes.STRING(20) },
+  valor: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0 },
   prod: { type: DataTypes.STRING(30) },
   verificacion_prod: { type: DataTypes.BOOLEAN, defaultValue: false },
 }, {

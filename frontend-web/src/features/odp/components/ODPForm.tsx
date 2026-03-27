@@ -19,6 +19,7 @@ const itemSchema = z.object({
     boquetes: z.coerce.number().int().nonnegative().optional(),
     descuentos: z.string().optional(),
     otros: z.string().optional(),
+    valor: z.coerce.number().nonnegative().optional().default(0),
     prod: z.string().optional()
 });
 
@@ -60,6 +61,7 @@ type ItemFormValues = {
     boquetes?: number | undefined;
     descuentos?: string | undefined;
     otros?: string | undefined;
+    valor?: number | undefined;
     prod?: string | undefined;
 };
 
@@ -549,7 +551,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                                     </h3>
                                     <button
                                         type="button"
-                                        onClick={() => appendItem({ tipo_vidrio: '', espesor: 6, ancho_mm: 0, alto_mm: 0, cantidad: 1, pulidos: '', pulidos_h: '', perforaciones: 0, boquetes: 0, descuentos: '', otros: '', prod: '' })}
+                                        onClick={() => appendItem({ tipo_vidrio: '', espesor: 6, ancho_mm: 0, alto_mm: 0, cantidad: 1, pulidos: '', pulidos_h: '', perforaciones: 0, boquetes: 0, descuentos: '', otros: '', valor: 0, prod: '' })}
                                         className="px-3 py-1.5 bg-slate-900 text-white text-sm rounded-md hover:bg-slate-800 transition flex items-center gap-1"
                                     >
                                         <Plus className="w-4 h-4" /> Agregar Cristal
@@ -654,6 +656,17 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                                                             })()}
                                                             className="w-full p-1.5 text-xs border border-slate-100 rounded bg-slate-50 text-slate-500 text-center"
                                                             placeholder="m²"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Valor $</label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="1000"
+                                                            {...register(`items.${index}.valor`)}
+                                                            className="w-full p-1.5 text-xs border border-slate-200 rounded text-right"
+                                                            placeholder="0"
                                                         />
                                                     </div>
                                                     <div>
