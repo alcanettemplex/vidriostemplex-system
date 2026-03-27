@@ -155,12 +155,32 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                                 </tr>
                             );
                         })}
-                        <tr className="h-[5px]">
-                            <td colSpan={15} className="bg-slate-200 border-none"></td>
-                        </tr>
-                        <tr>
-                            <td colSpan={15} className="text-left font-bold border-none pt-1">Asesor: <span className="font-normal ml-2 uppercase text-[9px]">{odp.asesor?.nombre_completo || `${odp.asesor?.first_name} ${odp.asesor?.last_name}`}</span></td>
-                        </tr>
+                        {(() => {
+                            const IVA_RATE = 0.19;
+                            const valorTotal = Number(odp.valor_total || 0);
+                            const subtotal = valorTotal / (1 + IVA_RATE);
+                            const iva = valorTotal - subtotal;
+                            const fmt = (v: number) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(v);
+                            return (
+                                <>
+                                    <tr>
+                                        <td colSpan={13} rowSpan={3} className="text-left font-bold pt-1 align-top">
+                                            ASESOR: <span className="font-normal ml-2 uppercase text-[9px]">{odp.asesor?.nombre_completo || `${odp.asesor?.first_name} ${odp.asesor?.last_name}`}</span>
+                                        </td>
+                                        <td className="text-right font-bold text-[8px] pr-1 text-orange-600">SUBTOTAL</td>
+                                        <td className="text-right font-bold text-[9px] pr-1">{valorTotal > 0 ? `$ ${fmt(subtotal)}` : ''}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="text-right font-bold text-[8px] pr-1 text-orange-600">IVA</td>
+                                        <td className="text-right font-bold text-[9px] pr-1">{valorTotal > 0 ? `$ ${fmt(iva)}` : ''}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="text-right font-bold text-[8px] pr-1 text-orange-600">VALOR TOTAL</td>
+                                        <td className="text-right font-bold text-[9px] pr-1">{valorTotal > 0 ? `$ ${fmt(valorTotal)}` : ''}</td>
+                                    </tr>
+                                </>
+                            );
+                        })()}
                     </tbody>
                 </table>
 
