@@ -24,7 +24,6 @@ const odpItemSchema = z.object({
   otros: z.string().optional(),
   mts_pt_a: z.string().optional(),
   mts_pt_h: z.string().optional(),
-  valor: z.coerce.number().nonnegative().optional().default(0),
   prod: z.string().optional(),
   verificacion_prod: z.boolean().optional().default(false)
 });
