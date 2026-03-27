@@ -153,8 +153,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
     }, []);
 
     const nextStep = async () => {
-        const fieldsToValidate = ['cliente_id', 'servicios_detalle', 'direccion_instalacion', 'observaciones', 'abono'] as const;
-        const isStepValid = await trigger();
+        const isStepValid = await trigger(['cliente_id', 'servicios_detalle', 'nombre_recibe', 'telefono_recibe', 'direccion_instalacion']);
         if (isStepValid) {
             setStep(2);
         }
