@@ -193,48 +193,67 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                             <col style={{ width: '12%' }} />
                         </colgroup>
                         <tbody>
-                            <tr>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>MATIZADO</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold' }}>{odp.matizado ? 'X' : ''}</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>PELICULA</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold' }}>{odp.pelicula ? 'X' : ''}</td>
-                                <td rowSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', verticalAlign: 'top', textTransform: 'uppercase' }}>
-                                    PEDIDO EXTERNO
-                                    {odp.numero_pedido_proveedor && <div style={{ fontWeight: 'bold', marginTop: '2px', color: '#1a3ec9' }}>{odp.numero_pedido_proveedor}</div>}
-                                </td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>SAP</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '9px', fontWeight: 'bold', textAlign: 'center' }}>{odp.saps?.[0]?.numero_sap || ''}</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>ODC</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>PROV</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '9px', fontWeight: 'bold', textAlign: 'center' }}>{odp.proveedor_vidrio || ''}</td>
-                            </tr>
-                            <tr>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>ACARREO</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold' }}>{odp.acarreo ? 'X' : ''}</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>HUACAL</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold' }}>{odp.huacal ? 'X' : ''}</td>
-                                {/* col 5 absorbida por rowspan de PEDIDO EXTERNO */}
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>COT</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '9px', fontWeight: 'bold', textAlign: 'center' }}>{odp.cotizaciones?.[0]?.numero_cot || ''}</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>ODC</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>PROV</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
-                            </tr>
-                            <tr>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>INSTALACIÓN</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold' }}>{odp.instalacion ? 'X' : ''}</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>CARTÓN</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold' }}>{odp.carton ? 'X' : ''}</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', color: '#1a3ec9' }}>{odp.proveedor_vidrio || ''}</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>TM</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '9px', fontWeight: 'bold', textAlign: 'center' }}>{odp.tomas_medidas?.[0]?.numero_tm || ''}</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>ODC</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>PROV</td>
-                                <td style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
-                            </tr>
+                            {(() => {
+                                const odcs: any[] = odp.saps?.[0]?.ordenes_compra || [];
+                                const extraOdcs = odcs.slice(3);
+                                const td = (content: React.ReactNode, extra?: React.CSSProperties) => (
+                                    <td style={{ border: '1px solid #000', padding: '3px 4px', ...extra }}>{content}</td>
+                                );
+                                const label = (txt: string) => td(txt, { fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' });
+                                const val = (txt: string) => td(txt, { fontSize: '9px', fontWeight: 'bold', textAlign: 'center' });
+                                return (<>
+                                <tr>
+                                    {label('MATIZADO')}
+                                    {td(odp.matizado ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                    {label('PELICULA')}
+                                    {td(odp.pelicula ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                    <td rowSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', verticalAlign: 'top', textTransform: 'uppercase' }}>
+                                        PEDIDO EXTERNO
+                                        {odp.numero_pedido_proveedor && <div style={{ fontWeight: 'bold', marginTop: '2px', color: '#1a3ec9' }}>{odp.numero_pedido_proveedor}</div>}
+                                    </td>
+                                    {label('SAP')}
+                                    {val(odp.saps?.[0]?.numero_sap || '')}
+                                    {label('ODC')}
+                                    {val(odcs[0]?.numero_odc || '')}
+                                    {label('PROV')}
+                                    {val(odcs[0]?.proveedor || '')}
+                                </tr>
+                                <tr>
+                                    {label('ACARREO')}
+                                    {td(odp.acarreo ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                    {label('HUACAL')}
+                                    {td(odp.huacal ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                    {label('COT')}
+                                    {val(odp.cotizaciones?.[0]?.numero_cot || '')}
+                                    {label('ODC')}
+                                    {val(odcs[1]?.numero_odc || '')}
+                                    {label('PROV')}
+                                    {val(odcs[1]?.proveedor || '')}
+                                </tr>
+                                <tr>
+                                    {label('INSTALACIÓN')}
+                                    {td(odp.instalacion ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                    {label('CARTÓN')}
+                                    {td(odp.carton ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                    {td(odp.proveedor_vidrio || '', { fontWeight: 'bold', textAlign: 'center', color: '#1a3ec9' })}
+                                    {label('TM')}
+                                    {val(odp.tomas_medidas?.[0]?.numero_tm || '')}
+                                    {label('ODC')}
+                                    {val(odcs[2]?.numero_odc || '')}
+                                    {label('PROV')}
+                                    {val(odcs[2]?.proveedor || '')}
+                                </tr>
+                                {extraOdcs.map((odc: any) => (
+                                    <tr key={odc.id}>
+                                        <td colSpan={8} style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
+                                        {label('ODC')}
+                                        {val(odc.numero_odc)}
+                                        {label('PROV')}
+                                        {val(odc.proveedor)}
+                                    </tr>
+                                ))}
+                                </>);
+                            })()}
                         </tbody>
                     </table>
                 </div>
