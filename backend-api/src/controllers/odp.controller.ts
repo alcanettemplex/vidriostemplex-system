@@ -99,7 +99,7 @@ export const getODP = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // Importar modelos dinámicamente para evitar circular imports
-    const { SAP, SAPItem, Cotizacion, TomaMedidas, EvidenciaInstalacion, ProgramacionInstalacion, HistorialEstadoODP, NoConformidad } = await import('../models');
+    const { SAP, SAPItem, Cotizacion, TomaMedidas, EvidenciaInstalacion, ProgramacionInstalacion, HistorialEstadoODP, NoConformidad, OrdenCompra } = await import('../models');
 
     const odp = await ODP.findByPk(id, {
       include: [
@@ -119,6 +119,11 @@ export const getODP = async (req: Request, res: Response) => {
           include: [
             { model: SAPItem, as: 'items' },
             { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+            {
+              model: OrdenCompra, as: 'ordenes_compra',
+              attributes: ['id', 'numero_odc', 'proveedor', 'estado'],
+              order: [['fecha_creacion', 'ASC']],
+            },
           ],
           order: [['fecha_creacion', 'DESC']],
         },
