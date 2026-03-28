@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getSAPsByODP, createSAP, updateSAP } from '../controllers/sap.controller';
+import { getSAPsByODP, createSAP, updateSAP, deleteSAP, buscarCatalogo } from '../controllers/sap.controller';
 import { getCotizacionesByODP, createCotizacion, updateCotizacion } from '../controllers/cotizacion.controller';
 import { getTMsByODP, getTMPanel, createTM, updateTM, uploadFotoTM } from '../controllers/toma_medidas.controller';
 import authMiddleware from '../middlewares/authMiddleware';
@@ -8,10 +8,12 @@ import { uploadConfig } from '../config/upload';
 
 const router = Router();
 
-// SAP routes — Solo asesores y admin pueden crear
+// SAP routes
 router.get('/sap/odp/:odp_id', authMiddleware, getSAPsByODP);
-router.post('/sap', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial'), createSAP);
-router.put('/sap/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial'), updateSAP);
+router.post('/sap', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), createSAP);
+router.put('/sap/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), updateSAP);
+router.delete('/sap/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), deleteSAP);
+router.get('/sap/catalogo/buscar', authMiddleware, buscarCatalogo);
 
 // Cotización routes — Asesores y admin
 router.get('/cotizacion/odp/:odp_id', authMiddleware, getCotizacionesByODP);

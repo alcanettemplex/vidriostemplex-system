@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, FileText, Wrench, Truck, DollarSign, Package, Ruler,
+  X, FileText, Wrench, Truck, DollarSign, Package, Ruler, Plus,
   CheckCircle2, AlertCircle, AlertTriangle, MapPin, User, Calendar, Phone,
   Building2, ExternalLink, CreditCard, Camera, History,
   ClipboardList, TrendingUp, Printer
@@ -14,6 +14,7 @@ import PrintableProduccion from './PrintableProduccion';
 import PrintableDetalleTecnico from './PrintableDetalleTecnico';
 import PrintableSAP from './PrintableSAP';
 import ReportarProblemaForm from './ReportarProblemaForm';
+import SAPModal from './SAPModal';
 
 // ─── Paleta de estado ─────────────────────────────────────────────────────────
 const estadoProdColor: Record<string, string> = {
@@ -81,9 +82,9 @@ const TabDatosGenerales: React.FC<{ odp: any }> = ({ odp }) => {
       <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
         <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2"><FileText className="w-3.5 h-3.5" />Datos de la Orden</h3>
         <InfoRow label="N° ODP" value={<span className="text-indigo-700 font-black text-base">{odp.numero_odp}</span>} />
-        <InfoRow label="Tipo de Servicio" value={odp.tipo_servicio} />
+        <InfoRow label="Tipo de Servicio" value={odp.tipo_servicio?.replace(/_/g, ' ')} />
         <InfoRow label="Dirección de Instalación" value={odp.direccion_instalacion} icon={<MapPin className="w-3.5 h-3.5" />} />
-        <InfoRow label="Fecha de Entrega" value={odp.fecha_entrega ? new Date(odp.fecha_entrega + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' }) : null} icon={<Calendar className="w-3.5 h-3.5" />} />
+        <InfoRow label="Fecha de Entrega" value={(() => { const d = odp.fecha_entrega ? new Date(odp.fecha_entrega.includes('T') ? odp.fecha_entrega : odp.fecha_entrega + 'T00:00:00') : null; return d && !isNaN(d.getTime()) ? d.toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' }) : null; })() } icon={<Calendar className="w-3.5 h-3.5" />} />
         <InfoRow label="Creado el" value={new Date(odp.fecha_creacion).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })} />
         <InfoRow label="Descripción" value={odp.descripcion_pedido} />
         {odp.observaciones && <InfoRow label="Observaciones" value={odp.observaciones} />}
@@ -93,7 +94,7 @@ const TabDatosGenerales: React.FC<{ odp: any }> = ({ odp }) => {
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
           <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2"><Building2 className="w-3.5 h-3.5" />Cliente</h3>
           <InfoRow label="Nombre / Razón Social" value={<span className="text-slate-900 font-bold">{odp.cliente?.nombre_razon_social}</span>} />
-          <InfoRow label="RUC / RUT" value={odp.cliente?.ruc_rut} />
+          <InfoRow label={`${odp.cliente?.tipo_documento || 'Documento'}`} value={odp.cliente?.numero_documento} />
           <InfoRow label="Contacto" value={odp.nombre_recibe} icon={<User className="w-3.5 h-3.5" />} />
           <InfoRow label="Teléfono Contacto" value={odp.telefono_recibe} icon={<Phone className="w-3.5 h-3.5" />} />
         </div>
@@ -141,7 +142,8 @@ const TabDatosGenerales: React.FC<{ odp: any }> = ({ odp }) => {
   );
 };
 
-const TabComercial: React.FC<{ odp: any }> = ({ odp }) => {
+const TabComercial: React.FC<{ odp: any; onRefresh: () => void }> = ({ odp, onRefresh }) => {
+  const [sapModalOpen, setSapModalOpen] = useState(false);
   const saps = odp.saps || [];
   const cots = odp.cotizaciones || [];
   const estadoCotColor: Record<string, string> = {
@@ -153,37 +155,66 @@ const TabComercial: React.FC<{ odp: any }> = ({ odp }) => {
 
   return (
     <div className="p-6 space-y-6">
+      {/* SAP */}
       <div>
-        <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
-          <Package className="w-4 h-4 text-indigo-600" /> Solicitudes de Accesorios y Perfilería (SAP)
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+            <Package className="w-4 h-4 text-indigo-600" /> Solicitudes de Accesorios y Perfilería (SAP)
+          </h3>
+          <button
+            onClick={() => setSapModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-sm"
+          >
+            <Plus className="w-3.5 h-3.5" /> Gestionar SAP
+          </button>
+        </div>
         {saps.length === 0 ? (
           <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center text-slate-400">
             <Package className="w-10 h-10 mx-auto mb-2 text-slate-200" />
             <p className="font-bold">No hay SAPs registradas</p>
           </div>
         ) : saps.map((sap: any) => (
-          <div key={sap.id} className="bg-white border border-slate-200 rounded-2xl p-5 mb-3 shadow-sm">
-            <div className="flex justify-between items-center mb-3">
+          <div key={sap.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden mb-3 shadow-sm">
+            <div className="flex justify-between items-center px-5 py-3 bg-slate-50 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <span className="font-black text-indigo-700 text-lg">{sap.numero_sap}</span>
                 <Badge className="bg-slate-100 text-slate-600 border-slate-200">{sap.estado}</Badge>
               </div>
               <p className="text-xs text-slate-500">{sap.asesor?.nombre_completo} · {new Date(sap.fecha_creacion).toLocaleDateString('es-CO')}</p>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {sap.items?.map((item: any, i: number) => (
-                <div key={i} className="bg-indigo-50 border border-indigo-100 rounded-lg p-2 text-xs">
-                  <p className="font-bold text-indigo-800 truncate">{item.descripcion}</p>
-                  <p className="text-indigo-600">{item.cantidad} {item.unidad} {item.color && `· ${item.color}`}</p>
-                  {item.referencia && <p className="text-indigo-500 font-mono">{item.referencia}</p>}
-                </div>
-              ))}
-            </div>
-            {sap.notas && <p className="text-xs text-slate-500 italic mt-3">"{sap.notas}"</p>}
+            <table className="w-full text-xs">
+              <thead className="bg-slate-700 text-white">
+                <tr>
+                  <th className="px-3 py-1.5 text-center w-10">ITEM</th>
+                  <th className="px-3 py-1.5 w-28">CÓDIGO</th>
+                  <th className="px-3 py-1.5">DESCRIPCIÓN</th>
+                  <th className="px-3 py-1.5 w-24">DIMENSIÓN</th>
+                  <th className="px-3 py-1.5 text-center w-16">CANT.</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {sap.items?.map((item: any, i: number) => (
+                  <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                    <td className="px-3 py-1.5 text-center font-black text-slate-600">{item.item}</td>
+                    <td className="px-3 py-1.5 font-mono text-blue-700 font-bold">{item.codigo || '—'}</td>
+                    <td className="px-3 py-1.5 text-slate-700">{item.descripcion || '—'}</td>
+                    <td className="px-3 py-1.5 text-slate-500">{item.dimension || '—'}</td>
+                    <td className="px-3 py-1.5 text-center font-bold">{item.cantidad}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {sap.notas && <p className="px-5 py-2 text-xs text-slate-500 italic border-t border-slate-100">"{sap.notas}"</p>}
           </div>
         ))}
       </div>
+
+      {sapModalOpen && (
+        <SAPModal
+          odp={odp}
+          onClose={() => { setSapModalOpen(false); onRefresh(); }}
+        />
+      )}
 
       <div>
         <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
@@ -784,7 +815,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
             <AnimatePresence mode="wait">
               <motion.div key={activeTab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
                 {activeTab === 'general'     && <TabDatosGenerales odp={odp} />}
-                {activeTab === 'comercial'   && <TabComercial odp={odp} />}
+                {activeTab === 'comercial'   && odp && <TabComercial odp={odp} onRefresh={fetchODP} />}
                 {activeTab === 'produccion'  && <TabProduccion odp={odp} onUpdate={fetchODP} />}
                 {activeTab === 'instalacion' && <TabInstalacion odp={odp} />}
                 {activeTab === 'financiero'  && <TabFinanciero odp={odp} />}

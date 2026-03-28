@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
-import { SAP, SAPItem, ODP, Usuario } from '../models';
+import { SAP, SAPItem, ODP, Usuario, CatalogoProducto } from '../models';
 import sequelize from '../config/database';
+import { Op } from 'sequelize';
 
 // Generar número SAP consecutivo
 const generarNumeroSAP = async (): Promise<string> => {
@@ -87,5 +88,40 @@ export const updateSAP = async (req: Request, res: Response) => {
   } catch (error: any) {
     await t.rollback();
     res.status(500).json({ error: 'Error al actualizar SAP', detail: error.message });
+  }
+};
+
+export const deleteSAP = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const sap = await SAP.findByPk(id);
+    if (!sap) return res.status(404).json({ error: 'SAP no encontrada' });
+    await SAPItem.destroy({ where: { sap_id: id } });
+    await sap.destroy();
+    res.json({ ok: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al eliminar SAP', detail: error.message });
+  }
+};
+
+export const buscarCatalogo = async (req: Request, res: Response) => {
+  try {
+    const { q } = req.query;
+    if (!q || String(q).length < 2) return res.json([]);
+    const term = String(q).toUpperCase();
+    const items = await CatalogoProducto.findAll({
+      where: {
+        [Op.or]: [
+          { codigo: { [Op.iLike]: `%${term}%` } },
+          { nombre: { [Op.iLike]: `%${q}%` } },
+        ],
+        activo: true,
+      },
+      limit: 15,
+      order: [['codigo', 'ASC']],
+    });
+    res.json(items);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error en búsqueda' });
   }
 };

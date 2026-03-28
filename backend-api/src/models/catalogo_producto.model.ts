@@ -5,8 +5,9 @@ class CatalogoProducto extends Model {}
 
 CatalogoProducto.init({
   id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
-  categoria: { type: DataTypes.STRING(100), allowNull: false },
+  codigo: { type: DataTypes.STRING(50), allowNull: false, unique: true },
   nombre: { type: DataTypes.STRING(255), allowNull: false },
+  categoria: { type: DataTypes.STRING(100), allowNull: true },
   descripcion: { type: DataTypes.TEXT },
   activo: { type: DataTypes.BOOLEAN, defaultValue: true },
 }, {

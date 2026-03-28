@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAP · Sistema OPTIGLASS</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+  :root {
+    --bg:#0f0f0f; --surface:#181818; --surface2:#222222; --border:#2a2a2a;
+    --text:#e8e8e8; --text-dim:#666; --text-mid:#999;
+    --accent:#4a9eff; --accent-soft:rgba(74,158,255,0.12); --accent-glow:rgba(74,158,255,0.25);
+    --green:#3ecf8e; --green-soft:rgba(62,207,142,0.12);
+    --yellow:#f5a623; --yellow-soft:rgba(245,166,35,0.12);
+    --mono:'DM Mono',monospace; --sans:'DM Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding:32px 24px;}
+
+  .header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:40px;padding-bottom:24px;border-bottom:1px solid var(--border);}
+  .brand{display:flex;flex-direction:column;gap:4px;}
+  .brand-label{font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;}
+  .brand-title{font-size:22px;font-weight:600;letter-spacing:-0.5px;}
+  .brand-title span{color:var(--accent);}
+  .tag{font-family:var(--mono);font-size:10px;padding:4px 10px;border:1px solid var(--border);border-radius:4px;color:var(--text-dim);letter-spacing:0.08em;margin-top:6px;align-self:flex-start;}
+
+  .layout{display:grid;grid-template-columns:1fr 340px;gap:24px;max-width:1200px;margin:0 auto;}
+  .step-label{font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px;}
+  .section{margin-bottom:28px;}
+  .section-title{font-size:13px;font-weight:500;color:var(--text-mid);margin-bottom:12px;}
+
+  /* Selección riel */
+  .select-section{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px;}
+  .select-header{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+  .select-badge{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;letter-spacing:0.1em;text-transform:uppercase;background:var(--accent-soft);color:var(--accent);border:1px solid rgba(74,158,255,0.3);}
+  .select-title{font-size:12px;font-weight:500;color:var(--text);flex:1;}
+  .select-choices{display:flex;gap:10px;padding:14px 16px;flex-wrap:wrap;}
+  .sel-btn{padding:12px 20px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-family:var(--sans);font-size:12px;font-weight:500;color:var(--text-mid);transition:all 0.15s;display:flex;flex-direction:column;gap:4px;align-items:flex-start;min-width:140px;}
+  .sel-btn:hover{border-color:#444;color:var(--text);}
+  .sel-btn.active{border-color:var(--accent);background:var(--accent-soft);color:var(--text);}
+  .sel-btn-label{font-size:13px;font-weight:500;}
+  .sel-btn-sub{font-size:11px;color:var(--text-dim);}
+  .sel-btn-cod{font-family:var(--mono);font-size:11px;color:var(--accent);opacity:0.7;margin-top:2px;}
+  .sel-btn.active .sel-btn-cod{opacity:1;}
+
+  .perfiles-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  .perfiles-header{display:grid;grid-template-columns:28px 1fr 160px;padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:0.1em;text-transform:uppercase;}
+  .divider-row{padding:6px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+  .divider-label{font-family:var(--mono);font-size:9px;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;}
+  .perfil-row{display:grid;grid-template-columns:28px 1fr 160px;padding:11px 16px;border-bottom:1px solid var(--border);align-items:center;transition:background 0.1s;}
+  .perfil-row:last-child{border-bottom:none;}
+  .perfil-row:hover{background:var(--surface2);}
+  .row-item{font-family:var(--mono);font-size:11px;color:var(--text-dim);font-weight:500;}
+  .row-desc{font-size:12px;color:var(--text-mid);padding-right:12px;}
+  .row-cod{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:500;letter-spacing:0.04em;}
+  .row-cod.universal{color:var(--green);}
+  .row-cod.riel{color:var(--accent);}
+  .row-cod.empty{color:var(--text-dim);font-size:11px;}
+
+  /* Opcionales */
+  .optional-section{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;}
+  .optional-header{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+  .optional-badge{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;letter-spacing:0.1em;text-transform:uppercase;background:var(--yellow-soft);color:var(--yellow);border:1px solid rgba(245,166,35,0.3);}
+  .optional-title{font-size:12px;font-weight:500;color:var(--text);flex:1;}
+  .opt-toggle{font-family:var(--mono);font-size:10px;color:var(--text-dim);cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:none;transition:all 0.15s;letter-spacing:0.06em;}
+  .opt-toggle:hover{border-color:#444;color:var(--text);}
+  .opt-toggle.on{border-color:var(--green);color:var(--green);background:var(--green-soft);}
+  .opt-body{padding:10px 16px 12px;display:flex;align-items:center;gap:10px;}
+  .opt-cod{font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:500;}
+  .opt-desc{font-size:11px;color:var(--text-dim);}
+
+  .result-panel{position:sticky;top:24px;}
+  .result-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  .result-header{padding:14px 18px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .result-header-title{font-size:12px;font-weight:500;color:var(--text-mid);}
+  .result-riel-badge{font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:4px;background:var(--accent-soft);color:var(--accent);border:1px solid rgba(74,158,255,0.25);text-transform:uppercase;letter-spacing:0.08em;transition:all 0.2s;}
+  .result-riel-badge.no-sel{background:var(--surface2);color:var(--text-dim);border-color:var(--border);}
+  .result-section-label{padding:8px 18px 2px;font-family:var(--mono);font-size:9px;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;}
+  .result-item{display:flex;align-items:center;padding:7px 18px;gap:10px;border-bottom:1px solid var(--border);}
+  .result-item:last-child{border-bottom:none;}
+  .result-item:hover{background:var(--surface2);}
+  .result-item-label{font-size:11px;color:var(--text-dim);flex:1;}
+  .result-item-cod{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--accent);white-space:nowrap;}
+  .result-item-cod.green{color:var(--green);}
+  .result-item-cod.yellow{color:var(--yellow);}
+  .result-item-cod.dim{color:var(--text-dim);font-size:10px;}
+  .empty-state{padding:32px 18px;text-align:center;color:var(--text-dim);font-size:12px;line-height:1.7;font-family:var(--mono);}
+  .empty-icon{font-size:24px;margin-bottom:10px;opacity:0.4;}
+  .copy-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;background:var(--accent-soft);border:1px solid rgba(74,158,255,0.3);border-radius:0 0 10px 10px;cursor:pointer;font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:0.08em;text-transform:uppercase;transition:all 0.15s;}
+  .copy-btn:hover{background:rgba(74,158,255,0.2);}
+  .copy-btn.copied{color:var(--green);border-color:rgba(62,207,142,0.3);background:var(--green-soft);}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">
+    <span class="brand-label">Vidrios Templex · Formulario SAP</span>
+    <span class="brand-title">Sistema <span>OPTIGLASS</span></span>
+    <span class="tag">SELECTOR DE PERFILES Y ACCESORIOS</span>
+  </div>
+</div>
+
+<div class="layout">
+  <div>
+
+    <!-- PASO 1: SELECCIÓN RIEL -->
+    <div class="section">
+      <div class="step-label">Paso 01 — Tipo de riel</div>
+      <div class="section-title">Define el tipo de instalación</div>
+      <div class="select-section">
+        <div class="select-header">
+          <span class="select-badge">Seleccionar</span>
+          <span class="select-title">Riel — Ítems B y H</span>
+        </div>
+        <div class="select-choices">
+          <button class="sel-btn" onclick="selectRiel('B','ROS0301','Sencillo')" id="btn-riel-B">
+            <span class="sel-btn-label">Riel Sencillo</span>
+            <span class="sel-btn-sub">1 hoja corredera</span>
+            <span class="sel-btn-cod">ROS0301</span>
+          </button>
+          <button class="sel-btn" onclick="selectRiel('H','ROS0302','Doble')" id="btn-riel-H">
+            <span class="sel-btn-label">Riel Doble</span>
+            <span class="sel-btn-sub">2 hojas correderas</span>
+            <span class="sel-btn-cod">ROS0302</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 2: ACCESORIOS FIJOS -->
+    <div class="section">
+      <div class="step-label">Paso 02 — Accesorios del sistema</div>
+      <div class="section-title">Códigos fijos — independientes del riel</div>
+      <div class="perfiles-card">
+        <div class="perfiles-header">
+          <span>IT</span><span>Descripción</span><span>Código</span>
+        </div>
+        <div class="divider-row"><span class="divider-label">Riel seleccionado</span></div>
+        <div class="perfil-row">
+          <span class="row-item" id="riel-item">B/H</span>
+          <span class="row-desc" id="riel-desc">Riel — selecciona arriba</span>
+          <span class="row-cod riel" id="riel-cod">—</span>
+        </div>
+        <div class="divider-row"><span class="divider-label">Universales</span></div>
+        <div class="perfil-row">
+          <span class="row-item">A</span>
+          <span class="row-desc">Kit Optiglass</span>
+          <span class="row-cod universal">KOP0101</span>
+        </div>
+        <div class="perfil-row">
+          <span class="row-item">C</span>
+          <span class="row-desc">Chapeta Central Cerradura Picoloro</span>
+          <span class="row-cod universal">CCE1102</span>
+        </div>
+        <div class="perfil-row">
+          <span class="row-item">D</span>
+          <span class="row-desc">Manija Tipo Roma</span>
+          <span class="row-cod universal">MRO1101</span>
+        </div>
+        <div class="perfil-row">
+          <span class="row-item">E</span>
+          <span class="row-desc">Guía de Piso Optiglass</span>
+          <span class="row-cod universal">GPSL0101</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 3: OPCIONALES -->
+    <div class="section">
+      <div class="step-label">Paso 03 — Accesorios opcionales</div>
+      <div class="optional-section">
+        <div class="optional-header">
+          <span class="optional-badge">Opcional</span>
+          <span class="optional-title">K · Chapeta Escudo Redondeada</span>
+          <button class="opt-toggle" id="toggle-K" onclick="toggleOpt('K')">OFF</button>
+        </div>
+        <div class="opt-body">
+          <span class="opt-cod">CCE0101</span>
+          <span class="opt-desc">Universal</span>
+        </div>
+      </div>
+      <div class="optional-section">
+        <div class="optional-header">
+          <span class="optional-badge">Opcional</span>
+          <span class="optional-title">L · Chapeta Recibidor Redondeada</span>
+          <button class="opt-toggle" id="toggle-L" onclick="toggleOpt('L')">OFF</button>
+        </div>
+        <div class="opt-body">
+          <span class="opt-cod">CRE1301</span>
+          <span class="opt-desc">Universal</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RESULTADO -->
+  <div class="result-panel">
+    <div class="result-card">
+      <div class="result-header">
+        <span class="result-header-title">Resumen de códigos</span>
+        <span class="result-riel-badge no-sel" id="result-riel-badge">Sin riel</span>
+      </div>
+      <div id="result-body">
+        <div class="empty-state">
+          <div class="empty-icon">◈</div>
+          Selecciona el tipo de riel<br>para ver los códigos
+        </div>
+      </div>
+      <button class="copy-btn" id="copy-btn" onclick="copyCodes()">⎘ &nbsp;Copiar códigos</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let selectedRiel = null;
+const toggled = { K:false, L:false };
+
+const OPCIONALES = {
+  K: { desc:'Chapeta Escudo Redondeada',    cod:'CCE0101' },
+  L: { desc:'Chapeta Recibidor Redondeada', cod:'CRE1301' },
+};
+
+function selectRiel(item, cod, label) {
+  if(selectedRiel && selectedRiel.item === item) {
+    selectedRiel = null;
+    ['B','H'].forEach(k => { const b = document.getElementById('btn-riel-'+k); if(b) b.classList.remove('active'); });
+    document.getElementById('riel-item').textContent = 'B/H';
+    document.getElementById('riel-desc').textContent = 'Riel — selecciona arriba';
+    document.getElementById('riel-cod').textContent  = '—';
+    document.getElementById('result-riel-badge').textContent = 'Sin riel';
+    document.getElementById('result-riel-badge').className  = 'result-riel-badge no-sel';
+    updateResultPanel(); return;
+  }
+  selectedRiel = { item, cod, label };
+  ['B','H'].forEach(k => { const b = document.getElementById('btn-riel-'+k); if(b) b.classList.toggle('active', k===item); });
+  document.getElementById('riel-item').textContent = item;
+  document.getElementById('riel-desc').textContent = 'Riel ' + label + ' Mate';
+  document.getElementById('riel-cod').textContent  = cod;
+  document.getElementById('result-riel-badge').textContent = 'RIEL ' + label.toUpperCase();
+  document.getElementById('result-riel-badge').className  = 'result-riel-badge';
+  updateResultPanel();
+}
+
+function toggleOpt(item) {
+  toggled[item] = !toggled[item];
+  const btn = document.getElementById('toggle-'+item);
+  btn.textContent = toggled[item] ? 'ON' : 'OFF';
+  btn.classList.toggle('on', toggled[item]);
+  updateResultPanel();
+}
+
+function updateResultPanel() {
+  const body = document.getElementById('result-body');
+  if(!selectedRiel) {
+    body.innerHTML = `<div class="empty-state"><div class="empty-icon">◈</div>Selecciona el tipo de riel<br>para ver los códigos</div>`;
+    return;
+  }
+  let html = `<div class="result-section-label">Riel</div>`;
+  html += `<div class="result-item"><span class="result-item-label">${selectedRiel.item} · Riel ${selectedRiel.label} Mate</span><span class="result-item-cod">${selectedRiel.cod}</span></div>`;
+  html += `<div class="result-section-label">Universales</div>`;
+  html += `<div class="result-item"><span class="result-item-label">A · Kit Optiglass</span><span class="result-item-cod green">KOP0101</span></div>`;
+  html += `<div class="result-item"><span class="result-item-label">C · Chapeta Central Cerradura</span><span class="result-item-cod green">CCE1102</span></div>`;
+  html += `<div class="result-item"><span class="result-item-label">D · Manija Tipo Roma</span><span class="result-item-cod green">MRO1101</span></div>`;
+  html += `<div class="result-item"><span class="result-item-label">E · Guía de Piso Optiglass</span><span class="result-item-cod green">GPSL0101</span></div>`;
+
+  const activos = Object.keys(toggled).filter(k => toggled[k]);
+  if(activos.length) {
+    html += `<div class="result-section-label">Opcionales activos</div>`;
+    activos.forEach(item => {
+      const d = OPCIONALES[item];
+      html += `<div class="result-item"><span class="result-item-label">${item} · ${d.desc}</span><span class="result-item-cod yellow">${d.cod}</span></div>`;
+    });
+  }
+  body.innerHTML = `<div>${html}</div>`;
+}
+
+function copyCodes() {
+  if(!selectedRiel) return;
+  let lines = [`Sistema OPTIGLASS · Riel ${selectedRiel.label}`, '--- RIEL ---'];
+  lines.push(`${selectedRiel.item}  ${selectedRiel.cod.padEnd(12)} Riel ${selectedRiel.label} Mate`);
+  lines.push(''); lines.push('--- UNIVERSALES ---');
+  lines.push(`A  ${'KOP0101'.padEnd(12)} Kit Optiglass`);
+  lines.push(`C  ${'CCE1102'.padEnd(12)} Chapeta Central Cerradura Picoloro`);
+  lines.push(`D  ${'MRO1101'.padEnd(12)} Manija Tipo Roma`);
+  lines.push(`E  ${'GPSL0101'.padEnd(12)} Guía de Piso Optiglass`);
+  const activos = Object.keys(toggled).filter(k => toggled[k]);
+  if(activos.length) {
+    lines.push(''); lines.push('--- OPCIONALES ---');
+    activos.forEach(item => {
+      const d = OPCIONALES[item];
+      lines.push(`${item}  ${d.cod.padEnd(12)} ${d.desc}`);
+    });
+  }
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✓  Copiado'; btn.classList.add('copied');
+    setTimeout(() => { btn.innerHTML = '⎘ &nbsp;Copiar códigos'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+</script>
+</body>
+</html>

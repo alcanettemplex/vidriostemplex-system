@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAP · Vidrios Templex</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+  :root {
+    --bg:#0a0a0a; --surface:#141414; --surface2:#1e1e1e; --border:#252525;
+    --text:#e8e8e8; --text-dim:#555; --text-mid:#888;
+    --accent:#4a9eff; --accent-soft:rgba(74,158,255,0.1); --accent-glow:rgba(74,158,255,0.2);
+    --green:#3ecf8e; --green-soft:rgba(62,207,142,0.1);
+    --yellow:#f5a623; --yellow-soft:rgba(245,166,35,0.1);
+    --red:#ff5f5f; --red-soft:rgba(255,95,95,0.1);
+    --mono:'DM Mono',monospace; --sans:'DM Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;}
+
+  /* HEADER */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:20px 32px;border-bottom:1px solid var(--border);
+    background:var(--surface);position:sticky;top:0;z-index:100;
+  }
+  .topbar-left{display:flex;align-items:center;gap:16px;}
+  .logo-mark{
+    width:36px;height:36px;border-radius:8px;
+    background:var(--accent-soft);border:1px solid rgba(74,158,255,0.3);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:14px;color:var(--accent);font-weight:500;
+  }
+  .logo-text{display:flex;flex-direction:column;gap:1px;}
+  .logo-title{font-size:15px;font-weight:600;letter-spacing:-0.3px;}
+  .logo-sub{font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:0.1em;text-transform:uppercase;}
+  .topbar-right{display:flex;align-items:center;gap:12px;}
+  .stat-pill{
+    display:flex;align-items:center;gap:6px;
+    padding:5px 12px;border:1px solid var(--border);border-radius:20px;
+    font-family:var(--mono);font-size:10px;color:var(--text-mid);
+    background:var(--surface2);
+  }
+  .stat-dot{width:6px;height:6px;border-radius:50%;background:var(--green);}
+
+  /* MAIN */
+  .main{padding:40px 32px;max-width:1280px;margin:0 auto;}
+
+  /* HERO */
+  .hero{margin-bottom:48px;}
+  .hero-label{font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:10px;}
+  .hero-title{font-size:32px;font-weight:700;letter-spacing:-1px;line-height:1.1;margin-bottom:10px;}
+  .hero-title span{color:var(--accent);}
+  .hero-desc{font-size:14px;color:var(--text-mid);max-width:520px;line-height:1.6;}
+
+  /* SEARCH */
+  .search-wrap{margin-bottom:36px;}
+  .search-box{
+    display:flex;align-items:center;gap:10px;
+    background:var(--surface);border:1px solid var(--border);border-radius:8px;
+    padding:10px 16px;max-width:400px;transition:border-color 0.15s;
+  }
+  .search-box:focus-within{border-color:var(--accent);}
+  .search-icon{font-size:14px;color:var(--text-dim);}
+  .search-box input{
+    background:none;border:none;outline:none;
+    font-family:var(--sans);font-size:13px;color:var(--text);
+    width:100%;
+  }
+  .search-box input::placeholder{color:var(--text-dim);}
+
+  /* GRUPOS */
+  .grupo{margin-bottom:44px;}
+  .grupo-header{
+    display:flex;align-items:center;gap:12px;
+    margin-bottom:16px;padding-bottom:12px;
+    border-bottom:1px solid var(--border);
+  }
+  .grupo-label{font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;}
+  .grupo-title{font-size:14px;font-weight:600;color:var(--text-mid);}
+  .grupo-count{
+    font-family:var(--mono);font-size:10px;
+    padding:2px 8px;border-radius:3px;
+    background:var(--surface2);color:var(--text-dim);border:1px solid var(--border);
+  }
+
+  /* GRID */
+  .cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+
+  /* CARD */
+  .card{
+    background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    padding:20px;cursor:pointer;transition:all 0.15s;
+    text-decoration:none;color:inherit;display:block;position:relative;overflow:hidden;
+  }
+  .card::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:2px;
+    background:var(--accent);transform:scaleX(0);transform-origin:left;
+    transition:transform 0.2s;
+  }
+  .card:hover{border-color:#333;background:var(--surface2);}
+  .card:hover::before{transform:scaleX(1);}
+
+  .card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;}
+  .card-icon{
+    width:38px;height:38px;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:16px;flex-shrink:0;
+  }
+  .card-arrow{font-size:16px;color:var(--text-dim);transition:all 0.15s;margin-top:2px;}
+  .card:hover .card-arrow{color:var(--accent);transform:translateX(3px);}
+
+  .card-name{font-size:14px;font-weight:600;margin-bottom:4px;letter-spacing:-0.2px;}
+  .card-desc{font-size:11px;color:var(--text-dim);line-height:1.5;margin-bottom:14px;}
+
+  .card-tags{display:flex;gap:6px;flex-wrap:wrap;}
+  .tag-pill{
+    font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;
+    letter-spacing:0.06em;text-transform:uppercase;
+  }
+  .tag-color{background:var(--accent-soft);color:var(--accent);border:1px solid rgba(74,158,255,0.2);}
+  .tag-opt{background:var(--yellow-soft);color:var(--yellow);border:1px solid rgba(245,166,35,0.2);}
+  .tag-uni{background:var(--green-soft);color:var(--green);border:1px solid rgba(62,207,142,0.2);}
+  .tag-na{background:var(--surface2);color:var(--text-dim);border:1px solid var(--border);}
+  .tag-warn{background:var(--red-soft);color:var(--red);border:1px solid rgba(255,95,95,0.2);}
+
+  /* Colores preview */
+  .color-dots{display:flex;gap:4px;margin-top:10px;}
+  .cdot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+  .cdot.mate  {background:#b0b0b0;}
+  .cdot.negro {background:#1a1a1a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.2);}
+  .cdot.blanco{background:#f0f0f0;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.12);}
+  .cdot.bronce{background:#8b6914;}
+  .cdot.gris  {background:#7a8a95;}
+  .cdot.cromo {background:linear-gradient(135deg,#e8e8e8,#a0a0a0);}
+  .cdot.none  {background:var(--surface2);border:1px dashed var(--border);}
+
+  /* Card pendiente */
+  .card.pending{opacity:0.45;cursor:not-allowed;pointer-events:none;}
+  .card.pending::before{display:none;}
+
+  /* FOOTER */
+  .footer{
+    border-top:1px solid var(--border);padding:24px 32px;
+    display:flex;align-items:center;justify-content:space-between;
+    font-family:var(--mono);font-size:10px;color:var(--text-dim);
+    letter-spacing:0.08em;
+  }
+
+  /* Hidden por búsqueda */
+  .card.hidden{display:none;}
+  .grupo.all-hidden{display:none;}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo-mark">VT</div>
+    <div class="logo-text">
+      <span class="logo-title">Vidrios Templex</span>
+      <span class="logo-sub">Formulario SAP</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="stat-pill"><span class="stat-dot"></span>13 sistemas activos</div>
+    <div class="stat-pill">1 pendiente</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <div class="hero">
+    <div class="hero-label">Selector de accesorios y perfilería</div>
+    <div class="hero-title">Elige el <span>sistema</span><br>que necesitas</div>
+    <div class="hero-desc">Selecciona el sistema de aluminio para ver los códigos SAP según color y accesorios requeridos.</div>
+  </div>
+
+  <!-- BÚSQUEDA -->
+  <div class="search-wrap">
+    <div class="search-box">
+      <span class="search-icon">⌕</span>
+      <input type="text" id="search-input" placeholder="Buscar sistema..." oninput="filterCards()">
+    </div>
+  </div>
+
+  <!-- GRUPO 1: SISTEMA 3831 -->
+  <div class="grupo" id="grupo-3831">
+    <div class="grupo-header">
+      <span class="grupo-label">Grupo 01</span>
+      <span class="grupo-title">Sistema 3831</span>
+      <span class="grupo-count">2 sistemas</span>
+    </div>
+    <div class="cards-grid">
+
+      <a class="card" href="selector-3831-ventanas.html" data-search="3831 ventanas sillar jamba pisavidrio persiana brazos manija">
+        <div class="card-top">
+          <div class="card-icon" style="background:rgba(74,158,255,0.08)">🪟</div>
+          <span class="card-arrow">→</span>
+        </div>
+        <div class="card-name">3831 Ventanas</div>
+        <div class="card-desc">Sillar, jamba, pisavidrio, divisor, tapa, nave, empaque. Persiana opcional, selección de brazos y manija.</div>
+        <div class="card-tags">
+          <span class="tag-pill tag-color">5 colores</span>
+          <span class="tag-pill tag-opt">Persiana</span>
+          <span class="tag-pill tag-opt">Brazos</span>
+          <span class="tag-pill tag-opt">Manija</span>
+        </div>
+        <div class="color-dots">
+          <span class="cdot mate" title="Mate"></span>
+          <span class="cdot negro" title="Negro"></span>
+          <span class="cdot blanco" title="Blanco"></span>
+          <span class="cdot bronce" title="Bronce"></span>
+          <span class="cdot gris" title="Gris Plata"></span>
+        </div>
+      </a>
+
+      <a class="card" href="selector-3831-puertas.html" data-search="3831 puertas divisiones tubular divisor tapa pisavidrio falleba chapa">
+        <div class="card-top">
+          <div class="card-icon" style="background:rgba(74,158,255,0.08)">🚪</div>
+          <span class="card-arrow">→</span>
+        </div>
+        <div class="card-name">3831 Puertas y Divisiones</div>
+        <div class="card-desc">Tubular T-70, divisor, tapa, pisavidrio, jamba, chapetas. Tubulares, divisor y pisavidrio opcionales.</div>
+        <div class="card-tags">
+          <span class="tag-pill tag-color">5 colores</span>
+          <span class="tag-pill tag-opt">Tubulares</span>
+          <span class="tag-pill tag-warn">SIN CREAR</span>
+        </div>
+        <div class="color-dots">
+          <span class="cdot mate"></span><span class="cdot negro"></span>
+          <span class="cdot blanco"></span><span class="cdot bronce"></span><span class="cdot gris"></span>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- GRUPO 2: CABINAS Y GLASSVIT -->
+  <div class="grupo" id="grupo-cabinas">
+    <div class="grupo-header">
+      <span class="grupo-label">Grupo 02</span>
+      <span class="grupo-title">Cabinas y Glassvit</span>
+      <span class="grupo-count">3 sistemas</span>
+    </div>
+    <div class="cards-grid">
+
+      <a class="card" href="selector-cab-6mm.html" data-search="cab cabina 6mm sillar cabezal pisavidrio u68 rodajas chapetas haladera">
+        <div class="card-top">
+          <div class="card-icon" style="background:rgba(62,207,142,0.08)">🚿</div>
+          <span class="card-arrow">→</span>
+        </div>
+        <div class="card-name">CAB 6MM</div>
+        <div class="card-desc">Sillar cabina, cabezal cabina, pisavidrio U68. Rodajas, chapetas y botón haladera universales.</div>
+        <div class="card-tags">
+          <span class="tag-pill tag-color">5 colores</span>
+          <span class="tag-pill tag-uni">3 universales</span>
+        </div>
+        <div class="color-dots">
+          <span class="cdot mate"></span><span class="cdot negro"></span>
+          <span class="cdot blanco"></span><span class="cdot bronce"></span><span class="cdot gris"></span>
+        </div>
+      </a>
+
+      <a class="card" href="selector-glasv-6mm.html" data-search="glasvit glasv 6mm kit sillar pisavidrio u68 haladera guia piso nylon">
+        <div class="card-top">
+          <div class="card-icon" style="background:rgba(62,207,142,0.08)">🔲</div>
+          <span class="card-arrow">→</span>
+        </div>
+        <div class="card-name">GLASV 6MM</div>
+        <div class="card-desc">Kit Glassvit, sillar cabina, pisavidrio U68. Botón haladera y guía de piso nylon universales.</div>
+        <div class="card-tags">
+          <span class="tag-pill tag-color">5 colores</span>
+          <span class="tag-pill tag-uni">3 universales</span>
+        </div>
+        <div class="color-dots">
+          <span class="cdot mate"></span><span class="cdot negro"></span>
+          <span class="cdot blanco"></span><span class="cdot bronce"></span><span class="cdot gris"></span>
+        </div>
+      </a>
+
+      <a class="card" href="selector-glasv-8mm.html" data-search="glasvit glasv 8mm kit sillar pisavidrio u68 u32 haladera">
+        <div class="card-top">
+          <div class="card-icon" style="background:rgba(62,207,142,0.08)">🔳</div>
+          <span class="card-arrow">→</span>
+        </div>
+        <div class="card-name">GLASV 8MM</div>
+        <div class="card-desc">Kit Glassvit, sillar cabina, pisavidrio U68 y U32 por color. Botón haladera universal.</div>
+        <div class="card-tags">
+          <span class="tag-pill tag-color">5 colores</span>
+          <span class="tag-pill tag-uni">2 universales</span>
+        </div>
+        <div class="color-dots">
+          <span class="cdot mate"></span><span class="cdot negro"></span>
+          <span class="cdot blanco"></span><span class="cdot bronce"></span><span class="cdot gris"></span>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- GRUPO 3: BAT+FIJO -->
+  <div class="grupo" id="grupo-bat">
+    <div class="grupo-header">
+      <span class="grupo-label">Grupo 03</span>
+      <span class="grupo-title">BAT + FIJO</span>
+      <span class="grupo-count">2 sistemas</span>
+    </div>
+    <div class="cards-grid">
+
+      <a class="card" href="selector-bat-fijo-28-40.html" data-search="bat fijo 28 40 bisagra boton perfil plastico chapeta haladera negro cromo">
+        <div class="card-top">
+          <div class="card-icon" style="background:rgba(245,166,35,0.08)">🔩</div>
+          <span class="card-arrow">→</span>
+        </div>
+        <div class="card-name">BAT+FIJO 28-40</div>
+        <div class="card-desc">Bisagra 28-40, botón acero, perfiles plásticos, chapetas. N/A en Negro para chapeta importada.</div>
+        <div class="card-tags">
+          <span class="tag-pill tag-color">2 colores</span>
+          <span class="tag-pill tag-na">N/A en Negro</span>
+        </div>
+        <div class="color-dots">
+          <span class="cdot negro"></span>
+          <span class="cdot cromo"></span>
+        </div>
+      </a>
+
+      <a class="card" href="selector-bat-fijo-25-30.html" data-search="bat fijo 25 30 bisagra boton perfil plastico chapeta haladera negro cromo">
+        <div class="card-top">
+          <div class="card-icon" style="background:rgba(245,166,35,0.08)">🔩</div>
+          <span class="card-arrow">→</span>
+        </div>
+        <div class="card-name">BAT+FIJO 25-30</div>
+        <div class="card-desc">Bisagra 25-30, perfiles plásticos, chapetas. Botón cromo y chapeta importada N/A en Negro.</div>
+        <div class="card-tags">
+          <span class="tag-pill tag-color">2 colores</span>
+          <span class="tag-pill tag-na">2× N/A en Negro</span>
+        </div>
+        <div class="color-dots">
+          <span class="cdot negro"></span>
+          <span class="cdot cromo"></span>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- GRUPO 4: CORREDIZAS -->
+  <div class="grupo" id="grupo-corredizas">
+    <div class="grupo-header">
+      <span class="grupo-label">Grupo 04</span>
+      <span class="grupo-title">Sistemas Corredizos</span>
+      <span class="grupo-count">3 sistemas</span>
+    </div>
+    <div class="cards-grid">
+
+      <a class="card" href="selector-5020-xx.html" data-search="5020 sillar cabezal jamba traslape enganche horizontal rodamientos empaque felpa chapa">
+        <div class="card-top">
+          <div class="card-icon" style="background:rgba(74,158,255,0.08)">↔️</div>
+          <span class="card-arrow">→</span>
+        </div>
+        <div class="card-name">5020 XX</div>
+        <div class="card-desc">8 perfiles por color, cerrojo y felpa universales. Traslape reforzado, sillar alfajía y chapa opcionales.</div>
+        <div class="card-tags">
+          <span class="tag-pill tag-color">5 colores</span>
+          <span class="tag-pill tag-opt">3 opcionales</span>
+          <span class="tag-pill tag-warn">SIN CREAR</span>
+        </div>
+        <div class="color-dots">
+          <span class="cdot mate"></span><span class="cdot negro"></span>
+          <span class="cdot blanco"></span><span class="cdot bronce"></span><span class="cdot gris"></span>
+        </div>
+      </a>
+
+      <a class="card" href="selector-744xx.html" data-search="744 sillar cabezal jamba traslape enganche horizontal rodamientos guias felpa chapa yale cisa">
+        <div class="card-top">
+          <div class="card-icon" style="background:rgba(74,158,255,0.08)">↔️</div>
+          <span class="card-arrow">→</span>
+        </div>
+        <div class="card-name">744XX</div>
+        <div class="card-desc">7 perfiles por color, 6 universales. Selección de chapa: Yale o Cisa ½ cilindro.</div>
+        <div class="card-tags">
+          <span class="tag-pill tag-color">5 colores</span>
+          <span class="tag-pill tag-opt">Yale / Cisa</span>
+        </div>
+        <div class="color-dots">
+          <span class="cdot mate"></span><span class="cdot negro"></span>
+          <span class="cdot blanco"></span><span class="cdot bronce"></span><span class="cdot gris"></span>
+        </div>
+      </a>
+
+      <a class="card" href="selector-8025-xx.html" data-search="8025 sillar cabezal jamba traslape enganche horizontal rodamientos guias felpa 3 rieles chapa yale cisa">
+        <div class="card-top">
+          <div class="card-icon" style="background:rgba(74,158,255,0.08)">↔️</div>
+          <span class="card-arrow">→</span>
+        </div>
+        <div class="card-name">8025 XX</div>
+        <div class="card-desc">7 perfiles por color, 6 universales, 3 rieles opcionales. Selección Yale o Cisa. SIN CREAR en Gris Plata para 3 rieles.</div>
+        <div class="card-tags">
+          <span class="tag-pill tag-color">5 colores</span>
+          <span class="tag-pill tag-opt">3 rieles</span>
+          <span class="tag-pill tag-warn">SIN CREAR</span>
+        </div>
+        <div class="color-dots">
+          <span class="cdot mate"></span><span class="cdot negro"></span>
+          <span class="cdot blanco"></span><span class="cdot bronce"></span><span class="cdot gris"></span>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- GRUPO 5: MONUMENTAL -->
+  <div class="grupo" id="grupo-monumental">
+    <div class="grupo-header">
+      <span class="grupo-label">Grupo 05</span>
+      <span class="grupo-title">Monumental</span>
+      <span class="grupo-count">1 sistema</span>
+    </div>
+    <div class="cards-grid">
+
+      <a class="card" href="selector-monumental-xx.html" data-search="monumental sillar cabezal jamba traslape enganche horizontal rodamientos chapa felpa sobreponer 3 rieles">
+        <div class="card-top">
+          <div class="card-icon" style="background:rgba(74,158,255,0.08)">🏛️</div>
+          <span class="card-arrow">→</span>
+        </div>
+        <div class="card-name">MONUMENTAL XX</div>
+        <div class="card-desc">6 perfiles por color, 5 universales. Sillar sobreponer solo en Negro. Cabezal 3 rieles en Mate y Negro.</div>
+        <div class="card-tags">
+          <span class="tag-pill tag-color">3 colores</span>
+          <span class="tag-pill tag-opt">Opcionales parciales</span>
+        </div>
+        <div class="color-dots">
+          <span class="cdot mate"></span>
+          <span class="cdot negro"></span>
+          <span class="cdot blanco"></span>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- GRUPO 6: PUERTAS ESPECIALES -->
+  <div class="grupo" id="grupo-puertas">
+    <div class="grupo-header">
+      <span class="grupo-label">Grupo 06</span>
+      <span class="grupo-title">Puertas Especiales</span>
+      <span class="grupo-count">2 sistemas</span>
+    </div>
+    <div class="cards-grid">
+
+      <a class="card" href="selector-pta-tiporoma.html" data-search="pta puerta tiporoma roma esquinero pivote chapeta manija tope cazuela">
+        <div class="card-top">
+          <div class="card-icon" style="background:rgba(62,207,142,0.08)">🚪</div>
+          <span class="card-arrow">→</span>
+        </div>
+        <div class="card-name">PTA TIPOROMA</div>
+        <div class="card-desc">Esquineros, pivotes, chapetas, manija Roma y tope cazuela. Chapeta central cerradura opcional.</div>
+        <div class="card-tags">
+          <span class="tag-pill tag-uni">Solo Mate</span>
+          <span class="tag-pill tag-opt">1 opcional</span>
+        </div>
+        <div class="color-dots">
+          <span class="cdot mate"></span>
+        </div>
+      </a>
+
+      <a class="card" href="selector-optiglass.html" data-search="optiglass riel sencillo doble kit manija roma chapeta cerradura guia piso">
+        <div class="card-top">
+          <div class="card-icon" style="background:rgba(62,207,142,0.08)">🔲</div>
+          <span class="card-arrow">→</span>
+        </div>
+        <div class="card-name">OPTIGLASS</div>
+        <div class="card-desc">Selección de riel sencillo o doble. Kit Optiglass, manija Roma, guía de piso. Chapetas opcionales.</div>
+        <div class="card-tags">
+          <span class="tag-pill tag-uni">Sin color</span>
+          <span class="tag-pill tag-opt">Riel Sencillo/Doble</span>
+        </div>
+        <div class="color-dots">
+          <span class="cdot none" title="Sin selección de color"></span>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- GRUPO 7: PENDIENTE -->
+  <div class="grupo" id="grupo-pendiente">
+    <div class="grupo-header">
+      <span class="grupo-label">Pendiente</span>
+      <span class="grupo-title">Sin datos en Excel</span>
+      <span class="grupo-count">1 sistema</span>
+    </div>
+    <div class="cards-grid">
+
+      <div class="card pending" data-search="accesorios barra estabilizadora cromo negro acero">
+        <div class="card-top">
+          <div class="card-icon" style="background:rgba(255,95,95,0.06)">⏸</div>
+        </div>
+        <div class="card-name">ACCES. BARRA ESTAB</div>
+        <div class="card-desc">Estructura lista (Cromo / Negro / Acero) pero sin códigos en el Excel. Pendiente de completar.</div>
+        <div class="card-tags">
+          <span class="tag-pill tag-warn">Sin datos</span>
+          <span class="tag-pill tag-color">3 colores</span>
+        </div>
+        <div class="color-dots">
+          <span class="cdot cromo"></span>
+          <span class="cdot negro"></span>
+          <span class="cdot none"></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <span>Vidrios Templex · SAP Selector v1.0</span>
+  <span>13 sistemas · 1 pendiente</span>
+</div>
+
+<script>
+function filterCards() {
+  const q = document.getElementById('search-input').value.toLowerCase().trim();
+  document.querySelectorAll('.card').forEach(card => {
+    const text = (card.dataset.search || '') + ' ' + (card.querySelector('.card-name')?.textContent || '');
+    card.classList.toggle('hidden', q.length > 0 && !text.toLowerCase().includes(q));
+  });
+  // Ocultar grupos vacíos
+  document.querySelectorAll('.grupo').forEach(grupo => {
+    const visible = [...grupo.querySelectorAll('.card')].some(c => !c.classList.contains('hidden'));
+    grupo.classList.toggle('all-hidden', !visible);
+  });
+}
+</script>
+</body>
+</html>

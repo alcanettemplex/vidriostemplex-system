@@ -1,0 +1,251 @@
+{
+  "3831-ventanas": {
+    "nombre": "Sistema 3831 Ventanas",
+    "colores": ["MATE", "NEGRO", "BLANCO", "BRONCE", "GRIS PLATA"],
+    "perfiles": {
+      "A": { "desc": "Sillar – Cabezal", "codes": { "MATE": "SIL0102", "NEGRO": "SIL0606", "BLANCO": "SIL0415", "BRONCE": "SIL0504", "GRIS PLATA": "SIL0203" }},
+      "B": { "desc": "Jamba",            "codes": { "MATE": "JAM0503", "NEGRO": "JAM0604", "BLANCO": "JAM0407", "BRONCE": "JAM0101", "GRIS PLATA": "JAM0206" }},
+      "C": { "desc": "Pisavidrio",       "codes": { "MATE": "PPR0101", "NEGRO": "PIS0602", "BLANCO": "PIS0405", "BRONCE": "PPR0501", "GRIS PLATA": "PIS0204" }},
+      "D": { "desc": "Divisor",          "codes": { "MATE": "DIV0101", "NEGRO": "DIV0604", "BLANCO": "DIV0401", "BRONCE": "DIV0502", "GRIS PLATA": "DIV0206" }},
+      "E": { "desc": "Tapa",             "codes": { "MATE": "SIL0103", "NEGRO": "ADA0606", "BLANCO": "ADA0404", "BRONCE": "SIL0502", "GRIS PLATA": "ADA0204" }},
+      "F": { "desc": "Nave",             "codes": { "MATE": "NAV0101", "NEGRO": "NAV0606", "BLANCO": "NAV0404", "BRONCE": "NAV0503", "GRIS PLATA": "NAV0202" }},
+      "G": { "desc": "Empaque 3831",     "codes": { "MATE": "EMP1301", "NEGRO": "EMP1301", "BLANCO": "EMP1301", "BRONCE": "EMP1301", "GRIS PLATA": "EMP1301" }}
+    },
+    "persiana": {
+      "tipo": "toggle",
+      "item": "H",
+      "desc": "Persiana",
+      "codes": { "MATE": "PER0103", "NEGRO": "PER0601", "BLANCO": "PER0401", "BRONCE": "PCE0503", "GRIS PLATA": "PCE0202" }
+    },
+    "brazos": [
+      { "item": "K", "cod": "BRES0101", "label": "6 Pulgadas" },
+      { "item": "L", "cod": "BRES0104", "label": "8 Pulgadas" },
+      { "item": "M", "cod": "BRES0201", "label": "10 Pulgadas" },
+      { "item": "N", "cod": "BRES0301", "label": "12 Pulgadas" }
+    ],
+    "manijas": [
+      { "item": "Q", "cod": "MBL0406", "label": "Nacional" },
+      { "item": "R", "cod": "MPI0101", "label": "Importada" }
+    ]
+  },
+
+  "3831-puertas": {
+    "nombre": "Sistema 3831 Puertas y Divisiones",
+    "colores": ["MATE", "NEGRO", "BLANCO", "BRONCE", "GRIS PLATA"],
+    "perfiles": {
+      "A": { "desc": "Tubular T-70",  "codes": { "MATE": "TUB0103", "NEGRO": "TUB0610", "BLANCO": "TUB0409", "BRONCE": "TUB0502", "GRIS PLATA": "TUB0211" }},
+      "B": { "desc": "Divisor",       "codes": { "MATE": "DIV0101", "NEGRO": "DIV0604", "BLANCO": "DIV0401", "BRONCE": "DIV0502", "GRIS PLATA": "DIV0206" }},
+      "C": { "desc": "Tapa",          "codes": { "MATE": "SIL0103", "NEGRO": "ADA0606", "BLANCO": "ADA0404", "BRONCE": "SIL0502", "GRIS PLATA": "ADA0204" }},
+      "D": { "desc": "Pisavidrio",    "codes": { "MATE": "PPR0101", "NEGRO": "PIS0602", "BLANCO": "PIS0405", "BRONCE": "PPR0501", "GRIS PLATA": "PIS0204" }},
+      "E": { "desc": "Jamba",         "codes": { "MATE": "JAM0503", "NEGRO": "JAM0604", "BLANCO": "JAM0407", "BRONCE": "JAM0101", "GRIS PLATA": "JAM0206" }},
+      "F": { "desc": "Chapetas A-15 (fija)", "codes": { "MATE": "ANG0309", "NEGRO": "ANG0309", "BLANCO": "ANG0309", "BRONCE": "ANG0309", "GRIS PLATA": "ANG0309" }},
+      "M": { "desc": "Empaque 3831 (fijo)",  "codes": { "MATE": "EMP1301", "NEGRO": "EMP1301", "BLANCO": "EMP1301", "BRONCE": "EMP1301", "GRIS PLATA": "EMP1301" }}
+    },
+    "opcionales": {
+      "H": { "tipo": "toggle", "desc": "Tubular T-244",  "porColor": true, "codes": { "MATE": "TUB0102", "NEGRO": "TUB0604", "BLANCO": "TUB0203", "BRONCE": "TUB0501", "GRIS PLATA": "TUB0201" }},
+      "I": { "tipo": "toggle", "desc": "Tubular 1101",   "porColor": true, "codes": { "MATE": "TUB0112", "NEGRO": "TUB0601", "BLANCO": "TUB0401", "BRONCE": "TUB0507", "GRIS PLATA": "TUB0202" }},
+      "J": { "tipo": "toggle", "desc": "Divisor 1103",   "porColor": true, "codes": { "MATE": "DIV0205", "NEGRO": "DIV0601", "BLANCO": "SIN CREAR", "BRONCE": "DIV0501", "GRIS PLATA": "SIN CREAR" }},
+      "K": { "tipo": "toggle", "desc": "Pisavidrio 177", "porColor": true, "codes": { "MATE": "PPR0101", "NEGRO": "PIS0602", "BLANCO": "PIS0405", "BRONCE": "PPR0501", "GRIS PLATA": "PIS0204" }},
+      "N": { "tipo": "toggle", "desc": "Falleba",        "porColor": false, "cod": "FALLEBAIMP" },
+      "O": { "tipo": "toggle", "desc": "Chapa Mini Serie (E)", "porColor": false, "cod": "CHE0101" }
+    }
+  },
+
+  "cab-6mm": {
+    "nombre": "Sistema CAB 6MM",
+    "colores": ["MATE", "NEGRO", "BLANCO", "BRONCE", "GRIS PLATA"],
+    "perfiles": {
+      "A": { "desc": "Sillar Cabina",   "codes": { "MATE": "SIL0101", "NEGRO": "SIL0607", "BLANCO": "SIL0401", "BRONCE": "SIL0501", "GRIS PLATA": "SIL0201" }},
+      "B": { "desc": "Cabezal Cabina",  "codes": { "MATE": "CAB0101", "NEGRO": "CAB0605", "BLANCO": "CAB0401", "BRONCE": "CAB0501", "GRIS PLATA": "CAB0201" }},
+      "C": { "desc": "Pisavidrio U68",  "codes": { "MATE": "U680101", "NEGRO": "U680601", "BLANCO": "U680401", "BRONCE": "U680501", "GRIS PLATA": "U680201" }}
+    }
+  },
+
+  "glasv-6mm": {
+    "nombre": "Sistema GLASV 6MM",
+    "colores": ["MATE", "NEGRO", "BLANCO", "BRONCE", "GRIS PLATA"],
+    "perfiles": {
+      "B": { "desc": "Sillar Cabina",  "codes": { "MATE": "SIL0101", "NEGRO": "SIL0607", "BLANCO": "SIL0401", "BRONCE": "SIL0501", "GRIS PLATA": "SIL0201" }},
+      "C": { "desc": "Pisavidrio U68", "codes": { "MATE": "U680101", "NEGRO": "U680601", "BLANCO": "U680401", "BRONCE": "U680501", "GRIS PLATA": "U680201" }}
+    }
+  },
+
+  "glasv-8mm": {
+    "nombre": "Sistema GLASV 8MM",
+    "colores": ["MATE", "NEGRO", "BLANCO", "BRONCE", "GRIS PLATA"],
+    "perfiles": {
+      "B": { "desc": "Sillar Cabina",  "codes": { "MATE": "SIL0101", "NEGRO": "SIL0607", "BLANCO": "SIL0401", "BRONCE": "SIL0501", "GRIS PLATA": "SIL0201" }},
+      "C": { "desc": "Pisavidrio U68", "codes": { "MATE": "U680101", "NEGRO": "U680601", "BLANCO": "U680401", "BRONCE": "U680501", "GRIS PLATA": "U680201" }},
+      "D": { "desc": "Pisavidrio U32", "codes": { "MATE": "U320101", "NEGRO": "U320201", "BLANCO": "U320401", "BRONCE": "U320501", "GRIS PLATA": "U320203" }}
+    }
+  },
+
+  "bat-fijo-28-40": {
+    "nombre": "Sistema BAT+FIJO 28-40",
+    "colores": ["NEGRO", "CROMO"],
+    "perfiles": {
+      "A": { "desc": "Bisagra 28-40",           "codes": { "NEGRO": "BSE0601", "CROMO": "BSE0311" }},
+      "B": { "desc": "Botón Acero",             "codes": { "NEGRO": "BHA0601", "CROMO": "BHA0302" }},
+      "D": { "desc": "Perfil Plástico 1.80",    "codes": { "NEGRO": "PER0901", "CROMO": "PER0901" }},
+      "E": { "desc": "Chapeta Importada 30-20", "codes": { "NEGRO": "N/A",     "CROMO": "CCE0302" }},
+      "F": { "desc": "Chapeta 30-35",           "codes": { "NEGRO": "CCE0601", "CROMO": "CCE0301" }},
+      "G": { "desc": "Botón Haladera",          "codes": { "NEGRO": "BHA0601", "CROMO": "BHA1101" }}
+    }
+  },
+
+  "bat-fijo-25-30": {
+    "nombre": "Sistema BAT+FIJO 25-30",
+    "colores": ["NEGRO", "CROMO"],
+    "perfiles": {
+      "A": { "desc": "Bisagra 25-30",           "codes": { "NEGRO": "BSE0602", "CROMO": "BSE0307" }},
+      "B": { "desc": "Botón Cromo",             "codes": { "NEGRO": "N/A",     "CROMO": "BHA0302" }},
+      "E": { "desc": "Chapeta Importada 30-20", "codes": { "NEGRO": "N/A",     "CROMO": "CCE0302" }},
+      "F": { "desc": "Chapeta 30-35",           "codes": { "NEGRO": "CCE0601", "CROMO": "CCE0301" }},
+      "G": { "desc": "Botón Acero",             "codes": { "NEGRO": "BHA0601", "CROMO": "BHA1101" }}
+    },
+    "universales": [
+      { "item": "C", "desc": "Perfil Plástico 1.20", "cod": "PER0902" },
+      { "item": "D", "desc": "Perfil Plástico 1.80", "cod": "PER0901" }
+    ]
+  },
+
+  "5020-xx": {
+    "nombre": "Sistema 5020 XX",
+    "colores": ["MATE", "NEGRO", "BLANCO", "BRONCE", "GRIS PLATA"],
+    "perfiles": {
+      "A": { "desc": "Sillar",                  "codes": { "MATE": "SIL0104",  "NEGRO": "SIL0603",  "BLANCO": "SIL0416",  "BRONCE": "SIL0506",  "GRIS PLATA": "SIL0205"  }},
+      "B": { "desc": "Cabezal",                 "codes": { "MATE": "CAB0102",  "NEGRO": "CAB0606",  "BLANCO": "CAB0410",  "BRONCE": "CAB0510",  "GRIS PLATA": "CAB0203"  }},
+      "C": { "desc": "Jamba",                   "codes": { "MATE": "JAM0103",  "NEGRO": "JAM0605",  "BLANCO": "JAM0403",  "BRONCE": "JAM0504",  "GRIS PLATA": "JAM0102"  }},
+      "D": { "desc": "Traslape",                "codes": { "MATE": "TRA0103",  "NEGRO": "TRA0604",  "BLANCO": "TRA0307",  "BRONCE": "TRA0102",  "GRIS PLATA": "TRA0201"  }},
+      "E": { "desc": "Enganche",                "codes": { "MATE": "ENG0103",  "NEGRO": "ENG0506",  "BLANCO": "ENG0406",  "BRONCE": "ENG0504",  "GRIS PLATA": "ENG0102"  }},
+      "F": { "desc": "Horizontal",              "codes": { "MATE": "HOR0101",  "NEGRO": "HOR0603",  "BLANCO": "HOR0408",  "BRONCE": "HOR0502",  "GRIS PLATA": "HOR0204"  }},
+      "G": { "desc": "Rodamientos (incl. guías)","codes": { "MATE": "ROD5020",  "NEGRO": "ROD5021",  "BLANCO": "ROD5022",  "BRONCE": "ROD5023",  "GRIS PLATA": "ROD5024"  }},
+      "I": { "desc": "Empaque",                 "codes": { "MATE": "EMP5020",  "NEGRO": "EMP5021",  "BLANCO": "EMP5022",  "BRONCE": "EMP5023",  "GRIS PLATA": "EMP5024"  }}
+    },
+    "opcionales": {
+      "L": { "tipo": "toggle", "desc": "Traslape Reforzado", "porColor": true,  "codes": { "MATE": "TPR0101",  "NEGRO": "TPR0601",  "BLANCO": "TPR0402",  "BRONCE": "TPR0503",  "GRIS PLATA": "TPR0211"  }},
+      "M": { "tipo": "toggle", "desc": "Sillar Alfajía",     "porColor": true,  "codes": { "MATE": "SILL0102", "NEGRO": "SILL0601", "BLANCO": "SIN CREAR", "BRONCE": "SILL0501", "GRIS PLATA": "SIN CREAR" }},
+      "N": { "tipo": "toggle", "desc": "Chapa 1 Cara",       "porColor": false, "cod": "CHJ0101" }
+    }
+  },
+
+  "744xx": {
+    "nombre": "Sistema 744XX",
+    "colores": ["MATE", "NEGRO", "BLANCO", "BRONCE", "GRIS PLATA"],
+    "perfiles": {
+      "A": { "desc": "Sillar",              "codes": { "MATE": "SIL0744", "NEGRO": "SIL0602", "BLANCO": "SIL0408", "BRONCE": "SIL0507", "GRIS PLATA": "SIL0212" }},
+      "B": { "desc": "Cabezal",             "codes": { "MATE": "CAB0104", "NEGRO": "CAB0602", "BLANCO": "CAB0402", "BRONCE": "CAB0508", "GRIS PLATA": "CAB0202" }},
+      "C": { "desc": "Jamba",               "codes": { "MATE": "JAM0108", "NEGRO": "JAM0601", "BLANCO": "JAM0402", "BRONCE": "JAM0505", "GRIS PLATA": "JAM0744" }},
+      "D": { "desc": "Traslape",            "codes": { "MATE": "TRA0105", "NEGRO": "TRA0601", "BLANCO": "TRA0402", "BRONCE": "TRA0203", "GRIS PLATA": "TRA0101" }},
+      "E": { "desc": "Enganche",            "codes": { "MATE": "ENG0101", "NEGRO": "ENG0601", "BLANCO": "ENG0403", "BRONCE": "ENG0505", "GRIS PLATA": "ENG0202" }},
+      "F": { "desc": "Horizontal Superior", "codes": { "MATE": "HOS0101", "NEGRO": "HOS0601", "BLANCO": "HOS0401", "BRONCE": "HOS0503", "GRIS PLATA": "HOS0202" }},
+      "G": { "desc": "Horizontal Inferior", "codes": { "MATE": "HOI0101", "NEGRO": "HOI0606", "BLANCO": "HOI0402", "BRONCE": "HOI0503", "GRIS PLATA": "HOI0204" }}
+    },
+    "universales": [
+      { "item": "H", "desc": "Rodamientos Nylon",  "cod": "ROD744"  },
+      { "item": "I", "desc": "Chapa 1 Cara",        "cod": "CHJ0101" },
+      { "item": "J", "desc": "Empaque",             "cod": "EMP1305" },
+      { "item": "K", "desc": "Guías Superiores",    "cod": "GSU0101" },
+      { "item": "L", "desc": "Guías Inferiores",    "cod": "GIN0101" },
+      { "item": "M", "desc": "Felpa",               "cod": "FEL0101" }
+    ],
+    "chapas": [
+      { "item": "O", "desc": "Yale ½ cilindro", "cod": "CHY1/2" },
+      { "item": "P", "desc": "Cisa ½ cilindro", "cod": "CHC1/2" }
+    ]
+  },
+
+  "8025-xx": {
+    "nombre": "Sistema 8025 XX",
+    "colores": ["MATE", "NEGRO", "BLANCO", "BRONCE", "GRIS PLATA"],
+    "perfiles": {
+      "A": { "desc": "Sillar",               "codes": { "MATE": "SIL0110",   "NEGRO": "SIL0609",  "BLANCO": "SIL0403",  "BRONCE": "SIL0510",  "GRIS PLATA": "SIL0207"  }},
+      "B": { "desc": "Cabezal",              "codes": { "MATE": "CABE8025",  "NEGRO": "CAB0604",  "BLANCO": "CAB0204",  "BRONCE": "CAB0505",  "GRIS PLATA": "CAB0207"  }},
+      "C": { "desc": "Jamba",                "codes": { "MATE": "JAM8025",   "NEGRO": "JAM0609",  "BLANCO": "JAM0408",  "BRONCE": "JAM0506",  "GRIS PLATA": "JAM0207"  }},
+      "D": { "desc": "Traslape",             "codes": { "MATE": "TRA0105",   "NEGRO": "ADA0603",  "BLANCO": "TRA0403",  "BRONCE": "TRA0502",  "GRIS PLATA": "TRA0207"  }},
+      "E": { "desc": "Enganche",             "codes": { "MATE": "ENGA8025",  "NEGRO": "ENG0607",  "BLANCO": "ENG0402",  "BRONCE": "ENG0503",  "GRIS PLATA": "ENG0207"  }},
+      "F": { "desc": "Horizontal Superior",  "codes": { "MATE": "HOSU8025",  "NEGRO": "HORS061",  "BLANCO": "HOS0402",  "BRONCE": "HOS0506",  "GRIS PLATA": "HOS0207"  }},
+      "G": { "desc": "Horizontal Inferior",  "codes": { "MATE": "HOI0102",   "NEGRO": "HOI0602",  "BLANCO": "HOI0403",  "BRONCE": "HOI0505",  "GRIS PLATA": "HOI0207"  }}
+    },
+    "universales": [
+      { "item": "H", "desc": "Rodamientos Nylon", "cod": "ROD8025NY" },
+      { "item": "I", "desc": "Chapa 1 Cara",       "cod": "CHJ0101"   },
+      { "item": "J", "desc": "Empaque",            "cod": "EMPA8025"  },
+      { "item": "K", "desc": "Guías Superiores",   "cod": "GSU8025"   },
+      { "item": "L", "desc": "Guías Inferiores",   "cod": "GIN8025"   },
+      { "item": "M", "desc": "Felpa",              "cod": "FEL0101"   }
+    ],
+    "opcionales3r": {
+      "N": { "tipo": "toggle", "desc": "Sillar 3 Rieles",  "codes": { "MATE": "SIL0110", "NEGRO": "SIL0610", "BLANCO": "SIL0402", "BRONCE": "SIL0508", "GRIS PLATA": "SIN CREAR" }},
+      "O": { "tipo": "toggle", "desc": "Cabezal 3 Rieles", "codes": { "MATE": "CAB0106", "NEGRO": "CAB0603", "BLANCO": "CAB0206", "BRONCE": "CAB0504", "GRIS PLATA": "SIN CREAR" }},
+      "P": { "tipo": "toggle", "desc": "Jamba 3 Rieles",   "codes": { "MATE": "JAM0106", "NEGRO": "JAM0610", "BLANCO": "JAM0401", "BRONCE": "JAM0508", "GRIS PLATA": "SIN CREAR" }}
+    },
+    "chapas": [
+      { "item": "R", "desc": "Yale ½ cilindro", "cod": "CHY1/2" },
+      { "item": "S", "desc": "Cisa ½ cilindro", "cod": "CHC1/2" }
+    ]
+  },
+
+  "monumental-xx": {
+    "nombre": "Sistema MONUMENTAL XX",
+    "colores": ["MATE", "NEGRO", "BLANCO"],
+    "perfiles": {
+      "A": { "desc": "Sillar de Empotrar", "codes": { "MATE": "SIL0105", "NEGRO": "SIL0601", "BLANCO": "SIL0404" }},
+      "B": { "desc": "Cabezal",            "codes": { "MATE": "CAB0103", "NEGRO": "CAB0601", "BLANCO": "CAB0404" }},
+      "C": { "desc": "Jamba",              "codes": { "MATE": "JAM0104", "NEGRO": "JAM0603", "BLANCO": "JAM0405" }},
+      "D": { "desc": "Traslape",           "codes": { "MATE": "TRA0104", "NEGRO": "TRA0602", "BLANCO": "TRA0405" }},
+      "E": { "desc": "Enganche",           "codes": { "MATE": "ENG0104", "NEGRO": "ENG0602", "BLANCO": "ENG0404" }},
+      "F": { "desc": "Horizontal",         "codes": { "MATE": "HOR0102", "NEGRO": "HOR0602", "BLANCO": "HOR0404" }}
+    },
+    "universales": [
+      { "item": "G", "desc": "Rodamientos",    "cod": "ROD7038ABB" },
+      { "item": "H", "desc": "Chapa Overseas", "cod": "COG0101"    },
+      { "item": "I", "desc": "Empaque",        "cod": "EMP1311"    },
+      { "item": "J", "desc": "Guías",          "cod": "GSU7038"    },
+      { "item": "K", "desc": "Felpa",          "cod": "FEL0101"    }
+    ],
+    "opcionales": {
+      "L": { "tipo": "toggle", "desc": "Sillar de Sobreponer",    "porColor": true,  "codes": { "MATE": null, "NEGRO": "SIL0608", "BLANCO": null }},
+      "M": { "tipo": "toggle", "desc": "Cabezal 3 Rieles 1730",  "porColor": true,  "codes": { "MATE": "CAB7038", "NEGRO": "CAB0607", "BLANCO": null }}
+    }
+  },
+
+  "pta-tiporoma": {
+    "nombre": "Sistema PTA TIPOROMA",
+    "colores": [],
+    "perfiles": {},
+    "fijos": [
+      { "item": "A", "desc": "Esquinero Superior (Der-Izq)",     "cod": "ESU1102" },
+      { "item": "B", "desc": "Esquinero Inferior (Der-Izq)",     "cod": "EIN1102" },
+      { "item": "C", "desc": "Pivote Aéreo",                     "cod": "PAE1101" },
+      { "item": "D", "desc": "Pivote Piso Rectangular",          "cod": "PPI1101" },
+      { "item": "E", "desc": "Chapeta Escudo Redondeada",        "cod": "CCE0101" },
+      { "item": "F", "desc": "Chapeta Recibidor Redondeada",     "cod": "CRE1301" },
+      { "item": "G", "desc": "Manija Tipo Roma 60-40",           "cod": "MRO1101" },
+      { "item": "H", "desc": "Tope Cazuela",                     "cod": "TCA0301" }
+    ],
+    "opcionales": {
+      "M": { "tipo": "toggle", "desc": "Chapeta Central Cerradura Picoloro", "porColor": false, "cod": "CCE1102" }
+    }
+  },
+
+  "optiglass": {
+    "nombre": "Sistema OPTIGLASS",
+    "colores": [],
+    "perfiles": {},
+    "rieles": [
+      { "item": "B", "cod": "ROS0301", "label": "Sencillo" },
+      { "item": "H", "cod": "ROS0302", "label": "Doble"    }
+    ],
+    "universales": [
+      { "item": "A", "desc": "Kit Optiglass",                     "cod": "KOP0101"  },
+      { "item": "C", "desc": "Chapeta Central Cerradura Picoloro","cod": "CCE1102"  },
+      { "item": "D", "desc": "Manija Tipo Roma",                  "cod": "MRO1101"  },
+      { "item": "E", "desc": "Guía de Piso Optiglass",            "cod": "GPSL0101" }
+    ],
+    "opcionales": {
+      "K": { "tipo": "toggle", "desc": "Chapeta Escudo Redondeada",    "porColor": false, "cod": "CCE0101" },
+      "L": { "tipo": "toggle", "desc": "Chapeta Recibidor Redondeada", "porColor": false, "cod": "CRE1301" }
+    }
+  }
+}

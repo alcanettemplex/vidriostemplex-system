@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAP · Sistema 5020 XX</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+  :root {
+    --bg:#0f0f0f; --surface:#181818; --surface2:#222222; --border:#2a2a2a;
+    --text:#e8e8e8; --text-dim:#666; --text-mid:#999;
+    --accent:#4a9eff; --accent-soft:rgba(74,158,255,0.12); --accent-glow:rgba(74,158,255,0.25);
+    --green:#3ecf8e; --green-soft:rgba(62,207,142,0.12);
+    --yellow:#f5a623; --yellow-soft:rgba(245,166,35,0.12);
+    --red:#ff5f5f; --red-soft:rgba(255,95,95,0.12);
+    --mono:'DM Mono',monospace; --sans:'DM Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;padding:32px 24px;}
+
+  .header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:40px;padding-bottom:24px;border-bottom:1px solid var(--border);}
+  .brand{display:flex;flex-direction:column;gap:4px;}
+  .brand-label{font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;}
+  .brand-title{font-size:22px;font-weight:600;letter-spacing:-0.5px;}
+  .brand-title span{color:var(--accent);}
+  .tag{font-family:var(--mono);font-size:10px;padding:4px 10px;border:1px solid var(--border);border-radius:4px;color:var(--text-dim);letter-spacing:0.08em;margin-top:6px;align-self:flex-start;}
+
+  .layout{display:grid;grid-template-columns:1fr 340px;gap:24px;max-width:1200px;margin:0 auto;}
+  .step-label{font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px;}
+  .section{margin-bottom:28px;}
+  .section-title{font-size:13px;font-weight:500;color:var(--text-mid);margin-bottom:12px;}
+
+  .color-grid{display:flex;gap:8px;flex-wrap:wrap;}
+  .color-btn{position:relative;padding:10px 16px 10px 38px;background:var(--surface);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-family:var(--sans);font-size:12px;font-weight:500;color:var(--text-mid);transition:all 0.15s;letter-spacing:0.04em;text-transform:uppercase;}
+  .color-btn::before{content:'';position:absolute;left:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;border-radius:3px;}
+  .color-btn.mate::before{background:#b0b0b0;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.2);}
+  .color-btn.negro::before{background:#1a1a1a;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.1);}
+  .color-btn.blanco::before{background:#f0f0f0;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.15);}
+  .color-btn.bronce::before{background:#8b6914;}
+  .color-btn.gris::before{background:#7a8a95;}
+  .color-btn:hover{border-color:#444;color:var(--text);}
+  .color-btn.active{border-color:var(--accent);background:var(--accent-soft);color:var(--text);box-shadow:0 0 0 1px var(--accent-glow);}
+
+  .perfiles-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  .perfiles-header{display:grid;grid-template-columns:28px 1fr 150px 60px;padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:0.1em;text-transform:uppercase;}
+  .divider-row{padding:6px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+  .divider-label{font-family:var(--mono);font-size:9px;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;}
+  .perfil-row{display:grid;grid-template-columns:28px 1fr 150px 60px;padding:11px 16px;border-bottom:1px solid var(--border);align-items:center;transition:background 0.1s;}
+  .perfil-row:last-child{border-bottom:none;}
+  .perfil-row:hover{background:var(--surface2);}
+  .row-item{font-family:var(--mono);font-size:11px;color:var(--text-dim);font-weight:500;}
+  .row-desc{font-size:12px;color:var(--text-mid);padding-right:12px;}
+  .row-cod{font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:500;letter-spacing:0.04em;}
+  .row-cod.universal{color:var(--green);}
+  .row-ref{font-family:var(--mono);font-size:10px;color:var(--text-dim);text-align:right;}
+
+  /* Opcionales */
+  .optional-section{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;}
+  .optional-header{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+  .optional-badge{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;letter-spacing:0.1em;text-transform:uppercase;}
+  .badge-opt{background:var(--yellow-soft);color:var(--yellow);border:1px solid rgba(245,166,35,0.3);}
+  .optional-title{font-size:12px;font-weight:500;color:var(--text);flex:1;}
+  .opt-toggle{font-family:var(--mono);font-size:10px;color:var(--text-dim);cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:none;transition:all 0.15s;letter-spacing:0.06em;}
+  .opt-toggle:hover{border-color:#444;color:var(--text);}
+  .opt-toggle.on{border-color:var(--green);color:var(--green);background:var(--green-soft);}
+  .opt-body{padding:10px 16px 12px;}
+  .opt-cod-row{display:flex;align-items:center;gap:10px;}
+  .opt-cod{font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:500;}
+  .opt-cod.universal{color:var(--green);}
+  .opt-cod.sin-crear{color:var(--red);}
+  .opt-cod.dim{color:var(--text-dim);font-size:11px;}
+  .opt-desc{font-size:11px;color:var(--text-dim);}
+  .sin-crear-note{font-family:var(--mono);font-size:10px;color:var(--red);margin-top:6px;background:var(--red-soft);padding:5px 8px;border-radius:4px;border:1px solid rgba(255,95,95,0.2);}
+
+  .result-panel{position:sticky;top:24px;}
+  .result-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  .result-header{padding:14px 18px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .result-header-title{font-size:12px;font-weight:500;color:var(--text-mid);}
+  .result-color-badge{font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:4px;background:var(--accent-soft);color:var(--accent);border:1px solid rgba(74,158,255,0.25);text-transform:uppercase;letter-spacing:0.08em;transition:all 0.2s;}
+  .result-color-badge.no-color{background:var(--surface2);color:var(--text-dim);border-color:var(--border);}
+  .result-section-label{padding:8px 18px 2px;font-family:var(--mono);font-size:9px;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;}
+  .result-item{display:flex;align-items:center;padding:7px 18px;gap:10px;border-bottom:1px solid var(--border);}
+  .result-item:last-child{border-bottom:none;}
+  .result-item:hover{background:var(--surface2);}
+  .result-item-label{font-size:11px;color:var(--text-dim);flex:1;}
+  .result-item-cod{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--accent);white-space:nowrap;}
+  .result-item-cod.green{color:var(--green);}
+  .result-item-cod.red{color:var(--red);font-size:10px;}
+  .result-item-cod.dim{color:var(--text-dim);font-size:10px;}
+  .empty-state{padding:32px 18px;text-align:center;color:var(--text-dim);font-size:12px;line-height:1.7;font-family:var(--mono);}
+  .empty-icon{font-size:24px;margin-bottom:10px;opacity:0.4;}
+  .copy-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;background:var(--accent-soft);border:1px solid rgba(74,158,255,0.3);border-radius:0 0 10px 10px;cursor:pointer;font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:0.08em;text-transform:uppercase;transition:all 0.15s;}
+  .copy-btn:hover{background:rgba(74,158,255,0.2);}
+  .copy-btn.copied{color:var(--green);border-color:rgba(62,207,142,0.3);background:var(--green-soft);}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">
+    <span class="brand-label">Vidrios Templex · Formulario SAP</span>
+    <span class="brand-title">Sistema <span>5020 XX</span></span>
+    <span class="tag">SELECTOR DE PERFILES Y ACCESORIOS</span>
+  </div>
+</div>
+
+<div class="layout">
+  <div>
+
+    <!-- PASO 1: COLOR -->
+    <div class="section">
+      <div class="step-label">Paso 01 — Acabado del perfil</div>
+      <div class="section-title">Selecciona el color</div>
+      <div class="color-grid">
+        <button class="color-btn mate"   onclick="selectColor('MATE')"       id="btn-MATE">Mate</button>
+        <button class="color-btn negro"  onclick="selectColor('NEGRO')"      id="btn-NEGRO">Negro</button>
+        <button class="color-btn blanco" onclick="selectColor('BLANCO')"     id="btn-BLANCO">Blanco</button>
+        <button class="color-btn bronce" onclick="selectColor('BRONCE')"     id="btn-BRONCE">Bronce</button>
+        <button class="color-btn gris"   onclick="selectColor('GRIS PLATA')" id="btn-GRIS PLATA">Gris Plata</button>
+      </div>
+    </div>
+
+    <!-- PASO 2: PERFILES FIJOS -->
+    <div class="section">
+      <div class="step-label">Paso 02 — Perfiles del sistema</div>
+      <div class="section-title">Códigos según color seleccionado</div>
+      <div class="perfiles-card">
+        <div class="perfiles-header">
+          <span>IT</span><span>Descripción</span><span>Código</span><span style="text-align:right">Tipo</span>
+        </div>
+
+        <div class="divider-row"><span class="divider-label">Por color</span></div>
+        <div class="perfil-row">
+          <span class="row-item">A</span>
+          <span class="row-desc">Sillar</span>
+          <span class="row-cod" id="cod-A">—</span>
+          <span class="row-ref">color</span>
+        </div>
+        <div class="perfil-row">
+          <span class="row-item">B</span>
+          <span class="row-desc">Cabezal</span>
+          <span class="row-cod" id="cod-B">—</span>
+          <span class="row-ref">color</span>
+        </div>
+        <div class="perfil-row">
+          <span class="row-item">C</span>
+          <span class="row-desc">Jamba</span>
+          <span class="row-cod" id="cod-C">—</span>
+          <span class="row-ref">color</span>
+        </div>
+        <div class="perfil-row">
+          <span class="row-item">D</span>
+          <span class="row-desc">Traslape</span>
+          <span class="row-cod" id="cod-D">—</span>
+          <span class="row-ref">color</span>
+        </div>
+        <div class="perfil-row">
+          <span class="row-item">E</span>
+          <span class="row-desc">Enganche</span>
+          <span class="row-cod" id="cod-E">—</span>
+          <span class="row-ref">color</span>
+        </div>
+        <div class="perfil-row">
+          <span class="row-item">F</span>
+          <span class="row-desc">Horizontal</span>
+          <span class="row-cod" id="cod-F">—</span>
+          <span class="row-ref">color</span>
+        </div>
+        <div class="perfil-row">
+          <span class="row-item">G</span>
+          <span class="row-desc">Rodamientos (incl. guías)</span>
+          <span class="row-cod" id="cod-G">—</span>
+          <span class="row-ref">color</span>
+        </div>
+        <div class="perfil-row">
+          <span class="row-item">I</span>
+          <span class="row-desc">Empaque</span>
+          <span class="row-cod" id="cod-I">—</span>
+          <span class="row-ref">color</span>
+        </div>
+
+        <div class="divider-row"><span class="divider-label">Universal</span></div>
+        <div class="perfil-row">
+          <span class="row-item">H</span>
+          <span class="row-desc">Cerrojo</span>
+          <span class="row-cod universal">CPTOR</span>
+          <span class="row-ref">univ.</span>
+        </div>
+        <div class="perfil-row">
+          <span class="row-item">J</span>
+          <span class="row-desc">Felpa</span>
+          <span class="row-cod universal">FEL0101</span>
+          <span class="row-ref">univ.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 3: OPCIONALES -->
+    <div class="section">
+      <div class="step-label">Paso 03 — Accesorios opcionales</div>
+      <div class="section-title">Activar según requerimiento</div>
+
+      <!-- L: Traslape Reforzado -->
+      <div class="optional-section">
+        <div class="optional-header">
+          <span class="optional-badge badge-opt">Opcional</span>
+          <span class="optional-title">L · Traslape Reforzado</span>
+          <button class="opt-toggle" id="toggle-L" onclick="toggleOpt('L')">OFF</button>
+        </div>
+        <div class="opt-body">
+          <div class="opt-cod-row">
+            <span class="opt-cod dim" id="optcod-L">—</span>
+            <span class="opt-desc" id="optdesc-L">Selecciona un color primero</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- M: Sillar Alfajía — SIN CREAR en Blanco y Gris Plata -->
+      <div class="optional-section">
+        <div class="optional-header">
+          <span class="optional-badge badge-opt">Opcional</span>
+          <span class="optional-title">M · Sillar Alfajía</span>
+          <button class="opt-toggle" id="toggle-M" onclick="toggleOpt('M')">OFF</button>
+        </div>
+        <div class="opt-body">
+          <div class="opt-cod-row">
+            <span class="opt-cod dim" id="optcod-M">—</span>
+            <span class="opt-desc" id="optdesc-M">Selecciona un color primero</span>
+          </div>
+          <div id="sincrearnote-M" style="display:none" class="sin-crear-note">⚠ Código pendiente de creación en este color</div>
+        </div>
+      </div>
+
+      <!-- N: Chapa 1 Cara — universal -->
+      <div class="optional-section">
+        <div class="optional-header">
+          <span class="optional-badge badge-opt">Opcional</span>
+          <span class="optional-title">N · Chapa 1 Cara</span>
+          <button class="opt-toggle" id="toggle-N" onclick="toggleOpt('N')">OFF</button>
+        </div>
+        <div class="opt-body">
+          <div class="opt-cod-row">
+            <span class="opt-cod universal">CHJ0101</span>
+            <span class="opt-desc">Universal — todos los colores</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- RESULTADO -->
+  <div class="result-panel">
+    <div class="result-card">
+      <div class="result-header">
+        <span class="result-header-title">Resumen de códigos</span>
+        <span class="result-color-badge no-color" id="result-color-badge">Sin color</span>
+      </div>
+      <div id="result-body">
+        <div class="empty-state">
+          <div class="empty-icon">◈</div>
+          Selecciona un color<br>para ver los códigos
+        </div>
+      </div>
+      <button class="copy-btn" id="copy-btn" onclick="copyCodes()">⎘ &nbsp;Copiar códigos</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = ['MATE','NEGRO','BLANCO','BRONCE','GRIS PLATA'];
+
+const PERFILES = {
+  A: { desc:'Sillar',                    codes:{ MATE:'SIL0104',  NEGRO:'SIL0603',  BLANCO:'SIL0416',  BRONCE:'SIL0506',  'GRIS PLATA':'SIL0205'  }},
+  B: { desc:'Cabezal',                   codes:{ MATE:'CAB0102',  NEGRO:'CAB0606',  BLANCO:'CAB0410',  BRONCE:'CAB0510',  'GRIS PLATA':'CAB0203'  }},
+  C: { desc:'Jamba',                     codes:{ MATE:'JAM0103',  NEGRO:'JAM0605',  BLANCO:'JAM0403',  BRONCE:'JAM0504',  'GRIS PLATA':'JAM0102'  }},
+  D: { desc:'Traslape',                  codes:{ MATE:'TRA0103',  NEGRO:'TRA0604',  BLANCO:'TRA0307',  BRONCE:'TRA0102',  'GRIS PLATA':'TRA0201'  }},
+  E: { desc:'Enganche',                  codes:{ MATE:'ENG0103',  NEGRO:'ENG0506',  BLANCO:'ENG0406',  BRONCE:'ENG0504',  'GRIS PLATA':'ENG0102'  }},
+  F: { desc:'Horizontal',                codes:{ MATE:'HOR0101',  NEGRO:'HOR0603',  BLANCO:'HOR0408',  BRONCE:'HOR0502',  'GRIS PLATA':'HOR0204'  }},
+  G: { desc:'Rodamientos (incl. guías)', codes:{ MATE:'ROD5020',  NEGRO:'ROD5021',  BLANCO:'ROD5022',  BRONCE:'ROD5023',  'GRIS PLATA':'ROD5024'  }},
+  I: { desc:'Empaque',                   codes:{ MATE:'EMP5020',  NEGRO:'EMP5021',  BLANCO:'EMP5022',  BRONCE:'EMP5023',  'GRIS PLATA':'EMP5024'  }},
+};
+
+const OPCIONALES = {
+  L: { desc:'Traslape Reforzado', type:'color',     codes:{ MATE:'TPR0101', NEGRO:'TPR0601', BLANCO:'TPR0402', BRONCE:'TPR0503', 'GRIS PLATA':'TPR0211' }},
+  M: { desc:'Sillar Alfajía',     type:'color',     codes:{ MATE:'SILL0102', NEGRO:'SILL0601', BLANCO:'SIN CREAR', BRONCE:'SILL0501', 'GRIS PLATA':'SIN CREAR' }},
+  N: { desc:'Chapa 1 Cara',       type:'universal', cod:'CHJ0101' },
+};
+
+const toggled = { L:false, M:false, N:false };
+let selectedColor = null;
+
+function selectColor(color) {
+  selectedColor = color;
+  COLORS.forEach(c => { const b = document.getElementById('btn-'+c); if(b) b.classList.toggle('active', c===color); });
+  Object.entries(PERFILES).forEach(([item, d]) => {
+    const el = document.getElementById('cod-'+item);
+    if(el) { el.textContent = d.codes[color]; el.className = 'row-cod'; }
+  });
+  updateOptBodies();
+  updateResultPanel();
+}
+
+function updateOptBodies() {
+  ['L','M'].forEach(item => {
+    const d       = OPCIONALES[item];
+    const codEl   = document.getElementById('optcod-'+item);
+    const descEl  = document.getElementById('optdesc-'+item);
+    const noteEl  = document.getElementById('sincrearnote-'+item);
+    if(!selectedColor) {
+      codEl.textContent = '—'; codEl.className = 'opt-cod dim';
+      descEl.textContent = 'Selecciona un color primero';
+      if(noteEl) noteEl.style.display = 'none';
+      return;
+    }
+    const cod      = d.codes[selectedColor];
+    const isSC     = cod === 'SIN CREAR';
+    codEl.textContent = cod;
+    codEl.className   = 'opt-cod' + (isSC ? ' sin-crear' : '');
+    descEl.textContent = d.desc + ' · ' + selectedColor;
+    if(noteEl) noteEl.style.display = isSC ? 'block' : 'none';
+  });
+}
+
+function toggleOpt(item) {
+  toggled[item] = !toggled[item];
+  const btn = document.getElementById('toggle-'+item);
+  btn.textContent = toggled[item] ? 'ON' : 'OFF';
+  btn.classList.toggle('on', toggled[item]);
+  updateResultPanel();
+}
+
+function updateResultPanel() {
+  const badge = document.getElementById('result-color-badge');
+  const body  = document.getElementById('result-body');
+  if(!selectedColor) {
+    badge.textContent = 'Sin color'; badge.className = 'result-color-badge no-color';
+    body.innerHTML = `<div class="empty-state"><div class="empty-icon">◈</div>Selecciona un color<br>para ver los códigos</div>`;
+    return;
+  }
+  badge.textContent = selectedColor; badge.className = 'result-color-badge';
+  let html = `<div class="result-section-label">Perfiles por color</div>`;
+  Object.entries(PERFILES).forEach(([item, d]) => {
+    html += `<div class="result-item"><span class="result-item-label">${item} · ${d.desc}</span><span class="result-item-cod">${d.codes[selectedColor]}</span></div>`;
+  });
+  html += `<div class="result-section-label">Universales</div>`;
+  html += `<div class="result-item"><span class="result-item-label">H · Cerrojo</span><span class="result-item-cod green">CPTOR</span></div>`;
+  html += `<div class="result-item"><span class="result-item-label">J · Felpa</span><span class="result-item-cod green">FEL0101</span></div>`;
+
+  const activos = Object.keys(toggled).filter(k => toggled[k]);
+  if(activos.length) {
+    html += `<div class="result-section-label">Opcionales activos</div>`;
+    activos.forEach(item => {
+      const d   = OPCIONALES[item];
+      const cod = d.type === 'universal' ? d.cod : d.codes[selectedColor];
+      const isSC = cod === 'SIN CREAR';
+      html += `<div class="result-item">
+        <span class="result-item-label">${item} · ${d.desc}</span>
+        <span class="result-item-cod ${d.type==='universal'?'green':isSC?'red':''}">${cod}</span>
+      </div>`;
+      if(isSC) html += `<div style="padding:0 18px 6px;font-family:var(--mono);font-size:10px;color:var(--red)">⚠ Pendiente de creación</div>`;
+    });
+  }
+  body.innerHTML = `<div>${html}</div>`;
+}
+
+function copyCodes() {
+  if(!selectedColor) return;
+  let lines = [`Sistema 5020 XX · ${selectedColor}`, '--- PERFILES POR COLOR ---'];
+  Object.entries(PERFILES).forEach(([item, d]) => lines.push(`${item}  ${d.codes[selectedColor].padEnd(12)} ${d.desc}`));
+  lines.push(''); lines.push('--- UNIVERSALES ---');
+  lines.push(`H  ${'CPTOR'.padEnd(12)} Cerrojo`);
+  lines.push(`J  ${'FEL0101'.padEnd(12)} Felpa`);
+  const activos = Object.keys(toggled).filter(k => toggled[k]);
+  if(activos.length) {
+    lines.push(''); lines.push('--- OPCIONALES ---');
+    activos.forEach(item => {
+      const d   = OPCIONALES[item];
+      const cod = d.type === 'universal' ? d.cod : d.codes[selectedColor];
+      lines.push(`${item}  ${cod.padEnd(12)} ${d.desc}`);
+    });
+  }
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✓  Copiado'; btn.classList.add('copied');
+    setTimeout(() => { btn.innerHTML = '⎘ &nbsp;Copiar códigos'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+</script>
+</body>
+</html>
