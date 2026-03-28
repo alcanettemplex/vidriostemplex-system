@@ -18,6 +18,7 @@ OrdenCompra.init(
     notas: { type: DataTypes.TEXT },
     creado_por: { type: DataTypes.INTEGER, allowNull: false },
     fecha_creacion: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+    fecha_recepcion: { type: DataTypes.DATE, allowNull: true },
   },
   {
     sequelize,

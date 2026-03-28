@@ -10,6 +10,60 @@ const generarNumeroODC = async (): Promise<string> => {
   return `ODC-${year}-${String(count + 1).padStart(4, '0')}`;
 };
 
+// GET /odc/seguimiento — ODCs en estado pendiente o enviada
+export const getODCsSeguimiento = async (req: Request, res: Response) => {
+  try {
+    const odcs = await OrdenCompra.findAll({
+      where: { estado: { [Op.in]: ['pendiente', 'enviada'] } },
+      include: [
+        { model: ODCItem, as: 'items' },
+        { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
+        {
+          model: SAP, as: 'sap',
+          include: [{
+            model: ODP,
+            include: [
+              { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+              { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+            ],
+          }],
+        },
+      ],
+      order: [['fecha_creacion', 'ASC']],
+    });
+    res.json(odcs);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al obtener seguimiento', detail: error.message });
+  }
+};
+
+// GET /odc/recibidas — ODCs en estado recibida
+export const getODCsRecibidas = async (req: Request, res: Response) => {
+  try {
+    const odcs = await OrdenCompra.findAll({
+      where: { estado: 'recibida' },
+      include: [
+        { model: ODCItem, as: 'items' },
+        { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
+        {
+          model: SAP, as: 'sap',
+          include: [{
+            model: ODP,
+            include: [
+              { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+              { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+            ],
+          }],
+        },
+      ],
+      order: [['fecha_recepcion', 'DESC']],
+    });
+    res.json(odcs);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al obtener recibidas', detail: error.message });
+  }
+};
+
 // GET /odc/panel — ODPs con SAP que tienen items pendientes
 export const getODPsConSAPPendiente = async (req: Request, res: Response) => {
   try {
@@ -123,10 +177,33 @@ export const updateODC = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { estado, proveedor, notas } = req.body;
 
-    const odc = await OrdenCompra.findByPk(id);
+    const odc = await OrdenCompra.findByPk(id, {
+      include: [{ model: SAP, as: 'sap', include: [{ model: ODP }] }],
+    });
     if (!odc) return res.status(404).json({ error: 'ODC no encontrada' });
 
-    await odc.update({ estado, proveedor, notas });
+    const estadoAnterior = odc.getDataValue('estado');
+    const fechaRecepcion = estado === 'recibida' && estadoAnterior !== 'recibida'
+      ? new Date() : odc.getDataValue('fecha_recepcion');
+
+    await odc.update({ estado, proveedor, notas, ...(fechaRecepcion ? { fecha_recepcion: fechaRecepcion } : {}) });
+
+    // Notificar cuando se marca como recibida
+    if (estado === 'recibida' && estadoAnterior !== 'recibida') {
+      const sap = (odc as any).sap;
+      const odp = sap?.ODP;
+      if (odp) {
+        import('../utils/notificaciones').then(({ notificarCambioEstadoODP }) => {
+          notificarCambioEstadoODP({
+            numero_odp: odp.numero_odp,
+            odp_id: odp.id,
+            asesor_id: odp.asesor_id,
+            estado_nuevo: 'PEDIDO_PROVEEDOR',
+            mensaje: `ODC ${odc.getDataValue('numero_odc')} recibida — proveedor: ${proveedor || odc.getDataValue('proveedor')}`,
+          });
+        }).catch(err => console.error('Error notificación ODC recibida:', err));
+      }
+    }
 
     const updated = await OrdenCompra.findByPk(id, {
       include: [

@@ -10,6 +10,7 @@ CatalogoProducto.init({
   categoria: { type: DataTypes.STRING(100), allowNull: true },
   descripcion: { type: DataTypes.TEXT },
   activo: { type: DataTypes.BOOLEAN, defaultValue: true },
+  es_aluminio: { type: DataTypes.BOOLEAN, defaultValue: false },
 }, {
   sequelize,
   modelName: 'CatalogoProducto',

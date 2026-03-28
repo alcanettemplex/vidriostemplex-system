@@ -29,11 +29,31 @@ export const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
-  console.log('Socket conectado:', socket.id);
+  // El cliente envía su userId y rol al conectarse para unirse a sus rooms
+  socket.on('join', ({ userId, rol }: { userId: number; rol: string }) => {
+    if (userId) socket.join(`user_${userId}`);
+    if (rol) socket.join(`role_${rol}`);
+  });
+
   socket.on('disconnect', () => {
-    console.log('Socket desconectado:', socket.id);
+    // rooms se limpian automáticamente
   });
 });
+
+// ─── Helper para emitir notificaciones dirigidas ─────────────────────────────
+export const emitirNotificacion = (
+  destinatarios: { userId?: number; roles?: string[] },
+  payload: { titulo: string; mensaje: string; odp_id?: number; numero_odp?: string; tipo?: string }
+) => {
+  if (destinatarios.userId) {
+    io.to(`user_${destinatarios.userId}`).emit('notification', payload);
+  }
+  if (destinatarios.roles) {
+    destinatarios.roles.forEach(rol => {
+      io.to(`role_${rol}`).emit('notification', payload);
+    });
+  }
+};
 
 (async () => {
   try {

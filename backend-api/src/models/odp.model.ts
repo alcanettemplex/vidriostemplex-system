@@ -56,6 +56,7 @@ ODP.init({
   chk_carton: { type: DataTypes.BOOLEAN, defaultValue: false },
   es_no_conformidad: { type: DataTypes.BOOLEAN, defaultValue: false },
   odp_padre_id: { type: DataTypes.INTEGER, allowNull: true },
+  tiene_aluminio: { type: DataTypes.BOOLEAN, defaultValue: false },
 }, {
   sequelize,
   modelName: 'ODP',

@@ -3,6 +3,21 @@ import { SAP, SAPItem, ODP, Usuario, CatalogoProducto } from '../models';
 import sequelize from '../config/database';
 import { Op } from 'sequelize';
 
+// Recalcular tiene_aluminio en ODP según todos sus SAP items
+const recalcularAluminioODP = async (odp_id: number): Promise<void> => {
+  const saps = await SAP.findAll({
+    where: { odp_id },
+    include: [{ model: SAPItem, as: 'items', attributes: ['codigo'] }],
+  });
+  const codigos = saps.flatMap((s: any) => s.items.map((i: any) => i.codigo));
+  if (codigos.length === 0) {
+    await ODP.update({ tiene_aluminio: false }, { where: { id: odp_id } });
+    return;
+  }
+  const count = await CatalogoProducto.count({ where: { codigo: { [Op.in]: codigos }, es_aluminio: true } });
+  await ODP.update({ tiene_aluminio: count > 0 }, { where: { id: odp_id } });
+};
+
 // Generar número SAP consecutivo
 const generarNumeroSAP = async (): Promise<string> => {
   const count = await SAP.count();
@@ -49,6 +64,8 @@ export const createSAP = async (req: Request, res: Response) => {
 
     await t.commit();
 
+    await recalcularAluminioODP(odp_id);
+
     const sapWithItems = await SAP.findByPk(sap.getDataValue('id'), {
       include: [{ model: SAPItem, as: 'items' }, { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
     });
@@ -79,6 +96,9 @@ export const updateSAP = async (req: Request, res: Response) => {
     }
 
     await t.commit();
+
+    const odp_id = sap.getDataValue('odp_id');
+    await recalcularAluminioODP(odp_id);
 
     const updated = await SAP.findByPk(id, {
       include: [{ model: SAPItem, as: 'items' }, { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],

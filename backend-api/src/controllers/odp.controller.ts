@@ -324,27 +324,33 @@ export const updateODP = async (req: Request, res: Response) => {
       }
     }
 
-    // Broadcast change
-    import('../server').then(({ io }) => {
-      let msg = `La orden ${odp.getDataValue('numero_odp')} ha sido actualizada.`;
+    // Notificación dirigida al cambiar estado de producción
+    if (data.estado_produccion) {
+      const numeroOdp = odp.getDataValue('numero_odp');
+      const odpId = odp.getDataValue('id');
+      const asesorId = odp.getDataValue('asesor_id');
 
+      let mensaje: string | undefined;
       if (data.estado_produccion === 'VIDRIO_RECIBIDO') {
-        const pedExterior = odp.getDataValue('numero_pedido_proveedor');
+        const ped = odp.getDataValue('numero_pedido_proveedor');
         const prov = odp.getDataValue('proveedor_vidrio');
-        msg = `¡ATENCIÓN! El vidrio de la ODP ${odp.getDataValue('numero_odp')} (Pedido externo: ${pedExterior || 'N/A'} - ${prov || 'N/A'}) acaba de llegar al taller.`;
+        mensaje = `Vidrio recibido en taller${prov ? ` — ${prov}` : ''}${ped ? ` (Ped. ${ped})` : ''}`;
+      } else if (data.estado_produccion === 'INSTALADA' && odp.getDataValue('es_no_conformidad')) {
+        mensaje = `ODP de reproceso instalada. La ODP original fue reactivada automáticamente.`;
+      } else if (data.estado_produccion === 'LISTO_INSTALAR') {
+        mensaje = `Orden lista para instalación`;
       }
 
-      if (data.estado_produccion === 'INSTALADA' && odp.getDataValue('es_no_conformidad')) {
-        msg = `✅ ODP de reproceso ${odp.getDataValue('numero_odp')} ha sido instalada. La ODP original ha sido reactivada automáticamente.`;
-      }
-
-      io.emit('notification', {
-        type: 'ESTADO_ACTUALIZADO',
-        message: msg,
-        notificacionPara: ['admin', 'gerencia', 'asesor_comercial', 'contabilidad', 'produccion', 'auxiliar_produccion'],
-        timestamp: new Date()
-      });
-    }).catch(err => console.error('Error emitiendo socket al actualizar odp', err));
+      import('../utils/notificaciones').then(({ notificarCambioEstadoODP }) => {
+        notificarCambioEstadoODP({
+          numero_odp: numeroOdp,
+          odp_id: odpId,
+          asesor_id: asesorId,
+          estado_nuevo: data.estado_produccion!,
+          mensaje,
+        });
+      }).catch(err => console.error('Error notificación ODP:', err));
+    }
 
     res.json({ message: 'ODP actualizada con éxito', odp });
   } catch (error: any) {
@@ -393,14 +399,15 @@ export const finalizarInstalacionODP = async (req: Request, res: Response) => {
       foto_instalacion_url: fotoUrl
     });
 
-    import('../server').then(({ io }) => {
-      io.emit('notification', {
-        type: 'ESTADO_ACTUALIZADO',
-        message: `La instalación de la orden ${odp.getDataValue('numero_odp')} ha sido completada y se ha subido evidencia.`,
-        notificacionPara: ['admin', 'gerencia', 'asesor_comercial', 'contabilidad', 'produccion', 'auxiliar_produccion'],
-        timestamp: new Date()
+    import('../utils/notificaciones').then(({ notificarCambioEstadoODP }) => {
+      notificarCambioEstadoODP({
+        numero_odp: odp.getDataValue('numero_odp'),
+        odp_id: odp.getDataValue('id'),
+        asesor_id: odp.getDataValue('asesor_id'),
+        estado_nuevo: 'INSTALADA',
+        mensaje: `Instalación completada con evidencia fotográfica`,
       });
-    }).catch(err => console.error('Error emitiendo socket al finalizar instalacion', err));
+    }).catch(err => console.error('Error notificación instalación:', err));
 
     res.json({ message: 'Instalación registrada con éxito', foto_url: fotoUrl, odp });
   } catch (error: any) {

@@ -58,6 +58,7 @@ interface ODP {
     chk_huacal: boolean;
     chk_carton: boolean;
     es_no_conformidad?: boolean;
+    tiene_aluminio?: boolean;
     tomas_medidas?: { numero_tm: string; croquis_url: string | null }[];
 }
 
@@ -314,7 +315,9 @@ const ProduccionPage: React.FC = () => {
                             const isExpanded = expandedOdpId === odp.id;
                             
                             // Calcular progreso dinámico
-                            const fields = ['chk_medicion', 'chk_corte', 'chk_vidrio', 'chk_accesorios', 'chk_ensamble'];
+                            const fields = ['chk_medicion'];
+                            if (odp.tiene_aluminio) { fields.push('chk_corte'); fields.push('chk_ensamble'); }
+                            fields.push('chk_vidrio', 'chk_accesorios');
                             if (odp.matizado) fields.push('chk_matizado');
                             if (odp.pelicula) fields.push('chk_pelicula');
                             if (odp.huacal) fields.push('chk_huacal');
@@ -426,10 +429,10 @@ const ProduccionPage: React.FC = () => {
                                                                         </div>
                                                                     );
                                                                 })()}
-                                                                {renderCheckItem(odp, 'chk_corte', 'Aluminio', Scissors, true)}
+                                                                {odp.tiene_aluminio && renderCheckItem(odp, 'chk_corte', 'Aluminio', Scissors, true)}
                                                                 {renderCheckItem(odp, 'chk_vidrio', 'Vidrio', Layers, true)}
                                                                 {renderCheckItem(odp, 'chk_accesorios', 'Herrajes', Package, true)}
-                                                                {renderCheckItem(odp, 'chk_ensamble', 'Ensamble', Wrench, true)}
+                                                                {odp.tiene_aluminio && renderCheckItem(odp, 'chk_ensamble', 'Ensamble', Wrench, true)}
                                                                 {renderCheckItem(odp, 'chk_matizado', 'Matizado', Sparkles)}
                                                                 {renderCheckItem(odp, 'chk_pelicula', 'Película', Film)}
                                                                 {renderCheckItem(odp, 'chk_huacal', 'Huacal', Box)}
