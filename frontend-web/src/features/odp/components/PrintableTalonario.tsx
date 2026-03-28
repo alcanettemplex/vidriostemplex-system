@@ -282,7 +282,7 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                                 const td = (content: React.ReactNode, extra?: React.CSSProperties) => (
                                     <td style={{ border: '1px solid #000', padding: '3px 4px', ...extra }}>{content}</td>
                                 );
-                                const label = (txt: string) => td(txt, { fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' });
+                                const label = (txt: string) => td(txt, { textAlign: 'center', textTransform: 'uppercase' });
                                 const val = (txt: string) => td(txt, { fontSize: '9px', fontWeight: 'bold', textAlign: 'center' });
                                 return (<>
                                 <tr>
