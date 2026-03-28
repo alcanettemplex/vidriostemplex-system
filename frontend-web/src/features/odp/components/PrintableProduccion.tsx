@@ -54,21 +54,15 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                             <td className="w-[25%] font-bold">TEL: <span className="font-normal uppercase ml-1">{odp.cliente?.telefono}</span></td>
                         </tr>
                         <tr>
-                            <td colSpan={2} className="font-bold border-r-0">
-                                <div className="flex items-center justify-between">
-                                    <span>DIRECCION: <span className="font-normal uppercase ml-1">{odp.cliente?.direccion}</span></span>
-                                    <span className="border-l border-black pl-2 ml-2">NIT O C.C: <span className="font-normal uppercase ml-1">{odp.cliente?.numero_documento || odp.cliente?.ruc_rut}</span></span>
-                                </div>
-                            </td>
-                            <td className="font-bold">CEL: <span className="font-normal uppercase ml-1">{odp.cliente?.celular || odp.cliente?.telefono}</span></td>
+                            <td className="w-[30%] font-bold">DIRECCION: <span className="font-normal uppercase ml-1">{odp.cliente?.direccion}</span></td>
+                            <td className="w-[45%] font-bold">NIT O C.C: <span className="font-normal uppercase ml-1">{odp.cliente?.numero_documento || odp.cliente?.ruc_rut}</span></td>
+                            <td className="w-[25%] font-bold">CEL: <span className="font-normal uppercase ml-1">{odp.cliente?.celular || odp.cliente?.telefono}</span></td>
                         </tr>
                         <tr>
-                            <td colSpan={2} className="font-bold border-r-0">
-                                <div className="flex items-center justify-between">
-                                    <span>FECHA ODP LISTO MATERIAL: <span className="font-normal uppercase ml-1">{odp.fecha_entrega ? format(new Date(odp.fecha_entrega), 'dd/MM/yyyy') : ''}</span></span>
-                                    <span className="border-l border-black pl-2 ml-2">CORREO FACTURA ELECTRONICA: <span className="font-normal lowercase ml-1">{odp.cliente?.email}</span></span>
-                                </div>
+                            <td className="w-[20%] font-bold border-r-0">
+                                <span className="whitespace-nowrap">LISTO MATERIAL: <span className="font-normal uppercase ml-1">{odp.fecha_entrega ? format(new Date(odp.fecha_entrega), 'dd/MM/yyyy') : ''}</span></span>
                             </td>
+                            <td className="font-bold">CORREO FACTURA ELECTRONICA: <span className="font-normal lowercase ml-1">{odp.cliente?.email}</span></td>
                             <td className="font-bold">SEGM: <span className="font-normal uppercase ml-1">{odp.cliente?.segmento}</span></td>
                         </tr>
                     </tbody>
@@ -85,18 +79,20 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                             odp.servicios_detalle.map((svc: any, idx: number) => (
                                 <tr key={idx}>
                                     <td className="h-10 font-bold text-center text-lg align-middle">{svc.cantidad}</td>
-                                    <td className="h-10 align-top p-1">
-                                        <div className="font-bold border-b border-black mb-1 pb-0.5 uppercase">{svc.tipo_servicio}</div>
-                                        <span className="whitespace-pre-line uppercase font-semibold text-[10px] leading-tight">{svc.descripcion}</span>
+                                    <td className="align-top p-1">
+                                        <span className="whitespace-pre-line uppercase font-semibold text-[10px] leading-tight">
+                                            <span className="font-bold">{svc.tipo_servicio}{svc.descripcion ? ': ' : ''}</span>{svc.descripcion}
+                                        </span>
                                     </td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
                                 <td className="h-14 font-bold text-center text-lg align-middle">{odp.cantidad_total || ''}</td>
-                                <td className="h-14 align-top p-1">
-                                    <div className="font-bold border-b border-black mb-1 pb-1 uppercase">{odp.tipo_servicio}</div>
-                                    <span className="whitespace-pre-line uppercase font-semibold text-xs leading-tight">{odp.descripcion_pedido}</span>
+                                <td className="align-top p-1">
+                                    <span className="whitespace-pre-line uppercase font-semibold text-xs leading-tight">
+                                        <span className="font-bold">{odp.tipo_servicio}{odp.descripcion_pedido ? ': ' : ''}</span>{odp.descripcion_pedido}
+                                    </span>
                                 </td>
                             </tr>
                         )}
@@ -181,41 +177,63 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                 </div>
 
                 {/* Grilla inferior (Checkboxes visuales) */}
-                <div className="flex gap-1 mt-1 bg-white">
-                    <table className="excel-table w-1/4">
-                        <tbody>
-                            <tr><td className="font-bold text-center py-1 border-b border-black">MATIZADO</td><td className="w-8 text-center font-bold text-base border-b border-black">{odp.matizado ? 'X' : ''}</td></tr>
-                            <tr><td className="font-bold text-center py-1 border-b border-black">ACARREO</td><td className="text-center font-bold text-base border-b border-black">{odp.acarreo ? 'X' : ''}</td></tr>
-                            <tr><td className="font-bold text-center py-1 border-b border-black">INSTALACIÓN</td><td className="text-center font-bold text-base border-b border-black">{odp.instalacion ? 'X' : ''}</td></tr>
-                        </tbody>
-                    </table>
-                    <table className="excel-table w-1/4">
-                        <tbody>
-                            <tr><td className="font-bold text-center py-1 border-b border-black">PELICULA</td><td className="w-8 text-center font-bold text-base border-b border-black">{odp.pelicula ? 'X' : ''}</td></tr>
-                            <tr><td className="font-bold text-center py-1 border-b border-black">HUACAL</td><td className="text-center font-bold text-base border-b border-black">{odp.huacal ? 'X' : ''}</td></tr>
-                            <tr><td className="font-bold text-center py-1 border-b border-black">CARTÓN</td><td className="text-center font-bold text-base border-b border-black">{odp.carton ? 'X' : ''}</td></tr>
-                        </tbody>
-                    </table>
-                    <table className="excel-table w-1/2">
+                <div className="mt-1">
+                    <table style={{ tableLayout: 'fixed', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '11px', width: '100%' }}>
+                        <colgroup>
+                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '6%' }} />
+                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '6%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '8%' }} />
+                            <col style={{ width: '8%' }} />
+                            <col style={{ width: '8%' }} />
+                            <col style={{ width: '8%' }} />
+                            <col style={{ width: '8%' }} />
+                            <col style={{ width: '12%' }} />
+                        </colgroup>
                         <tbody>
                             <tr>
-                                <td rowSpan={3} className="font-bold align-top text-center border-r-2 border-r-black w-24 pt-1">PEDIDO EXTERNO</td>
-                                <td className="font-bold text-center w-12 py-1">SAP</td>
-                                <td className="w-16 text-center text-[9px] font-bold">{odp.saps?.[0]?.numero_sap || ''}</td>
-                                <td className="font-bold text-center w-12 py-1">ODC</td>
-                                <td className="w-16"></td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>MATIZADO</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold' }}>{odp.matizado ? 'X' : ''}</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>PELICULA</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold' }}>{odp.pelicula ? 'X' : ''}</td>
+                                <td rowSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', verticalAlign: 'top', textTransform: 'uppercase' }}>
+                                    PEDIDO EXTERNO
+                                    {odp.numero_pedido_proveedor && <div style={{ fontWeight: 'bold', marginTop: '2px', color: '#1a3ec9' }}>{odp.numero_pedido_proveedor}</div>}
+                                </td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>SAP</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '9px', fontWeight: 'bold', textAlign: 'center' }}>{odp.saps?.[0]?.numero_sap || ''}</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>ODC</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>PROV</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '9px', fontWeight: 'bold', textAlign: 'center' }}>{odp.proveedor_vidrio || ''}</td>
                             </tr>
                             <tr>
-                                <td className="font-bold text-center py-1">COT</td>
-                                <td className="text-center text-[9px] font-bold">{odp.cotizaciones?.[0]?.numero_cot || ''}</td>
-                                <td className="font-bold text-center py-1">ODC</td>
-                                <td></td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>ACARREO</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold' }}>{odp.acarreo ? 'X' : ''}</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>HUACAL</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold' }}>{odp.huacal ? 'X' : ''}</td>
+                                {/* col 5 absorbida por rowspan de PEDIDO EXTERNO */}
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>COT</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '9px', fontWeight: 'bold', textAlign: 'center' }}>{odp.cotizaciones?.[0]?.numero_cot || ''}</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>ODC</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>PROV</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
                             </tr>
                             <tr>
-                                <td className="font-bold text-center py-1">TM</td>
-                                <td className="text-center text-[9px] font-bold">{odp.tomas_medidas?.[0]?.numero_tm || ''}</td>
-                                <td className="font-bold text-center py-1">ODC</td>
-                                <td></td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>INSTALACIÓN</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold' }}>{odp.instalacion ? 'X' : ''}</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>CARTÓN</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold' }}>{odp.carton ? 'X' : ''}</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', color: '#1a3ec9' }}>{odp.proveedor_vidrio || ''}</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>TM</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '9px', fontWeight: 'bold', textAlign: 'center' }}>{odp.tomas_medidas?.[0]?.numero_tm || ''}</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>ODC</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>PROV</td>
+                                <td style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
                             </tr>
                         </tbody>
                     </table>

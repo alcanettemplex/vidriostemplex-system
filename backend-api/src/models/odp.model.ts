@@ -25,6 +25,7 @@ ODP.init({
   fecha_entrega: { type: DataTypes.DATE },
   nombre_recibe: { type: DataTypes.STRING(100) },
   telefono_recibe: { type: DataTypes.STRING(20) },
+  cargo_recibe: { type: DataTypes.STRING(100) },
   cantidad_total: { type: DataTypes.INTEGER, defaultValue: 1 },
   tipo_servicio: { type: DataTypes.STRING(100) },
   descripcion_pedido: { type: DataTypes.TEXT },

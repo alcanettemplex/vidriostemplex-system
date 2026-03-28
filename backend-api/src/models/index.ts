@@ -18,6 +18,7 @@ import NoConformidad from './no_conformidad.model';
 import ConfiguracionGlobal from './configuracion.model';
 import MetaMensual from './meta_mensual.model';
 import NotaProduccion from './nota_produccion.model';
+import CatalogoProducto from './catalogo_producto.model';
 
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
@@ -124,6 +125,7 @@ export {
   Pago,
   ConfiguracionGlobal,
   MetaMensual,
-  NotaProduccion
+  NotaProduccion,
+  CatalogoProducto
 };
 

@@ -1,10 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Save, AlertCircle, DollarSign, Clock, Users } from 'lucide-react';
+import { Settings, Save, AlertCircle, DollarSign, Clock, Users, BookOpen, Plus, Pencil, Trash2, X, Check } from 'lucide-react';
+
+type CatItem = { id: number; categoria: string; nombre: string; descripcion: string; activo: boolean };
 
 export const ConfiguracionPage: React.FC = () => {
   const [config, setConfig] = useState<any>(null);
   const [metaMensual, setMetaMensual] = useState<any>(null);
+
+  // Catálogo de productos
+  const [catalogo, setCatalogo] = useState<CatItem[]>([]);
+  const [catTab, setCatTab] = useState<string>('');
+  const [catForm, setCatForm] = useState<Partial<CatItem> | null>(null);
+  const [catEditing, setCatEditing] = useState<number | null>(null);
+  const [catSaving, setCatSaving] = useState(false);
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,6 +49,42 @@ export const ConfiguracionPage: React.FC = () => {
   useEffect(() => {
     fetchConfigData();
   }, [selectedMonth, selectedYear]);
+
+  const fetchCatalogo = async () => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${API_URL}/api/catalogo/all`, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) {
+      const data: CatItem[] = await res.json();
+      setCatalogo(data);
+      if (!catTab && data.length > 0) setCatTab(data[0].categoria);
+    }
+  };
+
+  useEffect(() => { fetchCatalogo(); }, []);
+
+  const catCategorias = Array.from(new Set(catalogo.map(i => i.categoria)));
+
+  const saveCatItem = async () => {
+    if (!catForm?.categoria || !catForm?.nombre) return;
+    setCatSaving(true);
+    const token = localStorage.getItem('token');
+    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+    if (catEditing) {
+      await fetch(`${API_URL}/api/catalogo/${catEditing}`, { method: 'PUT', headers, body: JSON.stringify(catForm) });
+    } else {
+      await fetch(`${API_URL}/api/catalogo`, { method: 'POST', headers, body: JSON.stringify(catForm) });
+    }
+    setCatForm(null);
+    setCatEditing(null);
+    setCatSaving(false);
+    fetchCatalogo();
+  };
+
+  const deleteCatItem = async (id: number) => {
+    const token = localStorage.getItem('token');
+    await fetch(`${API_URL}/api/catalogo/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    fetchCatalogo();
+  };
 
   const formatMonto = (val: any) => {
     if (val === null || val === undefined || val === '') return '';
@@ -196,6 +241,114 @@ export const ConfiguracionPage: React.FC = () => {
         </div>
 
       </form>
+
+      {/* ─── CATÁLOGO DE PRODUCTOS ─────────────────────────────────── */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-10">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-100 rounded-xl"><BookOpen className="w-6 h-6 text-emerald-600" /></div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">Catálogo de Productos</h2>
+              <p className="text-sm text-slate-500">Productos y servicios disponibles en el formulario de ODP</p>
+            </div>
+          </div>
+          <button
+            onClick={() => { setCatForm({ categoria: catTab || catCategorias[0] || '', nombre: '', descripcion: '', activo: true }); setCatEditing(null); }}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition"
+          >
+            <Plus className="w-4 h-4" /> Nuevo Producto
+          </button>
+        </div>
+
+        {/* Tabs de categorías */}
+        <div className="flex flex-wrap gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200 mb-4">
+          {catCategorias.map(cat => (
+            <button key={cat} onClick={() => setCatTab(cat)}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${catTab === cat ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Lista de ítems de la categoría activa */}
+        <div className="space-y-2">
+          {catalogo.filter(i => i.categoria === catTab).map(item => (
+            <div key={item.id} className={`flex items-start gap-3 p-3 bg-white border rounded-xl ${!item.activo ? 'opacity-50' : ''}`}>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm text-slate-800">{item.nombre}</p>
+                <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{item.descripcion}</p>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <button onClick={() => { setCatForm(item); setCatEditing(item.id); }}
+                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => deleteCatItem(item.id)}
+                  className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+          {catalogo.filter(i => i.categoria === catTab).length === 0 && (
+            <p className="text-sm text-slate-400 text-center py-6">No hay productos en esta categoría</p>
+          )}
+        </div>
+
+        {/* Modal formulario catálogo */}
+        {catForm !== null && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-slate-800">{catEditing ? 'Editar Producto' : 'Nuevo Producto'}</h3>
+                <button onClick={() => { setCatForm(null); setCatEditing(null); }} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Categoría *</label>
+                  <input
+                    list="cat-list"
+                    value={catForm.categoria || ''}
+                    onChange={e => setCatForm(f => ({ ...f, categoria: e.target.value }))}
+                    placeholder="Ej: Tableros, Espejos..."
+                    className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-400"
+                  />
+                  <datalist id="cat-list">{catCategorias.map(c => <option key={c} value={c} />)}</datalist>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Nombre *</label>
+                  <input
+                    value={catForm.nombre || ''}
+                    onChange={e => setCatForm(f => ({ ...f, nombre: e.target.value }))}
+                    placeholder="Ej: VIDRIO TEMPLADO 6MM"
+                    className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Descripción</label>
+                  <textarea
+                    value={catForm.descripcion || ''}
+                    onChange={e => setCatForm(f => ({ ...f, descripcion: e.target.value }))}
+                    rows={4}
+                    placeholder="Descripción detallada del producto..."
+                    className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-400 resize-none"
+                  />
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={catForm.activo ?? true} onChange={e => setCatForm(f => ({ ...f, activo: e.target.checked }))} className="w-4 h-4 accent-emerald-600" />
+                  <span className="text-sm text-slate-700 font-medium">Activo (visible en formulario ODP)</span>
+                </label>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button onClick={() => { setCatForm(null); setCatEditing(null); }} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">Cancelar</button>
+                <button onClick={saveCatItem} disabled={catSaving} className="px-4 py-2 text-sm bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 flex items-center gap-2">
+                  <Check className="w-4 h-4" /> {catSaving ? 'Guardando...' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </motion.div>
     </div>
   );
 };

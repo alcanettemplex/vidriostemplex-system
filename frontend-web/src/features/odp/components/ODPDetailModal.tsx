@@ -16,30 +16,36 @@ const ODPDetailModal: React.FC<ODPDetailModalProps> = ({ odp, onClose }) => {
     if (!odp) return null;
 
     const handlePrint = () => {
-        window.print();
+        const printArea = document.getElementById('odp-print-area');
+        if (!printArea) return;
+        const win = window.open('', '_blank', 'width=900,height=700');
+        if (!win) return;
+        win.document.write(`<!DOCTYPE html><html><head>
+            <meta charset="utf-8"/>
+            <title>Impresión ODP</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+                @page { size: letter portrait; margin: 4mm; }
+                body { margin: 0; padding: 0; font-family: sans-serif; }
+                .excel-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
+                .excel-table th, .excel-table td { border: 1px solid #000; padding: 2px 4px; }
+                .excel-table th { font-weight: bold; text-align: center; }
+                .thick-b { border-bottom: 2px solid #000 !important; }
+            </style>
+        </head><body>${printArea.innerHTML}</body></html>`);
+        win.document.close();
+        win.focus();
+        setTimeout(() => { win.print(); win.close(); }, 800);
     };
 
     return (
         <>
-            {/* Estilos para ocultar el fondo al imprimir */}
-            <style>
-                {`
-            @media print {
-                body * { visibility: hidden; }
-                #modal-root, #modal-root * { visibility: visible; }
-                #modal-root { position: absolute; left: 0; top: 0; width: 100%; min-height: 100vh; margin: 0; padding: 0; }
-                .print-hidden { display: none !important; }
-                .print-only { display: block !important; }
-                @page { margin: 0.5cm; }
-            }
-            `}
-            </style>
-            <div id="modal-root" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 print:p-0 print:bg-white print:static print:h-auto print:min-h-auto print:block">
+            <div id="modal-root" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="bg-white w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden print:max-w-none print:max-h-none print:shadow-none print:rounded-none print:overflow-visible print:block"
+                    className="bg-white w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
                 >
                     {/* Header */}
                     <div className="bg-slate-900 px-6 py-4 flex justify-between items-center shrink-0 print-hidden">
@@ -91,14 +97,7 @@ const ODPDetailModal: React.FC<ODPDetailModalProps> = ({ odp, onClose }) => {
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 overflow-y-auto bg-slate-100/50 p-6 relative print:p-0 print:overflow-visible print:h-auto">
-
-                        {/* FORMATOS FÍSICOS PARA IMPRENTA SEGÚN LA PESTAÑA */}
-                        <div className="hidden print-only">
-                            {activeTab === 'admin' && <PrintableTalonario odp={odp} />}
-                            {activeTab === 'produccion' && <PrintableProduccion odp={odp} />}
-                            {activeTab === 'lienzo' && <PrintableDetalleTecnico odp={odp} />}
-                        </div>
+                    <div className="flex-1 overflow-y-auto bg-slate-100/50 p-6 relative">
 
                         {/* VISTA EN PANTALLA */}
                         <div className="print-hidden h-full">
@@ -270,6 +269,13 @@ const ODPDetailModal: React.FC<ODPDetailModalProps> = ({ odp, onClose }) => {
                         </div>
                     </div>
                 </motion.div>
+            </div>
+
+            {/* ÁREA DE IMPRESIÓN — fuera del modal para evitar overflow-hidden */}
+            <div id="odp-print-area" style={{ display: 'none' }}>
+                {activeTab === 'admin' && <PrintableTalonario odp={odp} />}
+                {activeTab === 'produccion' && <PrintableProduccion odp={odp} />}
+                {activeTab === 'lienzo' && <PrintableDetalleTecnico odp={odp} />}
             </div>
         </>
     );

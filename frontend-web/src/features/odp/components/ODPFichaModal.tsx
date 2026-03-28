@@ -543,6 +543,29 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
   const [selectedFormat, setSelectedFormat] = useState<'compra' | 'op' | 'tecnico' | 'garantia' | 'noconformidad' | 'sap'>('op');
   const [ncIndex, setNcIndex] = useState(0);
 
+  const handlePrint = () => {
+    const area = document.getElementById('printable-area');
+    if (!area) return;
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head>
+      <meta charset="utf-8"/>
+      <title>Impresión ODP ${odp?.numero_odp || ''}</title>
+      <script src="https://cdn.tailwindcss.com"><\/script>
+      <style>
+        @page { size: letter portrait; margin: 4mm; }
+        body { margin: 0; padding: 0; font-family: sans-serif; }
+        .excel-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
+        .excel-table th, .excel-table td { border: 1px solid #000; padding: 2px 4px; }
+        .excel-table th { font-weight: bold; text-align: center; }
+        .thick-b { border-bottom: 2px solid #000 !important; }
+      </style>
+    </head><body>${area.innerHTML}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 800);
+  };
+
   return (
     <div className="flex flex-col bg-slate-100 min-h-screen">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-6 py-4 bg-white border-b border-slate-200 print:hidden shadow-sm">
@@ -581,12 +604,12 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
             </div>
         )}
 
-        <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white font-black text-xs rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30">
+        <button onClick={handlePrint} className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white font-black text-xs rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30">
           <Printer className="w-3 h-3" /> IMPRIMIR
         </button>
       </div>
 
-      <div className="p-8 overflow-y-auto flex-1 flex flex-col items-center justify-start print:p-0 print:block" id="printable-area">
+      <div className="p-8 overflow-y-auto flex-1 flex flex-col items-center justify-start" id="printable-area">
         {selectedFormat === 'compra' && <PrintableTalonario odp={odp} />}
         {selectedFormat === 'op' && <PrintableProduccion odp={odp} />}
         {selectedFormat === 'tecnico' && <PrintableDetalleTecnico odp={odp} />}
@@ -594,17 +617,6 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
         {selectedFormat === 'noconformidad' && <PrintableNoConformidad odp={odp} data={odp?.no_conformidades?.[ncIndex]} />}
         {selectedFormat === 'sap' && <PrintableSAP odp={odp} sap={odp?.saps?.[0]} />}
       </div>
-
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          @media print {
-            body * { visibility: hidden; }
-            #printable-area, #printable-area * { visibility: visible; }
-            #printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
-            @page { margin: 1cm; size: portrait; }
-          }
-        `
-      }} />
     </div>
   );
 };

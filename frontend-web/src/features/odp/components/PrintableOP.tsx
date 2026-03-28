@@ -1,121 +1,300 @@
 import React from 'react';
+import { format } from 'date-fns';
+import { TemplexLogo } from '../../../components/ui/TemplexLogo';
 
 interface PrintableOPProps {
     odp: any;
 }
 
 const PrintableOP: React.FC<PrintableOPProps> = ({ odp }) => {
+
     return (
-        <div className="block print:block w-[21.5cm] min-h-[29cm] bg-white shadow-xl print:shadow-none text-black font-sans text-[10px] mx-auto overflow-hidden">
+        <div className="print-root block w-[21.5cm] min-h-[29cm] print:min-h-0 bg-white shadow-xl print:shadow-none text-black font-sans text-[10px] mx-auto overflow-hidden print:overflow-visible">
             <style>
                 {`
                 .excel-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
                 .excel-table th, .excel-table td { border: 1px solid #000; padding: 2px 4px; border-color: #000; }
                 .excel-table th { font-weight: bold; text-align: center; }
-                
+                .thick-b { border-bottom: 2px solid #000 !important; }
+                .fs-8 { font-size: 8px; }
+                .fs-7 { font-size: 7px; }
+
                 @media print {
-                    .print-container { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0 !important; }
+                    @page { size: letter portrait; margin: 4mm; }
+                    body, html { margin: 0 !important; padding: 0 !important; }
+                    .print-container { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .print-root { width: 100% !important; min-height: unset !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
                 }
                 `}
             </style>
 
-            <div className="print-container p-6">
-                {/* ENCABEZADO */}
-                <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6">
-                    <div>
-                        <h1 className="text-2xl font-black uppercase tracking-wider">Vidrios Templex</h1>
-                        <p className="font-semibold text-gray-700 text-sm">ORDEN DE PRODUCCIÓN (TALLER / LOGÍSTICA)</p>
-                        <div className="mt-2 text-sm grid grid-cols-2 gap-x-8 gap-y-2">
-                            <span className="font-bold">ORDEN N°: <span className="font-normal text-red-600 text-lg">{odp.numero_odp}</span></span>
-                            <span className="font-bold">FECHA: <span className="font-normal">{odp.fecha_creacion ? new Date(odp.fecha_creacion).toLocaleDateString() : ''}</span></span>
-                            <span className="font-bold">CLIENTE: <span className="font-normal">{odp.cliente?.nombre_razon_social}</span></span>
-                            <span className="font-bold">TIPO DE SERVICIO: <span className="font-normal">{odp.tipo_servicio}</span></span>
+            <div className="print-container p-2 print:p-0">
+                {/* ---------- CABECERA ---------- */}
+                <div className="flex justify-between items-end mb-1">
+                    <div className="flex items-center w-1/3">
+                        <div className="flex flex-col">
+                            <TemplexLogo className="h-10 w-40 justify-start" />
                         </div>
                     </div>
-                    <div className="text-right border-l-2 border-black pl-4">
-                        <h2 className="font-bold text-lg mb-1 uppercase">PROVEEDOR VIDRIO</h2>
-                        <p className="text-xl font-black uppercase">{odp.proveedor_vidrio || '----'}</p>
-                        <p className="font-bold mt-2 uppercase">PEDIDO N°:</p>
-                        <p className="text-lg font-mono bg-yellow-100 px-2 py-1 inline-block mt-1 print:border print:border-black print:bg-transparent">
-                            {odp.numero_pedido_proveedor || '----'}
-                        </p>
+
+                    <div className="w-1/3 text-center font-bold text-[11px] mb-2 uppercase tracking-[0.2em]">
+                        ORDEN DE PRODUCCIÓN
+                    </div>
+
+                    <div className="w-1/3 flex justify-end mb-1">
+                        <div className="border-[2px] border-black text-xl font-bold w-32 h-10 flex items-center justify-center">
+                            {odp.numero_odp?.split('-').pop() || odp.numero_odp}
+                        </div>
                     </div>
                 </div>
 
-                {/* DESCRIPCIÓN Y OBSERVACIONES */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="border border-black p-3 min-h-[120px]">
-                        <h4 className="font-bold text-sm uppercase mb-2 border-b border-gray-300 pb-1">Descripción del Pedido / Proyecto</h4>
-                        <p className="text-sm whitespace-pre-wrap">{odp.descripcion_pedido}</p>
-                    </div>
-                    <div className="border border-black p-3 min-h-[120px]">
-                        <h4 className="font-bold text-sm uppercase mb-2 border-b border-gray-300 pb-1">Observaciones Cliente / Cuidado</h4>
-                        <p className="text-sm text-red-700 font-semibold whitespace-pre-wrap">{odp.observaciones || '---'}</p>
-                    </div>
-                </div>
+                {/* ---------- DATOS CLIENTE ---------- */}
+                <table className="excel-table thick-b mb-1">
+                    <tbody>
+                        <tr>
+                            <td className="w-[30%] font-bold">FECHA: <span className="font-normal uppercase ml-1">{odp.fecha_creacion ? format(new Date(odp.fecha_creacion), 'dd/MM/yyyy') : ''}</span></td>
+                            <td className="w-[45%] font-bold">CLIENTE: <span className="font-normal uppercase ml-1">{odp.cliente?.nombre_razon_social}</span></td>
+                            <td className="w-[25%] font-bold">TEL: <span className="font-normal uppercase ml-1">{odp.cliente?.telefono}</span></td>
+                        </tr>
+                        <tr>
+                            <td colSpan={2} className="font-bold border-r-0">
+                                <div className="flex items-center justify-between">
+                                    <span>DIRECCION: <span className="font-normal uppercase ml-1">{odp.cliente?.direccion}</span></span>
+                                    <span className="border-l border-black pl-2 ml-2">NIT O C.C: <span className="font-normal uppercase ml-1">{odp.cliente?.numero_documento || odp.cliente?.ruc_rut}</span></span>
+                                </div>
+                            </td>
+                            <td className="font-bold">CEL: <span className="font-normal uppercase ml-1">{odp.cliente?.celular || odp.cliente?.telefono}</span></td>
+                        </tr>
+                        <tr>
+                            <td colSpan={2} className="font-bold border-r-0">
+                                <div className="flex items-center justify-between">
+                                    <span>FECHA ODP LISTO MATERIAL: <span className="font-normal uppercase ml-1">{odp.fecha_entrega ? format(new Date(odp.fecha_entrega), 'dd/MM/yyyy') : ''}</span></span>
+                                    <span className="border-l border-black pl-2 ml-2">CORREO FACTURA ELECTRONICA: <span className="font-normal lowercase ml-1">{odp.cliente?.email}</span></span>
+                                </div>
+                            </td>
+                            <td className="font-bold">SEGM: <span className="font-normal uppercase ml-1">{odp.cliente?.segmento}</span></td>
+                        </tr>
+                    </tbody>
+                </table>
 
-                <div className="mb-6">
-                    <div className="border border-black p-3">
-                        <h4 className="font-bold text-sm uppercase mb-2 border-b border-gray-300 pb-1">Entrega Solicitada - Dirección / Notas</h4>
-                        <p className="text-sm uppercase font-semibold">{odp.direccion_instalacion || '-- Misma del Cliente --'}</p>
-                    </div>
-                </div>
-
-                {/* GRID INFERIOR ESTILO EXCEL */}
-                <div className="grid grid-cols-[1fr,1.5fr] gap-6 mt-12">
-                    <table className="w-full border-collapse border-2 border-black text-sm">
-                        <tbody>
+                {/* ---------- DESCRIPCION ---------- */}
+                <table className="excel-table mb-1">
+                    <tbody>
+                        <tr>
+                            <td className="font-bold w-12 text-center border-b-black uppercase">CANT</td>
+                            <td className="font-bold text-center border-b-black uppercase tracking-widest">PRODUCTO O SERVICIO</td>
+                        </tr>
+                        {odp.servicios_detalle && odp.servicios_detalle.length > 0 ? (
+                            odp.servicios_detalle.map((svc: any, idx: number) => (
+                                <tr key={idx}>
+                                    <td className="h-10 font-bold text-center text-lg align-middle">{svc.cantidad}</td>
+                                    <td className="align-top p-1">
+                                        <span className="whitespace-pre-line uppercase font-semibold text-[10px] leading-tight">
+                                            <span className="font-bold">{svc.tipo_servicio}{svc.descripcion ? ': ' : ''}</span>{svc.descripcion}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))
+                        ) : (
                             <tr>
-                                <td className="border border-black p-2 font-bold uppercase">MATIZADO</td>
-                                <td className="border border-black p-2 text-center font-bold text-xl">{odp.matizado ? 'X' : ''}</td>
-                                <td className="border border-black p-2 font-bold uppercase">PELÍCULA</td>
-                                <td className="border border-black p-2 text-center font-bold text-xl">{odp.pelicula ? 'X' : ''}</td>
-                            </tr>
-                            <tr>
-                                <td className="border border-black p-2 font-bold uppercase">ACARREO</td>
-                                <td className="border border-black p-2 text-center font-bold text-xl">{odp.acarreo ? 'X' : ''}</td>
-                                <td className="border border-black p-2 font-bold uppercase">HUACAL</td>
-                                <td className="border border-black p-2 text-center font-bold text-xl">{odp.huacal ? 'X' : ''}</td>
-                            </tr>
-                            <tr>
-                                <td className="border border-black p-2 font-bold uppercase">INSTALACIÓN</td>
-                                <td className="border border-black p-2 text-center font-bold text-xl">{odp.instalacion ? 'X' : ''}</td>
-                                <td className="border border-black p-2 font-bold uppercase">CARTÓN</td>
-                                <td className="border border-black p-2 text-center font-bold text-xl">{odp.carton ? 'X' : ''}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <table className="w-full border-collapse border-2 border-black text-sm text-center">
-                        <tbody>
-                            <tr>
-                                <td className="border border-black p-2 font-bold align-middle w-1/3 uppercase bg-slate-50" rowSpan={3}>
-                                    PEDIDO EXTERNO<br /><span className="text-[10px] font-normal italic capitalize">Registro Llegada</span>
+                                <td className="h-14 font-bold text-center text-lg align-middle">{odp.cantidad_total || ''}</td>
+                                <td className="align-top p-1">
+                                    <span className="whitespace-pre-line uppercase font-semibold text-xs leading-tight">
+                                        <span className="font-bold">{odp.tipo_servicio}{odp.descripcion_pedido ? ': ' : ''}</span>{odp.descripcion_pedido}
+                                    </span>
                                 </td>
-                                <td className="border border-black p-2 font-bold bg-gray-100 uppercase">RECEPCIÓN</td>
-                                <td className="border border-black p-2 w-1/4"></td>
-                                <td className="border border-black p-2 font-bold bg-gray-100 uppercase">ODC Ref</td>
-                                <td className="border border-black p-2 w-1/4"></td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+
+                {/* ---------- TABLA PRINCIPAL ---------- */}
+                <table className="excel-table text-center uppercase">
+                    <thead>
+                        <tr className="font-bold">
+                            <th rowSpan={3} className="w-8">ITEM</th>
+                            <th rowSpan={3} className="w-6">CL</th>
+                            <th rowSpan={3} className="w-8">ESP<br />mm</th>
+                            <th rowSpan={3} className="w-8">CANT</th>
+                            <th colSpan={2} className="w-[18%]">MEDIDA EXACTA</th>
+                            <th colSpan={6}>ACABADOS</th>
+                            <th rowSpan={3} className="w-10">MTS<br />PT</th>
+                            <th rowSpan={3} className="w-[15%]">VALOR</th>
+                            <th rowSpan={3} className="w-10">PROD</th>
+                        </tr>
+                        <tr className="font-bold fs-[8px]">
+                            <th rowSpan={2}>Ancho (A)</th>
+                            <th rowSpan={2}>Alto (H)</th>
+                            <th colSpan={2}>PUL *</th>
+                            <th rowSpan={2} className="w-7">Perf</th>
+                            <th rowSpan={2} className="w-7">Boq.</th>
+                            <th rowSpan={2} className="w-7">Des</th>
+                            <th rowSpan={2} className="w-7">Otro**</th>
+                        </tr>
+                        <tr className="font-bold fs-[8px]">
+                            <th className="w-6">A</th>
+                            <th className="w-6">H</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {Array.from({ length: 10 }).map((_, idx) => {
+                            const item = odp.items?.[idx];
+                            const letter = String.fromCharCode(65 + idx); // A, B, C...
+                            return (
+                                <tr key={idx} className="h-[22px]">
+                                    <td className="font-bold">{letter}</td>
+                                    <td className="font-bold">{item?.tipo_vidrio?.charAt(0) || ''}</td>
+                                    <td className="font-bold">{item?.espesor || ''}</td>
+                                    <td className="font-bold">{item?.cantidad || ''}</td>
+                                    <td className="font-bold">{item?.ancho_mm || ''}</td>
+                                    <td className="font-bold">{item?.alto_mm || ''}</td>
+                                    <td className="font-bold text-[8px]">{item?.pulidos || ''}</td>
+                                    <td className="font-bold text-[8px]">{item?.pulidos_h || ''}</td>
+                                    <td className="font-bold">{item?.perforaciones > 0 ? item.perforaciones : ''}</td>
+                                    <td className="font-bold">{item?.boquetes > 0 ? item.boquetes : ''}</td>
+                                    <td className="font-bold text-[8px] max-w-[20px] truncate">{item?.descuentos || ''}</td>
+                                    <td className="font-bold text-[8px] max-w-[30px] truncate">{item?.otros || ''}</td>
+                                    <td className="font-bold text-[8px] text-center">{item?.ancho_mm && item?.alto_mm ? ((item.ancho_mm / 1000) * (item.alto_mm / 1000)).toFixed(3) : ''}</td>
+                                    <td></td>
+                                    <td className="font-bold text-[8px] text-center">{item?.prod || ''}</td>
+                                </tr>
+                            );
+                        })}
+                        {(() => {
+                            const IVA_RATE = 0.19;
+                            const valorTotal = Number(odp.valor_total || 0);
+                            const subtotal = valorTotal / (1 + IVA_RATE);
+                            const iva = valorTotal - subtotal;
+                            const fmt = (v: number) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(v);
+                            return (
+                                <>
+                                    <tr>
+                                        <td colSpan={13} rowSpan={3} className="text-left font-bold pt-1 align-top">
+                                            ASESOR: <span className="font-normal ml-2 uppercase text-[9px]">{odp.asesor?.nombre_completo || `${odp.asesor?.first_name} ${odp.asesor?.last_name}`}</span>
+                                        </td>
+                                        <td className="text-right font-bold text-[8px] pr-1 text-orange-600">SUBTOTAL</td>
+                                        <td className="text-right font-bold text-[9px] pr-1">{valorTotal > 0 ? `$ ${fmt(subtotal)}` : ''}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="text-right font-bold text-[8px] pr-1 text-orange-600">IVA</td>
+                                        <td className="text-right font-bold text-[9px] pr-1">{valorTotal > 0 ? `$ ${fmt(iva)}` : ''}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="text-right font-bold text-[8px] pr-1 text-orange-600">VALOR TOTAL</td>
+                                        <td className="text-right font-bold text-[9px] pr-1">{valorTotal > 0 ? `$ ${fmt(valorTotal)}` : ''}</td>
+                                    </tr>
+                                </>
+                            );
+                        })()}
+                    </tbody>
+                </table>
+
+                <div className="flex justify-between items-end mt-1">
+                    <div className="text-[7.5px] italic font-bold">
+                        *BORDE PUL: Pulido/Brillado (P/B) - Pulido cerrado (PC) -Matado (MF) <br />
+                        ** ACABADOS: Radios (RAD), Chaflan (CHA).
+                    </div>
+                </div>
+
+                {/* ---------- OBSERVACIONES ---------- */}
+                <div className="border-[2px] border-black p-2 mt-1 bg-white min-h-[50px]">
+                    <p className="font-bold uppercase tracking-widest mb-1 text-[11px]">ENTREGA SOLICITADA - DIRECCION: <span className="font-normal">{odp.direccion_instalacion}</span></p>
+                    <p className="font-bold uppercase tracking-widest mt-2 mb-1">OBSERVACIONES:</p>
+                    <p className="text-sm uppercase font-semibold text-slate-700 whitespace-pre-line">
+                        {odp.observaciones}
+                    </p>
+                </div>
+
+                {/* ---------- PROVEEDOR VIDRIO (exclusivo OP) ---------- */}
+                <div className="border-l-[2px] border-r-[2px] border-b-[2px] border-black p-2 bg-slate-50">
+                    <div className="flex gap-4">
+                        <span className="font-bold uppercase text-[10px]">PROVEEDOR VIDRIO: <span className="font-normal">{odp.proveedor_vidrio || ''}</span></span>
+                        <span className="font-bold uppercase text-[10px]">PEDIDO N°: <span className="font-normal font-mono">{odp.numero_pedido_proveedor || ''}</span></span>
+                    </div>
+                </div>
+
+                {/* ---------- FORMA DE PAGO ---------- */}
+                <table className="excel-table mt-1 bg-white">
+                    <tbody>
+                        <tr><td colSpan={6} className="font-bold text-center fs-8 uppercase tracking-widest">FORMA DE PAGO</td></tr>
+                        {[0, 1].map((i) => {
+                            const pago = odp.pagos?.[i];
+                            return (
+                                <tr key={i}>
+                                    <td className="w-[10%] font-bold uppercase pl-2">RECIBO No:</td>
+                                    <td className="w-[20%] text-[9px] font-bold pl-2">{pago?.referencia_pago || ''}</td>
+                                    <td className="w-[15%] text-[9px] font-bold pl-2 uppercase">{pago?.metodo_pago || ''}</td>
+                                    <td className="w-[25%] text-[9px] font-bold pl-2">{pago ? `$ ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(pago.monto))}` : ''}</td>
+                                    <td className="w-[15%] font-bold uppercase pl-2">{i === 0 ? 'CODIGO:' : 'FE No.:'}</td>
+                                    <td className="w-[15%] text-[9px] font-bold uppercase pl-2">
+                                        {i === 0
+                                            ? (() => {
+                                                const codigos: Record<string, string> = {
+                                                    'Suministro e Instalación': 'SUMINS01',
+                                                    'Venta / Suministro': 'VTAVID01',
+                                                    'Mantenimiento': 'INS002',
+                                                };
+                                                const tipo = odp.tipo_servicio || odp.servicios_detalle?.[0]?.tipo_servicio || '';
+                                                return codigos[tipo] || '';
+                                            })()
+                                            : (odp.factura_electronica
+                                                ? `FE-${odp.factura_electronica} — ${odp.fecha_factura ? format(new Date(odp.fecha_factura), 'dd/MM/yyyy') : ''}`
+                                                : '')
+                                        }
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+
+                {/* Grilla inferior (Checkboxes visuales) */}
+                <div className="flex gap-1 mt-1 bg-white">
+                    <table className="excel-table w-1/4">
+                        <tbody>
+                            <tr><td className="font-bold text-center py-1 border-b border-black">MATIZADO</td><td className="w-8 text-center font-bold text-base border-b border-black">{odp.matizado ? 'X' : ''}</td></tr>
+                            <tr><td className="font-bold text-center py-1 border-b border-black">ACARREO</td><td className="text-center font-bold text-base border-b border-black">{odp.acarreo ? 'X' : ''}</td></tr>
+                            <tr><td className="font-bold text-center py-1 border-b border-black">INSTALACIÓN</td><td className="text-center font-bold text-base border-b border-black">{odp.instalacion ? 'X' : ''}</td></tr>
+                        </tbody>
+                    </table>
+                    <table className="excel-table w-1/4">
+                        <tbody>
+                            <tr><td className="font-bold text-center py-1 border-b border-black">PELICULA</td><td className="w-8 text-center font-bold text-base border-b border-black">{odp.pelicula ? 'X' : ''}</td></tr>
+                            <tr><td className="font-bold text-center py-1 border-b border-black">HUACAL</td><td className="text-center font-bold text-base border-b border-black">{odp.huacal ? 'X' : ''}</td></tr>
+                            <tr><td className="font-bold text-center py-1 border-b border-black">CARTÓN</td><td className="text-center font-bold text-base border-b border-black">{odp.carton ? 'X' : ''}</td></tr>
+                        </tbody>
+                    </table>
+                    <table className="excel-table w-1/2">
+                        <tbody>
+                            <tr>
+                                <td rowSpan={3} className="font-bold align-top text-center border-r-2 border-r-black w-24 pt-1">PEDIDO EXTERNO</td>
+                                <td className="font-bold text-center w-12 py-1">SAP</td>
+                                <td className="w-16 text-center text-[9px] font-bold">{odp.saps?.[0]?.numero_sap || ''}</td>
+                                <td className="font-bold text-center w-12 py-1">ODC</td>
+                                <td className="w-16"></td>
                             </tr>
                             <tr>
-                                <td className="border border-black p-2 font-bold bg-gray-100 uppercase">GUÍA / LOTE</td>
-                                <td className="border border-black p-2"></td>
-                                <td className="border border-black p-2 font-bold bg-gray-100 uppercase">CONFIRMÓ</td>
-                                <td className="border border-black p-2"></td>
+                                <td className="font-bold text-center py-1">COT</td>
+                                <td className="text-center text-[9px] font-bold">{odp.cotizaciones?.[0]?.numero_cot || ''}</td>
+                                <td className="font-bold text-center py-1">ODC</td>
+                                <td></td>
                             </tr>
                             <tr>
-                                <td className="border border-black p-2 font-bold bg-gray-100 uppercase">TM / NOTA</td>
-                                <td className="border border-black p-2"></td>
-                                <td className="border border-black p-2 font-bold bg-gray-100 uppercase">FECHA</td>
-                                <td className="border border-black p-2"></td>
+                                <td className="font-bold text-center py-1">TM</td>
+                                <td className="text-center text-[9px] font-bold">{odp.tomas_medidas?.[0]?.numero_tm || ''}</td>
+                                <td className="font-bold text-center py-1">ODC</td>
+                                <td></td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <div className="mt-16 pt-8 border-t border-dashed border-gray-400 text-center text-gray-500 font-bold tracking-widest uppercase">
-                    SECCIÓN EXCLUSIVA PARA PRODUCCIÓN Y DESPACHO
+                {/* ---------- PIE DE PÁGINA ---------- */}
+                <div className="flex justify-between mt-1">
+                    <span className="text-[7px] text-slate-500 italic font-bold uppercase">SECCIÓN EXCLUSIVA PARA PRODUCCIÓN Y DESPACHO</span>
+                    <span className="text-[7px] text-slate-500">VTS-2026-003</span>
                 </div>
+
             </div>
         </div>
     );

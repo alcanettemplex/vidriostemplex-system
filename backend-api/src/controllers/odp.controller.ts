@@ -44,6 +44,7 @@ const odpSchema = z.object({
   fecha_entrega: z.string().optional(),
   nombre_recibe: z.string().optional(),
   telefono_recibe: z.string().optional(),
+  cargo_recibe: z.string().optional(),
   cantidad_total: z.number().int().positive().default(1).optional(),
   tipo_servicio: z.string().optional(),
   descripcion_pedido: z.string().optional(),

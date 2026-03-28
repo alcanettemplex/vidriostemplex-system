@@ -18,6 +18,7 @@ import contabilidadRoutes from './routes/contabilidad.routes';
 import noConformidadRoutes from './routes/no_conformidad.routes';
 import configuracionRoutes from './routes/configuracion.routes';
 import notaProduccionRoutes from './routes/nota_produccion.routes';
+import catalogoRoutes from './routes/catalogo.routes';
 
 
 const app = express();
@@ -64,6 +65,7 @@ app.use('/api/contabilidad', contabilidadRoutes);
 app.use('/api/no-conformidad', noConformidadRoutes);
 app.use('/api/configuracion', configuracionRoutes);
 app.use('/api/notas-produccion', notaProduccionRoutes);
+app.use('/api/catalogo', catalogoRoutes);
 
 import { errorHandler } from './middlewares/errorHandler';
 app.use(errorHandler);

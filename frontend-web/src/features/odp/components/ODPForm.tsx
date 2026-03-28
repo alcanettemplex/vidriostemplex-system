@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -34,6 +34,7 @@ const odpSchema = z.object({
     servicios_detalle: z.array(servicioSchema).min(1, 'Debe agregar al menos un servicio'),
     nombre_recibe: z.string().min(1, 'Nombre del contacto en obra requerido'),
     telefono_recibe: z.string().min(1, 'Teléfono del contacto en obra requerido'),
+    cargo_recibe: z.string().optional(),
     observaciones: z.string().optional(),
     direccion_instalacion: z.string().min(1, 'Dirección requerida'),
     matizado: z.boolean().optional().default(false),
@@ -75,6 +76,7 @@ type ODPFormValues = {
     servicios_detalle: ServicioFormValues[];
     nombre_recibe: string;
     telefono_recibe: string;
+    cargo_recibe?: string;
     observaciones?: string;
     direccion_instalacion: string;
     matizado: boolean;
@@ -96,17 +98,23 @@ interface ODPFormProps {
     odpToEdit?: any;
 }
 
+type CatalogoItem = { id: number; categoria: string; nombre: string; descripcion: string };
+
 const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
     const [step, setStep] = useState(1);
     const [clientes, setClientes] = useState<{ id: number; nombre_razon_social: string }[]>([]);
+    const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
+    const [categorias, setCategorias] = useState<string[]>([]);
+    const [catSeleccionada, setCatSeleccionada] = useState<Record<number, string>>({});
 
-    const { register, control, handleSubmit, trigger, reset, formState: { errors, isSubmitting } } = useForm<ODPFormValues>({
+    const { register, control, handleSubmit, trigger, reset, setValue, formState: { errors, isSubmitting } } = useForm<ODPFormValues>({
         resolver: zodResolver(odpSchema as any),
         defaultValues: {
             servicios_detalle: [{ cantidad: 1, tipo_servicio: '', descripcion: '' }],
             fecha_entrega: '',
             nombre_recibe: '',
             telefono_recibe: '',
+            cargo_recibe: '',
             observaciones: '',
             direccion_instalacion: '',
             matizado: false,
@@ -137,19 +145,16 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
     });
 
     useEffect(() => {
-        // Simulando fetch de clientes
-        const fetchClientes = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                const res = await axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/clientes`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setClientes(res.data);
-            } catch (error) {
-                console.error('Error fetching clientes:', error);
-            }
-        };
-        fetchClientes();
+        const token = localStorage.getItem('token');
+        const headers = { Authorization: `Bearer ${token}` };
+        const base = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+        axios.get(`${base}/api/clientes`, { headers }).then(r => setClientes(r.data)).catch(() => {});
+        axios.get(`${base}/api/catalogo`, { headers }).then(r => {
+            setCatalogo(r.data);
+            const cats = Array.from(new Set<string>(r.data.map((i: CatalogoItem) => i.categoria)));
+            setCategorias(cats);
+        }).catch(() => {});
     }, []);
 
     const nextStep = async () => {
@@ -167,6 +172,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                 servicios_detalle: odpToEdit.servicios_detalle?.length ? odpToEdit.servicios_detalle : [{ cantidad: odpToEdit.cantidad_total || 1, tipo_servicio: odpToEdit.tipo_servicio || '', descripcion: odpToEdit.descripcion_pedido || '' }],
                 nombre_recibe: odpToEdit.nombre_recibe || '',
                 telefono_recibe: odpToEdit.telefono_recibe || '',
+                cargo_recibe: odpToEdit.cargo_recibe || '',
                 observaciones: odpToEdit.observaciones || '',
                 direccion_instalacion: odpToEdit.direccion_instalacion || '',
                 matizado: odpToEdit.matizado || false,
@@ -382,14 +388,46 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                                                 </select>
                                             </div>
 
-                                            <div className="md:col-span-6">
+                                            <div className="md:col-span-6 space-y-2">
                                                 <label className="block text-xs font-semibold text-slate-600 mb-1">Descripción del Producto/Obra *</label>
-                                                <input
-                                                    type="text"
+                                                {catalogo.length > 0 && (
+                                                    <div className="flex gap-2">
+                                                        <select
+                                                            value={catSeleccionada[index] || ''}
+                                                            onChange={e => setCatSeleccionada(prev => ({ ...prev, [index]: e.target.value }))}
+                                                            className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-400"
+                                                        >
+                                                            <option value="">-- Categoría --</option>
+                                                            {categorias.map(cat => (
+                                                                <option key={cat} value={cat}>{cat}</option>
+                                                            ))}
+                                                        </select>
+                                                        <select
+                                                            value=""
+                                                            onChange={e => {
+                                                                const item = catalogo.find(i => i.id === Number(e.target.value));
+                                                                if (item) setValue(`servicios_detalle.${index}.descripcion`, item.descripcion);
+                                                            }}
+                                                            className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-400"
+                                                        >
+                                                            <option value="">-- Producto --</option>
+                                                            {catalogo
+                                                                .filter(i => !catSeleccionada[index] || i.categoria === catSeleccionada[index])
+                                                                .map(i => (
+                                                                    <option key={i.id} value={i.id}>{i.nombre}</option>
+                                                                ))}
+                                                        </select>
+                                                    </div>
+                                                )}
+                                                <textarea
                                                     {...register(`servicios_detalle.${index}.descripcion`)}
-                                                    placeholder="Ej. Cabina Glassvit negra L..."
-                                                    className={`w-full p-2.5 bg-slate-50 border ${errors.servicios_detalle?.[index]?.descripcion ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:bg-white`}
+                                                    placeholder="Descripción del producto u obra..."
+                                                    rows={3}
+                                                    className={`w-full p-2.5 bg-slate-50 border ${errors.servicios_detalle?.[index]?.descripcion ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:bg-white text-xs resize-none`}
                                                 />
+                                                {errors.servicios_detalle?.[index]?.descripcion && (
+                                                    <p className="text-xs text-red-500">{errors.servicios_detalle[index]?.descripcion?.message}</p>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -488,6 +526,15 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                                                 className={`w-full p-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-blue-500 ${errors.telefono_recibe ? 'border-rose-400' : 'border-slate-200'}`}
                                             />
                                             {errors.telefono_recibe && <p className="text-xs text-rose-500 mt-1">{errors.telefono_recibe.message}</p>}
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Cargo Contacto</label>
+                                            <input
+                                                type="text"
+                                                {...register('cargo_recibe')}
+                                                placeholder="Ej: Administrador, Residente de obra"
+                                                className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            />
                                         </div>
                                     </div>
                                     <div>
