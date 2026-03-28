@@ -11,7 +11,7 @@ OrdenCompra.init(
     odp_id: { type: DataTypes.INTEGER, allowNull: false },
     proveedor: { type: DataTypes.STRING(150), allowNull: false },
     estado: {
-      type: DataTypes.ENUM('pendiente', 'enviada', 'recibida'),
+      type: DataTypes.STRING(20),
       defaultValue: 'pendiente',
       allowNull: false,
     },
