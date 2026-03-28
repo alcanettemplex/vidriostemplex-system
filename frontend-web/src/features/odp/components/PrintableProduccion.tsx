@@ -209,7 +209,7 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                                     {td(odp.pelicula ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
                                     <td rowSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', verticalAlign: 'top', textTransform: 'uppercase' }}>
                                         PEDIDO EXTERNO
-                                        {odp.numero_pedido_proveedor && <div style={{ fontWeight: 'bold', marginTop: '10px', fontSize: '13px', color: '#1a3ec9' }}>{odp.numero_pedido_proveedor}</div>}
+                                        {odp.numero_pedido_proveedor && <div style={{ fontWeight: 'bold', marginTop: '10px', fontSize: '16px', color: '#1a3ec9' }}>{odp.numero_pedido_proveedor}</div>}
                                     </td>
                                     {label('SAP')}
                                     {val(odp.saps?.[0]?.numero_sap || '')}
