@@ -13,7 +13,8 @@ export type RolUsuario =
   | 'produccion'
   | 'auxiliar_produccion'
   | 'instalador'
-  | 'contabilidad';
+  | 'contabilidad'
+  | 'compras';
 
 /**
  * Middleware de control de acceso basado en roles (RBAC).

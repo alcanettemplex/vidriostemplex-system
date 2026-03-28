@@ -12,6 +12,7 @@ import SAPItem from './sap_item.model';
 import Cotizacion from './cotizacion.model';
 import TomaMedidas from './toma_medidas.model';
 import OrdenCompra from './orden_compra.model';
+import ODCItem from './odc_item.model';
 import Pago from './pago.model';
 
 import NoConformidad from './no_conformidad.model';
@@ -97,8 +98,17 @@ TomaMedidas.belongsTo(Usuario, { foreignKey: 'realizado_por', as: 'realizador' }
 ODP.hasMany(OrdenCompra, { foreignKey: 'odp_id', as: 'compras' });
 OrdenCompra.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
 
+SAP.hasMany(OrdenCompra, { foreignKey: 'sap_id', as: 'ordenes_compra' });
+OrdenCompra.belongsTo(SAP, { foreignKey: 'sap_id', as: 'sap' });
+
 Usuario.hasMany(OrdenCompra, { foreignKey: 'creado_por', as: 'compras_creadas' });
 OrdenCompra.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
+
+OrdenCompra.hasMany(ODCItem, { foreignKey: 'odc_id', as: 'items' });
+ODCItem.belongsTo(OrdenCompra, { foreignKey: 'odc_id' });
+
+SAPItem.hasMany(ODCItem, { foreignKey: 'sap_item_id', as: 'odc_items' });
+ODCItem.belongsTo(SAPItem, { foreignKey: 'sap_item_id', as: 'sap_item' });
 
 ODP.hasMany(Pago, { foreignKey: 'odp_id', as: 'pagos' });
 Pago.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
@@ -122,6 +132,7 @@ export {
   Cotizacion,
   TomaMedidas,
   OrdenCompra,
+  ODCItem,
   Pago,
   ConfiguracionGlobal,
   MetaMensual,

@@ -11,6 +11,11 @@ SAPItem.init({
   descripcion: { type: DataTypes.STRING(255) },    // descripción del catálogo o manual
   dimension: { type: DataTypes.STRING(100) },      // medida ingresada por asesor
   cantidad: { type: DataTypes.DECIMAL(10, 2), defaultValue: 1 },
+  estado_compra: {
+    type: DataTypes.ENUM('pendiente', 'en_odc', 'en_existencia'),
+    defaultValue: 'pendiente',
+    allowNull: false,
+  },
 }, {
   sequelize, modelName: 'SAPItem', tableName: 'sap_items', timestamps: false,
 });

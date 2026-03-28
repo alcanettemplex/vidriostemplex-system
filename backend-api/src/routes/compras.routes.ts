@@ -1,19 +1,24 @@
 import { Router } from 'express';
+import {
+  getODPsConSAPPendiente,
+  getSAPParaCompras,
+  createODC,
+  updateODC,
+  deleteODC,
+  toggleExistencia,
+} from '../controllers/odc.controller';
 import authMiddleware from '../middlewares/authMiddleware';
-import { requireRole } from '../middlewares/rbacMiddleware';
-import { getCompras, getCompra, createCompra, updateCompra, deleteCompra } from '../controllers/compras.controller';
+import { requireRole, RolUsuario } from '../middlewares/rbacMiddleware';
 
 const router = Router();
 
-// Lectura: todos los autenticados
-router.get('/', authMiddleware, getCompras);
-router.get('/:id', authMiddleware, getCompra);
+const rc = (...r: RolUsuario[]) => requireRole(...r);
 
-// Escritura: admin, jefe_produccion, asesor_comercial
-router.post('/', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial'), createCompra);
-router.put('/:id', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial'), updateCompra);
-
-// Eliminación: solo admin y jefe_produccion
-router.delete('/:id', authMiddleware, requireRole('admin', 'jefe_produccion'), deleteCompra);
+router.get('/panel', authMiddleware, rc('admin', 'gerencia', 'compras'), getODPsConSAPPendiente);
+router.get('/sap/:sap_id', authMiddleware, rc('admin', 'gerencia', 'compras'), getSAPParaCompras);
+router.post('/odc', authMiddleware, rc('admin', 'gerencia', 'compras'), createODC);
+router.put('/odc/:id', authMiddleware, rc('admin', 'gerencia', 'compras'), updateODC);
+router.delete('/odc/:id', authMiddleware, rc('admin', 'gerencia', 'compras'), deleteODC);
+router.patch('/sap-item/:id/existencia', authMiddleware, rc('admin', 'gerencia', 'compras'), toggleExistencia);
 
 export default router;
