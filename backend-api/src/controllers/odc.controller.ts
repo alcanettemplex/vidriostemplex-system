@@ -18,11 +18,11 @@ const generarNumeroODC = async (): Promise<string> => {
   return `ODC-${String(next).padStart(4, '0')}`;
 };
 
-// GET /odc/seguimiento — ODCs en estado pendiente o enviada
+// GET /odc/seguimiento — ODCs en estado pendiente o en_transito
 export const getODCsSeguimiento = async (req: Request, res: Response) => {
   try {
     const odcs = await OrdenCompra.findAll({
-      where: { estado: { [Op.in]: ['pendiente', 'enviada'] } },
+      where: { estado: { [Op.in]: ['pendiente', 'en_transito'] } },
       include: [
         { model: ODCItem, as: 'items' },
         { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
@@ -45,11 +45,11 @@ export const getODCsSeguimiento = async (req: Request, res: Response) => {
   }
 };
 
-// GET /odc/recibidas — ODCs en estado recibida
+// GET /odc/recibidas — ODCs en estado recibido
 export const getODCsRecibidas = async (req: Request, res: Response) => {
   try {
     const odcs = await OrdenCompra.findAll({
-      where: { estado: 'recibida' },
+      where: { estado: 'recibido' },
       include: [
         { model: ODCItem, as: 'items' },
         { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
@@ -191,13 +191,13 @@ export const updateODC = async (req: Request, res: Response) => {
     if (!odc) return res.status(404).json({ error: 'ODC no encontrada' });
 
     const estadoAnterior = odc.getDataValue('estado');
-    const fechaRecepcion = estado === 'recibida' && estadoAnterior !== 'recibida'
+    const fechaRecepcion = estado === 'recibido' && estadoAnterior !== 'recibido'
       ? new Date() : odc.getDataValue('fecha_recepcion');
 
     await odc.update({ estado, proveedor, notas, ...(fechaRecepcion ? { fecha_recepcion: fechaRecepcion } : {}) });
 
     // Al marcar como recibida: pasar SAPItems de esta ODC a en_existencia
-    if (estado === 'recibida' && estadoAnterior !== 'recibida') {
+    if (estado === 'recibido' && estadoAnterior !== 'recibido') {
       const odcItems = await ODCItem.findAll({ where: { odc_id: id } });
       const sapItemIds = odcItems.map((i: any) => i.getDataValue('sap_item_id'));
       if (sapItemIds.length > 0) {
@@ -209,7 +209,7 @@ export const updateODC = async (req: Request, res: Response) => {
     }
 
     // Notificar cuando se marca como recibida
-    if (estado === 'recibida' && estadoAnterior !== 'recibida') {
+    if (estado === 'recibido' && estadoAnterior !== 'recibido') {
       const sap = (odc as any).sap;
       const odp = sap?.ODP;
       if (odp) {

@@ -30,7 +30,7 @@ interface ODCItem {
 
 interface ODC {
   id: number; numero_odc: string; proveedor: string;
-  estado: 'pendiente' | 'enviada' | 'recibida';
+  estado: 'pendiente' | 'en_transito' | 'recibido' | 'problema';
   notas: string; fecha_creacion: string; fecha_recepcion?: string;
   creador: { id: number; nombre_completo: string };
   items: ODCItem[];
@@ -56,9 +56,10 @@ const ESTADO_PROD_COLOR: Record<string, string> = {
 };
 
 const ODC_ESTADO_STYLE: Record<string, { label: string; className: string }> = {
-  pendiente: { label: 'Pendiente', className: 'bg-amber-100 text-amber-700 border-amber-200' },
-  enviada:   { label: 'Enviada',   className: 'bg-blue-100 text-blue-700 border-blue-200' },
-  recibida:  { label: 'Recibida',  className: 'bg-green-100 text-green-700 border-green-200' },
+  pendiente:   { label: 'Pendiente',   className: 'bg-amber-100 text-amber-700 border-amber-200' },
+  en_transito: { label: 'En tránsito', className: 'bg-blue-100 text-blue-700 border-blue-200' },
+  recibido:    { label: 'Recibido',    className: 'bg-green-100 text-green-700 border-green-200' },
+  problema:    { label: 'Problema',    className: 'bg-red-100 text-red-700 border-red-200' },
 };
 
 const TABS = [
@@ -92,9 +93,9 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setEditando(false);
-      const estaRecibiendo = editEstado === 'recibida' && odc.estado !== 'recibida';
+      const estaRecibiendo = editEstado === 'recibido' && odc.estado !== 'recibido';
       if (estaRecibiendo && onEstadoCambiado) {
-        onEstadoCambiado('recibida');
+        onEstadoCambiado('recibido');
       } else {
         onActualizar();
       }
@@ -366,8 +367,9 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                     className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="pendiente">Pendiente</option>
-                    <option value="enviada">Enviada</option>
-                    <option value="recibida">Recibida</option>
+                    <option value="en_transito">En tránsito</option>
+                    <option value="recibido">Recibido</option>
+                    <option value="problema">Problema</option>
                   </select>
                 </div>
               </div>
