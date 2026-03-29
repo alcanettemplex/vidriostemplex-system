@@ -6,11 +6,13 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import {
-  X, CheckCircle2, Plus, Briefcase, DollarSign, Package,
+  X, CheckCircle2, Plus, Briefcase, DollarSign, Package, Building2, UserCheck,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+// ─── Schemas ────────────────────────────────────────────────────────────────
 
 const servicioSchema = z.object({
   cantidad: z.coerce.number().int().positive('Mayor a 0').default(1),
@@ -18,13 +20,9 @@ const servicioSchema = z.object({
   descripcion: z.string().min(1, 'Obligatorio'),
 });
 
-const schema = z.object({
+const odpSchema = z.object({
   fecha_entrega: z.string().min(1, 'La fecha de entrega es requerida'),
   servicios_detalle: z.array(servicioSchema).min(1, 'Debe agregar al menos un servicio'),
-  nombre_recibe: z.string().min(1, 'Requerido'),
-  telefono_recibe: z.string().min(1, 'Requerido'),
-  cargo_recibe: z.string().optional(),
-  direccion_instalacion: z.string().min(1, 'Requerida'),
   forma_pago: z.string().optional(),
   observaciones: z.string().optional(),
   valor_total: z.coerce.number().min(0).optional(),
@@ -38,8 +36,9 @@ const schema = z.object({
   numero_pedido_proveedor: z.string().optional(),
 });
 
-type FormValues = z.infer<typeof schema>;
+type ODPFormValues = z.infer<typeof odpSchema>;
 type CatalogoItem = { id: number; categoria: string; nombre: string; descripcion: string };
+type ClienteItem = { id: number; nombre_razon_social: string; telefono: string | null; celular: string | null; email: string | null; };
 
 interface Props {
   prospecto: any;
@@ -47,27 +46,39 @@ interface Props {
   onAprobado: () => void;
 }
 
+// ─── Componente ──────────────────────────────────────────────────────────────
+
 const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado }) => {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
+  const esContactoNuevo = !prospecto.cliente_id;
+  const tm = prospecto.tomas_medidas?.[0];
+  const contacto = prospecto.cliente?.nombre_razon_social || prospecto.nombre_contacto || '—';
+
+  // Estado para definir cliente (solo si es contacto nuevo)
+  const [tipoCliente, setTipoCliente] = useState<'existente' | 'nuevo'>('existente');
+  const [clienteId, setClienteId] = useState<string>('');
+  const [nuevoCliente, setNuevoCliente] = useState({
+    nombre_razon_social: prospecto.nombre_contacto || '',
+    tipo_documento: 'CC',
+    numero_documento: '',
+    telefono: prospecto.telefono_contacto || '',
+    email: prospecto.email_contacto || '',
+    direccion: prospecto.direccion || '',
+  });
+  const [clientes, setClientes] = useState<ClienteItem[]>([]);
+
   const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
   const [categorias, setCategorias] = useState<string[]>([]);
   const [catSeleccionada, setCatSeleccionada] = useState<Record<number, string>>({});
 
-  const tm = prospecto.tomas_medidas?.[0];
-  const contacto = prospecto.cliente?.nombre_razon_social || prospecto.nombre_contacto || '—';
-
-  const { register, control, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<FormValues>({
-    resolver: zodResolver(schema) as any,
+  const { register, control, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<ODPFormValues>({
+    resolver: zodResolver(odpSchema) as any,
     defaultValues: {
       fecha_entrega: '',
       servicios_detalle: [{ cantidad: 1, tipo_servicio: 'Suministro e Instalación', descripcion: prospecto.descripcion || '' }],
-      nombre_recibe: tm?.contacto_obra || prospecto.nombre_contacto || '',
-      telefono_recibe: tm?.telefono_obra || prospecto.telefono_contacto || '',
-      cargo_recibe: '',
-      direccion_instalacion: tm?.direccion || prospecto.direccion || '',
       forma_pago: '',
       observaciones: '',
       valor_total: 0,
@@ -94,20 +105,54 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
   const fmtCOP = (n: number) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 
-  const loadCatalogo = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
-      const r = await axios.get(`${API}/api/catalogo`, { headers });
-      setCatalogo(r.data);
-      const cats = Array.from(new Set<string>(r.data.map((i: CatalogoItem) => i.categoria)));
+      const [catRes, cliRes] = await Promise.all([
+        axios.get(`${API}/api/catalogo`, { headers }),
+        axios.get(`${API}/api/clientes`, { headers }),
+      ]);
+      setCatalogo(catRes.data);
+      const cats = Array.from(new Set<string>(catRes.data.map((i: CatalogoItem) => i.categoria)));
       setCategorias(cats);
-    } catch { /* catálogo opcional */ }
+      setClientes(cliRes.data);
+    } catch { /* opcional */ }
   }, []); // eslint-disable-line
 
-  useEffect(() => { loadCatalogo(); }, [loadCatalogo]);
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const setNC = (k: string, v: string) => setNuevoCliente(prev => ({ ...prev, [k]: v }));
 
   const onSubmit = async (data: any) => {
+    // Validar definición de cliente para contacto nuevo
+    if (esContactoNuevo) {
+      if (tipoCliente === 'existente' && !clienteId) {
+        toast.error('Selecciona un cliente existente'); return;
+      }
+      if (tipoCliente === 'nuevo') {
+        if (!nuevoCliente.nombre_razon_social.trim()) { toast.error('Ingresa la razón social del cliente'); return; }
+        if (!nuevoCliente.numero_documento.trim()) { toast.error('Ingresa el número de documento del cliente'); return; }
+      }
+    }
+
     try {
-      const res = await axios.post(`${API}/api/prospectos/${prospecto.id}/aprobar`, data, { headers });
+      const payload: any = {
+        ...data,
+        // Datos de contacto de instalación siempre del prospecto/TM
+        nombre_recibe: tm?.contacto_obra || prospecto.nombre_contacto || '',
+        telefono_recibe: tm?.telefono_obra || prospecto.telefono_contacto || '',
+        direccion_instalacion: tm?.direccion || prospecto.direccion || '',
+      };
+
+      // Definición de cliente
+      if (esContactoNuevo) {
+        if (tipoCliente === 'existente') {
+          payload.cliente_id = Number(clienteId);
+        } else {
+          payload.nuevo_cliente = nuevoCliente;
+        }
+      }
+
+      const res = await axios.post(`${API}/api/prospectos/${prospecto.id}/aprobar`, payload, { headers });
       toast.success('Prospecto aprobado — ODP creada');
       onAprobado();
       if (res.data?.odp?.id) navigate('/odp');
@@ -115,6 +160,8 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
       toast.error(e.response?.data?.error || 'Error al aprobar');
     }
   };
+
+  const clienteSeleccionado = clientes.find(c => String(c.id) === clienteId);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
@@ -138,9 +185,156 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
           </button>
         </div>
 
-        {/* Body scrollable */}
         <form onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-y-auto">
           <div className="p-6 space-y-6">
+
+            {/* ── DEFINIR CLIENTE (solo si es contacto nuevo) ── */}
+            {esContactoNuevo && (
+              <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl space-y-4">
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-amber-600" />
+                  <p className="text-sm font-bold text-amber-800">Definir cliente para esta ODP</p>
+                </div>
+                <p className="text-xs text-amber-600">
+                  El prospecto fue registrado como contacto nuevo. Ahora debes asociarlo a un cliente.
+                </p>
+
+                {/* Selector tipo cliente */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTipoCliente('existente')}
+                    className={`py-2.5 text-sm font-bold rounded-xl border transition flex items-center justify-center gap-2 ${
+                      tipoCliente === 'existente' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <UserCheck className="w-4 h-4" /> Cliente existente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTipoCliente('nuevo')}
+                    className={`py-2.5 text-sm font-bold rounded-xl border transition flex items-center justify-center gap-2 ${
+                      tipoCliente === 'nuevo' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Building2 className="w-4 h-4" /> Crear cliente nuevo
+                  </button>
+                </div>
+
+                {/* Cliente existente */}
+                {tipoCliente === 'existente' && (
+                  <div className="space-y-2">
+                    <select
+                      value={clienteId}
+                      onChange={e => setClienteId(e.target.value)}
+                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    >
+                      <option value="">Seleccionar cliente...</option>
+                      {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre_razon_social}</option>)}
+                    </select>
+                    {clienteSeleccionado && (
+                      <div className="p-2.5 bg-white border border-amber-100 rounded-lg text-xs text-slate-600 space-y-0.5">
+                        {(clienteSeleccionado.telefono || clienteSeleccionado.celular) && (
+                          <p>📞 {clienteSeleccionado.telefono || clienteSeleccionado.celular}</p>
+                        )}
+                        {clienteSeleccionado.email && <p>✉️ {clienteSeleccionado.email}</p>}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Nuevo cliente */}
+                {tipoCliente === 'nuevo' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">
+                        Razón social / Nombre <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        value={nuevoCliente.nombre_razon_social}
+                        onChange={e => setNC('nombre_razon_social', e.target.value)}
+                        placeholder="Empresa o nombre completo"
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Tipo doc.</label>
+                      <select
+                        value={nuevoCliente.tipo_documento}
+                        onChange={e => setNC('tipo_documento', e.target.value)}
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      >
+                        <option value="CC">CC</option>
+                        <option value="NIT">NIT</option>
+                        <option value="CE">CE</option>
+                        <option value="DNI">DNI</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">
+                        Número doc. <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        value={nuevoCliente.numero_documento}
+                        onChange={e => setNC('numero_documento', e.target.value)}
+                        placeholder="Cédula o NIT"
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Teléfono</label>
+                      <input
+                        value={nuevoCliente.telefono}
+                        onChange={e => setNC('telefono', e.target.value)}
+                        placeholder="3001234567"
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Email</label>
+                      <input
+                        value={nuevoCliente.email}
+                        onChange={e => setNC('email', e.target.value)}
+                        placeholder="correo@ejemplo.com"
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Dirección fiscal</label>
+                      <input
+                        value={nuevoCliente.direccion}
+                        onChange={e => setNC('direccion', e.target.value)}
+                        placeholder="Dirección de facturación"
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Resumen contacto de instalación */}
+                <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
+                  <p className="text-xs font-bold text-green-700 mb-1">Contacto de instalación (del prospecto)</p>
+                  <div className="text-xs text-green-700 space-y-0.5">
+                    <p>👤 {tm?.contacto_obra || prospecto.nombre_contacto || '—'}</p>
+                    <p>📞 {tm?.telefono_obra || prospecto.telefono_contacto || '—'}</p>
+                    <p>📍 {tm?.direccion || prospecto.direccion || '—'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Cliente ya definido — solo mostrar */}
+            {!esContactoNuevo && (
+              <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-start gap-3">
+                <Building2 className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-slate-600">Cliente: {prospecto.cliente?.nombre_razon_social}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Contacto instalación: {tm?.contacto_obra || prospecto.nombre_contacto || '—'} · {tm?.telefono_obra || prospecto.telefono_contacto || '—'}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* TM asociada */}
             {tm && (
@@ -148,7 +342,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                 <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
                 <div>
                   <p className="text-xs font-bold text-green-700">Toma de medidas: {tm.numero_tm}</p>
-                  <p className="text-xs text-green-600">Datos de contacto precargados desde la visita técnica</p>
+                  <p className="text-xs text-green-600">Los datos de contacto de instalación se tomarán de la visita técnica</p>
                 </div>
               </div>
             )}
@@ -184,16 +378,13 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                 {Number(valorTotalRaw) > 0 && (
                   <div className="mt-2 p-2.5 bg-blue-50 border border-blue-100 rounded-lg text-xs space-y-0.5">
                     <div className="flex justify-between text-slate-600">
-                      <span>Subtotal (sin IVA):</span>
-                      <span className="font-semibold">{fmtCOP(subtotal)}</span>
+                      <span>Subtotal (sin IVA):</span><span className="font-semibold">{fmtCOP(subtotal)}</span>
                     </div>
                     <div className="flex justify-between text-slate-600">
-                      <span>IVA 19%:</span>
-                      <span className="font-semibold">{fmtCOP(ivaValor)}</span>
+                      <span>IVA 19%:</span><span className="font-semibold">{fmtCOP(ivaValor)}</span>
                     </div>
                     <div className="flex justify-between text-blue-800 font-bold border-t border-blue-200 pt-1 mt-1">
-                      <span>Total:</span>
-                      <span>{fmtCOP(Number(valorTotalRaw))}</span>
+                      <span>Total:</span><span>{fmtCOP(Number(valorTotalRaw))}</span>
                     </div>
                   </div>
                 )}
@@ -219,31 +410,20 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
               {servicioFields.map((field, index) => (
                 <div key={field.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 bg-white border border-blue-100 rounded-lg relative">
                   {servicioFields.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeServicio(index)}
-                      className="absolute -top-3 -right-3 bg-red-100 text-red-600 p-1.5 rounded-full hover:bg-red-200 shadow-sm"
-                    >
+                    <button type="button" onClick={() => removeServicio(index)}
+                      className="absolute -top-3 -right-3 bg-red-100 text-red-600 p-1.5 rounded-full hover:bg-red-200 shadow-sm">
                       <X className="w-4 h-4" />
                     </button>
                   )}
-
                   <div className="md:col-span-2">
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Cant. *</label>
-                    <input
-                      type="number"
-                      {...register(`servicios_detalle.${index}.cantidad`)}
-                      min="1"
-                      className={`w-full p-2.5 bg-slate-50 border ${errors.servicios_detalle?.[index]?.cantidad ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:bg-white`}
-                    />
+                    <input type="number" {...register(`servicios_detalle.${index}.cantidad`)} min="1"
+                      className={`w-full p-2.5 bg-slate-50 border ${errors.servicios_detalle?.[index]?.cantidad ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:bg-white`} />
                   </div>
-
                   <div className="md:col-span-4">
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Servicio/Gestión *</label>
-                    <select
-                      {...register(`servicios_detalle.${index}.tipo_servicio`)}
-                      className={`w-full p-2.5 bg-slate-50 border ${errors.servicios_detalle?.[index]?.tipo_servicio ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:bg-white`}
-                    >
+                    <select {...register(`servicios_detalle.${index}.tipo_servicio`)}
+                      className={`w-full p-2.5 bg-slate-50 border ${errors.servicios_detalle?.[index]?.tipo_servicio ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:bg-white`}>
                       <option value="Suministro e Instalación">Suministro e Instalación</option>
                       <option value="Solo Instalación">Solo Instalación</option>
                       <option value="Venta / Suministro">Venta / Suministro</option>
@@ -252,53 +432,35 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                       <option value="Otro">Otro</option>
                     </select>
                   </div>
-
                   <div className="md:col-span-6 space-y-2">
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Descripción del Producto/Obra *</label>
                     {catalogo.length > 0 && (
                       <div className="flex gap-2">
-                        <select
-                          value={catSeleccionada[index] || ''}
-                          onChange={e => setCatSeleccionada(prev => ({ ...prev, [index]: e.target.value }))}
-                          className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-400"
-                        >
+                        <select value={catSeleccionada[index] || ''} onChange={e => setCatSeleccionada(prev => ({ ...prev, [index]: e.target.value }))}
+                          className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-400">
                           <option value="">-- Categoría --</option>
-                          {categorias.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
+                          {categorias.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                         </select>
-                        <select
-                          value=""
-                          onChange={e => {
-                            const item = catalogo.find(i => i.id === Number(e.target.value));
-                            if (item) setValue(`servicios_detalle.${index}.descripcion`, item.descripcion);
-                          }}
-                          className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-400"
-                        >
+                        <select value="" onChange={e => {
+                          const item = catalogo.find(i => i.id === Number(e.target.value));
+                          if (item) setValue(`servicios_detalle.${index}.descripcion`, item.descripcion);
+                        }} className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-400">
                           <option value="">-- Producto --</option>
-                          {catalogo
-                            .filter(i => !catSeleccionada[index] || i.categoria === catSeleccionada[index])
-                            .map(i => (
-                              <option key={i.id} value={i.id}>{i.nombre}</option>
-                            ))}
+                          {catalogo.filter(i => !catSeleccionada[index] || i.categoria === catSeleccionada[index]).map(i => (
+                            <option key={i.id} value={i.id}>{i.nombre}</option>
+                          ))}
                         </select>
                       </div>
                     )}
-                    <textarea
-                      {...register(`servicios_detalle.${index}.descripcion`)}
-                      placeholder="Descripción del producto u obra..."
-                      rows={3}
-                      className={`w-full p-2.5 bg-slate-50 border ${errors.servicios_detalle?.[index]?.descripcion ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:bg-white text-xs resize-none`}
-                    />
+                    <textarea {...register(`servicios_detalle.${index}.descripcion`)}
+                      placeholder="Descripción del producto u obra..." rows={3}
+                      className={`w-full p-2.5 bg-slate-50 border ${errors.servicios_detalle?.[index]?.descripcion ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:bg-white text-xs resize-none`} />
                     {errors.servicios_detalle?.[index]?.descripcion && (
                       <p className="text-xs text-red-500">{errors.servicios_detalle[index]?.descripcion?.message}</p>
                     )}
                   </div>
                 </div>
               ))}
-              {errors.servicios_detalle?.root && (
-                <p className="text-red-500 text-sm">{errors.servicios_detalle.root.message}</p>
-              )}
             </div>
 
             {/* Requerimientos adicionales + Pedido externo */}
@@ -316,11 +478,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                   ].map(({ key, label }) => (
                     <label key={key} className="flex items-center gap-2 cursor-pointer group">
                       <div className="relative flex items-center">
-                        <input
-                          type="checkbox"
-                          {...register(key as keyof FormValues)}
-                          className="peer sr-only"
-                        />
+                        <input type="checkbox" {...register(key as keyof ODPFormValues)} className="peer sr-only" />
                         <div className="w-5 h-5 bg-white border-2 border-slate-300 rounded group-hover:border-blue-500 peer-checked:bg-blue-600 peer-checked:border-blue-600 transition flex items-center justify-center">
                           <svg className="w-3 h-3 text-white opacity-0 peer-checked:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -335,16 +493,12 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
 
               <div className="bg-orange-50/50 p-5 rounded-xl border border-orange-200/50 space-y-4">
                 <h3 className="font-bold text-slate-800 text-sm uppercase flex items-center gap-2">
-                  <Package className="w-4 h-4 text-orange-500" />
-                  Pedido Externo (Vidrio)
+                  <Package className="w-4 h-4 text-orange-500" /> Pedido Externo (Vidrio)
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Proveedor</label>
-                    <select
-                      {...register('proveedor_vidrio')}
-                      className="w-full text-sm p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
+                    <select {...register('proveedor_vidrio')} className="w-full text-sm p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="">Seleccionar...</option>
                       <option value="Vitelsa">Vitelsa</option>
                       <option value="Templacol">Templacol</option>
@@ -354,107 +508,42 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Num. Pedido</label>
-                    <input
-                      type="text"
-                      {...register('numero_pedido_proveedor')}
-                      placeholder="Ej. SAP-1234"
-                      className="w-full text-sm p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
+                    <input type="text" {...register('numero_pedido_proveedor')} placeholder="Ej. SAP-1234"
+                      className="w-full text-sm p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Datos de contacto en obra */}
-            <div className="space-y-4">
+            {/* Forma de pago + Observaciones */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Dirección de Instalación / Entrega <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  {...register('direccion_instalacion')}
-                  placeholder="Ej. Cra 45 #23-10, Barrio El Centro"
-                  className={`w-full p-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 ${errors.direccion_instalacion ? 'border-rose-400' : 'border-slate-200'}`}
-                />
-                {errors.direccion_instalacion && (
-                  <p className="text-xs text-rose-500 mt-1">{errors.direccion_instalacion.message}</p>
-                )}
+                <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pago</label>
+                <select {...register('forma_pago')} className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 text-sm">
+                  <option value="">Seleccionar...</option>
+                  <option value="contado">Contado</option>
+                  <option value="credito">Crédito</option>
+                  <option value="50_50">50% anticipo / 50% entrega</option>
+                  <option value="otro">Otro</option>
+                </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Contacto en Obra <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    {...register('nombre_recibe')}
-                    placeholder="Nombre de quien recibe"
-                    className={`w-full p-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 ${errors.nombre_recibe ? 'border-rose-400' : 'border-slate-200'}`}
-                  />
-                  {errors.nombre_recibe && <p className="text-xs text-rose-500 mt-1">{errors.nombre_recibe.message}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Teléfono Contacto <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    {...register('telefono_recibe')}
-                    placeholder="Cel. o fijo de contacto"
-                    className={`w-full p-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-green-500 ${errors.telefono_recibe ? 'border-rose-400' : 'border-slate-200'}`}
-                  />
-                  {errors.telefono_recibe && <p className="text-xs text-rose-500 mt-1">{errors.telefono_recibe.message}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Cargo Contacto</label>
-                  <input
-                    type="text"
-                    {...register('cargo_recibe')}
-                    placeholder="Ej: Administrador, Residente de obra"
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pago</label>
-                  <select
-                    {...register('forma_pago')}
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 text-sm"
-                  >
-                    <option value="">Seleccionar...</option>
-                    <option value="contado">Contado</option>
-                    <option value="credito">Crédito</option>
-                    <option value="50_50">50% anticipo / 50% entrega</option>
-                    <option value="otro">Otro</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Observaciones Esp. Cliente</label>
-                <textarea
-                  {...register('observaciones')}
-                  placeholder="Notas, cuidados, horarios límite, indicaciones para la visita técnica, etc..."
-                  rows={3}
-                  className="w-full p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 resize-none"
-                />
-              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Observaciones Esp. Cliente</label>
+              <textarea {...register('observaciones')}
+                placeholder="Notas, cuidados, horarios límite, etc..." rows={3}
+                className="w-full p-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 resize-none" />
             </div>
           </div>
 
           {/* Footer */}
           <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex gap-3 flex-shrink-0 rounded-b-2xl">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm"
-            >
+            <button type="button" onClick={onClose}
+              className="flex-1 py-3 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm">
               Cancelar
             </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 py-3 font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 transition disabled:opacity-40 text-sm flex items-center justify-center gap-2"
-            >
+            <button type="submit" disabled={isSubmitting}
+              className="flex-1 py-3 font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 transition disabled:opacity-40 text-sm flex items-center justify-center gap-2">
               <CheckCircle2 className="w-4 h-4" />
               {isSubmitting ? 'Creando ODP...' : 'Aprobar y crear ODP'}
             </button>

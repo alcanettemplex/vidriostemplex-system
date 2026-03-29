@@ -121,6 +121,8 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
       nombre_recibe, telefono_recibe, cargo_recibe, direccion_instalacion,
       matizado, pelicula, acarreo, instalacion, huacal, carton,
       proveedor_vidrio, numero_pedido_proveedor,
+      // Para contacto nuevo: cliente_id existente o datos de nuevo cliente
+      cliente_id: cliente_id_body, nuevo_cliente,
     } = req.body;
     const userId = (req as any).user?.id;
 
@@ -139,6 +141,25 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
 
     const tm = (prospecto as any).tomas_medidas?.[0];
 
+    // ── Resolver cliente_id ────────────────────────────────────────────────────
+    let cliente_id_final = prospecto.getDataValue('cliente_id');
+
+    if (!cliente_id_final) {
+      // Prospecto era contacto nuevo — debe venir cliente_id o nuevo_cliente
+      if (cliente_id_body) {
+        cliente_id_final = Number(cliente_id_body);
+        // Vincular prospecto al cliente
+        await prospecto.update({ cliente_id: cliente_id_final }, { transaction: t });
+      } else if (nuevo_cliente) {
+        const clienteCreado = await Cliente.create(nuevo_cliente, { transaction: t });
+        cliente_id_final = clienteCreado.getDataValue('id');
+        await prospecto.update({ cliente_id: cliente_id_final }, { transaction: t });
+      } else {
+        await t.rollback();
+        return res.status(400).json({ error: 'Debes seleccionar o crear un cliente para aprobar el prospecto' });
+      }
+    }
+
     // Derivar tipo_servicio y descripcion_pedido de servicios_detalle
     const servicios = Array.isArray(servicios_detalle) && servicios_detalle.length > 0 ? servicios_detalle : [];
     const tipo_servicio = servicios[0]?.tipo_servicio || '';
@@ -153,14 +174,14 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
     const year = new Date().getFullYear();
     const numero_odp = `ODP-${year}-${String(count + 1).padStart(4, '0')}`;
 
-    // Datos de contacto: prioridad → formulario → TM → prospecto
+    // Datos de contacto de instalación: prioridad → body → TM → prospecto
     const nombre_recibe_final = nombre_recibe || tm?.contacto_obra || prospecto.getDataValue('nombre_contacto') || '';
     const telefono_recibe_final = telefono_recibe || tm?.telefono_obra || prospecto.getDataValue('telefono_contacto') || '';
     const direccion_final = direccion_instalacion || tm?.direccion || prospecto.getDataValue('direccion') || '';
 
     const odp = await ODPModel.create({
       numero_odp,
-      cliente_id: prospecto.getDataValue('cliente_id'),
+      cliente_id: cliente_id_final,
       asesor_id: userId,
       estado_produccion: 'EN_ESPERA',
       tipo_servicio,
