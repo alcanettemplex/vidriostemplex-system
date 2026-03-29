@@ -92,12 +92,15 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setEditando(false);
-      if (editEstado === 'recibida' && odc.estado !== 'recibida') {
-        onEstadoCambiado?.('recibida');
+      const estaRecibiendo = editEstado === 'recibida' && odc.estado !== 'recibida';
+      if (estaRecibiendo && onEstadoCambiado) {
+        onEstadoCambiado('recibida');
       } else {
         onActualizar();
       }
-    } catch { } finally { setLoading(false); }
+    } catch (e: any) {
+      console.error('Error al guardar ODC:', e?.response?.data || e?.message);
+    } finally { setLoading(false); }
   };
 
   const handleEliminar = async () => {
@@ -458,9 +461,8 @@ const ComprasPage: React.FC = () => {
   const refresh = () => fetchTab(tab);
 
   const refreshTrasRecibida = () => {
+    setOdcsSeguimiento(prev => prev.filter(() => false));
     setTab('recibidas');
-    fetchTab('recibidas');
-    fetchTab('seguimiento');
   };
 
   // Filtros por búsqueda
