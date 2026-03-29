@@ -273,25 +273,25 @@ const PrintableOP: React.FC<PrintableOPProps> = ({ odp }) => {
                                 <tr>
                                     <td rowSpan={3 + extraOdcs.length} className="font-bold align-top text-center border-r-2 border-r-black w-24 pt-1">PEDIDO EXTERNO</td>
                                     <td className="text-center w-12 py-1">SAP</td>
-                                    <td className="w-16 text-center text-[9px] font-bold">{odp.saps?.[0]?.numero_sap || ''}</td>
+                                    <td className="w-16 text-center text-[9px] font-bold">{odp.saps?.[0]?.numero_sap?.split('-').pop() || ''}</td>
                                     <td className="text-center w-12 py-1">ODC</td>
-                                    <td className="w-20 text-center text-[9px] font-bold">{odcs[0]?.numero_odc || ''}</td>
+                                    <td className="w-20 text-center text-[9px] font-bold">{odcs[0]?.numero_odc?.split('-').pop() || ''}</td>
                                     <td className="text-center w-10 py-1">PROV</td>
                                     <td className="w-20 text-center text-[9px] font-bold">{odcs[0]?.proveedor || ''}</td>
                                 </tr>
                                 <tr>
                                     <td className="text-center py-1">COT</td>
-                                    <td className="text-center text-[9px] font-bold">{odp.cotizaciones?.[0]?.numero_cot || ''}</td>
+                                    <td className="text-center text-[9px] font-bold">{odp.cotizaciones?.[0]?.numero_cot?.split('-').pop() || ''}</td>
                                     <td className="text-center py-1">ODC</td>
-                                    <td className="text-center text-[9px] font-bold">{odcs[1]?.numero_odc || ''}</td>
+                                    <td className="text-center text-[9px] font-bold">{odcs[1]?.numero_odc?.split('-').pop() || ''}</td>
                                     <td className="text-center py-1">PROV</td>
                                     <td className="text-center text-[9px] font-bold">{odcs[1]?.proveedor || ''}</td>
                                 </tr>
                                 <tr>
                                     <td className="text-center py-1">TM</td>
-                                    <td className="text-center text-[9px] font-bold">{odp.tomas_medidas?.[0]?.numero_tm || ''}</td>
+                                    <td className="text-center text-[9px] font-bold">{odp.tomas_medidas?.[0]?.numero_tm?.split('-').pop() || ''}</td>
                                     <td className="text-center py-1">ODC</td>
-                                    <td className="text-center text-[9px] font-bold">{odcs[2]?.numero_odc || ''}</td>
+                                    <td className="text-center text-[9px] font-bold">{odcs[2]?.numero_odc?.split('-').pop() || ''}</td>
                                     <td className="text-center py-1">PROV</td>
                                     <td className="text-center text-[9px] font-bold">{odcs[2]?.proveedor || ''}</td>
                                 </tr>
@@ -299,7 +299,7 @@ const PrintableOP: React.FC<PrintableOPProps> = ({ odp }) => {
                                     <tr key={odc.id}>
                                         <td></td><td></td>
                                         <td className="text-center py-1">ODC</td>
-                                        <td className="text-center text-[9px] font-bold">{odc.numero_odc}</td>
+                                        <td className="text-center text-[9px] font-bold">{odc.numero_odc?.split('-').pop()}</td>
                                         <td className="text-center py-1">PROV</td>
                                         <td className="text-center text-[9px] font-bold">{odc.proveedor}</td>
                                     </tr>

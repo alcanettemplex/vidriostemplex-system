@@ -295,9 +295,9 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                                         {odp.numero_pedido_proveedor && <div style={{ fontWeight: 'bold', marginTop: '10px', fontSize: '16px', color: '#1a3ec9' }}>{odp.numero_pedido_proveedor}</div>}
                                     </td>
                                     {label('SAP')}
-                                    {val(odp.saps?.[0]?.numero_sap || '')}
+                                    {val(odp.saps?.[0]?.numero_sap?.split('-').pop() || '')}
                                     {label('ODC')}
-                                    {val(odcs[0]?.numero_odc || '')}
+                                    {val(odcs[0]?.numero_odc?.split('-').pop() || '')}
                                     {label('PROV')}
                                     {val(odcs[0]?.proveedor || '')}
                                 </tr>
@@ -307,9 +307,9 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                                     {label('HUACAL')}
                                     {td(odp.huacal ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
                                     {label('COT')}
-                                    {val(odp.cotizaciones?.[0]?.numero_cot || '')}
+                                    {val(odp.cotizaciones?.[0]?.numero_cot?.split('-').pop() || '')}
                                     {label('ODC')}
-                                    {val(odcs[1]?.numero_odc || '')}
+                                    {val(odcs[1]?.numero_odc?.split('-').pop() || '')}
                                     {label('PROV')}
                                     {val(odcs[1]?.proveedor || '')}
                                 </tr>
@@ -320,9 +320,9 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                                     {td(odp.carton ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
                                     {td(odp.proveedor_vidrio || '', { fontWeight: 'bold', textAlign: 'center', color: '#1a3ec9' })}
                                     {label('TM')}
-                                    {val(odp.tomas_medidas?.[0]?.numero_tm || '')}
+                                    {val(odp.tomas_medidas?.[0]?.numero_tm?.split('-').pop() || '')}
                                     {label('ODC')}
-                                    {val(odcs[2]?.numero_odc || '')}
+                                    {val(odcs[2]?.numero_odc?.split('-').pop() || '')}
                                     {label('PROV')}
                                     {val(odcs[2]?.proveedor || '')}
                                 </tr>
@@ -330,7 +330,7 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                                     <tr key={odc.id}>
                                         <td colSpan={8} style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
                                         {label('ODC')}
-                                        {val(odc.numero_odc)}
+                                        {val(odc.numero_odc?.split('-').pop())}
                                         {label('PROV')}
                                         {val(odc.proveedor)}
                                     </tr>

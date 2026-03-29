@@ -36,7 +36,7 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                     </div>
                     <div className="w-1/3 flex flex-col items-end gap-1">
                         <div className="border-[2px] border-black text-xl font-bold w-32 h-10 flex items-center justify-center">
-                            {sap?.numero_sap || odp.saps?.[0]?.numero_sap || ''}
+                            {(sap?.numero_sap || odp.saps?.[0]?.numero_sap || '').split('-').pop()}
                         </div>
                         <div className="text-[9px] font-bold">
                             ODP: <span className="font-normal">{odp.numero_odp?.split('-').pop() || odp.numero_odp}</span>
@@ -109,56 +109,45 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                 </table>
 
                 {/* ---------- DETALLE TÉCNICO / OBSERVACIÓN ---------- */}
-                <table className="sap-table mb-1">
-                    <thead>
-                        <tr className="font-bold text-[9px]">
-                            <th className="w-[50%] text-left px-1">DETALLE TÉCNICO / OBSERVACIÓN</th>
-                            <th className="w-[16%]">ODC Nº</th>
-                            <th className="w-[16%]">ITEMS</th>
-                            <th className="w-[18%]">PROV / FECHA</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td className="align-top p-1 min-h-[80px] h-[80px]" rowSpan={3}>
-                                <p className="text-[9px] whitespace-pre-line uppercase font-semibold">
-                                    {sap?.notas || odp.saps?.[0]?.notas || ''}
-                                </p>
-                            </td>
-                            <td className="text-center text-[9px] h-[26px]">
-                                {odp.saps?.[0]?.odcs?.[0]?.numero_odc || ''}
-                            </td>
-                            <td className="text-center text-[9px]">
-                                {odp.saps?.[0]?.odcs?.[0]?.items_odc || ''}
-                            </td>
-                            <td className="text-center text-[9px]">
-                                {odp.saps?.[0]?.odcs?.[0]?.proveedor || ''}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="text-center text-[9px] h-[26px]">
-                                {odp.saps?.[0]?.odcs?.[1]?.numero_odc || ''}
-                            </td>
-                            <td className="text-center text-[9px]">
-                                {odp.saps?.[0]?.odcs?.[1]?.items_odc || ''}
-                            </td>
-                            <td className="text-center text-[9px]">
-                                {odp.saps?.[0]?.odcs?.[1]?.proveedor || ''}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td className="text-center text-[9px] h-[26px]">
-                                {odp.saps?.[0]?.odcs?.[2]?.numero_odc || ''}
-                            </td>
-                            <td className="text-center text-[9px]">
-                                {odp.saps?.[0]?.odcs?.[2]?.items_odc || ''}
-                            </td>
-                            <td className="text-center text-[9px]">
-                                {odp.saps?.[0]?.odcs?.[2]?.proveedor || ''}
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                {(() => {
+                    const sapData = sap || odp.saps?.[0];
+                    const odcs: any[] = sapData?.ordenes_compra || [];
+                    const rows = [0, 1, 2].map(i => odcs[i] || null);
+                    return (
+                        <table className="sap-table mb-1">
+                            <thead>
+                                <tr className="font-bold text-[9px]">
+                                    <th className="w-[50%] text-left px-1">DETALLE TÉCNICO / OBSERVACIÓN</th>
+                                    <th className="w-[16%]">ODC Nº</th>
+                                    <th className="w-[16%]">ITEMS</th>
+                                    <th className="w-[18%]">PROV / FECHA</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rows.map((odc, i) => (
+                                    <tr key={i}>
+                                        {i === 0 && (
+                                            <td className="align-top p-1 h-[80px]" rowSpan={3}>
+                                                <p className="text-[9px] whitespace-pre-line uppercase font-semibold">
+                                                    {sapData?.notas || ''}
+                                                </p>
+                                            </td>
+                                        )}
+                                        <td className="text-center text-[9px] h-[26px] font-bold">
+                                            {odc?.numero_odc?.split('-').pop() || ''}
+                                        </td>
+                                        <td className="text-center text-[9px]">
+                                            {odc?.items?.map((it: any) => it.codigo || it.descripcion).join(', ') || ''}
+                                        </td>
+                                        <td className="text-center text-[9px]">
+                                            {odc ? `${odc.proveedor || ''} ${odc.fecha_creacion ? new Date(odc.fecha_creacion).toLocaleDateString('es-CO') : ''}`.trim() : ''}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    );
+                })()}
 
                 {/* ---------- FIRMA ---------- */}
                 <div className="flex justify-between items-end mt-4 px-2">

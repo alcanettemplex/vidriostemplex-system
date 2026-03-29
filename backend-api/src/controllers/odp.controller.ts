@@ -121,8 +121,8 @@ export const getODP = async (req: Request, res: Response) => {
             { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
             {
               model: OrdenCompra, as: 'ordenes_compra',
-              attributes: ['id', 'numero_odc', 'proveedor', 'estado'],
-              order: [['fecha_creacion', 'ASC']],
+              attributes: ['id', 'numero_odc', 'proveedor', 'estado', 'fecha_creacion'],
+              include: [{ model: (await import('../models')).ODCItem, as: 'items' }],
             },
           ],
           order: [['fecha_creacion', 'DESC']],

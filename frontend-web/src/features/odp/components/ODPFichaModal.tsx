@@ -162,12 +162,21 @@ const TabComercial: React.FC<{ odp: any; onRefresh: () => void }> = ({ odp, onRe
           <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 flex items-center gap-2">
             <Package className="w-4 h-4 text-indigo-600" /> Solicitudes de Accesorios y Perfilería (SAP)
           </h3>
-          <button
-            onClick={() => setSapModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5" /> Gestionar SAP
-          </button>
+          {saps.length === 0 ? (
+            <button
+              onClick={() => setSapModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" /> Gestionar SAP
+            </button>
+          ) : (
+            <button
+              onClick={() => setSapModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-slate-100 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition"
+            >
+              <Package className="w-3.5 h-3.5" /> Ver SAP
+            </button>
+          )}
         </div>
         {saps.length === 0 ? (
           <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center text-slate-400">
