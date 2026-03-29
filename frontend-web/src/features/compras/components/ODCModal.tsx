@@ -273,6 +273,7 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                         <th className="px-3 py-2 w-10 text-center">ITEM</th>
                         <th className="px-3 py-2 w-28">CÓDIGO</th>
                         <th className="px-3 py-2">DESCRIPCIÓN</th>
+                        <th className="px-3 py-2 w-24 text-center">EXIS. PERF.</th>
                         <th className="px-3 py-2 w-20 text-center">CANT.</th>
                         <th className="px-3 py-2 w-36 text-center">ESTADO</th>
                         <th className="px-3 py-2 w-28 text-center">ACCIONES</th>
@@ -286,6 +287,7 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                             <td className="px-3 py-2 text-center font-black text-slate-600">{item.item}</td>
                             <td className="px-3 py-2 font-mono text-blue-700 font-bold">{item.codigo || '—'}</td>
                             <td className="px-3 py-2 text-slate-700">{item.descripcion || '—'}</td>
+                            <td className="px-3 py-2 text-center text-slate-400">—</td>
                             <td className="px-3 py-2 text-center font-bold text-slate-600">{item.cantidad}</td>
                             <td className="px-3 py-2 text-center">
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${est.className}`}>
@@ -402,6 +404,7 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                       <th className="px-3 py-2 w-10">ITEM</th>
                       <th className="px-3 py-2 w-28">CÓDIGO</th>
                       <th className="px-3 py-2">DESCRIPCIÓN</th>
+                      <th className="px-3 py-2 w-24 text-center">EXIS. PERF.</th>
                       <th className="px-3 py-2 w-20 text-center">CANT.</th>
                     </tr>
                   </thead>
@@ -423,6 +426,7 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                         <td className="px-3 py-2 font-black text-slate-600">{item.item}</td>
                         <td className="px-3 py-2 font-mono text-blue-700 font-bold">{item.codigo || '—'}</td>
                         <td className="px-3 py-2 text-slate-700">{item.descripcion || '—'}</td>
+                        <td className="px-3 py-2 text-center text-slate-400">—</td>
                         <td className="px-3 py-2 text-center font-bold text-slate-600">{item.cantidad}</td>
                       </tr>
                     ))}
@@ -522,6 +526,7 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                         <th className="px-3 py-2 w-10 text-center">ITEM</th>
                         <th className="px-3 py-2 w-28">CÓDIGO</th>
                         <th className="px-3 py-2">DESCRIPCIÓN</th>
+                        <th className="px-3 py-2 w-24 text-center">EXIS. PERF.</th>
                         <th className="px-3 py-2 w-20 text-center">CANT.</th>
                       </tr>
                     </thead>
@@ -531,6 +536,7 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                           <td className="px-3 py-2 text-center font-black text-slate-600">{it.item}</td>
                           <td className="px-3 py-2 font-mono text-blue-700 font-bold">{it.codigo || '—'}</td>
                           <td className="px-3 py-2 text-slate-700">{it.descripcion || '—'}</td>
+                          <td className="px-3 py-2 text-center text-slate-400">—</td>
                           <td className="px-3 py-2 text-center font-bold text-slate-600">{it.cantidad}</td>
                         </tr>
                       ))}
