@@ -10,8 +10,8 @@ router.get('/', authMiddleware, getClientes);
 router.get('/:id', authMiddleware, getCliente);
 
 // Creación/edición: asesores, admin, gerencia, contabilidad
-router.post('/', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'contabilidad'), createCliente);
-router.put('/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'contabilidad'), updateCliente);
+router.post('/', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad'), createCliente);
+router.put('/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad'), updateCliente);
 
 // Eliminación: solo admin
 router.delete('/:id', authMiddleware, requireRole('admin', 'gerencia'), deleteCliente);

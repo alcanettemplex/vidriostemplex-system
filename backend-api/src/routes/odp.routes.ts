@@ -11,7 +11,7 @@ router.get('/', authMiddleware, getODPs);
 router.get('/:id', authMiddleware, getODP);
 
 // Creación: asesores, admin, gerencia
-router.post('/', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial'), createODP);
+router.post('/', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), createODP);
 
 // Actualización: asesores, producción, admin, gerencia, jefe_produccion
 router.put('/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion'), updateODP);

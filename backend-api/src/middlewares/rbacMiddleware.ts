@@ -13,6 +13,7 @@ export type RolUsuario =
   | 'produccion'
   | 'auxiliar_produccion'
   | 'instalador'
+  | 'conductor'
   | 'contabilidad'
   | 'compras';
 

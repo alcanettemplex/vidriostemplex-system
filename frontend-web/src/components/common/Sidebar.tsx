@@ -14,7 +14,8 @@ import {
   Truck,
   Settings,
   Sliders,
-  Ruler
+  Ruler,
+  UserPlus
 } from 'lucide-react';
 
 /**
@@ -35,14 +36,21 @@ const MENU_ITEMS_CONFIG = [
     text: 'Clientes',
     icon: Users,
     path: '/clientes',
-    allowedRoles: ['admin', 'gerente', 'gerencia', 'asesor_comercial'],
+    allowedRoles: ['admin', 'gerente', 'gerencia', 'asesor_comercial', 'jefe_produccion'],
+    section: 'comercial'
+  },
+  {
+    text: 'Prospectos',
+    icon: UserPlus,
+    path: '/prospectos',
+    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'],
     section: 'comercial'
   },
   {
     text: 'Órdenes (ODP)',
     icon: FileText,
     path: '/odp',
-    allowedRoles: ['admin', 'gerente', 'gerencia', 'asesor_comercial', 'contabilidad', 'compras', 'jefe_produccion'],
+    allowedRoles: ['admin', 'gerente', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras'],
     section: 'comercial'
   },
   {

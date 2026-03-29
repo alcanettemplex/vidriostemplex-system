@@ -20,6 +20,7 @@ import ConfiguracionGlobal from './configuracion.model';
 import MetaMensual from './meta_mensual.model';
 import NotaProduccion from './nota_produccion.model';
 import CatalogoProducto from './catalogo_producto.model';
+import Prospecto from './prospecto.model';
 
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
@@ -94,6 +95,19 @@ TomaMedidas.belongsTo(ODP, { foreignKey: 'odp_id' });
 Usuario.hasMany(TomaMedidas, { foreignKey: 'realizado_por', as: 'tomas_realizadas' });
 TomaMedidas.belongsTo(Usuario, { foreignKey: 'realizado_por', as: 'realizador' });
 
+// ─── Bloque D: Prospectos ────────────────────────────────────────────────────
+Usuario.hasMany(Prospecto, { foreignKey: 'asesor_id', as: 'prospectos_gestionados' });
+Prospecto.belongsTo(Usuario, { foreignKey: 'asesor_id', as: 'asesor' });
+
+Cliente.hasMany(Prospecto, { foreignKey: 'cliente_id', as: 'prospectos' });
+Prospecto.belongsTo(Cliente, { foreignKey: 'cliente_id', as: 'cliente' });
+
+Prospecto.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
+ODP.hasOne(Prospecto, { foreignKey: 'odp_id', as: 'prospecto' });
+
+Prospecto.hasMany(TomaMedidas, { foreignKey: 'prospecto_id', as: 'tomas_medidas' });
+TomaMedidas.belongsTo(Prospecto, { foreignKey: 'prospecto_id', as: 'prospecto' });
+
 // ─── Bloque C: Compras y Pagos ───────────────────────────────────────────────
 ODP.hasMany(OrdenCompra, { foreignKey: 'odp_id', as: 'compras' });
 OrdenCompra.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
@@ -137,6 +151,7 @@ export {
   ConfiguracionGlobal,
   MetaMensual,
   NotaProduccion,
-  CatalogoProducto
+  CatalogoProducto,
+  Prospecto,
 };
 

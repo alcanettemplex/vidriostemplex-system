@@ -6,10 +6,15 @@ class TomaMedidas extends Model {}
 TomaMedidas.init({
   id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
   numero_tm: { type: DataTypes.STRING(30), allowNull: false, unique: true },
-  odp_id: { type: DataTypes.INTEGER, allowNull: false },
+  odp_id: { type: DataTypes.INTEGER, allowNull: true },
+  prospecto_id: { type: DataTypes.INTEGER, allowNull: true },
   realizado_por: { type: DataTypes.INTEGER },
+  estado: { type: DataTypes.STRING(20), defaultValue: 'solicitada', allowNull: false },
+  // estados: solicitada | programada | realizada | convertida | archivada
   fecha_visita: { type: DataTypes.DATEONLY },
   direccion: { type: DataTypes.STRING(255) },
+  nombre_contacto: { type: DataTypes.STRING(150) },
+  telefono_contacto: { type: DataTypes.STRING(30) },
   contacto_obra: { type: DataTypes.STRING(100) },
   telefono_obra: { type: DataTypes.STRING(30) },
   observaciones: { type: DataTypes.TEXT },
