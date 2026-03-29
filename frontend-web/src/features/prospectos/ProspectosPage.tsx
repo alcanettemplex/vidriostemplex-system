@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   UserPlus, Search, RefreshCw, CheckCircle2, XCircle, Clock,
   Phone, MapPin, ChevronDown, ChevronUp, Plus, Ruler, X,
-  Calendar, Image
+  Calendar, Image, FileText
 } from 'lucide-react';
 import ProspectoModal from './components/ProspectoModal';
 import AprobarProspectoModal from './components/AprobarProspectoModal';
@@ -274,6 +274,13 @@ const ProspectosPage: React.FC = () => {
                                   <Ruler className="w-4 h-4" /> Solicitar visita técnica
                                 </button>
                               )}
+                              <button
+                                disabled
+                                title="Próximamente disponible"
+                                className="w-full py-2.5 text-sm font-bold bg-slate-100 text-slate-400 rounded-xl border border-slate-200 cursor-not-allowed flex items-center justify-center gap-2"
+                              >
+                                <FileText className="w-4 h-4" /> Crear cotización
+                              </button>
                               <button
                                 onClick={() => setAprobando(p)}
                                 className="w-full py-2.5 text-sm font-bold bg-green-600 text-white rounded-xl hover:bg-green-700 transition"
