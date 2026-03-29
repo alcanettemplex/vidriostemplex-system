@@ -278,7 +278,7 @@ const CardTM: React.FC<{
         </div>
 
         <div className="flex flex-col gap-1.5 flex-shrink-0 mt-1">
-          {onProgramar && !tm.fecha_visita && (
+          {tm.estado === 'solicitada' && onProgramar && (
             <button
               onClick={() => onProgramar(tm)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 transition shadow-sm whitespace-nowrap"
@@ -286,7 +286,7 @@ const CardTM: React.FC<{
               <Calendar className="w-3.5 h-3.5" /> Programar
             </button>
           )}
-          {onOpenTM && (
+          {(tm.estado === 'programada' || tm.estado === 'realizada') && onOpenTM && (
             <button
               onClick={() => onOpenTM(tm)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition shadow-sm whitespace-nowrap"
