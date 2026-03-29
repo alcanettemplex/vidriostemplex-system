@@ -96,24 +96,26 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved }) => {
               </select>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
-                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Nombre contacto <span className="text-red-400">*</span></label>
-                <input value={form.nombre_contacto} onChange={e => set('nombre_contacto', e.target.value)}
-                  placeholder="Nombre completo..." className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Teléfono</label>
-                <input value={form.telefono_contacto} onChange={e => set('telefono_contacto', e.target.value)}
-                  placeholder="3001234567" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Email</label>
-                <input value={form.email_contacto} onChange={e => set('email_contacto', e.target.value)}
-                  placeholder="correo@ejemplo.com" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Nombre contacto <span className="text-red-400">*</span></label>
+              <input value={form.nombre_contacto} onChange={e => set('nombre_contacto', e.target.value)}
+                placeholder="Nombre completo..." className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           )}
+
+          {/* Teléfono y email — siempre visibles */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Teléfono</label>
+              <input value={form.telefono_contacto} onChange={e => set('telefono_contacto', e.target.value)}
+                placeholder="3001234567" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Email</label>
+              <input value={form.email_contacto} onChange={e => set('email_contacto', e.target.value)}
+                placeholder="correo@ejemplo.com" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+          </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Dirección del proyecto</label>
