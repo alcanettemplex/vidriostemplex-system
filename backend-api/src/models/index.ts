@@ -90,7 +90,7 @@ Usuario.hasMany(Cotizacion, { foreignKey: 'creado_por', as: 'cotizaciones_creada
 Cotizacion.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'asesor' });
 
 ODP.hasMany(TomaMedidas, { foreignKey: 'odp_id', as: 'tomas_medidas' });
-TomaMedidas.belongsTo(ODP, { foreignKey: 'odp_id' });
+TomaMedidas.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
 
 Usuario.hasMany(TomaMedidas, { foreignKey: 'realizado_por', as: 'tomas_realizadas' });
 TomaMedidas.belongsTo(Usuario, { foreignKey: 'realizado_por', as: 'realizador' });
