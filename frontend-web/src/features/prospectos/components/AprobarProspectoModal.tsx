@@ -69,6 +69,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
     direccion: prospecto.direccion || '',
   });
   const [clientes, setClientes] = useState<ClienteItem[]>([]);
+  const [cargoRecibe, setCargoRecibe] = useState('');
 
   const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
   const [categorias, setCategorias] = useState<string[]>([]);
@@ -141,6 +142,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
         nombre_recibe: tm?.contacto_obra || prospecto.nombre_contacto || '',
         telefono_recibe: tm?.telefono_obra || prospecto.telefono_contacto || '',
         direccion_instalacion: tm?.direccion || prospecto.direccion || '',
+        cargo_recibe: cargoRecibe || null,
       };
 
       // Definición de cliente
@@ -312,26 +314,49 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                 )}
 
                 {/* Resumen contacto de instalación */}
-                <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
-                  <p className="text-xs font-bold text-green-700 mb-1">Contacto de instalación (del prospecto)</p>
+                <div className="p-3 bg-green-50 border border-green-200 rounded-xl space-y-2">
+                  <p className="text-xs font-bold text-green-700">Contacto de instalación (del prospecto)</p>
                   <div className="text-xs text-green-700 space-y-0.5">
                     <p>👤 {tm?.contacto_obra || prospecto.nombre_contacto || '—'}</p>
                     <p>📞 {tm?.telefono_obra || prospecto.telefono_contacto || '—'}</p>
                     <p>📍 {tm?.direccion || prospecto.direccion || '—'}</p>
                   </div>
+                  <div>
+                    <label className="block text-xs font-bold text-green-700 mb-1 uppercase tracking-wider">Cargo del contacto</label>
+                    <input
+                      value={cargoRecibe}
+                      onChange={e => setCargoRecibe(e.target.value)}
+                      placeholder="Ej: Administrador, Residente de obra..."
+                      className="w-full border border-green-200 bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400"
+                    />
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Cliente ya definido — solo mostrar */}
+            {/* Cliente ya definido — mostrar + cargo editable */}
             {!esContactoNuevo && (
-              <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-start gap-3">
-                <Building2 className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                <div className="flex items-start gap-3">
+                  <Building2 className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-slate-600">Cliente: {prospecto.cliente?.nombre_razon_social}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Contacto instalación: {tm?.contacto_obra || prospecto.nombre_contacto || '—'} · {tm?.telefono_obra || prospecto.telefono_contacto || '—'}
+                    </p>
+                    {(tm?.direccion || prospecto.direccion) && (
+                      <p className="text-xs text-slate-400 mt-0.5">📍 {tm?.direccion || prospecto.direccion}</p>
+                    )}
+                  </div>
+                </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-600">Cliente: {prospecto.cliente?.nombre_razon_social}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Contacto instalación: {tm?.contacto_obra || prospecto.nombre_contacto || '—'} · {tm?.telefono_obra || prospecto.telefono_contacto || '—'}
-                  </p>
+                  <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Cargo del contacto</label>
+                  <input
+                    value={cargoRecibe}
+                    onChange={e => setCargoRecibe(e.target.value)}
+                    placeholder="Ej: Administrador, Residente de obra..."
+                    className="w-full border border-slate-200 bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
                 </div>
               </div>
             )}

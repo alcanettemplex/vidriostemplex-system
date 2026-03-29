@@ -15,6 +15,7 @@ import PrintableDetalleTecnico from './PrintableDetalleTecnico';
 import PrintableSAP from './PrintableSAP';
 import ReportarProblemaForm from './ReportarProblemaForm';
 import SAPModal from './SAPModal';
+import TMModal from './TMModal';
 
 // ─── Paleta de estado ─────────────────────────────────────────────────────────
 const estadoProdColor: Record<string, string> = {
@@ -254,6 +255,7 @@ const TabComercial: React.FC<{ odp: any; onRefresh: () => void }> = ({ odp, onRe
 
 const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void }> = ({ odp, onUpdate }) => {
   const [uploading, setUploading] = useState(false);
+  const [tmModalOpen, setTmModalOpen] = useState(false);
   const tms = odp.tomas_medidas || [];
   const chks = [
     { key: 'chk_medicion', label: 'Toma de Medidas', icon: <Ruler className="w-4 h-4" /> },
@@ -359,31 +361,74 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void }> = ({ odp, onU
             <Ruler className="w-10 h-10 mx-auto mb-2 text-slate-200" />
             <p className="font-bold">Sin tomas de medida registradas</p>
           </div>
-        ) : tms.map((tm: any) => (
-          <div key={tm.id} className="bg-white border border-slate-200 rounded-2xl p-5 mb-3 shadow-sm">
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <span className="font-black text-amber-700 text-lg">{tm.numero_tm}</span>
-                <p className="text-xs text-slate-500 mt-0.5">{tm.realizador?.nombre_completo} · {tm.fecha_visita ? new Date(tm.fecha_visita + 'T00:00:00').toLocaleDateString('es-CO') : 'Sin fecha'}</p>
-                {tm.direccion && <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3" />{tm.direccion}</p>}
+        ) : tms.map((tm: any) => {
+          const fotos: string[] = Array.isArray(tm.medidas_json) && tm.medidas_json.every((f: any) => typeof f === 'string')
+            ? tm.medidas_json : [];
+          return (
+            <div key={tm.id} className="bg-white border border-slate-200 rounded-2xl p-5 mb-3 shadow-sm">
+              {/* Header TM */}
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <span className="font-black text-amber-700 text-lg">{tm.numero_tm}</span>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {tm.realizador?.nombre_completo} · {tm.fecha_visita ? new Date(tm.fecha_visita + 'T00:00:00').toLocaleDateString('es-CO') : 'Sin fecha'}
+                  </p>
+                  {tm.direccion && (
+                    <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3 h-3" />{tm.direccion}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge className={
+                    tm.estado === 'realizada' ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                    : tm.estado === 'programada' ? 'bg-blue-100 text-blue-700 border-blue-200'
+                    : 'bg-amber-100 text-amber-700 border-amber-200'
+                  }>
+                    {tm.estado === 'realizada' ? '✓ Realizada' : tm.estado === 'programada' ? 'Programada' : 'Solicitada'}
+                  </Badge>
+                  <button
+                    onClick={() => setTmModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Ver detalles
+                  </button>
+                </div>
               </div>
-              <Badge className="bg-amber-100 text-amber-700 border-amber-200">{(tm.medidas_json || []).length} medidas</Badge>
-            </div>
-            {(tm.medidas_json || []).length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {tm.medidas_json.map((m: any, i: number) => (
-                  <div key={i} className="bg-amber-50 border border-amber-100 rounded-lg p-2 text-xs">
-                    <p className="font-bold text-amber-800 truncate">{m.ubicacion}</p>
-                    <p className="font-mono text-amber-700">{m.ancho_mm} × {m.alto_mm} mm</p>
-                    <p className="text-amber-500">{((m.ancho_mm / 1000) * (m.alto_mm / 1000)).toFixed(3)} m²</p>
+
+              {/* Fotos */}
+              {fotos.length > 0 ? (
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                    <Camera className="w-3.5 h-3.5" /> Fotos relevadas ({fotos.length})
+                  </p>
+                  <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                    {fotos.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noreferrer">
+                        <img src={url} alt={`Foto ${i + 1}`}
+                          className="w-full aspect-square object-cover rounded-lg border border-amber-200 hover:opacity-85 transition bg-slate-50" />
+                      </a>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-            {tm.observaciones && <p className="text-xs text-slate-500 italic mt-2 pt-2 border-t border-slate-100">"{tm.observaciones}"</p>}
-          </div>
-        ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">
+                  {tm.estado === 'realizada' ? 'Sin fotos registradas' : 'Pendiente de realizar la visita'}
+                </p>
+              )}
+
+              {tm.observaciones && (
+                <p className="text-xs text-slate-500 italic mt-3 pt-3 border-t border-slate-100">"{tm.observaciones}"</p>
+              )}
+            </div>
+          );
+        })}
       </div>
+
+      {/* TMModal */}
+      {tmModalOpen && (
+        <TMModal odp={odp} onClose={() => setTmModalOpen(false)} />
+      )}
     </div>
   );
 };
