@@ -20,7 +20,7 @@ export const getProspectos = async (req: Request, res: Response) => {
       include: [
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
         { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'telefono'] },
-        { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'estado', 'fecha_visita', 'croquis_url'] },
+        { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'estado', 'fecha_visita', 'croquis_url', 'direccion', 'nombre_contacto', 'telefono_contacto', 'observaciones'] },
         { model: ODP, as: 'odp', attributes: ['id', 'numero_odp', 'estado_produccion'] },
       ],
       order: [['fecha_creacion', 'DESC']],

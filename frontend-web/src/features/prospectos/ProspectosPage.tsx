@@ -4,15 +4,18 @@ import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   UserPlus, Search, RefreshCw, CheckCircle2, XCircle, Clock,
-  Phone, MapPin, ChevronDown, ChevronUp, Plus, Ruler, X
+  Phone, MapPin, ChevronDown, ChevronUp, Plus, Ruler, X,
+  Calendar, Image
 } from 'lucide-react';
 import ProspectoModal from './components/ProspectoModal';
 import AprobarProspectoModal from './components/AprobarProspectoModal';
+import SolicitarTMModal from './components/SolicitarTMModal';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 interface TM {
-  id: number; numero_tm: string; estado: string; fecha_visita: string; croquis_url: string | null;
+  id: number; numero_tm: string; estado: string; fecha_visita: string | null; croquis_url: string | null;
+  direccion: string | null; nombre_contacto: string | null; telefono_contacto: string | null; observaciones: string | null;
 }
 
 interface Prospecto {
@@ -56,6 +59,7 @@ const ProspectosPage: React.FC = () => {
   const [aprobando, setAprobando] = useState<Prospecto | null>(null);
   const [archivandoId, setArchivandoId] = useState<number | null>(null);
   const [motivoArchivo, setMotivoArchivo] = useState('');
+  const [solicitandoTM, setSolicitandoTM] = useState<Prospecto | null>(null);
 
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
@@ -223,61 +227,138 @@ const ProspectosPage: React.FC = () => {
                       exit={{ height: 0, opacity: 0 }}
                       className="overflow-hidden border-t border-slate-100"
                     >
-                      <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Info contacto */}
-                        <div className="space-y-3">
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-wider">Datos del Contacto</p>
-                          {p.telefono_contacto && (
-                            <div className="flex items-center gap-2 text-sm text-slate-600">
-                              <Phone className="w-4 h-4 text-slate-400" />{p.telefono_contacto}
-                            </div>
-                          )}
-                          {p.email_contacto && (
-                            <div className="flex items-center gap-2 text-sm text-slate-600">
-                              <span className="text-slate-400">@</span>{p.email_contacto}
-                            </div>
-                          )}
-                          {p.direccion && (
-                            <div className="flex items-center gap-2 text-sm text-slate-600">
-                              <MapPin className="w-4 h-4 text-slate-400" />{p.direccion}
-                            </div>
-                          )}
-                          {p.motivo_no_aprobado && (
-                            <div className="bg-red-50 border border-red-100 rounded-lg p-3">
-                              <p className="text-xs font-bold text-red-600 mb-1">Motivo no aprobado:</p>
-                              <p className="text-xs text-red-700">{p.motivo_no_aprobado}</p>
-                            </div>
-                          )}
-                          {tm?.croquis_url && (
-                            <div>
-                              <p className="text-xs font-bold text-slate-500 mb-2">Croquis TM:</p>
-                              <img src={tm.croquis_url} alt="croquis" className="rounded-lg border border-slate-200 max-h-40 object-cover" />
+                      <div className="p-5 space-y-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Info contacto */}
+                          <div className="space-y-3">
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-wider">Datos del Contacto</p>
+                            {p.telefono_contacto && (
+                              <div className="flex items-center gap-2 text-sm text-slate-600">
+                                <Phone className="w-4 h-4 text-slate-400" />{p.telefono_contacto}
+                              </div>
+                            )}
+                            {p.email_contacto && (
+                              <div className="flex items-center gap-2 text-sm text-slate-600">
+                                <span className="text-slate-400">@</span>{p.email_contacto}
+                              </div>
+                            )}
+                            {p.direccion && (
+                              <div className="flex items-center gap-2 text-sm text-slate-600">
+                                <MapPin className="w-4 h-4 text-slate-400" />{p.direccion}
+                              </div>
+                            )}
+                            {p.motivo_no_aprobado && (
+                              <div className="bg-red-50 border border-red-100 rounded-lg p-3">
+                                <p className="text-xs font-bold text-red-600 mb-1">Motivo no aprobado:</p>
+                                <p className="text-xs text-red-700">{p.motivo_no_aprobado}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Acciones */}
+                          {p.estado === 'en_gestion' && (
+                            <div className="space-y-2">
+                              <p className="text-xs font-black text-slate-400 uppercase tracking-wider">Acciones</p>
+                              <button
+                                onClick={() => setEditando(p)}
+                                className="w-full py-2.5 text-sm font-bold border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition"
+                              >
+                                Editar prospecto
+                              </button>
+                              {/* Solicitar TM solo si no tiene ninguna TM aún */}
+                              {p.tomas_medidas.length === 0 && (
+                                <button
+                                  onClick={() => setSolicitandoTM(p)}
+                                  className="w-full py-2.5 text-sm font-bold bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition flex items-center justify-center gap-2"
+                                >
+                                  <Ruler className="w-4 h-4" /> Solicitar visita técnica
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setAprobando(p)}
+                                className="w-full py-2.5 text-sm font-bold bg-green-600 text-white rounded-xl hover:bg-green-700 transition"
+                              >
+                                ✓ Aprobar — Generar ODP
+                              </button>
+                              <button
+                                onClick={() => { setArchivandoId(p.id); setMotivoArchivo(''); }}
+                                className="w-full py-2.5 text-sm font-bold bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-100 transition"
+                              >
+                                ✕ No aprobado — Archivar
+                              </button>
                             </div>
                           )}
                         </div>
 
-                        {/* Acciones */}
-                        {p.estado === 'en_gestion' && (
-                          <div className="space-y-2">
-                            <p className="text-xs font-black text-slate-400 uppercase tracking-wider">Acciones</p>
-                            <button
-                              onClick={() => setEditando(p)}
-                              className="w-full py-2.5 text-sm font-bold border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition"
-                            >
-                              Editar prospecto
-                            </button>
-                            <button
-                              onClick={() => setAprobando(p)}
-                              className="w-full py-2.5 text-sm font-bold bg-green-600 text-white rounded-xl hover:bg-green-700 transition"
-                            >
-                              ✓ Aprobar — Generar ODP
-                            </button>
-                            <button
-                              onClick={() => { setArchivandoId(p.id); setMotivoArchivo(''); }}
-                              className="w-full py-2.5 text-sm font-bold bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-100 transition"
-                            >
-                              ✕ No aprobado — Archivar
-                            </button>
+                        {/* Tomas de medidas del prospecto */}
+                        {p.tomas_medidas.length > 0 && (
+                          <div className="space-y-3 border-t border-slate-100 pt-4">
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                              <Ruler className="w-3.5 h-3.5" /> Tomas de Medidas
+                            </p>
+                            {p.tomas_medidas.map(tmItem => (
+                              <div key={tmItem.id} className={`rounded-xl border p-4 space-y-3 ${
+                                tmItem.estado === 'realizada'
+                                  ? 'bg-emerald-50 border-emerald-200'
+                                  : tmItem.estado === 'programada'
+                                  ? 'bg-blue-50 border-blue-200'
+                                  : 'bg-amber-50 border-amber-200'
+                              }`}>
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-black text-sm text-slate-700">{tmItem.numero_tm}</span>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                      tmItem.estado === 'realizada'
+                                        ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                                        : tmItem.estado === 'programada'
+                                        ? 'bg-blue-100 text-blue-700 border-blue-200'
+                                        : 'bg-amber-100 text-amber-700 border-amber-200'
+                                    }`}>
+                                      {tmItem.estado === 'realizada' ? '✓ Realizada'
+                                        : tmItem.estado === 'programada' ? 'Programada'
+                                        : 'Solicitada'}
+                                    </span>
+                                  </div>
+                                  {tmItem.fecha_visita && (
+                                    <span className="text-xs text-slate-500 flex items-center gap-1">
+                                      <Calendar className="w-3 h-3" />
+                                      {new Date(tmItem.fecha_visita + 'T00:00:00').toLocaleDateString('es-CO')}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {(tmItem.direccion || tmItem.observaciones) && (
+                                  <div className="text-xs text-slate-600 space-y-1">
+                                    {tmItem.direccion && (
+                                      <p className="flex items-center gap-1">
+                                        <MapPin className="w-3 h-3 text-slate-400" />{tmItem.direccion}
+                                      </p>
+                                    )}
+                                    {tmItem.observaciones && (
+                                      <p className="text-slate-500 italic">{tmItem.observaciones}</p>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Croquis / foto de medidas */}
+                                {tmItem.croquis_url ? (
+                                  <div>
+                                    <p className="text-xs font-bold text-emerald-700 mb-2 flex items-center gap-1">
+                                      <Image className="w-3 h-3" /> Foto de medidas relevadas
+                                    </p>
+                                    <img
+                                      src={tmItem.croquis_url}
+                                      alt={`Croquis ${tmItem.numero_tm}`}
+                                      className="rounded-lg border border-emerald-200 max-h-52 object-contain w-full bg-white"
+                                    />
+                                  </div>
+                                ) : tmItem.estado === 'solicitada' ? (
+                                  <p className="text-xs text-amber-600 italic">Pendiente de programar por jefe de producción</p>
+                                ) : (
+                                  <p className="text-xs text-blue-600 italic">Visita programada — pendiente de realizar</p>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -305,6 +386,15 @@ const ProspectosPage: React.FC = () => {
           prospecto={aprobando}
           onClose={() => setAprobando(null)}
           onAprobado={() => { setAprobando(null); fetchProspectos(); }}
+        />
+      )}
+
+      {/* Modal solicitar visita técnica */}
+      {solicitandoTM && (
+        <SolicitarTMModal
+          prospecto={solicitandoTM}
+          onClose={() => setSolicitandoTM(null)}
+          onCreada={() => { setSolicitandoTM(null); fetchProspectos(); }}
         />
       )}
 
