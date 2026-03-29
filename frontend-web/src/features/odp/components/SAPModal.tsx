@@ -716,7 +716,7 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
             <p className="text-xs text-slate-500 font-medium">{odp.numero_odp} · {odp.cliente?.nombre_razon_social}</p>
           </div>
           <div className="flex items-center gap-2">
-            {mode === 'list' && canEdit && (
+            {mode === 'list' && canEdit && saps.length === 0 && (
               <button
                 onClick={() => setMode('create-choose')}
                 className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition shadow-sm"
