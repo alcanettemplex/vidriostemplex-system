@@ -20,9 +20,17 @@ const recalcularAluminioODP = async (odp_id: number): Promise<void> => {
 
 // Generar número SAP consecutivo
 const generarNumeroSAP = async (): Promise<string> => {
-  const count = await SAP.count();
-  const year = new Date().getFullYear();
-  return `SAP-${year}-${String(count + 1).padStart(4, '0')}`;
+  const last = await SAP.findOne({
+    where: { numero_sap: { [Op.like]: 'SAP-%' } },
+    order: [['numero_sap', 'DESC']],
+    attributes: ['numero_sap'],
+  });
+  let next = 1;
+  if (last) {
+    const parts = last.getDataValue('numero_sap').split('-');
+    next = parseInt(parts[parts.length - 1]) + 1;
+  }
+  return `SAP-${String(next).padStart(4, '0')}`;
 };
 
 export const getSAPsByODP = async (req: Request, res: Response) => {

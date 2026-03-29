@@ -5,9 +5,17 @@ import { Op } from 'sequelize';
 
 // Consecutivo automático ODC-YYYY-NNNN
 const generarNumeroODC = async (): Promise<string> => {
-  const count = await OrdenCompra.count();
-  const year = new Date().getFullYear();
-  return `ODC-${year}-${String(count + 1).padStart(4, '0')}`;
+  const last = await OrdenCompra.findOne({
+    where: { numero_odc: { [Op.like]: 'ODC-%' } },
+    order: [['numero_odc', 'DESC']],
+    attributes: ['numero_odc'],
+  });
+  let next = 1;
+  if (last) {
+    const parts = last.getDataValue('numero_odc').split('-');
+    next = parseInt(parts[parts.length - 1]) + 1;
+  }
+  return `ODC-${String(next).padStart(4, '0')}`;
 };
 
 // GET /odc/seguimiento — ODCs en estado pendiente o enviada

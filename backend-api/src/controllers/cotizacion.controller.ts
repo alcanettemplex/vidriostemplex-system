@@ -2,9 +2,18 @@ import { Request, Response } from 'express';
 import { Cotizacion, ODP, Usuario } from '../models';
 
 const generarNumeroCOT = async (): Promise<string> => {
-  const count = await Cotizacion.count();
-  const year = new Date().getFullYear();
-  return `COT-${year}-${String(count + 1).padStart(4, '0')}`;
+  const { Op } = require('sequelize');
+  const last = await Cotizacion.findOne({
+    where: { numero_cot: { [Op.like]: 'COT-%' } },
+    order: [['numero_cot', 'DESC']],
+    attributes: ['numero_cot'],
+  });
+  let next = 1;
+  if (last) {
+    const parts = last.getDataValue('numero_cot').split('-');
+    next = parseInt(parts[parts.length - 1]) + 1;
+  }
+  return `COT-${String(next).padStart(4, '0')}`;
 };
 
 export const getCotizacionesByODP = async (req: Request, res: Response) => {

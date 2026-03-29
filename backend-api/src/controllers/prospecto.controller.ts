@@ -3,9 +3,17 @@ import { Prospecto, Cliente, Usuario, TomaMedidas, ODP, ODPItem } from '../model
 import sequelize from '../config/database';
 
 const generarNumeroProspecto = async (): Promise<string> => {
-  const count = await Prospecto.count();
-  const year = new Date().getFullYear();
-  return `PR-${year}-${String(count + 1).padStart(4, '0')}`;
+  const last = await Prospecto.findOne({
+    where: { numero_prospecto: { [require('sequelize').Op.like]: 'PR-%' } },
+    order: [['numero_prospecto', 'DESC']],
+    attributes: ['numero_prospecto'],
+  });
+  let next = 1;
+  if (last) {
+    const parts = last.getDataValue('numero_prospecto').split('-');
+    next = parseInt(parts[parts.length - 1]) + 1;
+  }
+  return `PR-${String(next).padStart(4, '0')}`;
 };
 
 // GET /prospectos — listar todos (con filtro de estado opcional)
@@ -168,11 +176,21 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
       : prospecto.getDataValue('descripcion') || '';
     const cantidad_total = servicios.reduce((acc: number, s: any) => acc + (Number(s.cantidad) || 0), 0) || 1;
 
-    // Contar ODPs para generar número
-    const { ODP: ODPModel } = await import('../models');
-    const count = await ODPModel.count({ transaction: t });
-    const year = new Date().getFullYear();
-    const numero_odp = `ODP-${year}-${String(count + 1).padStart(4, '0')}`;
+    // Generar número ODP consecutivo sin año
+    const { ODP: ODPModel, sequelize: seq } = await import('../models');
+    const { Op } = require('sequelize');
+    const lastODP = await ODPModel.findOne({
+      where: { numero_odp: { [Op.like]: 'ODP-%' } },
+      order: [['numero_odp', 'DESC']],
+      attributes: ['numero_odp'],
+      transaction: t,
+    });
+    let nextODP = 1;
+    if (lastODP) {
+      const parts = lastODP.getDataValue('numero_odp').split('-');
+      nextODP = parseInt(parts[parts.length - 1]) + 1;
+    }
+    const numero_odp = `ODP-${String(nextODP).padStart(4, '0')}`;
 
     // Datos de contacto de instalación: prioridad → body → TM → prospecto
     const nombre_recibe_final = nombre_recibe || tm?.contacto_obra || prospecto.getDataValue('nombre_contacto') || '';

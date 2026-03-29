@@ -179,8 +179,22 @@ export const createODP = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Usuario no autenticado' });
     }
 
+    // Generar número ODP consecutivo sin año
+    const lastODP = await ODP.findOne({
+      where: { numero_odp: { [require('sequelize').Op.like]: 'ODP-%' } },
+      order: [['numero_odp', 'DESC']],
+      attributes: ['numero_odp'],
+      transaction: t,
+    });
+    let nextODPNum = 1;
+    if (lastODP) {
+      const parts = lastODP.getDataValue('numero_odp').split('-');
+      nextODPNum = parseInt(parts[parts.length - 1]) + 1;
+    }
+    const generatedNumeroODP = `ODP-${String(nextODPNum).padStart(4, '0')}`;
+
     const odpData = {
-      numero_odp: data.numero_odp || `ODP-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+      numero_odp: data.numero_odp || generatedNumeroODP,
       cliente_id: data.cliente_id,
       asesor_id: data.asesor_id || userId,
       estado_produccion: data.estado_produccion,
