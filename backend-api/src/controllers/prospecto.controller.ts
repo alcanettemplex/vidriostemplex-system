@@ -5,7 +5,7 @@ import sequelize from '../config/database';
 const generarNumeroProspecto = async (): Promise<string> => {
   const count = await Prospecto.count();
   const year = new Date().getFullYear();
-  return `PRO-${year}-${String(count + 1).padStart(4, '0')}`;
+  return `PR-${year}-${String(count + 1).padStart(4, '0')}`;
 };
 
 // GET /prospectos — listar todos (con filtro de estado opcional)
