@@ -196,6 +196,18 @@ export const updateODC = async (req: Request, res: Response) => {
 
     await odc.update({ estado, proveedor, notas, ...(fechaRecepcion ? { fecha_recepcion: fechaRecepcion } : {}) });
 
+    // Al marcar como recibida: pasar SAPItems de esta ODC a en_existencia
+    if (estado === 'recibida' && estadoAnterior !== 'recibida') {
+      const odcItems = await ODCItem.findAll({ where: { odc_id: id } });
+      const sapItemIds = odcItems.map((i: any) => i.getDataValue('sap_item_id'));
+      if (sapItemIds.length > 0) {
+        await SAPItem.update(
+          { estado_compra: 'en_existencia' },
+          { where: { id: { [Op.in]: sapItemIds } } }
+        );
+      }
+    }
+
     // Notificar cuando se marca como recibida
     if (estado === 'recibida' && estadoAnterior !== 'recibida') {
       const sap = (odc as any).sap;
