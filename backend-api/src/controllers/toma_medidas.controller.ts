@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
-import { Op } from 'sequelize';
-import { TomaMedidas, ODP, Usuario, Cliente } from '../models';
+import { TomaMedidas, ODP, Usuario, Cliente, Prospecto } from '../models';
 
 const generarNumeroTM = async (): Promise<string> => {
   const count = await TomaMedidas.count();
@@ -24,21 +23,46 @@ export const getTMsByODP = async (req: Request, res: Response) => {
 
 export const createTM = async (req: Request, res: Response) => {
   try {
-    const { odp_id, fecha_visita, direccion, contacto_obra, telefono_obra, observaciones, medidas_json } = req.body;
+    const {
+      odp_id, prospecto_id,
+      fecha_visita, direccion, nombre_contacto, telefono_contacto,
+      contacto_obra, telefono_obra, observaciones, medidas_json,
+    } = req.body;
     const userId = (req as any).user?.id;
 
-    const odp = await ODP.findByPk(odp_id);
-    if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
+    // Requiere al menos odp_id o prospecto_id
+    if (!odp_id && !prospecto_id) {
+      return res.status(400).json({ error: 'Se requiere odp_id o prospecto_id' });
+    }
+
+    if (odp_id) {
+      const odp = await ODP.findByPk(odp_id);
+      if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
+    }
+
+    if (prospecto_id) {
+      const prospecto = await Prospecto.findByPk(prospecto_id);
+      if (!prospecto) return res.status(404).json({ error: 'Prospecto no encontrado' });
+    }
 
     const numero_tm = await generarNumeroTM();
+    const estado = fecha_visita ? 'programada' : 'solicitada';
 
     const tm = await TomaMedidas.create({
-      numero_tm, odp_id, realizado_por: userId,
-      fecha_visita, direccion, contacto_obra, telefono_obra,
-      observaciones, medidas_json: medidas_json || [],
+      numero_tm,
+      odp_id: odp_id || null,
+      prospecto_id: prospecto_id || null,
+      realizado_por: userId,
+      estado,
+      fecha_visita: fecha_visita || null,
+      direccion,
+      nombre_contacto,
+      telefono_contacto,
+      contacto_obra,
+      telefono_obra,
+      observaciones,
+      medidas_json: medidas_json || [],
     });
-
-    // La ODP queda en VISITA_TECNICA — avanza a MEDICION cuando se sube la foto
 
     const tmWithUser = await TomaMedidas.findByPk(tm.getDataValue('id'), {
       include: [{ model: Usuario, as: 'realizador', attributes: ['id', 'nombre_completo'] }],
@@ -50,11 +74,58 @@ export const createTM = async (req: Request, res: Response) => {
   }
 };
 
+// Asignar fecha de visita a una TM (pasa a estado 'programada')
+export const programarTM = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { fecha_visita } = req.body;
+    if (!fecha_visita) return res.status(400).json({ error: 'Se requiere fecha_visita' });
+
+    const tm = await TomaMedidas.findByPk(id);
+    if (!tm) return res.status(404).json({ error: 'TM no encontrada' });
+
+    await tm.update({ fecha_visita, estado: 'programada' });
+    res.json(tm);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al programar TM', detail: error.message });
+  }
+};
+
 // Panel de TMs para el jefe de producción — 3 secciones
+// Incluye TMs de ODPs (VISITA_TECNICA) y TMs de Prospectos (sin ODP)
 export const getTMPanel = async (_req: Request, res: Response) => {
   try {
-    // SOLICITADAS: ODPs en VISITA_TECNICA sin TM registrada
-    const odpsSolicitadas = await ODP.findAll({
+    const includeBase = [
+      { model: Usuario, as: 'realizador', attributes: ['id', 'nombre_completo'] },
+      {
+        model: ODP, as: 'odp', required: false,
+        attributes: ['id', 'numero_odp', 'fecha_entrega', 'fecha_creacion', 'direccion_instalacion',
+          'tipo_servicio', 'descripcion_pedido', 'observaciones', 'nombre_recibe', 'telefono_recibe'],
+        include: [
+          { model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] },
+          { model: Usuario, as: 'asesor', attributes: ['nombre_completo'] },
+        ],
+      },
+      {
+        model: Prospecto, as: 'prospecto', required: false,
+        attributes: ['id', 'numero_prospecto', 'nombre_contacto', 'telefono_contacto',
+          'email_contacto', 'direccion', 'descripcion', 'estado'],
+        include: [
+          { model: Usuario, as: 'asesor', attributes: ['nombre_completo'] },
+          { model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] },
+        ],
+      },
+    ];
+
+    // SOLICITADAS: TMs en estado 'solicitada'
+    const solicitadas = await TomaMedidas.findAll({
+      where: { estado: 'solicitada' },
+      include: includeBase,
+      order: [['fecha_creacion', 'ASC']],
+    });
+
+    // También incluir ODPs en VISITA_TECNICA sin TM registrada
+    const odpsSinTM = await ODP.findAll({
       where: { estado_produccion: 'VISITA_TECNICA' },
       include: [
         { model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] },
@@ -63,44 +134,29 @@ export const getTMPanel = async (_req: Request, res: Response) => {
       ],
       order: [['fecha_entrega', 'ASC']],
     });
-    const solicitadas = odpsSolicitadas.filter((o: any) => !o.tomas_medidas?.length);
+    const odpsSinTMFiltradas = odpsSinTM.filter((o: any) => !o.tomas_medidas?.length);
 
-    // PROGRAMADAS: ODPs en VISITA_TECNICA con TM que tiene fecha_visita pero sin medidas cargadas
-    const odpsProgramadas = await ODP.findAll({
-      where: { estado_produccion: 'VISITA_TECNICA' },
-      include: [
-        { model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] },
-        { model: Usuario, as: 'asesor', attributes: ['nombre_completo'] },
-        {
-          model: TomaMedidas, as: 'tomas_medidas', required: true,
-          where: { fecha_visita: { [Op.ne]: null } },
-        },
-      ],
-      order: [['fecha_entrega', 'ASC']],
+    // PROGRAMADAS: TMs en estado 'programada' (con fecha_visita pero sin croquis)
+    const programadas = await TomaMedidas.findAll({
+      where: { estado: 'programada' },
+      include: includeBase,
+      order: [['fecha_visita', 'ASC']],
     });
-    const programadas = odpsProgramadas.filter((o: any) =>
-      o.tomas_medidas?.some((tm: any) => !tm.croquis_url)
-    );
 
-    // REALIZADAS: ODPs en MEDICION con TM completa (con medidas)
-    const odpsRealizadas = await ODP.findAll({
-      where: { estado_produccion: 'MEDICION' },
-      include: [
-        { model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] },
-        { model: Usuario, as: 'asesor', attributes: ['nombre_completo'] },
-        {
-          model: TomaMedidas, as: 'tomas_medidas', required: true,
-          include: [{ model: Usuario, as: 'realizador', attributes: ['nombre_completo'] }],
-        },
-      ],
+    // REALIZADAS: TMs en estado 'realizada' (últimas 50)
+    const realizadas = await TomaMedidas.findAll({
+      where: { estado: 'realizada' },
+      include: includeBase,
       order: [['fecha_creacion', 'DESC']],
       limit: 50,
     });
-    const tmsRealizadas = odpsRealizadas.filter((o: any) =>
-      o.tomas_medidas?.some((tm: any) => tm.croquis_url)
-    );
 
-    res.json({ solicitadas, programadas, realizadas: tmsRealizadas });
+    res.json({
+      solicitadas,
+      odpsSinTM: odpsSinTMFiltradas,
+      programadas,
+      realizadas,
+    });
   } catch (error: any) {
     res.status(500).json({ error: 'Error al obtener panel TM', detail: error.message });
   }
@@ -129,12 +185,15 @@ export const uploadFotoTM = async (req: Request, res: Response) => {
     if (!file) return res.status(400).json({ error: 'No se recibió ninguna foto' });
 
     const foto_url = file.path || file.secure_url;
-    await tm.update({ croquis_url: foto_url });
+    await tm.update({ croquis_url: foto_url, estado: 'realizada' });
 
-    // Avanzar la ODP a MEDICION si está en VISITA_TECNICA
-    const odp = await ODP.findByPk(tm.getDataValue('odp_id'));
-    if (odp && odp.getDataValue('estado_produccion') === 'VISITA_TECNICA') {
-      await odp.update({ estado_produccion: 'MEDICION', chk_medicion: true });
+    // Si la TM tiene ODP vinculada, avanzar la ODP a MEDICION si está en VISITA_TECNICA
+    const odp_id = tm.getDataValue('odp_id');
+    if (odp_id) {
+      const odp = await ODP.findByPk(odp_id);
+      if (odp && odp.getDataValue('estado_produccion') === 'VISITA_TECNICA') {
+        await odp.update({ estado_produccion: 'MEDICION', chk_medicion: true });
+      }
     }
 
     res.json({ croquis_url: foto_url });
