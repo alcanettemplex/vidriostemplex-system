@@ -458,6 +458,14 @@ const ComprasPage: React.FC = () => {
     } catch { } finally { setLoading(false); }
   }, []);
 
+  // Cargar conteos de todos los tabs al montar para mostrar badges
+  useEffect(() => {
+    const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+    axios.get(`${API}/api/compras/panel`, { headers: h }).then(r => setSapsPendientes(r.data)).catch(() => {});
+    axios.get(`${API}/api/compras/seguimiento`, { headers: h }).then(r => setOdcsSeguimiento(r.data)).catch(() => {});
+    axios.get(`${API}/api/compras/recibidas`, { headers: h }).then(r => setOdcsRecibidas(r.data)).catch(() => {});
+  }, []);
+
   useEffect(() => { fetchTab(tab); setBusqueda(''); }, [tab, fetchTab]);
 
   const refresh = () => fetchTab(tab);
