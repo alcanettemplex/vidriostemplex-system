@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, AlertCircle, Package, ShoppingCart, CheckCircle2, Clock } from 'lucide-react';
+import { X, Plus, AlertCircle, Package, ShoppingCart, CheckCircle2, Clock, Edit3, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -54,26 +54,34 @@ interface Props {
 }
 
 const ESTADO_BADGE: Record<string, { label: string; className: string }> = {
-  pendiente:    { label: 'Pendiente',  className: 'bg-amber-100 text-amber-700 border-amber-200' },
-  enviada:      { label: 'Enviada',    className: 'bg-blue-100 text-blue-700 border-blue-200' },
-  recibida:     { label: 'Recibida',   className: 'bg-green-100 text-green-700 border-green-200' },
+  pendiente: { label: 'Pendiente', className: 'bg-amber-100 text-amber-700 border-amber-200' },
+  enviada:   { label: 'Enviada',   className: 'bg-blue-100 text-blue-700 border-blue-200' },
+  recibida:  { label: 'Recibida',  className: 'bg-green-100 text-green-700 border-green-200' },
 };
 
 const ITEM_ESTADO: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
-  pendiente:     { icon: <Clock className="w-3.5 h-3.5" />, label: 'Pendiente',     className: 'text-amber-600 bg-amber-50 border-amber-200' },
+  pendiente:     { icon: <Clock className="w-3.5 h-3.5" />,       label: 'Pendiente',     className: 'text-amber-600 bg-amber-50 border-amber-200' },
   en_odc:        { icon: <ShoppingCart className="w-3.5 h-3.5" />, label: 'En ODC',        className: 'text-blue-600 bg-blue-50 border-blue-200' },
-  en_existencia: { icon: <Package className="w-3.5 h-3.5" />, label: 'En existencia', className: 'text-green-600 bg-green-50 border-green-200' },
+  en_existencia: { icon: <Package className="w-3.5 h-3.5" />,      label: 'En existencia', className: 'text-green-600 bg-green-50 border-green-200' },
 };
 
 const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh }) => {
   const [sap, setSap] = useState<SAPConODCs>(sapInicial);
-  const [modo, setModo] = useState<'ver' | 'crear'>('ver');
+  const [modo, setModo] = useState<'ver' | 'crear' | 'editar'>('ver');
+
+  // Estados modo crear
   const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
   const [proveedor, setProveedor] = useState('');
   const [notas, setNotas] = useState('');
+
+  // Estados modo editar
+  const [editandoODC, setEditandoODC] = useState<ODC | null>(null);
+  const [editProveedor, setEditProveedor] = useState('');
+  const [editNotas, setEditNotas] = useState('');
+  const [editEstado, setEditEstado] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [editandoEstado, setEditandoEstado] = useState<{ id: number; estado: string } | null>(null);
 
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
@@ -82,7 +90,9 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
     try {
       const res = await axios.get(`${API}/api/compras/sap/${sap.id}`, { headers });
       setSap(res.data);
-    } catch { toast.error('Error al recargar SAP'); }
+    } catch {
+      toast.error('Error al recargar SAP');
+    }
   };
 
   const itemsPendientes = sap.items.filter(i => i.estado_compra === 'pendiente');
@@ -147,18 +157,43 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
       setDeletingId(null);
       await recargar();
       onRefresh();
-    } catch { toast.error('Error al eliminar ODC'); }
+    } catch {
+      toast.error('Error al eliminar ODC');
+    }
   };
 
-  const handleActualizarEstado = async () => {
-    if (!editandoEstado) return;
+  const handleEditarODC = async () => {
+    if (!editandoODC) return;
+    if (!editProveedor.trim()) { toast.error('Ingresa el proveedor'); return; }
+    setLoading(true);
     try {
-      await axios.put(`${API}/api/compras/odc/${editandoEstado.id}`,
-        { estado: editandoEstado.estado }, { headers });
-      toast.success('Estado actualizado');
-      setEditandoEstado(null);
+      await axios.put(
+        `${API}/api/compras/odc/${editandoODC.id}`,
+        { proveedor: editProveedor, notas: editNotas, estado: editEstado },
+        { headers }
+      );
+      toast.success('ODC actualizada');
+      setModo('ver');
+      setEditandoODC(null);
       await recargar();
-    } catch { toast.error('Error al actualizar estado'); }
+      onRefresh();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Error al actualizar ODC');
+    } finally { setLoading(false); }
+  };
+
+  const abrirEditar = (odc: ODC) => {
+    setEditandoODC(odc);
+    setEditProveedor(odc.proveedor);
+    setEditNotas(odc.notas || '');
+    setEditEstado(odc.estado);
+    setModo('editar');
+  };
+
+  const volverAVer = () => {
+    setModo('ver');
+    setSeleccionados(new Set());
+    setEditandoODC(null);
   };
 
   const totalItems = sap.items.length;
@@ -176,19 +211,27 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
         <div className="flex justify-between items-start px-6 py-4 border-b border-slate-100 shrink-0">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h2 className="text-lg font-bold text-slate-800">Gestión de Compras — {sap.numero_sap}</h2>
-              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${pct === 100 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
-                {pct === 100 ? 'Completado' : 'Pendiente'}
-              </span>
+              <h2 className="text-lg font-bold text-slate-800">
+                {modo === 'editar' && editandoODC
+                  ? `Editar ODC — ${editandoODC.numero_odc}`
+                  : `Gestión de Compras — ${sap.numero_sap}`}
+              </h2>
+              {modo === 'ver' && (
+                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${pct === 100 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
+                  {pct === 100 ? 'Completado' : 'Pendiente'}
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500">{odp.numero_odp} · {odp.cliente?.nombre_razon_social}</p>
-            {/* Barra de progreso */}
-            <div className="mt-2 flex items-center gap-2">
-              <div className="w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+            {/* Barra de progreso — solo en modo ver */}
+            {modo === 'ver' && (
+              <div className="mt-2 flex items-center gap-2">
+                <div className="w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                </div>
+                <span className="text-xs text-slate-500">{gestionados}/{totalItems} items gestionados</span>
               </div>
-              <span className="text-xs text-slate-500">{gestionados}/{totalItems} items gestionados</span>
-            </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {modo === 'ver' && itemsPendientes.length > 0 && (
@@ -199,8 +242,11 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                 <Plus className="w-4 h-4" /> Nueva ODC
               </button>
             )}
-            {modo === 'crear' && (
-              <button onClick={() => { setModo('ver'); setSeleccionados(new Set()); }} className="px-3 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition">
+            {(modo === 'crear' || modo === 'editar') && (
+              <button
+                onClick={volverAVer}
+                className="px-3 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition"
+              >
                 ← Volver
               </button>
             )}
@@ -283,35 +329,22 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                               {odc.proveedor} · {odc.creador?.nombre_completo} · {new Date(odc.fecha_creacion).toLocaleDateString('es-CO')}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {/* Cambiar estado */}
-                            {editandoEstado?.id === odc.id ? (
-                              <div className="flex items-center gap-2">
-                                <select
-                                  value={editandoEstado.estado}
-                                  onChange={e => setEditandoEstado({ id: odc.id, estado: e.target.value })}
-                                  className="text-xs border border-slate-200 rounded-lg px-2 py-1 focus:outline-none"
-                                >
-                                  <option value="pendiente">Pendiente</option>
-                                  <option value="enviada">Enviada</option>
-                                  <option value="recibida">Recibida</option>
-                                </select>
-                                <button onClick={handleActualizarEstado} className="text-xs font-bold px-2 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">OK</button>
-                                <button onClick={() => setEditandoEstado(null)} className="text-xs text-slate-400 hover:text-slate-600">✕</button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setEditandoEstado({ id: odc.id, estado: odc.estado })}
-                                className="text-xs font-bold px-3 py-1 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50"
-                              >
-                                Cambiar estado
-                              </button>
-                            )}
+                          <div className="flex items-center gap-1.5">
+                            {/* Editar */}
+                            <button
+                              onClick={() => abrirEditar(odc)}
+                              title="Editar ODC"
+                              className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" /> Editar
+                            </button>
+                            {/* Eliminar */}
                             <button
                               onClick={() => setDeletingId(odc.id)}
-                              className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                              title="Eliminar ODC"
+                              className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 border border-slate-200 text-slate-400 rounded-lg hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition"
                             >
-                              <X className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" /> Eliminar
                             </button>
                           </div>
                         </div>
@@ -422,7 +455,7 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
               </div>
 
               <div className="flex gap-3 pt-2 border-t border-slate-100">
-                <button onClick={() => { setModo('ver'); setSeleccionados(new Set()); }} className="flex-1 py-3 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+                <button onClick={volverAVer} className="flex-1 py-3 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
                   Cancelar
                 </button>
                 <button
@@ -435,6 +468,89 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
               </div>
             </div>
           )}
+
+          {/* ── MODO EDITAR ODC ── */}
+          {modo === 'editar' && editandoODC && (
+            <div className="p-6 space-y-5">
+
+              {/* Campos editables */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    Proveedor <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    value={editProveedor}
+                    onChange={e => setEditProveedor(e.target.value)}
+                    placeholder="Nombre del proveedor..."
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Notas (opcional)</label>
+                  <input
+                    value={editNotas}
+                    onChange={e => setEditNotas(e.target.value)}
+                    placeholder="Observaciones..."
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="max-w-xs">
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Estado</label>
+                <select
+                  value={editEstado}
+                  onChange={e => setEditEstado(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="pendiente">Pendiente</option>
+                  <option value="enviada">Enviada</option>
+                  <option value="recibida">Recibida</option>
+                </select>
+              </div>
+
+              {/* Items de la ODC (solo lectura) */}
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Items de esta ODC (no editables)</p>
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-700 text-white text-[10px] uppercase tracking-wider">
+                      <tr>
+                        <th className="px-3 py-2 w-10 text-center">ITEM</th>
+                        <th className="px-3 py-2 w-28">CÓDIGO</th>
+                        <th className="px-3 py-2">DESCRIPCIÓN</th>
+                        <th className="px-3 py-2 w-20 text-center">CANT.</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {editandoODC.items.map((it, i) => (
+                        <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                          <td className="px-3 py-2 text-center font-black text-slate-600">{it.item}</td>
+                          <td className="px-3 py-2 font-mono text-blue-700 font-bold">{it.codigo || '—'}</td>
+                          <td className="px-3 py-2 text-slate-700">{it.descripcion || '—'}</td>
+                          <td className="px-3 py-2 text-center font-bold text-slate-600">{it.cantidad}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2 border-t border-slate-100">
+                <button onClick={volverAVer} className="flex-1 py-3 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleEditarODC}
+                  disabled={loading || !editProveedor.trim()}
+                  className="flex-1 py-3 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
+                >
+                  {loading ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -442,8 +558,12 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
       <AnimatePresence>
         {deletingId !== null && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50">
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center"
+            >
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
               <h3 className="font-bold text-slate-800 mb-2">¿Eliminar esta ODC?</h3>
               <p className="text-sm text-slate-500 mb-5">Los items vuelven a estado pendiente.</p>
