@@ -116,7 +116,12 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const { tipo_servicio, descripcion_pedido, fecha_entrega, valor_total, forma_pago, observaciones } = req.body;
+    const {
+      servicios_detalle, fecha_entrega, valor_total, forma_pago, observaciones,
+      nombre_recibe, telefono_recibe, cargo_recibe, direccion_instalacion,
+      matizado, pelicula, acarreo, instalacion, huacal, carton,
+      proveedor_vidrio, numero_pedido_proveedor,
+    } = req.body;
     const userId = (req as any).user?.id;
 
     const prospecto = await Prospecto.findByPk(id, {
@@ -134,16 +139,24 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
 
     const tm = (prospecto as any).tomas_medidas?.[0];
 
+    // Derivar tipo_servicio y descripcion_pedido de servicios_detalle
+    const servicios = Array.isArray(servicios_detalle) && servicios_detalle.length > 0 ? servicios_detalle : [];
+    const tipo_servicio = servicios[0]?.tipo_servicio || '';
+    const descripcion_pedido = servicios.length > 0
+      ? servicios.map((s: any) => `${s.cantidad}x ${s.tipo_servicio}: ${s.descripcion}`).join('\n')
+      : prospecto.getDataValue('descripcion') || '';
+    const cantidad_total = servicios.reduce((acc: number, s: any) => acc + (Number(s.cantidad) || 0), 0) || 1;
+
     // Contar ODPs para generar número
     const { ODP: ODPModel } = await import('../models');
     const count = await ODPModel.count({ transaction: t });
     const year = new Date().getFullYear();
     const numero_odp = `ODP-${year}-${String(count + 1).padStart(4, '0')}`;
 
-    // Datos de contacto desde TM si existen, sino del prospecto
-    const nombre_recibe = tm?.contacto_obra || prospecto.getDataValue('nombre_contacto') || '';
-    const telefono_recibe = tm?.telefono_obra || prospecto.getDataValue('telefono_contacto') || '';
-    const direccion_instalacion = tm?.direccion || prospecto.getDataValue('direccion') || '';
+    // Datos de contacto: prioridad → formulario → TM → prospecto
+    const nombre_recibe_final = nombre_recibe || tm?.contacto_obra || prospecto.getDataValue('nombre_contacto') || '';
+    const telefono_recibe_final = telefono_recibe || tm?.telefono_obra || prospecto.getDataValue('telefono_contacto') || '';
+    const direccion_final = direccion_instalacion || tm?.direccion || prospecto.getDataValue('direccion') || '';
 
     const odp = await ODPModel.create({
       numero_odp,
@@ -151,14 +164,25 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
       asesor_id: userId,
       estado_produccion: 'EN_ESPERA',
       tipo_servicio,
-      descripcion_pedido: descripcion_pedido || prospecto.getDataValue('descripcion'),
-      fecha_entrega,
+      descripcion_pedido,
+      servicios_detalle: servicios.length > 0 ? servicios : null,
+      cantidad_total,
+      fecha_entrega: fecha_entrega || null,
       valor_total: valor_total || 0,
       forma_pago,
       observaciones,
-      nombre_recibe,
-      telefono_recibe,
-      direccion_instalacion,
+      nombre_recibe: nombre_recibe_final,
+      telefono_recibe: telefono_recibe_final,
+      cargo_recibe: cargo_recibe || null,
+      direccion_instalacion: direccion_final,
+      matizado: matizado || false,
+      pelicula: pelicula || false,
+      acarreo: acarreo || false,
+      instalacion: instalacion || false,
+      huacal: huacal || false,
+      carton: carton || false,
+      proveedor_vidrio: proveedor_vidrio || null,
+      numero_pedido_proveedor: numero_pedido_proveedor || null,
     }, { transaction: t });
 
     const odp_id = odp.getDataValue('id');
