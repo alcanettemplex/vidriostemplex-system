@@ -28,12 +28,14 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [fotos, setFotos] = useState<{ file: File; preview: string }[]>([]);
+  // Pre-cargar desde la TM ya existente si viene de prospecto (odp.id = null)
+  const tmPreload = !odp.id ? odp.tomas_medidas?.[0] : null;
   const [formProgramar, setFormProgramar] = useState({
-    fecha_visita: '',
-    direccion: odp.direccion_instalacion || '',
-    contacto_obra: odp.nombre_recibe || '',
-    telefono_obra: odp.telefono_recibe || '',
-    observaciones: ''
+    fecha_visita: tmPreload?.fecha_visita || '',
+    direccion: tmPreload?.direccion || odp.direccion_instalacion || '',
+    contacto_obra: tmPreload?.contacto_obra || odp.nombre_recibe || '',
+    telefono_obra: tmPreload?.telefono_obra || odp.telefono_recibe || '',
+    observaciones: tmPreload?.observaciones || '',
   });
   const fotoInputRef = useRef<HTMLInputElement>(null);
 
@@ -45,6 +47,21 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
   const fetchTMs = async () => {
     setFetching(true);
     try {
+      // Si no hay odp.id (TM de prospecto), usar las tomas_medidas ya incluidas en el shape
+      if (!odp.id) {
+        const data: TM[] = odp.tomas_medidas || [];
+        setTMs(data);
+        if (data.length === 0) {
+          setMode('programar');
+        } else {
+          const sinFoto = data.find((tm: TM) => !tm.croquis_url);
+          if (sinFoto) { setSelected(sinFoto); setMode('fotos'); }
+          else { setSelected(data[0]); setMode('view'); }
+        }
+        setFetching(false);
+        return;
+      }
+
       const res = await axios.get(`${API}/api/documentos/tm/odp/${odp.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -52,16 +69,13 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
       setTMs(data);
 
       if (data.length === 0) {
-        // Sin TM: abrir en Paso 1 — programar visita
         setMode('programar');
       } else {
         const sinFoto = data.find(tm => !tm.croquis_url);
         if (sinFoto) {
-          // Tiene TM programada pero sin foto: abrir en Paso 2 — subir fotos
           setSelected(sinFoto);
           setMode('fotos');
         } else {
-          // Todo completo: ver la TM más reciente
           setSelected(data[0]);
           setMode('view');
         }

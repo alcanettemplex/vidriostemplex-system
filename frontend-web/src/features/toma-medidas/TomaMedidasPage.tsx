@@ -435,20 +435,25 @@ const TomaMedidasPage: React.FC = () => {
       };
       setTmModal(odpShape);
     } else if ('odp' in source && source.prospecto) {
-      // TM de prospecto — usar datos del prospecto como ODP-shape mínimo
+      // TM de prospecto — construir ODP-shape con datos del prospecto Y de la TM
       const prosp = source.prospecto;
       setTmModal({
         id: null,
         numero_odp: prosp.numero_prospecto,
         cliente: prosp.cliente,
         asesor: prosp.asesor,
-        direccion_instalacion: prosp.direccion,
+        direccion_instalacion: source.direccion || prosp.direccion,
         descripcion_pedido: prosp.descripcion,
-        observaciones: null,
-        nombre_recibe: prosp.nombre_contacto,
-        telefono_recibe: prosp.telefono_contacto,
+        observaciones: source.observaciones,
+        nombre_recibe: source.nombre_contacto || prosp.nombre_contacto,
+        telefono_recibe: source.telefono_contacto || prosp.telefono_contacto,
         fecha_entrega: null,
-        tomas_medidas: [source],
+        tomas_medidas: [{
+          ...source,
+          // campos que TMModal espera en formato TM
+          contacto_obra: source.nombre_contacto || prosp.nombre_contacto,
+          telefono_obra: source.telefono_contacto || prosp.telefono_contacto,
+        }],
         _prospecto_id: prosp.id,
       });
     } else {
