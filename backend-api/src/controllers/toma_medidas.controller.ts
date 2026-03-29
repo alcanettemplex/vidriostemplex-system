@@ -196,7 +196,18 @@ export const uploadFotoTM = async (req: Request, res: Response) => {
     if (!file) return res.status(400).json({ error: 'No se recibió ninguna foto' });
 
     const foto_url = file.path || file.secure_url;
-    await tm.update({ croquis_url: foto_url, estado: 'realizada' });
+
+    // Acumular fotos en medidas_json (array de URLs) en lugar de sobreescribir
+    const fotosActuales: string[] = tm.getDataValue('medidas_json') || [];
+    const nuevasFotos = Array.isArray(fotosActuales) && fotosActuales.every(f => typeof f === 'string')
+      ? [...fotosActuales, foto_url]
+      : [foto_url];
+
+    await tm.update({
+      croquis_url: nuevasFotos[0], // primera foto como referencia principal
+      medidas_json: nuevasFotos,
+      estado: 'realizada',
+    });
 
     // Si la TM tiene ODP vinculada, avanzar la ODP a MEDICION si está en VISITA_TECNICA
     const odp_id = tm.getDataValue('odp_id');

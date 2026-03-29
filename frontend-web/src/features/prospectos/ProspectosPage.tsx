@@ -15,6 +15,7 @@ const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 interface TM {
   id: number; numero_tm: string; estado: string; fecha_visita: string | null; croquis_url: string | null;
+  medidas_json: string[] | null;
   direccion: string | null; nombre_contacto: string | null; telefono_contacto: string | null; observaciones: string | null;
 }
 
@@ -347,17 +348,23 @@ const ProspectosPage: React.FC = () => {
                                   </div>
                                 )}
 
-                                {/* Croquis / foto de medidas */}
-                                {tmItem.croquis_url ? (
+                                {/* Galería de fotos de medidas */}
+                                {tmItem.medidas_json && tmItem.medidas_json.length > 0 ? (
                                   <div>
                                     <p className="text-xs font-bold text-emerald-700 mb-2 flex items-center gap-1">
-                                      <Image className="w-3 h-3" /> Foto de medidas relevadas
+                                      <Image className="w-3 h-3" /> Fotos de medidas ({tmItem.medidas_json.length})
                                     </p>
-                                    <img
-                                      src={tmItem.croquis_url}
-                                      alt={`Croquis ${tmItem.numero_tm}`}
-                                      className="rounded-lg border border-emerald-200 max-h-52 object-contain w-full bg-white"
-                                    />
+                                    <div className="grid grid-cols-2 gap-2">
+                                      {tmItem.medidas_json.map((url, idx) => (
+                                        <a key={idx} href={url} target="_blank" rel="noreferrer">
+                                          <img
+                                            src={url}
+                                            alt={`Foto ${idx + 1} — ${tmItem.numero_tm}`}
+                                            className="rounded-lg border border-emerald-200 w-full object-cover aspect-square bg-white hover:opacity-90 transition"
+                                          />
+                                        </a>
+                                      ))}
+                                    </div>
                                   </div>
                                 ) : tmItem.estado === 'solicitada' ? (
                                   <p className="text-xs text-amber-600 italic">Pendiente de programar por jefe de producción</p>

@@ -14,6 +14,7 @@ interface TM {
   telefono_obra: string;
   observaciones: string;
   croquis_url: string | null;
+  medidas_json: string[] | null;
   fecha_creacion: string;
   realizador: { nombre_completo: string };
 }
@@ -384,15 +385,18 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
                   </table>
                 </div>
 
-                {/* Foto de medidas */}
+                {/* Fotos de medidas */}
                 <div className="mb-6">
                   <h3 className="font-bold bg-black text-white px-3 py-1.5 mb-2 uppercase text-xs tracking-wider">
-                    Foto de Medidas Relevadas en Campo
+                    Fotos de Medidas Relevadas en Campo
+                    {selected.medidas_json?.length ? ` (${selected.medidas_json.length})` : ''}
                   </h3>
-                  {selected.croquis_url ? (
-                    <div className="border border-black p-2">
-                      <img src={selected.croquis_url} alt={`Medidas ${selected.numero_tm}`}
-                        className="w-full max-h-96 object-contain" />
+                  {selected.medidas_json && selected.medidas_json.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2 border border-black p-2">
+                      {selected.medidas_json.map((url, idx) => (
+                        <img key={idx} src={url} alt={`Foto ${idx + 1} — ${selected.numero_tm}`}
+                          className="w-full object-contain max-h-72 border border-gray-200" />
+                      ))}
                     </div>
                   ) : (
                     <div className="border border-dashed border-gray-400 p-8 text-center text-gray-400 min-h-[120px] flex items-center justify-center">
