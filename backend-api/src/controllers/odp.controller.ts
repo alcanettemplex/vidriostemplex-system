@@ -122,7 +122,6 @@ export const getODP = async (req: Request, res: Response) => {
             {
               model: OrdenCompra, as: 'ordenes_compra',
               attributes: ['id', 'numero_odc', 'proveedor', 'estado', 'fecha_creacion'],
-              include: [{ model: (await import('../models')).ODCItem, as: 'items', separate: true }],
             },
           ],
           order: [['fecha_creacion', 'DESC']],
@@ -161,7 +160,21 @@ export const getODP = async (req: Request, res: Response) => {
     });
 
     if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
-    res.json(odp);
+
+    // Enriquecer ordenes_compra de cada SAP con sus items (separate query para evitar limitación Sequelize con includes de 3er nivel)
+    const { ODCItem } = await import('../models');
+    const odpJson: any = odp.toJSON();
+    if (odpJson.saps) {
+      for (const sap of odpJson.saps) {
+        if (sap.ordenes_compra) {
+          for (const odc of sap.ordenes_compra) {
+            odc.items = await ODCItem.findAll({ where: { odc_id: odc.id }, raw: true });
+          }
+        }
+      }
+    }
+
+    res.json(odpJson);
   } catch (error: any) {
     console.error('Error getODP:', error.message);
     res.status(500).json({ error: 'Error al obtener ODP' });
