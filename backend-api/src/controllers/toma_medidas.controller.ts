@@ -2,9 +2,20 @@ import { Request, Response } from 'express';
 import { TomaMedidas, ODP, Usuario, Cliente, Prospecto } from '../models';
 
 const generarNumeroTM = async (): Promise<string> => {
-  const count = await TomaMedidas.count();
   const year = new Date().getFullYear();
-  return `TM-${year}-${String(count + 1).padStart(4, '0')}`;
+  const prefix = `TM-${year}-`;
+  // Busca el número más alto del año actual para evitar colisiones
+  const last = await TomaMedidas.findOne({
+    where: { numero_tm: { [require('sequelize').Op.like]: `${prefix}%` } },
+    order: [['numero_tm', 'DESC']],
+    attributes: ['numero_tm'],
+  });
+  let next = 1;
+  if (last) {
+    const parts = last.getDataValue('numero_tm').split('-');
+    next = parseInt(parts[parts.length - 1]) + 1;
+  }
+  return `${prefix}${String(next).padStart(4, '0')}`;
 };
 
 export const getTMsByODP = async (req: Request, res: Response) => {
