@@ -69,7 +69,7 @@ const TABS = [
 
 // ─── Componente tarjeta ODC (Seguimiento / Recibidas) ───────────────────────
 
-const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void }> = ({ odc, onActualizar }) => {
+const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?: (nuevoEstado: string) => void }> = ({ odc, onActualizar, onEstadoCambiado }) => {
   const [loading, setLoading] = useState(false);
   const [verDetalle, setVerDetalle] = useState(false);
   const [editando, setEditando] = useState(false);
@@ -91,8 +91,12 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void }> = ({ odc, onActu
         { proveedor: editProveedor, notas: editNotas, estado: editEstado },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      onActualizar();
       setEditando(false);
+      if (editEstado === 'recibida' && odc.estado !== 'recibida') {
+        onEstadoCambiado?.('recibida');
+      } else {
+        onActualizar();
+      }
     } catch { } finally { setLoading(false); }
   };
 
@@ -453,6 +457,12 @@ const ComprasPage: React.FC = () => {
 
   const refresh = () => fetchTab(tab);
 
+  const refreshTrasRecibida = () => {
+    setTab('recibidas');
+    fetchTab('recibidas');
+    fetchTab('seguimiento');
+  };
+
   // Filtros por búsqueda
   const filtrarSaps = (list: SAPPendiente[]) => {
     const q = busqueda.toLowerCase();
@@ -628,7 +638,7 @@ const ComprasPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="grid gap-4">
-                  {lista.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} />)}
+                  {lista.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} onEstadoCambiado={refreshTrasRecibida} />)}
                 </div>
               );
             })()}
