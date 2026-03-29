@@ -137,7 +137,7 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                                             {odc?.numero_odc?.split('-').pop() || ''}
                                         </td>
                                         <td className="text-center text-[9px]">
-                                            {odc?.items?.map((it: any) => it.codigo || it.descripcion).join(', ') || ''}
+                                            {odc?.items?.map((it: any) => it.item).join(', ') || ''}
                                         </td>
                                         <td className="text-center text-[9px]">
                                             {odc ? `${odc.proveedor || ''} ${odc.fecha_creacion ? new Date(odc.fecha_creacion).toLocaleDateString('es-CO') : ''}`.trim() : ''}
