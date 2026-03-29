@@ -211,6 +211,15 @@ const CardTM: React.FC<{
 
           <p className="font-bold text-slate-800 text-sm truncate">{contacto}</p>
 
+          {(tm.telefono_contacto || (esProspecto && tm.prospecto!.telefono_contacto) || tm.odp?.telefono_recibe) && (
+            <p className="text-xs text-slate-600 flex items-center gap-1 mt-0.5">
+              <Phone className="w-3 h-3 flex-shrink-0 text-slate-400" />
+              <span className="font-semibold">
+                {tm.telefono_contacto || (esProspecto ? tm.prospecto!.telefono_contacto : tm.odp?.telefono_recibe)}
+              </span>
+            </p>
+          )}
+
           {asesor && (
             <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
               <User className="w-3 h-3 flex-shrink-0" />Asesor: <span className="font-semibold">{asesor}</span>
