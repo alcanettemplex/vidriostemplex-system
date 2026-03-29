@@ -139,9 +139,9 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
         });
       }
-      toast.success('Fotos subidas · ODP avanzada a MEDICION · chk_medicion activado');
+      toast.success('Fotos subidas — TM marcada como realizada');
       setFotos([]);
-      await fetchTMs();
+      onClose();
     } catch {
       toast.error('Error al subir las fotos');
     } finally {
