@@ -8,6 +8,10 @@ import {
   updateODC,
   deleteODC,
   toggleExistencia,
+  updateExistPerf,
+  getInventarioPorCodigo,
+  deleteInventarioPerfileria,
+  getCodigosPerfileria,
 } from '../controllers/odc.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole, RolUsuario } from '../middlewares/rbacMiddleware';
@@ -24,5 +28,9 @@ router.post('/odc', authMiddleware, rc('admin', 'gerencia', 'compras'), createOD
 router.put('/odc/:id', authMiddleware, rc('admin', 'gerencia', 'compras'), updateODC);
 router.delete('/odc/:id', authMiddleware, rc('admin', 'gerencia', 'compras'), deleteODC);
 router.patch('/sap-item/:id/existencia', authMiddleware, rc('admin', 'gerencia', 'compras'), toggleExistencia);
+router.patch('/sap-item/:id/exist-perf', authMiddleware, rc('admin', 'gerencia', 'compras'), updateExistPerf);
+router.get('/codigos-perfileria', authMiddleware, rc('admin', 'gerencia', 'compras'), getCodigosPerfileria);
+router.get('/inventario-perfileria/:codigo', authMiddleware, rc('admin', 'gerencia', 'compras'), getInventarioPorCodigo);
+router.delete('/inventario-perfileria/:consecutivo', authMiddleware, rc('admin', 'gerencia', 'compras'), deleteInventarioPerfileria);
 
 export default router;

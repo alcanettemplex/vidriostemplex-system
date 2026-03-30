@@ -23,9 +23,32 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
 
     // Totales generales
     const totalAbonado = (await ODP.sum('abono')) || 0;
-    const totalPendiente = (await ODP.sum('pendiente')) || 0;
-    const totalFacturadas = await ODP.count({ where: { estado_facturacion: 'FACTURADA' } });
-    const totalPendFactura = await ODP.count({ where: { estado_facturacion: 'PENDIENTE' } });
+
+    // Pendiente real: valor_total - abono para ODPs no canceladas (evita NULLs en campo pendiente)
+    const odpsActivas = await ODP.findAll({
+      where: { estado_caja: { [Op.notIn]: ['CANCELADO'] } },
+      attributes: ['valor_total', 'abono'],
+      raw: true,
+    });
+    const totalPendiente = (odpsActivas as any[]).reduce((sum, o) => {
+      return sum + Math.max(0, Number(o.valor_total || 0) - Number(o.abono || 0));
+    }, 0);
+
+    // Facturadas: tiene numero FE o estado = FACTURADA
+    const totalFacturadas = await ODP.count({
+      where: {
+        [Op.or]: [
+          { estado_facturacion: 'FACTURADA' },
+          { factura_electronica: { [Op.ne]: null } },
+        ],
+      },
+    });
+    const totalPendFactura = await ODP.count({
+      where: {
+        estado_facturacion: 'PENDIENTE',
+        factura_electronica: null,
+      },
+    });
 
     // Totales del mes
     const abonoMes =
@@ -167,10 +190,11 @@ export const registrarPago = async (req: Request, res: Response) => {
     );
 
     // Actualizar financiero de la ODP
+    // Derivar pendiente desde valor_total - abono para evitar errores por campo pendiente NULL
+    const valorTotal = Number(odp.getDataValue('valor_total')) || 0;
     const abonoActual = Number(odp.getDataValue('abono')) || 0;
-    const pendienteActual = Number(odp.getDataValue('pendiente')) || 0;
     const nuevoAbono = abonoActual + data.monto;
-    const nuevoPendiente = Math.max(0, pendienteActual - data.monto);
+    const nuevoPendiente = Math.max(0, valorTotal - nuevoAbono);
 
     // Determinar nuevo estado de caja
     let nuevoEstadoCaja = 'ABONADO';

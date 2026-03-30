@@ -59,7 +59,8 @@ interface ODP {
     chk_carton: boolean;
     es_no_conformidad?: boolean;
     tiene_aluminio?: boolean;
-    tomas_medidas?: { numero_tm: string; croquis_url: string | null }[];
+    tomas_medidas?: { id: number; numero_tm: string; croquis_url: string | null }[];
+    saps?: { id: number }[];
 }
 
 const activeStates = ['EN_ESPERA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'PAUSADA'];
@@ -79,14 +80,14 @@ const ProduccionPage: React.FC = () => {
     const [notes, setNotes] = useState<{ [key: number]: Nota[] }>({});
     const [newNote, setNewNote] = useState('');
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (silent = false) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const token = localStorage.getItem('token');
             const res = await axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            
+
             const data: ODP[] = res.data;
             const activas = data.filter(o => activeStates.includes(o.estado_produccion));
             const listas = data.filter(o => o.estado_produccion === 'LISTO_INSTALAR');
@@ -97,7 +98,7 @@ const ProduccionPage: React.FC = () => {
             console.error(error);
             toast.error("Error al cargar pedidos de producción");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, []);
 
@@ -152,8 +153,8 @@ const ProduccionPage: React.FC = () => {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
-            // Refrescar datos para captar cambios automáticos (como LISTO_INSTALAR)
-            fetchData();
+            // Refrescar datos silenciosamente para captar cambios automáticos (como LISTO_INSTALAR)
+            fetchData(true);
             toast.success("Proceso actualizado");
         } catch (error: any) {
             toast.error(error.response?.data?.error || "Error al actualizar");
@@ -315,9 +316,11 @@ const ProduccionPage: React.FC = () => {
                             const isExpanded = expandedOdpId === odp.id;
                             
                             // Calcular progreso dinámico
-                            const fields = ['chk_medicion'];
+                            const fields: string[] = [];
+                            if (odp.tomas_medidas?.length) fields.push('chk_medicion');
                             if (odp.tiene_aluminio) { fields.push('chk_corte'); fields.push('chk_ensamble'); }
-                            fields.push('chk_vidrio', 'chk_accesorios');
+                            if (odp.items?.length) fields.push('chk_vidrio');
+                            if (odp.saps?.length) fields.push('chk_accesorios');
                             if (odp.matizado) fields.push('chk_matizado');
                             if (odp.pelicula) fields.push('chk_pelicula');
                             if (odp.huacal) fields.push('chk_huacal');
@@ -411,7 +414,7 @@ const ProduccionPage: React.FC = () => {
                                                         <div>
                                                             <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Checklist de Requisitos</h4>
                                                             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                                                                {(() => {
+                                                                {odp.tomas_medidas && odp.tomas_medidas.length > 0 && (() => {
                                                                     const tm = odp.tomas_medidas?.find(t => t.croquis_url);
                                                                     const checked = odp.chk_medicion;
                                                                     return (
@@ -430,8 +433,8 @@ const ProduccionPage: React.FC = () => {
                                                                     );
                                                                 })()}
                                                                 {odp.tiene_aluminio && renderCheckItem(odp, 'chk_corte', 'Aluminio', Scissors, true)}
-                                                                {renderCheckItem(odp, 'chk_vidrio', 'Vidrio', Layers, true)}
-                                                                {renderCheckItem(odp, 'chk_accesorios', 'Herrajes', Package, true)}
+                                                                {odp.items?.length > 0 && renderCheckItem(odp, 'chk_vidrio', 'Vidrio', Layers, true)}
+                                                                {!!odp.saps?.length && renderCheckItem(odp, 'chk_accesorios', 'Herrajes', Package, true)}
                                                                 {odp.tiene_aluminio && renderCheckItem(odp, 'chk_ensamble', 'Ensamble', Wrench, true)}
                                                                 {renderCheckItem(odp, 'chk_matizado', 'Matizado', Sparkles)}
                                                                 {renderCheckItem(odp, 'chk_pelicula', 'Película', Film)}

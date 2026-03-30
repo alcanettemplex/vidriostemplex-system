@@ -11,6 +11,8 @@ SAPItem.init({
   descripcion: { type: DataTypes.STRING(255) },    // descripción del catálogo o manual
   dimension: { type: DataTypes.STRING(100) },      // medida ingresada por asesor
   cantidad: { type: DataTypes.DECIMAL(10, 2), defaultValue: 1 },
+  und: { type: DataTypes.STRING(20), allowNull: true },
+  exist_perf: { type: DataTypes.STRING(100), allowNull: true },
   estado_compra: {
     type: DataTypes.STRING(20),
     defaultValue: 'pendiente',

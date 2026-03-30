@@ -49,6 +49,7 @@ ODP.init({
   chk_corte: { type: DataTypes.BOOLEAN, defaultValue: false },
   chk_vidrio: { type: DataTypes.BOOLEAN, defaultValue: false },
   chk_accesorios: { type: DataTypes.BOOLEAN, defaultValue: false },
+  fecha_chk_accesorios: { type: DataTypes.DATEONLY, allowNull: true },
   chk_ensamble: { type: DataTypes.BOOLEAN, defaultValue: false },
   chk_matizado: { type: DataTypes.BOOLEAN, defaultValue: false },
   chk_pelicula: { type: DataTypes.BOOLEAN, defaultValue: false },

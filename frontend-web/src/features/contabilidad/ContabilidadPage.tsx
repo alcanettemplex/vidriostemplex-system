@@ -19,9 +19,14 @@ const BANCOS_COLOMBIA = [
   'Banco Finandina', 'Banco Mundo Mujer', 'Lulo Bank', 'Movii', 'Rappipay', 'Otro',
 ];
 
-const METODOS_PAGO = ['Efectivo', 'Tarjeta', 'Transferencia', 'Nequi', 'Consignación'];
+const METODOS_PAGO = ['Efectivo', 'Tarjeta', 'Transferencia'];
+
+type Tab = 'estado_caja' | 'pagos' | 'cartera';
 
 const ContabilidadPage: React.FC = () => {
+  // ─── Tab activo ─────────────────────────────────────────────────────
+  const [tab, setTab] = useState<Tab>('estado_caja');
+
   // ─── Estado: tabla ODPs ─────────────────────────────────────────────
   const [odps, setOdps] = useState<any[]>([]);
   const [loadingOdps, setLoadingOdps] = useState(true);
@@ -34,13 +39,10 @@ const ContabilidadPage: React.FC = () => {
 
   // ─── Estado: modal de pago ──────────────────────────────────────────
   const [showPagoModal, setShowPagoModal] = useState(false);
+  const [odpFija, setOdpFija] = useState(false); // true = ODP preseleccionada, no editable
   const [pagoForm, setPagoForm] = useState({
-    odp_id: '',
-    monto: '',
-    metodo_pago: 'Transferencia',
-    banco: '',
-    referencia_pago: '',
-    observaciones: '',
+    odp_id: '', monto: '', metodo_pago: 'Transferencia',
+    banco: '', referencia_pago: '', observaciones: '',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -73,7 +75,7 @@ const ContabilidadPage: React.FC = () => {
       if (resumenRes) setResumen(resumenRes.data);
       setPagos(pagosRes?.data || []);
     } catch {
-      /* silenciar si no hay acceso */
+      /* silenciar */
     } finally {
       setLoadingResumen(false);
     }
@@ -98,7 +100,10 @@ const ContabilidadPage: React.FC = () => {
   const handleFacturacionChange = (odp: any, nuevoEstado: string) => {
     if (nuevoEstado === 'FACTURADA') {
       setFeTarget({ id: odp.id, numero_odp: odp.numero_odp });
-      setFeForm({ numero_fe: odp.factura_electronica || '', fecha_fe: odp.fecha_factura ? odp.fecha_factura.split('T')[0] : new Date().toISOString().split('T')[0] });
+      setFeForm({
+        numero_fe: odp.factura_electronica || '',
+        fecha_fe: odp.fecha_factura ? odp.fecha_factura.split('T')[0] : new Date().toISOString().split('T')[0],
+      });
       setShowFeModal(true);
     } else {
       updateCaja(odp.id, 'estado_facturacion', nuevoEstado);
@@ -136,9 +141,8 @@ const ContabilidadPage: React.FC = () => {
       toast.error('Selecciona una ODP y un monto válido.');
       return;
     }
-    const requiereBanco = ['Transferencia', 'Nequi', 'Consignación'].includes(pagoForm.metodo_pago);
-    if (requiereBanco && !pagoForm.banco) {
-      toast.error('Selecciona el banco para este método de pago.');
+    if (pagoForm.metodo_pago === 'Transferencia' && !pagoForm.banco) {
+      toast.error('Selecciona el banco para transferencias.');
       return;
     }
     setSubmitting(true);
@@ -146,11 +150,10 @@ const ContabilidadPage: React.FC = () => {
       const payload = {
         odp_id: Number(pagoForm.odp_id),
         monto: Number(pagoForm.monto),
-        metodo_pago: pagoForm.metodo_pago,
+        // Si es Transferencia, guardar el banco directamente como metodo_pago
+        metodo_pago: pagoForm.metodo_pago === 'Transferencia' ? pagoForm.banco : pagoForm.metodo_pago,
         referencia_pago: pagoForm.referencia_pago || undefined,
-        observaciones: pagoForm.banco
-          ? `Banco: ${pagoForm.banco}${pagoForm.observaciones ? ' — ' + pagoForm.observaciones : ''}`
-          : pagoForm.observaciones || undefined,
+        observaciones: pagoForm.observaciones || undefined,
       };
       await axios.post(`${API}/api/contabilidad/pagos`, payload, { headers: headers() });
       toast.success('Pago registrado correctamente');
@@ -166,17 +169,28 @@ const ContabilidadPage: React.FC = () => {
   };
 
   // ─── Datos derivados ────────────────────────────────────────────────
+  const calcPendiente = (o: any) => Math.max(0, Number(o.valor_total || 0) - Number(o.abono || 0));
   const filtradas = filterEstadoCaja === 'todos' ? odps : odps.filter(o => o.estado_caja === filterEstadoCaja);
-  const odpsPendientes = odps.filter(o => Number(o.pendiente) > 0);
+  const odpsPendientes = odps.filter(o => calcPendiente(o) > 0 && o.estado_caja !== 'CANCELADO');
+  const carteraDetalle: any[] = resumen?.cartera_detalle || [];
 
-  // KPIs: usar resumen del API si disponible, sino calcular del frontend
+  // KPIs
   const totalAbonado = resumen?.total_abonado || fmt(odps.reduce((s, o) => s + (Number(o.abono) || 0), 0));
-  const totalPorCobrar = resumen?.total_pendiente || fmt(odps.reduce((s, o) => s + (Number(o.pendiente) || 0), 0));
-  const totalFacturadas = resumen?.total_facturadas ?? odps.filter(o => o.estado_facturacion === 'FACTURADA').length;
-  const pendFactura = resumen?.pendientes_factura ?? odps.filter(o => o.estado_facturacion === 'PENDIENTE').length;
+  const totalPorCobrar = resumen?.total_pendiente || fmt(
+    odps.filter(o => o.estado_caja !== 'CANCELADO').reduce((s, o) => s + calcPendiente(o), 0)
+  );
+  const totalFacturadas = resumen?.total_facturadas ?? odps.filter(o => o.estado_facturacion === 'FACTURADA' || o.factura_electronica).length;
+  const pendFactura = resumen?.pendientes_factura ?? odps.filter(o => o.estado_facturacion === 'PENDIENTE' && !o.factura_electronica).length;
   const carteraVencida = resumen?.cartera_vencida || '$0';
+  const requiereBancoActual = pagoForm.metodo_pago === 'Transferencia';
+  const requiereReciboActual = pagoForm.metodo_pago !== 'Efectivo';
 
-  const requiereBancoActual = ['Transferencia', 'Nequi', 'Consignación'].includes(pagoForm.metodo_pago);
+  // ─── Config tabs ────────────────────────────────────────────────────
+  const TABS = [
+    { key: 'estado_caja' as Tab, label: 'Estado Caja', icon: <Banknote className="w-4 h-4" />, badge: odps.length },
+    { key: 'pagos' as Tab, label: 'Pagos Recientes', icon: <Receipt className="w-4 h-4" />, badge: pagos.length },
+    { key: 'cartera' as Tab, label: 'Cartera Vencida', icon: <TrendingDown className="w-4 h-4" />, badge: carteraDetalle.length, badgeColor: carteraDetalle.length > 0 ? 'bg-rose-100 text-rose-700' : undefined },
+  ];
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -190,14 +204,14 @@ const ContabilidadPage: React.FC = () => {
           <p className="text-slate-500 font-medium mt-1">Control de facturación, caja, pagos y cuentas por cobrar</p>
         </div>
         <button
-          onClick={() => setShowPagoModal(true)}
+          onClick={() => { setOdpFija(false); setPagoForm(p => ({ ...p, odp_id: '' })); setShowPagoModal(true); }}
           className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-md shadow-emerald-200 hover:bg-emerald-700 transition-all hover:-translate-y-0.5"
         >
           <Plus className="w-5 h-5" /> Registrar Pago
         </button>
       </div>
 
-      {/* KPIs FINANCIEROS */}
+      {/* KPIs — siempre visibles */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           { label: 'Recaudado', value: totalAbonado, icon: <DollarSign className="w-6 h-6" />, color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
@@ -217,169 +231,230 @@ const ContabilidadPage: React.FC = () => {
         ))}
       </div>
 
-      {/* PAGOS RECIENTES */}
-      {pagos.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
-            <Receipt className="w-5 h-5 text-emerald-600" />
-            <h2 className="text-lg font-bold text-slate-800">Pagos Recientes</h2>
-            <span className="ml-auto text-xs font-bold text-slate-400">{pagos.length} registros</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  {['Fecha', 'ODP', 'Monto', 'Método', 'Recibo No.', 'Registrado por'].map(h => (
-                    <th key={h} className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {pagos.slice(0, 10).map((pago: any) => (
-                  <tr key={pago.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-5 py-3 text-slate-600 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        {new Date(pago.fecha).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3">
-                      <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-xs border border-indigo-100">
-                        {pago.odp?.numero_odp || `ODP-${pago.odp_id}`}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 font-bold text-emerald-700">{fmt(Number(pago.monto))}</td>
-                    <td className="px-5 py-3 text-slate-700 capitalize">{pago.metodo_pago}</td>
-                    <td className="px-5 py-3 text-slate-500 font-mono text-xs">{pago.referencia_pago || '—'}</td>
-                    <td className="px-5 py-3 text-slate-600">{pago.registrador?.nombre_completo || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </motion.div>
-      )}
-
-      {/* FILTROS ESTADO CAJA */}
-      <div className="flex gap-2 flex-wrap items-center">
-        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-2">Estado Caja:</span>
-        {['todos', 'PENDIENTE', 'ABONADO', 'CANCELADO', 'CREDITO_APROBADO'].map(f => (
-          <button key={f} onClick={() => setFilterEstadoCaja(f)}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${filterEstadoCaja === f ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}>
-            {f === 'todos' ? 'Todos' : f.replace('_', ' ')}
-          </button>
-        ))}
-      </div>
-
-      {/* TABLA DE ODPs */}
+      {/* TABS */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                {['ODP', 'Cliente', 'FE No. / Fecha', 'Monto Total', 'Abonado', 'Pendiente', 'Estado Caja', 'Facturación', ''].map(h => (
-                  <th key={h} className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loadingOdps ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}><td colSpan={9} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td></tr>
-                ))
-              ) : filtradas.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-12 text-slate-400 font-bold">No hay registros que mostrar.</td></tr>
-              ) : filtradas.map(odp => (
-                <tr key={odp.id} className="hover:bg-slate-50 transition-colors group">
-                  <td className="px-5 py-4 font-bold text-indigo-700">{odp.numero_odp}</td>
-                  <td className="px-5 py-4 font-semibold text-slate-800 max-w-[180px] truncate">{odp.cliente?.nombre_razon_social}</td>
-                  <td className="px-5 py-4">
-                    {odp.factura_electronica ? (
-                      <div>
-                        <span className="font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 text-xs">
-                          FE-{odp.factura_electronica}
-                        </span>
-                        {odp.fecha_factura && (
-                          <p className="text-xs text-slate-400 mt-0.5">
-                            {new Date(odp.fecha_factura).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-slate-400 text-xs italic">Sin factura</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-4 font-bold text-slate-700">{Number(odp.valor_total) > 0 ? fmt(Number(odp.valor_total)) : <span className="text-slate-400 text-xs italic">—</span>}</td>
-                  <td className="px-5 py-4 font-bold text-emerald-700">{fmt(Number(odp.abono) || 0)}</td>
-                  <td className="px-5 py-4">
-                    <span className={`font-bold text-sm ${Number(odp.pendiente) > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                      {fmt(Number(odp.pendiente) || 0)}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <select value={odp.estado_caja} onChange={e => updateCaja(odp.id, 'estado_caja', e.target.value)}
-                      className={`text-xs font-bold px-2 py-1 rounded-lg border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
-                        odp.estado_caja === 'CANCELADO' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
-                        odp.estado_caja === 'ABONADO' ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                        odp.estado_caja === 'CREDITO_APROBADO' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
-                        'bg-amber-100 text-amber-800 border-amber-300'
-                      }`}>
-                      <option value="PENDIENTE">Pendiente</option>
-                      <option value="ABONADO">Abonado</option>
-                      <option value="CANCELADO">Cancelado</option>
-                      <option value="CREDITO_APROBADO">Crédito Aprobado</option>
-                    </select>
-                  </td>
-                  <td className="px-5 py-4">
-                    <select value={odp.estado_facturacion} onChange={e => handleFacturacionChange(odp, e.target.value)}
-                      className={`text-xs font-bold px-2 py-1 rounded-lg border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
-                        odp.estado_facturacion === 'FACTURADA' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-slate-100 text-slate-700 border-slate-300'
-                      }`}>
-                      <option value="PENDIENTE">Pendiente</option>
-                      <option value="FACTURADA">Facturada</option>
-                    </select>
-                  </td>
-                  <td className="px-5 py-4">
-                    <button
-                      onClick={() => { setPagoForm(p => ({ ...p, odp_id: String(odp.id), monto: '' })); setShowPagoModal(true); }}
-                      className="text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-all flex items-center gap-1"
-                    >
-                      <Banknote className="w-3.5 h-3.5" /> Registrar Abono
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Tab bar */}
+        <div className="flex border-b border-slate-100">
+          {TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`flex items-center gap-2 px-5 py-3.5 text-sm font-semibold transition-all border-b-2 ${
+                tab === t.key
+                  ? 'border-indigo-500 text-indigo-700 bg-slate-50'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              }`}>
+              {t.icon}
+              {t.label}
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                tab === t.key ? 'bg-indigo-100 text-indigo-700' : t.badgeColor || 'bg-slate-100 text-slate-600'
+              }`}>
+                {t.badge}
+              </span>
+            </button>
+          ))}
         </div>
-      </div>
 
-      {/* CARTERA VENCIDA */}
-      {resumen?.cartera_detalle?.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-          className="border-t-4 border-t-rose-500 p-5 bg-white shadow-sm rounded-b-2xl border border-slate-200">
-          <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
-            <TrendingDown className="w-5 h-5 text-rose-500" />
-            Cartera Vencida
-            <span className="ml-auto text-sm font-bold text-rose-600">{resumen.cartera_vencida}</span>
-          </h3>
-          <div className="space-y-3">
-            {resumen.cartera_detalle.map((item: any, i: number) => (
-              <div key={i} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border-l-2 border-rose-300">
-                <div>
-                  <p className="text-sm font-bold text-slate-700">{item.odp}</p>
-                  <p className="text-xs text-slate-500">{item.cliente}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-rose-600">{item.pendiente}</p>
-                  <p className="text-xs text-slate-400">Vencido {item.dias_vencido} días</p>
-                </div>
-              </div>
-            ))}
+        {/* ── TAB 1: Estado Caja ─────────────────────────────────────────── */}
+        {tab === 'estado_caja' && (
+          <div>
+            {/* Filtros */}
+            <div className="flex gap-2 flex-wrap items-center px-5 py-3 border-b border-slate-100 bg-slate-50/50">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">Filtrar:</span>
+              {['todos', 'PENDIENTE', 'ABONADO', 'CANCELADO', 'CREDITO_APROBADO'].map(f => (
+                <button key={f} onClick={() => setFilterEstadoCaja(f)}
+                  className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                    filterEstadoCaja === f
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'
+                  }`}>
+                  {f === 'todos' ? 'Todos' : f.replace('_', ' ')}
+                </button>
+              ))}
+            </div>
+
+            {/* Tabla ODPs */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    {['ODP', 'Cliente', 'FE No. / Fecha', 'Monto Total', 'Abonado', 'Pendiente', 'Estado Caja', 'Facturación', ''].map(h => (
+                      <th key={h} className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {loadingOdps ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i}><td colSpan={9} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td></tr>
+                    ))
+                  ) : filtradas.length === 0 ? (
+                    <tr><td colSpan={9} className="text-center py-12 text-slate-400 font-bold">No hay registros que mostrar.</td></tr>
+                  ) : filtradas.map(odp => (
+                    <tr key={odp.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-5 py-4 font-bold text-indigo-700">{odp.numero_odp}</td>
+                      <td className="px-5 py-4 font-semibold text-slate-800 max-w-[180px] truncate">{odp.cliente?.nombre_razon_social}</td>
+                      <td className="px-5 py-4">
+                        {odp.factura_electronica ? (
+                          <div>
+                            <span className="font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 text-xs">
+                              FE-{odp.factura_electronica}
+                            </span>
+                            {odp.fecha_factura && (
+                              <p className="text-xs text-slate-400 mt-0.5">
+                                {new Date(odp.fecha_factura).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs italic">Sin factura</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 font-bold text-slate-700">
+                        {Number(odp.valor_total) > 0 ? fmt(Number(odp.valor_total)) : <span className="text-slate-400 text-xs italic">—</span>}
+                      </td>
+                      <td className="px-5 py-4 font-bold text-emerald-700">{fmt(Number(odp.abono) || 0)}</td>
+                      <td className="px-5 py-4">
+                        {(() => {
+                          const pend = calcPendiente(odp);
+                          return (
+                            <span className={`font-bold text-sm ${pend > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                              {fmt(pend)}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-5 py-4">
+                        <select value={odp.estado_caja} onChange={e => updateCaja(odp.id, 'estado_caja', e.target.value)}
+                          className={`text-xs font-bold px-2 py-1 rounded-lg border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+                            odp.estado_caja === 'CANCELADO' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                            odp.estado_caja === 'ABONADO' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                            odp.estado_caja === 'CREDITO_APROBADO' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
+                            'bg-amber-100 text-amber-800 border-amber-300'
+                          }`}>
+                          <option value="PENDIENTE">Pendiente</option>
+                          <option value="ABONADO">Abonado</option>
+                          <option value="CANCELADO">Cancelado</option>
+                          <option value="CREDITO_APROBADO">Crédito Aprobado</option>
+                        </select>
+                      </td>
+                      <td className="px-5 py-4">
+                        <select value={odp.estado_facturacion} onChange={e => handleFacturacionChange(odp, e.target.value)}
+                          className={`text-xs font-bold px-2 py-1 rounded-lg border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+                            odp.estado_facturacion === 'FACTURADA' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-slate-100 text-slate-700 border-slate-300'
+                          }`}>
+                          <option value="PENDIENTE">Pendiente</option>
+                          <option value="FACTURADA">Facturada</option>
+                        </select>
+                      </td>
+                      <td className="px-5 py-4">
+                        {odp.estado_caja !== 'CANCELADO' && (
+                          <button
+                            onClick={() => { setOdpFija(true); setPagoForm(p => ({ ...p, odp_id: String(odp.id), monto: '' })); setShowPagoModal(true); }}
+                            className="text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-all flex items-center gap-1 whitespace-nowrap"
+                          >
+                            <Banknote className="w-3.5 h-3.5" /> Registrar Abono
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </motion.div>
-      )}
+        )}
+
+        {/* ── TAB 2: Pagos Recientes ─────────────────────────────────────── */}
+        {tab === 'pagos' && (
+          <div>
+            {loadingResumen ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+              </div>
+            ) : pagos.length === 0 ? (
+              <div className="py-16 text-center text-slate-400">
+                <Receipt className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="font-bold">No hay pagos registrados</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      {['Fecha', 'ODP', 'Cliente', 'Monto', 'Método', 'Recibo No.', 'Observaciones', 'Registrado por'].map(h => (
+                        <th key={h} className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {pagos.map((pago: any) => (
+                      <tr key={pago.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-5 py-3 text-slate-600 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            {new Date(pago.fecha).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-xs border border-indigo-100">
+                            {pago.odp?.numero_odp || `ODP-${pago.odp_id}`}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-slate-600 text-xs">{pago.odp?.cliente?.nombre_razon_social || '—'}</td>
+                        <td className="px-5 py-3 font-bold text-emerald-700">{fmt(Number(pago.monto))}</td>
+                        <td className="px-5 py-3 text-slate-700 capitalize">{pago.metodo_pago}</td>
+                        <td className="px-5 py-3 text-slate-500 font-mono text-xs">{pago.referencia_pago || '—'}</td>
+                        <td className="px-5 py-3 text-slate-500 text-xs max-w-[200px] truncate">{pago.observaciones || '—'}</td>
+                        <td className="px-5 py-3 text-slate-600">{pago.registrador?.nombre_completo || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TAB 3: Cartera Vencida ─────────────────────────────────────── */}
+        {tab === 'cartera' && (
+          <div className="p-5">
+            {loadingResumen ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+              </div>
+            ) : carteraDetalle.length === 0 ? (
+              <div className="py-16 text-center text-slate-400">
+                <TrendingDown className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="font-bold text-emerald-600">Sin cartera vencida</p>
+                <p className="text-sm mt-1">Todas las cuentas están al día</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm text-slate-500">{carteraDetalle.length} ODP{carteraDetalle.length !== 1 ? 's' : ''} con saldo vencido</p>
+                  <span className="text-base font-extrabold text-rose-600">{carteraVencida}</span>
+                </div>
+                <div className="space-y-3">
+                  {carteraDetalle.map((item: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between p-4 bg-rose-50 rounded-xl border border-rose-100">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-10 bg-rose-400 rounded-full flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">{item.odp}</p>
+                          <p className="text-xs text-slate-500">{item.cliente}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-extrabold text-rose-600">{item.pendiente}</p>
+                        <p className="text-xs text-rose-400 font-semibold">Vencido hace {item.dias_vencido} días</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* MODAL FACTURA ELECTRÓNICA */}
       {showFeModal && feTarget && (
@@ -395,28 +470,17 @@ const ContabilidadPage: React.FC = () => {
               </button>
             </div>
             <form onSubmit={handleFeSubmit} className="p-6 space-y-4">
-              <p className="text-sm text-slate-600">
-                ODP: <span className="font-bold text-indigo-700">{feTarget.numero_odp}</span>
-              </p>
+              <p className="text-sm text-slate-600">ODP: <span className="font-bold text-indigo-700">{feTarget.numero_odp}</span></p>
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">FE No. *</label>
-                <input
-                  value={feForm.numero_fe}
-                  onChange={e => setFeForm(p => ({ ...p, numero_fe: e.target.value }))}
-                  placeholder="Ej: FE-2024-001"
-                  required
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
+                <input value={feForm.numero_fe} onChange={e => setFeForm(p => ({ ...p, numero_fe: e.target.value }))}
+                  placeholder="Ej: FE-2024-001" required
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Fecha Factura *</label>
-                <input
-                  type="date"
-                  value={feForm.fecha_fe}
-                  onChange={e => setFeForm(p => ({ ...p, fecha_fe: e.target.value }))}
-                  required
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
+                <input type="date" value={feForm.fecha_fe} onChange={e => setFeForm(p => ({ ...p, fecha_fe: e.target.value }))}
+                  required className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => { setShowFeModal(false); setFeTarget(null); }}
@@ -449,15 +513,24 @@ const ContabilidadPage: React.FC = () => {
             <form onSubmit={handlePagoSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">ODP *</label>
-                <select value={pagoForm.odp_id} onChange={e => setPagoForm(p => ({ ...p, odp_id: e.target.value }))} required
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                  <option value="">-- Seleccionar ODP con pendiente --</option>
-                  {odpsPendientes.map(o => (
-                    <option key={o.id} value={o.id}>
-                      {o.numero_odp} — {o.cliente?.nombre_razon_social} — Pendiente: {fmt(Number(o.pendiente))}
-                    </option>
-                  ))}
-                </select>
+                {odpFija ? (
+                  <div className="w-full border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-sm font-bold text-slate-700">
+                    {(() => {
+                      const o = odps.find(x => String(x.id) === pagoForm.odp_id);
+                      return o ? `${o.numero_odp} — ${o.cliente?.nombre_razon_social} — Pendiente: ${fmt(calcPendiente(o))}` : pagoForm.odp_id;
+                    })()}
+                  </div>
+                ) : (
+                  <select value={pagoForm.odp_id} onChange={e => setPagoForm(p => ({ ...p, odp_id: e.target.value }))} required
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <option value="">-- Seleccionar ODP con pendiente --</option>
+                    {odpsPendientes.map(o => (
+                      <option key={o.id} value={o.id}>
+                        {o.numero_odp} — {o.cliente?.nombre_razon_social} — Pendiente: {fmt(calcPendiente(o))}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -485,12 +558,14 @@ const ContabilidadPage: React.FC = () => {
                   </select>
                 </div>
               )}
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Recibo No.</label>
-                <input value={pagoForm.referencia_pago} onChange={e => setPagoForm(p => ({ ...p, referencia_pago: e.target.value }))}
-                  placeholder="Número de recibo o comprobante"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-              </div>
+              {requiereReciboActual && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Recibo No.</label>
+                  <input value={pagoForm.referencia_pago} onChange={e => setPagoForm(p => ({ ...p, referencia_pago: e.target.value }))}
+                    placeholder="Número de recibo o comprobante"
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Observaciones</label>
                 <textarea value={pagoForm.observaciones} onChange={e => setPagoForm(p => ({ ...p, observaciones: e.target.value }))}

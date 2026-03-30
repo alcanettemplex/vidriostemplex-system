@@ -15,7 +15,8 @@ import {
   Settings,
   Sliders,
   Ruler,
-  UserPlus
+  UserPlus,
+  Package
 } from 'lucide-react';
 
 /**
@@ -71,7 +72,7 @@ const MENU_ITEMS_CONFIG = [
     text: 'Instalaciones',
     icon: Truck,
     path: '/instalaciones',
-    allowedRoles: ['admin', 'gerente', 'jefe_produccion', 'instalador'],
+    allowedRoles: ['admin', 'gerente', 'gerencia', 'jefe_produccion', 'instalador', 'conductor'],
     section: 'produccion'
   },
   {
@@ -86,6 +87,13 @@ const MENU_ITEMS_CONFIG = [
     icon: ShoppingCart,
     path: '/compras',
     allowedRoles: ['admin', 'gerente', 'compras', 'jefe_produccion'],
+    section: 'logistica'
+  },
+  {
+    text: 'Inventario Perfilería',
+    icon: Package,
+    path: '/inventario',
+    allowedRoles: ['admin', 'gerencia', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras'],
     section: 'logistica'
   },
   {

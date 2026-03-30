@@ -623,15 +623,31 @@ const ComprasPage: React.FC = () => {
                             </button>
                           </div>
                         </div>
-                        <div className="border-t border-slate-100 px-5 py-3 bg-slate-50/50">
-                          <div className="flex flex-wrap gap-1.5">
-                            {sap.items.map(item => (
-                              <span key={item.id} title={item.descripcion}
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded border ${item.estado_compra === 'pendiente' ? 'bg-amber-50 text-amber-700 border-amber-200' : item.estado_compra === 'en_odc' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
-                                {item.item} · {item.codigo || item.descripcion?.substring(0, 12)}
-                              </span>
-                            ))}
-                          </div>
+                        <div className="border-t border-slate-100">
+                          <table className="w-full text-xs">
+                            <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                              <tr>
+                                <th className="px-4 py-2 text-left w-10">ITEM</th>
+                                <th className="px-4 py-2 text-left w-28">CÓDIGO</th>
+                                <th className="px-4 py-2 text-left">DESCRIPCIÓN</th>
+                                <th className="px-4 py-2 text-center w-28">ESTADO</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                              {sap.items.map((item, i) => (
+                                <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
+                                  <td className="px-4 py-1.5 font-black text-slate-600">{item.item}</td>
+                                  <td className="px-4 py-1.5 font-mono text-blue-700 font-bold">{item.codigo || '—'}</td>
+                                  <td className="px-4 py-1.5 text-slate-700">{item.descripcion || '—'}</td>
+                                  <td className="px-4 py-1.5 text-center">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${item.estado_compra === 'pendiente' ? 'bg-amber-50 text-amber-700 border-amber-200' : item.estado_compra === 'en_odc' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+                                      {item.estado_compra === 'pendiente' ? 'Pendiente' : item.estado_compra === 'en_odc' ? 'En ODC' : 'En existencia'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     );

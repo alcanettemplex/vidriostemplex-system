@@ -91,20 +91,40 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {Array.from({ length: 18 }).map((_, idx) => {
-                            const item = sap?.items?.[idx] || odp.saps?.[0]?.items?.[idx];
+                        {(() => {
+                            const sapData = sap || odp.saps?.[0];
+                            const allItems = sapData?.items || [];
+                            const odcs: any[] = sapData?.ordenes_compra || [];
+                            const itemsEnODC = new Set(
+                                odcs.flatMap((odc: any) => (odc.items || []).map((it: any) => it.sap_item_id))
+                            );
+                            const itemMap: Record<string, any> = Object.fromEntries(
+                                allItems.map((it: any) => [it.item, it])
+                            );
+                            return Array.from({ length: 18 }).map((_, idx) => {
+                            const letra = String.fromCharCode(65 + idx);
+                            const item = itemMap[letra];
+                            const enODC = item && itemsEnODC.has(item.id);
                             return (
-                                <tr key={idx} className={`h-[20px] ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
-                                    <td className="font-bold text-center">{idx + 1}</td>
+                                <tr key={idx} className={`h-[20px] ${enODC ? 'bg-blue-100' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                                    <td className="font-bold text-center">{letra}</td>
                                     <td className="text-[9px]">{item?.codigo || ''}</td>
-                                    <td className="text-left text-[9px] px-1">{item?.descripcion || ''}</td>
+                                    <td className="text-left text-[9px] px-1">
+                                        <span>{item?.descripcion || ''}</span>
+                                        {(item?.estado_compra === 'en_existencia' || item?.exist_perf) && (
+                                            <span className="inline-flex items-center justify-center w-[13px] h-[13px] rounded-full bg-blue-600 ml-1 align-middle">
+                                                <span className="text-red-400 text-[7px] font-black leading-none">E</span>
+                                            </span>
+                                        )}
+                                    </td>
                                     <td className="text-[9px]">{item?.dimension || ''}</td>
                                     <td className="text-[9px]">{item?.und || ''}</td>
                                     <td className="text-[9px]">{item?.exist_perf || ''}</td>
                                     <td className="text-[9px]">{item?.gasto_perf || ''}</td>
                                 </tr>
                             );
-                        })}
+                        });
+                        })()}
                     </tbody>
                 </table>
 
@@ -131,6 +151,12 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                                                 <p className="text-[9px] whitespace-pre-line uppercase font-semibold">
                                                     {sapData?.notas || ''}
                                                 </p>
+                                                {odp?.fecha_chk_accesorios && (
+                                                    <p className="text-[9px] uppercase font-bold text-red-600 mt-1">
+                                                        Accesorios separados —{' '}
+                                                        {new Date(odp.fecha_chk_accesorios + 'T12:00:00').toLocaleDateString('es-CO')}
+                                                    </p>
+                                                )}
                                             </td>
                                         )}
                                         <td className="text-center text-[9px] h-[26px] font-bold">

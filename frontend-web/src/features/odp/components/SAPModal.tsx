@@ -14,6 +14,7 @@ interface SAPItem {
   codigo: string;
   descripcion: string;
   dimension: string;
+  und: string;
   cantidad: number | string;
 }
 
@@ -37,7 +38,7 @@ const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 const emptyItem = (idx: number): SAPItem => ({
   item: LETRAS[idx] || String(idx + 1),
-  codigo: '', descripcion: '', dimension: '', cantidad: 1,
+  codigo: '', descripcion: '', dimension: '', und: '', cantidad: 1,
 });
 
 // ─── Autocomplete cell ────────────────────────────────────────────────────────
@@ -174,6 +175,7 @@ const TablaEditable: React.FC<{
             <th className="px-3 py-2 w-28">CÓDIGO</th>
             <th className="px-3 py-2">DESCRIPCIÓN</th>
             <th className="px-3 py-2 w-24">DIMENSIÓN</th>
+            <th className="px-3 py-2 text-center w-14">UND</th>
             <th className="px-3 py-2 text-center w-16">CANT.</th>
             {canEdit && <th className="w-8"></th>}
           </tr>
@@ -220,6 +222,19 @@ const TablaEditable: React.FC<{
                   />
                 ) : (
                   <span className="px-2 text-slate-600">{item.dimension || '—'}</span>
+                )}
+              </td>
+              {/* UND */}
+              <td className="px-1 py-0.5 border-r border-slate-100 text-center">
+                {canEdit ? (
+                  <input
+                    value={item.und || ''}
+                    onChange={e => updateItem(idx, 'und', e.target.value)}
+                    placeholder="ML"
+                    className="w-full border-0 bg-transparent px-2 py-1.5 text-xs text-center focus:outline-none focus:bg-blue-50 rounded transition"
+                  />
+                ) : (
+                  <span className="px-2 text-slate-600">{item.und || '—'}</span>
                 )}
               </td>
               {/* CANTIDAD */}
@@ -318,34 +333,34 @@ const SelectorSistema: React.FC<{
 
     // 1. Fijos sin color (pta-tiporoma)
     (s.fijos || []).forEach((f: any) => {
-      items.push({ item: f.item, codigo: f.cod, descripcion: f.desc, dimension: '', cantidad: 1 });
+      items.push({ item: f.item, codigo: f.cod, descripcion: f.desc, dimension: '', und: '', cantidad: 1 });
     });
 
     // 2. Perfiles por color
     Object.entries(perfiles).forEach(([letra, data]: [string, any]) => {
       const cod = color && data.codes?.[color] ? data.codes[color] : '';
-      items.push({ item: letra, codigo: cod, descripcion: data.desc || '', dimension: '', cantidad: 1 });
+      items.push({ item: letra, codigo: cod, descripcion: data.desc || '', dimension: '', und: '', cantidad: 1 });
     });
 
     // 3. Universales (sin color)
     (s.universales || []).forEach((u: any) => {
-      items.push({ item: u.item, codigo: u.cod, descripcion: u.desc, dimension: '', cantidad: 1 });
+      items.push({ item: u.item, codigo: u.cod, descripcion: u.desc, dimension: '', und: '', cantidad: 1 });
     });
 
     // 4. Persiana (toggle)
     if (s.persiana && persianaOn) {
       const cod = color && s.persiana.codes?.[color] ? s.persiana.codes[color] : '';
-      items.push({ item: s.persiana.item, codigo: cod, descripcion: s.persiana.desc, dimension: '', cantidad: 1 });
+      items.push({ item: s.persiana.item, codigo: cod, descripcion: s.persiana.desc, dimension: '', und: '', cantidad: 1 });
     }
 
     // 5. Brazos (selector)
     if (brazoSel) {
-      items.push({ item: brazoSel.item, codigo: brazoSel.cod, descripcion: `Brazo ${brazoSel.label}`, dimension: '', cantidad: 1 });
+      items.push({ item: brazoSel.item, codigo: brazoSel.cod, descripcion: `Brazo ${brazoSel.label}`, dimension: '', und: '', cantidad: 1 });
     }
 
     // 6. Manijas (selector)
     if (manijaSel) {
-      items.push({ item: manijaSel.item, codigo: manijaSel.cod, descripcion: `Manija ${manijaSel.label}`, dimension: '', cantidad: 1 });
+      items.push({ item: manijaSel.item, codigo: manijaSel.cod, descripcion: `Manija ${manijaSel.label}`, dimension: '', und: '', cantidad: 1 });
     }
 
     // 7. Opcionales por toggle (opcionales + opcionales3r)
@@ -353,18 +368,18 @@ const SelectorSistema: React.FC<{
     Object.entries(todosOpts).forEach(([letra, opt]: [string, any]) => {
       if (toggledOpts[letra]) {
         const cod = codigoOpt(opt);
-        items.push({ item: letra, codigo: cod, descripcion: opt.desc, dimension: '', cantidad: 1 });
+        items.push({ item: letra, codigo: cod, descripcion: opt.desc, dimension: '', und: '', cantidad: 1 });
       }
     });
 
     // 8. Riel seleccionado (optiglass)
     if (rielSel) {
-      items.push({ item: rielSel.item, codigo: rielSel.cod, descripcion: `Riel ${rielSel.label} Mate`, dimension: '', cantidad: 1 });
+      items.push({ item: rielSel.item, codigo: rielSel.cod, descripcion: `Riel ${rielSel.label} Mate`, dimension: '', und: '', cantidad: 1 });
     }
 
     // 9. Chapa seleccionada
     if (chapaSel) {
-      items.push({ item: chapaSel.item, codigo: chapaSel.cod, descripcion: chapaSel.desc, dimension: '', cantidad: 1 });
+      items.push({ item: chapaSel.item, codigo: chapaSel.cod, descripcion: chapaSel.desc, dimension: '', und: '', cantidad: 1 });
     }
 
     // Re-asignar letras en orden

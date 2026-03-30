@@ -20,6 +20,8 @@ import configuracionRoutes from './routes/configuracion.routes';
 import notaProduccionRoutes from './routes/nota_produccion.routes';
 import catalogoRoutes from './routes/catalogo.routes';
 import prospectosRoutes from './routes/prospectos.routes';
+import inventarioPerfileriaRoutes from './routes/inventario_perfileria.routes';
+import rutasRoutes from './routes/rutas.routes';
 
 
 const app = express();
@@ -68,6 +70,8 @@ app.use('/api/configuracion', configuracionRoutes);
 app.use('/api/notas-produccion', notaProduccionRoutes);
 app.use('/api/catalogo', catalogoRoutes);
 app.use('/api/prospectos', prospectosRoutes);
+app.use('/api/inventario-perfileria', inventarioPerfileriaRoutes);
+app.use('/api/rutas', rutasRoutes);
 
 import { errorHandler } from './middlewares/errorHandler';
 app.use(errorHandler);

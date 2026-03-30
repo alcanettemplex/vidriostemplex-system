@@ -230,11 +230,12 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                         <tr><td colSpan={6} className="font-bold text-center fs-8 uppercase tracking-widest">FORMA DE PAGO</td></tr>
                         {[0, 1].map((i) => {
                             const pago = odp.pagos?.[i];
+                            const labelFormaPago = pago?.metodo_pago || '';
                             return (
                                 <tr key={i}>
                                     <td className="w-[10%] font-bold uppercase pl-2">RECIBO No:</td>
                                     <td className="w-[20%] text-[9px] font-bold pl-2">{pago?.referencia_pago || ''}</td>
-                                    <td className="w-[15%] text-[9px] font-bold pl-2 uppercase">{pago?.metodo_pago || ''}</td>
+                                    <td className="w-[15%] text-[9px] font-bold pl-2 uppercase">{labelFormaPago}</td>
                                     <td className="w-[25%] text-[9px] font-bold pl-2">{pago ? `$ ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(pago.monto))}` : ''}</td>
                                     <td className="w-[15%] font-bold uppercase pl-2">{i === 0 ? 'CODIGO:' : 'FE No.:'}</td>
                                     <td className="w-[15%] text-[9px] font-bold uppercase pl-2">

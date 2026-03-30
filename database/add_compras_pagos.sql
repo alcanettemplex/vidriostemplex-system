@@ -31,3 +31,10 @@ CREATE INDEX IF NOT EXISTS idx_ordenes_compra_odp ON ordenes_compra(odp_id);
 CREATE INDEX IF NOT EXISTS idx_ordenes_compra_estado ON ordenes_compra(estado);
 CREATE INDEX IF NOT EXISTS idx_pagos_odp ON pagos(odp_id);
 CREATE INDEX IF NOT EXISTS idx_pagos_fecha ON pagos(fecha);
+
+-- Migración: columnas und y exist_perf en sap_items (2026-03-29)
+ALTER TABLE sap_items ADD COLUMN IF NOT EXISTS und VARCHAR(20);
+ALTER TABLE sap_items ADD COLUMN IF NOT EXISTS exist_perf VARCHAR(100);
+
+-- Migración: fecha de confirmación de accesorios en ODP (2026-03-29)
+ALTER TABLE odp ADD COLUMN IF NOT EXISTS fecha_chk_accesorios DATE;

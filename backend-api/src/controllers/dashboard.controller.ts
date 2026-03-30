@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
 import { Op, fn, col, literal } from 'sequelize';
-import { 
-  ODP, 
-  Cliente, 
-  Usuario, 
-  HistorialEstadoODP, 
-  ProgramacionInstalacion, 
+import {
+  ODP,
+  Cliente,
+  Usuario,
+  HistorialEstadoODP,
+  RutaODP,
   EvidenciaInstalacion,
   ODPItem,
   ConfiguracionGlobal,
@@ -296,7 +296,7 @@ export const getProduccionData = async (_req: Request, res: Response) => {
     const tiempo_ciclo_promedio_dias = entregadasUltimoMes.length > 0 ? Number((sumDias / entregadasUltimoMes.length).toFixed(1)) : 0;
 
     const listasIds = await ODP.findAll({ where: { estado_produccion: 'LISTO_INSTALAR' }, attributes: ['id'] });
-    const programadas = await ProgramacionInstalacion.findAll({ where: { odp_id: { [Op.in]: listasIds.map(o => o.getDataValue('id')) } }, attributes: ['odp_id'] });
+    const programadas = await RutaODP.findAll({ where: { odp_id: { [Op.in]: listasIds.map(o => o.getDataValue('id')), estado: { [Op.ne]: 'completada' } } }, attributes: ['odp_id'] });
     const odps_listas_sin_programar = listasIds.length - programadas.length;
 
     const etapas = ['MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR'];
@@ -351,7 +351,7 @@ export const getEquipoData = async (_req: Request, res: Response) => {
 
     const instaladores = await Usuario.findAll({ where: { rol: 'instalador' } });
     const carga_instaladores = await Promise.all(instaladores.map(async (u) => {
-      const instas = await ProgramacionInstalacion.count({ where: { instalador_id: u.getDataValue('id') } }); // O jo field names
+      const instas = await EvidenciaInstalacion.count({ where: { instalador_id: u.getDataValue('id') } });
       const evidencias = await EvidenciaInstalacion.count({ where: { instalador_id: u.getDataValue('id') } });
       return { instalador_id: u.getDataValue('id'), nombre: (u as any).nombre_completo, instalaciones_mes: instas, con_evidencia: evidencias, sin_evidencia: Math.max(0, instas - evidencias) };
     }));

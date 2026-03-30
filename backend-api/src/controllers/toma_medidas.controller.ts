@@ -206,12 +206,17 @@ export const uploadFotoTM = async (req: Request, res: Response) => {
       estado: 'realizada',
     });
 
-    // Si la TM tiene ODP vinculada, avanzar la ODP a MEDICION si está en VISITA_TECNICA
+    // Si la TM tiene ODP vinculada: siempre activar chk_medicion;
+    // avanzar a MEDICION solo si la ODP estaba en VISITA_TECNICA
     const odp_id = tm.getDataValue('odp_id');
     if (odp_id) {
       const odp = await ODP.findByPk(odp_id);
-      if (odp && odp.getDataValue('estado_produccion') === 'VISITA_TECNICA') {
-        await odp.update({ estado_produccion: 'MEDICION', chk_medicion: true });
+      if (odp) {
+        const updates: any = { chk_medicion: true };
+        if (odp.getDataValue('estado_produccion') === 'VISITA_TECNICA') {
+          updates.estado_produccion = 'MEDICION';
+        }
+        await odp.update(updates);
       }
     }
 

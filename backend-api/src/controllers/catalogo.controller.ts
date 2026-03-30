@@ -9,10 +9,12 @@ const catalogoSchema = z.object({
   activo: z.boolean().optional().default(true),
 });
 
-export const getCatalogo = async (_req: Request, res: Response) => {
+export const getCatalogo = async (req: Request, res: Response) => {
   try {
+    const where: any = { activo: true };
+    if (req.query.es_aluminio === 'true') where.es_aluminio = true;
     const items = await CatalogoProducto.findAll({
-      where: { activo: true },
+      where,
       order: [['categoria', 'ASC'], ['nombre', 'ASC']],
     });
     res.json(items);

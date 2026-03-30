@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, AlertCircle, Package, ShoppingCart, CheckCircle2, Clock, Edit3, Trash2 } from 'lucide-react';
@@ -12,6 +12,8 @@ interface SAPItem {
   codigo: string;
   descripcion: string;
   dimension: string;
+  und: string;
+  exist_perf?: string;
   cantidad: number;
   estado_compra: 'pendiente' | 'en_odc' | 'en_existencia';
 }
@@ -46,6 +48,19 @@ interface SAPConODCs {
   ordenes_compra: ODC[];
 }
 
+interface InventarioPerfil {
+  id: number;
+  consecutivo: number;
+  codigo: string;
+  mm: number | null;
+  ubicacion: string | null;
+}
+
+interface PerfilSeleccionado {
+  consecutivo: number;
+  ubicacion: string | null;
+}
+
 interface Props {
   sap: SAPConODCs;
   odp: any;
@@ -54,7 +69,7 @@ interface Props {
 }
 
 const ESTADO_BADGE: Record<string, { label: string; className: string }> = {
-  pendiente: { label: 'Pendiente', className: 'bg-amber-100 text-amber-700 border-amber-200' },
+  pendiente:   { label: 'Pendiente',   className: 'bg-amber-100 text-amber-700 border-amber-200' },
   en_transito: { label: 'En tránsito', className: 'bg-blue-100 text-blue-700 border-blue-200' },
   recibido:    { label: 'Recibido',    className: 'bg-green-100 text-green-700 border-green-200' },
   problema:    { label: 'Problema',    className: 'bg-red-100 text-red-700 border-red-200' },
@@ -81,11 +96,115 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
   const [editNotas, setEditNotas] = useState('');
   const [editEstado, setEditEstado] = useState('');
 
+  // Inventario perfilería
+  const [inventarioPorCodigo, setInventarioPorCodigo] = useState<Record<string, InventarioPerfil[]>>({});
+  const [perfilSeleccionado, setPerfilSeleccionado] = useState<Record<number, PerfilSeleccionado>>({});
+  const [loadingInventario, setLoadingInventario] = useState(false);
+  const [codigosPerfileria, setCodigosPerfileria] = useState<Set<string>>(new Set());
+
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
+
+  // Cargar inventario y códigos de perfilería al abrir el modal (una sola vez por SAP)
+  useEffect(() => {
+    // Cargar códigos de perfilería
+    axios
+      .get(`${API}/api/compras/codigos-perfileria`, { headers })
+      .then(r => setCodigosPerfileria(new Set(r.data as string[])))
+      .catch(() => {});
+
+    const codigos = Array.from(new Set(sap.items.map(i => i.codigo).filter(Boolean)));
+    if (codigos.length === 0) return;
+
+    setLoadingInventario(true);
+    Promise.all(
+      codigos.map(cod =>
+        axios
+          .get(`${API}/api/compras/inventario-perfileria/${encodeURIComponent(cod)}`, { headers })
+          .then(r => ({ cod, data: r.data as InventarioPerfil[] }))
+          .catch(() => ({ cod, data: [] as InventarioPerfil[] }))
+      )
+    ).then(results => {
+      const map: Record<string, InventarioPerfil[]> = {};
+      results.forEach(({ cod, data }) => { map[cod] = data; });
+      setInventarioPorCodigo(map);
+    }).finally(() => setLoadingInventario(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sap.id]);
+
+  const handleSeleccionarPerfil = async (itemId: number, codigo: string, perfil: InventarioPerfil) => {
+    try {
+      const existText = `${perfil.consecutivo} · ${perfil.ubicacion || '—'}`;
+      await Promise.all([
+        axios.delete(`${API}/api/compras/inventario-perfileria/${perfil.consecutivo}`, { headers }),
+        axios.patch(`${API}/api/compras/sap-item/${itemId}/exist-perf`, { exist_perf: existText }, { headers }),
+      ]);
+      // Marcar automáticamente como en_existencia
+      await axios.patch(`${API}/api/compras/sap-item/${itemId}/existencia`, {}, { headers });
+      setPerfilSeleccionado(prev => ({
+        ...prev,
+        [itemId]: { consecutivo: perfil.consecutivo, ubicacion: perfil.ubicacion },
+      }));
+      // Eliminar la opción consumida de la lista local
+      setInventarioPorCodigo(prev => ({
+        ...prev,
+        [codigo]: (prev[codigo] || []).filter(p => p.consecutivo !== perfil.consecutivo),
+      }));
+      // Actualizar estado local del item
+      setSap(prev => ({
+        ...prev,
+        items: prev.items.map(i =>
+          i.id === itemId ? { ...i, estado_compra: 'en_existencia' } : i
+        ),
+      }));
+    } catch {
+      toast.error('Error al reservar perfil de inventario');
+    }
+  };
+
+  const renderExisPerf = (item: SAPItem, stopProp = false) => {
+    const seleccionado = perfilSeleccionado[item.id];
+
+    if (seleccionado) {
+      return (
+        <span className="text-[10px] font-bold text-green-700 leading-tight">
+          {seleccionado.consecutivo} · {seleccionado.ubicacion || '—'}
+        </span>
+      );
+    }
+
+    if (!item.codigo) return <span className="text-slate-400">—</span>;
+
+    const opciones = inventarioPorCodigo[item.codigo] ?? null;
+
+    if (loadingInventario || opciones === null) {
+      return <span className="text-slate-400 text-[10px]">…</span>;
+    }
+    if (opciones.length === 0) return <span className="text-slate-400">—</span>;
+
+    return (
+      <select
+        className="text-[10px] border border-slate-200 rounded px-1 py-0.5 w-full max-w-[140px] bg-white cursor-pointer"
+        defaultValue=""
+        onChange={e => {
+          if (!e.target.value) return;
+          const perfil = opciones.find(p => p.consecutivo === parseInt(e.target.value));
+          if (perfil) handleSeleccionarPerfil(item.id, item.codigo, perfil);
+        }}
+        onClick={stopProp ? e => e.stopPropagation() : undefined}
+      >
+        <option value="">Seleccionar…</option>
+        {opciones.map(p => (
+          <option key={p.consecutivo} value={p.consecutivo}>
+            {p.consecutivo} · {p.ubicacion || '—'} · {p.mm != null ? (Number(p.mm) / 6000).toFixed(2) : '—'}m
+          </option>
+        ))}
+      </select>
+    );
+  };
 
   const recargar = async () => {
     try {
@@ -224,7 +343,6 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
               )}
             </div>
             <p className="text-xs text-slate-500">{odp.numero_odp} · {odp.cliente?.nombre_razon_social}</p>
-            {/* Barra de progreso — solo en modo ver */}
             {modo === 'ver' && (
               <div className="mt-2 flex items-center gap-2">
                 <div className="w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -263,7 +381,6 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
           {modo === 'ver' && (
             <div className="p-6 space-y-6">
 
-              {/* Todos los items con su estado */}
               <div>
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Items de la SAP</p>
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -273,7 +390,9 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                         <th className="px-3 py-2 w-10 text-center">ITEM</th>
                         <th className="px-3 py-2 w-28">CÓDIGO</th>
                         <th className="px-3 py-2">DESCRIPCIÓN</th>
-                        <th className="px-3 py-2 w-24 text-center">EXIS. PERF.</th>
+                        <th className="px-3 py-2 w-28">DIMENSIÓN</th>
+                        <th className="px-3 py-2 w-16 text-center">UND</th>
+                        <th className="px-3 py-2 w-36 text-center">EXIS. PERF.</th>
                         <th className="px-3 py-2 w-20 text-center">CANT.</th>
                         <th className="px-3 py-2 w-36 text-center">ESTADO</th>
                         <th className="px-3 py-2 w-28 text-center">ACCIONES</th>
@@ -287,7 +406,9 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                             <td className="px-3 py-2 text-center font-black text-slate-600">{item.item}</td>
                             <td className="px-3 py-2 font-mono text-blue-700 font-bold">{item.codigo || '—'}</td>
                             <td className="px-3 py-2 text-slate-700">{item.descripcion || '—'}</td>
-                            <td className="px-3 py-2 text-center text-slate-400">—</td>
+                            <td className="px-3 py-2 text-slate-600">{item.dimension || '—'}</td>
+                            <td className="px-3 py-2 text-center text-slate-600">{item.und || '—'}</td>
+                            <td className="px-3 py-2 text-center text-slate-500 text-[11px]">{item.exist_perf || '—'}</td>
                             <td className="px-3 py-2 text-center font-bold text-slate-600">{item.cantidad}</td>
                             <td className="px-3 py-2 text-center">
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${est.className}`}>
@@ -295,7 +416,7 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                               </span>
                             </td>
                             <td className="px-3 py-2 text-center">
-                              {item.estado_compra !== 'en_odc' && (
+                              {item.estado_compra !== 'en_odc' && !codigosPerfileria.has(item.codigo) && (
                                 <button
                                   onClick={() => toggleExistencia(item)}
                                   className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition ${item.estado_compra === 'en_existencia' ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}
@@ -333,7 +454,6 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            {/* Editar */}
                             <button
                               onClick={() => abrirEditar(odc)}
                               title="Editar ODC"
@@ -341,7 +461,6 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                             >
                               <Edit3 className="w-3.5 h-3.5" /> Editar
                             </button>
-                            {/* Eliminar */}
                             <button
                               onClick={() => setDeletingId(odc.id)}
                               title="Eliminar ODC"
@@ -404,6 +523,8 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                       <th className="px-3 py-2 w-10">ITEM</th>
                       <th className="px-3 py-2 w-28">CÓDIGO</th>
                       <th className="px-3 py-2">DESCRIPCIÓN</th>
+                      <th className="px-3 py-2 w-28">DIMENSIÓN</th>
+                      <th className="px-3 py-2 w-16 text-center">UND</th>
                       <th className="px-3 py-2 w-24 text-center">EXIS. PERF.</th>
                       <th className="px-3 py-2 w-20 text-center">CANT.</th>
                     </tr>
@@ -426,7 +547,11 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                         <td className="px-3 py-2 font-black text-slate-600">{item.item}</td>
                         <td className="px-3 py-2 font-mono text-blue-700 font-bold">{item.codigo || '—'}</td>
                         <td className="px-3 py-2 text-slate-700">{item.descripcion || '—'}</td>
-                        <td className="px-3 py-2 text-center text-slate-400">—</td>
+                        <td className="px-3 py-2 text-slate-600">{item.dimension || '—'}</td>
+                        <td className="px-3 py-2 text-center text-slate-600">{item.und || '—'}</td>
+                        <td className="px-3 py-2 text-center" onClick={e => e.stopPropagation()}>
+                          {renderExisPerf(item, true)}
+                        </td>
                         <td className="px-3 py-2 text-center font-bold text-slate-600">{item.cantidad}</td>
                       </tr>
                     ))}
@@ -478,7 +603,6 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
           {modo === 'editar' && editandoODC && (
             <div className="p-6 space-y-5">
 
-              {/* Campos editables */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
@@ -516,7 +640,6 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                 </select>
               </div>
 
-              {/* Items de la ODC (solo lectura) */}
               <div>
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Items de esta ODC (no editables)</p>
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -526,7 +649,6 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                         <th className="px-3 py-2 w-10 text-center">ITEM</th>
                         <th className="px-3 py-2 w-28">CÓDIGO</th>
                         <th className="px-3 py-2">DESCRIPCIÓN</th>
-                        <th className="px-3 py-2 w-24 text-center">EXIS. PERF.</th>
                         <th className="px-3 py-2 w-20 text-center">CANT.</th>
                       </tr>
                     </thead>
@@ -536,7 +658,6 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
                           <td className="px-3 py-2 text-center font-black text-slate-600">{it.item}</td>
                           <td className="px-3 py-2 font-mono text-blue-700 font-bold">{it.codigo || '—'}</td>
                           <td className="px-3 py-2 text-slate-700">{it.descripcion || '—'}</td>
-                          <td className="px-3 py-2 text-center text-slate-400">—</td>
                           <td className="px-3 py-2 text-center font-bold text-slate-600">{it.cantidad}</td>
                         </tr>
                       ))}

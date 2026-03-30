@@ -5,7 +5,6 @@ import ODP from './odp.model';
 import ODPItem from './odp_item.model';
 import EvidenciaInstalacion from './evidencia_instalacion.model';
 import Vehiculo from './vehiculo.model';
-import ProgramacionInstalacion from './programacion_instalacion.model';
 import HistorialEstadoODP from './historial_estado_odp.model';
 import SAP from './sap.model';
 import SAPItem from './sap_item.model';
@@ -14,6 +13,8 @@ import TomaMedidas from './toma_medidas.model';
 import OrdenCompra from './orden_compra.model';
 import ODCItem from './odc_item.model';
 import Pago from './pago.model';
+import RutaInstalacion from './ruta_instalacion.model';
+import RutaODP from './ruta_odp.model';
 
 import NoConformidad from './no_conformidad.model';
 import ConfiguracionGlobal from './configuracion.model';
@@ -21,6 +22,7 @@ import MetaMensual from './meta_mensual.model';
 import NotaProduccion from './nota_produccion.model';
 import CatalogoProducto from './catalogo_producto.model';
 import Prospecto from './prospecto.model';
+import InventarioPerfileria from './inventario_perfileria.model';
 
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
@@ -37,15 +39,6 @@ EvidenciaInstalacion.belongsTo(ODP, { foreignKey: 'odp_id' });
 
 Usuario.hasMany(EvidenciaInstalacion, { foreignKey: 'instalador_id', as: 'evidencias_subidas' });
 EvidenciaInstalacion.belongsTo(Usuario, { foreignKey: 'instalador_id', as: 'instalador' });
-
-ODP.hasMany(ProgramacionInstalacion, { foreignKey: 'odp_id', as: 'programaciones' });
-ProgramacionInstalacion.belongsTo(ODP, { foreignKey: 'odp_id' });
-
-Usuario.hasMany(ProgramacionInstalacion, { foreignKey: 'instalador_id' });
-ProgramacionInstalacion.belongsTo(Usuario, { foreignKey: 'instalador_id', as: 'instalador' });
-
-Vehiculo.hasMany(ProgramacionInstalacion, { foreignKey: 'vehiculo_id' });
-ProgramacionInstalacion.belongsTo(Vehiculo, { foreignKey: 'vehiculo_id', as: 'vehiculo' });
 
 ODP.hasMany(HistorialEstadoODP, { foreignKey: 'odp_id', as: 'historial_estados' });
 HistorialEstadoODP.belongsTo(ODP, { foreignKey: 'odp_id' });
@@ -108,6 +101,30 @@ ODP.hasOne(Prospecto, { foreignKey: 'odp_id', as: 'prospecto' });
 Prospecto.hasMany(TomaMedidas, { foreignKey: 'prospecto_id', as: 'tomas_medidas' });
 TomaMedidas.belongsTo(Prospecto, { foreignKey: 'prospecto_id', as: 'prospecto' });
 
+// ─── Bloque E: Rutas de Instalación ─────────────────────────────────────────
+RutaInstalacion.belongsTo(Vehiculo, { foreignKey: 'vehiculo_id', as: 'vehiculo' });
+RutaInstalacion.belongsTo(Usuario, { foreignKey: 'conductor_id', as: 'conductor' });
+RutaInstalacion.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
+
+RutaInstalacion.belongsToMany(Usuario, {
+  through: 'ruta_instaladores',
+  foreignKey: 'ruta_id',
+  otherKey: 'instalador_id',
+  as: 'instaladores',
+});
+Usuario.belongsToMany(RutaInstalacion, {
+  through: 'ruta_instaladores',
+  foreignKey: 'instalador_id',
+  otherKey: 'ruta_id',
+  as: 'rutas_asignadas',
+});
+
+RutaInstalacion.hasMany(RutaODP, { foreignKey: 'ruta_id', as: 'ruta_odps' });
+RutaODP.belongsTo(RutaInstalacion, { foreignKey: 'ruta_id', as: 'ruta' });
+
+ODP.hasMany(RutaODP, { foreignKey: 'odp_id', as: 'ruta_odps' });
+RutaODP.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
+
 // ─── Bloque C: Compras y Pagos ───────────────────────────────────────────────
 ODP.hasMany(OrdenCompra, { foreignKey: 'odp_id', as: 'compras' });
 OrdenCompra.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
@@ -138,7 +155,6 @@ export {
   ODPItem,
   EvidenciaInstalacion,
   Vehiculo,
-  ProgramacionInstalacion,
   HistorialEstadoODP,
   NoConformidad,
   SAP,
@@ -153,5 +169,8 @@ export {
   NotaProduccion,
   CatalogoProducto,
   Prospecto,
+  InventarioPerfileria,
+  RutaInstalacion,
+  RutaODP,
 };
 

@@ -63,15 +63,15 @@ const odpSchema = z.object({
   pendiente: z.number().nullable().optional(),
   proveedor_vidrio: z.string().optional(),
   numero_pedido_proveedor: z.string().optional(),
-  chk_medicion: z.boolean().optional().default(false),
-  chk_corte: z.boolean().optional().default(false),
-  chk_vidrio: z.boolean().optional().default(false),
-  chk_accesorios: z.boolean().optional().default(false),
-  chk_ensamble: z.boolean().optional().default(false),
-  chk_matizado: z.boolean().optional().default(false),
-  chk_pelicula: z.boolean().optional().default(false),
-  chk_huacal: z.boolean().optional().default(false),
-  chk_carton: z.boolean().optional().default(false),
+  chk_medicion: z.boolean().optional(),
+  chk_corte: z.boolean().optional(),
+  chk_vidrio: z.boolean().optional(),
+  chk_accesorios: z.boolean().optional(),
+  chk_ensamble: z.boolean().optional(),
+  chk_matizado: z.boolean().optional(),
+  chk_pelicula: z.boolean().optional(),
+  chk_huacal: z.boolean().optional(),
+  chk_carton: z.boolean().optional(),
   es_no_conformidad: z.boolean().optional().default(false),
   odp_padre_id: z.number().optional().nullable(),
   items: z.array(odpItemSchema).optional()
@@ -79,12 +79,15 @@ const odpSchema = z.object({
 
 export const getODPs = async (req: Request, res: Response) => {
   try {
+    const { SAP, TomaMedidas } = await import('../models');
     const odps = await ODP.findAll({
       include: [
         { model: Cliente, as: 'cliente' },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
         { model: ODPItem, as: 'items' },
-        { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'fecha'], separate: true, order: [['fecha', 'ASC']] }
+        { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
+        { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
+        { model: SAP, as: 'saps', attributes: ['id'], separate: true },
       ],
       order: [['fecha_creacion', 'DESC']]
     });
@@ -99,7 +102,7 @@ export const getODP = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // Importar modelos dinámicamente para evitar circular imports
-    const { SAP, SAPItem, Cotizacion, TomaMedidas, EvidenciaInstalacion, ProgramacionInstalacion, HistorialEstadoODP, NoConformidad, OrdenCompra } = await import('../models');
+    const { SAP, SAPItem, Cotizacion, TomaMedidas, EvidenciaInstalacion, RutaODP, RutaInstalacion, HistorialEstadoODP, NoConformidad, OrdenCompra } = await import('../models');
 
     const odp = await ODP.findByPk(id, {
       include: [
@@ -139,9 +142,16 @@ export const getODP = async (req: Request, res: Response) => {
           include: [{ model: Usuario, as: 'instalador', attributes: ['id', 'nombre_completo'] }],
         },
         {
-          model: ProgramacionInstalacion, as: 'programaciones',
+          model: RutaODP, as: 'ruta_odps',
           include: [
-            { model: Usuario, as: 'instalador', attributes: ['id', 'nombre_completo'] },
+            {
+              model: RutaInstalacion, as: 'ruta',
+              attributes: ['id', 'estado', 'creado_en'],
+              include: [
+                { model: (await import('../models')).Vehiculo, as: 'vehiculo', attributes: ['placa', 'tipo'] },
+                { model: Usuario, as: 'instaladores', attributes: ['id', 'nombre_completo'], through: { attributes: [] } },
+              ],
+            },
           ],
         },
         {
@@ -285,27 +295,39 @@ export const updateODP = async (req: Request, res: Response) => {
       (data as any).pendiente = Math.max(0, nuevoValorTotal - nuevoAbono);
     }
 
+    // Registrar fecha cuando se activa chk_accesorios por primera vez
+    if (data.chk_accesorios === true && !odp.getDataValue('fecha_chk_accesorios')) {
+      (data as any).fecha_chk_accesorios = new Date().toISOString().split('T')[0];
+    }
+
     // Actualizar campos de la ODP (incluyendo los booleanos, JSONs, y observaciones nuevas)
     await odp.update(data as any, { transaction });
 
     // ─── Lógica de autocompletado LISTO_INSTALAR ───
     const updatedOdp = await ODP.findByPk(id, { transaction });
     if (updatedOdp && updatedOdp.getDataValue('estado_produccion') !== 'LISTO_INSTALAR') {
-      const needsMedicion = true;
-      const needsCorte = true;
-      const needsVidrio = true;
-      const needsAccesorios = true;
-      const needsEnsamble = true;
+      const { SAP: SAPModel, TomaMedidas: TMModel } = await import('../models');
+      const [tmCount, sapCount, itemCount] = await Promise.all([
+        TMModel.count({ where: { odp_id: id }, transaction }),
+        SAPModel.count({ where: { odp_id: id }, transaction }),
+        ODPItem.count({ where: { odp_id: id }, transaction }),
+      ]);
+
+      const needsMedicion = tmCount > 0;
+      const needsCorte = !!updatedOdp.getDataValue('tiene_aluminio');
+      const needsVidrio = itemCount > 0;
+      const needsAccesorios = sapCount > 0;
+      const needsEnsamble = !!updatedOdp.getDataValue('tiene_aluminio');
       const needsMatizado = updatedOdp.getDataValue('matizado');
       const needsPelicula = updatedOdp.getDataValue('pelicula');
       const needsHuacal = updatedOdp.getDataValue('huacal');
       const needsCarton = updatedOdp.getDataValue('carton');
 
-      const isMedicionDone = updatedOdp.getDataValue('chk_medicion');
-      const isCorteDone = updatedOdp.getDataValue('chk_corte');
-      const isVidrioDone = updatedOdp.getDataValue('chk_vidrio');
-      const isAccesoriosDone = updatedOdp.getDataValue('chk_accesorios');
-      const isEnsambleDone = updatedOdp.getDataValue('chk_ensamble');
+      const isMedicionDone = !needsMedicion || updatedOdp.getDataValue('chk_medicion');
+      const isCorteDone = !needsCorte || updatedOdp.getDataValue('chk_corte');
+      const isVidrioDone = !needsVidrio || updatedOdp.getDataValue('chk_vidrio');
+      const isAccesoriosDone = !needsAccesorios || updatedOdp.getDataValue('chk_accesorios');
+      const isEnsambleDone = !needsEnsamble || updatedOdp.getDataValue('chk_ensamble');
       const isMatizadoDone = !needsMatizado || updatedOdp.getDataValue('chk_matizado');
       const isPeliculaDone = !needsPelicula || updatedOdp.getDataValue('chk_pelicula');
       const isHuacalDone = !needsHuacal || updatedOdp.getDataValue('chk_huacal');

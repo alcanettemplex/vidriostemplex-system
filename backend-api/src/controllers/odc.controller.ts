@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { OrdenCompra, ODCItem, SAP, SAPItem, ODP, Cliente, Usuario } from '../models';
+import { OrdenCompra, ODCItem, SAP, SAPItem, ODP, Cliente, Usuario, InventarioPerfileria } from '../models';
 import sequelize from '../config/database';
 import { Op } from 'sequelize';
 
@@ -274,6 +274,47 @@ export const deleteODC = async (req: Request, res: Response) => {
   }
 };
 
+// GET /inventario-perfileria/:codigo — Buscar registros en inventario por código
+export const getInventarioPorCodigo = async (req: Request, res: Response) => {
+  try {
+    const { codigo } = req.params;
+    const items = await InventarioPerfileria.findAll({
+      where: { codigo },
+      order: [['consecutivo', 'ASC']],
+    });
+    res.json(items);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al consultar inventario', detail: error.message });
+  }
+};
+
+// DELETE /inventario-perfileria/:consecutivo — Consumir una pieza del inventario
+export const deleteInventarioPerfileria = async (req: Request, res: Response) => {
+  try {
+    const { consecutivo } = req.params;
+    const item = await InventarioPerfileria.findOne({ where: { consecutivo: parseInt(consecutivo) } });
+    if (!item) return res.status(404).json({ error: 'Registro no encontrado' });
+    await item.destroy();
+    res.json({ ok: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al eliminar registro', detail: error.message });
+  }
+};
+
+// PATCH /sap-item/:id/exist-perf — Guardar texto de existencia en perfilería
+export const updateExistPerf = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { exist_perf } = req.body;
+    const item = await SAPItem.findByPk(id);
+    if (!item) return res.status(404).json({ error: 'Item no encontrado' });
+    await item.update({ exist_perf: exist_perf || null });
+    res.json({ id, exist_perf });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al actualizar exist_perf', detail: error.message });
+  }
+};
+
 // PATCH /odc/sap-item/:id/existencia — Marcar item como en_existencia o revertir a pendiente
 export const toggleExistencia = async (req: Request, res: Response) => {
   try {
@@ -291,5 +332,19 @@ export const toggleExistencia = async (req: Request, res: Response) => {
     res.json({ id, estado_compra: nuevoEstado });
   } catch (error: any) {
     res.status(500).json({ error: 'Error al actualizar item', detail: error.message });
+  }
+};
+
+// GET /codigos-perfileria — Devuelve el set de códigos únicos en inventario_perfileria
+export const getCodigosPerfileria = async (req: Request, res: Response) => {
+  try {
+    const rows = await InventarioPerfileria.findAll({
+      attributes: ['codigo'],
+      group: ['codigo'],
+      where: { codigo: { [Op.ne]: null } },
+    });
+    res.json(rows.map((r: any) => r.getDataValue('codigo')));
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al obtener códigos de perfilería', detail: error.message });
   }
 };
