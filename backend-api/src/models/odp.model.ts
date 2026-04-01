@@ -58,6 +58,7 @@ ODP.init({
   es_no_conformidad: { type: DataTypes.BOOLEAN, defaultValue: false },
   odp_padre_id: { type: DataTypes.INTEGER, allowNull: true },
   tiene_aluminio: { type: DataTypes.BOOLEAN, defaultValue: false },
+  fecha_vencimiento_credito: { type: DataTypes.DATEONLY, allowNull: true },
 }, {
   sequelize,
   modelName: 'ODP',

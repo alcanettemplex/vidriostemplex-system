@@ -8,10 +8,21 @@ export const getUsuarios = async (_req: Request, res: Response) => {
 };
 
 export const createUsuario = async (req: Request, res: Response) => {
-  const { username, password, rol, nombre_completo, email } = req.body;
-  const password_hash = await bcrypt.hash(password, 12);
-  const usuario = await Usuario.create({ username, password_hash, rol, nombre_completo, email });
-  res.status(201).json(usuario);
+  try {
+    const { username, password, rol, nombre_completo, email } = req.body;
+    if (!username || !password || !rol || !nombre_completo) {
+      return res.status(400).json({ error: 'Faltan campos obligatorios: username, password, rol, nombre_completo' });
+    }
+    const password_hash = await bcrypt.hash(password, 12);
+    const usuario = await Usuario.create({ username, password_hash, rol, nombre_completo, email });
+    res.status(201).json(usuario);
+  } catch (error: any) {
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({ error: 'El username o email ya está en uso' });
+    }
+    console.error('Error al crear usuario:', error);
+    res.status(500).json({ error: 'Error al crear usuario' });
+  }
 };
 
 export const updateUsuario = async (req: Request, res: Response) => {

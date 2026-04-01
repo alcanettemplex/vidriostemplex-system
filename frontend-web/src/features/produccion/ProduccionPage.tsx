@@ -559,22 +559,8 @@ const ProduccionPage: React.FC = () => {
                                         <QrCode className="w-5 h-5" />
                                     </button>
                                 </div>
-                                <h3 className="text-base font-black text-slate-800 mb-6 truncate font-sans">{odp.cliente.nombre_razon_social}</h3>
-                                
-                                <div className="space-y-2">
-                                   <button 
-                                      className="w-full text-xs font-black text-white bg-indigo-600 py-3 rounded-2xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95"
-                                      onClick={() => updateEstado(odp.id, 'PROGRAMADA')}
-                                   >
-                                      PROGRAMAR RUTA
-                                   </button>
-                                   <button 
-                                      className="w-full text-[10px] font-black text-slate-400 bg-slate-50 py-2 rounded-xl hover:bg-rose-50 hover:text-rose-600 transition-all uppercase tracking-widest"
-                                      onClick={() => updateEstado(odp.id, 'EN_ESPERA')}
-                                   >
-                                      Devolver a Taller
-                                   </button>
-                                </div>
+                                <h3 className="text-base font-black text-slate-800 truncate font-sans">{odp.cliente.nombre_razon_social}</h3>
+                                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest mt-2">Lista para instalación</p>
                             </div>
                         ))}
                     </div>

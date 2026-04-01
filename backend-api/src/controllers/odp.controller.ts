@@ -1,5 +1,23 @@
 import { Request, Response } from 'express';
-import { ODP, ODPItem, Cliente, Usuario, sequelize } from '../models';
+import {
+  ODP,
+  ODPItem,
+  Cliente,
+  Usuario,
+  sequelize,
+  EvidenciaInstalacion,
+  HistorialEstadoODP,
+  NotaProduccion,
+  NoConformidad,
+  SAP,
+  SAPItem,
+  Cotizacion,
+  TomaMedidas,
+  OrdenCompra,
+  ODCItem,
+  RutaODP,
+  Prospecto,
+} from '../models';
 import Pago from '../models/pago.model';
 import { z } from 'zod';
 
@@ -222,7 +240,7 @@ export const createODP = async (req: Request, res: Response) => {
       asesor_id: data.asesor_id || userId,
       estado_produccion: data.estado_produccion,
       estado_facturacion: data.estado_facturacion,
-      estado_caja: data.estado_caja,
+      estado_caja: data.forma_pago === 'credito' ? 'CREDITO_APROBADO' : (data.estado_caja || 'PENDIENTE'),
       factura_electronica: data.factura_electronica,
       url_documento_factura: data.url_documento_factura,
       autorizacion_especial_despacho: data.autorizacion_especial_despacho,
@@ -288,11 +306,36 @@ export const updateODP = async (req: Request, res: Response) => {
       }
     }
 
-    // Recalcular pendiente si viene valor_total o abono
+    // Recalcular pendiente y estado_caja si viene valor_total o abono
     if (data.valor_total !== undefined || data.abono !== undefined) {
       const nuevoValorTotal = data.valor_total !== undefined ? (data.valor_total || 0) : (Number(odp.getDataValue('valor_total')) || 0);
       const nuevoAbono = data.abono !== undefined ? (data.abono || 0) : (Number(odp.getDataValue('abono')) || 0);
-      (data as any).pendiente = Math.max(0, nuevoValorTotal - nuevoAbono);
+      const nuevoPendiente = Math.max(0, nuevoValorTotal - nuevoAbono);
+      (data as any).pendiente = nuevoPendiente;
+      const formaPago = data.forma_pago || odp.getDataValue('forma_pago');
+      // Auto-calcular estado_caja según pagos (no permitir override manual)
+      if (nuevoPendiente <= 0 && nuevoAbono > 0) {
+        (data as any).estado_caja = 'CANCELADO';
+      } else if (formaPago === 'credito' && nuevoAbono <= 0) {
+        (data as any).estado_caja = 'CREDITO_APROBADO';
+      } else if (nuevoAbono > 0) {
+        (data as any).estado_caja = 'ABONADO';
+      } else {
+        (data as any).estado_caja = 'PENDIENTE';
+      }
+    } else {
+      // Si no viene valor_total ni abono, no permitir cambio manual de estado_caja
+      delete (data as any).estado_caja;
+    }
+
+    // Calcular fecha_vencimiento_credito al registrar factura electrónica en ODP de crédito
+    if (data.fecha_factura) {
+      const formaPago = data.forma_pago || odp.getDataValue('forma_pago');
+      if (formaPago === 'credito') {
+        const fechaFe = new Date(data.fecha_factura);
+        fechaFe.setDate(fechaFe.getDate() + 30);
+        (data as any).fecha_vencimiento_credito = fechaFe.toISOString().split('T')[0];
+      }
     }
 
     // Registrar fecha cuando se activa chk_accesorios por primera vez
@@ -422,15 +465,57 @@ export const updateODP = async (req: Request, res: Response) => {
 };
 
 export const deleteODP = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const odp = await ODP.findByPk(id);
-    if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
+    const odpId = Number(id);
 
-    await ODPItem.destroy({ where: { odp_id: id } });
-    await odp.destroy();
-    res.json({ status: 'ODP y sus ítems eliminados correctamente' });
+    const odp = await ODP.findByPk(odpId, { transaction: t });
+    if (!odp) {
+      await t.rollback();
+      return res.status(404).json({ error: 'ODP no encontrada' });
+    }
+
+    // Desvincula ODPs derivadas (auto-referencia) para no eliminarlas en cascada
+    await ODP.update({ odp_padre_id: null } as any, { where: { odp_padre_id: odpId }, transaction: t });
+
+    // Desvincula el prospecto (odp_id nullable)
+    await Prospecto.update({ odp_id: null } as any, { where: { odp_id: odpId }, transaction: t });
+
+    // Elimina ODCItems de las órdenes de compra relacionadas
+    const ordenes = await OrdenCompra.findAll({ where: { odp_id: odpId }, attributes: ['id'], transaction: t });
+    const ordenIds = ordenes.map((o: any) => o.id);
+    if (ordenIds.length > 0) {
+      await ODCItem.destroy({ where: { orden_compra_id: ordenIds }, transaction: t });
+    }
+    await OrdenCompra.destroy({ where: { odp_id: odpId }, transaction: t });
+
+    // Elimina SAPItems de los SAPs relacionados
+    const saps = await SAP.findAll({ where: { odp_id: odpId }, attributes: ['id'], transaction: t });
+    const sapIds = saps.map((s: any) => s.id);
+    if (sapIds.length > 0) {
+      await SAPItem.destroy({ where: { sap_id: sapIds }, transaction: t });
+    }
+    await SAP.destroy({ where: { odp_id: odpId }, transaction: t });
+
+    // Elimina registros hijos directos
+    await ODPItem.destroy({ where: { odp_id: odpId }, transaction: t });
+    await EvidenciaInstalacion.destroy({ where: { odp_id: odpId }, transaction: t });
+    await HistorialEstadoODP.destroy({ where: { odp_id: odpId }, transaction: t });
+    await NotaProduccion.destroy({ where: { odp_id: odpId }, transaction: t });
+    await NoConformidad.destroy({ where: { odp_id: odpId }, transaction: t });
+    await Cotizacion.destroy({ where: { odp_id: odpId }, transaction: t });
+    await TomaMedidas.destroy({ where: { odp_id: odpId }, transaction: t });
+    await Pago.destroy({ where: { odp_id: odpId }, transaction: t });
+    await RutaODP.destroy({ where: { odp_id: odpId }, transaction: t });
+
+    await odp.destroy({ transaction: t });
+    await t.commit();
+
+    res.json({ status: 'ODP y sus registros relacionados eliminados correctamente' });
   } catch (error) {
+    try { await t.rollback(); } catch (_) { /* ya commiteado */ }
+    console.error('Error al eliminar ODP:', error);
     res.status(500).json({ error: 'Error al eliminar ODP' });
   }
 };

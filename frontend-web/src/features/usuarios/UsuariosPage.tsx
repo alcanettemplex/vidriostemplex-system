@@ -12,7 +12,9 @@ const ROLES = [
   { value: 'produccion', label: 'Producción', color: 'bg-cyan-100 text-cyan-700' },
   { value: 'auxiliar_produccion', label: 'Auxiliar de Producción', color: 'bg-slate-100 text-slate-700' },
   { value: 'instalador', label: 'Instalador', color: 'bg-amber-100 text-amber-700' },
+  { value: 'conductor', label: 'Conductor', color: 'bg-orange-100 text-orange-700' },
   { value: 'contabilidad', label: 'Contabilidad', color: 'bg-emerald-100 text-emerald-700' },
+  { value: 'compras', label: 'Compras', color: 'bg-violet-100 text-violet-700' },
 ];
 
 const UsuariosPage: React.FC = () => {

@@ -44,6 +44,7 @@ const odpSchema = z.object({
     huacal: z.boolean().optional().default(false),
     carton: z.boolean().optional().default(false),
     valor_total: z.coerce.number().min(0, 'No puede ser negativo').optional(),
+    forma_pago: z.string().optional(),
     proveedor_vidrio: z.string().optional(),
     numero_pedido_proveedor: z.string().optional(),
     items: z.array(itemSchema).optional()
@@ -86,6 +87,7 @@ type ODPFormValues = {
     huacal: boolean;
     carton: boolean;
     valor_total?: number | undefined;
+    forma_pago?: string;
     proveedor_vidrio?: string;
     numero_pedido_proveedor?: string;
     items: ItemFormValues[];
@@ -124,7 +126,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
             huacal: false,
             carton: false,
             items: [],
-            valor_total: 0
+            valor_total: 0,
+            forma_pago: ''
         }
     });
 
@@ -183,6 +186,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                 carton: odpToEdit.carton || false,
                 items: odpToEdit.items || [],
                 valor_total: odpToEdit.valor_total || 0,
+                forma_pago: odpToEdit.forma_pago || '',
                 proveedor_vidrio: odpToEdit.proveedor_vidrio || '',
                 numero_pedido_proveedor: odpToEdit.numero_pedido_proveedor || ''
             });
@@ -332,6 +336,20 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                                                 </div>
                                             </div>
                                         )}
+                                    </div>
+
+                                    {/* Forma de Pago */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pago</label>
+                                        <select
+                                            {...register('forma_pago')}
+                                            className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                        >
+                                            <option value="">Seleccionar...</option>
+                                            <option value="contado">Contado</option>
+                                            <option value="credito">Crédito</option>
+                                            <option value="50_50">50% anticipo / 50% entrega</option>
+                                        </select>
                                     </div>
                                 </div>
 

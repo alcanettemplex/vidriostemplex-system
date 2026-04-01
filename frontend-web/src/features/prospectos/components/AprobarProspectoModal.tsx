@@ -549,7 +549,6 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                   <option value="contado">Contado</option>
                   <option value="credito">Crédito</option>
                   <option value="50_50">50% anticipo / 50% entrega</option>
-                  <option value="otro">Otro</option>
                 </select>
               </div>
             </div>

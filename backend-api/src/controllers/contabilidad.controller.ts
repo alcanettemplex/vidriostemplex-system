@@ -56,12 +56,26 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
     const pendienteMes =
       (await ODP.sum('pendiente', { where: { fecha_creacion: { [Op.gte]: firstDayOfMonth } } })) || 0;
 
-    // Cartera vencida (ODPs con pendiente > 0 y fecha_entrega pasada)
+    const fmt = (n: number) =>
+      new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
+
+    // Cartera vencida: doble criterio
+    // 1) ODPs normales: pendiente > 0, fecha_entrega pasada, NO son crédito vigente
+    // 2) ODPs de crédito: pendiente > 0, fecha_vencimiento_credito pasada
     const carteraVencida = await ODP.findAll({
       where: {
         pendiente: { [Op.gt]: 0 },
-        fecha_entrega: { [Op.lt]: today },
         estado_caja: { [Op.notIn]: ['CANCELADO'] },
+        [Op.or]: [
+          {
+            fecha_entrega: { [Op.lt]: today },
+            estado_caja: { [Op.notIn]: ['CANCELADO', 'CREDITO_APROBADO'] },
+          },
+          {
+            estado_caja: 'CREDITO_APROBADO',
+            fecha_vencimiento_credito: { [Op.lt]: today, [Op.ne]: null },
+          },
+        ],
       },
       include: [{ model: Cliente, as: 'cliente' }],
       order: [['fecha_entrega', 'ASC']],
@@ -71,22 +85,33 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
     const totalCarteraVencida = await ODP.sum('pendiente', {
       where: {
         pendiente: { [Op.gt]: 0 },
-        fecha_entrega: { [Op.lt]: today },
         estado_caja: { [Op.notIn]: ['CANCELADO'] },
+        [Op.or]: [
+          {
+            fecha_entrega: { [Op.lt]: today },
+            estado_caja: { [Op.notIn]: ['CANCELADO', 'CREDITO_APROBADO'] },
+          },
+          {
+            estado_caja: 'CREDITO_APROBADO',
+            fecha_vencimiento_credito: { [Op.lt]: today, [Op.ne]: null },
+          },
+        ],
       },
     });
 
-    const fmt = (n: number) =>
-      new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
-
     const carteraDetalle = carteraVencida.map((odp: any) => {
-      const diffTime = Math.abs(today.getTime() - new Date(odp.fecha_entrega).getTime());
+      const esCreditoVencido = odp.getDataValue('estado_caja') === 'CREDITO_APROBADO';
+      const fechaRef = esCreditoVencido
+        ? new Date(odp.getDataValue('fecha_vencimiento_credito'))
+        : new Date(odp.fecha_entrega);
+      const diffTime = Math.abs(today.getTime() - fechaRef.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return {
         odp: odp.numero_odp,
         cliente: odp.cliente?.nombre_razon_social || 'Sin cliente',
         pendiente: fmt(Number(odp.pendiente)),
         dias_vencido: diffDays,
+        tipo_vencimiento: esCreditoVencido ? 'credito' : 'entrega',
       };
     });
 

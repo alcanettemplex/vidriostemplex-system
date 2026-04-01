@@ -168,7 +168,7 @@ const ODPListPage: React.FC = () => {
     const [odps, setOdps] = useState<ODP[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeTab, setActiveTab] = useState<'activas' | 'visita' | 'completadas'>('activas');
+    const [activeTab, setActiveTab] = useState<'activas' | 'visita' | 'listas' | 'completadas'>('activas');
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [selectedOdpDetail, setSelectedOdpDetail] = useState<number | null>(null);
     const [editingOdp, setEditingOdp] = useState<ODP | null>(null);
@@ -249,11 +249,13 @@ const ODPListPage: React.FC = () => {
     const aniosUnicos = Array.from(new Set(odps.map(o => o.fecha_entrega ? new Date(o.fecha_entrega).getFullYear() : null).filter(Boolean) as number[])).sort((a, b) => b - a);
 
     // Segmentación por tabs
-    const odpsActivas = odps.filter(o => !['VISITA_TECNICA', ...ESTADOS_COMPLETADAS].includes(o.estado_produccion));
+    const ESTADOS_LISTAS = ['LISTO_INSTALAR', 'PROGRAMADA'];
+    const odpsActivas = odps.filter(o => !['VISITA_TECNICA', ...ESTADOS_LISTAS, ...ESTADOS_COMPLETADAS].includes(o.estado_produccion));
     const odpsVisita = odps.filter(o => o.estado_produccion === 'VISITA_TECNICA');
+    const odpsListas = odps.filter(o => ESTADOS_LISTAS.includes(o.estado_produccion));
     const odpsCompletadas = odps.filter(o => ESTADOS_COMPLETADAS.includes(o.estado_produccion));
 
-    const tabBase = activeTab === 'visita' ? odpsVisita : activeTab === 'completadas' ? odpsCompletadas : odpsActivas;
+    const tabBase = activeTab === 'visita' ? odpsVisita : activeTab === 'listas' ? odpsListas : activeTab === 'completadas' ? odpsCompletadas : odpsActivas;
 
     // Aplicar filtros
     const filtered = tabBase.filter(odp => {
@@ -322,6 +324,16 @@ const ODPListPage: React.FC = () => {
                     Visita Técnica
                     {odpsVisita.length > 0 && (
                         <span className="px-2 py-0.5 rounded-full text-xs font-black bg-orange-100 text-orange-700">{odpsVisita.length}</span>
+                    )}
+                </button>
+                <button
+                    onClick={() => setActiveTab('listas')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition border ${activeTab === 'listas' ? 'bg-white border-indigo-200 text-indigo-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white/60'}`}
+                >
+                    <Truck className="w-4 h-4" />
+                    Listas para instalar
+                    {odpsListas.length > 0 && (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-black ${activeTab === 'listas' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>{odpsListas.length}</span>
                     )}
                 </button>
                 <button

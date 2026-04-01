@@ -170,6 +170,24 @@ const ContabilidadPage: React.FC = () => {
 
   // ─── Datos derivados ────────────────────────────────────────────────
   const calcPendiente = (o: any) => Math.max(0, Number(o.valor_total || 0) - Number(o.abono || 0));
+
+  // Retorna días restantes para vencer el crédito (negativo = ya venció)
+  const diasParaVencer = (o: any): number | null => {
+    if (o.estado_caja !== 'CREDITO_APROBADO' || !o.fecha_vencimiento_credito) return null;
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const vence = new Date(o.fecha_vencimiento_credito); vence.setHours(0, 0, 0, 0);
+    return Math.ceil((vence.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  // Color de fila para créditos próximos a vencer
+  const rowColorCredito = (o: any): string => {
+    const dias = diasParaVencer(o);
+    if (dias === null) return '';
+    if (dias <= 2) return 'bg-rose-50';
+    if (dias <= 7) return 'bg-orange-50';
+    return '';
+  };
+
   const filtradas = filterEstadoCaja === 'todos' ? odps : odps.filter(o => o.estado_caja === filterEstadoCaja);
   const odpsPendientes = odps.filter(o => calcPendiente(o) > 0 && o.estado_caja !== 'CANCELADO');
   const carteraDetalle: any[] = resumen?.cartera_detalle || [];
@@ -289,7 +307,7 @@ const ContabilidadPage: React.FC = () => {
                   ) : filtradas.length === 0 ? (
                     <tr><td colSpan={9} className="text-center py-12 text-slate-400 font-bold">No hay registros que mostrar.</td></tr>
                   ) : filtradas.map(odp => (
-                    <tr key={odp.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={odp.id} className={`hover:bg-slate-50 transition-colors ${rowColorCredito(odp)}`}>
                       <td className="px-5 py-4 font-bold text-indigo-700">{odp.numero_odp}</td>
                       <td className="px-5 py-4 font-semibold text-slate-800 max-w-[180px] truncate">{odp.cliente?.nombre_razon_social}</td>
                       <td className="px-5 py-4">
@@ -323,18 +341,43 @@ const ContabilidadPage: React.FC = () => {
                         })()}
                       </td>
                       <td className="px-5 py-4">
-                        <select value={odp.estado_caja} onChange={e => updateCaja(odp.id, 'estado_caja', e.target.value)}
-                          className={`text-xs font-bold px-2 py-1 rounded-lg border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
-                            odp.estado_caja === 'CANCELADO' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
-                            odp.estado_caja === 'ABONADO' ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                            odp.estado_caja === 'CREDITO_APROBADO' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
-                            'bg-amber-100 text-amber-800 border-amber-300'
-                          }`}>
-                          <option value="PENDIENTE">Pendiente</option>
-                          <option value="ABONADO">Abonado</option>
-                          <option value="CANCELADO">Cancelado</option>
-                          <option value="CREDITO_APROBADO">Crédito Aprobado</option>
-                        </select>
+                        {(() => {
+                          const dias = diasParaVencer(odp);
+                          const badgeCredito = dias !== null
+                            ? dias <= 2 ? 'bg-rose-100 text-rose-800 border-rose-300'
+                            : dias <= 7 ? 'bg-orange-100 text-orange-800 border-orange-300'
+                            : 'bg-indigo-100 text-indigo-800 border-indigo-300'
+                            : 'bg-indigo-100 text-indigo-800 border-indigo-300';
+                          return (
+                            <div className="flex flex-col gap-1">
+                              <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${
+                                odp.estado_caja === 'CANCELADO' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                                odp.estado_caja === 'ABONADO' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                odp.estado_caja === 'CREDITO_APROBADO' ? badgeCredito :
+                                'bg-amber-100 text-amber-800 border-amber-300'
+                              }`}>
+                                {odp.estado_caja === 'CANCELADO' ? 'Cancelado' :
+                                 odp.estado_caja === 'ABONADO' ? 'Abonado' :
+                                 odp.estado_caja === 'CREDITO_APROBADO' ? 'Crédito Aprobado' :
+                                 'Pendiente'}
+                              </span>
+                              {odp.estado_caja === 'CREDITO_APROBADO' && odp.fecha_vencimiento_credito && (
+                                <span className={`text-xs font-semibold ${
+                                  dias !== null && dias <= 2 ? 'text-rose-600' :
+                                  dias !== null && dias <= 7 ? 'text-orange-600' :
+                                  'text-slate-500'
+                                }`}>
+                                  Vence: {new Date(odp.fecha_vencimiento_credito).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                  {dias !== null && dias >= 0 && ` (${dias}d)`}
+                                  {dias !== null && dias < 0 && ' ⚠ Vencido'}
+                                </span>
+                              )}
+                              {odp.estado_caja === 'CREDITO_APROBADO' && !odp.fecha_vencimiento_credito && (
+                                <span className="text-xs text-slate-400 italic">Sin FE registrada</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-5 py-4">
                         <select value={odp.estado_facturacion} onChange={e => handleFacturacionChange(odp, e.target.value)}
