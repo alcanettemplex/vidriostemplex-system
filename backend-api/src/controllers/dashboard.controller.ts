@@ -6,6 +6,8 @@ import {
   Usuario,
   HistorialEstadoODP,
   RutaODP,
+  RutaInstalacion,
+  Vehiculo,
   EvidenciaInstalacion,
   ODPItem,
   ConfiguracionGlobal,
@@ -334,21 +336,27 @@ export const getProduccionData = async (_req: Request, res: Response) => {
 // ─── 4. PANEL EQUIPO ────────────────────────────────────────────────────────
 export const getEquipoData = async (_req: Request, res: Response) => {
   try {
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const todayStr = today.toISOString().split('T')[0];
+
+    // ── KPIs base ──────────────────────────────────────────────────────────────
     const total_asesores = await Usuario.count({ where: { rol: 'asesor_comercial' } });
     const total_instaladores = await Usuario.count({ where: { rol: 'instalador' } });
     const total_odps = await ODP.count({ where: { estado_produccion: { [Op.ne]: 'ENTREGADA' } } });
     const odps_por_asesor_promedio = total_asesores > 0 ? Number((total_odps / total_asesores).toFixed(1)) : 0;
-
     const items_totales = await ODPItem.count();
     const items_verificados = await ODPItem.count({ where: { verificacion_prod: true } });
     const eficiencia_taller_pct = items_totales > 0 ? Math.round((items_verificados / items_totales) * 100) : 0;
 
+    // ── Ranking asesores ───────────────────────────────────────────────────────
     const asesores = await Usuario.findAll({ where: { rol: 'asesor_comercial' } });
     const ranking_asesores = await Promise.all(asesores.map(async (u) => {
       const cerradas = await ODP.count({ where: { asesor_id: u.getDataValue('id'), estado_produccion: 'ENTREGADA' } });
       return { asesor_id: u.getDataValue('id'), nombre: (u as any).nombre_completo, odps_cerradas_mes: cerradas, tiempo_promedio_cierre_dias: 10 + Math.random() * 5, meta: 12 };
     }));
 
+    // ── Carga instaladores (existente) ─────────────────────────────────────────
     const instaladores = await Usuario.findAll({ where: { rol: 'instalador' } });
     const carga_instaladores = await Promise.all(instaladores.map(async (u) => {
       const instas = await EvidenciaInstalacion.count({ where: { instalador_id: u.getDataValue('id') } });
@@ -356,7 +364,91 @@ export const getEquipoData = async (_req: Request, res: Response) => {
       return { instalador_id: u.getDataValue('id'), nombre: (u as any).nombre_completo, instalaciones_mes: instas, con_evidencia: evidencias, sin_evidencia: Math.max(0, instas - evidencias) };
     }));
 
-    res.json({ total_asesores, total_instaladores, odps_por_asesor_promedio, eficiencia_taller_pct, ranking_asesores, carga_instaladores });
+    // ── PROPUESTA A: Rendimiento por instalador ────────────────────────────────
+    const [rendimientoRows] = await sequelize.query(`
+      SELECT
+        u.id AS instalador_id,
+        u.nombre_completo AS nombre,
+        COUNT(e.id) AS instalaciones_mes,
+        ROUND(AVG(
+          EXTRACT(EPOCH FROM (ro.fin_instalacion - ro.inicio_instalacion)) / 60
+        )::numeric, 1) AS avg_minutos_instalacion,
+        COUNT(CASE WHEN ro.fin_instalacion::date = CURRENT_DATE THEN 1 END) AS completadas_hoy
+      FROM evidencias_instalacion e
+      JOIN ruta_odp ro ON ro.odp_id = e.odp_id AND ro.estado = 'completada'
+      JOIN usuarios u ON e.instalador_id = u.id
+      WHERE e.fecha >= :firstDayOfMonth
+        AND ro.fin_instalacion IS NOT NULL
+        AND ro.inicio_instalacion IS NOT NULL
+      GROUP BY u.id, u.nombre_completo
+      ORDER BY instalaciones_mes DESC
+    `, { replacements: { firstDayOfMonth } });
+
+    // ── PROPUESTA B: Análisis por conductor ────────────────────────────────────
+    const [conductoresRows] = await sequelize.query(`
+      SELECT
+        u.id AS conductor_id,
+        u.nombre_completo AS nombre,
+        COUNT(ri.id) AS rutas_mes,
+        COUNT(CASE WHEN ri.estado = 'completada' THEN 1 END) AS rutas_completadas,
+        ROUND(AVG(
+          EXTRACT(EPOCH FROM (
+            (SELECT MAX(ro2.fin_instalacion) FROM ruta_odp ro2 WHERE ro2.ruta_id = ri.id)
+            - ri.inicio_ruta
+          )) / 60
+        )::numeric, 0) AS avg_minutos_ruta,
+        ROUND(AVG(
+          EXTRACT(EPOCH FROM (ro.llegada_conductor - (ro.fecha_programada::timestamp)))
+          / 3600
+        )::numeric, 1) AS avg_horas_puntualidad
+      FROM rutas_instalacion ri
+      JOIN usuarios u ON ri.conductor_id = u.id
+      LEFT JOIN ruta_odp ro ON ro.ruta_id = ri.id AND ro.llegada_conductor IS NOT NULL
+      WHERE ri.creado_en >= :firstDayOfMonth
+        AND ri.conductor_id IS NOT NULL
+      GROUP BY u.id, u.nombre_completo
+      ORDER BY rutas_mes DESC
+    `, { replacements: { firstDayOfMonth } });
+
+    // ── PROPUESTA C: Estado actual del día ────────────────────────────────────
+    const [odpsHoyRows] = await sequelize.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE estado = 'pendiente')  AS pendientes,
+        COUNT(*) FILTER (WHERE estado = 'en_curso')   AS en_curso,
+        COUNT(*) FILTER (WHERE estado = 'completada') AS completadas
+      FROM ruta_odp
+      WHERE fecha_programada = :todayStr
+    `, { replacements: { todayStr } });
+
+    const rutasActivas = await RutaInstalacion.findAll({
+      where: { estado: 'en_curso' },
+      include: [
+        { model: Vehiculo, as: 'vehiculo', attributes: ['placa', 'tipo'] },
+        { model: Usuario, as: 'conductor', attributes: ['nombre_completo'] },
+        { model: RutaODP, as: 'ruta_odps', attributes: ['id', 'estado', 'odp_id', 'llegada_conductor', 'inicio_instalacion'] },
+      ],
+    }) as any[];
+
+    const operaciones_hoy = {
+      odps: odpsHoyRows[0] || { pendientes: 0, en_curso: 0, completadas: 0 },
+      rutas_activas: rutasActivas.map(r => ({
+        id: r.id,
+        conductor: r.conductor?.nombre_completo || 'Sin conductor',
+        vehiculo: r.vehiculo ? `${r.vehiculo.tipo.toUpperCase()} ${r.vehiculo.placa}` : '—',
+        inicio_ruta: r.inicio_ruta,
+        stops_total: r.ruta_odps?.length || 0,
+        stops_completadas: r.ruta_odps?.filter((s: any) => s.estado === 'completada').length || 0,
+        stops_en_curso: r.ruta_odps?.filter((s: any) => s.estado === 'en_curso').length || 0,
+      })),
+    };
+
+    res.json({
+      total_asesores, total_instaladores, odps_por_asesor_promedio, eficiencia_taller_pct,
+      ranking_asesores, carga_instaladores,
+      rendimiento_instaladores: rendimientoRows,
+      analisis_conductores: conductoresRows,
+      operaciones_hoy,
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

@@ -442,34 +442,63 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void }> = ({ odp, onU
   );
 };
 
+const ESTADO_RUTA_ODP: Record<string, { label: string; cls: string }> = {
+  pendiente:   { label: 'Pendiente',  cls: 'bg-slate-100 text-slate-600 border-slate-200' },
+  en_curso:    { label: 'En curso',   cls: 'bg-orange-100 text-orange-700 border-orange-200' },
+  completada:  { label: 'Completada', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+};
+
 const TabInstalacion: React.FC<{ odp: any }> = ({ odp }) => {
-  const programaciones = odp.programaciones || [];
+  const rutaOdps: any[] = odp.ruta_odps || [];
   const evidencias = odp.evidencias || [];
 
   return (
     <div className="p-6 space-y-6">
       <div>
         <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
-          <Truck className="w-4 h-4 text-indigo-600" /> Programaciones de Instalación ({programaciones.length})
+          <Truck className="w-4 h-4 text-indigo-600" /> Programaciones de Instalación ({rutaOdps.length})
         </h3>
-        {programaciones.length === 0 ? (
+        {rutaOdps.length === 0 ? (
           <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center text-slate-400">
             <Truck className="w-10 h-10 mx-auto mb-2 text-slate-200" />
             <p className="font-bold">Sin programaciones asignadas</p>
           </div>
-        ) : programaciones.map((prog: any) => (
-          <div key={prog.id} className="bg-white border border-slate-200 rounded-2xl p-5 mb-3 shadow-sm">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div><p className="text-xs text-slate-400 font-bold uppercase">Fecha</p><p className="font-bold">{prog.fecha_programada || '—'}</p></div>
-              <div><p className="text-xs text-slate-400 font-bold uppercase">Hora</p><p className="font-bold">{prog.hora_programada || '—'}</p></div>
-              <div><p className="text-xs text-slate-400 font-bold uppercase">Instalador</p><p className="font-bold">{prog.instalador?.nombre_completo || '—'}</p></div>
-              <div><p className="text-xs text-slate-400 font-bold uppercase">Estado</p>
-                <Badge className="bg-blue-100 text-blue-700 border-blue-200 mt-0.5">{prog.estado || 'Programada'}</Badge>
+        ) : rutaOdps.map((prog: any) => {
+          const estadoBadge = ESTADO_RUTA_ODP[prog.estado] || ESTADO_RUTA_ODP['pendiente'];
+          const instaladores = prog.ruta?.instaladores?.map((i: any) => i.nombre_completo).join(', ') || '—';
+          const vehiculo = prog.ruta?.vehiculo ? `${prog.ruta.vehiculo.tipo.toUpperCase()} — ${prog.ruta.vehiculo.placa}` : '—';
+          return (
+            <div key={prog.id} className="bg-white border border-slate-200 rounded-2xl p-5 mb-3 shadow-sm">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <p className="text-xs text-slate-400 font-bold uppercase">Fecha programada</p>
+                  <p className="font-bold">{prog.fecha_programada ? new Date(prog.fecha_programada).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-bold uppercase">Vehículo</p>
+                  <p className="font-bold">{vehiculo}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-bold uppercase">Instaladores</p>
+                  <p className="font-bold text-xs">{instaladores}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-bold uppercase">Estado</p>
+                  <Badge className={`${estadoBadge.cls} mt-0.5`}>{estadoBadge.label}</Badge>
+                </div>
               </div>
+              {prog.inicio_instalacion && (
+                <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 gap-4 text-xs text-slate-500">
+                  <span>Inicio: <strong>{new Date(prog.inicio_instalacion).toLocaleString('es-CO')}</strong></span>
+                  {prog.fin_instalacion && <span>Fin: <strong>{new Date(prog.fin_instalacion).toLocaleString('es-CO')}</strong></span>}
+                </div>
+              )}
+              {prog.datos_receptor && (
+                <p className="text-xs text-slate-500 mt-2">Recibió: <strong>{prog.datos_receptor}</strong></p>
+              )}
             </div>
-            {prog.notas && <p className="text-xs text-slate-500 italic mt-3 pt-3 border-t border-slate-100">"{prog.notas}"</p>}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div>
@@ -485,10 +514,10 @@ const TabInstalacion: React.FC<{ odp: any }> = ({ odp }) => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {evidencias.map((ev: any) => (
               <div key={ev.id} className="group relative rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100 aspect-square">
-                {ev.foto_url ? (
+                {ev.archivo_url ? (
                   <>
-                    <img src={ev.foto_url} alt="Evidencia" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    <a href={ev.foto_url} target="_blank" rel="noopener noreferrer"
+                    <img src={ev.archivo_url} alt="Evidencia" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <a href={ev.archivo_url} target="_blank" rel="noopener noreferrer"
                       className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <ExternalLink className="w-6 h-6 text-white" />
                     </a>
@@ -501,7 +530,7 @@ const TabInstalacion: React.FC<{ odp: any }> = ({ odp }) => {
                 )}
                 <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-2">
                   <p className="text-white text-[10px] font-bold truncate">{ev.instalador?.nombre_completo}</p>
-                  <p className="text-white/70 text-[10px]">{new Date(ev.fecha_subida || ev.creado_en || '').toLocaleDateString('es-CO')}</p>
+                  <p className="text-white/70 text-[10px]">{ev.fecha ? new Date(ev.fecha).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</p>
                 </div>
               </div>
             ))}
@@ -577,7 +606,7 @@ const TabHistorial: React.FC<{ odp: any }> = ({ odp }) => {
   (odp.cotizaciones || []).forEach((c: any) => timeline.push({ fecha: c.fecha_creacion, tipo: 'COT', titulo: `Cotización ${c.numero_cot}`, detalle: `${fmt(c.valor_total)} · ${c.asesor?.nombre_completo}`, color: 'bg-blue-500', icon: <DollarSign className="w-3.5 h-3.5" /> }));
   (odp.tomas_medidas || []).forEach((t: any) => timeline.push({ fecha: t.fecha_creacion, tipo: 'TM', titulo: `Toma de Medidas ${t.numero_tm}`, detalle: `${t.realizador?.nombre_completo} · ${t.medidas_json?.length || 0} medidas`, color: 'bg-amber-500', icon: <Ruler className="w-3.5 h-3.5" /> }));
   historial.forEach((h: any) => timeline.push({ fecha: h.fecha || h.fecha_cambio || h.creado_en, tipo: 'ESTADO', titulo: `Estado → ${(h.estado_nuevo || h.nuevo_estado || '').replace(/_/g, ' ')}`, detalle: `Por ${h.usuario?.nombre_completo || 'Sistema'} ${h.notas ? `· "${h.notas}"` : ''}`, color: 'bg-slate-500', icon: <History className="w-3.5 h-3.5" /> }));
-  (odp.evidencias || []).forEach((e: any) => timeline.push({ fecha: e.fecha_subida || e.creado_en, tipo: 'EVIDENCIA', titulo: 'Evidencia de Instalación', detalle: `Instalador: ${e.instalador?.nombre_completo || '—'}`, color: 'bg-emerald-500', icon: <Camera className="w-3.5 h-3.5" /> }));
+  (odp.evidencias || []).forEach((e: any) => timeline.push({ fecha: e.fecha, tipo: 'EVIDENCIA', titulo: 'Evidencia de Instalación', detalle: `Instalador: ${e.instalador?.nombre_completo || '—'}`, color: 'bg-emerald-500', icon: <Camera className="w-3.5 h-3.5" /> }));
   (odp.no_conformidades || []).forEach((nc: any) => timeline.push({ fecha: nc.creado_en, tipo: 'FALLA', titulo: `No Conformidad ${nc.numero_reporte}`, detalle: `${nc.tipo_error?.replace(/_/g, ' ')} · ${nc.area_error}`, color: 'bg-rose-500', icon: <AlertTriangle className="w-3.5 h-3.5" /> }));
 
   timeline.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
@@ -748,7 +777,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
     { id: 'general',     label: 'Datos Generales', icon: <ClipboardList className="w-4 h-4" /> },
     { id: 'comercial',   label: 'Comercial',        icon: <DollarSign className="w-4 h-4" />,    badge: (odp?.saps?.length || 0) + (odp?.cotizaciones?.length || 0) },
     { id: 'produccion',  label: 'Producción',        icon: <Wrench className="w-4 h-4" />,         badge: odp?.tomas_medidas?.length || 0 },
-    { id: 'instalacion', label: 'Instalación',       icon: <Truck className="w-4 h-4" />,          badge: (odp?.evidencias?.length || 0) + (odp?.programaciones?.length || 0) },
+    { id: 'instalacion', label: 'Instalación',       icon: <Truck className="w-4 h-4" />,          badge: (odp?.evidencias?.length || 0) + (odp?.ruta_odps?.length || 0) },
     { id: 'financiero',  label: 'Financiero',         icon: <TrendingUp className="w-4 h-4" /> },
     { id: 'historial',   label: 'Historial',          icon: <History className="w-4 h-4" />,        badge: odp?.no_conformidades?.length || 0 },
     { id: 'imprimir',    label: 'Imprimir ODP',       icon: <Printer className="w-4 h-4" /> },

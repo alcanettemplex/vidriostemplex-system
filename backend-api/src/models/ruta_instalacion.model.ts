@@ -13,6 +13,7 @@ RutaInstalacion.init({
     defaultValue: 'programada',
   },
   observaciones: { type: DataTypes.TEXT, allowNull: true },
+  inicio_ruta:   { type: DataTypes.DATE, allowNull: true },
   creado_en:     { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 }, {
   sequelize,

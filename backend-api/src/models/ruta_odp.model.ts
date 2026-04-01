@@ -9,6 +9,7 @@ RutaODP.init({
   odp_id:              { type: DataTypes.INTEGER, allowNull: false },
   orden:               { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
   fecha_programada:    { type: DataTypes.DATEONLY, allowNull: false },
+  llegada_conductor:   { type: DataTypes.DATE, allowNull: true },
   inicio_instalacion:  { type: DataTypes.DATE, allowNull: true },
   fin_instalacion:     { type: DataTypes.DATE, allowNull: true },
   estado: {

@@ -569,9 +569,30 @@ export const iniciarRutaConductor = async (req: Request, res: Response) => {
     if (!ruta) return res.status(404).json({ error: 'Ruta no encontrada o no asignada' });
     if (ruta.estado !== 'programada') return res.status(400).json({ error: 'La ruta ya fue iniciada' });
 
-    await ruta.update({ estado: 'en_curso' });
+    await ruta.update({ estado: 'en_curso', inicio_ruta: new Date() });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'Error al iniciar ruta' });
+  }
+};
+
+export const llegadaConductor = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = req.user as any;
+
+    const rutaODP = await RutaODP.findByPk(id, {
+      include: [{ model: RutaInstalacion, as: 'ruta', attributes: ['id', 'conductor_id', 'estado'] }],
+    }) as any;
+
+    if (!rutaODP) return res.status(404).json({ error: 'Parada no encontrada' });
+    if (rutaODP.ruta?.conductor_id !== user.id) return res.status(403).json({ error: 'No eres el conductor de esta ruta' });
+    if (rutaODP.ruta?.estado !== 'en_curso') return res.status(400).json({ error: 'La ruta no está en curso' });
+    if (rutaODP.llegada_conductor) return res.status(400).json({ error: 'Ya registraste tu llegada a esta parada' });
+
+    await rutaODP.update({ llegada_conductor: new Date() });
+    res.json({ ok: true, llegada_conductor: rutaODP.llegada_conductor });
+  } catch (e) {
+    res.status(500).json({ error: 'Error al registrar llegada' });
   }
 };

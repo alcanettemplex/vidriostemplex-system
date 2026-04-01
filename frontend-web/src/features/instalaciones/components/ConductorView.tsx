@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { MapPin, Truck, Users, CheckCircle2, Clock, ExternalLink, RefreshCw, Play, Navigation } from 'lucide-react';
+import { MapPin, Truck, Users, CheckCircle2, Clock, ExternalLink, RefreshCw, Play, Navigation, LogIn } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -18,6 +18,7 @@ const ConductorView: React.FC = () => {
   const [rutas, setRutas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [iniciando, setIniciando] = useState<number | null>(null);
+  const [registrandoLlegada, setRegistrandoLlegada] = useState<number | null>(null);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -39,6 +40,19 @@ const ConductorView: React.FC = () => {
     } catch (e: any) {
       toast.error(e.response?.data?.error || 'Error al iniciar ruta');
     } finally { setIniciando(null); }
+  };
+
+  const registrarLlegada = async (rutaODPId: number) => {
+    setRegistrandoLlegada(rutaODPId);
+    try {
+      await axios.post(`${API}/api/rutas/ruta-odp/${rutaODPId}/llegada`, {}, { headers });
+      toast.success('¡Llegada registrada!');
+      cargar();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Error al registrar llegada');
+    } finally {
+      setRegistrandoLlegada(null);
+    }
   };
 
   const abrirMapa = (direccion: string) => {
@@ -172,6 +186,11 @@ const ConductorView: React.FC = () => {
 
                           <div className="flex items-center gap-3 mt-1 text-[10px] text-slate-400">
                             <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" /> {stop.fecha_programada}</span>
+                            {stop.llegada_conductor && (
+                              <span className="text-indigo-600 flex items-center gap-0.5">
+                                <LogIn className="w-3 h-3" /> {new Date(stop.llegada_conductor).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
                             {stop.inicio_instalacion && (
                               <span className="text-amber-600">▶ {new Date(stop.inicio_instalacion).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</span>
                             )}
@@ -179,6 +198,18 @@ const ConductorView: React.FC = () => {
                               <span className="text-emerald-600">✓ {new Date(stop.fin_instalacion).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</span>
                             )}
                           </div>
+
+                          {/* Botón llegué: solo si ruta en_curso, parada pendiente o en_curso, y no hay llegada registrada */}
+                          {enCurso && !stopCompletada && !stop.llegada_conductor && (
+                            <button
+                              onClick={() => registrarLlegada(stop.id)}
+                              disabled={registrandoLlegada === stop.id}
+                              className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition disabled:opacity-50"
+                            >
+                              <LogIn className="w-3.5 h-3.5" />
+                              {registrandoLlegada === stop.id ? 'Registrando...' : 'Llegué'}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
