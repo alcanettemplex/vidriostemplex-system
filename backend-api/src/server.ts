@@ -2,6 +2,9 @@ import app from './app';
 import { sequelize } from './models';
 import http from 'http';
 import { Server } from 'socket.io';
+import cron from 'node-cron';
+import { Op } from 'sequelize';
+import PedidoPV from './models/pedido_pv.model';
 
 const PORT = process.env.PORT || 3001;
 const server = http.createServer(app);
@@ -54,6 +57,45 @@ export const emitirNotificacion = (
     });
   }
 };
+
+// ─── Cron: alertas de tardanza de pedidos PV (diario a las 8am) ─────────────
+cron.schedule('0 8 * * *', async () => {
+  try {
+    const manana = new Date();
+    manana.setDate(manana.getDate() + 1);
+    const mananaStr = manana.toISOString().split('T')[0];
+
+    const pedidosPorVencer = await PedidoPV.findAll({
+      where: {
+        estado: { [Op.in]: ['ENVIADO', 'CONFIRMADO_PROVEEDOR'] },
+        fecha_entrega_prometida: { [Op.lte]: mananaStr },
+        alerta_enviada: false,
+      },
+    });
+
+    for (const pedido of pedidosPorVencer) {
+      const numeroPedido = pedido.getDataValue('numero_pedido');
+      const fechaPrometida = pedido.getDataValue('fecha_entrega_prometida');
+
+      emitirNotificacion(
+        { roles: ['asesor_comercial', 'jefe_produccion', 'produccion', 'compras', 'gerencia'] },
+        {
+          titulo: `⏰ Pedido PV ${numeroPedido} — Vence mañana`,
+          mensaje: `El pedido PV ${numeroPedido} tiene entrega prometida para ${fechaPrometida} y aún no ha llegado.`,
+          tipo: 'PV_ALERTA_TARDANZA',
+        }
+      );
+
+      await pedido.update({ alerta_enviada: true });
+    }
+
+    if (pedidosPorVencer.length > 0) {
+      console.warn(`[Cron PV] ${pedidosPorVencer.length} alerta(s) de tardanza enviadas`);
+    }
+  } catch (err) {
+    console.error('[Cron PV] Error en alerta de tardanza:', err);
+  }
+});
 
 (async () => {
   try {

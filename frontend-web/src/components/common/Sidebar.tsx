@@ -16,7 +16,8 @@ import {
   Sliders,
   Ruler,
   UserPlus,
-  Package
+  Package,
+  GlassWater,
 } from 'lucide-react';
 
 /**
@@ -94,6 +95,13 @@ const MENU_ITEMS_CONFIG = [
     icon: Package,
     path: '/inventario',
     allowedRoles: ['admin', 'gerencia', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras'],
+    section: 'logistica'
+  },
+  {
+    text: 'Pedidos PV',
+    icon: GlassWater,
+    path: '/pedidos-pv',
+    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras'],
     section: 'logistica'
   },
   {

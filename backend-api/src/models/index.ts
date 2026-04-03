@@ -23,6 +23,7 @@ import NotaProduccion from './nota_produccion.model';
 import CatalogoProducto from './catalogo_producto.model';
 import Prospecto from './prospecto.model';
 import InventarioPerfileria from './inventario_perfileria.model';
+import PedidoPV from './pedido_pv.model';
 
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
@@ -147,6 +148,16 @@ Pago.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
 Usuario.hasMany(Pago, { foreignKey: 'registrado_por', as: 'pagos_registrados' });
 Pago.belongsTo(Usuario, { foreignKey: 'registrado_por', as: 'registrador' });
 
+// ─── Bloque F: Pedidos PV ────────────────────────────────────────────────────
+ODP.hasMany(PedidoPV, { foreignKey: 'odp_id', as: 'pedidos_pv' });
+PedidoPV.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
+
+Usuario.hasMany(PedidoPV, { foreignKey: 'creado_por', as: 'pedidos_pv_creados' });
+PedidoPV.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
+
+Usuario.hasMany(PedidoPV, { foreignKey: 'verificado_por', as: 'pedidos_pv_verificados' });
+PedidoPV.belongsTo(Usuario, { foreignKey: 'verificado_por', as: 'verificador' });
+
 export {
   sequelize,
   Usuario,
@@ -172,5 +183,6 @@ export {
   InventarioPerfileria,
   RutaInstalacion,
   RutaODP,
+  PedidoPV,
 };
 
