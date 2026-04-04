@@ -135,10 +135,11 @@ Todas las rutas protegidas siguen: `authMiddleware → rbacMiddleware → contro
 | `/documentos` | documentos (PDF/Excel generados server-side) |
 | `/pedidos-pv` | pedido_pv.controller |
 | `/facturas-salidas` | salidas_almacen.controller |
+| `/root` | root.controller — exclusivo rol `root` |
 
 ---
 
-## Modelos de Base de Datos (26 modelos en `backend-api/src/models/`)
+## Modelos de Base de Datos (28 modelos en `backend-api/src/models/`)
 
 Las asociaciones están centralizadas en `models/index.ts` (importar siempre desde ahí, no desde el archivo individual).
 
@@ -171,6 +172,8 @@ Las asociaciones están centralizadas en `models/index.ts` (importar siempre des
 | `ProgramacionInstalacion` | `programacion_instalaciones` | Calendario de instalaciones (importado directamente en `instalacion.controller.ts`, no en index.ts) |
 | `PedidoPV` | `pedido_pv` | Pedidos de vidrios templados a proveedor PV; estados: `PENDIENTE→ENVIADO→CONFIRMADO_PROVEEDOR→LLEGADO→VERIFICADO\|PROBLEMA`; cron diario 8am para alertas de tardanza; soporta importación desde Excel |
 | `SalidaAlmacen` | `salidas_almacen` | Registro de salida de almacén (SA-XXXX) por ODP facturada; una SA por ODP; gestionada por compras/produccion |
+| `AuditoriaLog` | `auditoria_log` | Log de auditoría global — INSERT/UPDATE/DELETE de todos los modelos; campos: tabla, operacion, registro_id, datos_anteriores (JSONB), datos_nuevos (JSONB), usuario_id, ip_address, fecha |
+| `AlertasUmbral` | `alertas_umbral` | Umbrales configurables para alertas del módulo ROOT (db_storage_pct, cloud_storage_pct, etc.) |
 
 ---
 
@@ -200,7 +203,8 @@ Cada módulo en `frontend-web/src/features/<nombre>/` tiene:
 | `pedidos-pv` | `/pedidos-pv` | Gestión de pedidos de vidrios templados a proveedor PV; tab "Por Gestionar" solo para `puede_gestionar_pv=true` |
 | `facturas-salidas` | `/facturas-salidas` | Control interno Facturas vs Salidas de Almacén (SA-XXXX); edición solo compras/produccion |
 | `reportes` | `/reportes` | Reportes y exportación |
-| `configuracion` | `/configuracion` | Configuración global del sistema |
+| `configuracion` | `/configuracion` | Configuración global del sistema (sin catálogo — movido a ROOT) |
+| `root` | `/root` | Panel de control total — solo rol `root`; tabs: Resumen, Base de Datos, Almacenamiento, Servicios, Auditoría, Backup, Mantenimiento, Alertas, Catálogo |
 
 ### Componentes clave del módulo ODP
 - `ODPDetailModal.tsx` — Modal maestro con todos los tabs de una ODP
@@ -220,11 +224,13 @@ Cada módulo en `frontend-web/src/features/<nombre>/` tiene:
 ## Roles de Usuario (RBAC)
 
 ```
-admin | gerencia | jefe_produccion | asesor_comercial |
+root | admin | gerencia | jefe_produccion | asesor_comercial |
 produccion | auxiliar_produccion | instalador | conductor | contabilidad | compras
 ```
 
 Definidos en `rbacMiddleware.ts` como tipo `RolUsuario`. Los permisos se aplican por ruta. El rol `conductor` es exclusivo del módulo de rutas de instalación (`/api/rutas`).
+
+**Rol `root`:** superior a todos. Acceso exclusivo al módulo ROOT (`/api/root/*`, `/root`). En el sidebar solo ve la sección "Sistema". Usuario: `ROOT`, id=30. **CRÍTICO:** la tabla `usuarios` tiene un CHECK CONSTRAINT (`usuarios_rol_check`) que lista los roles explícitamente — al agregar un rol nuevo hay que: (1) `ALTER TYPE enum_usuarios_rol ADD VALUE 'nuevo_rol'`, (2) DROP + recrear el CHECK CONSTRAINT incluyendo el nuevo valor.
 
 ---
 
@@ -315,3 +321,7 @@ Cuando el usuario dice "concretemos antes de ejecutar" o similar, eso significa:
 7. **ODPItem.`color`** y **ODPItem.`tipo_vidrio`**: `color` es el campo principal (select con opciones fijas); `tipo_vidrio` se usa como campo libre cuando `color='Otro'`. El campo `prod` (PROD) es el tipo de proceso (CR, PV, LAM, etc.)
 8. **`odp_items.estado_compra`**: `pendiente | en_odc | en_existencia` — tracking de ítems de vidrio sin pasar por SAP
 9. **`ordenes_compra.tipo`**: `'perfileria' | 'vidrio'` — ODC de vidrio tienen `sap_id=null` y usan `odc_items.odp_item_id`
+10. **Módulo ROOT:** `backend-api/src/utils/requestContext.ts` usa `AsyncLocalStorage` para inyectar `userId`, `userName` e `ip` en cada request — los hooks Sequelize de auditoría lo leen para grabar quién hizo qué. Los hooks están en `models/index.ts` al final, cubriendo 25 modelos.
+11. **Auditoría — hook `beforeUpdate`:** guarda `instance.previous()` en `instance._auditAntes` antes del update; `afterUpdate` lo usa para grabar `datos_anteriores`. Si `datos_anteriores` es null en un UPDATE, el revert no puede ejecutarse.
+12. **Health checks ROOT:** Supabase se verifica con `SELECT 1` directo a la BD (no HTTP). Cloudinary usa `status.cloudinary.com/api/v2/status.json`. Ambos más confiables que pings a endpoints protegidos.
+13. **Catálogo de productos:** movido de `ConfiguracionPage` al tab "Catálogo" del módulo ROOT. La ruta `/api/catalogo/all` (y POST/PUT/DELETE) ahora incluye rol `root` además de `admin` y `gerencia`.
