@@ -74,6 +74,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
   const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
   const [categorias, setCategorias] = useState<string[]>([]);
   const [catSeleccionada, setCatSeleccionada] = useState<Record<number, string>>({});
+  const [siguienteNumeroPV, setSiguienteNumeroPV] = useState<number | null>(null);
 
   const { register, control, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<ODPFormValues>({
     resolver: zodResolver(odpSchema) as any,
@@ -100,6 +101,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
   });
 
   const valorTotalRaw = useWatch({ control, name: 'valor_total' }) || 0;
+  const proveedorVidrio = useWatch({ control, name: 'proveedor_vidrio' });
   const IVA_RATE = 0.19;
   const subtotal = Number(valorTotalRaw) / (1 + IVA_RATE);
   const ivaValor = Number(valorTotalRaw) - subtotal;
@@ -119,7 +121,12 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
     } catch { /* opcional */ }
   }, []); // eslint-disable-line
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    loadData();
+    axios.get(`${API}/api/pedidos-pv/siguiente-numero`, { headers })
+      .then(r => setSiguienteNumeroPV(r.data.siguiente))
+      .catch(() => {});
+  }, [loadData]); // eslint-disable-line
 
   const setNC = (k: string, v: string) => setNuevoCliente(prev => ({ ...prev, [k]: v }));
 
@@ -531,11 +538,15 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                       <option value="Otros">Otros</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Num. Pedido</label>
-                    <input type="text" {...register('numero_pedido_proveedor')} placeholder="Ej. SAP-1234"
-                      className="w-full text-sm p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500" />
-                  </div>
+                  {proveedorVidrio && (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1">Núm. Pedido PV (auto)</label>
+                      <div className="w-full text-sm p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-mono font-bold">
+                        {siguienteNumeroPV ?? '...'}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">Se asigna automáticamente al crear la ODP</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, Trash2, AlertCircle, X } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, Trash2, AlertCircle, X, Layers } from 'lucide-react';
 import ODCModal from './components/ODCModal';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -66,7 +66,14 @@ const TABS = [
   { key: 'pendientes',   label: 'Pendientes',   icon: Clock },
   { key: 'seguimiento',  label: 'Seguimiento',  icon: Truck },
   { key: 'recibidas',    label: 'Recibidas',    icon: CheckCircle2 },
+  { key: 'vidrios',      label: 'Vidrios',      icon: Layers },
 ];
+
+const ESTADO_COMPRA_STYLE: Record<string, { label: string; className: string }> = {
+  pendiente:      { label: 'Pendiente',      className: 'bg-amber-50 text-amber-700 border-amber-200' },
+  en_odc:         { label: 'En ODC',         className: 'bg-blue-50 text-blue-700 border-blue-200' },
+  en_existencia:  { label: 'En existencia',  className: 'bg-green-50 text-green-700 border-green-200' },
+};
 
 // ─── Componente tarjeta ODC (Seguimiento / Recibidas) ───────────────────────
 
@@ -432,13 +439,22 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
 // ─── Componente principal ────────────────────────────────────────────────────
 
 const ComprasPage: React.FC = () => {
-  const [tab, setTab] = useState<'pendientes' | 'seguimiento' | 'recibidas'>('pendientes');
+  const [tab, setTab] = useState<'pendientes' | 'seguimiento' | 'recibidas' | 'vidrios'>('pendientes');
   const [sapsPendientes, setSapsPendientes] = useState<SAPPendiente[]>([]);
   const [odcsSeguimiento, setOdcsSeguimiento] = useState<ODC[]>([]);
   const [odcsRecibidas, setOdcsRecibidas] = useState<ODC[]>([]);
+  const [vidriosPorGestionar, setVidriosPorGestionar] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [sapSeleccionada, setSapSeleccionada] = useState<SAPPendiente | null>(null);
+
+  // Modal vidrios
+  const [modalVidrio, setModalVidrio] = useState<any | null>(null);
+  const [vidrioItemsSeleccionados, setVidrioItemsSeleccionados] = useState<number[]>([]);
+  const [vidrioProveedor, setVidrioProveedor] = useState('');
+  const [vidrioNotas, setVidrioNotas] = useState('');
+  const [savingVidrio, setSavingVidrio] = useState(false);
+
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -451,6 +467,9 @@ const ComprasPage: React.FC = () => {
       } else if (t === 'seguimiento') {
         const res = await axios.get(`${API}/api/compras/seguimiento`, { headers });
         setOdcsSeguimiento(res.data);
+      } else if (t === 'vidrios') {
+        const res = await axios.get(`${API}/api/compras/vidrios`, { headers });
+        setVidriosPorGestionar(res.data);
       } else {
         const res = await axios.get(`${API}/api/compras/recibidas`, { headers });
         setOdcsRecibidas(res.data);
@@ -464,6 +483,7 @@ const ComprasPage: React.FC = () => {
     axios.get(`${API}/api/compras/panel`, { headers: h }).then(r => setSapsPendientes(r.data)).catch(() => {});
     axios.get(`${API}/api/compras/seguimiento`, { headers: h }).then(r => setOdcsSeguimiento(r.data)).catch(() => {});
     axios.get(`${API}/api/compras/recibidas`, { headers: h }).then(r => setOdcsRecibidas(r.data)).catch(() => {});
+    axios.get(`${API}/api/compras/vidrios`, { headers: h }).then(r => setVidriosPorGestionar(r.data)).catch(() => {});
   }, []);
 
   useEffect(() => { fetchTab(tab); setBusqueda(''); }, [tab, fetchTab]);
@@ -505,7 +525,37 @@ const ComprasPage: React.FC = () => {
   const countBadge = (t: string) => {
     if (t === 'pendientes') return sapsPendientes.length;
     if (t === 'seguimiento') return odcsSeguimiento.length;
+    if (t === 'vidrios') return vidriosPorGestionar.length;
     return odcsRecibidas.length;
+  };
+
+  const crearODCVidrios = async () => {
+    if (!modalVidrio || vidrioItemsSeleccionados.length === 0 || !vidrioProveedor) return;
+    setSavingVidrio(true);
+    try {
+      await axios.post(`${API}/api/compras/vidrios/odc`, {
+        odp_id: modalVidrio.id,
+        proveedor: vidrioProveedor,
+        odp_item_ids: vidrioItemsSeleccionados,
+        notas: vidrioNotas || null,
+      }, { headers });
+      setModalVidrio(null);
+      setVidrioItemsSeleccionados([]);
+      setVidrioProveedor('');
+      setVidrioNotas('');
+      fetchTab('vidrios');
+    } catch { } finally { setSavingVidrio(false); }
+  };
+
+  const toggleEstadoItemVidrio = async (itemId: number, estadoActual: string) => {
+    const nuevoEstado = estadoActual === 'en_existencia' ? 'pendiente' : 'en_existencia';
+    try {
+      await axios.patch(`${API}/api/compras/vidrios/item/${itemId}/estado`, { estado_compra: nuevoEstado }, { headers });
+      setVidriosPorGestionar(prev => prev.map(odp => ({
+        ...odp,
+        items: odp.items.map((it: any) => it.id === itemId ? { ...it, estado_compra: nuevoEstado } : it),
+      })).filter(odp => odp.items.some((it: any) => it.estado_compra !== 'en_existencia')));
+    } catch { }
   };
 
   return (
@@ -686,11 +736,121 @@ const ComprasPage: React.FC = () => {
               );
             })()}
 
+            {/* ── TAB VIDRIOS ── */}
+            {tab === 'vidrios' && (() => {
+              const q = busqueda.toLowerCase();
+              const lista = vidriosPorGestionar.filter(odp =>
+                !busqueda ||
+                odp.numero_odp?.toLowerCase().includes(q) ||
+                odp.cliente?.nombre_razon_social?.toLowerCase().includes(q) ||
+                odp.asesor?.nombre_completo?.toLowerCase().includes(q)
+              );
+              return lista.length === 0 ? (
+                <div className="text-center py-20">
+                  <Layers className="w-16 h-16 text-slate-200 mx-auto mb-3" />
+                  <p className="text-lg font-bold text-slate-500">
+                    {busqueda ? 'Sin resultados' : 'No hay vidrios pendientes de gestionar'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {lista.map(odp => {
+                    const itemsPendientes = odp.items.filter((it: any) => it.estado_compra === 'pendiente').length;
+                    const itemsEnOdc = odp.items.filter((it: any) => it.estado_compra === 'en_odc').length;
+                    const itemsExistencia = odp.items.filter((it: any) => it.estado_compra === 'en_existencia').length;
+                    return (
+                      <div key={odp.id} className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition overflow-hidden">
+                        <div className="flex items-start justify-between p-5">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 mb-2 flex-wrap">
+                              <span className="font-black text-indigo-700 text-base">{odp.numero_odp}</span>
+                              {odp.proveedor_vidrio
+                                ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">PV: {odp.proveedor_vidrio}</span>
+                                : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">Sin proveedor PV</span>
+                              }
+                            </div>
+                            <p className="text-sm font-semibold text-slate-700 mb-1">{odp.cliente?.nombre_razon_social}</p>
+                            <div className="flex items-center gap-4 text-xs text-slate-500">
+                              <span>Asesor: <span className="font-bold text-slate-700">{odp.asesor?.nombre_completo || '—'}</span></span>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-3 ml-4 shrink-0">
+                            <div className="flex items-center gap-2 flex-wrap justify-end">
+                              {itemsPendientes > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full"><Clock className="w-3 h-3" /> {itemsPendientes} pend.</span>}
+                              {itemsEnOdc > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full"><ShoppingCart className="w-3 h-3" /> {itemsEnOdc} en ODC</span>}
+                              {itemsExistencia > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full"><Package className="w-3 h-3" /> {itemsExistencia} exist.</span>}
+                            </div>
+                            <button
+                              onClick={() => {
+                                setModalVidrio(odp);
+                                setVidrioItemsSeleccionados(odp.items.filter((it: any) => it.estado_compra === 'pendiente').map((it: any) => it.id));
+                                setVidrioProveedor('');
+                                setVidrioNotas('');
+                              }}
+                              className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition shadow-sm"
+                            >
+                              Gestionar →
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Tabla de ítems */}
+                        <div className="border-t border-slate-100">
+                          <table className="w-full text-xs">
+                            <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                              <tr>
+                                <th className="px-4 py-2 text-left w-10">#</th>
+                                <th className="px-4 py-2 text-left">Tipo</th>
+                                <th className="px-4 py-2 text-left">Color</th>
+                                <th className="px-4 py-2 text-left">Esp.</th>
+                                <th className="px-4 py-2 text-left">Medidas</th>
+                                <th className="px-4 py-2 text-center w-10">Cant.</th>
+                                <th className="px-4 py-2 text-center w-28">Estado</th>
+                                <th className="px-4 py-2 text-center w-20">Acción</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                              {odp.items.map((it: any, i: number) => {
+                                const est = ESTADO_COMPRA_STYLE[it.estado_compra] || ESTADO_COMPRA_STYLE['pendiente'];
+                                return (
+                                  <tr key={it.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
+                                    <td className="px-4 py-1.5 font-black text-slate-600">{i + 1}</td>
+                                    <td className="px-4 py-1.5 text-slate-700">{it.tipo_vidrio || '—'}</td>
+                                    <td className="px-4 py-1.5 text-slate-700">{it.color || '—'}</td>
+                                    <td className="px-4 py-1.5 text-slate-700">{it.espesor || '—'}</td>
+                                    <td className="px-4 py-1.5 text-slate-700">{it.ancho_mm && it.alto_mm ? `${it.ancho_mm}×${it.alto_mm}` : '—'}</td>
+                                    <td className="px-4 py-1.5 text-center font-bold">{it.cantidad || 1}</td>
+                                    <td className="px-4 py-1.5 text-center">
+                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${est.className}`}>{est.label}</span>
+                                    </td>
+                                    <td className="px-4 py-1.5 text-center">
+                                      {it.estado_compra !== 'en_odc' && (
+                                        <button
+                                          onClick={() => toggleEstadoItemVidrio(it.id, it.estado_compra)}
+                                          className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-green-50 text-green-700 border-green-200 hover:bg-green-100 transition"
+                                        >
+                                          {it.estado_compra === 'en_existencia' ? '↩ Revertir' : '✓ Existencia'}
+                                        </button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
           </motion.div>
         </AnimatePresence>
       )}
 
-      {/* Modal */}
+      {/* Modal SAP */}
       {sapSeleccionada && (
         <ODCModal
           sap={sapSeleccionada as any}
@@ -698,6 +858,131 @@ const ComprasPage: React.FC = () => {
           onClose={() => setSapSeleccionada(null)}
           onRefresh={refresh}
         />
+      )}
+
+      {/* Modal Vidrios — crear ODC */}
+      {modalVidrio && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <div>
+                <h2 className="font-black text-slate-800 text-lg">Crear ODC de Vidrios</h2>
+                <p className="text-sm text-slate-500">{modalVidrio.numero_odp} · {modalVidrio.cliente?.nombre_razon_social}</p>
+              </div>
+              <button onClick={() => setModalVidrio(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition">
+                <X className="w-4 h-4 text-slate-600" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {/* Proveedor y notas */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Proveedor *</label>
+                  <input
+                    type="text"
+                    value={vidrioProveedor}
+                    onChange={e => setVidrioProveedor(e.target.value)}
+                    placeholder="Nombre del proveedor..."
+                    className="w-full text-sm p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Notas (opcional)</label>
+                  <input
+                    type="text"
+                    value={vidrioNotas}
+                    onChange={e => setVidrioNotas(e.target.value)}
+                    placeholder="Notas para la ODC..."
+                    className="w-full text-sm p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Tabla de ítems con checkboxes */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-slate-600">Seleccionar ítems para la ODC *</label>
+                  <span className="text-xs text-slate-400">{vidrioItemsSeleccionados.length} de {modalVidrio.items.length} seleccionados</span>
+                </div>
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2 text-left w-8">
+                          <input
+                            type="checkbox"
+                            checked={vidrioItemsSeleccionados.length === modalVidrio.items.filter((it: any) => it.estado_compra === 'pendiente').length && modalVidrio.items.filter((it: any) => it.estado_compra === 'pendiente').length > 0}
+                            onChange={e => {
+                              const pendientes = modalVidrio.items.filter((it: any) => it.estado_compra === 'pendiente').map((it: any) => it.id);
+                              setVidrioItemsSeleccionados(e.target.checked ? pendientes : []);
+                            }}
+                          />
+                        </th>
+                        <th className="px-3 py-2 text-left">#</th>
+                        <th className="px-3 py-2 text-left">Tipo</th>
+                        <th className="px-3 py-2 text-left">Color</th>
+                        <th className="px-3 py-2 text-left">Esp.</th>
+                        <th className="px-3 py-2 text-left">Medidas</th>
+                        <th className="px-3 py-2 text-center">Cant.</th>
+                        <th className="px-3 py-2 text-center">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {modalVidrio.items.map((it: any, idx: number) => {
+                        const seleccionado = vidrioItemsSeleccionados.includes(it.id);
+                        const esPendiente = it.estado_compra === 'pendiente';
+                        const est = ESTADO_COMPRA_STYLE[it.estado_compra] || ESTADO_COMPRA_STYLE['pendiente'];
+                        return (
+                          <tr
+                            key={it.id}
+                            onClick={() => {
+                              if (!esPendiente) return;
+                              setVidrioItemsSeleccionados(prev =>
+                                prev.includes(it.id) ? prev.filter(id => id !== it.id) : [...prev, it.id]
+                              );
+                            }}
+                            className={`${esPendiente ? 'cursor-pointer hover:bg-indigo-50/40' : 'opacity-50 cursor-not-allowed'} ${seleccionado ? 'bg-indigo-50' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
+                          >
+                            <td className="px-3 py-2">
+                              <input type="checkbox" checked={seleccionado} readOnly disabled={!esPendiente} />
+                            </td>
+                            <td className="px-3 py-2 font-bold text-slate-600">{idx + 1}</td>
+                            <td className="px-3 py-2">{it.tipo_vidrio || '—'}</td>
+                            <td className="px-3 py-2">{it.color || '—'}</td>
+                            <td className="px-3 py-2">{it.espesor || '—'}</td>
+                            <td className="px-3 py-2">{it.ancho_mm && it.alto_mm ? `${it.ancho_mm}×${it.alto_mm}` : '—'}</td>
+                            <td className="px-3 py-2 text-center font-bold">{it.cantidad || 1}</td>
+                            <td className="px-3 py-2 text-center">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${est.className}`}>{est.label}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">Solo se pueden seleccionar ítems en estado Pendiente.</p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 border-t border-slate-100 flex justify-end gap-3">
+              <button onClick={() => setModalVidrio(null)} className="px-4 py-2 text-sm font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+                Cancelar
+              </button>
+              <button
+                onClick={crearODCVidrios}
+                disabled={vidrioItemsSeleccionados.length === 0 || !vidrioProveedor || savingVidrio}
+                className="px-5 py-2 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
+              >
+                {savingVidrio ? 'Creando...' : `Crear ODC (${vidrioItemsSeleccionados.length} ítems)`}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

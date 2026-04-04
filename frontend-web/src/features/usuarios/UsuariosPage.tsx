@@ -23,7 +23,7 @@ const UsuariosPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editUser, setEditUser] = useState<any | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [form, setForm] = useState({ username: '', password: '', nombre_completo: '', email: '', rol: 'asesor_comercial' });
+  const [form, setForm] = useState({ username: '', password: '', nombre_completo: '', email: '', rol: 'asesor_comercial', puede_gestionar_pv: false });
 
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const token = localStorage.getItem('token');
@@ -42,12 +42,12 @@ const UsuariosPage: React.FC = () => {
 
   const openCreate = () => {
     setEditUser(null);
-    setForm({ username: '', password: '', nombre_completo: '', email: '', rol: 'asesor_comercial' });
+    setForm({ username: '', password: '', nombre_completo: '', email: '', rol: 'asesor_comercial', puede_gestionar_pv: false });
     setShowForm(true);
   };
   const openEdit = (u: any) => {
     setEditUser(u);
-    setForm({ username: u.username, password: '', nombre_completo: u.nombre_completo, email: u.email || '', rol: u.rol });
+    setForm({ username: u.username, password: '', nombre_completo: u.nombre_completo, email: u.email || '', rol: u.rol, puede_gestionar_pv: u.puede_gestionar_pv || false });
     setShowForm(true);
   };
 
@@ -108,14 +108,14 @@ const UsuariosPage: React.FC = () => {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
-              {['Usuario', 'Nombre Completo', 'Email', 'Rol', 'Acciones'].map(h => (
+              {['Usuario', 'Nombre Completo', 'Email', 'Rol', 'Gestión PV', 'Acciones'].map(h => (
                 <th key={h} className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? Array.from({length: 5}).map((_,i)=>(
-              <tr key={i}><td colSpan={5} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse"/></td></tr>
+              <tr key={i}><td colSpan={6} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse"/></td></tr>
             )) : usuarios.map(u => {
               const cfg = getRolConfig(u.rol);
               return (
@@ -125,6 +125,12 @@ const UsuariosPage: React.FC = () => {
                   <td className="px-5 py-4 text-slate-500">{u.email || '—'}</td>
                   <td className="px-5 py-4">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-bold border border-current/20 ${cfg.color}`}>{cfg.label}</span>
+                  </td>
+                  <td className="px-5 py-4">
+                    {u.puede_gestionar_pv
+                      ? <span className="px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200">Sí</span>
+                      : <span className="text-slate-300 text-xs">—</span>
+                    }
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex gap-2">
@@ -188,6 +194,20 @@ const UsuariosPage: React.FC = () => {
                   className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                   {ROLES.map(r=><option key={r.value} value={r.value}>{r.label}</option>)}
                 </select>
+              </div>
+              <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.puede_gestionar_pv}
+                    onChange={e => setForm(p => ({ ...p, puede_gestionar_pv: e.target.checked }))}
+                    className="w-4 h-4 rounded text-orange-600 border-slate-300 focus:ring-orange-500"
+                  />
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">Puede gestionar Pedidos PV</p>
+                    <p className="text-xs text-slate-500">Acceso a la pestaña "Por Gestionar" en el módulo Pedidos PV</p>
+                  </div>
+                </label>
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={()=>setShowForm(false)} className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">Cancelar</button>

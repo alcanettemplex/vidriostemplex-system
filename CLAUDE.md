@@ -98,6 +98,19 @@ Todas las rutas protegidas siguen: `authMiddleware → rbacMiddleware → contro
 **Rutas de Instalación:**
 - `RutaInstalacion` agrupa múltiples ODPs vía `RutaODP` (tabla join)
 - Tiene conductor, vehículo, e instaladores (M:M via tabla `ruta_instaladores`)
+- ODPs con `forma_pago='credito'` se consideran pago OK para instalación automáticamente (sin requerir `CREDITO_APROBADO`)
+
+**PedidoPV (vidrios templados):**
+- Al crear ODP con `proveedor_vidrio`, el backend auto-genera un `PedidoPV` (número consecutivo, base 6733 si no hay ninguno) **fuera** de la transacción principal para no bloquear la ODP
+- Alejandro (usuario con `puede_gestionar_pv=true`) asigna ítems de ODP al PedidoPV desde la pestaña "Por Gestionar"
+- Si >12 ítems seleccionados → se crean extensiones con sufijo `-1`, `-2`, etc.
+- Ítems **no asignados** por Alejandro aparecen en tab "Vidrios" de Compras para gestión directa (ODC sin SAP)
+- ODPs **sin** `proveedor_vidrio` → todos sus ítems de vidrio van directo a Compras
+
+**Salidas de Almacén:**
+- `SalidaAlmacen` vincula una ODP facturada con su número SA (formato `SA-XXXX`, libre)
+- Una sola SA por ODP (UNIQUE en `odp_id`)
+- Al registrar SA, la ODP sale del tab "Facturadas" y pasa a "Con Salidas de Almacén"
 
 ### API Endpoints (prefijo `/api`)
 | Prefijo | Controlador |
@@ -120,10 +133,12 @@ Todas las rutas protegidas siguen: `authMiddleware → rbacMiddleware → contro
 | `/rutas` | rutas.controller |
 | `/dashboard` | dashboard.controller |
 | `/documentos` | documentos (PDF/Excel generados server-side) |
+| `/pedidos-pv` | pedido_pv.controller |
+| `/facturas-salidas` | salidas_almacen.controller |
 
 ---
 
-## Modelos de Base de Datos (25 modelos en `backend-api/src/models/`)
+## Modelos de Base de Datos (26 modelos en `backend-api/src/models/`)
 
 Las asociaciones están centralizadas en `models/index.ts` (importar siempre desde ahí, no desde el archivo individual).
 
@@ -154,6 +169,8 @@ Las asociaciones están centralizadas en `models/index.ts` (importar siempre des
 | `ConfiguracionGlobal` | `configuracion_global` | Configuraciones del sistema |
 | `Produccion` | `produccion` | Control adicional de producción (importado directamente en `produccion.controller.ts`, no en index.ts) |
 | `ProgramacionInstalacion` | `programacion_instalaciones` | Calendario de instalaciones (importado directamente en `instalacion.controller.ts`, no en index.ts) |
+| `PedidoPV` | `pedido_pv` | Pedidos de vidrios templados a proveedor PV; estados: `PENDIENTE→ENVIADO→CONFIRMADO_PROVEEDOR→LLEGADO→VERIFICADO\|PROBLEMA`; cron diario 8am para alertas de tardanza; soporta importación desde Excel |
+| `SalidaAlmacen` | `salidas_almacen` | Registro de salida de almacén (SA-XXXX) por ODP facturada; una SA por ODP; gestionada por compras/produccion |
 
 ---
 
@@ -172,7 +189,7 @@ Cada módulo en `frontend-web/src/features/<nombre>/` tiene:
 | `odp` ⭐ | `/odp` | CRUD de ODPs + modal detalle completo |
 | `produccion` | `/produccion` | Vista Kanban/tabla del estado de producción |
 | `instalaciones` | `/instalaciones` | Vistas por rol: JefeView, InstaladorView, ConductorView |
-| `compras` | `/compras` | ODC con tabs: SAPs, Órdenes, Perfilería |
+| `compras` | `/compras` | ODC con tabs: SAPs, Órdenes, Perfilería, Vidrios |
 | `contabilidad` | `/contabilidad` | Facturación y caja |
 | `clientes` | `/clientes` | CRUD clientes |
 | `prospectos` | `/prospectos` | Pipeline comercial |
@@ -180,6 +197,8 @@ Cada módulo en `frontend-web/src/features/<nombre>/` tiene:
 | `inventario` | `/inventario` | Inventario de perfilería |
 | `evidencias` | `/evidencias` | Galería de fotos de instalación |
 | `usuarios` | `/usuarios` | Administración de usuarios |
+| `pedidos-pv` | `/pedidos-pv` | Gestión de pedidos de vidrios templados a proveedor PV; tab "Por Gestionar" solo para `puede_gestionar_pv=true` |
+| `facturas-salidas` | `/facturas-salidas` | Control interno Facturas vs Salidas de Almacén (SA-XXXX); edición solo compras/produccion |
 | `reportes` | `/reportes` | Reportes y exportación |
 | `configuracion` | `/configuracion` | Configuración global del sistema |
 
@@ -292,3 +311,7 @@ Cuando el usuario dice "concretemos antes de ejecutar" o similar, eso significa:
 3. **ODP.timestamps = false** — la tabla `odp` no tiene `createdAt`/`updatedAt`; usa `fecha_creacion` manual
 4. **Módulo `mobile-app/`** usa Expo Router (file-based routing en `app/`), no React Navigation
 5. **Importar modelos siempre desde `models/index.ts`** para que las asociaciones estén cargadas
+6. **`puede_gestionar_pv`** en modelo `Usuario` — campo booleano que controla acceso al tab "Por Gestionar" en Pedidos PV. Debe estar definido en el modelo Sequelize o `toJSON()` no lo incluirá en el login
+7. **ODPItem.`color`** y **ODPItem.`tipo_vidrio`**: `color` es el campo principal (select con opciones fijas); `tipo_vidrio` se usa como campo libre cuando `color='Otro'`. El campo `prod` (PROD) es el tipo de proceso (CR, PV, LAM, etc.)
+8. **`odp_items.estado_compra`**: `pendiente | en_odc | en_existencia` — tracking de ítems de vidrio sin pasar por SAP
+9. **`ordenes_compra.tipo`**: `'perfileria' | 'vidrio'` — ODC de vidrio tienen `sap_id=null` y usan `odc_items.odp_item_id`

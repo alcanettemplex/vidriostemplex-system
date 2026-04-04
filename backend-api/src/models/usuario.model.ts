@@ -10,6 +10,7 @@ Usuario.init({
   rol: { type: DataTypes.ENUM('admin', 'gerente', 'gerencia', 'jefe_produccion', 'taller', 'auxiliar_produccion', 'asesor_comercial', 'produccion', 'instalador', 'conductor', 'contabilidad', 'compras'), allowNull: false },
   nombre_completo: { type: DataTypes.STRING(100), allowNull: false },
   email: { type: DataTypes.STRING(100), unique: true },
+  puede_gestionar_pv: { type: DataTypes.BOOLEAN, defaultValue: false },
   creado_en: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 }, {
   sequelize,

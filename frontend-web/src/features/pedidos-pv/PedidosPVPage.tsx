@@ -10,8 +10,9 @@ import {
 } from '@mui/material';
 import {
   Add, Refresh, MoreVert, Search, CheckCircleOutline, LocalShipping,
-  HourglassEmpty, Cancel, TableChart, Tune,
+  HourglassEmpty, Cancel, TableChart, Tune, Print,
 } from '@mui/icons-material';
+import PrintablePedidoVitelsa from './components/PrintablePedidoVitelsa';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -118,11 +119,13 @@ const AccionesMenu: React.FC<{
   onVerificar: () => void;
   onProblema: () => void;
   onDetalle: () => void;
-}> = ({ pedido, puedeEnviar, puedeGestionar, onEnviar, onConfirmar, onLlegada, onVerificar, onProblema, onDetalle }) => {
+  onImprimir: () => void;
+  printLoading: boolean;
+}> = ({ pedido, puedeEnviar, puedeGestionar, onEnviar, onConfirmar, onLlegada, onVerificar, onProblema, onDetalle, onImprimir, printLoading }) => {
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const open = Boolean(anchor);
 
-  const items: { label: string; action: () => void; color?: string }[] = [];
+  const items: { label: string; action: () => void; color?: string; icon?: React.ReactNode }[] = [];
 
   if (pedido.estado === 'PENDIENTE' && puedeEnviar)
     items.push({ label: 'Marcar enviado', action: onEnviar });
@@ -135,6 +138,7 @@ const AccionesMenu: React.FC<{
     items.push({ label: 'Marcar problema', action: onProblema, color: '#c62828' });
   }
   items.push({ label: 'Ver detalle', action: onDetalle });
+  if (pedido.odp_id) items.push({ label: printLoading ? 'Cargando...' : 'Imprimir pedido', action: onImprimir, icon: <Print sx={{ fontSize: 16 }} /> });
 
   return (
     <>
@@ -147,8 +151,8 @@ const AccionesMenu: React.FC<{
         PaperProps={{ elevation: 3, sx: { borderRadius: 2, minWidth: 180 } }}>
         {items.map((item) => (
           <MenuItem key={item.label} onClick={() => { item.action(); setAnchor(null); }}
-            sx={{ fontSize: 14, color: item.color ?? 'inherit', py: 1 }}>
-            {item.label}
+            sx={{ fontSize: 14, color: item.color ?? 'inherit', py: 1, gap: 1 }}>
+            {item.icon ?? null}{item.label}
           </MenuItem>
         ))}
       </Menu>
@@ -204,6 +208,17 @@ const PedidosPVPage: React.FC = () => {
 
   const [modalDetalle, setModalDetalle] = useState<PedidoPV | null>(null);
 
+  // ─── Impresión ────────────────────────────────────────────────────────────
+  const [printData, setPrintData] = useState<{ pedido: PedidoPV; odp: any } | null>(null);
+  const [printLoadingId, setPrintLoadingId] = useState<number | null>(null);
+  const shouldPrintRef = useRef(false);
+
+  // ─── Por Gestionar ────────────────────────────────────────────────────────
+  const [pedidosPorGestionar, setPedidosPorGestionar] = useState<any[]>([]);
+  const [modalGestionar, setModalGestionar] = useState<any | null>(null);
+  const [itemsSeleccionados, setItemsSeleccionados] = useState<number[]>([]);
+  const [savingGestionar, setSavingGestionar] = useState(false);
+
   const puedeCrear = user?.puede_gestionar_pv;
   const puedeGestionar = ['produccion', 'auxiliar_produccion', 'compras', 'admin', 'jefe_produccion'].includes(user?.rol);
   const puedeEnviar = ['asesor_comercial', 'admin', 'gerencia'].includes(user?.rol);
@@ -227,7 +242,15 @@ const PedidosPVPage: React.FC = () => {
     }
   }, [token]);
 
-  useEffect(() => { cargarDatos(); }, [cargarDatos]);
+  const cargarPorGestionar = useCallback(async () => {
+    if (!user?.puede_gestionar_pv) return;
+    try {
+      const { data } = await axios.get(`${API}/api/pedidos-pv/por-gestionar`, { headers });
+      setPedidosPorGestionar(data);
+    } catch { /* silencioso */ }
+  }, [token, user]);
+
+  useEffect(() => { cargarDatos(); cargarPorGestionar(); }, [cargarDatos, cargarPorGestionar]);
 
   // ─── Proveedores y asesores únicos (para filtros) ─────────────────────────
 
@@ -358,6 +381,64 @@ const PedidosPVPage: React.FC = () => {
     } catch { setError('Error al procesar acción'); }
   };
 
+  const asignarItemsPV = async () => {
+    if (!modalGestionar || itemsSeleccionados.length === 0) return;
+    setSavingGestionar(true);
+    try {
+      await axios.patch(`${API}/api/pedidos-pv/${modalGestionar.id}/asignar-items`,
+        { odp_item_ids: itemsSeleccionados }, { headers });
+      setModalGestionar(null);
+      setItemsSeleccionados([]);
+      cargarDatos();
+      cargarPorGestionar();
+    } catch { setError('Error al asignar ítems al pedido PV'); }
+    finally { setSavingGestionar(false); }
+  };
+
+  const imprimirPedido = async (pedido: PedidoPV) => {
+    if (!pedido.odp_id) return;
+    setPrintLoadingId(pedido.id);
+    try {
+      const { data: odpCompleta } = await axios.get(`${API}/api/odp/${pedido.odp_id}`, { headers });
+      setPrintData({ pedido, odp: odpCompleta });
+      shouldPrintRef.current = true;
+    } catch {
+      setError('Error al cargar datos de la ODP para imprimir');
+    } finally {
+      setPrintLoadingId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!printData || !shouldPrintRef.current) return;
+    shouldPrintRef.current = false;
+    setTimeout(() => {
+      const area = document.getElementById('printable-pedido-pv');
+      if (!area) return;
+      const win = window.open('', '_blank', 'width=1100,height=800');
+      if (!win) return;
+      win.document.write(`<!DOCTYPE html><html><head>
+        <meta charset="utf-8"/>
+        <title>Pedido PV ${printData.pedido.numero_pedido} — ${printData.pedido.proveedor}</title>
+        <script src="https://cdn.tailwindcss.com"><\/script>
+        <style>
+          @page { size: A4 landscape; margin: 5mm; }
+          body { margin: 0; padding: 0; font-family: sans-serif; }
+          .pv-t { width: 100%; border-collapse: collapse; }
+          .pv-t td, .pv-t th { border: 1px solid #000; padding: 2px 4px; vertical-align: middle; }
+          .pv-t th { font-weight: bold; text-align: center; background-color: #efefef; }
+          .pv-outer { border: 2px solid #000 !important; }
+          .pv-bold { font-weight: bold; }
+          .pv-center { text-align: center; }
+          .pv-color { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        </style>
+      </head><body>${area.innerHTML}</body></html>`);
+      win.document.close();
+      win.focus();
+      setTimeout(() => { win.print(); win.close(); }, 800);
+    }, 150);
+  }, [printData]);
+
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -388,6 +469,14 @@ const PedidosPVPage: React.FC = () => {
         sx={{ mb: 2.5, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Tab icon={<Tune fontSize="small" />} iconPosition="start" label="Gestión PV" />
         <Tab icon={<TableChart fontSize="small" />} iconPosition="start" label="Vista Excel" />
+        {puedeCrear && (
+          <Tab
+            icon={<HourglassEmpty fontSize="small" />}
+            iconPosition="start"
+            label={pedidosPorGestionar.length > 0 ? `Por Gestionar (${pedidosPorGestionar.length})` : 'Por Gestionar'}
+            sx={pedidosPorGestionar.length > 0 ? { color: 'warning.main', fontWeight: 700 } : {}}
+          />
+        )}
       </Tabs>
 
       {loading ? (
@@ -467,6 +556,7 @@ const PedidosPVPage: React.FC = () => {
                       <TableRow sx={{ '& th': { bgcolor: 'grey.50', fontWeight: 700, fontSize: 13, borderBottom: '2px solid', borderColor: 'divider' } }}>
                         <TableCell sx={{ width: 4, p: 0 }} />
                         <TableCell>Pedido</TableCell>
+                        <TableCell>ODP</TableCell>
                         <TableCell>Cliente</TableCell>
                         <TableCell>Proveedor</TableCell>
                         <TableCell>Estado</TableCell>
@@ -482,7 +572,7 @@ const PedidosPVPage: React.FC = () => {
                     <TableBody>
                       {pedidosPaginados.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={12} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                          <TableCell colSpan={13} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                             No hay pedidos con los filtros seleccionados
                           </TableCell>
                         </TableRow>
@@ -503,6 +593,10 @@ const PedidosPVPage: React.FC = () => {
                               {p.tuvo_problema && (
                                 <Typography variant="caption" color="error.main">Con problema previo</Typography>
                               )}
+                            </TableCell>
+                            {/* ODP */}
+                            <TableCell sx={{ fontSize: 13, fontWeight: 600, color: 'primary.main' }}>
+                              {p.odp?.numero_odp || '—'}
                             </TableCell>
                             {/* Cliente */}
                             <TableCell sx={{ maxWidth: 180 }}>
@@ -555,6 +649,8 @@ const PedidosPVPage: React.FC = () => {
                                 onVerificar={() => { setModalVerificar({ pedido: p, tipo: 'verificar' }); setObsVerificacion(''); }}
                                 onProblema={() => { setModalVerificar({ pedido: p, tipo: 'problema' }); setObsVerificacion(''); }}
                                 onDetalle={() => setModalDetalle(p)}
+                                onImprimir={() => imprimirPedido(p)}
+                                printLoading={printLoadingId === p.id}
                               />
                             </TableCell>
                           </TableRow>
@@ -578,6 +674,59 @@ const PedidosPVPage: React.FC = () => {
                   />
                 </Box>
               </Paper>
+            </Box>
+          )}
+
+          {/* ═══════════════════════════ TAB 2 — POR GESTIONAR ═══════════════════════════ */}
+          {tab === 2 && puedeCrear && (
+            <Box>
+              {pedidosPorGestionar.length === 0 ? (
+                <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 6, textAlign: 'center' }}>
+                  <CheckCircleOutline sx={{ fontSize: 48, color: 'success.light', mb: 1 }} />
+                  <Typography variant="h6" color="text.secondary">Todo gestionado</Typography>
+                  <Typography variant="body2" color="text.disabled">No hay pedidos PV pendientes de asignación de ítems.</Typography>
+                </Paper>
+              ) : (
+                <Stack gap={2}>
+                  {pedidosPorGestionar.map((pv: any) => {
+                    const odp = pv.odp;
+                    const items: any[] = odp?.items || [];
+                    const asignados = items.filter((it: any) => it.pedido_pv_id !== null).length;
+                    return (
+                      <Paper key={pv.id} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2.5 }}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Box>
+                            <Stack direction="row" gap={1} alignItems="center" mb={0.5}>
+                              <Typography fontWeight={700} fontSize={15}>
+                                {odp?.numero_odp || '—'}
+                              </Typography>
+                              <Chip label={`PV ${pv.numero_pedido}`} size="small" color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
+                              <Chip label={pv.proveedor} size="small" variant="outlined" />
+                            </Stack>
+                            <Typography variant="body2" color="text.secondary">
+                              {odp?.cliente?.nombre_razon_social || '—'} &nbsp;·&nbsp; {items.length} ítem{items.length !== 1 ? 's' : ''} en la ODP
+                              {asignados > 0 && <>&nbsp;·&nbsp; <strong>{asignados} ya asignado{asignados !== 1 ? 's' : ''}</strong></>}
+                            </Typography>
+                          </Box>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => {
+                              setModalGestionar(pv);
+                              setItemsSeleccionados(
+                                items.filter((it: any) => it.pedido_pv_id === pv.id).map((it: any) => it.id)
+                              );
+                            }}
+                            sx={{ borderRadius: 2, whiteSpace: 'nowrap' }}
+                          >
+                            Asignar ítems
+                          </Button>
+                        </Stack>
+                      </Paper>
+                    );
+                  })}
+                </Stack>
+              )}
             </Box>
           )}
 
@@ -794,6 +943,115 @@ const PedidosPVPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ─── Modal: Asignar ítems al PV ───────────────────────────────────────── */}
+      <Dialog open={!!modalGestionar} onClose={() => { setModalGestionar(null); setItemsSeleccionados([]); }} maxWidth="md" fullWidth>
+        <DialogTitle>
+          Asignar ítems — PV {modalGestionar?.numero_pedido} &nbsp;·&nbsp; {modalGestionar?.odp?.numero_odp}
+        </DialogTitle>
+        <DialogContent>
+          {modalGestionar && (() => {
+            const odp = modalGestionar.odp;
+            const items: any[] = odp?.items || [];
+            const bloques = Math.ceil(itemsSeleccionados.length / 12);
+            return (
+              <Stack gap={2} mt={1}>
+                <Box display="flex" gap={2} flexWrap="wrap">
+                  <Typography variant="body2"><strong>Cliente:</strong> {odp?.cliente?.nombre_razon_social || '—'}</Typography>
+                  <Typography variant="body2"><strong>Proveedor:</strong> {modalGestionar.proveedor}</Typography>
+                  <Typography variant="body2"><strong>Ítems totales ODP:</strong> {items.length}</Typography>
+                </Box>
+
+                {itemsSeleccionados.length > 12 && (
+                  <Alert severity="info">
+                    {itemsSeleccionados.length} ítems seleccionados — se generarán <strong>{bloques} formularios</strong>: {modalGestionar.numero_pedido}{Array.from({ length: bloques - 1 }, (_, i) => `, ${modalGestionar.numero_pedido}-${i + 1}`).join('')}
+                  </Alert>
+                )}
+
+                {items.length === 0 ? (
+                  <Alert severity="warning">Esta ODP no tiene ítems de vidrio registrados.</Alert>
+                ) : (
+                  <Paper variant="outlined" sx={{ overflow: 'hidden', borderRadius: 2 }}>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: 'grey.100' }}>
+                          <TableCell padding="checkbox">
+                            <input
+                              type="checkbox"
+                              checked={itemsSeleccionados.length === items.length && items.length > 0}
+                              onChange={(e) => setItemsSeleccionados(e.target.checked ? items.map((it: any) => it.id) : [])}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>#</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Tipo</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Color</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Esp.</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Ancho</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Alto</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Cant.</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Observaciones</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {items.map((it: any, idx: number) => {
+                          const seleccionado = itemsSeleccionados.includes(it.id);
+                          return (
+                            <TableRow
+                              key={it.id}
+                              selected={seleccionado}
+                              onClick={() => setItemsSeleccionados(prev =>
+                                prev.includes(it.id) ? prev.filter(id => id !== it.id) : [...prev, it.id]
+                              )}
+                              sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                            >
+                              <TableCell padding="checkbox">
+                                <input type="checkbox" checked={seleccionado} readOnly />
+                              </TableCell>
+                              <TableCell sx={{ fontSize: 12 }}>{idx + 1}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }}>{it.tipo_vidrio || '—'}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }}>{it.color || '—'}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }}>{it.espesor || '—'}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }}>{it.ancho_mm || '—'}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }}>{it.alto_mm || '—'}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }}>{it.cantidad || 1}</TableCell>
+                              <TableCell sx={{ fontSize: 12, maxWidth: 180 }}>
+                                <Tooltip title={it.otros || it.accesorios || ''}>
+                                  <Typography fontSize={12} noWrap>{it.otros || it.accesorios || '—'}</Typography>
+                                </Tooltip>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </Paper>
+                )}
+
+                <Typography variant="caption" color="text.secondary">
+                  {itemsSeleccionados.length} de {items.length} ítems seleccionados
+                </Typography>
+              </Stack>
+            );
+          })()}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setModalGestionar(null); setItemsSeleccionados([]); }}>Cancelar</Button>
+          <Button
+            variant="contained"
+            onClick={asignarItemsPV}
+            disabled={itemsSeleccionados.length === 0 || savingGestionar}
+          >
+            {savingGestionar ? 'Guardando...' : `Registrar asignación (${itemsSeleccionados.length} ítems)`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ─── Área de impresión (oculta) ───────────────────────────────────────── */}
+      <div id="printable-pedido-pv" style={{ display: 'none' }}>
+        {printData && (
+          <PrintablePedidoVitelsa pedido={printData.pedido} odp={printData.odp} />
+        )}
+      </div>
 
       {/* ─── Modal: Detalle ────────────────────────────────────────────────────── */}
       <Dialog open={!!modalDetalle} onClose={() => setModalDetalle(null)} maxWidth="sm" fullWidth>

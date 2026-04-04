@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
 import { z } from 'zod';
-import { PedidoPV, ODP, Usuario, HistorialEstadoODP, sequelize } from '../models';
+import { PedidoPV, ODP, ODPItem, Usuario, HistorialEstadoODP, sequelize } from '../models';
 import Cliente from '../models/cliente.model';
 import { emitirNotificacion } from '../server';
 
@@ -43,6 +43,13 @@ const INCLUDE_COMPLETO = [
   },
   { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
   { model: Usuario, as: 'verificador', attributes: ['id', 'nombre_completo'] },
+  {
+    model: ODPItem,
+    as: 'items_asignados',
+    attributes: ['id', 'item', 'color', 'espesor', 'cantidad', 'ancho_mm', 'alto_mm',
+      'tipo_vidrio', 'pulidos', 'pulidos_h', 'perforaciones', 'boquetes',
+      'descuentos', 'otros', 'mts_pt_a', 'mts_pt_h', 'accesorios'],
+  },
 ];
 
 // ─── Helper: avanzar ODP a VIDRIO_RECIBIDO si todos los PV están verificados ──
@@ -354,5 +361,121 @@ export const getSiguienteNumero = async (_req: Request, res: Response) => {
   } catch (error) {
     console.error('Error getSiguienteNumero:', error);
     res.status(500).json({ error: 'Error al obtener siguiente número' });
+  }
+};
+
+// GET /api/pedidos-pv/por-gestionar — ODPs con PedidoPV PENDIENTE sin ítems asignados (para Alejandro)
+export const getPorGestionar = async (_req: Request, res: Response) => {
+  try {
+    const pedidos = await PedidoPV.findAll({
+      where: { estado: 'PENDIENTE', origen: 'SISTEMA' },
+      include: [
+        {
+          model: ODP,
+          as: 'odp',
+          attributes: ['id', 'numero_odp', 'estado_produccion', 'proveedor_vidrio'],
+          include: [
+            { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+            {
+              model: ODPItem,
+              as: 'items',
+              attributes: ['id', 'item', 'color', 'espesor', 'cantidad', 'ancho_mm', 'alto_mm',
+                'tipo_vidrio', 'pulidos', 'pulidos_h', 'perforaciones', 'boquetes',
+                'descuentos', 'otros', 'mts_pt_a', 'mts_pt_h', 'accesorios', 'pedido_pv_id'],
+            },
+          ],
+        },
+        { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
+      ],
+      order: [['numero_base', 'DESC']],
+    });
+    res.json(pedidos);
+  } catch (error) {
+    console.error('Error getPorGestionar:', error);
+    res.status(500).json({ error: 'Error al obtener pedidos por gestionar' });
+  }
+};
+
+// PATCH /api/pedidos-pv/:id/asignar-items — Alejandro asigna ítems al PedidoPV
+// Regla: máx 12 ítems por PedidoPV; si hay más se crean extensiones -1, -2, ...
+export const asignarItems = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const pedidoId = parseInt(req.params.id);
+    const { odp_item_ids }: { odp_item_ids: number[] } = req.body;
+
+    if (!Array.isArray(odp_item_ids) || odp_item_ids.length === 0) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Debe seleccionar al menos un ítem' });
+    }
+
+    const pedido = await PedidoPV.findByPk(pedidoId, { transaction: t });
+    if (!pedido) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Pedido PV no encontrado' });
+    }
+
+    const numero_base = pedido.getDataValue('numero_base') as number;
+    const odp_id = pedido.getDataValue('odp_id') as number;
+    const proveedor = pedido.getDataValue('proveedor') as string;
+    const creado_por = pedido.getDataValue('creado_por') as number;
+
+    // Desasignar todos los ítems previos de este pedido y sus extensiones
+    const extensiones = await PedidoPV.findAll({
+      where: { numero_base, odp_id },
+      attributes: ['id'],
+      transaction: t,
+    });
+    const todosIds = extensiones.map(e => e.getDataValue('id'));
+    await ODPItem.update({ pedido_pv_id: null }, { where: { pedido_pv_id: todosIds }, transaction: t });
+
+    // Dividir en bloques de 12
+    const bloques: number[][] = [];
+    for (let i = 0; i < odp_item_ids.length; i += 12) {
+      bloques.push(odp_item_ids.slice(i, i + 12));
+    }
+
+    // Asignar bloque 0 → pedido principal (sin sufijo)
+    await ODPItem.update(
+      { pedido_pv_id: pedidoId },
+      { where: { id: bloques[0] }, transaction: t }
+    );
+
+    // Eliminar extensiones previas (excepto el principal)
+    await PedidoPV.destroy({
+      where: { numero_base, odp_id, sufijo: { [Op.ne]: null } },
+      transaction: t,
+    });
+
+    // Crear extensiones para bloques adicionales
+    for (let i = 1; i < bloques.length; i++) {
+      const sufijo = String(i);
+      const numero_pedido = `${numero_base}-${sufijo}`;
+      const extension = await PedidoPV.create({
+        odp_id,
+        proveedor,
+        numero_pedido,
+        numero_base,
+        sufijo,
+        estado: 'PENDIENTE',
+        origen: 'SISTEMA',
+        creado_por,
+      }, { transaction: t });
+
+      await ODPItem.update(
+        { pedido_pv_id: extension.getDataValue('id') },
+        { where: { id: bloques[i] }, transaction: t }
+      );
+    }
+
+    await t.commit();
+
+    // Retornar pedido actualizado con ítems
+    const pedidoActualizado = await PedidoPV.findByPk(pedidoId, { include: INCLUDE_COMPLETO });
+    res.json(pedidoActualizado);
+  } catch (error) {
+    await t.rollback();
+    console.error('Error asignarItems:', error);
+    res.status(500).json({ error: 'Error al asignar ítems al pedido PV' });
   }
 };

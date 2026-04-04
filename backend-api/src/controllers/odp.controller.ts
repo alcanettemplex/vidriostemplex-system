@@ -17,6 +17,7 @@ import {
   ODCItem,
   RutaODP,
   Prospecto,
+  PedidoPV,
 } from '../models';
 import Pago from '../models/pago.model';
 import { z } from 'zod';
@@ -265,16 +266,53 @@ export const createODP = async (req: Request, res: Response) => {
       valor_total: data.valor_total || 0,
       abono: data.abono || 0,
       pendiente: data.valor_total ? Math.max(0, (data.valor_total || 0) - (data.abono || 0)) : (data.pendiente || 0),
+      proveedor_vidrio: data.proveedor_vidrio || null,
     };
 
     const newOdp = await ODP.create(odpData as any, { transaction: t });
+    const odpId = newOdp.getDataValue('id');
 
     if (data.items && data.items.length > 0) {
-      const itemsData = data.items.map(item => ({ ...item, odp_id: newOdp.getDataValue('id') }));
+      const itemsData = data.items.map(item => ({ ...item, odp_id: odpId }));
       await ODPItem.bulkCreate(itemsData as any, { transaction: t });
     }
 
     await t.commit();
+
+    // ── Crear PedidoPV automático si se seleccionó proveedor ──────────────
+    if (data.proveedor_vidrio) {
+      try {
+        const ultimoPV = await PedidoPV.findOne({
+          order: [['numero_base', 'DESC']],
+          attributes: ['numero_base'],
+        });
+        const numero_base = ultimoPV ? (ultimoPV.getDataValue('numero_base') as number) + 1 : 6733;
+        const numero_pedido = String(numero_base);
+
+        const nuevoPedido = await PedidoPV.create({
+          odp_id: odpId,
+          proveedor: data.proveedor_vidrio,
+          numero_pedido,
+          numero_base,
+          sufijo: null,
+          estado: 'PENDIENTE',
+          origen: 'SISTEMA',
+          creado_por: userId,
+        });
+
+        // Guardar el número generado en la ODP
+        await ODP.update(
+          { numero_pedido_proveedor: numero_pedido },
+          { where: { id: odpId } }
+        );
+
+        console.warn(`PedidoPV ${numero_pedido} creado automáticamente para ODP ${odpId}`);
+      } catch (pvError: any) {
+        console.error('Error creando PedidoPV automático:', pvError.message);
+        // No fallar la creación de la ODP por esto
+      }
+    }
+
     res.status(201).json(newOdp);
   } catch (error: any) {
     await t.rollback();

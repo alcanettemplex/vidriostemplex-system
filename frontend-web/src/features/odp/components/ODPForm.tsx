@@ -7,8 +7,11 @@ import { toast } from 'react-toastify';
 import { Plus, Trash2, X, FileCheck, DollarSign, Package, AlertCircle, ChevronRight, ChevronLeft, Briefcase } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Bronce Oscuro', 'Gris', 'Gris Oscuro', 'Azul', 'Verde', 'Mate', 'Otro'];
+
 const itemSchema = z.object({
-    tipo_vidrio: z.string().min(1, 'Requerido'),
+    tipo_vidrio: z.string().optional(),
+    color: z.string().optional(),
     espesor: z.coerce.number().positive(),
     ancho_mm: z.coerce.number().positive(),
     alto_mm: z.coerce.number().positive(),
@@ -51,7 +54,8 @@ const odpSchema = z.object({
 });
 
 type ItemFormValues = {
-    tipo_vidrio: string;
+    tipo_vidrio?: string;
+    color?: string;
     espesor: number;
     ancho_mm: number;
     alto_mm: number;
@@ -102,12 +106,36 @@ interface ODPFormProps {
 
 type CatalogoItem = { id: number; categoria: string; nombre: string; descripcion: string };
 
+const ColorField: React.FC<{ index: number; register: any; control: any }> = ({ index, register, control }) => {
+    const colorVal = useWatch({ control, name: `items.${index}.color` });
+    return (
+        <div className="w-full lg:w-2/12">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Color</label>
+            <select
+                {...register(`items.${index}.color`)}
+                className="w-full p-2 text-sm border border-slate-200 rounded focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+                <option value="">—</option>
+                {COLORES_VIDRIO.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {colorVal === 'Otro' && (
+                <input
+                    {...register(`items.${index}.tipo_vidrio`)}
+                    placeholder="Especificar color..."
+                    className="w-full mt-1 p-2 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500"
+                />
+            )}
+        </div>
+    );
+};
+
 const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
     const [step, setStep] = useState(1);
     const [clientes, setClientes] = useState<{ id: number; nombre_razon_social: string }[]>([]);
     const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
     const [categorias, setCategorias] = useState<string[]>([]);
     const [catSeleccionada, setCatSeleccionada] = useState<Record<number, string>>({});
+    const [siguienteNumeroPV, setSiguienteNumeroPV] = useState<number | null>(null);;
 
     const { register, control, handleSubmit, trigger, reset, setValue, formState: { errors, isSubmitting } } = useForm<ODPFormValues>({
         resolver: zodResolver(odpSchema as any),
@@ -137,6 +165,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
     });
 
     const valorTotalRaw = useWatch({ control, name: 'valor_total' }) || 0;
+    const proveedorVidrio = useWatch({ control, name: 'proveedor_vidrio' });
     const IVA_RATE = 0.19;
     const subtotal = Number(valorTotalRaw) / (1 + IVA_RATE);
     const ivaValor = Number(valorTotalRaw) - subtotal;
@@ -158,6 +187,11 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
             const cats = Array.from(new Set<string>(r.data.map((i: CatalogoItem) => i.categoria)));
             setCategorias(cats);
         }).catch(() => {});
+        if (!odpToEdit) {
+            axios.get(`${base}/api/pedidos-pv/siguiente-numero`, { headers })
+                .then(r => setSiguienteNumeroPV(r.data.siguiente))
+                .catch(() => {});
+        }
     }, []);
 
     const nextStep = async () => {
@@ -232,7 +266,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="glass-panel w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+                className="glass-panel w-full max-w-6xl max-h-[90vh] overflow-y-auto"
             >
                 <div className="sticky top-0 bg-white/90 backdrop-blur-md px-6 py-4 border-b border-slate-200 flex justify-between items-center z-10">
                     <div>
@@ -500,15 +534,23 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                                                     <option value="Otros">Otros</option>
                                                 </select>
                                             </div>
-                                            <div>
-                                                <label className="block text-xs font-semibold text-slate-600 mb-1">Num. Pedido</label>
-                                                <input
-                                                    type="text"
-                                                    {...register('numero_pedido_proveedor')}
-                                                    placeholder="Ej. SAP-1234"
-                                                    className="w-full text-sm p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                                />
-                                            </div>
+                                            {proveedorVidrio && !odpToEdit && (
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-slate-600 mb-1">Núm. Pedido PV (auto)</label>
+                                                    <div className="w-full text-sm p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-mono font-bold">
+                                                        {siguienteNumeroPV ?? '...'}
+                                                    </div>
+                                                    <p className="text-xs text-slate-400 mt-1">Se asigna automáticamente al crear la ODP</p>
+                                                </div>
+                                            )}
+                                            {odpToEdit && odpToEdit.numero_pedido_proveedor && (
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-slate-600 mb-1">Núm. Pedido PV</label>
+                                                    <div className="w-full text-sm p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-mono font-bold">
+                                                        {odpToEdit.numero_pedido_proveedor}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -614,7 +656,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                                     </h3>
                                     <button
                                         type="button"
-                                        onClick={() => appendItem({ tipo_vidrio: '', espesor: 6, ancho_mm: 0, alto_mm: 0, cantidad: 1, pulidos: '', pulidos_h: '', perforaciones: 0, boquetes: 0, descuentos: '', otros: '', prod: '' })}
+                                        onClick={() => appendItem({ tipo_vidrio: '', color: 'Incoloro', espesor: 6, ancho_mm: 0, alto_mm: 0, cantidad: 1, pulidos: '', pulidos_h: '', perforaciones: 0, boquetes: 0, descuentos: '', otros: '', prod: '' })}
                                         className="px-3 py-1.5 bg-slate-900 text-white text-sm rounded-md hover:bg-slate-800 transition flex items-center gap-1"
                                     >
                                         <Plus className="w-4 h-4" /> Agregar Cristal
@@ -638,14 +680,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                                                 key={field.id}
                                                 className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-wrap lg:flex-nowrap gap-4 items-start"
                                             >
-                                                <div className="w-full lg:w-2/12">
-                                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Tipo</label>
-                                                    <input
-                                                        {...register(`items.${index}.tipo_vidrio`)}
-                                                        className="w-full p-2 text-sm border border-slate-200 rounded focus:ring-2 focus:ring-blue-500"
-                                                        placeholder="Ej. Incoloro"
-                                                    />
-                                                </div>
+                                                <ColorField index={index} register={register} control={control} />
                                                 <div className="w-1/2 lg:w-1/12">
                                                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Esp. (mm)</label>
                                                     <input

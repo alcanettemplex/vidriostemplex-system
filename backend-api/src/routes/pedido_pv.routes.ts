@@ -12,6 +12,8 @@ import {
   verificarPedido,
   marcarProblema,
   getSiguienteNumero,
+  getPorGestionar,
+  asignarItems,
 } from '../controllers/pedido_pv.controller';
 
 const router = Router();
@@ -20,6 +22,7 @@ router.use(authMiddleware);
 // Lectura — todos los autenticados
 router.get('/', getPedidosPV);
 router.get('/siguiente-numero', getSiguienteNumero);
+router.get('/por-gestionar', getPorGestionar);
 router.get('/:id', getPedidoPV);
 
 // Creación y edición — solo quien tiene puede_gestionar_pv (verificado dentro del controller)
@@ -34,5 +37,8 @@ router.patch('/:id/confirmar-proveedor', requireRole('asesor_comercial', 'admin'
 router.patch('/:id/registrar-llegada', requireRole('produccion', 'auxiliar_produccion', 'compras', 'admin', 'jefe_produccion'), registrarLlegada);
 router.patch('/:id/verificar', requireRole('produccion', 'auxiliar_produccion', 'compras', 'admin', 'jefe_produccion'), verificarPedido);
 router.patch('/:id/problema', requireRole('produccion', 'auxiliar_produccion', 'compras', 'admin', 'jefe_produccion'), marcarProblema);
+
+// Asignación de ítems — quien tiene puede_gestionar_pv (verificado en controller)
+router.patch('/:id/asignar-items', asignarItems);
 
 export default router;

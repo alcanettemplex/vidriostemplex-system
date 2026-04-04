@@ -24,6 +24,7 @@ import CatalogoProducto from './catalogo_producto.model';
 import Prospecto from './prospecto.model';
 import InventarioPerfileria from './inventario_perfileria.model';
 import PedidoPV from './pedido_pv.model';
+import SalidaAlmacen from './salida_almacen.model';
 
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
@@ -158,6 +159,16 @@ PedidoPV.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
 Usuario.hasMany(PedidoPV, { foreignKey: 'verificado_por', as: 'pedidos_pv_verificados' });
 PedidoPV.belongsTo(Usuario, { foreignKey: 'verificado_por', as: 'verificador' });
 
+PedidoPV.hasMany(ODPItem, { foreignKey: 'pedido_pv_id', as: 'items_asignados' });
+ODPItem.belongsTo(PedidoPV, { foreignKey: 'pedido_pv_id', as: 'pedidoPV' });
+
+// ─── Bloque G: Salidas de Almacén ────────────────────────────────────────────
+ODP.hasOne(SalidaAlmacen, { foreignKey: 'odp_id', as: 'salida_almacen' });
+SalidaAlmacen.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
+
+Usuario.hasMany(SalidaAlmacen, { foreignKey: 'creado_por', as: 'salidas_creadas' });
+SalidaAlmacen.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
+
 export {
   sequelize,
   Usuario,
@@ -184,5 +195,6 @@ export {
   RutaInstalacion,
   RutaODP,
   PedidoPV,
+  SalidaAlmacen,
 };
 

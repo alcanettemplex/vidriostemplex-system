@@ -44,15 +44,7 @@ const EvidenciasPage: React.FC = () => {
             });
             const data: ODP[] = res.data.filter((o: ODP) => o.estado_produccion === 'PROGRAMADA' || o.estado_produccion === 'LISTO_INSTALAR');
 
-            if (data.length === 0) {
-                setOdps([{
-                    id: 201, numero_odp: 'ODP-2026-0042',
-                    cliente: { nombre_razon_social: 'Constructor ABC' },
-                    estado_produccion: 'PROGRAMADA', items: [1, 2, 3]
-                }]);
-            } else {
-                setOdps(data);
-            }
+            setOdps(data);
         } catch (error) {
             console.error('Error', error);
             toast.error('Error al cargar órdenes de entrega');

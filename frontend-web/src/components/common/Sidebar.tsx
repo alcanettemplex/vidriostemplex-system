@@ -18,6 +18,7 @@ import {
   UserPlus,
   Package,
   GlassWater,
+  PackageCheck,
 } from 'lucide-react';
 
 /**
@@ -102,6 +103,13 @@ const MENU_ITEMS_CONFIG = [
     icon: GlassWater,
     path: '/pedidos-pv',
     allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras'],
+    section: 'logistica'
+  },
+  {
+    text: 'Facturas vs Salidas',
+    icon: PackageCheck,
+    path: '/facturas-salidas',
+    allowedRoles: ['admin', 'gerencia', 'contabilidad', 'compras', 'produccion'],
     section: 'logistica'
   },
   {

@@ -27,10 +27,11 @@ export const createUsuario = async (req: Request, res: Response) => {
 
 export const updateUsuario = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { username, rol, nombre_completo, email, password } = req.body;
+  const { username, rol, nombre_completo, email, password, puede_gestionar_pv } = req.body;
   const usuario = await Usuario.findByPk(id);
   if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
   const updates: Record<string, unknown> = { username, rol, nombre_completo, email };
+  if (puede_gestionar_pv !== undefined) updates.puede_gestionar_pv = Boolean(puede_gestionar_pv);
   if (password && password.trim() !== '') {
     updates.password_hash = await bcrypt.hash(password, 12);
   }

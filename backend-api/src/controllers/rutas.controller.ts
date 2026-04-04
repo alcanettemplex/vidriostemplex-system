@@ -40,6 +40,7 @@ const PAGO_OK = {
   [Op.or as any]: [
     { estado_caja: { [Op.in]: ['CANCELADO', 'CREDITO_APROBADO'] } },
     { autorizacion_especial_despacho: true },
+    { forma_pago: 'credito' },
   ],
 };
 
@@ -58,12 +59,13 @@ export const getODPsParaGestion = async (_req: Request, res: Response) => {
         include: INCLUDE_ODP_BASICO,
         order: [['fecha_entrega', 'ASC']],
       }),
-      // Pestaña 2: producción lista pero sin pago
+      // Pestaña 2: producción lista pero sin pago (excluye crédito, que ya puede instalarse)
       ODP.findAll({
         where: {
           estado_produccion: 'LISTO_INSTALAR',
           estado_caja: { [Op.in]: ['PENDIENTE', 'ABONADO'] },
           autorizacion_especial_despacho: false,
+          forma_pago: { [Op.ne]: 'credito' },
         },
         include: INCLUDE_ODP_BASICO,
         order: [['fecha_entrega', 'ASC']],

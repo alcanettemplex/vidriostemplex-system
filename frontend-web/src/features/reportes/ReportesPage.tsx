@@ -32,17 +32,7 @@ const ReportesPage: React.FC = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            let data = res.data;
-            if (data.length === 0) {
-                // Fallback data for mockup purposes if DB empty
-                data = [
-                    { id: 1, numero_odp: 'ODP-2026-0001', estado_produccion: 'ENTREGADA', estado_facturacion: 'PENDIENTE', cliente: { nombre_razon_social: 'Constructor ABC' }, asesor: { nombre_completo: 'Juan Admin' }, fecha_creacion: new Date().toISOString() },
-                    { id: 2, numero_odp: 'ODP-2026-0002', estado_produccion: 'ENTREGADA', estado_facturacion: 'FACTURADA', cliente: { nombre_razon_social: 'Vidrios y Aluminios XYZ' }, asesor: { nombre_completo: 'Ana López' }, fecha_creacion: new Date(Date.now() - 86400000).toISOString() },
-                    { id: 3, numero_odp: 'ODP-2026-0003', estado_produccion: 'MEDICION', estado_facturacion: 'PENDIENTE', cliente: { nombre_razon_social: 'Constructora Atlas' }, asesor: { nombre_completo: 'Juan Admin' }, fecha_creacion: new Date(Date.now() - 172800000).toISOString() },
-                    { id: 4, numero_odp: 'ODP-2026-0004', estado_produccion: 'ENTREGADA', estado_facturacion: 'FACTURADA', cliente: { nombre_razon_social: 'Grupo Teseo' }, asesor: { nombre_completo: 'Carlos Ruiz' }, fecha_creacion: new Date(Date.now() - 250000000).toISOString() }
-                ];
-            }
-            setOdps(data);
+            setOdps(res.data);
         } catch (error) {
             console.error('Error fetching ODPs', error);
             toast.error('Error cargando datos para el reporte');

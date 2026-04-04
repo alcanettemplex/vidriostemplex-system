@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { OrdenCompra, ODCItem, SAP, SAPItem, ODP, Cliente, Usuario, InventarioPerfileria } from '../models';
+import { OrdenCompra, ODCItem, SAP, SAPItem, ODP, ODPItem, Cliente, Usuario, InventarioPerfileria } from '../models';
 import sequelize from '../config/database';
 import { Op } from 'sequelize';
 
@@ -346,5 +346,149 @@ export const getCodigosPerfileria = async (req: Request, res: Response) => {
     res.json(rows.map((r: any) => r.getDataValue('codigo')));
   } catch (error: any) {
     res.status(500).json({ error: 'Error al obtener códigos de perfilería', detail: error.message });
+  }
+};
+
+// ─── VIDRIOS ─────────────────────────────────────────────────────────────────
+
+// GET /compras/vidrios — ODPs con ítems de vidrio pendientes de gestionar por compras
+// Regla:
+//   1. ODP sin proveedor_vidrio → todos sus ítems sin asignar van a compras
+//   2. ODP con proveedor_vidrio → solo ítems con pedido_pv_id IS NULL (los que Alejandro no asignó)
+//      pero solo si al menos un ítem SÍ fue asignado (la sesión de Alejandro ya terminó)
+export const getVidriosPorGestionar = async (req: Request, res: Response) => {
+  try {
+    const odps = await ODP.findAll({
+      include: [
+        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+        {
+          model: ODPItem,
+          as: 'items',
+          where: { estado_compra: { [Op.ne]: 'en_existencia' } },
+          required: true,
+        },
+      ],
+      order: [['fecha_creacion', 'DESC']],
+    });
+
+    const resultado: any[] = [];
+
+    for (const odp of odps) {
+      const todosItems: any[] = (odp as any).items || [];
+      const proveedor_vidrio = odp.getDataValue('proveedor_vidrio');
+
+      let itemsParaCompras: any[] = [];
+
+      if (!proveedor_vidrio) {
+        // Sin proveedor → todos los ítems van a compras
+        itemsParaCompras = todosItems;
+      } else {
+        // Con proveedor → solo si Alejandro ya gestionó (al menos 1 ítem asignado)
+        const algunAsignado = todosItems.some((it: any) => it.pedido_pv_id !== null);
+        if (algunAsignado) {
+          itemsParaCompras = todosItems.filter((it: any) => it.pedido_pv_id === null);
+        }
+      }
+
+      if (itemsParaCompras.length > 0) {
+        resultado.push({
+          ...odp.toJSON(),
+          items: itemsParaCompras,
+        });
+      }
+    }
+
+    res.json(resultado);
+  } catch (error: any) {
+    console.error('Error getVidriosPorGestionar:', error);
+    res.status(500).json({ error: 'Error al obtener vidrios por gestionar', detail: error.message });
+  }
+};
+
+// POST /compras/vidrios/odc — Crear ODC de vidrios directamente desde ítems de ODP
+export const createODCVidrios = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const userId = (req as any).user?.id;
+    const { odp_id, proveedor, odp_item_ids, notas } = req.body;
+
+    if (!odp_id || !proveedor || !Array.isArray(odp_item_ids) || odp_item_ids.length === 0) {
+      await t.rollback();
+      return res.status(400).json({ error: 'odp_id, proveedor y odp_item_ids son requeridos' });
+    }
+
+    const numero_odc = await generarNumeroODC();
+
+    const odc = await OrdenCompra.create({
+      numero_odc,
+      sap_id: null,
+      odp_id,
+      tipo: 'vidrio',
+      proveedor,
+      notas: notas || null,
+      estado: 'pendiente',
+      creado_por: userId,
+    }, { transaction: t });
+
+    const odcId = odc.getDataValue('id');
+
+    // Obtener los ítems para construir los ODCItems
+    const items = await ODPItem.findAll({ where: { id: odp_item_ids }, transaction: t });
+
+    const odcItems = items.map((it: any, idx: number) => ({
+      odc_id: odcId,
+      sap_item_id: null,
+      odp_item_id: it.getDataValue('id'),
+      item: String(idx + 1),
+      codigo: it.getDataValue('tipo_vidrio') || '',
+      descripcion: [
+        it.getDataValue('color') || '',
+        `${it.getDataValue('espesor') || ''}mm`,
+        `${it.getDataValue('ancho_mm') || ''}x${it.getDataValue('alto_mm') || ''}`,
+        it.getDataValue('otros') || '',
+      ].filter(Boolean).join(' — '),
+      cantidad: it.getDataValue('cantidad') || 1,
+    }));
+
+    await ODCItem.bulkCreate(odcItems, { transaction: t });
+
+    // Marcar los ítems como en_odc
+    await ODPItem.update(
+      { estado_compra: 'en_odc' },
+      { where: { id: odp_item_ids }, transaction: t }
+    );
+
+    await t.commit();
+
+    const odcCompleta = await OrdenCompra.findByPk(odcId, {
+      include: [
+        { model: ODCItem, as: 'items' },
+        { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
+      ],
+    });
+
+    res.status(201).json(odcCompleta);
+  } catch (error: any) {
+    await t.rollback();
+    console.error('Error createODCVidrios:', error);
+    res.status(500).json({ error: 'Error al crear ODC de vidrios', detail: error.message });
+  }
+};
+
+// PATCH /compras/vidrios/item/:id/estado — Marcar ítem de vidrio en_existencia o pendiente
+export const updateEstadoItemVidrio = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { estado_compra } = req.body;
+    if (!['pendiente', 'en_odc', 'en_existencia'].includes(estado_compra)) {
+      return res.status(400).json({ error: 'Estado inválido' });
+    }
+    const item = await ODPItem.findByPk(id);
+    if (!item) return res.status(404).json({ error: 'Ítem no encontrado' });
+    await item.update({ estado_compra });
+    res.json({ id, estado_compra });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al actualizar estado del ítem', detail: error.message });
   }
 };

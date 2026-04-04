@@ -1,0 +1,120 @@
+import { Request, Response } from 'express';
+import { z } from 'zod';
+import { ODP, Cliente, Usuario } from '../models';
+import SalidaAlmacen from '../models/salida_almacen.model';
+
+const salidaSchema = z.object({
+  numero_sa: z.string().min(1, 'El número SA es requerido'),
+  fecha_sa:  z.string().min(1, 'La fecha es requerida'),
+});
+
+const INCLUDE_ODP = [
+  { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+];
+
+// ─── GET: ODPs facturadas SIN salida de almacén ───────────────────────────────
+export const getFacturadas = async (_req: Request, res: Response) => {
+  try {
+    // IDs de ODPs que ya tienen SA
+    const conSalida = await SalidaAlmacen.findAll({ attributes: ['odp_id'], raw: true }) as any[];
+    const idsConSalida = conSalida.map((s: any) => s.odp_id);
+
+    const where: any = { estado_facturacion: 'FACTURADA' };
+    if (idsConSalida.length) {
+      const { Op } = await import('sequelize');
+      where.id = { [Op.notIn]: idsConSalida };
+    }
+
+    const odps = await ODP.findAll({
+      where,
+      include: INCLUDE_ODP,
+      attributes: ['id', 'numero_odp', 'fecha_factura', 'factura_electronica', 'valor_total'],
+      order: [['fecha_factura', 'DESC']],
+    });
+
+    res.json(odps);
+  } catch (e: any) {
+    console.error('getFacturadas:', e.message);
+    res.status(500).json({ error: 'Error al obtener ODPs facturadas' });
+  }
+};
+
+// ─── GET: ODPs con salida de almacén registrada ───────────────────────────────
+export const getConSalida = async (_req: Request, res: Response) => {
+  try {
+    const salidas = await SalidaAlmacen.findAll({
+      include: [
+        {
+          model: ODP,
+          as: 'odp',
+          attributes: ['id', 'numero_odp', 'fecha_factura', 'factura_electronica', 'valor_total'],
+          include: INCLUDE_ODP,
+        },
+        { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
+      ],
+      order: [['creado_en', 'DESC']],
+    });
+    res.json(salidas);
+  } catch (e: any) {
+    console.error('getConSalida:', e.message);
+    res.status(500).json({ error: 'Error al obtener salidas de almacén' });
+  }
+};
+
+// ─── POST: Crear salida de almacén ───────────────────────────────────────────
+export const createSalida = async (req: Request, res: Response) => {
+  try {
+    const { odp_id } = req.params;
+    const user = req.user as any;
+    const data = salidaSchema.parse(req.body);
+
+    const existe = await SalidaAlmacen.findOne({ where: { odp_id: Number(odp_id) } });
+    if (existe) return res.status(409).json({ error: 'Esta ODP ya tiene una salida de almacén registrada' });
+
+    const salida = await SalidaAlmacen.create({
+      odp_id: Number(odp_id),
+      numero_sa: data.numero_sa,
+      fecha_sa: data.fecha_sa,
+      creado_por: user?.id || null,
+    });
+
+    res.status(201).json(salida);
+  } catch (e: any) {
+    if (e.name === 'ZodError') return res.status(400).json({ error: e.errors[0].message });
+    console.error('createSalida:', e.message);
+    res.status(500).json({ error: 'Error al crear salida de almacén' });
+  }
+};
+
+// ─── PUT: Editar salida de almacén ───────────────────────────────────────────
+export const updateSalida = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const data = salidaSchema.parse(req.body);
+
+    const salida = await SalidaAlmacen.findByPk(id);
+    if (!salida) return res.status(404).json({ error: 'Salida de almacén no encontrada' });
+
+    await salida.update({ numero_sa: data.numero_sa, fecha_sa: data.fecha_sa });
+    res.json(salida);
+  } catch (e: any) {
+    if (e.name === 'ZodError') return res.status(400).json({ error: e.errors[0].message });
+    console.error('updateSalida:', e.message);
+    res.status(500).json({ error: 'Error al actualizar salida de almacén' });
+  }
+};
+
+// ─── DELETE: Eliminar salida de almacén ──────────────────────────────────────
+export const deleteSalida = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const salida = await SalidaAlmacen.findByPk(id);
+    if (!salida) return res.status(404).json({ error: 'Salida de almacén no encontrada' });
+
+    await salida.destroy();
+    res.json({ ok: true });
+  } catch (e: any) {
+    console.error('deleteSalida:', e.message);
+    res.status(500).json({ error: 'Error al eliminar salida de almacén' });
+  }
+};

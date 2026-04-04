@@ -12,6 +12,9 @@ import {
   getInventarioPorCodigo,
   deleteInventarioPerfileria,
   getCodigosPerfileria,
+  getVidriosPorGestionar,
+  createODCVidrios,
+  updateEstadoItemVidrio,
 } from '../controllers/odc.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole, RolUsuario } from '../middlewares/rbacMiddleware';
@@ -32,5 +35,10 @@ router.patch('/sap-item/:id/exist-perf', authMiddleware, rc('admin', 'gerencia',
 router.get('/codigos-perfileria', authMiddleware, rc('admin', 'gerencia', 'compras'), getCodigosPerfileria);
 router.get('/inventario-perfileria/:codigo', authMiddleware, rc('admin', 'gerencia', 'compras'), getInventarioPorCodigo);
 router.delete('/inventario-perfileria/:consecutivo', authMiddleware, rc('admin', 'gerencia', 'compras'), deleteInventarioPerfileria);
+
+// Vidrios
+router.get('/vidrios', authMiddleware, rc('admin', 'gerencia', 'compras', 'jefe_produccion'), getVidriosPorGestionar);
+router.post('/vidrios/odc', authMiddleware, rc('admin', 'gerencia', 'compras'), createODCVidrios);
+router.patch('/vidrios/item/:id/estado', authMiddleware, rc('admin', 'gerencia', 'compras'), updateEstadoItemVidrio);
 
 export default router;

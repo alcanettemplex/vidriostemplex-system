@@ -23,6 +23,7 @@ import prospectosRoutes from './routes/prospectos.routes';
 import inventarioPerfileriaRoutes from './routes/inventario_perfileria.routes';
 import rutasRoutes from './routes/rutas.routes';
 import pedidoPVRoutes from './routes/pedido_pv.routes';
+import salidasAlmacenRoutes from './routes/salidas_almacen.routes';
 
 
 const app = express();
@@ -74,6 +75,7 @@ app.use('/api/prospectos', prospectosRoutes);
 app.use('/api/inventario-perfileria', inventarioPerfileriaRoutes);
 app.use('/api/rutas', rutasRoutes);
 app.use('/api/pedidos-pv', pedidoPVRoutes);
+app.use('/api/facturas-salidas', salidasAlmacenRoutes);
 
 import { errorHandler } from './middlewares/errorHandler';
 app.use(errorHandler);
