@@ -24,7 +24,8 @@ import inventarioPerfileriaRoutes from './routes/inventario_perfileria.routes';
 import rutasRoutes from './routes/rutas.routes';
 import pedidoPVRoutes from './routes/pedido_pv.routes';
 import salidasAlmacenRoutes from './routes/salidas_almacen.routes';
-
+import rootRoutes from './routes/root.routes';
+import { requestContext } from './utils/requestContext';
 
 const app = express();
 
@@ -55,6 +56,22 @@ app.use(express.json({ limit: '10mb' }));
 
 app.use(globalLimiter);
 
+// Middleware de contexto de request (para auditoría)
+app.use((req, res, next) => {
+  const jwt = req.headers.authorization?.split(' ')[1];
+  let userId: number | null = null;
+  let userName: string | null = null;
+  try {
+    if (jwt) {
+      const decoded: any = require('jsonwebtoken').decode(jwt);
+      if (decoded?.id) userId = decoded.id;
+      if (decoded?.nombre_completo) userName = decoded.nombre_completo;
+    }
+  } catch { /* silencioso */ }
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || null;
+  requestContext.run({ userId, userName, ip }, next);
+});
+
 app.use('/', indexRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
@@ -76,6 +93,7 @@ app.use('/api/inventario-perfileria', inventarioPerfileriaRoutes);
 app.use('/api/rutas', rutasRoutes);
 app.use('/api/pedidos-pv', pedidoPVRoutes);
 app.use('/api/facturas-salidas', salidasAlmacenRoutes);
+app.use('/api/root', rootRoutes);
 
 import { errorHandler } from './middlewares/errorHandler';
 app.use(errorHandler);

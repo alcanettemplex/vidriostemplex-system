@@ -19,6 +19,7 @@ import {
   Package,
   GlassWater,
   PackageCheck,
+  Shield,
 } from 'lucide-react';
 
 /**
@@ -140,6 +141,13 @@ const MENU_ITEMS_CONFIG = [
     allowedRoles: ['admin', 'gerencia'],
     section: 'admin'
   },
+  {
+    text: 'ROOT',
+    icon: Shield,
+    path: '/root',
+    allowedRoles: ['root'],
+    section: 'sistema'
+  },
 ];
 
 // Etiquetas de sección para separadores visuales en el menú
@@ -150,6 +158,7 @@ const SECTION_LABELS: Record<string, string> = {
   logistica: 'Logística',
   finanzas: 'Finanzas',
   admin: 'Administración',
+  sistema: 'Sistema',
 };
 
 const Sidebar: React.FC = () => {
@@ -161,7 +170,8 @@ const Sidebar: React.FC = () => {
   // Filtrar el menú por rol
   const authorizedMenu = MENU_ITEMS_CONFIG.filter(item => {
     if (!userRole) return false;
-    if (userRole === 'admin') return true;
+    if (userRole === 'root') return item.allowedRoles.includes('root');
+    if (userRole === 'admin') return item.section !== 'sistema';
     return item.allowedRoles.includes(userRole);
   });
 

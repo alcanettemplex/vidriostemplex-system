@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
  * Cada ruta puede requerir uno o más roles para acceder.
  */
 export type RolUsuario =
+  | 'root'
   | 'admin'
   | 'gerencia'
   | 'jefe_produccion'

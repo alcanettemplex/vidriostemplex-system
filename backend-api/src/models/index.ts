@@ -1,4 +1,6 @@
 import sequelize from '../config/database';
+import AuditoriaLog from './auditoria_log.model';
+import AlertasUmbral from './alertas_umbral.model';
 import Usuario from './usuario.model';
 import Cliente from './cliente.model';
 import ODP from './odp.model';
@@ -169,8 +171,87 @@ SalidaAlmacen.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
 Usuario.hasMany(SalidaAlmacen, { foreignKey: 'creado_por', as: 'salidas_creadas' });
 SalidaAlmacen.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
 
+// ─── Hooks globales de auditoría ────────────────────────────────────────────
+// Captura INSERT/UPDATE/DELETE en todos los modelos registrados y graba en auditoria_log
+import { getContext } from '../utils/requestContext';
+
+const MODELOS_AUDITADOS = [
+  { model: Usuario, tabla: 'usuarios', pk: 'id' },
+  { model: Cliente, tabla: 'clientes', pk: 'id' },
+  { model: ODP, tabla: 'odp', pk: 'id' },
+  { model: ODPItem, tabla: 'odp_items', pk: 'id' },
+  { model: SAP, tabla: 'saps', pk: 'id' },
+  { model: SAPItem, tabla: 'sap_items', pk: 'id' },
+  { model: OrdenCompra, tabla: 'ordenes_compra', pk: 'id' },
+  { model: ODCItem, tabla: 'odc_items', pk: 'id' },
+  { model: Pago, tabla: 'pagos', pk: 'id' },
+  { model: Cotizacion, tabla: 'cotizaciones', pk: 'id' },
+  { model: TomaMedidas, tabla: 'toma_medidas', pk: 'id' },
+  { model: EvidenciaInstalacion, tabla: 'evidencias_instalacion', pk: 'id' },
+  { model: NoConformidad, tabla: 'no_conformidades', pk: 'id' },
+  { model: NotaProduccion, tabla: 'notas_produccion', pk: 'id' },
+  { model: HistorialEstadoODP, tabla: 'historial_estados_odp', pk: 'id' },
+  { model: Vehiculo, tabla: 'vehiculos', pk: 'id' },
+  { model: RutaInstalacion, tabla: 'rutas_instalacion', pk: 'id' },
+  { model: RutaODP, tabla: 'ruta_odps', pk: 'id' },
+  { model: Prospecto, tabla: 'prospectos', pk: 'id' },
+  { model: CatalogoProducto, tabla: 'catalogo_productos', pk: 'id' },
+  { model: InventarioPerfileria, tabla: 'inventario_perfileria', pk: 'id' },
+  { model: MetaMensual, tabla: 'metas_mensuales', pk: 'id' },
+  { model: ConfiguracionGlobal, tabla: 'configuracion_global', pk: 'id' },
+  { model: PedidoPV, tabla: 'pedido_pv', pk: 'id' },
+  { model: SalidaAlmacen, tabla: 'salidas_almacen', pk: 'id' },
+];
+
+function registrarAuditoria(
+  tabla: string,
+  pk: string,
+  operacion: 'INSERT' | 'UPDATE' | 'DELETE',
+  instance: any,
+  datosAnteriores: any
+) {
+  const ctx = getContext();
+  const registroId = instance.getDataValue ? String(instance.getDataValue(pk) ?? '') : '';
+  const datosNuevos = operacion !== 'DELETE' ? (instance.toJSON ? instance.toJSON() : instance) : null;
+
+  AuditoriaLog.create({
+    tabla,
+    operacion,
+    registro_id: registroId,
+    datos_anteriores: datosAnteriores ?? null,
+    datos_nuevos: datosNuevos,
+    usuario_id: ctx.userId,
+    usuario_nombre: ctx.userName,
+    ip_address: ctx.ip,
+  }).catch(() => { /* no interrumpir la operación principal */ });
+}
+
+for (const { model, tabla, pk } of MODELOS_AUDITADOS) {
+  (model as any).addHook('afterCreate', `audit_insert_${tabla}`, (instance: any) => {
+    registrarAuditoria(tabla, pk, 'INSERT', instance, null);
+  });
+
+  (model as any).addHook('beforeUpdate', `audit_before_update_${tabla}`, (instance: any) => {
+    (instance as any)._auditAntes = instance.previous ? { ...instance.previous() } : null;
+  });
+
+  (model as any).addHook('afterUpdate', `audit_update_${tabla}`, (instance: any) => {
+    registrarAuditoria(tabla, pk, 'UPDATE', instance, (instance as any)._auditAntes ?? null);
+  });
+
+  (model as any).addHook('beforeDestroy', `audit_before_destroy_${tabla}`, (instance: any) => {
+    (instance as any)._auditSnap = instance.toJSON ? instance.toJSON() : instance;
+  });
+
+  (model as any).addHook('afterDestroy', `audit_delete_${tabla}`, (instance: any) => {
+    registrarAuditoria(tabla, pk, 'DELETE', instance, (instance as any)._auditSnap ?? null);
+  });
+}
+
 export {
   sequelize,
+  AuditoriaLog,
+  AlertasUmbral,
   Usuario,
   Cliente,
   ODP,
