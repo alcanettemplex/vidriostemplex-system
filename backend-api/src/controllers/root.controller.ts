@@ -178,16 +178,43 @@ export const getMetricasCloudinary = async (_req: Request, res: Response) => {
 export const getHealthServicios = async (req: Request, res: Response) => {
   const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
+  // Verificar Supabase via query directa a la BD (más confiable que HTTP ping)
+  let supabaseStatus: 'online' | 'offline' | 'slow' = 'offline';
+  let supabaseMs = 0;
+  try {
+    const t0 = Date.now();
+    await sequelize.query('SELECT 1');
+    supabaseMs = Date.now() - t0;
+    supabaseStatus = supabaseMs > 2000 ? 'slow' : 'online';
+  } catch { supabaseStatus = 'offline'; }
+
+  // Verificar Cloudinary via su página de status pública
+  const cloudinaryPing = await pingService(
+    'Cloudinary',
+    'https://status.cloudinary.com/api/v2/status.json'
+  );
+
   const servicios = [
     { name: 'Backend (API)', url: `${req.protocol}://${req.get('host')}/health` },
     { name: 'Frontend (Netlify)', url: FRONTEND_URL },
-    { name: 'Supabase', url: `https://${SUPABASE_PROJECT_REF}.supabase.co/rest/v1/` },
-    { name: 'Cloudinary', url: 'https://api.cloudinary.com/v1_1/' },
+    { name: 'Supabase (BD)', url: `https://${SUPABASE_PROJECT_REF}.supabase.co` },
+    { name: 'Cloudinary', url: 'https://status.cloudinary.com/api/v2/status.json' },
     { name: 'GitHub Status', url: 'https://www.githubstatus.com/api/v2/status.json' },
     { name: 'Render Status', url: 'https://status.render.com/api/v2/status.json' },
   ];
 
-  const results = await Promise.all(servicios.map((s) => pingService(s.name, s.url)));
+  const [backendResult, frontendResult, , , githubResult, renderResult] =
+    await Promise.all(servicios.map((s) => pingService(s.name, s.url)));
+
+  const results = [
+    backendResult,
+    frontendResult,
+    { name: 'Supabase (BD)', url: `https://${SUPABASE_PROJECT_REF}.supabase.co`, status: supabaseStatus, responseMs: supabaseMs },
+    { ...cloudinaryPing, name: 'Cloudinary' },
+    githubResult,
+    renderResult,
+  ];
+
   res.json({ servicios: results, timestamp: new Date().toISOString() });
 };
 

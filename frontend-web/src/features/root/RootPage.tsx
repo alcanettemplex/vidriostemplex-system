@@ -704,11 +704,11 @@ const TabCatalogo: React.FC = () => {
     if (res.ok) {
       const data: CatItem[] = await res.json();
       setCatalogo(data);
-      if (!catTab && data.length > 0) setCatTab(data[0].categoria);
+      setCatTab(prev => prev || (data.length > 0 ? data[0].categoria : ''));
     }
-  }, [catTab]);
+  }, []);
 
-  useEffect(() => { fetchCatalogo(); }, []);
+  useEffect(() => { fetchCatalogo(); }, [fetchCatalogo]);
 
   const catCategorias = Array.from(new Set(catalogo.map(i => i.categoria)));
 
