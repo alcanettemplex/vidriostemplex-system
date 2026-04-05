@@ -16,6 +16,7 @@ import PrintableSAP from './PrintableSAP';
 import ReportarProblemaForm from './ReportarProblemaForm';
 import SAPModal from './SAPModal';
 import TMModal from './TMModal';
+import CotizacionCapturas from './CotizacionCapturas';
 
 // ─── Paleta de estado ─────────────────────────────────────────────────────────
 const estadoProdColor: Record<string, string> = {
@@ -226,6 +227,8 @@ const TabComercial: React.FC<{ odp: any; onRefresh: () => void }> = ({ odp, onRe
         />
       )}
 
+      <CotizacionCapturas odp_id={odp.id} />
+
       <div>
         <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
           <DollarSign className="w-4 h-4 text-blue-600" /> Cotizaciones (COT)
@@ -235,9 +238,7 @@ const TabComercial: React.FC<{ odp: any; onRefresh: () => void }> = ({ odp, onRe
             <DollarSign className="w-10 h-10 mx-auto mb-2 text-slate-200" />
             <p className="font-bold">No hay cotizaciones registradas</p>
           </div>
-        ) : cots.map((cot: any) => {
-          const total = cot.valor_total * (1 - cot.descuento / 100);
-          return (
+        ) : cots.map((cot: any) => (
             <div key={cot.id} className="bg-white border border-slate-200 rounded-2xl p-5 mb-3 shadow-sm">
               <div className="flex justify-between items-start">
                 <div>
@@ -246,17 +247,22 @@ const TabComercial: React.FC<{ odp: any; onRefresh: () => void }> = ({ odp, onRe
                     <Badge className={estadoCotColor[cot.estado] || 'bg-slate-100 text-slate-600 border-slate-200'}>{cot.estado}</Badge>
                   </div>
                   <p className="text-xs text-slate-500">{cot.asesor?.nombre_completo} · {new Date(cot.fecha_creacion).toLocaleDateString('es-CO')} · Válida {cot.validez_dias} días</p>
+                  {cot.descuento > 0 && (
+                    <p className="text-xs text-slate-400 mt-1">
+                      Subtotal: {fmt(cot.subtotal || cot.valor_total)} — Descuento {cot.descuento}% — IVA: {fmt(cot.iva || 0)}
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-black text-slate-900">{fmt(total)}</p>
-                  {cot.descuento > 0 && <p className="text-xs text-slate-400 line-through">{fmt(cot.valor_total)}</p>}
+                  {/* valor_total ya es el TOTAL NETO (con descuento + IVA aplicados) */}
+                  <p className="text-2xl font-black text-slate-900">{fmt(cot.valor_total)}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">TOTAL NETO</p>
                   <p className="text-xs font-bold text-slate-600 mt-0.5">{cot.forma_pago}</p>
                 </div>
               </div>
               {cot.notas && <p className="text-xs text-slate-500 italic mt-2 pt-2 border-t border-slate-100">"{cot.notas}"</p>}
             </div>
-          );
-        })}
+          ))}
       </div>
     </div>
   );

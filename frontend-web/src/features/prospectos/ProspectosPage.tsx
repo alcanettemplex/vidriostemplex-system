@@ -10,6 +10,7 @@ import {
 import ProspectoModal from './components/ProspectoModal';
 import AprobarProspectoModal from './components/AprobarProspectoModal';
 import SolicitarTMModal from './components/SolicitarTMModal';
+import CotizacionCapturas from '../odp/components/CotizacionCapturas';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -232,6 +233,11 @@ const DetalleModal: React.FC<{
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Capturas de cotización */}
+          <div>
+            <CotizacionCapturas prospecto_id={p.id} />
           </div>
         </div>
 

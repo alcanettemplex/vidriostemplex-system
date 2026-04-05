@@ -134,7 +134,7 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                             return (
                                 <tr key={idx} className="h-[22px]">
                                     <td className="font-bold">{letter}</td>
-                                    <td className="font-bold">{item?.tipo_vidrio?.charAt(0) || ''}</td>
+                                    <td className="font-bold">{item?.color?.substring(0, 2)?.toUpperCase() || ''}</td>
                                     <td className="font-bold">{item?.espesor || ''}</td>
                                     <td className="font-bold">{item?.cantidad || ''}</td>
                                     <td className="font-bold">{item?.ancho_mm || ''}</td>

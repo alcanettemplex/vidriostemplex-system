@@ -815,7 +815,7 @@ const ComprasPage: React.FC = () => {
                                 return (
                                   <tr key={it.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
                                     <td className="px-4 py-1.5 font-black text-slate-600">{i + 1}</td>
-                                    <td className="px-4 py-1.5 text-slate-700">{it.tipo_vidrio || '—'}</td>
+                                    <td className="px-4 py-1.5 text-slate-700">{it.prod || it.tipo_vidrio || '—'}</td>
                                     <td className="px-4 py-1.5 text-slate-700">{it.color || '—'}</td>
                                     <td className="px-4 py-1.5 text-slate-700">{it.espesor || '—'}</td>
                                     <td className="px-4 py-1.5 text-slate-700">{it.ancho_mm && it.alto_mm ? `${it.ancho_mm}×${it.alto_mm}` : '—'}</td>
@@ -950,7 +950,7 @@ const ComprasPage: React.FC = () => {
                               <input type="checkbox" checked={seleccionado} readOnly disabled={!esPendiente} />
                             </td>
                             <td className="px-3 py-2 font-bold text-slate-600">{idx + 1}</td>
-                            <td className="px-3 py-2">{it.tipo_vidrio || '—'}</td>
+                            <td className="px-3 py-2">{it.prod || it.tipo_vidrio || '—'}</td>
                             <td className="px-3 py-2">{it.color || '—'}</td>
                             <td className="px-3 py-2">{it.espesor || '—'}</td>
                             <td className="px-3 py-2">{it.ancho_mm && it.alto_mm ? `${it.ancho_mm}×${it.alto_mm}` : '—'}</td>

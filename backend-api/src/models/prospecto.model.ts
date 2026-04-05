@@ -21,6 +21,7 @@ Prospecto.init(
       // valores: en_gestion | aprobado | no_aprobado
     },
     motivo_no_aprobado: { type: DataTypes.TEXT, allowNull: true },
+    numero_cotizacion: { type: DataTypes.STRING(50), allowNull: true },
     odp_id: { type: DataTypes.INTEGER, allowNull: true },
     fecha_creacion: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     fecha_gestion: { type: DataTypes.DATE, allowNull: true },

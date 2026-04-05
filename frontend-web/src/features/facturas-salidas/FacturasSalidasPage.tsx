@@ -49,6 +49,9 @@ const FacturasSalidasPage: React.FC = () => {
   const [tab, setTab] = useState<Tab>('facturadas');
   const [facturadas, setFacturadas] = useState<ODPFacturada[]>([]);
   const [conSalida, setConSalida] = useState<SalidaAlmacen[]>([]);
+  const hoy = new Date();
+  const [filtroMes, setFiltroMes] = useState(hoy.getMonth() + 1);
+  const [filtroAnio, setFiltroAnio] = useState(hoy.getFullYear());
   const [loading, setLoading] = useState(true);
 
   // Modal crear/editar SA
@@ -113,9 +116,23 @@ const FacturasSalidasPage: React.FC = () => {
     } catch { toast.error('Error al eliminar'); }
   };
 
+  const filtrarPorMes = (fecha: string | null) => {
+    if (!fecha) return true;
+    try {
+      const d = parseISO(fecha);
+      return d.getMonth() + 1 === filtroMes && d.getFullYear() === filtroAnio;
+    } catch { return true; }
+  };
+
+  const facturadasFiltradas = facturadas.filter(o => filtrarPorMes(o.fecha_factura));
+  const conSalidaFiltradas  = conSalida.filter(s => filtrarPorMes(s.fecha_sa));
+
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const anios = Array.from({ length: 4 }, (_, i) => hoy.getFullYear() - i);
+
   const TABS: { key: Tab; label: string; icon: React.ElementType; count: number }[] = [
-    { key: 'facturadas',  label: 'Facturadas',            icon: FileCheck,  count: facturadas.length },
-    { key: 'con_salida',  label: 'Con Salidas de Almacén', icon: Warehouse,  count: conSalida.length },
+    { key: 'facturadas',  label: 'Facturadas',            icon: FileCheck,  count: facturadasFiltradas.length },
+    { key: 'con_salida',  label: 'Con Salidas de Almacén', icon: Warehouse,  count: conSalidaFiltradas.length },
   ];
 
   return (
@@ -129,9 +146,25 @@ const FacturasSalidasPage: React.FC = () => {
           </h1>
           <p className="text-slate-500 text-sm mt-1">Control interno de ODPs facturadas y salidas de almacén</p>
         </div>
-        <button onClick={cargar} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition">
-          <RefreshCw className="w-4 h-4 text-slate-500" />
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={filtroMes}
+            onChange={e => setFiltroMes(Number(e.target.value))}
+            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+          >
+            {MESES.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
+          </select>
+          <select
+            value={filtroAnio}
+            onChange={e => setFiltroAnio(Number(e.target.value))}
+            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+          >
+            {anios.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <button onClick={cargar} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition">
+            <RefreshCw className="w-4 h-4 text-slate-500" />
+          </button>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -200,12 +233,12 @@ const FacturasSalidasPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {facturadas.length === 0 ? (
+                  {facturadasFiltradas.length === 0 ? (
                     <tr><td colSpan={puedeEditar ? 6 : 5} className="px-5 py-12 text-center text-slate-400">
                       <FileCheck className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                      <p>No hay ODPs facturadas pendientes de salida</p>
+                      <p>No hay ODPs facturadas para el período seleccionado</p>
                     </td></tr>
-                  ) : facturadas.map(odp => (
+                  ) : facturadasFiltradas.map(odp => (
                     <motion.tr key={odp.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                       className="hover:bg-slate-50 transition-colors">
                       <td className="px-5 py-4 font-mono font-bold text-slate-800">{odp.numero_odp}</td>
@@ -244,12 +277,12 @@ const FacturasSalidasPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {conSalida.length === 0 ? (
+                  {conSalidaFiltradas.length === 0 ? (
                     <tr><td colSpan={puedeEditar ? 9 : 8} className="px-5 py-12 text-center text-slate-400">
                       <Warehouse className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                      <p>No hay salidas de almacén registradas</p>
+                      <p>No hay salidas de almacén para el período seleccionado</p>
                     </td></tr>
-                  ) : conSalida.map(s => (
+                  ) : conSalidaFiltradas.map(s => (
                     <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                       className="hover:bg-slate-50 transition-colors">
                       <td className="px-5 py-4 font-mono font-bold text-slate-800">{s.odp?.numero_odp}</td>

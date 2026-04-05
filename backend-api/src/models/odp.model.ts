@@ -39,6 +39,7 @@ ODP.init({
   huacal: { type: DataTypes.BOOLEAN, defaultValue: false },
   carton: { type: DataTypes.BOOLEAN, defaultValue: false },
   forma_pago: { type: DataTypes.STRING(50) },
+  numero_cotizacion: { type: DataTypes.STRING(50), allowNull: true },
   valor_total: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0 },
   abono: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },
   pendiente: { type: DataTypes.DECIMAL(10, 2), defaultValue: 0 },

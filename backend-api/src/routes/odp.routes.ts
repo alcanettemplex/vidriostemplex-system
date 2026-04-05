@@ -13,8 +13,8 @@ router.get('/:id', authMiddleware, getODP);
 // Creación: asesores, admin, jefe_produccion
 router.post('/', authMiddleware, requireRole('admin', 'asesor_comercial', 'jefe_produccion'), createODP);
 
-// Actualización: solo el creador (owner check en controller) + admin
-router.put('/:id', authMiddleware, requireRole('admin', 'asesor_comercial', 'jefe_produccion'), updateODP);
+// Actualización: asesores y admin para datos generales; produccion y jefe_produccion para checkboxes de taller
+router.put('/:id', authMiddleware, requireRole('admin', 'asesor_comercial', 'jefe_produccion', 'produccion'), updateODP);
 
 // Eliminación: solo el creador (owner check en controller) + admin
 router.delete('/:id', authMiddleware, requireRole('admin', 'asesor_comercial', 'jefe_produccion'), deleteODP);

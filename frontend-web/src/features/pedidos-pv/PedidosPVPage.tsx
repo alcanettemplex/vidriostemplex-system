@@ -217,6 +217,7 @@ const PedidosPVPage: React.FC = () => {
   const [pedidosPorGestionar, setPedidosPorGestionar] = useState<any[]>([]);
   const [modalGestionar, setModalGestionar] = useState<any | null>(null);
   const [itemsSeleccionados, setItemsSeleccionados] = useState<number[]>([]);
+  const [itemsExtras, setItemsExtras] = useState<Record<number, { dt: string, obsType: string, customObs: string }>>({});
   const [savingGestionar, setSavingGestionar] = useState(false);
 
   const puedeCrear = user?.puede_gestionar_pv;
@@ -385,12 +386,23 @@ const PedidosPVPage: React.FC = () => {
     if (!modalGestionar || itemsSeleccionados.length === 0) return;
     setSavingGestionar(true);
     try {
+      const items_data = itemsSeleccionados.map(id => {
+        const extra = itemsExtras[id] || { dt: '', obsType: '', customObs: '' };
+        const baseObs = extra.obsType === 'Otros' ? extra.customObs : extra.obsType;
+        return {
+          id,
+          dt: extra.dt,
+          observaciones_pv: baseObs,
+        };
+      });
       await axios.patch(`${API}/api/pedidos-pv/${modalGestionar.id}/asignar-items`,
-        { odp_item_ids: itemsSeleccionados }, { headers });
+        { odp_item_ids: itemsSeleccionados, items_data }, { headers });
       setModalGestionar(null);
       setItemsSeleccionados([]);
-      cargarDatos();
-      cargarPorGestionar();
+      setItemsExtras({});
+      await cargarDatos();
+      await cargarPorGestionar();
+      setTab(0); // Redirigir a Gestión PV
     } catch { setError('Error al asignar ítems al pedido PV'); }
     finally { setSavingGestionar(false); }
   };
@@ -422,7 +434,7 @@ const PedidosPVPage: React.FC = () => {
         <title>Pedido PV ${printData.pedido.numero_pedido} — ${printData.pedido.proveedor}</title>
         <script src="https://cdn.tailwindcss.com"><\/script>
         <style>
-          @page { size: A4 landscape; margin: 5mm; }
+          @page { size: A4 portrait; margin: 5mm; }
           body { margin: 0; padding: 0; font-family: sans-serif; }
           .pv-t { width: 100%; border-collapse: collapse; }
           .pv-t td, .pv-t th { border: 1px solid #000; padding: 2px 4px; vertical-align: middle; }
@@ -632,10 +644,35 @@ const PedidosPVPage: React.FC = () => {
                               ) : '—'}
                             </TableCell>
                             {/* Espesor */}
-                            <TableCell sx={{ fontSize: 12 }}>{p.espesor_vidrio || '—'}</TableCell>
+                            <TableCell sx={{ fontSize: 12 }}>
+                              {(() => {
+                                const items: any[] = (p as any).items_asignados || [];
+                                if (items.length > 0) {
+                                  const espesores = Array.from(new Set(
+                                    items.map((it: any) => it.espesor).filter(Boolean)
+                                  ));
+                                  return espesores.length > 0
+                                    ? <Typography fontSize={12} fontWeight={600}>{espesores.join(' / ')}</Typography>
+                                    : '—';
+                                }
+                                return p.espesor_vidrio || '—';
+                              })()}
+                            </TableCell>
                             {/* m² */}
                             <TableCell align="right" sx={{ fontSize: 12 }}>
-                              {p.metraje_venta ? toFloat(p.metraje_venta).toFixed(2) : '—'}
+                              {(() => {
+                                const items: any[] = (p as any).items_asignados || [];
+                                if (items.length > 0) {
+                                  const total = items.reduce((acc: number, it: any) => {
+                                    const ancho = Number(it.ancho_mm) || 0;
+                                    const alto = Number(it.alto_mm) || 0;
+                                    const cant = Number(it.cantidad) || 1;
+                                    return acc + (ancho * alto / 1_000_000) * cant;
+                                  }, 0);
+                                  return <Typography fontWeight={600} fontSize={12} color="primary.main">{total.toFixed(3)}</Typography>;
+                                }
+                                return p.metraje_venta ? toFloat(p.metraje_venta).toFixed(2) : '—';
+                              })()}
                             </TableCell>
                             {/* Acciones */}
                             <TableCell align="right">
@@ -945,7 +982,7 @@ const PedidosPVPage: React.FC = () => {
       </Dialog>
 
       {/* ─── Modal: Asignar ítems al PV ───────────────────────────────────────── */}
-      <Dialog open={!!modalGestionar} onClose={() => { setModalGestionar(null); setItemsSeleccionados([]); }} maxWidth="md" fullWidth>
+      <Dialog open={!!modalGestionar} onClose={() => { setModalGestionar(null); setItemsSeleccionados([]); setItemsExtras({}); }} maxWidth="lg" fullWidth>
         <DialogTitle>
           Asignar ítems — PV {modalGestionar?.numero_pedido} &nbsp;·&nbsp; {modalGestionar?.odp?.numero_odp}
         </DialogTitle>
@@ -986,35 +1023,65 @@ const PedidosPVPage: React.FC = () => {
                           <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Tipo</TableCell>
                           <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Color</TableCell>
                           <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Esp.</TableCell>
-                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Ancho</TableCell>
-                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Alto</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>An x Al</TableCell>
                           <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Cant.</TableCell>
-                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Observaciones</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12, minWidth: 60 }}>DT</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12, minWidth: 160 }}>Observación PV</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Obs. Orig.</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {items.map((it: any, idx: number) => {
                           const seleccionado = itemsSeleccionados.includes(it.id);
+                          const extras = itemsExtras[it.id] || { dt: '', obsType: '', customObs: '' };
+                          
+                          const toggleRow = () => setItemsSeleccionados(prev => prev.includes(it.id) ? prev.filter(id => id !== it.id) : [...prev, it.id]);
+                          
                           return (
-                            <TableRow
-                              key={it.id}
-                              selected={seleccionado}
-                              onClick={() => setItemsSeleccionados(prev =>
-                                prev.includes(it.id) ? prev.filter(id => id !== it.id) : [...prev, it.id]
-                              )}
-                              sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
-                            >
-                              <TableCell padding="checkbox">
+                            <TableRow key={it.id} selected={seleccionado} sx={{ '&:hover': { bgcolor: 'action.hover' } }}>
+                              <TableCell padding="checkbox" onClick={toggleRow} sx={{ cursor: 'pointer' }}>
                                 <input type="checkbox" checked={seleccionado} readOnly />
                               </TableCell>
-                              <TableCell sx={{ fontSize: 12 }}>{idx + 1}</TableCell>
-                              <TableCell sx={{ fontSize: 12 }}>{it.tipo_vidrio || '—'}</TableCell>
-                              <TableCell sx={{ fontSize: 12 }}>{it.color || '—'}</TableCell>
-                              <TableCell sx={{ fontSize: 12 }}>{it.espesor || '—'}</TableCell>
-                              <TableCell sx={{ fontSize: 12 }}>{it.ancho_mm || '—'}</TableCell>
-                              <TableCell sx={{ fontSize: 12 }}>{it.alto_mm || '—'}</TableCell>
-                              <TableCell sx={{ fontSize: 12 }}>{it.cantidad || 1}</TableCell>
-                              <TableCell sx={{ fontSize: 12, maxWidth: 180 }}>
+                              <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{idx + 1}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.prod || '—'}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.color || '—'}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.espesor || '—'}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.ancho_mm} x {it.alto_mm}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.cantidad || 1}</TableCell>
+                              <TableCell>
+                                <input 
+                                  type="text" 
+                                  placeholder="DT..."
+                                  disabled={!seleccionado}
+                                  value={extras.dt}
+                                  style={{ fontSize: 12, padding: 4, borderRadius: 4, border: '1px solid #ccc', width: '60px' }}
+                                  onChange={(e) => setItemsExtras(prev => ({ ...prev, [it.id]: { ...extras, dt: e.target.value } }))} 
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Stack gap={1}>
+                                  <select
+                                    disabled={!seleccionado}
+                                    style={{ fontSize: 12, padding: 4, borderRadius: 4, border: '1px solid #ccc' }}
+                                    value={extras.obsType}
+                                    onChange={(e) => setItemsExtras(prev => ({ ...prev, [it.id]: { ...extras, obsType: e.target.value } }))}
+                                  >
+                                    <option value="">(Ninguna)</option>
+                                    <option value="Sello en el canto">Sello en el canto</option>
+                                    <option value="Otros">Otros...</option>
+                                  </select>
+                                  {extras.obsType === 'Otros' && (
+                                    <input 
+                                      type="text" 
+                                      placeholder="Especifique..." 
+                                      style={{ fontSize: 12, padding: 4, borderRadius: 4, border: '1px solid #ccc' }}
+                                      value={extras.customObs}
+                                      onChange={(e) => setItemsExtras(prev => ({ ...prev, [it.id]: { ...extras, customObs: e.target.value } }))}
+                                    />
+                                  )}
+                                </Stack>
+                              </TableCell>
+                              <TableCell sx={{ fontSize: 12, maxWidth: 100 }} onClick={toggleRow}>
                                 <Tooltip title={it.otros || it.accesorios || ''}>
                                   <Typography fontSize={12} noWrap>{it.otros || it.accesorios || '—'}</Typography>
                                 </Tooltip>

@@ -31,7 +31,7 @@ const MENU_ITEMS_CONFIG = [
     text: 'Dashboard',
     icon: LayoutDashboard,
     path: '/',
-    allowedRoles: ['admin', 'gerente', 'gerencia', 'asesor_comercial'],
+    allowedRoles: ['admin', 'gerente', 'gerencia'],
     section: 'general'
   },
   {

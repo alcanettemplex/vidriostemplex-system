@@ -52,10 +52,19 @@ const INCLUDE_ODP_BASICO = [
 
 export const getODPsParaGestion = async (_req: Request, res: Response) => {
   try {
+    // ODPs ya asignadas a rutas activas (no deben aparecer en "Listo para instalar")
+    const enRutaActiva = await RutaODP.findAll({
+      where: { estado: { [Op.in]: ['pendiente', 'en_curso'] } },
+      attributes: ['odp_id'],
+      raw: true,
+    }) as any[];
+    const odpIdsEnRuta = enRutaActiva.map((r: any) => r.odp_id);
+    const excluirEnRuta = odpIdsEnRuta.length ? { id: { [Op.notIn]: odpIdsEnRuta } } : {};
+
     const [listos, esperaPago, esperaProduccion] = await Promise.all([
       // Pestaña 1: producción lista + pago OK → puede programarse
       ODP.findAll({
-        where: { estado_produccion: 'LISTO_INSTALAR', ...PAGO_OK },
+        where: { estado_produccion: 'LISTO_INSTALAR', ...PAGO_OK, ...excluirEnRuta },
         include: INCLUDE_ODP_BASICO,
         order: [['fecha_entrega', 'ASC']],
       }),
@@ -66,6 +75,7 @@ export const getODPsParaGestion = async (_req: Request, res: Response) => {
           estado_caja: { [Op.in]: ['PENDIENTE', 'ABONADO'] },
           autorizacion_especial_despacho: false,
           forma_pago: { [Op.ne]: 'credito' },
+          ...excluirEnRuta,
         },
         include: INCLUDE_ODP_BASICO,
         order: [['fecha_entrega', 'ASC']],
@@ -336,10 +346,7 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
     const asignacion = await RutaODP.findAll({
       where: {
         ruta_id: { [Op.in]: ids },
-        [Op.or]: [
-          { estado: 'en_curso' },
-          { estado: 'pendiente', fecha_programada: { [Op.lte]: hoy } },
-        ],
+        estado: { [Op.in]: ['pendiente', 'en_curso'] },
       },
       include: [
         {

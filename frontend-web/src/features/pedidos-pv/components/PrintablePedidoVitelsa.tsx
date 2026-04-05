@@ -1,6 +1,7 @@
 import React from 'react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { TemplexLogo } from '../../../components/ui/TemplexLogo';
 
 interface PrintablePedidoVitelsaProps {
   odp: any;
@@ -12,6 +13,16 @@ const fmtFecha = (fecha: string | null) => {
   try { return format(parseISO(fecha), 'dd/MM/yyyy', { locale: es }); } catch { return fecha; }
 };
 
+const fmtFechaHora = (ts: string | null) => {
+  if (!ts) return '';
+  try {
+    const d = new Date(ts);
+    return d.toLocaleDateString('es-CO', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+    });
+  } catch { return ts; }
+};
+
 const PrintablePedidoVitelsa: React.FC<PrintablePedidoVitelsaProps> = ({ odp, pedido }) => {
   // Preferir ítems asignados específicamente a este pedido PV
   const items: any[] = (pedido as any)?.items_asignados?.length
@@ -20,7 +31,7 @@ const PrintablePedidoVitelsa: React.FC<PrintablePedidoVitelsaProps> = ({ odp, pe
   const rows = Array.from({ length: 12 }, (_, i) => items[i] || null);
 
   return (
-    <div className="print-root block w-[29cm] min-h-[20cm] print:min-h-0 bg-white shadow-xl print:shadow-none text-black font-sans mx-auto overflow-hidden print:overflow-visible">
+    <div className="print-root block w-[21.5cm] min-h-[27.9cm] print:min-h-0 bg-white shadow-xl print:shadow-none text-black font-sans mx-auto overflow-hidden print:overflow-visible">
       <style>{`
         .pv-t { width: 100%; border-collapse: collapse; }
         .pv-t td, .pv-t th { border: 1px solid #000; padding: 2px 4px; vertical-align: middle; }
@@ -30,7 +41,7 @@ const PrintablePedidoVitelsa: React.FC<PrintablePedidoVitelsaProps> = ({ odp, pe
         .pv-outer { border: 2px solid #000 !important; }
 
         @media print {
-          @page { size: A4 landscape; margin: 5mm; }
+          @page { size: letter portrait; margin: 5mm; }
           body, html { margin: 0 !important; padding: 0 !important; }
           .print-root {
             width: 100% !important;
@@ -56,9 +67,9 @@ const PrintablePedidoVitelsa: React.FC<PrintablePedidoVitelsaProps> = ({ odp, pe
                 className="pv-outer"
                 style={{ width: '18%', textAlign: 'center', verticalAlign: 'middle', padding: '6px' }}
               >
-                <div style={{ fontWeight: 900, fontSize: '11px', letterSpacing: '0.5px' }}>VIDRIOS TEMPLEX S.A.S</div>
-                <div style={{ fontSize: '7px', marginTop: '2px' }}>CR 44 No. 41 43 · MEDELLÍN</div>
-                <div style={{ fontSize: '7px' }}>NIT: 900.192.869-0</div>
+                <div className="flex justify-center mb-1">
+                  <TemplexLogo className="h-[55px] w-auto" />
+                </div>
               </td>
 
               {/* Título */}
@@ -101,7 +112,7 @@ const PrintablePedidoVitelsa: React.FC<PrintablePedidoVitelsaProps> = ({ odp, pe
           <tbody>
             <tr>
               <td className="pv-bold" style={{ width: '8%', whiteSpace: 'nowrap' }}>FECHA :</td>
-              <td style={{ width: '22%' }}>{fmtFecha(pedido?.fecha_envio)}</td>
+              <td style={{ width: '22%' }}>{fmtFechaHora(pedido?.creado_en || null)}</td>
               <td className="pv-bold" style={{ width: '18%', whiteSpace: 'nowrap' }}>ORDEN DE PEDIDO No.</td>
               <td style={{ fontWeight: 900, fontSize: '11px' }}>{pedido?.numero_pedido || ''}</td>
             </tr>
@@ -166,7 +177,8 @@ const PrintablePedidoVitelsa: React.FC<PrintablePedidoVitelsaProps> = ({ odp, pe
               <td className="pv-bold" style={{ width: '6%' }}>OBRA</td>
               <td>
                 {odp?.cliente?.nombre_razon_social || ''}
-                {odp?.numero_odp ? <span style={{ marginLeft: '6px', color: '#555' }}>— ODP {odp.numero_odp}</span> : ''}
+                {odp?.numero_odp ? <span style={{ marginLeft: '6px', color: '#555' }}>— {odp.numero_odp}</span> : ''}
+                {odp?.asesor?.nombre_completo ? <span style={{ marginLeft: '6px', color: '#555' }}>— {odp.asesor.nombre_completo}</span> : ''}
               </td>
             </tr>
           </tbody>
@@ -203,7 +215,7 @@ const PrintablePedidoVitelsa: React.FC<PrintablePedidoVitelsaProps> = ({ odp, pe
           </thead>
           <tbody>
             {rows.map((item, i) => (
-              <tr key={i} style={{ height: '15px' }}>
+              <tr key={i} style={{ height: '18px' }}>
                 <td className="pv-center">{i + 1}</td>
                 <td>{item?.color || ''}</td>
                 <td className="pv-center">{item?.espesor || ''}</td>
@@ -211,7 +223,7 @@ const PrintablePedidoVitelsa: React.FC<PrintablePedidoVitelsaProps> = ({ odp, pe
                 <td className="pv-center">{item?.ancho_mm || ''}</td>
                 <td className="pv-center">{item?.alto_mm || ''}</td>
                 {/* DT: Doble Templado / tipo especial */}
-                <td className="pv-center">{item?.tipo_vidrio ? 'X' : ''}</td>
+                <td className="pv-center">{item?.dt ? item.dt : ''}</td>
                 {/* PER: Perforaciones */}
                 <td className="pv-center">{item?.perforaciones ? item.perforaciones : ''}</td>
                 {/* BOQ: Boquetes */}
@@ -222,13 +234,13 @@ const PrintablePedidoVitelsa: React.FC<PrintablePedidoVitelsaProps> = ({ odp, pe
                 <td className="pv-center">{item?.pulidos || ''}</td>
                 <td className="pv-center">{item?.pulidos_h || ''}</td>
                 {/* BP MATE Ancho/Alto */}
-                <td className="pv-center">{item?.mts_pt_a || ''}</td>
-                <td className="pv-center">{item?.mts_pt_h || ''}</td>
+                <td className="pv-center"></td>
+                <td className="pv-center"></td>
                 {/* CHAFLÁN: no hay campo directo en el modelo */}
                 <td></td>
                 <td></td>
                 {/* ESPECIFICACIONES ESPECIALES */}
-                <td>{item?.otros || item?.accesorios || ''}</td>
+                <td>{item?.observaciones_pv || item?.otros || item?.accesorios || ''}</td>
               </tr>
             ))}
           </tbody>

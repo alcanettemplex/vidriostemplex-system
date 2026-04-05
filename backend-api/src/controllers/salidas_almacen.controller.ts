@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
+import { Op } from 'sequelize';
 import { ODP, Cliente, Usuario } from '../models';
 import SalidaAlmacen from '../models/salida_almacen.model';
 
@@ -21,7 +22,6 @@ export const getFacturadas = async (_req: Request, res: Response) => {
 
     const where: any = { estado_facturacion: 'FACTURADA' };
     if (idsConSalida.length) {
-      const { Op } = await import('sequelize');
       where.id = { [Op.notIn]: idsConSalida };
     }
 

@@ -88,7 +88,7 @@ export const createProspecto = async (req: Request, res: Response) => {
 export const updateProspecto = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { cliente_id, nombre_contacto, telefono_contacto, email_contacto, direccion, descripcion } = req.body;
+    const { cliente_id, nombre_contacto, telefono_contacto, email_contacto, direccion, descripcion, numero_cotizacion } = req.body;
 
     const prospecto = await Prospecto.findByPk(id);
     if (!prospecto) return res.status(404).json({ error: 'Prospecto no encontrado' });
@@ -100,7 +100,9 @@ export const updateProspecto = async (req: Request, res: Response) => {
       }
     }
 
-    await prospecto.update({ cliente_id, nombre_contacto, telefono_contacto, email_contacto, direccion, descripcion });
+    const updates: any = { cliente_id, nombre_contacto, telefono_contacto, email_contacto, direccion, descripcion };
+    if (numero_cotizacion !== undefined) updates.numero_cotizacion = numero_cotizacion;
+    await prospecto.update(updates);
     res.json(prospecto);
   } catch (error: any) {
     res.status(500).json({ error: 'Error al actualizar prospecto', detail: error.message });
@@ -266,6 +268,39 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
     );
 
     await t.commit();
+
+    // ── Crear PedidoPV automático si se seleccionó proveedor ──────────────
+    if (proveedor_vidrio) {
+      try {
+        const { PedidoPV } = await import('../models');
+        const ultimoPV = await PedidoPV.findOne({
+          order: [['numero_base', 'DESC']],
+          attributes: ['numero_base'],
+        });
+        const numero_base = ultimoPV ? (ultimoPV.getDataValue('numero_base') as number) + 1 : 6733;
+        const numero_pedido = String(numero_base);
+
+        await PedidoPV.create({
+          odp_id: odp_id,
+          proveedor: proveedor_vidrio,
+          numero_pedido,
+          numero_base,
+          sufijo: null,
+          estado: 'PENDIENTE',
+          origen: 'SISTEMA',
+          creado_por: userId,
+        });
+
+        // Guardar el número generado en la ODP
+        await ODPModel.update(
+          { numero_pedido_proveedor: numero_pedido },
+          { where: { id: odp_id } }
+        );
+        console.warn(`PedidoPV ${numero_pedido} creado automáticamente para ODP ${odp_id} desde prospecto`);
+      } catch (pvError: any) {
+        console.error('Error creando PedidoPV automático desde prospecto:', pvError.message);
+      }
+    }
 
     const odpCompleta = await ODPModel.findByPk(odp_id, {
       include: [

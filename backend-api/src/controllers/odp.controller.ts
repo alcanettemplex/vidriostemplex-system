@@ -336,13 +336,31 @@ export const updateODP = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'ODP no encontrada' });
     }
 
-    // ─── Verificación de ownership (solo creador o admin) ───
-    if ((req as any).user?.rol !== 'admin') {
-      if (Number(odp.getDataValue('asesor_id')) !== Number((req as any).user?.id)) {
+    // ─── Verificación de ownership ───────────────────────────────────────────
+    // Identificar qué campos se están intentando actualizar realmente (evitando defaults de Zod)
+    const camposRecibidos = Object.keys(req.body);
+    const camposPermitidosTaller = [
+      'chk_medicion', 'chk_corte', 'chk_vidrio', 'chk_accesorios',
+      'chk_ensamble', 'chk_matizado', 'chk_pelicula', 'chk_huacal', 'chk_carton'
+    ];
+    
+    // Solo consideramos campos técnicos que están en el esquema
+    const camposUpdate = camposRecibidos.filter(key => key in data);
+    const soloEditaChecks = camposUpdate.length > 0 && camposUpdate.every(c => camposPermitidosTaller.includes(c));
+    
+    const rolUsuario = (req as any).user?.rol;
+    const esAdminOGerencia = rolUsuario === 'admin' || rolUsuario === 'gerencia';
+    const esTaller = ['produccion', 'jefe_produccion'].includes(rolUsuario) && soloEditaChecks;
+    const esCreador = Number(odp.getDataValue('asesor_id')) === Number((req as any).user?.id);
+
+    if (!esAdminOGerencia) {
+      if (!esTaller && !esCreador) {
         await transaction.rollback();
         return res.status(403).json({ error: 'Solo el creador de la ODP puede editarla' });
       }
     }
+
+    console.log(`Update ODP ${id} - Rol: ${rolUsuario}, Taller: ${esTaller}, Creador: ${esCreador}`);
 
     // ─── Lógica de dependencias de producción ───
     if (data.chk_pelicula || data.chk_matizado || data.chk_huacal || data.chk_carton) {

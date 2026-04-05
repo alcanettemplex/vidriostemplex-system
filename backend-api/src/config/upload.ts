@@ -22,3 +22,14 @@ const storage = new CloudinaryStorage({
 });
 
 export const uploadConfig = multer({ storage: storage });
+
+const storageCotizacion = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: async (_req: any, _file: any) => ({
+        folder: 'templex_cotizacion_capturas',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+        transformation: [{ width: 1600, crop: 'limit' }, { quality: 'auto' }],
+    }),
+});
+
+export const uploadCotizacionConfig = multer({ storage: storageCotizacion });

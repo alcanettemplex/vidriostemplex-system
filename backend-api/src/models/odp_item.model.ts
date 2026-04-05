@@ -29,6 +29,8 @@ ODPItem.init({
   prod: { type: DataTypes.STRING(30) },
   verificacion_prod: { type: DataTypes.BOOLEAN, defaultValue: false },
   pedido_pv_id: { type: DataTypes.INTEGER, allowNull: true },
+  dt: { type: DataTypes.STRING(100), allowNull: true },
+  observaciones_pv: { type: DataTypes.STRING(255), allowNull: true },
   estado_compra: { type: DataTypes.STRING(20), allowNull: true, defaultValue: 'pendiente' },
 }, {
   sequelize,

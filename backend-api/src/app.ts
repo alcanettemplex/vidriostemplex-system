@@ -25,6 +25,8 @@ import rutasRoutes from './routes/rutas.routes';
 import pedidoPVRoutes from './routes/pedido_pv.routes';
 import salidasAlmacenRoutes from './routes/salidas_almacen.routes';
 import rootRoutes from './routes/root.routes';
+import cotizacionesRoutes from './routes/cotizaciones.routes';
+import cotizacionCapturasRoutes from './routes/cotizacion_capturas.routes';
 import { requestContext } from './utils/requestContext';
 
 const app = express();
@@ -94,6 +96,8 @@ app.use('/api/rutas', rutasRoutes);
 app.use('/api/pedidos-pv', pedidoPVRoutes);
 app.use('/api/facturas-salidas', salidasAlmacenRoutes);
 app.use('/api/root', rootRoutes);
+app.use('/api/cotizaciones', cotizacionesRoutes);
+app.use('/api/cotizacion-capturas', cotizacionCapturasRoutes);
 
 import { errorHandler } from './middlewares/errorHandler';
 app.use(errorHandler);

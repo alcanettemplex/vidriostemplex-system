@@ -39,7 +39,10 @@ const INCLUDE_COMPLETO = [
     model: ODP,
     as: 'odp',
     attributes: ['id', 'numero_odp', 'estado_produccion'],
-    include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
+    include: [
+      { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+      { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }
+    ],
   },
   { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
   { model: Usuario, as: 'verificador', attributes: ['id', 'nombre_completo'] },
@@ -48,7 +51,7 @@ const INCLUDE_COMPLETO = [
     as: 'items_asignados',
     attributes: ['id', 'item', 'color', 'espesor', 'cantidad', 'ancho_mm', 'alto_mm',
       'tipo_vidrio', 'pulidos', 'pulidos_h', 'perforaciones', 'boquetes',
-      'descuentos', 'otros', 'mts_pt_a', 'mts_pt_h', 'accesorios'],
+      'descuentos', 'otros', 'mts_pt_a', 'mts_pt_h', 'accesorios', 'prod', 'dt', 'observaciones_pv'],
   },
 ];
 
@@ -376,20 +379,36 @@ export const getPorGestionar = async (_req: Request, res: Response) => {
           attributes: ['id', 'numero_odp', 'estado_produccion', 'proveedor_vidrio'],
           include: [
             { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+            { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
             {
               model: ODPItem,
               as: 'items',
               attributes: ['id', 'item', 'color', 'espesor', 'cantidad', 'ancho_mm', 'alto_mm',
                 'tipo_vidrio', 'pulidos', 'pulidos_h', 'perforaciones', 'boquetes',
-                'descuentos', 'otros', 'mts_pt_a', 'mts_pt_h', 'accesorios', 'pedido_pv_id'],
+                'descuentos', 'otros', 'mts_pt_a', 'mts_pt_h', 'accesorios', 'pedido_pv_id', 'prod', 'dt', 'observaciones_pv'],
             },
           ],
+        },
+        // Incluir ítems ya asignados a este PedidoPV para saber si fue gestionado
+        {
+          model: ODPItem,
+          as: 'items_asignados',
+          attributes: ['id'],
+          required: false,
         },
         { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
       ],
       order: [['numero_base', 'DESC']],
     });
-    res.json(pedidos);
+
+    // Solo mostrar pedidos que AÚN no tienen ítems asignados
+    // Si ya tiene al menos 1 ítem, Alejandro ya lo gestionó → sale de la lista
+    const sinGestionar = pedidos.filter(p => {
+      const asignados: any[] = (p as any).items_asignados || [];
+      return asignados.length === 0;
+    });
+
+    res.json(sinGestionar);
   } catch (error) {
     console.error('Error getPorGestionar:', error);
     res.status(500).json({ error: 'Error al obtener pedidos por gestionar' });
@@ -402,12 +421,13 @@ export const asignarItems = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
     const pedidoId = parseInt(req.params.id);
-    const { odp_item_ids }: { odp_item_ids: number[] } = req.body;
+    const { items_data }: { items_data: { id: number, dt: string, observaciones_pv: string }[] } = req.body;
 
-    if (!Array.isArray(odp_item_ids) || odp_item_ids.length === 0) {
+    if (!Array.isArray(items_data) || items_data.length === 0) {
       await t.rollback();
       return res.status(400).json({ error: 'Debe seleccionar al menos un ítem' });
     }
+    const odp_item_ids = items_data.map(it => it.id);
 
     const pedido = await PedidoPV.findByPk(pedidoId, { transaction: t });
     if (!pedido) {
@@ -428,6 +448,13 @@ export const asignarItems = async (req: Request, res: Response) => {
     });
     const todosIds = extensiones.map(e => e.getDataValue('id'));
     await ODPItem.update({ pedido_pv_id: null }, { where: { pedido_pv_id: todosIds }, transaction: t });
+
+    for (const it of items_data) {
+      await ODPItem.update({
+        dt: it.dt || null,
+        observaciones_pv: it.observaciones_pv || null,
+      }, { where: { id: it.id }, transaction: t });
+    }
 
     // Dividir en bloques de 12
     const bloques: number[][] = [];

@@ -151,9 +151,9 @@ export const getTMPanel = async (_req: Request, res: Response) => {
       order: [['fecha_visita', 'ASC']],
     });
 
-    // REALIZADAS: TMs en estado 'realizada' (últimas 50)
+    // REALIZADAS: TMs en estado 'realizada' o 'convertida' (últimas 50)
     const realizadas = await TomaMedidas.findAll({
-      where: { estado: 'realizada' },
+      where: { estado: { [require('sequelize').Op.in]: ['realizada', 'convertida'] } },
       include: includeBase,
       order: [['fecha_creacion', 'DESC']],
       limit: 50,

@@ -298,7 +298,7 @@ export const getProduccionData = async (_req: Request, res: Response) => {
     const tiempo_ciclo_promedio_dias = entregadasUltimoMes.length > 0 ? Number((sumDias / entregadasUltimoMes.length).toFixed(1)) : 0;
 
     const listasIds = await ODP.findAll({ where: { estado_produccion: 'LISTO_INSTALAR' }, attributes: ['id'] });
-    const programadas = await RutaODP.findAll({ where: { odp_id: { [Op.in]: listasIds.map(o => o.getDataValue('id')), estado: { [Op.ne]: 'completada' } } }, attributes: ['odp_id'] });
+    const programadas = await RutaODP.findAll({ where: { odp_id: { [Op.in]: listasIds.map(o => o.getDataValue('id')) }, estado: { [Op.ne]: 'completada' } }, attributes: ['odp_id'] });
     const odps_listas_sin_programar = listasIds.length - programadas.length;
 
     const etapas = ['MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR'];

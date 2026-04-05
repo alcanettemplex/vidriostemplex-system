@@ -9,8 +9,6 @@ import ClientesListPage from '../features/clientes/ClientesListPage';
 import ODPListPage from '../features/odp/ODPListPage';
 import ProduccionPage from '../features/produccion/ProduccionPage';
 import InstalacionesPage from '../features/instalaciones/InstalacionesPage';
-import EvidenciasPage from '../features/evidencias/EvidenciasPage';
-import ReportesPage from '../features/reportes/ReportesPage';
 import ComprasPage from '../features/compras/ComprasPage';
 import ContabilidadPage from '../features/contabilidad/ContabilidadPage';
 import UsuariosPage from '../features/usuarios/UsuariosPage';
@@ -36,8 +34,6 @@ const AppRoutes: React.FC = () => (
             <Route path="/odp" element={<ODPListPage />} />
             <Route path="/produccion" element={<ProduccionPage />} />
             <Route path="/instalaciones" element={<InstalacionesPage />} />
-            <Route path="/evidencias" element={<EvidenciasPage />} />
-            <Route path="/reportes" element={<ReportesPage />} />
             <Route path="/compras" element={<ComprasPage />} />
             <Route path="/contabilidad" element={<ContabilidadPage />} />
             <Route path="/usuarios" element={<UsuariosPage />} />
