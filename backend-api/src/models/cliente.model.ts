@@ -14,6 +14,7 @@ Cliente.init({
   email: { type: DataTypes.STRING(100) },
   segmento: { type: DataTypes.STRING(50) },
   condicion_pago: { type: DataTypes.ENUM('CONTADO', 'CREDITO_30', 'CREDITO_60', 'CUPO_APROBADO'), defaultValue: 'CONTADO' },
+  creado_por: { type: DataTypes.INTEGER, allowNull: true },
   creado_en: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 }, {
   sequelize,

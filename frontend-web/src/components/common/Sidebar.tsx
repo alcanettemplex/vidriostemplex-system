@@ -6,8 +6,6 @@ import {
   Users,
   FileText,
   Wrench,
-  Camera,
-  BarChart3,
   ShoppingCart,
   Calculator,
   HardHat,
@@ -54,7 +52,7 @@ const MENU_ITEMS_CONFIG = [
     text: 'Órdenes (ODP)',
     icon: FileText,
     path: '/odp',
-    allowedRoles: ['admin', 'gerente', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras'],
+    allowedRoles: ['admin', 'gerente', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras', 'produccion'],
     section: 'comercial'
   },
   {
@@ -68,21 +66,14 @@ const MENU_ITEMS_CONFIG = [
     text: 'Toma de Medidas',
     icon: Ruler,
     path: '/toma-medidas',
-    allowedRoles: ['admin', 'jefe_produccion'],
+    allowedRoles: ['admin', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion'],
     section: 'produccion'
   },
   {
     text: 'Instalaciones',
     icon: Truck,
     path: '/instalaciones',
-    allowedRoles: ['admin', 'gerente', 'gerencia', 'jefe_produccion', 'instalador', 'conductor'],
-    section: 'produccion'
-  },
-  {
-    text: 'Evidencias',
-    icon: Camera,
-    path: '/evidencias',
-    allowedRoles: ['admin', 'gerente', 'jefe_produccion', 'instalador'],
+    allowedRoles: ['admin', 'gerente', 'gerencia', 'jefe_produccion', 'instalador', 'conductor', 'asesor_comercial', 'compras', 'produccion'],
     section: 'produccion'
   },
   {
@@ -117,13 +108,6 @@ const MENU_ITEMS_CONFIG = [
     text: 'Contabilidad',
     icon: Calculator,
     path: '/contabilidad',
-    allowedRoles: ['admin', 'gerente', 'contabilidad'],
-    section: 'finanzas'
-  },
-  {
-    text: 'Reportes',
-    icon: BarChart3,
-    path: '/reportes',
     allowedRoles: ['admin', 'gerente', 'contabilidad'],
     section: 'finanzas'
   },

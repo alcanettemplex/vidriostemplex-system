@@ -24,7 +24,7 @@ router.use(authMiddleware);
 
 // ─── Rutas estáticas antes de /:id ──────────────────────────────────────────
 // Jefe: datos para gestión
-router.get('/odps-para-gestion', requireRole('admin', 'gerencia', 'jefe_produccion'), getODPsParaGestion);
+router.get('/odps-para-gestion', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion'), getODPsParaGestion);
 router.get('/vehiculos', getVehiculos);
 router.get('/personal', getInstaladores);
 
@@ -39,8 +39,8 @@ router.post('/:id/iniciar-ruta', requireRole('conductor'), iniciarRutaConductor)
 router.post('/ruta-odp/:id/llegada', requireRole('conductor'), llegadaConductor);
 
 // ─── CRUD de rutas (jefe) ────────────────────────────────────────────────────
-router.get('/', requireRole('admin', 'gerencia', 'jefe_produccion'), getRutas);
-router.get('/:id', requireRole('admin', 'gerencia', 'jefe_produccion'), getRuta);
+router.get('/', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion'), getRutas);
+router.get('/:id', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion'), getRuta);
 router.post('/', requireRole('admin', 'gerencia', 'jefe_produccion'), createRuta);
 router.put('/:id', requireRole('admin', 'gerencia', 'jefe_produccion'), updateRuta);
 router.delete('/:id', requireRole('admin', 'gerencia', 'jefe_produccion'), cancelarRuta);

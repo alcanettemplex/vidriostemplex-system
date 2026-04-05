@@ -10,14 +10,14 @@ const router = Router();
 router.get('/', authMiddleware, getODPs);
 router.get('/:id', authMiddleware, getODP);
 
-// Creación: asesores, admin, gerencia
-router.post('/', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), createODP);
+// Creación: asesores, admin, jefe_produccion
+router.post('/', authMiddleware, requireRole('admin', 'asesor_comercial', 'jefe_produccion'), createODP);
 
-// Actualización: asesores, producción, admin, gerencia, jefe_produccion
-router.put('/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion'), updateODP);
+// Actualización: solo el creador (owner check en controller) + admin
+router.put('/:id', authMiddleware, requireRole('admin', 'asesor_comercial', 'jefe_produccion'), updateODP);
 
-// Eliminación: solo admin y gerencia
-router.delete('/:id', authMiddleware, requireRole('admin', 'gerencia'), deleteODP);
+// Eliminación: solo el creador (owner check en controller) + admin
+router.delete('/:id', authMiddleware, requireRole('admin', 'asesor_comercial', 'jefe_produccion'), deleteODP);
 
 // Finalizar instalación: instaladores, admin, producción
 router.post('/:id/instalacion', authMiddleware, requireRole('admin', 'jefe_produccion', 'instalador'), uploadConfig.single('foto'), finalizarInstalacionODP);

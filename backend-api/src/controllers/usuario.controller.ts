@@ -20,7 +20,8 @@ export const createUsuario = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Faltan campos obligatorios: username, password, rol, nombre_completo' });
     }
     const password_hash = await bcrypt.hash(password, 12);
-    const usuario = await Usuario.create({ username, password_hash, rol, nombre_completo, email, puede_gestionar_pv: Boolean(puede_gestionar_pv) });
+    const emailNormalizado = email && email.trim() !== '' ? email.trim() : null;
+    const usuario = await Usuario.create({ username, password_hash, rol, nombre_completo, email: emailNormalizado, puede_gestionar_pv: Boolean(puede_gestionar_pv) });
     res.status(201).json(usuario);
   } catch (error: any) {
     if (error.name === 'SequelizeUniqueConstraintError') {

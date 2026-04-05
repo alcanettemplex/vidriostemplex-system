@@ -190,6 +190,13 @@ export const updateODC = async (req: Request, res: Response) => {
     });
     if (!odc) return res.status(404).json({ error: 'ODC no encontrada' });
 
+    // ─── Verificación de ownership (solo creador o admin) ───
+    if ((req as any).user?.rol !== 'admin') {
+      if (Number(odc.getDataValue('creado_por')) !== Number((req as any).user?.id)) {
+        return res.status(403).json({ error: 'Solo el creador de la ODC puede editarla' });
+      }
+    }
+
     const estadoAnterior = odc.getDataValue('estado');
     const fechaRecepcion = estado === 'recibido' && estadoAnterior !== 'recibido'
       ? new Date() : odc.getDataValue('fecha_recepcion');
@@ -248,6 +255,14 @@ export const deleteODC = async (req: Request, res: Response) => {
       transaction: t,
     });
     if (!odc) { await t.rollback(); return res.status(404).json({ error: 'ODC no encontrada' }); }
+
+    // ─── Verificación de ownership (solo creador o admin) ───
+    if ((req as any).user?.rol !== 'admin') {
+      if (Number(odc.getDataValue('creado_por')) !== Number((req as any).user?.id)) {
+        await t.rollback();
+        return res.status(403).json({ error: 'Solo el creador de la ODC puede eliminarla' });
+      }
+    }
 
     const odcItems = (odc as any).items as any[];
     const sapItemIds = odcItems.map((i: any) => i.sap_item_id);
@@ -365,7 +380,7 @@ export const getVidriosPorGestionar = async (req: Request, res: Response) => {
         {
           model: ODPItem,
           as: 'items',
-          where: { estado_compra: { [Op.ne]: 'en_existencia' } },
+          where: { estado_compra: 'pendiente' },
           required: true,
         },
       ],

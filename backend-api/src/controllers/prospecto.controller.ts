@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Prospecto, Cliente, Usuario, TomaMedidas, ODP, ODPItem } from '../models';
+import { Prospecto, Cliente, Usuario, TomaMedidas, ODP, ODPItem, CotizacionCaptura } from '../models';
 import sequelize from '../config/database';
 
 const generarNumeroProspecto = async (): Promise<string> => {
@@ -93,6 +93,13 @@ export const updateProspecto = async (req: Request, res: Response) => {
     const prospecto = await Prospecto.findByPk(id);
     if (!prospecto) return res.status(404).json({ error: 'Prospecto no encontrado' });
 
+    // ─── Verificación de ownership (solo creador o admin) ───
+    if ((req as any).user?.rol !== 'admin') {
+      if (Number(prospecto.getDataValue('asesor_id')) !== Number((req as any).user?.id)) {
+        return res.status(403).json({ error: 'Solo el creador del prospecto puede editarlo' });
+      }
+    }
+
     await prospecto.update({ cliente_id, nombre_contacto, telefono_contacto, email_contacto, direccion, descripcion });
     res.json(prospecto);
   } catch (error: any) {
@@ -110,6 +117,13 @@ export const noAprobarProspecto = async (req: Request, res: Response) => {
     if (!prospecto) return res.status(404).json({ error: 'Prospecto no encontrado' });
     if (prospecto.getDataValue('estado') === 'aprobado') {
       return res.status(400).json({ error: 'No se puede archivar un prospecto ya aprobado' });
+    }
+
+    // ─── Verificación de ownership (solo creador o admin) ───
+    if ((req as any).user?.rol !== 'admin') {
+      if (Number(prospecto.getDataValue('asesor_id')) !== Number((req as any).user?.id)) {
+        return res.status(403).json({ error: 'Solo el creador del prospecto puede archivarlo' });
+      }
     }
 
     await prospecto.update({ estado: 'no_aprobado', motivo_no_aprobado, fecha_gestion: new Date() });
@@ -145,6 +159,14 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
     if (prospecto.getDataValue('estado') !== 'en_gestion') {
       await t.rollback();
       return res.status(400).json({ error: 'Solo se pueden aprobar prospectos en gestión' });
+    }
+
+    // ─── Verificación de ownership (solo creador o admin) ───
+    if ((req as any).user?.rol !== 'admin') {
+      if (Number(prospecto.getDataValue('asesor_id')) !== Number((req as any).user?.id)) {
+        await t.rollback();
+        return res.status(403).json({ error: 'Solo el creador del prospecto puede aprobarlo' });
+      }
     }
 
     const tm = (prospecto as any).tomas_medidas?.[0];
@@ -236,6 +258,12 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
 
     // Marcar prospecto como aprobado y vincularlo a la ODP
     await prospecto.update({ estado: 'aprobado', odp_id, fecha_gestion: new Date() }, { transaction: t });
+
+    // Migrar capturas de cotización del prospecto a la ODP (prospecto_id se mantiene para historial)
+    await CotizacionCaptura.update(
+      { odp_id },
+      { where: { prospecto_id: Number(id) }, transaction: t }
+    );
 
     await t.commit();
 

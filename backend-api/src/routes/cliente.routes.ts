@@ -5,15 +5,17 @@ import { requireRole } from '../middlewares/rbacMiddleware';
 
 const router = Router();
 
-// Lectura: todos los autenticados
-router.get('/', authMiddleware, getClientes);
-router.get('/:id', authMiddleware, getCliente);
+// Lectura: gerencia, jefe_produccion, asesor_comercial, contabilidad
+router.get('/', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'contabilidad'), getClientes);
+router.get('/:id', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'contabilidad'), getCliente);
 
-// Creación/edición: asesores, admin, gerencia, contabilidad
-router.post('/', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad'), createCliente);
-router.put('/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad'), updateCliente);
+// Creación: gerencia, jefe_produccion, asesor_comercial, contabilidad (+ admin)
+router.post('/', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'contabilidad'), createCliente);
 
-// Eliminación: solo admin
-router.delete('/:id', authMiddleware, requireRole('admin', 'gerencia'), deleteCliente);
+// Edición: solo el creador (owner check en controller) + autenticado con rol permitido
+router.put('/:id', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'contabilidad'), updateCliente);
+
+// Eliminación: solo el creador (owner check en controller) + autenticado con rol permitido
+router.delete('/:id', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'contabilidad'), deleteCliente);
 
 export default router;

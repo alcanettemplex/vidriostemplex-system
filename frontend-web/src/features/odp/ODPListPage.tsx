@@ -114,7 +114,7 @@ const ActionsMenu: React.FC<{
         { label: 'Cotización (COT)',            icon: <DollarSign className="w-4 h-4" />, onClick: onCot, show: isAsesor },
         { label: 'Solicitar Visita Técnica',   icon: <Ruler className="w-4 h-4" />, onClick: onVisita, show: isAsesor && odp.estado_produccion === 'EN_ESPERA' },
         { label: 'Toma de Medidas (TM)',        icon: <Ruler className="w-4 h-4" />, onClick: onTm, show: isJefe },
-        { label: 'Eliminar ODP',               icon: <Trash2 className="w-4 h-4" />, onClick: onDelete, danger: true, show: isAdmin },
+        { label: 'Eliminar ODP',               icon: <Trash2 className="w-4 h-4" />, onClick: onDelete, danger: true, show: isAdmin && odp.estado_produccion !== 'ENTREGADA' },
     ].filter(i => i.show);
 
     if (items.length === 0) return null;
@@ -524,6 +524,7 @@ const ODPListPage: React.FC = () => {
                                                 >
                                                     <Eye className="w-4 h-4" />
                                                 </button>
+                                                {userRole !== 'produccion' && odp.estado_produccion !== 'ENTREGADA' && (
                                                 <button
                                                     onClick={() => setEditingOdp(odp)}
                                                     className="text-slate-400 hover:text-emerald-600 transition p-1.5 hover:bg-emerald-50 rounded"
@@ -531,6 +532,8 @@ const ODPListPage: React.FC = () => {
                                                 >
                                                     <Edit3 className="w-4 h-4" />
                                                 </button>
+                                                )}
+                                                {userRole !== 'produccion' && (
                                                 <button
                                                     onClick={() => setPrintOdp(odp)}
                                                     className="text-slate-400 hover:text-slate-700 transition p-1.5 hover:bg-slate-100 rounded"
@@ -538,6 +541,8 @@ const ODPListPage: React.FC = () => {
                                                 >
                                                     <Printer className="w-4 h-4" />
                                                 </button>
+                                                )}
+                                                {userRole !== 'produccion' && (
                                                 <ActionsMenu
                                                     odp={odp}
                                                     userRole={userRole}
@@ -547,6 +552,7 @@ const ODPListPage: React.FC = () => {
                                                     onVisita={() => handleSolicitarVisita(odp)}
                                                     onDelete={() => setDeletingOdp(odp)}
                                                 />
+                                                )}
                                             </div>
                                         </td>
                                     </motion.tr>

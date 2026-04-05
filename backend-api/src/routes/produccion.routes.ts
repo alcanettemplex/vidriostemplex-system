@@ -9,8 +9,8 @@ const router = Router();
 router.get('/', authMiddleware, getProduccion);
 
 // Escritura: producción, jefe_produccion, admin
-router.post('/', authMiddleware, requireRole('admin', 'jefe_produccion', 'produccion', 'auxiliar_produccion'), createProduccion);
-router.put('/:id', authMiddleware, requireRole('admin', 'jefe_produccion', 'produccion', 'auxiliar_produccion'), updateProduccion);
+router.post('/', authMiddleware, requireRole('admin', 'jefe_produccion', 'produccion'), createProduccion);
+router.put('/:id', authMiddleware, requireRole('admin', 'jefe_produccion', 'produccion'), updateProduccion);
 router.delete('/:id', authMiddleware, requireRole('admin', 'jefe_produccion'), deleteProduccion);
 
 export default router;

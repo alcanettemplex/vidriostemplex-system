@@ -21,11 +21,11 @@ router.post('/cotizacion', authMiddleware, requireRole('admin', 'gerencia', 'ase
 router.put('/cotizacion/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), updateCotizacion);
 
 // TM routes — Solo jefe_produccion y admin
-router.get('/tm/panel', authMiddleware, requireRole('admin', 'jefe_produccion'), getTMPanel);
+router.get('/tm/panel', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion'), getTMPanel);
 router.get('/tm/odp/:odp_id', authMiddleware, getTMsByODP);
 router.post('/tm', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial'), createTM);
 router.patch('/tm/:id/programar', authMiddleware, requireRole('admin', 'jefe_produccion'), programarTM);
-router.put('/tm/:id', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial'), updateTM);
-router.post('/tm/:id/foto', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial'), uploadConfig.single('foto'), uploadFotoTM);
+router.put('/tm/:id', authMiddleware, requireRole('admin', 'jefe_produccion'), updateTM);
+router.post('/tm/:id/foto', authMiddleware, requireRole('admin', 'jefe_produccion'), uploadConfig.single('foto'), uploadFotoTM);
 
 export default router;

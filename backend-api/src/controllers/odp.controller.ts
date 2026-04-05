@@ -336,6 +336,14 @@ export const updateODP = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'ODP no encontrada' });
     }
 
+    // ─── Verificación de ownership (solo creador o admin) ───
+    if ((req as any).user?.rol !== 'admin') {
+      if (Number(odp.getDataValue('asesor_id')) !== Number((req as any).user?.id)) {
+        await transaction.rollback();
+        return res.status(403).json({ error: 'Solo el creador de la ODP puede editarla' });
+      }
+    }
+
     // ─── Lógica de dependencias de producción ───
     if (data.chk_pelicula || data.chk_matizado || data.chk_huacal || data.chk_carton) {
       if (!odp.getDataValue('chk_vidrio') && !data.chk_vidrio) {
@@ -512,6 +520,14 @@ export const deleteODP = async (req: Request, res: Response) => {
     if (!odp) {
       await t.rollback();
       return res.status(404).json({ error: 'ODP no encontrada' });
+    }
+
+    // ─── Verificación de ownership (solo creador o admin) ───
+    if ((req as any).user?.rol !== 'admin') {
+      if (Number(odp.getDataValue('asesor_id')) !== Number((req as any).user?.id)) {
+        await t.rollback();
+        return res.status(403).json({ error: 'Solo el creador de la ODP puede eliminarla' });
+      }
     }
 
     // Desvincula ODPs derivadas (auto-referencia) para no eliminarlas en cascada

@@ -34,9 +34,9 @@ router.patch('/:id/enviar', requireRole('asesor_comercial', 'admin', 'gerencia')
 router.patch('/:id/confirmar-proveedor', requireRole('asesor_comercial', 'admin', 'gerencia'), confirmarProveedor);
 
 // Llegada y verificación — produccion y compras
-router.patch('/:id/registrar-llegada', requireRole('produccion', 'auxiliar_produccion', 'compras', 'admin', 'jefe_produccion'), registrarLlegada);
-router.patch('/:id/verificar', requireRole('produccion', 'auxiliar_produccion', 'compras', 'admin', 'jefe_produccion'), verificarPedido);
-router.patch('/:id/problema', requireRole('produccion', 'auxiliar_produccion', 'compras', 'admin', 'jefe_produccion'), marcarProblema);
+router.patch('/:id/registrar-llegada', requireRole('produccion', 'compras', 'admin', 'jefe_produccion'), registrarLlegada);
+router.patch('/:id/verificar', requireRole('produccion', 'compras', 'admin', 'jefe_produccion'), verificarPedido);
+router.patch('/:id/problema', requireRole('produccion', 'compras', 'admin', 'jefe_produccion'), marcarProblema);
 
 // Asignación de ítems — quien tiene puede_gestionar_pv (verificado en controller)
 router.patch('/:id/asignar-items', asignarItems);

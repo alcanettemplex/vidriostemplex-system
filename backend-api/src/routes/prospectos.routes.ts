@@ -7,11 +7,16 @@ const router = Router();
 
 const rc = (...r: any[]) => requireRole(...r);
 
-router.get('/', authMiddleware, rc('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), getProspectos);
-router.get('/:id', authMiddleware, rc('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), getProspecto);
-router.post('/', authMiddleware, rc('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), createProspecto);
-router.put('/:id', authMiddleware, rc('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), updateProspecto);
-router.patch('/:id/no-aprobar', authMiddleware, rc('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), noAprobarProspecto);
-router.post('/:id/aprobar', authMiddleware, rc('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), aprobarProspecto);
+// VER: todos autenticados
+router.get('/', authMiddleware, getProspectos);
+router.get('/:id', authMiddleware, getProspecto);
+
+// CREAR: todos autenticados (cualquiera puede crear)
+router.post('/', authMiddleware, createProspecto);
+
+// EDITAR/ELIMINAR: solo el creador (owner check en controller) + autenticado
+router.put('/:id', authMiddleware, updateProspecto);
+router.patch('/:id/no-aprobar', authMiddleware, noAprobarProspecto);
+router.post('/:id/aprobar', authMiddleware, aprobarProspecto);
 
 export default router;

@@ -51,7 +51,11 @@ const handleUniqueError = (error: any): string | null => {
 export const createCliente = async (req: Request, res: Response) => {
   try {
     const data = clienteSchema.parse(req.body);
-    const cliente = await Cliente.create(data as any);
+    const clienteData = {
+      ...data,
+      creado_por: (req as any).user?.id,
+    };
+    const cliente = await Cliente.create(clienteData as any);
     res.status(201).json(cliente);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
@@ -71,6 +75,13 @@ export const updateCliente = async (req: Request, res: Response) => {
     const cliente = await Cliente.findByPk(id);
     if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
 
+    // ─── Verificación de ownership (solo creador o admin) ───
+    if ((req as any).user?.rol !== 'admin') {
+      if (Number(cliente.getDataValue('creado_por')) !== Number((req as any).user?.id)) {
+        return res.status(403).json({ error: 'Solo el creador del cliente puede editarlo' });
+      }
+    }
+
     await cliente.update(data as any);
     res.json(cliente);
   } catch (error: any) {
@@ -88,6 +99,13 @@ export const deleteCliente = async (req: Request, res: Response) => {
     const { id } = req.params;
     const cliente = await Cliente.findByPk(id);
     if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
+
+    // ─── Verificación de ownership (solo creador o admin) ───
+    if ((req as any).user?.rol !== 'admin') {
+      if (Number(cliente.getDataValue('creado_por')) !== Number((req as any).user?.id)) {
+        return res.status(403).json({ error: 'Solo el creador del cliente puede eliminarlo' });
+      }
+    }
 
     await cliente.destroy();
     res.json({ status: 'Cliente eliminado correctamente' });

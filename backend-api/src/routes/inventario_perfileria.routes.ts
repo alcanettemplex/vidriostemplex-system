@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middlewares/authMiddleware';
+import { requireRole } from '../middlewares/rbacMiddleware';
 import {
   getInventario,
   getInventarioStats,
@@ -12,10 +13,13 @@ const router = Router();
 
 router.use(authMiddleware);
 
-router.get('/', getInventario);
-router.get('/stats', getInventarioStats);
-router.post('/bulk', bulkInsertPerfileria);
-router.patch('/:id', updateInventarioItem);
-router.delete('/:id', deleteInventarioItem);
+// VER: compras, produccion
+router.get('/', requireRole('admin', 'compras', 'produccion'), getInventario);
+router.get('/stats', requireRole('admin', 'compras', 'produccion'), getInventarioStats);
+
+// CRUD: solo compras (+ admin)
+router.post('/bulk', requireRole('admin', 'compras'), bulkInsertPerfileria);
+router.patch('/:id', requireRole('admin', 'compras'), updateInventarioItem);
+router.delete('/:id', requireRole('admin', 'compras'), deleteInventarioItem);
 
 export default router;

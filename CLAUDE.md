@@ -270,10 +270,16 @@ CI=false
 - **CORS**: Whitelist + patrones `*.netlify.app`, `*.vercel.app`
 - **Nginx** (Docker): reverse proxy `/api/` → backend, SPA routing para frontend
 
+### Separación de archivos de entrada (backend)
+- `app.ts` — configura Express, middlewares y rutas; exporta `app`
+- `server.ts` — punto de entrada real; crea `http.Server`, adjunta Socket.io, arranca puerto; exporta `emitirNotificacion()`
+- `socketServer.ts` — lógica de rooms y eventos Socket.io
+
 ### WebSockets (Socket.io)
 - Configurado en `backend-api/src/server.ts`
 - Al conectarse, el cliente envía `join({ userId, rol })` para unirse a rooms `user_{id}` y `role_{rol}`
 - El helper `emitirNotificacion()` envía a rooms específicas por userId o rol
+- `utils/notificaciones.ts` — wrapper `notificarCambioEstadoODP()`: notifica al asesor de la ODP + roles `jefe_produccion` y `compras` cuando cambia el estado de producción; importar desde aquí, no llamar `emitirNotificacion` directamente en los controladores de ODP
 - Frontend: hook `useSocketNotifications` en `store/`
 - CORS del WS: más restrictivo que el HTTP — solo `localhost:3000` + `FRONTEND_URL` + `*.netlify.app` + `*.vercel.app`
 
@@ -313,7 +319,8 @@ Cuando el usuario dice "concretemos antes de ejecutar" o similar, eso significa:
 ## Notas Importantes
 
 1. **No hay tests** automatizados en backend ni frontend
-2. **`replace_urls.js`** en raíz: reemplaza URLs hardcodeadas al cambiar entre entornos
+2. **Scripts one-off en `backend-api/src/`**: `seed.ts`, `seed_odps.ts`, `migrate_nc.ts`, `db_master_fix.ts`, `fix_name.ts`, `insertar_asesores.ts` — son migraciones puntuales ya ejecutadas; no forman parte del flujo normal ni se corren con `npm run dev`
+3. **`replace_urls.js`** en raíz: reemplaza URLs hardcodeadas al cambiar entre entornos
 3. **ODP.timestamps = false** — la tabla `odp` no tiene `createdAt`/`updatedAt`; usa `fecha_creacion` manual
 4. **Módulo `mobile-app/`** usa Expo Router (file-based routing en `app/`), no React Navigation
 5. **Importar modelos siempre desde `models/index.ts`** para que las asociaciones estén cargadas

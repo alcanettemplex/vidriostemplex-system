@@ -10,8 +10,8 @@ const InstalacionesPage: React.FC = () => {
 
   if (rol === 'instalador') return <InstaladorView />;
   if (rol === 'conductor') return <ConductorView />;
-  // admin, gerencia, jefe_produccion
-  return <JefeView />;
+  const soloLectura = ['asesor_comercial', 'compras', 'produccion'].includes(rol);
+  return <JefeView readOnly={soloLectura} />;
 };
 
 export default InstalacionesPage;

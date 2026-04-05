@@ -11,6 +11,7 @@ import HistorialEstadoODP from './historial_estado_odp.model';
 import SAP from './sap.model';
 import SAPItem from './sap_item.model';
 import Cotizacion from './cotizacion.model';
+import CotizacionItem from './cotizacion_item.model';
 import TomaMedidas from './toma_medidas.model';
 import OrdenCompra from './orden_compra.model';
 import ODCItem from './odc_item.model';
@@ -27,6 +28,7 @@ import Prospecto from './prospecto.model';
 import InventarioPerfileria from './inventario_perfileria.model';
 import PedidoPV from './pedido_pv.model';
 import SalidaAlmacen from './salida_almacen.model';
+import CotizacionCaptura from './cotizacion_captura.model';
 
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
@@ -34,6 +36,10 @@ ODP.belongsTo(Cliente, { foreignKey: 'cliente_id', as: 'cliente' });
 
 Usuario.hasMany(ODP, { foreignKey: 'asesor_id', as: 'odps_gestionadas' });
 ODP.belongsTo(Usuario, { foreignKey: 'asesor_id', as: 'asesor' });
+
+// Cliente creado_por
+Usuario.hasMany(Cliente, { foreignKey: 'creado_por', as: 'clientes_creados' });
+Cliente.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
 
 ODP.hasMany(ODPItem, { foreignKey: 'odp_id', as: 'items' });
 ODPItem.belongsTo(ODP, { foreignKey: 'odp_id' });
@@ -85,6 +91,16 @@ Cotizacion.belongsTo(ODP, { foreignKey: 'odp_id' });
 
 Usuario.hasMany(Cotizacion, { foreignKey: 'creado_por', as: 'cotizaciones_creadas' });
 Cotizacion.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'asesor' });
+
+// Cotizacion pre-ODP: items, cliente directo y prospecto
+Cotizacion.hasMany(CotizacionItem, { foreignKey: 'cotizacion_id', as: 'items' });
+CotizacionItem.belongsTo(Cotizacion, { foreignKey: 'cotizacion_id' });
+
+Cotizacion.belongsTo(Cliente, { foreignKey: 'cliente_id', as: 'cliente' });
+Cliente.hasMany(Cotizacion, { foreignKey: 'cliente_id', as: 'cotizaciones_directas' });
+
+Cotizacion.belongsTo(Prospecto, { foreignKey: 'prospecto_id', as: 'prospecto' });
+Prospecto.hasMany(Cotizacion, { foreignKey: 'prospecto_id', as: 'cotizaciones' });
 
 ODP.hasMany(TomaMedidas, { foreignKey: 'odp_id', as: 'tomas_medidas' });
 TomaMedidas.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
@@ -164,6 +180,16 @@ PedidoPV.belongsTo(Usuario, { foreignKey: 'verificado_por', as: 'verificador' })
 PedidoPV.hasMany(ODPItem, { foreignKey: 'pedido_pv_id', as: 'items_asignados' });
 ODPItem.belongsTo(PedidoPV, { foreignKey: 'pedido_pv_id', as: 'pedidoPV' });
 
+// ─── Bloque H: Capturas de Cotización ───────────────────────────────────────
+ODP.hasMany(CotizacionCaptura, { foreignKey: 'odp_id', as: 'cotizacion_capturas' });
+CotizacionCaptura.belongsTo(ODP, { foreignKey: 'odp_id' });
+
+Prospecto.hasMany(CotizacionCaptura, { foreignKey: 'prospecto_id', as: 'cotizacion_capturas' });
+CotizacionCaptura.belongsTo(Prospecto, { foreignKey: 'prospecto_id' });
+
+Usuario.hasMany(CotizacionCaptura, { foreignKey: 'subido_por', as: 'capturas_subidas' });
+CotizacionCaptura.belongsTo(Usuario, { foreignKey: 'subido_por', as: 'subidor' });
+
 // ─── Bloque G: Salidas de Almacén ────────────────────────────────────────────
 ODP.hasOne(SalidaAlmacen, { foreignKey: 'odp_id', as: 'salida_almacen' });
 SalidaAlmacen.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
@@ -186,6 +212,7 @@ const MODELOS_AUDITADOS = [
   { model: ODCItem, tabla: 'odc_items', pk: 'id' },
   { model: Pago, tabla: 'pagos', pk: 'id' },
   { model: Cotizacion, tabla: 'cotizaciones', pk: 'id' },
+  { model: CotizacionItem, tabla: 'cotizacion_items', pk: 'id' },
   { model: TomaMedidas, tabla: 'toma_medidas', pk: 'id' },
   { model: EvidenciaInstalacion, tabla: 'evidencias_instalacion', pk: 'id' },
   { model: NoConformidad, tabla: 'no_conformidades', pk: 'id' },
@@ -201,6 +228,7 @@ const MODELOS_AUDITADOS = [
   { model: ConfiguracionGlobal, tabla: 'configuracion_global', pk: 'id' },
   { model: PedidoPV, tabla: 'pedido_pv', pk: 'id' },
   { model: SalidaAlmacen, tabla: 'salidas_almacen', pk: 'id' },
+  { model: CotizacionCaptura, tabla: 'cotizacion_capturas', pk: 'id' },
 ];
 
 function registrarAuditoria(
@@ -263,6 +291,7 @@ export {
   SAP,
   SAPItem,
   Cotizacion,
+  CotizacionItem,
   TomaMedidas,
   OrdenCompra,
   ODCItem,
@@ -277,5 +306,6 @@ export {
   RutaODP,
   PedidoPV,
   SalidaAlmacen,
+  CotizacionCaptura,
 };
 
