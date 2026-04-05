@@ -35,7 +35,7 @@ const UsuariosPage: React.FC = () => {
     try {
       setLoading(true);
       const res = await axios.get(`${API}/api/usuarios`, { headers: { Authorization: `Bearer ${token}` } });
-      setUsuarios(res.data);
+      setUsuarios(res.data.filter((u: any) => u.rol !== 'root'));
     } catch { toast.error('Error al cargar usuarios'); }
     finally { setLoading(false); }
   };
