@@ -14,6 +14,7 @@ const ROLES = [
   { value: 'conductor', label: 'Conductor', color: 'bg-orange-100 text-orange-700' },
   { value: 'contabilidad', label: 'Contabilidad', color: 'bg-emerald-100 text-emerald-700' },
   { value: 'compras', label: 'Compras', color: 'bg-violet-100 text-violet-700' },
+  { value: 'asistente_administrativo', label: 'Asistente Administrativo', color: 'bg-fuchsia-100 text-fuchsia-700' }
 ];
 
 const UsuariosPage: React.FC = () => {

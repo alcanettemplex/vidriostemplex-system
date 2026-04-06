@@ -18,6 +18,7 @@ import {
   GlassWater,
   PackageCheck,
   Shield,
+  Target, // Agregado para CRM
 } from 'lucide-react';
 
 /**
@@ -53,6 +54,13 @@ const MENU_ITEMS_CONFIG = [
     icon: FileText,
     path: '/odp',
     allowedRoles: ['admin', 'gerente', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras', 'produccion'],
+    section: 'comercial'
+  },
+  {
+    text: 'CRM & Leads',
+    icon: Target,
+    path: '/crm',
+    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'asistente_administrativo'],
     section: 'comercial'
   },
   {

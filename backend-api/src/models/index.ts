@@ -29,6 +29,8 @@ import InventarioPerfileria from './inventario_perfileria.model';
 import PedidoPV from './pedido_pv.model';
 import SalidaAlmacen from './salida_almacen.model';
 import CotizacionCaptura from './cotizacion_captura.model';
+import Lead from './lead.model';
+import LeadEvento from './lead_evento.model';
 
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
@@ -107,6 +109,19 @@ TomaMedidas.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
 
 Usuario.hasMany(TomaMedidas, { foreignKey: 'realizado_por', as: 'tomas_realizadas' });
 TomaMedidas.belongsTo(Usuario, { foreignKey: 'realizado_por', as: 'realizador' });
+
+// ─── Bloque CRM: Leads y Eventos ────────────────────────────────────────────
+Usuario.hasMany(Lead, { foreignKey: 'asesor_id', as: 'leads_asignados' });
+Lead.belongsTo(Usuario, { foreignKey: 'asesor_id', as: 'asesor' });
+
+Usuario.hasMany(Lead, { foreignKey: 'asistente_id', as: 'leads_capturados' });
+Lead.belongsTo(Usuario, { foreignKey: 'asistente_id', as: 'captador' });
+
+Lead.hasMany(LeadEvento, { foreignKey: 'lead_id', as: 'eventos' });
+LeadEvento.belongsTo(Lead, { foreignKey: 'lead_id', as: 'lead' });
+
+Usuario.hasMany(LeadEvento, { foreignKey: 'creado_por', as: 'eventos_crm_rutas' });
+LeadEvento.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
 
 // ─── Bloque D: Prospectos ────────────────────────────────────────────────────
 Usuario.hasMany(Prospecto, { foreignKey: 'asesor_id', as: 'prospectos_gestionados' });
@@ -229,6 +244,8 @@ const MODELOS_AUDITADOS = [
   { model: PedidoPV, tabla: 'pedido_pv', pk: 'id' },
   { model: SalidaAlmacen, tabla: 'salidas_almacen', pk: 'id' },
   { model: CotizacionCaptura, tabla: 'cotizacion_capturas', pk: 'id' },
+  { model: Lead, tabla: 'leads', pk: 'id' },
+  { model: LeadEvento, tabla: 'lead_eventos', pk: 'id' },
 ];
 
 function registrarAuditoria(
@@ -307,5 +324,7 @@ export {
   PedidoPV,
   SalidaAlmacen,
   CotizacionCaptura,
+  Lead,
+  LeadEvento,
 };
 

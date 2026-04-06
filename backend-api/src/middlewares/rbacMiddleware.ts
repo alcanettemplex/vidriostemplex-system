@@ -15,7 +15,8 @@ export type RolUsuario =
   | 'instalador'
   | 'conductor'
   | 'contabilidad'
-  | 'compras';
+  | 'compras'
+  | 'asistente_administrativo';
 
 /**
  * Middleware de control de acceso basado en roles (RBAC).
@@ -32,13 +33,18 @@ export const requireRole = (...rolesPermitidos: RolUsuario[]) => {
     const user = req.user as jwt.JwtPayload | undefined;
 
     if (!user || !user.rol) {
+      console.warn('RBAC: No se detectó JWT o rol en req.user');
       return res.status(403).json({
         error: 'Acceso denegado',
         message: 'No se pudo determinar el rol del usuario.',
       });
     }
 
-    if (!rolesPermitidos.includes(user.rol as RolUsuario)) {
+    const rolBuffer = (user.rol as string).toLowerCase();
+    const permitidosBuffer = rolesPermitidos.map(r => r.toLowerCase());
+
+    if (!permitidosBuffer.includes(rolBuffer)) {
+      console.warn(`RBAC: Rol '${user.rol}' no está en lista permitida:`, rolesPermitidos);
       return res.status(403).json({
         error: 'Acceso denegado',
         message: `Se requiere uno de los siguientes roles: ${rolesPermitidos.join(', ')}`,

@@ -19,6 +19,7 @@ import InventarioPage from '../features/inventario/InventarioPage';
 import PedidosPVPage from '../features/pedidos-pv/PedidosPVPage';
 import FacturasSalidasPage from '../features/facturas-salidas/FacturasSalidasPage';
 import RootPage from '../features/root/RootPage';
+import CRMPage from '../features/crm/CRMPage';
 
 const AppRoutes: React.FC = () => (
   <Router>
@@ -44,6 +45,7 @@ const AppRoutes: React.FC = () => (
             <Route path="/pedidos-pv" element={<PedidosPVPage />} />
             <Route path="/facturas-salidas" element={<FacturasSalidasPage />} />
             <Route path="/root" element={<RootPage />} />
+            <Route path="/crm" element={<CRMPage />} />
           </Route>
         </Routes>
       </main>
