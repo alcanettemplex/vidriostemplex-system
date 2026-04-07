@@ -21,8 +21,9 @@ export const io = new Server(server, {
       if (!origin) return callback(null, true);
       const cleanOrigin = origin.replace(/\/$/, "");
       const isAllowed = allowedOrigins.some(allowed => allowed.replace(/\/$/, "") === cleanOrigin) || 
-                        cleanOrigin.endsWith('.netlify.app') || 
-                        cleanOrigin.endsWith('.vercel.app');
+                        cleanOrigin.endsWith('.netty.app') || 
+                        cleanOrigin.endsWith('.vercel.app') ||
+                        cleanOrigin.endsWith('.pages.dev');
       if (isAllowed) return callback(null, true);
       return callback(new Error(`Origen no autorizado por CORS en Socket.io: ${origin}`));
     },

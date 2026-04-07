@@ -655,16 +655,16 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
     odp?.asesor_id === user?.id ||
     odp?.asesor?.id === user?.id;
 
-  useEffect(() => { fetchSAPs(); }, []);
-
-  const fetchSAPs = async () => {
+  const fetchSAPs = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/api/documentos/sap/odp/${odp.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSaps(res.data);
     } catch { setSaps([]); }
-  };
+  }, [odp.id, token]);
+
+  useEffect(() => { fetchSAPs(); }, [fetchSAPs]);
 
   const handleGuardar = async () => {
     const itemsValidos = items.filter(i => i.codigo.trim() || i.descripcion.trim());

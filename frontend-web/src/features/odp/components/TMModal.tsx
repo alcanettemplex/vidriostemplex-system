@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { X, Plus, Printer, Ruler, MapPin, Camera, Upload, CheckCircle2, Phone, User, CalendarCheck, Clock, Image } from 'lucide-react';
+import { X, Plus, Printer, Ruler, MapPin, Camera, Upload, CheckCircle2, Phone, User, CalendarCheck, Image } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 interface TM {

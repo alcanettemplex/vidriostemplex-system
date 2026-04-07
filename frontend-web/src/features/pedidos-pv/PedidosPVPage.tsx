@@ -165,7 +165,7 @@ const AccionesMenu: React.FC<{
 const PedidosPVPage: React.FC = () => {
   const token = useSelector((s: any) => s.auth.token);
   const user = useSelector((s: any) => s.auth.user);
-  const headers = { Authorization: `Bearer ${token}` };
+  const headers = React.useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
   const [tab, setTab] = useState(0);
 
@@ -241,7 +241,7 @@ const PedidosPVPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [headers]);
 
   const cargarPorGestionar = useCallback(async () => {
     if (!user?.puede_gestionar_pv) return;
@@ -249,7 +249,7 @@ const PedidosPVPage: React.FC = () => {
       const { data } = await axios.get(`${API}/api/pedidos-pv/por-gestionar`, { headers });
       setPedidosPorGestionar(data);
     } catch { /* silencioso */ }
-  }, [token, user]);
+  }, [headers, user]);
 
   useEffect(() => { cargarDatos(); cargarPorGestionar(); }, [cargarDatos, cargarPorGestionar]);
 
@@ -432,7 +432,7 @@ const PedidosPVPage: React.FC = () => {
       win.document.write(`<!DOCTYPE html><html><head>
         <meta charset="utf-8"/>
         <title>Pedido PV ${printData.pedido.numero_pedido} — ${printData.pedido.proveedor}</title>
-        <script src="https://cdn.tailwindcss.com"><\/script>
+        <script src="https://cdn.tailwindcss.com"></script>
         <style>
           @page { size: A4 portrait; margin: 5mm; }
           body { margin: 0; padding: 0; font-family: sans-serif; }

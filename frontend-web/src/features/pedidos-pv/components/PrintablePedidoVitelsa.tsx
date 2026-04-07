@@ -8,10 +8,6 @@ interface PrintablePedidoVitelsaProps {
   pedido: any;
 }
 
-const fmtFecha = (fecha: string | null) => {
-  if (!fecha) return '';
-  try { return format(parseISO(fecha), 'dd/MM/yyyy', { locale: es }); } catch { return fecha; }
-};
 
 const fmtFechaHora = (ts: string | null) => {
   if (!ts) return '';

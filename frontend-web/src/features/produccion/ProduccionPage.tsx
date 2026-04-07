@@ -161,20 +161,8 @@ const ProduccionPage: React.FC = () => {
         }
     };
 
-    const updateEstado = async (id: number, nuevoEstado: string) => {
-        try {
-            const token = localStorage.getItem('token');
-            await axios.put(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp/${id}`, 
-                { estado_produccion: nuevoEstado }, 
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            fetchData();
-        } catch (error) {
-            toast.error("Error al actualizar estado");
-        }
-    };
 
-    const getUrgency = (fecha: string) => {
+  const getUrgency = (fecha: string) => {
         const hoy = new Date();
         const entrega = new Date(fecha);
         const diff = Math.ceil((entrega.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
