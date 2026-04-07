@@ -4,7 +4,8 @@ import KanbanBoard from './components/KanbanBoard';
 import NewLeadModal from './components/NewLeadModal';
 import CRMMetrics from './components/CRMMetrics';
 import DashboardGerencial from './components/DashboardGerencial';
-import { Plus, Filter, BarChart3, LayoutKanban, TrendingUp } from 'lucide-react';
+import PeriodSelector from '../../components/common/PeriodSelector';
+import { Plus, Filter, BarChart3, Kanban, TrendingUp } from 'lucide-react';
 
 type Tab = 'pipeline' | 'metricas' | 'gerencial';
 
@@ -14,30 +15,38 @@ const ROLES_GERENCIAL = ['admin', 'gerencia', 'asistente_administrativo'];
 const CRMPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('pipeline');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Estado de periodo (mes actual por defecto)
+  const now = new Date();
+  const [mes, setMes] = useState(now.getMonth() + 1);
+  const [anio, setAnio] = useState(now.getFullYear());
 
   const user = useSelector((state: any) => state.auth.user);
   const rol: string = user?.rol || '';
-  const asesorId: number | null = user?.id || null;
+  const asesorId: number | undefined = user?.id || undefined;
   const esVistaGlobal = ROLES_GLOBAL.includes(rol);
   const puedeVerGerencial = ROLES_GERENCIAL.includes(rol);
+
+  const handlePeriodChange = (m: number, a: number) => {
+    setMes(m);
+    setAnio(a);
+  };
 
   return (
     <div className="p-6">
       {/* Encabezado */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-black text-slate-800 tracking-tight">CRM & Leads</h1>
           <p className="text-sm text-slate-500 mt-1">
             Gestión de prospectos, embudo de ventas y seguimiento inteligente.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <PeriodSelector mes={mes} anio={anio} onChange={handlePeriodChange} />
+          
           {activeTab === 'pipeline' && (
             <>
-              <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-medium text-sm transition-colors shadow-sm">
-                <Filter className="w-4 h-4" />
-                Filtros
-              </button>
               {(esVistaGlobal || rol === 'asesor_comercial') && (
                 <button
                   onClick={() => setIsModalOpen(true)}
@@ -62,7 +71,7 @@ const CRMPage: React.FC = () => {
               : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          <LayoutKanban className="w-4 h-4" />
+          <Kanban className="w-4 h-4" />
           Pipeline
         </button>
         <button
@@ -75,7 +84,6 @@ const CRMPage: React.FC = () => {
         >
           <BarChart3 className="w-4 h-4" />
           Métricas
-          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
         </button>
         {puedeVerGerencial && (
           <button
@@ -95,7 +103,7 @@ const CRMPage: React.FC = () => {
       {/* Contenido de tabs */}
       {activeTab === 'pipeline' && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <KanbanBoard />
+          <KanbanBoard mes={mes} anio={anio} />
         </div>
       )}
 
@@ -103,11 +111,17 @@ const CRMPage: React.FC = () => {
         <CRMMetrics
           asesorId={asesorId}
           esVistaGlobal={esVistaGlobal}
+          mes={mes}
+          anio={anio}
         />
       )}
 
       {activeTab === 'gerencial' && puedeVerGerencial && (
-        <DashboardGerencial esVistaGlobal={esVistaGlobal} />
+        <DashboardGerencial 
+          esVistaGlobal={esVistaGlobal} 
+          mes={mes}
+          anio={anio}
+        />
       )}
 
       {isModalOpen && <NewLeadModal onClose={() => setIsModalOpen(false)} />}
