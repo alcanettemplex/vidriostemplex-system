@@ -1,6 +1,4 @@
 import React from 'react';
-import { format, parseISO } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { TemplexLogo } from '../../../components/ui/TemplexLogo';
 
 interface PrintablePedidoVitelsaProps {
