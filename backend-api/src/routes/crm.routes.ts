@@ -4,9 +4,12 @@ import {
   createLead, 
   updateLeadStatus, 
   assignLeadToMe, 
+  assignLeadToUser,
   getLeadTimeline,
+  updateLeadMonto,
   convertLeadToCliente,
-  getCRMStats
+  getCRMStats,
+  registerLeadSeguimiento
 } from '../controllers/crm.controller';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { authMiddleware } from '../middlewares/authMiddleware';
@@ -27,8 +30,17 @@ router.post('/', requireRole('asistente_administrativo', 'admin', 'gerencia', 'a
 router.put('/:id/estado', requireRole('asesor_comercial', 'admin', 'gerencia'), updateLeadStatus);
 router.put('/:id/reclamar', requireRole('asesor_comercial', 'admin', 'gerencia'), assignLeadToMe);
 
+// Asignación manual a un asesor específico
+router.put('/:id/asignar', requireRole('asistente_administrativo', 'admin', 'gerencia'), assignLeadToUser);
+
 // Timeline y eventos
 router.get('/:id/eventos', requireRole(...ROLES_CRM), getLeadTimeline);
+
+// Actualizar monto proyectado de cotización
+router.patch('/:id/monto', requireRole(...ROLES_CRM), updateLeadMonto);
+
+// Registrar intento de seguimiento (Touch)
+router.post('/:id/seguimiento', requireRole('asesor_comercial', 'admin', 'gerencia'), registerLeadSeguimiento);
 
 // Conversión Lead → Cliente (solo asesor asignado, admin y gerencia pueden confirmar)
 router.post('/:id/convertir', requireRole('asesor_comercial', 'admin', 'gerencia'), convertLeadToCliente);

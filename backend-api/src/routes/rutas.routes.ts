@@ -17,6 +17,7 @@ import {
   getMiRutaConductor,
   iniciarRutaConductor,
   llegadaConductor,
+  terminarRutaConductor,
 } from '../controllers/rutas.controller';
 
 const router = Router();
@@ -36,6 +37,7 @@ router.post('/ruta-odp/:id/finalizar', requireRole('instalador'), uploadConfig.s
 // Conductor: su ruta
 router.get('/mi-ruta-conductor', requireRole('conductor'), getMiRutaConductor);
 router.post('/:id/iniciar-ruta', requireRole('conductor'), iniciarRutaConductor);
+router.post('/:id/terminar-ruta', requireRole('conductor'), terminarRutaConductor);
 router.post('/ruta-odp/:id/llegada', requireRole('conductor'), llegadaConductor);
 
 // ─── CRUD de rutas (jefe) ────────────────────────────────────────────────────

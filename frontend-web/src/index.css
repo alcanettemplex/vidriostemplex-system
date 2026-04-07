@@ -15,3 +15,12 @@
     @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-xl rounded-2xl;
   }
 }
+
+@keyframes slideInFromRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+.animate-slide-in {
+  animation: slideInFromRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}

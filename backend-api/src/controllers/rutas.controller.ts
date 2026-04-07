@@ -3,6 +3,7 @@ import { Op, QueryTypes } from 'sequelize';
 import {
   ODP, Usuario, Vehiculo, EvidenciaInstalacion, HistorialEstadoODP,
   RutaInstalacion, RutaODP, sequelize,
+  ODPItem, SAP, SAPItem, Cotizacion, TomaMedidas, OrdenCompra, ODCItem, Pago
 } from '../models';
 import Cliente from '../models/cliente.model';
 import { notificarCambioEstadoODP } from '../utils/notificaciones';
@@ -22,16 +23,31 @@ const INCLUDE_RUTA_COMPLETA = async (): Promise<any[]> => [
   },
   {
     model: RutaODP, as: 'ruta_odps',
+    separate: true,
+    order: [['orden', 'ASC']],
     include: [
       {
         model: ODP, as: 'odp',
-        attributes: ['id', 'numero_odp', 'estado_produccion', 'estado_caja',
-          'direccion_instalacion', 'descripcion_pedido', 'fecha_entrega',
-          'valor_total', 'pendiente', 'autorizacion_especial_despacho'],
-        include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'telefono'] }],
+        include: [
+          { model: Cliente, as: 'cliente' },
+          { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+          { model: ODPItem, as: 'items' },
+          { model: Pago, as: 'pagos' },
+          { model: Cotizacion, as: 'cotizaciones' },
+          { model: TomaMedidas, as: 'tomas_medidas' },
+          { 
+            model: SAP, as: 'saps',
+            include: [
+              { model: SAPItem, as: 'items' },
+              { 
+                model: OrdenCompra, as: 'ordenes_compra',
+                include: [{ model: ODCItem, as: 'items' }]
+              }
+            ]
+          },
+        ],
       },
     ],
-    order: [['orden', 'ASC']],
   },
 ];
 
@@ -342,11 +358,11 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
 
     const ids = rutaIds.map((r: any) => r.ruta_id);
 
-    // ODPs en esas rutas que debe atender
+    // ODPs en esas rutas (incluyendo completadas para métricas)
     const asignacion = await RutaODP.findAll({
       where: {
         ruta_id: { [Op.in]: ids },
-        estado: { [Op.in]: ['pendiente', 'en_curso'] },
+        estado: { [Op.ne]: 'cancelada' },
       },
       include: [
         {
@@ -361,7 +377,22 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
         {
           model: ODP, as: 'odp',
           include: [
-            { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'telefono'] },
+            { model: Cliente, as: 'cliente' },
+            { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+            { model: ODPItem, as: 'items' },
+            { model: Pago, as: 'pagos' },
+            { model: Cotizacion, as: 'cotizaciones' },
+            { model: TomaMedidas, as: 'tomas_medidas' },
+            { 
+              model: SAP, as: 'saps',
+              include: [
+                { model: SAPItem, as: 'items' },
+                { 
+                  model: OrdenCompra, as: 'ordenes_compra',
+                  include: [{ model: ODCItem, as: 'items' }]
+                }
+              ]
+            },
           ],
         },
       ],
@@ -374,8 +405,8 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
 
     res.json(asignacion);
   } catch (e: any) {
-    console.error('getMiAsignacion:', e.message);
-    res.status(500).json({ error: 'Error al obtener asignación' });
+    console.error('getMiAsignacion FULL ERROR:', e);
+    res.status(500).json({ error: 'Error al obtener asignaciones', details: e.message });
   }
 };
 
@@ -555,15 +586,15 @@ export const getMiRutaConductor = async (req: Request, res: Response) => {
     const rutas = await RutaInstalacion.findAll({
       where: {
         conductor_id: user.id,
-        estado: { [Op.in]: ['programada', 'en_curso'] },
+        estado: { [Op.ne]: 'cancelada' },
       },
       include: includes,
       order: [['creado_en', 'DESC']],
     });
     res.json(rutas);
   } catch (e: any) {
-    console.error('getMiRutaConductor:', e.message);
-    res.status(500).json({ error: 'Error al obtener ruta del conductor' });
+    console.error('getMiRutaConductor FULL ERROR:', e);
+    res.status(500).json({ error: 'Error al obtener rutas', details: e.message });
   }
 };
 
@@ -603,5 +634,33 @@ export const llegadaConductor = async (req: Request, res: Response) => {
     res.json({ ok: true, llegada_conductor: rutaODP.llegada_conductor });
   } catch (e) {
     res.status(500).json({ error: 'Error al registrar llegada' });
+  }
+};
+
+export const terminarRutaConductor = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = req.user as any;
+
+    const ruta = await RutaInstalacion.findByPk(id, {
+      include: [{ model: RutaODP, as: 'ruta_odps' }],
+    }) as any;
+
+    if (!ruta) return res.status(404).json({ error: 'Ruta no encontrada' });
+    if (ruta.conductor_id !== user.id) return res.status(403).json({ error: 'No eres el conductor de esta ruta' });
+    if (ruta.estado !== 'en_curso') return res.status(400).json({ error: 'La ruta no está en curso' });
+
+    // Verificar que el conductor haya marcado llegada a TODAS las paradas
+    const paradasSinLlegada = ruta.ruta_odps.filter((p: any) => !p.llegada_conductor);
+    if (paradasSinLlegada.length > 0) {
+      return res.status(400).json({ 
+        error: `Aún tienes ${paradasSinLlegada.length} paradas sin registrar llegada. Debes marcar llegada en todos los puntos antes de finalizar la ruta.` 
+      });
+    }
+
+    await ruta.update({ estado: 'completada', fin_ruta: new Date() });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Error al finalizar ruta' });
   }
 };
