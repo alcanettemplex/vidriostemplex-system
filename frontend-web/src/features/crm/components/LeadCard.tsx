@@ -19,8 +19,9 @@ const SEGMENTO_COLOR: Record<string, string> = {
 
 const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool }) => {
   const [showDetalle, setShowDetalle] = useState(false);
-  const enAlerta = lead.intentos_seguimiento >= 2 &&
-    !['PERDIDO', 'APROBADO', 'FRIO'].includes(lead.estado_crm);
+  const esEstancado = !['PERDIDO', 'APROBADO', 'FRIO'].includes(lead.estado_crm) && 
+    lead.updatedAt && (Date.now() - new Date(lead.updatedAt).getTime()) > 48 * 60 * 60 * 1000;
+
   const esNuevo = stageId === 'NUEVO';
   const esAsesor = rol === 'asesor_comercial';
   const esAprobado = stageId === 'APROBADO';
@@ -39,24 +40,31 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
     <>
       <div
         className={`relative p-3 bg-white rounded-lg shadow-sm border hover:shadow-md transition-all cursor-grab active:cursor-grabbing overflow-hidden group
-          ${enAlerta ? 'border-orange-300' : esAprobado ? 'border-emerald-300' : 'border-slate-200'}
+          ${esEstancado ? 'border-orange-300 ring-1 ring-orange-200' : esAprobado ? 'border-emerald-300' : 'border-slate-200'}
         `}
       >
         {/* Barra lateral de estado */}
         <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-lg ${
-          enAlerta ? 'bg-orange-400' :
+          esEstancado ? 'bg-orange-400' :
           stageId === 'NUEVO' ? 'bg-indigo-400' :
           stageId === 'APROBADO' ? 'bg-emerald-500' :
           stageId === 'PERDIDO' ? 'bg-rose-400' :
           stageId === 'FRIO' ? 'bg-slate-300' :
-          'bg-transparent'
+          'bg-indigo-300'
         }`} />
 
         {/* Header */}
         <div className="flex justify-between items-start mb-2 pl-1">
-          <h4 className="font-bold text-slate-800 text-sm leading-tight line-clamp-1 flex-1">
-            {lead.nombre}
-          </h4>
+          <div className="flex-1 min-w-0">
+            <h4 className="font-bold text-slate-800 text-sm leading-tight line-clamp-1">
+              {lead.nombre}
+            </h4>
+            {esEstancado && (
+              <span className="flex items-center gap-1 text-[9px] font-black text-orange-600 animate-pulse mt-0.5">
+                <Clock className="w-2.5 h-2.5" /> ESTANCADO +48H
+              </span>
+            )}
+          </div>
           {lead.asesor ? (
             <div
               className="w-6 h-6 rounded-full bg-indigo-100 border-2 border-white shadow-sm flex items-center justify-center text-[10px] font-black text-indigo-700 shrink-0 ml-2"
@@ -97,12 +105,12 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
         {/* Footer */}
         <div className="flex items-center justify-between pt-2 border-t border-dashed border-slate-100 pl-1">
           <div className="flex items-center gap-1 text-[10px] text-slate-400 font-medium">
-            <Clock className="w-3 h-3" />
+            <Clock className={`w-3 h-3 ${esEstancado ? 'text-orange-500' : ''}`} />
             {fechaCreado}
           </div>
           {['EN_CONTACTO', 'COTIZANDO', 'VISITA_TECNICA'].includes(stageId) && (
             <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border ${
-              enAlerta
+              lead.intentos_seguimiento >= 2
                 ? 'bg-orange-50 text-orange-600 border-orange-200 animate-pulse'
                 : 'bg-slate-50 text-slate-500 border-slate-100'
             }`} title={`Intentos: ${lead.intentos_seguimiento}/3`}>

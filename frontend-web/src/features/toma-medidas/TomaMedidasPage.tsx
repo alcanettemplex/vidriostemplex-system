@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Ruler, Clock, CalendarCheck, CheckCircle2, MapPin, User,
   RefreshCw, AlertTriangle, Phone, Package, FileText,
-  UserPlus, X, Calendar
+  UserPlus, X, Calendar, Search
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import TMModal from '../odp/components/TMModal';
@@ -401,6 +401,7 @@ const TomaMedidasPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [tmModal, setTmModal] = useState<any | null>(null); // ODP-shape para TMModal legacy
   const [programandoTM, setProgramandoTM] = useState<TMItem | null>(null);
+  const [busqueda, setBusqueda] = useState('');
 
   const token = localStorage.getItem('token');
 
@@ -462,7 +463,48 @@ const TomaMedidasPage: React.FC = () => {
     }
   };
 
-  const totalSolicitadas = data.solicitadas.length + data.odpsSinTM.length;
+  const datosFiltrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return data;
+
+    const matchTM = (tm: TMItem) => {
+      const campos = [
+        tm.numero_tm,
+        tm.nombre_contacto,
+        tm.telefono_contacto,
+        tm.contacto_obra,
+        tm.telefono_obra,
+        tm.prospecto?.nombre_contacto,
+        tm.prospecto?.telefono_contacto,
+        tm.prospecto?.cliente?.nombre_razon_social,
+        tm.prospecto?.numero_prospecto,
+        tm.odp?.cliente?.nombre_razon_social,
+        tm.odp?.nombre_recibe,
+        tm.odp?.telefono_recibe,
+        tm.odp?.numero_odp,
+      ];
+      return campos.some(c => c && c.toLowerCase().includes(q));
+    };
+
+    const matchODP = (odp: ODPSinTM) => {
+      const campos = [
+        odp.numero_odp,
+        odp.cliente?.nombre_razon_social,
+        odp.nombre_recibe,
+        odp.telefono_recibe,
+      ];
+      return campos.some(c => c && c.toLowerCase().includes(q));
+    };
+
+    return {
+      solicitadas: data.solicitadas.filter(matchTM),
+      odpsSinTM: data.odpsSinTM.filter(matchODP),
+      programadas: data.programadas.filter(matchTM),
+      realizadas: data.realizadas.filter(matchTM),
+    };
+  }, [busqueda, data]);
+
+  const totalSolicitadas = datosFiltrados.solicitadas.length + datosFiltrados.odpsSinTM.length;
 
   if (loading) {
     return (
@@ -482,7 +524,7 @@ const TomaMedidasPage: React.FC = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3">
             <Ruler className="w-8 h-8 text-amber-500" />
@@ -492,12 +534,32 @@ const TomaMedidasPage: React.FC = () => {
             Gestión de visitas técnicas y relevamiento de medidas en campo
           </p>
         </div>
-        <button
-          onClick={fetchPanel}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
-        >
-          <RefreshCw className="w-4 h-4" /> Actualizar
-        </button>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              placeholder="Buscar por nombre, teléfono o N° TM..."
+              className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl w-72 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
+            />
+            {busqueda && (
+              <button
+                onClick={() => setBusqueda('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={fetchPanel}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+          >
+            <RefreshCw className="w-4 h-4" /> Actualizar
+          </button>
+        </div>
       </div>
 
       {/* Alerta urgente */}
@@ -525,7 +587,7 @@ const TomaMedidasPage: React.FC = () => {
           emptyMsg="No hay visitas técnicas pendientes"
         >
           {/* TMs de prospectos con estado 'solicitada' */}
-          {data.solicitadas.map(tm => (
+          {datosFiltrados.solicitadas.map(tm => (
             <CardTM
               key={`tm-${tm.id}`}
               tm={tm}
@@ -534,7 +596,7 @@ const TomaMedidasPage: React.FC = () => {
             />
           ))}
           {/* ODPs en VISITA_TECNICA sin TM registrada */}
-          {data.odpsSinTM.map(odp => (
+          {datosFiltrados.odpsSinTM.map(odp => (
             <CardODPSinTM
               key={`odp-${odp.id}`}
               odp={odp}
@@ -548,10 +610,10 @@ const TomaMedidasPage: React.FC = () => {
           titulo="Programadas"
           icono={<CalendarCheck className="w-4 h-4 text-blue-600" />}
           color="bg-blue-50 border-blue-200 text-blue-700"
-          count={data.programadas.length}
+          count={datosFiltrados.programadas.length}
           emptyMsg="No hay visitas programadas"
         >
-          {data.programadas.map(tm => (
+          {datosFiltrados.programadas.map(tm => (
             <CardTM
               key={tm.id}
               tm={tm}
@@ -565,10 +627,10 @@ const TomaMedidasPage: React.FC = () => {
           titulo="Realizadas"
           icono={<CheckCircle2 className="w-4 h-4 text-emerald-600" />}
           color="bg-emerald-50 border-emerald-200 text-emerald-700"
-          count={data.realizadas.length}
+          count={datosFiltrados.realizadas.length}
           emptyMsg="No hay tomas de medidas completadas"
         >
-          {data.realizadas.map(tm => (
+          {datosFiltrados.realizadas.map(tm => (
             <CardTM
               key={tm.id}
               tm={tm}

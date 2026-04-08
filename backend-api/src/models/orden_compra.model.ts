@@ -8,7 +8,7 @@ OrdenCompra.init(
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
     numero_odc: { type: DataTypes.STRING(30), allowNull: false, unique: true },
     sap_id: { type: DataTypes.INTEGER, allowNull: true },
-    odp_id: { type: DataTypes.INTEGER, allowNull: false },
+    odp_id: { type: DataTypes.INTEGER, allowNull: true },
     tipo: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'perfileria' },
     proveedor: { type: DataTypes.STRING(150), allowNull: false },
     estado: {

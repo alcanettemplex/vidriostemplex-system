@@ -9,6 +9,7 @@ export type RolUsuario =
   | 'root'
   | 'admin'
   | 'gerencia'
+  | 'gerente'
   | 'jefe_produccion'
   | 'asesor_comercial'
   | 'produccion'
@@ -41,6 +42,10 @@ export const requireRole = (...rolesPermitidos: RolUsuario[]) => {
     }
 
     const rolBuffer = (user.rol as string).toLowerCase();
+
+    // root tiene acceso a todo sin restricciones
+    if (rolBuffer === 'root') return next();
+
     const permitidosBuffer = rolesPermitidos.map(r => r.toLowerCase());
 
     if (!permitidosBuffer.includes(rolBuffer)) {

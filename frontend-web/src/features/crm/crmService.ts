@@ -36,6 +36,10 @@ export const apiGetLeadTimeline = (id: number) =>
 export const apiUpdateLeadMonto = (id: number, monto: number) =>
   axios.patch(`${API}/api/crm/${id}/monto`, { monto_proyectado_cotizacion: monto }, getHeaders());
 
+/** Actualizar detalles generales del lead (segmento, producto, etc.) */
+export const apiUpdateLeadDetails = (id: number, data: any) =>
+  axios.patch(`${API}/api/crm/${id}`, data, getHeaders());
+
 /** Registrar un intento de seguimiento (Touch) */
 export const apiRegisterLeadSeguimiento = (id: number, nota?: string) =>
   axios.post(`${API}/api/crm/${id}/seguimiento`, { nota }, getHeaders());
@@ -53,3 +57,15 @@ export const apiGetCRMStats = (mes?: number, anio?: number) => {
 /** Obtener lista de asesores para asignación */
 export const apiGetAsesores = () =>
   axios.get(`${API}/api/usuarios`, getHeaders());
+
+/** Buscar ODPs para vincular a un lead aprobado */
+export const apiSearchODPs = (q?: string, cliente_id?: number) => {
+  const params = new URLSearchParams();
+  if (q) params.append('q', q);
+  if (cliente_id) params.append('cliente_id', String(cliente_id));
+  return axios.get(`${API}/api/crm/odps/buscar?${params.toString()}`, getHeaders());
+};
+
+/** Vincular un lead aprobado a una ODP existente (odp_id=null desvincula) */
+export const apiVincularODP = (leadId: number, odp_id: number | null) =>
+  axios.patch(`${API}/api/crm/${leadId}/vincular-odp`, { odp_id }, getHeaders());

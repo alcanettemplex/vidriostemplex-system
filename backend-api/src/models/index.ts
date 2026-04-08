@@ -123,6 +123,10 @@ LeadEvento.belongsTo(Lead, { foreignKey: 'lead_id', as: 'lead' });
 Usuario.hasMany(LeadEvento, { foreignKey: 'creado_por', as: 'eventos_crm_rutas' });
 LeadEvento.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
 
+// Lead → ODP (vínculo de cierre)
+Lead.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
+ODP.hasMany(Lead, { foreignKey: 'odp_id', as: 'leads_origen' });
+
 // ─── Bloque D: Prospectos ────────────────────────────────────────────────────
 Usuario.hasMany(Prospecto, { foreignKey: 'asesor_id', as: 'prospectos_gestionados' });
 Prospecto.belongsTo(Usuario, { foreignKey: 'asesor_id', as: 'asesor' });

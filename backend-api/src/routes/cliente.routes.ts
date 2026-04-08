@@ -5,9 +5,9 @@ import { requireRole } from '../middlewares/rbacMiddleware';
 
 const router = Router();
 
-// Lectura: gerencia, jefe_produccion, asesor_comercial, contabilidad
-router.get('/', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'contabilidad'), getClientes);
-router.get('/:id', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'contabilidad'), getCliente);
+// Lectura: gerencia, jefe_produccion, asesor_comercial, contabilidad, compras
+router.get('/', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'contabilidad', 'compras'), getClientes);
+router.get('/:id', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'contabilidad', 'compras'), getCliente);
 
 // Creación: gerencia, jefe_produccion, asesor_comercial, contabilidad (+ admin)
 router.post('/', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'contabilidad'), createCliente);

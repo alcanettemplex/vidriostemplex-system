@@ -1,51 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, AlertCircle, Package, ShoppingCart, CheckCircle2, Clock, Edit3, Trash2 } from 'lucide-react';
+import { X, Package, ShoppingCart, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-interface SAPItem {
+export interface SAPItemConContexto {
   id: number;
   item: string;
   codigo: string;
   descripcion: string;
   dimension: string;
-  und: string;
+  cantidad: number;
+  und?: string;
   exist_perf?: string;
-  cantidad: number;
   estado_compra: 'pendiente' | 'en_odc' | 'en_existencia';
-}
-
-interface ODCItemData {
-  id: number;
-  sap_item_id: number;
-  item: string;
-  codigo: string;
-  descripcion: string;
-  cantidad: number;
-}
-
-interface ODC {
-  id: number;
-  numero_odc: string;
-  proveedor: string;
-  estado: 'pendiente' | 'en_transito' | 'recibido' | 'problema';
-  notas: string;
-  fecha_creacion: string;
-  creador: { id: number; nombre_completo: string };
-  items: ODCItemData[];
-}
-
-interface SAPConODCs {
-  id: number;
-  numero_sap: string;
-  notas: string;
-  fecha_creacion: string;
-  asesor: { id: number; nombre_completo: string };
-  items: SAPItem[];
-  ordenes_compra: ODC[];
+  SAP: {
+    id: number;
+    numero_sap: string;
+    ODP: {
+      id: number;
+      numero_odp: string;
+      descripcion: string;
+      cliente: { id: number; nombre_razon_social: string };
+      asesor: { id: number; nombre_completo: string };
+    };
+  };
 }
 
 interface InventarioPerfil {
@@ -56,74 +37,38 @@ interface InventarioPerfil {
   ubicacion: string | null;
 }
 
-interface PerfilSeleccionado {
-  consecutivo: number;
-  ubicacion: string | null;
-}
-
 interface Props {
-  sap: SAPConODCs;
-  odp: any;
+  items: SAPItemConContexto[];
   onClose: () => void;
   onRefresh: () => void;
 }
 
-const ESTADO_BADGE: Record<string, { label: string; className: string }> = {
-  pendiente:   { label: 'Pendiente',   className: 'bg-amber-100 text-amber-700 border-amber-200' },
-  en_transito: { label: 'En tránsito', className: 'bg-blue-100 text-blue-700 border-blue-200' },
-  recibido:    { label: 'Recibido',    className: 'bg-green-100 text-green-700 border-green-200' },
-  problema:    { label: 'Problema',    className: 'bg-red-100 text-red-700 border-red-200' },
-};
-
-const ITEM_ESTADO: Record<string, { icon: React.ReactNode; label: string; className: string }> = {
-  pendiente:     { icon: <Clock className="w-3.5 h-3.5" />,       label: 'Pendiente',     className: 'text-amber-600 bg-amber-50 border-amber-200' },
-  en_odc:        { icon: <ShoppingCart className="w-3.5 h-3.5" />, label: 'En ODC',        className: 'text-blue-600 bg-blue-50 border-blue-200' },
-  en_existencia: { icon: <Package className="w-3.5 h-3.5" />,      label: 'En existencia', className: 'text-green-600 bg-green-50 border-green-200' },
-};
-
-const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh }) => {
-  const [sap, setSap] = useState<SAPConODCs>(sapInicial);
-  const [modo, setModo] = useState<'ver' | 'crear' | 'editar'>('ver');
-
-  // Estados modo crear
-  const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
+const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
   const [proveedor, setProveedor] = useState('');
   const [notas, setNotas] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // Estados modo editar
-  const [editandoODC, setEditandoODC] = useState<ODC | null>(null);
-  const [editProveedor, setEditProveedor] = useState('');
-  const [editNotas, setEditNotas] = useState('');
-  const [editEstado, setEditEstado] = useState('');
-
-  // Inventario perfilería
+  // Inventario perfilería por código
   const [inventarioPorCodigo, setInventarioPorCodigo] = useState<Record<string, InventarioPerfil[]>>({});
-  const [perfilSeleccionado, setPerfilSeleccionado] = useState<Record<number, PerfilSeleccionado>>({});
   const [loadingInventario, setLoadingInventario] = useState(false);
   const [codigosPerfileria, setCodigosPerfileria] = useState<Set<string>>(new Set());
-
-  const [loading, setLoading] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [existPerfLocal, setExistPerfLocal] = useState<Record<number, string>>({});
 
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
-  // Cargar inventario y códigos de perfilería al abrir el modal (una sola vez por SAP)
   useEffect(() => {
-    // Cargar códigos de perfilería
-    axios
-      .get(`${API}/api/compras/codigos-perfileria`, { headers })
+    axios.get(`${API}/api/compras/codigos-perfileria`, { headers })
       .then(r => setCodigosPerfileria(new Set(r.data as string[])))
       .catch(() => {});
 
-    const codigos = Array.from(new Set(sap.items.map(i => i.codigo).filter(Boolean)));
+    const codigos = Array.from(new Set(items.map(i => i.codigo).filter(Boolean)));
     if (codigos.length === 0) return;
 
     setLoadingInventario(true);
     Promise.all(
       codigos.map(cod =>
-        axios
-          .get(`${API}/api/compras/inventario-perfileria/${encodeURIComponent(cod)}`, { headers })
+        axios.get(`${API}/api/compras/inventario-perfileria/${encodeURIComponent(cod)}`, { headers })
           .then(r => ({ cod, data: r.data as InventarioPerfil[] }))
           .catch(() => ({ cod, data: [] as InventarioPerfil[] }))
       )
@@ -133,7 +78,7 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
       setInventarioPorCodigo(map);
     }).finally(() => setLoadingInventario(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sap.id]);
+  }, []);
 
   const handleSeleccionarPerfil = async (itemId: number, codigo: string, perfil: InventarioPerfil) => {
     try {
@@ -142,59 +87,36 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
         axios.delete(`${API}/api/compras/inventario-perfileria/${perfil.consecutivo}`, { headers }),
         axios.patch(`${API}/api/compras/sap-item/${itemId}/exist-perf`, { exist_perf: existText }, { headers }),
       ]);
-      // Marcar automáticamente como en_existencia
       await axios.patch(`${API}/api/compras/sap-item/${itemId}/existencia`, {}, { headers });
-      setPerfilSeleccionado(prev => ({
-        ...prev,
-        [itemId]: { consecutivo: perfil.consecutivo, ubicacion: perfil.ubicacion },
-      }));
-      // Eliminar la opción consumida de la lista local
+      setExistPerfLocal(prev => ({ ...prev, [itemId]: existText }));
       setInventarioPorCodigo(prev => ({
         ...prev,
         [codigo]: (prev[codigo] || []).filter(p => p.consecutivo !== perfil.consecutivo),
-      }));
-      // Actualizar estado local del item
-      setSap(prev => ({
-        ...prev,
-        items: prev.items.map(i =>
-          i.id === itemId ? { ...i, estado_compra: 'en_existencia' } : i
-        ),
       }));
     } catch {
       toast.error('Error al reservar perfil de inventario');
     }
   };
 
-  const renderExisPerf = (item: SAPItem, stopProp = false) => {
-    const seleccionado = perfilSeleccionado[item.id];
-
+  const renderExisPerf = (item: SAPItemConContexto) => {
+    const seleccionado = existPerfLocal[item.id];
     if (seleccionado) {
-      return (
-        <span className="text-[10px] font-bold text-green-700 leading-tight">
-          {seleccionado.consecutivo} · {seleccionado.ubicacion || '—'}
-        </span>
-      );
+      return <span className="text-[10px] font-bold text-green-700">{seleccionado}</span>;
     }
-
-    if (!item.codigo) return <span className="text-slate-400">—</span>;
-
+    if (!item.codigo || !codigosPerfileria.has(item.codigo)) return <span className="text-slate-400">—</span>;
     const opciones = inventarioPorCodigo[item.codigo] ?? null;
-
-    if (loadingInventario || opciones === null) {
-      return <span className="text-slate-400 text-[10px]">…</span>;
-    }
+    if (loadingInventario || opciones === null) return <span className="text-slate-400 text-[10px]">…</span>;
     if (opciones.length === 0) return <span className="text-slate-400">—</span>;
-
     return (
       <select
-        className="text-[10px] border border-slate-200 rounded px-1 py-0.5 w-full max-w-[140px] bg-white cursor-pointer"
+        className="text-[10px] border border-slate-200 rounded px-1 py-0.5 w-full max-w-[130px] bg-white cursor-pointer"
         defaultValue=""
         onChange={e => {
           if (!e.target.value) return;
           const perfil = opciones.find(p => p.consecutivo === parseInt(e.target.value));
           if (perfil) handleSeleccionarPerfil(item.id, item.codigo, perfil);
         }}
-        onClick={stopProp ? e => e.stopPropagation() : undefined}
+        onClick={e => e.stopPropagation()}
       >
         <option value="">Seleccionar…</option>
         {opciones.map(p => (
@@ -206,119 +128,44 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
     );
   };
 
-  const recargar = async () => {
-    try {
-      const res = await axios.get(`${API}/api/compras/sap/${sap.id}`, { headers });
-      setSap(res.data);
-    } catch {
-      toast.error('Error al recargar SAP');
+  // Agrupar items por código para la vista consolidada
+  const gruposPorCodigo = (() => {
+    const map = new Map<string, SAPItemConContexto[]>();
+    for (const item of items) {
+      const key = item.codigo || '—';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(item);
     }
-  };
-
-  const itemsPendientes = sap.items.filter(i => i.estado_compra === 'pendiente');
-
-  const toggleSeleccion = (id: number) => {
-    setSeleccionados(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
-  const toggleExistencia = async (item: SAPItem) => {
-    try {
-      await axios.patch(`${API}/api/compras/sap-item/${item.id}/existencia`, {}, { headers });
-      await recargar();
-      onRefresh();
-    } catch (e: any) {
-      toast.error(e.response?.data?.error || 'Error al actualizar item');
-    }
-  };
+    return map;
+  })();
 
   const handleCrearODC = async () => {
     if (!proveedor.trim()) { toast.error('Ingresa el proveedor'); return; }
-    if (seleccionados.size === 0) { toast.error('Selecciona al menos un item'); return; }
     setLoading(true);
     try {
-      const itemsSeleccionados = sap.items
-        .filter(i => seleccionados.has(i.id))
-        .map(i => ({
+      await axios.post(`${API}/api/compras/odc`, {
+        proveedor,
+        notas: notas || null,
+        items: items.map(i => ({
           sap_item_id: i.id,
           item: i.item,
           codigo: i.codigo,
           descripcion: i.descripcion,
           cantidad: i.cantidad,
-        }));
-
-      await axios.post(`${API}/api/compras/odc`, {
-        sap_id: sap.id,
-        odp_id: odp.id,
-        proveedor,
-        notas,
-        items: itemsSeleccionados,
+        })),
       }, { headers });
 
       toast.success('ODC creada exitosamente');
-      setModo('ver');
-      setSeleccionados(new Set());
-      setProveedor('');
-      setNotas('');
-      await recargar();
       onRefresh();
+      onClose();
     } catch (e: any) {
       toast.error(e.response?.data?.error || 'Error al crear ODC');
     } finally { setLoading(false); }
   };
 
-  const handleEliminarODC = async (id: number) => {
-    try {
-      await axios.delete(`${API}/api/compras/odc/${id}`, { headers });
-      toast.success('ODC eliminada');
-      setDeletingId(null);
-      await recargar();
-      onRefresh();
-    } catch {
-      toast.error('Error al eliminar ODC');
-    }
-  };
-
-  const handleEditarODC = async () => {
-    if (!editandoODC) return;
-    if (!editProveedor.trim()) { toast.error('Ingresa el proveedor'); return; }
-    setLoading(true);
-    try {
-      await axios.put(
-        `${API}/api/compras/odc/${editandoODC.id}`,
-        { proveedor: editProveedor, notas: editNotas, estado: editEstado },
-        { headers }
-      );
-      toast.success('ODC actualizada');
-      setModo('ver');
-      setEditandoODC(null);
-      await recargar();
-      onRefresh();
-    } catch (e: any) {
-      toast.error(e.response?.data?.error || 'Error al actualizar ODC');
-    } finally { setLoading(false); }
-  };
-
-  const abrirEditar = (odc: ODC) => {
-    setEditandoODC(odc);
-    setEditProveedor(odc.proveedor);
-    setEditNotas(odc.notas || '');
-    setEditEstado(odc.estado);
-    setModo('editar');
-  };
-
-  const volverAVer = () => {
-    setModo('ver');
-    setSeleccionados(new Set());
-    setEditandoODC(null);
-  };
-
-  const totalItems = sap.items.length;
-  const gestionados = sap.items.filter(i => i.estado_compra !== 'pendiente').length;
-  const pct = totalItems > 0 ? Math.round((gestionados / totalItems) * 100) : 0;
+  // Calcular cantidad total por código (para la vista consolidada)
+  const totalPorCodigo = (grupo: SAPItemConContexto[]) =>
+    grupo.reduce((sum, it) => sum + Number(it.cantidad), 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
@@ -330,380 +177,117 @@ const ODCModal: React.FC<Props> = ({ sap: sapInicial, odp, onClose, onRefresh })
         {/* Header */}
         <div className="flex justify-between items-start px-6 py-4 border-b border-slate-100 shrink-0">
           <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h2 className="text-lg font-bold text-slate-800">
-                {modo === 'editar' && editandoODC
-                  ? `Editar ODC — ${editandoODC.numero_odc}`
-                  : `Gestión de Compras — ${sap.numero_sap}`}
-              </h2>
-              {modo === 'ver' && (
-                <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${pct === 100 ? 'bg-green-100 text-green-700 border-green-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
-                  {pct === 100 ? 'Completado' : 'Pendiente'}
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-slate-500">{odp.numero_odp} · {odp.cliente?.nombre_razon_social}</p>
-            {modo === 'ver' && (
-              <div className="mt-2 flex items-center gap-2">
-                <div className="w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                </div>
-                <span className="text-xs text-slate-500">{gestionados}/{totalItems} items gestionados</span>
-              </div>
-            )}
+            <h2 className="text-lg font-bold text-slate-800">Nueva ODC Consolidada</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {items.length} item(s) de {new Set(items.map(i => i.SAP?.id)).size} SAP(s) seleccionados
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            {modo === 'ver' && itemsPendientes.length > 0 && (
-              <button
-                onClick={() => setModo('crear')}
-                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition shadow-sm"
-              >
-                <Plus className="w-4 h-4" /> Nueva ODC
-              </button>
-            )}
-            {(modo === 'crear' || modo === 'editar') && (
-              <button
-                onClick={volverAVer}
-                className="px-3 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition"
-              >
-                ← Volver
-              </button>
-            )}
-            <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
 
-          {/* ── MODO VER ── */}
-          {modo === 'ver' && (
-            <div className="p-6 space-y-6">
-
-              <div>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Items de la SAP</p>
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead className="bg-slate-700 text-white text-[10px] uppercase tracking-wider">
-                      <tr>
-                        <th className="px-3 py-2 w-10 text-center">ITEM</th>
-                        <th className="px-3 py-2 w-28">CÓDIGO</th>
-                        <th className="px-3 py-2">DESCRIPCIÓN</th>
-                        <th className="px-3 py-2 w-28">DIMENSIÓN</th>
-                        <th className="px-3 py-2 w-16 text-center">UND</th>
-                        <th className="px-3 py-2 w-36 text-center">EXIS. PERF.</th>
-                        <th className="px-3 py-2 w-20 text-center">CANT.</th>
-                        <th className="px-3 py-2 w-36 text-center">ESTADO</th>
-                        <th className="px-3 py-2 w-28 text-center">ACCIONES</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {sap.items.map((item, i) => {
-                        const est = ITEM_ESTADO[item.estado_compra];
-                        return (
-                          <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                            <td className="px-3 py-2 text-center font-black text-slate-600">{item.item}</td>
-                            <td className="px-3 py-2 font-mono text-blue-700 font-bold">{item.codigo || '—'}</td>
-                            <td className="px-3 py-2 text-slate-700">{item.descripcion || '—'}</td>
-                            <td className="px-3 py-2 text-slate-600">{item.dimension || '—'}</td>
-                            <td className="px-3 py-2 text-center text-slate-600">{item.und || '—'}</td>
-                            <td className="px-3 py-2 text-center text-slate-500 text-[11px]">{item.exist_perf || '—'}</td>
-                            <td className="px-3 py-2 text-center font-bold text-slate-600">{item.cantidad}</td>
-                            <td className="px-3 py-2 text-center">
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${est.className}`}>
-                                {est.icon}{est.label}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              {item.estado_compra !== 'en_odc' && !codigosPerfileria.has(item.codigo) && (
-                                <button
-                                  onClick={() => toggleExistencia(item)}
-                                  className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition ${item.estado_compra === 'en_existencia' ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'}`}
-                                >
-                                  {item.estado_compra === 'en_existencia' ? '✓ En existencia' : 'Marcar existencia'}
-                                </button>
-                              )}
-                              {item.estado_compra === 'en_odc' && (
-                                <span className="text-[10px] text-slate-400">Asignado a ODC</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* ODCs existentes */}
-              {sap.ordenes_compra && sap.ordenes_compra.length > 0 && (
-                <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Órdenes de Compra creadas</p>
-                  <div className="space-y-3">
-                    {sap.ordenes_compra.map(odc => (
-                      <div key={odc.id} className="border border-slate-200 rounded-xl overflow-hidden">
-                        <div className="flex justify-between items-center px-5 py-3 bg-slate-50 border-b border-slate-100">
-                          <div className="flex items-center gap-3">
-                            <span className="font-black text-indigo-700 text-base">{odc.numero_odc}</span>
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${ESTADO_BADGE[odc.estado]?.className}`}>
-                              {ESTADO_BADGE[odc.estado]?.label}
-                            </span>
-                            <span className="text-xs text-slate-400">
-                              {odc.proveedor} · {odc.creador?.nombre_completo} · {new Date(odc.fecha_creacion).toLocaleDateString('es-CO')}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => abrirEditar(odc)}
-                              title="Editar ODC"
-                              className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" /> Editar
-                            </button>
-                            <button
-                              onClick={() => setDeletingId(odc.id)}
-                              title="Eliminar ODC"
-                              className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 border border-slate-200 text-slate-400 rounded-lg hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" /> Eliminar
-                            </button>
-                          </div>
-                        </div>
-                        <table className="w-full text-xs">
-                          <tbody className="divide-y divide-slate-100">
-                            {odc.items.map((it, i) => (
-                              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                                <td className="px-3 py-1.5 font-black text-slate-600 w-10">{it.item}</td>
-                                <td className="px-3 py-1.5 font-mono text-blue-700 font-bold w-28">{it.codigo || '—'}</td>
-                                <td className="px-3 py-1.5 text-slate-700">{it.descripcion || '—'}</td>
-                                <td className="px-3 py-1.5 text-center font-bold text-slate-600 w-16">{it.cantidad}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {odc.notas && <p className="px-5 py-2 text-xs text-slate-500 italic border-t border-slate-100">"{odc.notas}"</p>}
-                      </div>
-                    ))}
+          {/* Resumen de items agrupados por código */}
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+              Items seleccionados — agrupados por código
+            </p>
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+              {Array.from(gruposPorCodigo.entries()).map(([codigo, grupo], gi) => (
+                <div key={codigo} className={gi > 0 ? 'border-t border-slate-200' : ''}>
+                  {/* Encabezado del grupo */}
+                  <div className="flex items-center gap-3 px-4 py-2 bg-indigo-50 border-b border-indigo-100">
+                    <span className="font-mono font-black text-indigo-700 text-sm">{codigo}</span>
+                    <span className="text-xs text-slate-500">—</span>
+                    <span className="text-xs text-slate-600 font-medium flex-1 truncate">{grupo[0].descripcion || '—'}</span>
+                    <span className="text-xs font-black text-indigo-700 shrink-0">
+                      Total: {totalPorCodigo(grupo)} {grupo[0].und || ''}
+                    </span>
+                    {grupo.length > 1 && (
+                      <span className="text-[10px] font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full">
+                        {grupo.length} SAPs
+                      </span>
+                    )}
                   </div>
-                </div>
-              )}
-
-              {sap.ordenes_compra?.length === 0 && itemsPendientes.length === 0 && (
-                <div className="text-center py-8">
-                  <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto mb-2" />
-                  <p className="font-bold text-green-700">Todos los items están gestionados</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── MODO CREAR ODC ── */}
-          {modo === 'crear' && (
-            <div className="p-6 space-y-5">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Selecciona los items a incluir en esta ODC
-              </p>
-
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-slate-700 text-white text-[10px] uppercase tracking-wider">
-                    <tr>
-                      <th className="px-3 py-2 w-10 text-center">
-                        <input
-                          type="checkbox"
-                          checked={seleccionados.size === itemsPendientes.length && itemsPendientes.length > 0}
-                          onChange={e => {
-                            if (e.target.checked) setSeleccionados(new Set(itemsPendientes.map(i => i.id)));
-                            else setSeleccionados(new Set());
-                          }}
-                          className="rounded"
-                        />
-                      </th>
-                      <th className="px-3 py-2 w-10">ITEM</th>
-                      <th className="px-3 py-2 w-28">CÓDIGO</th>
-                      <th className="px-3 py-2">DESCRIPCIÓN</th>
-                      <th className="px-3 py-2 w-28">DIMENSIÓN</th>
-                      <th className="px-3 py-2 w-16 text-center">UND</th>
-                      <th className="px-3 py-2 w-24 text-center">EXIS. PERF.</th>
-                      <th className="px-3 py-2 w-20 text-center">CANT.</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {itemsPendientes.map((item, i) => (
-                      <tr
-                        key={item.id}
-                        onClick={() => toggleSeleccion(item.id)}
-                        className={`cursor-pointer transition ${seleccionados.has(item.id) ? 'bg-indigo-50' : i % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/50 hover:bg-slate-100'}`}
-                      >
-                        <td className="px-3 py-2 text-center" onClick={e => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={seleccionados.has(item.id)}
-                            onChange={() => toggleSeleccion(item.id)}
-                            className="rounded"
-                          />
-                        </td>
-                        <td className="px-3 py-2 font-black text-slate-600">{item.item}</td>
-                        <td className="px-3 py-2 font-mono text-blue-700 font-bold">{item.codigo || '—'}</td>
-                        <td className="px-3 py-2 text-slate-700">{item.descripcion || '—'}</td>
-                        <td className="px-3 py-2 text-slate-600">{item.dimension || '—'}</td>
-                        <td className="px-3 py-2 text-center text-slate-600">{item.und || '—'}</td>
-                        <td className="px-3 py-2 text-center" onClick={e => e.stopPropagation()}>
-                          {renderExisPerf(item, true)}
-                        </td>
-                        <td className="px-3 py-2 text-center font-bold text-slate-600">{item.cantidad}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {seleccionados.size > 0 && (
-                <p className="text-xs text-indigo-600 font-bold">{seleccionados.size} item(s) seleccionado(s)</p>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Proveedor <span className="text-red-400">*</span></label>
-                  <input
-                    value={proveedor}
-                    onChange={e => setProveedor(e.target.value)}
-                    placeholder="Nombre del proveedor..."
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Notas (opcional)</label>
-                  <input
-                    value={notas}
-                    onChange={e => setNotas(e.target.value)}
-                    placeholder="Observaciones..."
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-2 border-t border-slate-100">
-                <button onClick={volverAVer} className="flex-1 py-3 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleCrearODC}
-                  disabled={loading || seleccionados.size === 0 || !proveedor.trim()}
-                  className="flex-1 py-3 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
-                >
-                  {loading ? 'Creando...' : `Crear ODC con ${seleccionados.size} item(s)`}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ── MODO EDITAR ODC ── */}
-          {modo === 'editar' && editandoODC && (
-            <div className="p-6 space-y-5">
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                    Proveedor <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    value={editProveedor}
-                    onChange={e => setEditProveedor(e.target.value)}
-                    placeholder="Nombre del proveedor..."
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Notas (opcional)</label>
-                  <input
-                    value={editNotas}
-                    onChange={e => setEditNotas(e.target.value)}
-                    placeholder="Observaciones..."
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="max-w-xs">
-                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Estado</label>
-                <select
-                  value={editEstado}
-                  onChange={e => setEditEstado(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="pendiente">Pendiente</option>
-                  <option value="en_transito">En tránsito</option>
-                  <option value="recibido">Recibido</option>
-                  <option value="problema">Problema</option>
-                </select>
-              </div>
-
-              <div>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Items de esta ODC (no editables)</p>
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  {/* Filas de detalle por SAP de origen */}
                   <table className="w-full text-xs">
-                    <thead className="bg-slate-700 text-white text-[10px] uppercase tracking-wider">
+                    <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
                       <tr>
-                        <th className="px-3 py-2 w-10 text-center">ITEM</th>
-                        <th className="px-3 py-2 w-28">CÓDIGO</th>
-                        <th className="px-3 py-2">DESCRIPCIÓN</th>
-                        <th className="px-3 py-2 w-20 text-center">CANT.</th>
+                        <th className="px-4 py-1.5 text-left w-28">DIMENSIÓN</th>
+                        <th className="px-4 py-1.5 text-center w-16">CANT.</th>
+                        <th className="px-4 py-1.5 text-left w-28">UND</th>
+                        <th className="px-4 py-1.5 text-left w-28">SAP</th>
+                        <th className="px-4 py-1.5 text-left w-28">ODP</th>
+                        <th className="px-4 py-1.5 text-left">CLIENTE</th>
+                        <th className="px-4 py-1.5 text-center w-40">EXIS. PERF.</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {editandoODC.items.map((it, i) => (
-                        <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                          <td className="px-3 py-2 text-center font-black text-slate-600">{it.item}</td>
-                          <td className="px-3 py-2 font-mono text-blue-700 font-bold">{it.codigo || '—'}</td>
-                          <td className="px-3 py-2 text-slate-700">{it.descripcion || '—'}</td>
-                          <td className="px-3 py-2 text-center font-bold text-slate-600">{it.cantidad}</td>
+                    <tbody className="divide-y divide-slate-50">
+                      {grupo.map((item, i) => (
+                        <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
+                          <td className="px-4 py-1.5 text-slate-600">{item.dimension || '—'}</td>
+                          <td className="px-4 py-1.5 text-center font-bold text-slate-700">{item.cantidad}</td>
+                          <td className="px-4 py-1.5 text-slate-500">{item.und || '—'}</td>
+                          <td className="px-4 py-1.5 font-bold text-indigo-600">{item.SAP?.numero_sap || '—'}</td>
+                          <td className="px-4 py-1.5 font-bold text-slate-700">{item.SAP?.ODP?.numero_odp || '—'}</td>
+                          <td className="px-4 py-1.5 text-slate-600 truncate max-w-[180px]">{item.SAP?.ODP?.cliente?.nombre_razon_social || '—'}</td>
+                          <td className="px-4 py-1.5 text-center">{renderExisPerf(item)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              </div>
-
-              <div className="flex gap-3 pt-2 border-t border-slate-100">
-                <button onClick={volverAVer} className="flex-1 py-3 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleEditarODC}
-                  disabled={loading || !editProveedor.trim()}
-                  className="flex-1 py-3 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
-                >
-                  {loading ? 'Guardando...' : 'Guardar cambios'}
-                </button>
-              </div>
+              ))}
             </div>
-          )}
+          </div>
+
+          {/* Campos de la ODC */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                Proveedor <span className="text-red-400">*</span>
+              </label>
+              <input
+                value={proveedor}
+                onChange={e => setProveedor(e.target.value)}
+                placeholder="Nombre del proveedor..."
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                Notas (opcional)
+              </label>
+              <input
+                value={notas}
+                onChange={e => setNotas(e.target.value)}
+                placeholder="Observaciones..."
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 py-4 border-t border-slate-100 shrink-0">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleCrearODC}
+            disabled={loading || !proveedor.trim()}
+            className="flex-1 py-3 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
+          >
+            {loading ? 'Creando...' : `Crear ODC con ${items.length} item(s)`}
+          </button>
         </div>
       </motion.div>
-
-      {/* Confirmar eliminar ODC */}
-      <AnimatePresence>
-        {deletingId !== null && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center"
-            >
-              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-              <h3 className="font-bold text-slate-800 mb-2">¿Eliminar esta ODC?</h3>
-              <p className="text-sm text-slate-500 mb-5">Los items vuelven a estado pendiente.</p>
-              <div className="flex gap-3">
-                <button onClick={() => setDeletingId(null)} className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">Cancelar</button>
-                <button onClick={() => handleEliminarODC(deletingId!)} className="flex-1 py-2.5 font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition">Sí, eliminar</button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

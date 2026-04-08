@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
 import { Lead, LeadEvento, Usuario, Cliente } from '../models';
+import ODP from '../models/odp.model';
 
 
 
@@ -8,7 +9,7 @@ export const createLead = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const { 
-      telefono, nombre, mensaje_entrada, segmento, 
+      telefono, nombre, mensaje_entrada, segmento, fuente_lead,
       respondio, producto_interes, descripcion_contexto, asesor_id 
     } = req.body;
 
@@ -17,12 +18,14 @@ export const createLead = async (req: Request, res: Response) => {
       nombre,
       mensaje_entrada,
       segmento,
+      fuente_lead: fuente_lead || 'Presencial',
       respondio,
       producto_interes,
       descripcion_contexto,
       asesor_id: asesor_id || null, // Nulo = Bolsa Común
       asistente_id: user.id,
-      estado_crm: asesor_id ? 'ASIGNADO' : 'NUEVO'
+      estado_crm: asesor_id ? 'ASIGNADO' : 'NUEVO',
+      fecha_asignado: asesor_id ? new Date() : null
     });
 
     await LeadEvento.create({
@@ -84,10 +87,31 @@ export const updateLeadStatus = async (req: Request, res: Response) => {
        }
     }
 
-    await lead.update({ 
+    const MAP_FECHAS: Record<string, string> = {
+      'ASIGNADO':       'fecha_asignado',
+      'EN_CONTACTO':    'fecha_en_contacto',
+      'COTIZANDO':      'fecha_cotizando',
+      'VISITA_TECNICA': 'fecha_visita_tecnica',
+      'FRIO':           'fecha_frio',
+      'APROBADO':       'fecha_aprobado',
+      'PERDIDO':        'fecha_perdido'
+    };
+
+    const updates: any = { 
       estado_crm: nuevo_estado,
       motivo_perdida: nuevo_estado === 'PERDIDO' ? motivo_perdida : lead.getDataValue('motivo_perdida')
-    });
+    };
+
+    if (MAP_FECHAS[nuevo_estado]) {
+      updates[MAP_FECHAS[nuevo_estado]] = new Date();
+    }
+    
+    // Si se aprueba, el monto proyectado pasa a ser el monto real inicial
+    if (nuevo_estado === 'APROBADO') {
+      updates.monto_real_venta = lead.getDataValue('monto_proyectado_cotizacion');
+    }
+
+    await lead.update(updates);
 
     await LeadEvento.create({
       tipo: 'CAMBIO_ESTADO',
@@ -111,13 +135,20 @@ export const assignLeadToMe = async (req: Request, res: Response) => {
     const lead = await Lead.findByPk(id);
     if (!lead) return res.status(404).json({ error: 'Lead no encontrado' });
 
+    // SOLO Administración o Gerencia pueden "tomar" o asignarse leads
+    const puedeTomar = ['admin', 'gerencia', 'root', 'asistente_administrativo'].includes(user.rol.toLowerCase());
+    if (!puedeTomar) {
+      return res.status(403).json({ error: 'No tienes permisos para auto-asignarte leads. Solicítalo a Gerencia.' });
+    }
+
     if (lead.getDataValue('asesor_id') && lead.getDataValue('asesor_id') !== user.id) {
        return res.status(400).json({ error: 'El lead ya está asignado a otro asesor' });
     }
 
     await lead.update({ 
       asesor_id: user.id,
-      estado_crm: 'ASIGNADO'
+      estado_crm: 'ASIGNADO',
+      fecha_asignado: new Date()
     });
 
     await LeadEvento.create({
@@ -150,7 +181,8 @@ export const assignLeadToUser = async (req: Request, res: Response) => {
 
     await lead.update({ 
       asesor_id: asesor.getDataValue('id'),
-      estado_crm: lead.getDataValue('estado_crm') === 'NUEVO' ? 'ASIGNADO' : lead.getDataValue('estado_crm')
+      estado_crm: lead.getDataValue('estado_crm') === 'NUEVO' ? 'ASIGNADO' : lead.getDataValue('estado_crm'),
+      fecha_asignado: lead.getDataValue('fecha_asignado') || new Date()
     });
 
     await LeadEvento.create({
@@ -202,11 +234,11 @@ export const updateLeadMonto = async (req: Request, res: Response) => {
     await lead.update({ monto_proyectado_cotizacion: monto });
 
     await LeadEvento.create({
-      tipo: 'SEGUIMIENTO',
+      tipo: 'CAMBIO_ESTADO',
       detalle_texto: `Monto proyectado actualizado a ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(monto)}`,
       lead_id: lead.getDataValue('id'),
-      creado_por: user.id,
-    } as any);
+      creado_por: user.id
+    });
 
     res.json(lead);
   } catch (error: any) {
@@ -264,10 +296,13 @@ export const convertLeadToCliente = async (req: Request, res: Response) => {
     const {
       nombre_razon_social,
       numero_documento,
-      tipo_documento = 'DNI',
+      tipo_documento = 'C.C',
       direccion,
       condicion_pago = 'CONTADO',
       email,
+      telefono,
+      celular,
+      segmento,
     } = req.body;
 
     const lead = await Lead.findByPk(id);
@@ -301,10 +336,10 @@ export const convertLeadToCliente = async (req: Request, res: Response) => {
       nombre_razon_social: nombre_razon_social || lead.getDataValue('nombre'),
       tipo_documento,
       numero_documento,
-      telefono: lead.getDataValue('telefono'),
-      celular: lead.getDataValue('telefono'),
+      telefono: telefono || lead.getDataValue('telefono') || null,
+      celular: celular || lead.getDataValue('telefono') || null,
       email: email || null,
-      segmento: lead.getDataValue('segmento'),
+      segmento: segmento || lead.getDataValue('segmento') || null,
       direccion: direccion || null,
       condicion_pago,
       creado_por: user.id,
@@ -333,7 +368,7 @@ export const getLeads = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const { mes, anio } = req.query;
-    const esAdminOGerencia = ['admin', 'gerencia', 'root', 'asistente_administrativo'].includes(user.rol.toLowerCase());
+    const esAdminOGerencia = ['admin', 'gerencia', 'gerente', 'root', 'asistente_administrativo'].includes(user.rol?.toLowerCase());
 
     const whereClause: any = esAdminOGerencia 
       ? {} 
@@ -345,7 +380,7 @@ export const getLeads = async (req: Request, res: Response) => {
         };
 
     // Filtro por mes y año si vienen en el query
-    if (mes && anio) {
+    if (mes && anio && mes !== 'undefined' && anio !== 'undefined') {
       const month = parseInt(mes as string);
       const year = parseInt(anio as string);
       const startDate = new Date(year, month - 1, 1);
@@ -368,7 +403,16 @@ export const getLeads = async (req: Request, res: Response) => {
     res.json(leads);
   } catch (error: any) {
     console.error('Error al obtener leads:', error);
-    res.status(500).json({ error: 'Error del servidor al obtener leads' });
+    // Intentar escribir a un archivo que SI podamos leer (UTF-8)
+    try {
+      require('fs').appendFileSync('C:/Users/User/Desktop/vidrios-templex-system/backend-api/debug_error.txt', 
+        `[${new Date().toISOString()}] GET_LEADS_ERROR: ${error.message}\n${error.stack}\n\n`, 'utf8');
+    } catch (fsErr) {}
+    
+    res.status(500).json({ 
+      error: 'Error del servidor al obtener leads',
+      details: error.message 
+    });
   }
 };
 
@@ -376,12 +420,12 @@ export const getCRMStats = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const { mes, anio } = req.query;
-    const esGlobal = ['admin', 'gerencia', 'root', 'asistente_administrativo'].includes(user.rol);
+    const esGlobal = ['admin', 'gerencia', 'gerente', 'root', 'asistente_administrativo'].includes(user.rol?.toLowerCase());
     
     const whereBase: any = esGlobal ? {} : { asesor_id: user.id };
 
     // Filtro por mes y año
-    if (mes && anio) {
+    if (mes && anio && mes !== 'undefined' && anio !== 'undefined') {
       const month = parseInt(mes as string);
       const year = parseInt(anio as string);
       const startDate = new Date(year, month - 1, 1);
@@ -397,25 +441,44 @@ export const getCRMStats = async (req: Request, res: Response) => {
     const total = leads.length;
     const porEstado: Record<string, number> = {};
     const porMotivoPerdida: Record<string, number> = {};
+    const porFuente: Record<string, number> = {};
     const porSegmento: Record<string, { total: number, aprobados: number, monto: number }> = {};
     const porProducto: Record<string, { total: number, aprobados: number, monto: number }> = {};
     
-    let montoTotal = 0;
-    let montoPotencial = 0;
+    let montoTotalProyectado = 0;
+    let montoTotalReal = 0;
+    let montoRealAprobados = 0;
     let sumaDiasCierre = 0;
     let cerradosConFecha = 0;
 
+    // Acumuladores de tiempo entre etapas (ms)
+    const tiempos: any = {
+      nuevo_a_asignado: { suma: 0, conta: 0 },
+      asignado_a_contacto: { suma: 0, conta: 0 },
+      contacto_a_cotizando: { suma: 0, conta: 0 },
+      cotizando_a_visita: { suma: 0, conta: 0 }
+    };
+
+    let convertidos = 0;
+    leads.forEach((l: any) => {
+      if (l.getDataValue('cliente_id')) convertidos++;
+    });
+
     leads.forEach((l: any) => {
       const estado = l.getDataValue('estado_crm');
-      const monto = parseFloat(l.getDataValue('monto_proyectado_cotizacion') || '0');
+      const montoProy = parseFloat(l.getDataValue('monto_proyectado_cotizacion') || '0');
+      const montoReal = parseFloat(l.getDataValue('monto_real_venta') || '0');
       const segmento = l.getDataValue('segmento') || 'Sin Segmento';
+      const fuente = l.getDataValue('fuente_lead') || 'Presencial';
       const producto = l.getDataValue('producto_interes') || 'Sin Definir';
       const creado = new Date(l.getDataValue('createdAt'));
       const cierre = l.getDataValue('fecha_cierre') ? new Date(l.getDataValue('fecha_cierre')) : null;
 
       porEstado[estado] = (porEstado[estado] || 0) + 1;
-      montoTotal += monto;
-      if (!['PERDIDO', 'FRIO'].includes(estado)) montoPotencial += monto;
+      porFuente[fuente] = (porFuente[fuente] || 0) + 1;
+      montoTotalProyectado += montoProy;
+      montoTotalReal += montoReal;
+      if (estado === 'APROBADO') montoRealAprobados += montoReal;
 
       // Desglose por motivo de pérdida
       if (estado === 'PERDIDO' && l.getDataValue('motivo_perdida')) {
@@ -423,16 +486,42 @@ export const getCRMStats = async (req: Request, res: Response) => {
         porMotivoPerdida[motivo] = (porMotivoPerdida[motivo] || 0) + 1;
       }
 
+      // Calculo de tiempos entre etapas
+      const fAsignado = l.getDataValue('fecha_asignado');
+      const fContacto = l.getDataValue('fecha_en_contacto');
+      const fCotizando = l.getDataValue('fecha_cotizando');
+      const fVisita = l.getDataValue('fecha_visita_tecnica');
+
+      if (fAsignado) {
+        tiempos.nuevo_a_asignado.suma += new Date(fAsignado).getTime() - creado.getTime();
+        tiempos.nuevo_a_asignado.conta++;
+        
+        if (fContacto) {
+          tiempos.asignado_a_contacto.suma += new Date(fContacto).getTime() - new Date(fAsignado).getTime();
+          tiempos.asignado_a_contacto.conta++;
+
+          if (fCotizando) {
+            tiempos.contacto_a_cotizando.suma += new Date(fCotizando).getTime() - new Date(fContacto).getTime();
+            tiempos.contacto_a_cotizando.conta++;
+
+            if (fVisita) {
+              tiempos.cotizando_a_visita.suma += new Date(fVisita).getTime() - new Date(fCotizando).getTime();
+              tiempos.cotizando_a_visita.conta++;
+            }
+          }
+        }
+      }
+
       // Desglose por segmento
       if (!porSegmento[segmento]) porSegmento[segmento] = { total: 0, aprobados: 0, monto: 0 };
       porSegmento[segmento].total++;
-      porSegmento[segmento].monto += monto;
+      porSegmento[segmento].monto += montoProy;
       if (estado === 'APROBADO') porSegmento[segmento].aprobados++;
 
       // Desglose por producto
       if (!porProducto[producto]) porProducto[producto] = { total: 0, aprobados: 0, monto: 0 };
       porProducto[producto].total++;
-      porProducto[producto].monto += monto;
+      porProducto[producto].monto += montoProy;
       if (estado === 'APROBADO') porProducto[producto].aprobados++;
 
       // Tiempo de cierre
@@ -443,13 +532,13 @@ export const getCRMStats = async (req: Request, res: Response) => {
       }
     });
 
-    const aprobados = porEstado['APROBADO'] || 0;
-    const convertidos = leads.filter((l: any) => l.getDataValue('cliente_id')).length;
+    const msToHours = (ms: number) => Math.round(ms / (1000 * 60 * 60));
 
+    const aprobados = porEstado['APROBADO'] || 0;
     const statsPorAsesor: any[] = [];
     if (esGlobal) {
       const asesores = await Usuario.findAll({
-        where: { rol: { [Op.or]: ['asesor_comercial', 'admin'] } },
+        where: { rol: { [Op.or]: ['asesor_comercial', 'admin', 'gerencia'] } },
         attributes: ['id', 'nombre_completo']
       });
       
@@ -465,7 +554,7 @@ export const getCRMStats = async (req: Request, res: Response) => {
             total: leadsAsesor.length,
             aprobados: aprobadosAsesor,
             perdidos: leadsAsesor.filter((l: any) => l.getDataValue('estado_crm') === 'PERDIDO').length,
-            tasa_conversion: Math.round((aprobadosAsesor / leadsAsesor.length) * 100),
+            tasa_conversion: leadsAsesor.length > 0 ? Math.round((aprobadosAsesor / leadsAsesor.length) * 100) : 0,
             monto_gestionado: leadsAsesor.reduce((s: number, l: any) => s + parseFloat(l.getDataValue('monto_proyectado_cotizacion') || '0'), 0),
           });
         }
@@ -475,12 +564,21 @@ export const getCRMStats = async (req: Request, res: Response) => {
     res.json({
       total,
       por_estado: porEstado,
+      por_fuente: porFuente,
       por_motivo_perdida: porMotivoPerdida,
       por_segmento: porSegmento,
       por_producto: porProducto,
-      monto_total_cotizaciones: montoTotal,
-      monto_potencial_activo: montoPotencial,
+      monto_total_proyectado: montoTotalProyectado,
+      monto_total_real: montoTotalReal,
+      monto_real_aprobados: montoRealAprobados,
+      ticket_promedio_proyectado: total > 0 ? (montoTotalProyectado / total) : 0,
       tasa_conversion: total > 0 ? Math.round((aprobados / total) * 100) : 0,
+      tiempos_promedio_horas: {
+        asignacion: tiempos.nuevo_a_asignado.conta > 0 ? msToHours(Math.max(0, tiempos.nuevo_a_asignado.suma / tiempos.nuevo_a_asignado.conta)) : 0,
+        contacto: tiempos.asignado_a_contacto.conta > 0 ? msToHours(Math.max(0, tiempos.asignado_a_contacto.suma / tiempos.asignado_a_contacto.conta)) : 0,
+        cotizacion: tiempos.contacto_a_cotizando.conta > 0 ? msToHours(Math.max(0, tiempos.contacto_a_cotizando.suma / tiempos.contacto_a_cotizando.conta)) : 0,
+        visita: tiempos.cotizando_a_visita.conta > 0 ? msToHours(Math.max(0, tiempos.cotizando_a_visita.suma / tiempos.cotizando_a_visita.conta)) : 0
+      },
       convertidos_a_cliente: convertidos,
       tiempo_promedio_cierre_dias: cerradosConFecha > 0 ? Math.round(sumaDiasCierre / cerradosConFecha) : 0,
       stats_por_asesor: statsPorAsesor.sort((a,b) => b.tasa_conversion - a.tasa_conversion),
@@ -488,5 +586,114 @@ export const getCRMStats = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error en stats CRM:', error);
     res.status(500).json({ error: 'Error del servidor' });
+  }
+};
+
+export const updateLeadDetails = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = req.user as any;
+    const {
+      monto_proyectado_cotizacion,
+      segmento,
+      producto_interes,
+      nombre,
+      telefono
+    } = req.body;
+
+    const lead = await Lead.findByPk(id);
+    if (!lead) return res.status(404).json({ error: 'Lead no encontrado' });
+
+    const updates: any = {};
+    if (monto_proyectado_cotizacion !== undefined) updates.monto_proyectado_cotizacion = parseFloat(monto_proyectado_cotizacion);
+    if (segmento !== undefined) updates.segmento = segmento;
+    if (producto_interes !== undefined) updates.producto_interes = producto_interes;
+    if (nombre !== undefined) updates.nombre = nombre;
+    if (telefono !== undefined) updates.telefono = telefono;
+
+    await lead.update(updates);
+
+    await LeadEvento.create({
+      tipo: 'SEGUIMIENTO',
+      detalle_texto: `Información del prospecto actualizada por el usuario.`,
+      lead_id: lead.getDataValue('id'),
+      creado_por: user.id
+    });
+
+    res.json(lead);
+  } catch (error: any) {
+    console.error('Error al actualizar detalles lead:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+};
+
+// Buscar ODPs para vincular a un lead aprobado
+export const searchODPsForLead = async (req: Request, res: Response) => {
+  try {
+    const { q, cliente_id } = req.query;
+
+    const where: any = {};
+    if (q) {
+      where.numero_odp = { [Op.iLike]: `%${q}%` };
+    }
+    if (cliente_id) {
+      where.cliente_id = parseInt(cliente_id as string);
+    }
+
+    const odps = await ODP.findAll({
+      where,
+      include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
+      attributes: ['id', 'numero_odp', 'estado_produccion', 'fecha_creacion', 'cliente_id'],
+      order: [['fecha_creacion', 'DESC']],
+      limit: 10,
+    });
+
+    res.json(odps);
+  } catch (error: any) {
+    console.error('Error al buscar ODPs:', error);
+    res.status(500).json({ error: 'Error del servidor al buscar ODPs' });
+  }
+};
+
+// Vincular un lead aprobado a una ODP existente
+export const vincularODPAlLead = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { odp_id } = req.body;
+    const user = req.user as any;
+
+    const lead = await Lead.findByPk(id);
+    if (!lead) return res.status(404).json({ error: 'Lead no encontrado' });
+    if (lead.getDataValue('estado_crm') !== 'APROBADO') {
+      return res.status(400).json({ error: 'Solo se pueden vincular leads en estado APROBADO' });
+    }
+
+    if (odp_id) {
+      const odp = await ODP.findByPk(odp_id);
+      if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
+    }
+
+    await lead.update({ odp_id: odp_id || null });
+
+    await LeadEvento.create({
+      tipo: 'SEGUIMIENTO',
+      detalle_texto: odp_id
+        ? `Lead vinculado a ODP #${odp_id}.`
+        : `Vínculo con ODP eliminado.`,
+      lead_id: lead.getDataValue('id'),
+      creado_por: user.id,
+    });
+
+    const leadActualizado = await Lead.findByPk(id, {
+      include: [
+        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+        { model: ODP, as: 'odp', attributes: ['id', 'numero_odp', 'estado_produccion'] },
+      ],
+    });
+
+    res.json(leadActualizado);
+  } catch (error: any) {
+    console.error('Error al vincular ODP al lead:', error);
+    res.status(500).json({ error: 'Error del servidor al vincular ODP' });
   }
 };

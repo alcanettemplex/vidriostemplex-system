@@ -18,14 +18,43 @@ const generarNumeroODC = async (): Promise<string> => {
   return `ODC-${String(next).padStart(4, '0')}`;
 };
 
+// Inclusión profunda de trazabilidad SAP/ODP por item (reutilizable en seguimiento y recibidas)
+const includeItemsTrazabilidad = [
+  {
+    model: ODCItem,
+    as: 'items',
+    include: [
+      {
+        model: SAPItem,
+        as: 'sap_item',
+        include: [
+          {
+            model: SAP,
+            include: [
+              {
+                model: ODP,
+                include: [
+                  { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+                  { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+];
+
 // GET /odc/seguimiento — ODCs en estado pendiente o en_transito
 export const getODCsSeguimiento = async (req: Request, res: Response) => {
   try {
     const odcs = await OrdenCompra.findAll({
       where: { estado: { [Op.in]: ['pendiente', 'en_transito'] } },
       include: [
-        { model: ODCItem, as: 'items' },
+        ...includeItemsTrazabilidad,
         { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
+        // Backward compat: ODCs antiguas con sap_id
         {
           model: SAP, as: 'sap',
           include: [{
@@ -51,8 +80,9 @@ export const getODCsRecibidas = async (req: Request, res: Response) => {
     const odcs = await OrdenCompra.findAll({
       where: { estado: 'recibido' },
       include: [
-        { model: ODCItem, as: 'items' },
+        ...includeItemsTrazabilidad,
         { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
+        // Backward compat: ODCs antiguas con sap_id
         {
           model: SAP, as: 'sap',
           include: [{
@@ -72,30 +102,28 @@ export const getODCsRecibidas = async (req: Request, res: Response) => {
   }
 };
 
-// GET /odc/panel — ODPs con SAP que tienen items pendientes
+// GET /odc/panel — Lista plana de todos los SAPItems pendientes, ordenados por código
 export const getODPsConSAPPendiente = async (req: Request, res: Response) => {
   try {
-    // Buscar SAPs que tienen al menos un item en estado 'pendiente'
-    const sapsConPendiente = await SAP.findAll({
+    const items = await SAPItem.findAll({
+      where: { estado_compra: 'pendiente' },
       include: [
         {
-          model: SAPItem,
-          as: 'items',
-          where: { estado_compra: 'pendiente' },
-          required: true,
-        },
-        {
-          model: ODP,
+          model: SAP,
           include: [
-            { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
-            { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+            {
+              model: ODP,
+              include: [
+                { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+                { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+              ],
+            },
           ],
         },
-        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
       ],
-      order: [['fecha_creacion', 'DESC']],
+      order: [['codigo', 'ASC']],
     });
-    res.json(sapsConPendiente);
+    res.json(items);
   } catch (error: any) {
     res.status(500).json({ error: 'Error al obtener panel de compras', detail: error.message });
   }
@@ -129,39 +157,53 @@ export const getSAPParaCompras = async (req: Request, res: Response) => {
   }
 };
 
-// POST /odc — Crear ODC con items seleccionados
+// POST /odc — Crear ODC consolidada multi-SAP
+// Body: { proveedor, notas?, items: [{ sap_item_id, item, codigo, descripcion, cantidad }] }
+// sap_id y odp_id son null — la trazabilidad queda a nivel de cada ODCItem.sap_item_id
 export const createODC = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
-    const { sap_id, odp_id, proveedor, notas, items } = req.body;
-    // items: [{ sap_item_id, item, codigo, descripcion, cantidad }]
+    const { proveedor, notas, items } = req.body;
     const userId = (req as any).user?.id;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       await t.rollback();
       return res.status(400).json({ error: 'Debes seleccionar al menos un item' });
     }
+    if (!proveedor?.trim()) {
+      await t.rollback();
+      return res.status(400).json({ error: 'El proveedor es requerido' });
+    }
 
     const numero_odc = await generarNumeroODC();
 
     const odc = await OrdenCompra.create({
-      numero_odc, sap_id, odp_id, proveedor, notas, estado: 'pendiente', creado_por: userId,
+      numero_odc,
+      sap_id: null,
+      odp_id: null,
+      tipo: 'perfileria',
+      proveedor,
+      notas: notas || null,
+      estado: 'pendiente',
+      creado_por: userId,
     }, { transaction: t });
 
     const odcId = odc.getDataValue('id');
 
-    // Crear items de la ODC
+    // Un ODCItem por SAPItem original (mantiene trazabilidad completa)
     await ODCItem.bulkCreate(
       items.map((i: any) => ({ ...i, odc_id: odcId })),
       { transaction: t }
     );
 
-    // Actualizar estado_compra de los sap_items incluidos
-    const sapItemIds = items.map((i: any) => i.sap_item_id);
-    await SAPItem.update(
-      { estado_compra: 'en_odc' },
-      { where: { id: { [Op.in]: sapItemIds } }, transaction: t }
-    );
+    // Marcar todos los SAPItems incluidos como en_odc
+    const sapItemIds = items.map((i: any) => i.sap_item_id).filter(Boolean);
+    if (sapItemIds.length > 0) {
+      await SAPItem.update(
+        { estado_compra: 'en_odc' },
+        { where: { id: { [Op.in]: sapItemIds } }, transaction: t }
+      );
+    }
 
     await t.commit();
 

@@ -1,11 +1,12 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import {
   Search, X, ChevronDown, ChevronRight, LayoutList,
   Columns, DollarSign, AlertTriangle, Zap, ArrowUpDown,
-  User, Phone, Tag, Clock, UserCheck, Filter, TrendingUp
+  User, Phone, Tag, Clock, UserCheck, Filter, TrendingUp,
+  Table
 } from 'lucide-react';
 import { fetchLeadsStart, fetchLeadsSuccess, fetchLeadsFailure, updateLead } from '../crmSlice';
 import { apiGetLeads, apiUpdateLeadStatus, apiAssignLeadToMe } from '../crmService';
@@ -180,9 +181,24 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
     Object.fromEntries(PIPELINE_STAGES.map(s => [s.id, 1]))
   );
 
-  // Lead seleccionado para panel lateral (propuesta 5)
+  // Lead seleccionado para panel lateral
   const [leadSeleccionado, setLeadSeleccionado] = useState<any>(null);
   const LeadDetalleModal = React.lazy(() => import('./LeadDetalleModal'));
+
+  // Dropdown de etapas por tarjeta
+  const [dropdownOpenId, setDropdownOpenId] = useState<number | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (dropdownOpenId === null) return;
+    const close = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpenId(null);
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [dropdownOpenId]);
 
   // ─── Carga de datos ──────────────────────────────────────────────────────────
   const fetchLeads = useCallback(async () => {
@@ -191,11 +207,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
       const { data } = await apiGetLeads(mes, anio);
       dispatch(fetchLeadsSuccess(data));
     } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.response?.data?.message || 'No se pudieron cargar los leads. Verifica la conexión.';
       if (err?.response?.status === 401) {
         dispatch(fetchLeadsFailure('Sesión expirada'));
       } else {
-        dispatch(fetchLeadsFailure('No se pudieron cargar los leads'));
-        toast.warning('No se pudieron cargar los leads. Verifica la conexión.');
+        dispatch(fetchLeadsFailure(msg));
+        toast.error(msg);
       }
     }
   }, [dispatch, mes, anio]);
@@ -412,7 +429,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
                 return (
                   <div
                     key={lead.id}
-                    className={`flex items-center gap-3 p-3 bg-white rounded-xl border transition-all hover:shadow-md ${
+                    className={`group flex items-center gap-3 p-3 bg-white rounded-xl border transition-all hover:shadow-md ${
                       leadSeleccionado?.id === lead.id ? 'border-indigo-400 ring-2 ring-indigo-200' :
                       prioridad === 'urgente' ? 'border-rose-200 hover:border-rose-300' :
                       'border-slate-200 hover:border-slate-300'
@@ -445,19 +462,100 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
                         )}
                       </div>
                     </div>
-                    {/* Acción rápida: Tomar lead (solo asesor en Bolsa Común) */}
-                    {columnaActiva === 'NUEVO' && rol === 'asesor_comercial' ? (
-                      <button
-                        onClick={e => { e.stopPropagation(); handleTakeFromPool(lead.id); }}
-                        className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-lg hover:bg-indigo-700 active:scale-95 transition-all shadow-sm"
-                        title="Tomar este lead y asignármelo"
+
+                    {/* Acciones rápidas interactividad */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {columnaActiva === 'NUEVO' && rol === 'asesor_comercial' ? (
+                        <button
+                          onClick={e => { e.stopPropagation(); handleTakeFromPool(lead.id); }}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-lg hover:bg-indigo-700 active:scale-95 transition-all shadow-sm"
+                          title="Tomar este lead"
+                        >
+                          <Zap className="w-3 h-3" /> Tomar
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {/* Dropdown de etapas: solo asesor asignado o admin/gerencia */}
+                          {(() => {
+                            const esAdminOGerencia = ['admin', 'gerencia', 'gerente', 'root'].includes(rol);
+                            const esAsesorAsignado = rol === 'asesor_comercial' && lead.asesor_id === user?.id;
+                            if (!esAdminOGerencia && !esAsesorAsignado) return null;
+
+                            const etapasDestino = PIPELINE_STAGES.filter(s =>
+                              s.id !== 'NUEVO' && s.id !== lead.estado_crm
+                            );
+
+                            const colorEtapa = (id: string) => {
+                              if (id === 'APROBADO') return 'text-emerald-700 hover:bg-emerald-50';
+                              if (id === 'PERDIDO')  return 'text-rose-600 hover:bg-rose-50';
+                              if (id === 'FRIO')     return 'text-slate-500 hover:bg-slate-100';
+                              return 'text-indigo-700 hover:bg-indigo-50';
+                            };
+
+                            const iconEtapa = (id: string) => {
+                              if (id === 'APROBADO') return '✓';
+                              if (id === 'PERDIDO')  return '✗';
+                              if (id === 'FRIO')     return '❄️';
+                              return '→';
+                            };
+
+                            const isOpen = dropdownOpenId === lead.id;
+
+                            return (
+                              <div className="relative" ref={isOpen ? dropdownRef : null}>
+                                <button
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setDropdownOpenId(isOpen ? null : lead.id);
+                                  }}
+                                  className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors flex items-center gap-0.5"
+                                  title="Mover a etapa..."
+                                >
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                  <ChevronDown className="w-2.5 h-2.5" />
+                                </button>
+
+                                {isOpen && (
+                                  <div className="absolute right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl min-w-[170px] py-1 animate-in fade-in slide-in-from-top-2 duration-150">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase px-3 py-1.5 tracking-widest border-b border-slate-100">
+                                      Mover a...
+                                    </p>
+                                    {etapasDestino.map(etapa => (
+                                      <button
+                                        key={etapa.id}
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          setDropdownOpenId(null);
+                                          if (etapa.id === 'PERDIDO') {
+                                            setPerdidaPendiente({ leadId: lead.id, leadNombre: lead.nombre || `Lead #${lead.id}`, sourceStageId: lead.estado_crm });
+                                          } else {
+                                            onDragEnd({
+                                              draggableId: String(lead.id),
+                                              source: { droppableId: lead.estado_crm, index: 0 },
+                                              destination: { droppableId: etapa.id, index: 0 }
+                                            } as any);
+                                          }
+                                        }}
+                                        className={`w-full text-left px-3 py-2 text-[11px] font-bold flex items-center gap-2 transition-colors ${colorEtapa(etapa.id)}`}
+                                      >
+                                        <span className="text-[10px]">{iconEtapa(etapa.id)}</span>
+                                        {etapa.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                      <button 
+                         onClick={() => setLeadSeleccionado(lead)}
+                         className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"
                       >
-                        <Zap className="w-3 h-3" />
-                        Tomar
+                        <UserCheck className="w-4 h-4" />
                       </button>
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-slate-300 flex-shrink-0 cursor-pointer" onClick={() => setLeadSeleccionado(lead)} />
-                    )}
+                    </div>
                   </div>
                 );
               })
@@ -482,6 +580,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
               <LeadDetalleModal
                 lead={leadSeleccionado}
                 rol={rol}
+                userId={user?.id}
                 onClose={() => setLeadSeleccionado(null)}
                 inlineMode
               />
@@ -757,6 +856,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
           <LeadDetalleModal
             lead={leadSeleccionado}
             rol={rol}
+            userId={user?.id}
             onClose={() => setLeadSeleccionado(null)}
           />
         </React.Suspense>

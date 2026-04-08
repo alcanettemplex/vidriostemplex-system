@@ -1,31 +1,31 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, Trash2, AlertCircle, X, Layers } from 'lucide-react';
-import ODCModal from './components/ODCModal';
+import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, Trash2, AlertCircle, X, Layers, Plus } from 'lucide-react';
+import ODCModal, { SAPItemConContexto } from './components/ODCModal';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────
 
-interface SAPItem {
-  id: number; item: string; codigo: string; descripcion: string;
-  dimension: string; cantidad: number; estado_compra: 'pendiente' | 'en_odc' | 'en_existencia';
-}
-
-interface SAPPendiente {
-  id: number; numero_sap: string; fecha_creacion: string; notas: string;
-  asesor: { id: number; nombre_completo: string };
-  ODP: {
-    id: number; numero_odp: string; descripcion: string; estado_produccion: string;
-    cliente: { id: number; nombre_razon_social: string };
-    asesor: { id: number; nombre_completo: string };
+interface ODCItemConContexto {
+  id: number;
+  sap_item_id: number;
+  item: string;
+  codigo: string;
+  descripcion: string;
+  cantidad: number;
+  sap_item?: {
+    SAP?: {
+      numero_sap: string;
+      ODP?: {
+        id: number;
+        numero_odp: string;
+        cliente?: { nombre_razon_social: string };
+        asesor?: { nombre_completo: string };
+      };
+    };
   };
-  items: SAPItem[];
-}
-
-interface ODCItem {
-  id: number; sap_item_id: number; item: string; codigo: string; descripcion: string; cantidad: number;
 }
 
 interface ODC {
@@ -33,16 +33,31 @@ interface ODC {
   estado: 'pendiente' | 'en_transito' | 'recibido' | 'problema';
   notas: string; fecha_creacion: string; fecha_recepcion?: string;
   creador: { id: number; nombre_completo: string };
-  items: ODCItem[];
-  sap: {
+  items: ODCItemConContexto[];
+  // backward compat: ODCs antiguas con sap_id tienen esto
+  sap?: {
     id: number; numero_sap: string;
-    ODP: {
+    ODP?: {
       id: number; numero_odp: string; descripcion: string; estado_produccion: string;
       cliente: { id: number; nombre_razon_social: string };
       asesor: { id: number; nombre_completo: string };
     };
   };
 }
+
+// Helper: extrae ODPs únicas de una ODC (multi-SAP o legacy)
+const getODPsDeODC = (odc: ODC): Array<{ numero_odp: string; cliente: string }> => {
+  const map = new Map<string, string>();
+  for (const it of odc.items) {
+    const odp = it.sap_item?.SAP?.ODP;
+    if (odp?.numero_odp) map.set(odp.numero_odp, odp.cliente?.nombre_razon_social || '');
+  }
+  // fallback a sap header (ODCs antiguas)
+  if (map.size === 0 && odc.sap?.ODP) {
+    map.set(odc.sap.ODP.numero_odp, odc.sap.ODP.cliente?.nombre_razon_social || '');
+  }
+  return Array.from(map.entries()).map(([numero_odp, cliente]) => ({ numero_odp, cliente }));
+};
 
 // ─── Constantes UI ──────────────────────────────────────────────────────────
 
@@ -87,6 +102,9 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const token = localStorage.getItem('token');
+  const odpsInfo = getODPsDeODC(odc);
+  const isMultiODP = odpsInfo.length > 1;
+  // legacy compat
   const odp = odc.sap?.ODP;
   const estadoProd = odp?.estado_produccion || '';
   const est = ODC_ESTADO_STYLE[odc.estado];
@@ -128,16 +146,34 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
             <div className="flex items-center gap-3 mb-1.5 flex-wrap">
               <span className="font-black text-indigo-700 text-base">{odc.numero_odc}</span>
               <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${est.className}`}>{est.label}</span>
-              {estadoProd && (
+              {isMultiODP && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">
+                  {odpsInfo.length} ODPs
+                </span>
+              )}
+              {!isMultiODP && estadoProd && (
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ESTADO_PROD_COLOR[estadoProd] || 'bg-slate-100 text-slate-600'}`}>
                   {estadoProd.replace(/_/g, ' ')}
                 </span>
               )}
             </div>
-            <p className="text-sm font-semibold text-slate-700">{odp?.cliente?.nombre_razon_social}</p>
+            {isMultiODP ? (
+              <p className="text-sm font-semibold text-slate-700">
+                {odpsInfo.map(o => o.cliente).filter((v, i, a) => a.indexOf(v) === i).slice(0, 3).join(', ')}
+                {odpsInfo.length > 3 && ` +${odpsInfo.length - 3} más`}
+              </p>
+            ) : (
+              <p className="text-sm font-semibold text-slate-700">{odpsInfo[0]?.cliente || odp?.cliente?.nombre_razon_social}</p>
+            )}
             <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
-              <span>ODP: <span className="font-bold text-slate-700">{odp?.numero_odp}</span></span>
-              <span>SAP: <span className="font-bold text-slate-700">{odc.sap?.numero_sap}</span></span>
+              {isMultiODP ? (
+                <span>ODPs: <span className="font-bold text-slate-700">{odpsInfo.map(o => o.numero_odp).join(', ')}</span></span>
+              ) : (
+                <>
+                  <span>ODP: <span className="font-bold text-slate-700">{odpsInfo[0]?.numero_odp || odp?.numero_odp}</span></span>
+                  {odc.sap?.numero_sap && <span>SAP: <span className="font-bold text-slate-700">{odc.sap.numero_sap}</span></span>}
+                </>
+              )}
               <span>Proveedor: <span className="font-bold text-slate-700">{odc.proveedor}</span></span>
               <span>Creada: <span className="font-bold text-slate-700">{new Date(odc.fecha_creacion).toLocaleDateString('es-CO')}</span></span>
               {odc.fecha_recepcion && (
@@ -186,19 +222,21 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
           <table className="w-full text-xs">
             <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-4 py-2 text-left w-10">ITEM</th>
                 <th className="px-4 py-2 text-left w-28">CÓDIGO</th>
                 <th className="px-4 py-2 text-left">DESCRIPCIÓN</th>
                 <th className="px-4 py-2 text-center w-16">CANT.</th>
+                <th className="px-4 py-2 text-left w-24">SAP</th>
+                <th className="px-4 py-2 text-left w-24">ODP</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {odc.items.map((it, i) => (
                 <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
-                  <td className="px-4 py-1.5 font-black text-slate-600">{it.item}</td>
                   <td className="px-4 py-1.5 font-mono text-blue-700 font-bold">{it.codigo || '—'}</td>
                   <td className="px-4 py-1.5 text-slate-700">{it.descripcion || '—'}</td>
                   <td className="px-4 py-1.5 text-center font-bold text-slate-600">{it.cantidad}</td>
+                  <td className="px-4 py-1.5 text-indigo-600 font-bold">{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
+                  <td className="px-4 py-1.5 font-bold text-slate-700">{it.sap_item?.SAP?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -250,22 +288,27 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                     <span className="text-slate-400 font-bold uppercase tracking-wider">Creador</span>
                     <p className="font-semibold text-slate-700 mt-0.5">{odc.creador?.nombre_completo}</p>
                   </div>
-                  <div>
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">SAP</span>
-                    <p className="font-semibold text-slate-700 mt-0.5">{odc.sap?.numero_sap}</p>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">ODP</span>
-                    <p className="font-semibold text-slate-700 mt-0.5">{odp?.numero_odp}</p>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">Cliente</span>
-                    <p className="font-semibold text-slate-700 mt-0.5">{odp?.cliente?.nombre_razon_social}</p>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">Asesor</span>
-                    <p className="font-semibold text-slate-700 mt-0.5">{odp?.asesor?.nombre_completo}</p>
-                  </div>
+                  {isMultiODP ? (
+                    <div className="col-span-2">
+                      <span className="text-slate-400 font-bold uppercase tracking-wider">ODPs involucradas</span>
+                      <p className="font-semibold text-slate-700 mt-0.5">{odpsInfo.map(o => `${o.numero_odp} (${o.cliente})`).join(' · ')}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <span className="text-slate-400 font-bold uppercase tracking-wider">SAP</span>
+                        <p className="font-semibold text-slate-700 mt-0.5">{odc.sap?.numero_sap || odpsInfo[0] ? '—' : '—'}</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-bold uppercase tracking-wider">ODP</span>
+                        <p className="font-semibold text-slate-700 mt-0.5">{odpsInfo[0]?.numero_odp || odp?.numero_odp || '—'}</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-bold uppercase tracking-wider">Cliente</span>
+                        <p className="font-semibold text-slate-700 mt-0.5">{odpsInfo[0]?.cliente || odp?.cliente?.nombre_razon_social || '—'}</p>
+                      </div>
+                    </>
+                  )}
                   <div>
                     <span className="text-slate-400 font-bold uppercase tracking-wider">Fecha creación</span>
                     <p className="font-semibold text-slate-700 mt-0.5">{new Date(odc.fecha_creacion).toLocaleDateString('es-CO')}</p>
@@ -291,19 +334,21 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                     <table className="w-full text-xs">
                       <thead className="bg-slate-700 text-white text-[10px] uppercase tracking-wider">
                         <tr>
-                          <th className="px-3 py-2 w-10 text-center">ITEM</th>
                           <th className="px-3 py-2 w-28">CÓDIGO</th>
                           <th className="px-3 py-2">DESCRIPCIÓN</th>
                           <th className="px-3 py-2 w-20 text-center">CANT.</th>
+                          <th className="px-3 py-2 w-24">SAP</th>
+                          <th className="px-3 py-2 w-24">ODP</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {odc.items.map((it, i) => (
                           <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                            <td className="px-3 py-2 text-center font-black text-slate-600">{it.item}</td>
                             <td className="px-3 py-2 font-mono text-blue-700 font-bold">{it.codigo || '—'}</td>
                             <td className="px-3 py-2 text-slate-700">{it.descripcion || '—'}</td>
                             <td className="px-3 py-2 text-center font-bold text-slate-600">{it.cantidad}</td>
+                            <td className="px-3 py-2 text-indigo-600 font-bold">{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
+                            <td className="px-3 py-2 font-bold text-slate-700">{it.sap_item?.SAP?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -440,13 +485,14 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
 
 const ComprasPage: React.FC = () => {
   const [tab, setTab] = useState<'pendientes' | 'seguimiento' | 'recibidas' | 'vidrios'>('pendientes');
-  const [sapsPendientes, setSapsPendientes] = useState<SAPPendiente[]>([]);
+  const [itemsPendientes, setItemsPendientes] = useState<SAPItemConContexto[]>([]);
+  const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
+  const [mostrarModal, setMostrarModal] = useState(false);
   const [odcsSeguimiento, setOdcsSeguimiento] = useState<ODC[]>([]);
   const [odcsRecibidas, setOdcsRecibidas] = useState<ODC[]>([]);
   const [vidriosPorGestionar, setVidriosPorGestionar] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState('');
-  const [sapSeleccionada, setSapSeleccionada] = useState<SAPPendiente | null>(null);
 
   // Modal vidrios
   const [modalVidrio, setModalVidrio] = useState<any | null>(null);
@@ -463,7 +509,8 @@ const ComprasPage: React.FC = () => {
     try {
       if (t === 'pendientes') {
         const res = await axios.get(`${API}/api/compras/panel`, { headers });
-        setSapsPendientes(res.data);
+        setItemsPendientes(res.data);
+        setSeleccionados(new Set());
       } else if (t === 'seguimiento') {
         const res = await axios.get(`${API}/api/compras/seguimiento`, { headers });
         setOdcsSeguimiento(res.data);
@@ -480,7 +527,7 @@ const ComprasPage: React.FC = () => {
   // Cargar conteos de todos los tabs al montar para mostrar badges
   useEffect(() => {
     const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
-    axios.get(`${API}/api/compras/panel`, { headers: h }).then(r => setSapsPendientes(r.data)).catch(() => {});
+    axios.get(`${API}/api/compras/panel`, { headers: h }).then(r => setItemsPendientes(r.data)).catch(() => {});
     axios.get(`${API}/api/compras/seguimiento`, { headers: h }).then(r => setOdcsSeguimiento(r.data)).catch(() => {});
     axios.get(`${API}/api/compras/recibidas`, { headers: h }).then(r => setOdcsRecibidas(r.data)).catch(() => {});
     axios.get(`${API}/api/compras/vidrios`, { headers: h }).then(r => setVidriosPorGestionar(r.data)).catch(() => {});
@@ -495,35 +542,53 @@ const ComprasPage: React.FC = () => {
     setTab('recibidas');
   };
 
-  // Filtros por búsqueda
-  const filtrarSaps = (list: SAPPendiente[]) => {
+  // Filtro de items pendientes
+  const filtrarItemsPendientes = (list: SAPItemConContexto[]) => {
     const q = busqueda.toLowerCase();
-    return list.filter(s =>
-      s.numero_sap.toLowerCase().includes(q) ||
-      s.ODP?.numero_odp?.toLowerCase().includes(q) ||
-      s.ODP?.cliente?.nombre_razon_social?.toLowerCase().includes(q)
+    if (!q) return list;
+    return list.filter(i =>
+      i.codigo?.toLowerCase().includes(q) ||
+      i.descripcion?.toLowerCase().includes(q) ||
+      i.SAP?.numero_sap?.toLowerCase().includes(q) ||
+      i.SAP?.ODP?.numero_odp?.toLowerCase().includes(q) ||
+      i.SAP?.ODP?.cliente?.nombre_razon_social?.toLowerCase().includes(q)
     );
   };
 
   const filtrarOdcs = (list: ODC[]) => {
     const q = busqueda.toLowerCase();
-    return list.filter(o =>
-      o.numero_odc.toLowerCase().includes(q) ||
-      o.proveedor.toLowerCase().includes(q) ||
-      o.sap?.ODP?.numero_odp?.toLowerCase().includes(q) ||
-      o.sap?.ODP?.cliente?.nombre_razon_social?.toLowerCase().includes(q)
-    );
+    if (!q) return list;
+    return list.filter(o => {
+      if (o.numero_odc.toLowerCase().includes(q)) return true;
+      if (o.proveedor.toLowerCase().includes(q)) return true;
+      const odps = getODPsDeODC(o);
+      return odps.some(p =>
+        p.numero_odp.toLowerCase().includes(q) ||
+        p.cliente.toLowerCase().includes(q)
+      );
+    });
   };
 
-  const getResumen = (items: SAPItem[]) => ({
-    total: items.length,
-    pendientes: items.filter(i => i.estado_compra === 'pendiente').length,
-    enOdc: items.filter(i => i.estado_compra === 'en_odc').length,
-    enExistencia: items.filter(i => i.estado_compra === 'en_existencia').length,
-  });
+  const toggleSeleccion = (id: number) => {
+    setSeleccionados(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleTodos = (listaFiltrada: SAPItemConContexto[]) => {
+    const ids = listaFiltrada.map(i => i.id);
+    const todosSeleccionados = ids.every(id => seleccionados.has(id));
+    if (todosSeleccionados) {
+      setSeleccionados(prev => { const next = new Set(prev); ids.forEach(id => next.delete(id)); return next; });
+    } else {
+      setSeleccionados(prev => { const next = new Set(prev); ids.forEach(id => next.add(id)); return next; });
+    }
+  };
 
   const countBadge = (t: string) => {
-    if (t === 'pendientes') return sapsPendientes.length;
+    if (t === 'pendientes') return itemsPendientes.length;
     if (t === 'seguimiento') return odcsSeguimiento.length;
     if (t === 'vidrios') return vidriosPorGestionar.length;
     return odcsRecibidas.length;
@@ -604,7 +669,7 @@ const ComprasPage: React.FC = () => {
       <div className="relative mb-5">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
-          placeholder={tab === 'pendientes' ? 'Buscar SAP, ODP o cliente...' : 'Buscar ODC, proveedor, ODP o cliente...'}
+          placeholder={tab === 'pendientes' ? 'Buscar código, SAP, ODP o cliente...' : 'Buscar ODC, proveedor, ODP o cliente...'}
           className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
         />
       </div>
@@ -620,88 +685,153 @@ const ComprasPage: React.FC = () => {
 
             {/* ── TAB PENDIENTES ── */}
             {tab === 'pendientes' && (() => {
-              const lista = filtrarSaps(sapsPendientes);
-              return lista.length === 0 ? (
+              const listaFiltrada = filtrarItemsPendientes(itemsPendientes);
+              const seleccionadosEnLista = listaFiltrada.filter(i => seleccionados.has(i.id));
+
+              // Agrupar por código
+              const gruposPorCodigo = (() => {
+                const map = new Map<string, SAPItemConContexto[]>();
+                for (const item of listaFiltrada) {
+                  const key = item.codigo || '—';
+                  if (!map.has(key)) map.set(key, []);
+                  map.get(key)!.push(item);
+                }
+                return map;
+              })();
+
+              return listaFiltrada.length === 0 ? (
                 <div className="text-center py-20">
                   <CheckCircle2 className="w-16 h-16 text-green-300 mx-auto mb-3" />
                   <p className="text-lg font-bold text-slate-500">
-                    {busqueda ? 'Sin resultados' : 'No hay SAPs con materiales pendientes'}
+                    {busqueda ? 'Sin resultados' : 'No hay items pendientes de gestionar'}
                   </p>
                 </div>
               ) : (
-                <div className="grid gap-4">
-                  {lista.map(sap => {
-                    const { total, pendientes, enOdc, enExistencia } = getResumen(sap.items);
-                    const pct = total > 0 ? Math.round(((total - pendientes) / total) * 100) : 0;
-                    const estadoProd = sap.ODP?.estado_produccion || '';
-                    return (
-                      <div key={sap.id} className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition overflow-hidden">
-                        <div className="flex items-start justify-between p-5">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-3 mb-2 flex-wrap">
-                              <span className="font-black text-indigo-700 text-base">{sap.numero_sap}</span>
-                              <span className="text-slate-300">·</span>
-                              <span className="font-bold text-slate-700">{sap.ODP?.numero_odp}</span>
-                              {estadoProd && (
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ESTADO_PROD_COLOR[estadoProd] || 'bg-slate-100 text-slate-600'}`}>
-                                  {estadoProd.replace(/_/g, ' ')}
+                <div className="space-y-4">
+                  {/* Barra de acciones */}
+                  <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded accent-indigo-600"
+                        checked={listaFiltrada.length > 0 && listaFiltrada.every(i => seleccionados.has(i.id))}
+                        onChange={() => toggleTodos(listaFiltrada)}
+                      />
+                      <span className="text-sm text-slate-600">
+                        {seleccionados.size > 0
+                          ? <><span className="font-black text-indigo-700">{seleccionados.size}</span> item(s) seleccionado(s)</>
+                          : <span className="text-slate-400">Seleccionar todos</span>
+                        }
+                      </span>
+                      {seleccionados.size > 0 && (
+                        <span className="text-xs text-slate-400">
+                          · {new Set(seleccionadosEnLista.map(i => i.SAP?.id)).size} SAP(s) · {new Set(seleccionadosEnLista.map(i => i.SAP?.ODP?.id)).size} ODP(s)
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setMostrarModal(true)}
+                      disabled={seleccionados.size === 0}
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" /> Crear ODC ({seleccionados.size})
+                    </button>
+                  </div>
+
+                  {/* Tabla de items agrupada por código */}
+                  <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    {Array.from(gruposPorCodigo.entries()).map(([codigo, grupo], gi) => {
+                      const todosDelGrupoSeleccionados = grupo.every(i => seleccionados.has(i.id));
+                      const algunoDelGrupoSeleccionado = grupo.some(i => seleccionados.has(i.id));
+                      const totalCant = grupo.reduce((s, i) => s + Number(i.cantidad), 0);
+                      return (
+                        <div key={codigo} className={gi > 0 ? 'border-t border-slate-200' : ''}>
+                          {/* Encabezado del grupo de código */}
+                          <div
+                            className="flex items-center gap-3 px-4 py-2.5 bg-indigo-50 border-b border-indigo-100 cursor-pointer hover:bg-indigo-100 transition"
+                            onClick={() => {
+                              if (todosDelGrupoSeleccionados) {
+                                setSeleccionados(prev => { const next = new Set(prev); grupo.forEach(i => next.delete(i.id)); return next; });
+                              } else {
+                                setSeleccionados(prev => { const next = new Set(prev); grupo.forEach(i => next.add(i.id)); return next; });
+                              }
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 rounded accent-indigo-600 shrink-0"
+                              checked={todosDelGrupoSeleccionados}
+                              ref={el => { if (el) el.indeterminate = algunoDelGrupoSeleccionado && !todosDelGrupoSeleccionados; }}
+                              onChange={() => {}}
+                              onClick={e => e.stopPropagation()}
+                            />
+                            <span className="font-mono font-black text-indigo-700">{codigo}</span>
+                            <span className="text-slate-400 text-xs">—</span>
+                            <span className="text-sm text-slate-700 font-medium flex-1 truncate">{grupo[0].descripcion || '—'}</span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-xs font-bold text-indigo-600">
+                                Total: {totalCant} {grupo[0].und || ''}
+                              </span>
+                              {grupo.length > 1 && (
+                                <span className="text-[10px] font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full border border-indigo-200">
+                                  {grupo.length} SAPs
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm font-semibold text-slate-700 mb-1">{sap.ODP?.cliente?.nombre_razon_social}</p>
-                            {sap.ODP?.descripcion && <p className="text-xs text-slate-500 truncate max-w-lg mb-2">{sap.ODP.descripcion}</p>}
-                            <div className="flex items-center gap-4 text-xs text-slate-500">
-                              <span>Asesor: <span className="font-bold text-slate-700">{sap.ODP?.asesor?.nombre_completo}</span></span>
-                              <span>SAP: <span className="font-bold text-slate-700">{new Date(sap.fecha_creacion).toLocaleDateString('es-CO')}</span></span>
-                            </div>
                           </div>
-                          <div className="flex flex-col items-end gap-3 ml-4 shrink-0">
-                            <div className="flex items-center gap-2 flex-wrap justify-end">
-                              {pendientes > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full"><Clock className="w-3 h-3" /> {pendientes} pend.</span>}
-                              {enOdc > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full"><ShoppingCart className="w-3 h-3" /> {enOdc} en ODC</span>}
-                              {enExistencia > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full"><Package className="w-3 h-3" /> {enExistencia} exist.</span>}
-                            </div>
-                            <div className="flex items-center gap-2 w-40">
-                              <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                              </div>
-                              <span className="text-[10px] text-slate-500 shrink-0">{pct}%</span>
-                            </div>
-                            <button onClick={() => setSapSeleccionada(sap)}
-                              className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition shadow-sm">
-                              Gestionar →
-                            </button>
-                          </div>
-                        </div>
-                        <div className="border-t border-slate-100">
+                          {/* Filas de items del grupo */}
                           <table className="w-full text-xs">
-                            <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                            <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
                               <tr>
-                                <th className="px-4 py-2 text-left w-10">ITEM</th>
-                                <th className="px-4 py-2 text-left w-28">CÓDIGO</th>
-                                <th className="px-4 py-2 text-left">DESCRIPCIÓN</th>
-                                <th className="px-4 py-2 text-center w-28">ESTADO</th>
+                                <th className="px-4 py-1.5 w-10" />
+                                <th className="px-3 py-1.5 text-left w-24">Dimensión</th>
+                                <th className="px-3 py-1.5 text-center w-16">Cant.</th>
+                                <th className="px-3 py-1.5 text-left w-16">Und</th>
+                                <th className="px-3 py-1.5 text-left w-28">SAP</th>
+                                <th className="px-3 py-1.5 text-left w-28">ODP</th>
+                                <th className="px-3 py-1.5 text-left">Cliente</th>
+                                <th className="px-3 py-1.5 text-left w-40">Asesor</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                              {sap.items.map((item, i) => (
-                                <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
-                                  <td className="px-4 py-1.5 font-black text-slate-600">{item.item}</td>
-                                  <td className="px-4 py-1.5 font-mono text-blue-700 font-bold">{item.codigo || '—'}</td>
-                                  <td className="px-4 py-1.5 text-slate-700">{item.descripcion || '—'}</td>
-                                  <td className="px-4 py-1.5 text-center">
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${item.estado_compra === 'pendiente' ? 'bg-amber-50 text-amber-700 border-amber-200' : item.estado_compra === 'en_odc' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
-                                      {item.estado_compra === 'pendiente' ? 'Pendiente' : item.estado_compra === 'en_odc' ? 'En ODC' : 'En existencia'}
-                                    </span>
+                              {grupo.map((item, i) => (
+                                <tr
+                                  key={item.id}
+                                  onClick={() => toggleSeleccion(item.id)}
+                                  className={`cursor-pointer transition ${seleccionados.has(item.id) ? 'bg-indigo-50' : i % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/30 hover:bg-slate-100'}`}
+                                >
+                                  <td className="px-4 py-2 w-10" onClick={e => e.stopPropagation()}>
+                                    <input
+                                      type="checkbox"
+                                      className="w-4 h-4 rounded accent-indigo-600"
+                                      checked={seleccionados.has(item.id)}
+                                      onChange={() => toggleSeleccion(item.id)}
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2 w-24 text-slate-500">{item.dimension || '—'}</td>
+                                  <td className="px-3 py-2 w-16 text-center font-bold text-slate-700">{item.cantidad}</td>
+                                  <td className="px-3 py-2 w-16 text-slate-500">{item.und || '—'}</td>
+                                  <td className="px-3 py-2 w-28">
+                                    <span className="font-bold text-indigo-600">{item.SAP?.numero_sap || '—'}</span>
+                                  </td>
+                                  <td className="px-3 py-2 w-28">
+                                    <span className="font-bold text-slate-700">{item.SAP?.ODP?.numero_odp || '—'}</span>
+                                  </td>
+                                  <td className="px-3 py-2 text-slate-500 truncate max-w-[200px]">
+                                    {item.SAP?.ODP?.cliente?.nombre_razon_social || '—'}
+                                  </td>
+                                  <td className="px-3 py-2 text-slate-400 text-[10px] truncate max-w-[160px]">
+                                    {item.SAP?.ODP?.asesor?.nombre_completo || '—'}
                                   </td>
                                 </tr>
                               ))}
                             </tbody>
                           </table>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+
                 </div>
               );
             })()}
@@ -850,12 +980,11 @@ const ComprasPage: React.FC = () => {
         </AnimatePresence>
       )}
 
-      {/* Modal SAP */}
-      {sapSeleccionada && (
+      {/* Modal crear ODC consolidada */}
+      {mostrarModal && seleccionados.size > 0 && (
         <ODCModal
-          sap={sapSeleccionada as any}
-          odp={sapSeleccionada.ODP}
-          onClose={() => setSapSeleccionada(null)}
+          items={itemsPendientes.filter(i => seleccionados.has(i.id))}
+          onClose={() => setMostrarModal(false)}
           onRefresh={refresh}
         />
       )}

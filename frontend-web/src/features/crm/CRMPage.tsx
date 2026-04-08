@@ -9,8 +9,8 @@ import { Plus, Filter, BarChart3, Kanban, TrendingUp } from 'lucide-react';
 
 type Tab = 'pipeline' | 'metricas' | 'gerencial';
 
-const ROLES_GLOBAL = ['admin', 'gerencia', 'asistente_administrativo'];
-const ROLES_GERENCIAL = ['admin', 'gerencia', 'asistente_administrativo'];
+const ROLES_GLOBAL = ['admin', 'gerencia', 'gerente', 'asistente_administrativo', 'root'];
+const ROLES_GERENCIAL = ['admin', 'gerencia', 'gerente', 'asistente_administrativo', 'root'];
 
 const CRMPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('pipeline');

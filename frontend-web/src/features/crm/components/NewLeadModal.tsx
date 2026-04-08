@@ -10,10 +10,16 @@ interface NewLeadModalProps {
 }
 
 const PRODUCTOS = [
-  'Cabina de baño', 'División oficina', 'Fachadas', 'Mantenimiento',
-  'Pasamanos', 'Pérgola', 'Puerta batiente', 'Puerta corrediza',
-  'Puertas de vidrio', 'Reposición vidrios', 'Tablero', 'Ventanería',
-  'Ventas de aluminio', 'Ventas en la mano', 'Vidrio templado', 'Producto no disponible',
+  'Cabina de baño', 'División oficina', 'Espejos', 'Fachadas', 
+  'Mantenimiento', 'Pasamanos', 'Pérgola', 'Puerta batiente', 
+  'Puerta corrediza', 'Puertas de vidrio', 'Puertas vidrieras', 
+  'Reposición vidrios', 'Tablero', 'Ventanas aluminio', 
+  'Ventanería', 'Ventas en la mano', 'Vidrio crudo', 'Vidrio Templado', 
+  'Producto no disponible', 'Otros'
+];
+
+const FUENTES = [
+  'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial'
 ];
 
 const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
@@ -25,8 +31,10 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
     telefono: '',
     nombre: '',
     mensaje_entrada: '',
-    segmento: '',
+    segmento: 'Cliente final',
+    fuente_lead: 'WhatsApp',
     producto_interes: '',
+    producto_otro: '',
     descripcion_contexto: '',
     respondio: 'Espera de información',
     asesor_id: '',
@@ -37,7 +45,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
     apiGetAsesores()
       .then(res => {
         const soloAsesores = res.data.filter((u: any) =>
-          ['asesor_comercial', 'gerencia', 'admin'].includes(u.rol)
+          ['asesor_comercial', 'gerencia'].includes(u.rol)
         );
         setAsesores(soloAsesores);
       })
@@ -58,6 +66,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
     try {
       const payload = {
         ...formData,
+        producto_interes: formData.producto_interes === 'Otros' ? formData.producto_otro : formData.producto_interes,
         asesor_id: formData.asesor_id ? parseInt(formData.asesor_id) : null,
       };
       const { data } = await apiCreateLead(payload);
@@ -134,18 +143,36 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
             />
           </div>
 
-          {/* Fila 2: Segmento + Respondió */}
+          {/* Fila 2: Fuente + Segmento */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">Segmento</label>
-              <select name="segmento" value={formData.segmento} onChange={handleChange}
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">Fuente del Lead *</label>
+              <select required name="fuente_lead" value={formData.fuente_lead} onChange={handleChange}
                 className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:border-indigo-500 transition-all">
-                <option value="">Seleccionar segmento...</option>
+                {FUENTES.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">Segmento *</label>
+              <select required name="segmento" value={formData.segmento} onChange={handleChange}
+                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:border-indigo-500 transition-all">
                 <option value="Arquitecto">Arquitecto</option>
                 <option value="Cliente final">Cliente final</option>
                 <option value="Industrial">Industrial</option>
                 <option value="Institucional">Institucional</option>
                 <option value="Intervid">Intervid</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Fila 3: Producto + Respondió */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">Producto *</label>
+              <select required name="producto_interes" value={formData.producto_interes} onChange={handleChange}
+                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:border-indigo-500 transition-all">
+                <option value="">Seleccionar producto...</option>
+                {PRODUCTOS.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
@@ -159,15 +186,16 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
             </div>
           </div>
 
-          {/* Producto */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">Producto de Interés</label>
-            <select name="producto_interes" value={formData.producto_interes} onChange={handleChange}
-              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:border-indigo-500 transition-all">
-              <option value="">Seleccionar producto...</option>
-              {PRODUCTOS.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </div>
+          {formData.producto_interes === 'Otros' && (
+            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
+              <label className="text-xs font-bold text-indigo-600 uppercase tracking-widest">Especifique el producto</label>
+              <input
+                required name="producto_otro" value={formData.producto_otro} onChange={handleChange}
+                className="w-full px-3 py-2.5 bg-indigo-50/50 border border-indigo-100 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm font-medium text-slate-800 transition-all"
+                placeholder="Escribe el nombre del producto aquí..."
+              />
+            </div>
+          )}
 
           {/* Contexto adicional */}
           <div className="space-y-1.5">

@@ -13,13 +13,18 @@ Lead.init({
     type: DataTypes.ENUM('Arquitecto', 'Cliente final', 'Industrial', 'Institucional', 'Intervid'), 
     allowNull: true 
   },
+  fuente_lead: { 
+    type: DataTypes.ENUM('Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Otro'), 
+    allowNull: true,
+    defaultValue: 'Presencial'
+  },
   respondio: { 
     type: DataTypes.ENUM('Espera de información', 'No responde', 'Si'), 
     allowNull: true,
     defaultValue: 'Espera de información'
   },
   producto_interes: { 
-    type: DataTypes.STRING(100), // Usamos STRING porque puede cambiar fácilmente o ser múltiple, aunque se maneje con menú en el front.
+    type: DataTypes.STRING(100),
     allowNull: true 
   },
   descripcion_contexto: { type: DataTypes.TEXT, allowNull: true },
@@ -30,7 +35,18 @@ Lead.init({
   },
   intentos_seguimiento: { type: DataTypes.INTEGER, defaultValue: 0 },
   monto_proyectado_cotizacion: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.00 },
+  monto_real_venta: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.00 },
   motivo_perdida: { type: DataTypes.STRING(100), allowNull: true },
+  
+  // Tiempos de transición (Cycle Time)
+  fecha_asignado:      { type: DataTypes.DATE, allowNull: true },
+  fecha_en_contacto:   { type: DataTypes.DATE, allowNull: true },
+  fecha_cotizando:     { type: DataTypes.DATE, allowNull: true },
+  fecha_visita_tecnica:{ type: DataTypes.DATE, allowNull: true },
+  fecha_frio:          { type: DataTypes.DATE, allowNull: true },
+  fecha_aprobado:      { type: DataTypes.DATE, allowNull: true },
+  fecha_perdido:       { type: DataTypes.DATE, allowNull: true },
+  
   fecha_cierre: { type: DataTypes.DATE, allowNull: true },
   asesor_id: { 
     type: DataTypes.INTEGER, 
@@ -42,9 +58,13 @@ Lead.init({
     allowNull: false,
     references: { model: Usuario, key: 'id' }
   },
-  cliente_id: { 
+  cliente_id: {
     type: DataTypes.INTEGER,
     allowNull: true, // Se llena solo cuando se convierte a cliente
+  },
+  odp_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true, // Se llena cuando el asesor vincula el lead a una ODP
   },
 }, {
   sequelize,
