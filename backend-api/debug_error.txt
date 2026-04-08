@@ -1,0 +1,72 @@
+[2026-04-08T02:57:06.878Z] GET_LEADS_ERROR: column Lead.fuente_lead does not exist
+Error
+    at Query.run (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async PostgresQueryInterface.select (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\abstract\query-interface.js:1001:12)
+    at async Lead.findAll (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\model.js:1824:21)
+    at async getLeads (C:\Users\User\Desktop\vidrios-templex-system\backend-api\src\controllers\crm.controller.ts:390:19)
+
+[2026-04-08T02:57:07.006Z] GET_LEADS_ERROR: column Lead.fuente_lead does not exist
+Error
+    at Query.run (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async PostgresQueryInterface.select (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\abstract\query-interface.js:1001:12)
+    at async Lead.findAll (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\model.js:1824:21)
+    at async getLeads (C:\Users\User\Desktop\vidrios-templex-system\backend-api\src\controllers\crm.controller.ts:390:19)
+
+[2026-04-08T02:59:22.493Z] GET_LEADS_ERROR: column Lead.fuente_lead does not exist
+Error
+    at Query.run (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async PostgresQueryInterface.select (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\abstract\query-interface.js:1001:12)
+    at async Lead.findAll (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\model.js:1824:21)
+    at async getLeads (C:\Users\User\Desktop\vidrios-templex-system\backend-api\src\controllers\crm.controller.ts:390:19)
+
+[2026-04-08T02:59:22.602Z] GET_LEADS_ERROR: column Lead.fuente_lead does not exist
+Error
+    at Query.run (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async PostgresQueryInterface.select (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\abstract\query-interface.js:1001:12)
+    at async Lead.findAll (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\model.js:1824:21)
+    at async getLeads (C:\Users\User\Desktop\vidrios-templex-system\backend-api\src\controllers\crm.controller.ts:390:19)
+
+[2026-04-08T03:12:32.354Z] GET_LEADS_ERROR: column Lead.fuente_lead does not exist
+Error
+    at Query.run (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async PostgresQueryInterface.select (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\abstract\query-interface.js:1001:12)
+    at async Lead.findAll (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\model.js:1824:21)
+    at async getLeads (C:\Users\User\Desktop\vidrios-templex-system\backend-api\src\controllers\crm.controller.ts:390:19)
+
+[2026-04-08T03:12:32.466Z] GET_LEADS_ERROR: column Lead.fuente_lead does not exist
+Error
+    at Query.run (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async PostgresQueryInterface.select (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\abstract\query-interface.js:1001:12)
+    at async Lead.findAll (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\model.js:1824:21)
+    at async getLeads (C:\Users\User\Desktop\vidrios-templex-system\backend-api\src\controllers\crm.controller.ts:390:19)
+
+[2026-04-08T03:13:56.759Z] GET_LEADS_ERROR: column Lead.fuente_lead does not exist
+Error
+    at Query.run (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async PostgresQueryInterface.select (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\abstract\query-interface.js:1001:12)
+    at async Lead.findAll (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\model.js:1824:21)
+    at async getLeads (C:\Users\User\Desktop\vidrios-templex-system\backend-api\src\controllers\crm.controller.ts:390:19)
+
+[2026-04-08T03:13:56.848Z] GET_LEADS_ERROR: column Lead.fuente_lead does not exist
+Error
+    at Query.run (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\postgres\query.js:76:25)
+    at C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\sequelize.js:650:28
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async PostgresQueryInterface.select (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\abstract\query-interface.js:1001:12)
+    at async Lead.findAll (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\model.js:1824:21)
+    at async getLeads (C:\Users\User\Desktop\vidrios-templex-system\backend-api\src\controllers\crm.controller.ts:390:19)
+
