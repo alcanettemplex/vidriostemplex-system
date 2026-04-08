@@ -82,13 +82,18 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
         {/* Detalles */}
         <div className="space-y-1 text-xs text-slate-500 pl-1 mb-2">
           <div className="flex items-center gap-1.5 truncate">
+            <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <span className="font-mono text-slate-600 font-medium">{lead.telefono}</span>
+          </div>
+          <div className="flex items-center gap-1.5 truncate">
             <Tag className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <span className="truncate font-medium text-slate-600">{lead.producto_interes || 'Sin definir'}</span>
           </div>
-          <div className="flex items-center gap-1.5 truncate">
-            <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span className="font-mono text-slate-500">{lead.telefono}</span>
-          </div>
+          {lead.descripcion_contexto && (
+            <p className="text-[11px] text-slate-500 leading-tight line-clamp-2 pl-0.5 italic">
+              {lead.descripcion_contexto}
+            </p>
+          )}
           {lead.segmento && (
             <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold mt-0.5 ${SEGMENTO_COLOR[lead.segmento] || 'bg-slate-100 text-slate-600'}`}>
               {lead.segmento}
