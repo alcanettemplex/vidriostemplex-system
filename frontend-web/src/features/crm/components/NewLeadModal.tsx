@@ -19,7 +19,7 @@ const PRODUCTOS = [
 ];
 
 const FUENTES = [
-  'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial'
+  'WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Otro'
 ];
 
 const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {

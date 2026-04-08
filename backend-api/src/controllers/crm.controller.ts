@@ -46,8 +46,9 @@ export const createLead = async (req: Request, res: Response) => {
 
     res.status(201).json(newLead);
   } catch (error: any) {
-    console.error('Error al crear lead:', error);
-    res.status(500).json({ error: 'Error del servidor al crear lead' });
+    console.error('Error al crear lead:', error?.message || error);
+    console.error('Stack:', error?.stack);
+    res.status(500).json({ error: 'Error del servidor al crear lead', detalle: error?.message });
   }
 };
 
