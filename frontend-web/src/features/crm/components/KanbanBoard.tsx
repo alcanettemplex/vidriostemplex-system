@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import {
   Search, X, ChevronDown, ChevronRight, LayoutList,
   Columns, DollarSign, AlertTriangle, Zap, ArrowUpDown,
-  User, Phone, Tag, Clock, UserCheck, Filter
+  User, Phone, Tag, Clock, UserCheck, Filter, TrendingUp
 } from 'lucide-react';
 import { fetchLeadsStart, fetchLeadsSuccess, fetchLeadsFailure, updateLead } from '../crmSlice';
 import { apiGetLeads, apiUpdateLeadStatus, apiAssignLeadToMe } from '../crmService';
