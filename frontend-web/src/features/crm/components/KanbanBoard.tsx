@@ -100,6 +100,10 @@ const TablaFila: React.FC<{
             <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
               <Phone className="w-2.5 h-2.5" /> {lead.telefono || '—'}
             </p>
+            <p className="text-[10px] text-slate-500 mt-0.5">{lead.producto_interes || '—'}</p>
+            {lead.descripcion_contexto && (
+              <p className="text-[10px] text-slate-400 italic truncate max-w-[200px]">{lead.descripcion_contexto}</p>
+            )}
           </div>
         </div>
       </td>
@@ -450,7 +454,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
                         <p className="text-xs font-bold text-slate-800 truncate">{lead.nombre || 'Sin nombre'}</p>
                         <PrioridadBadge prioridad={prioridad} />
                       </div>
+                      <p className="text-[10px] text-slate-500 font-mono truncate">{lead.telefono || '—'}</p>
                       <p className="text-[10px] text-slate-500 truncate">{lead.producto_interes || '—'}</p>
+                      {lead.descripcion_contexto && (
+                        <p className="text-[10px] text-slate-400 italic truncate">{lead.descripcion_contexto}</p>
+                      )}
                       <div className="flex items-center gap-2 mt-1">
                         {lead.segmento && (
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${SEGMENTO_COLOR[lead.segmento] || 'bg-slate-100 text-slate-600'}`}>
