@@ -28,6 +28,8 @@ const ESTADO_INFO: Record<string, { label: string; color: string; bg: string }> 
   PERDIDO:        { label: 'Perdido',        color: 'text-rose-700',   bg: 'bg-rose-100' },
 };
 
+const PIPELINE_PATH = ['NUEVO', 'ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'VISITA_TECNICA', 'APROBADO'];
+
 // ─── Ícono inline para mensajes ───────────────────────────────────────────────
 const MsgIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -215,6 +217,40 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, onClose, inlineMode = fa
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Pipeline Horizontal Tracer */}
+        <div className="px-4 py-3 bg-white border-b border-slate-100">
+          <div className="flex items-center justify-between gap-1">
+            {(PIPELINE_PATH as string[]).map((stageId: string, idx: number) => {
+              const currentIdx = PIPELINE_PATH.indexOf(lead.estado_crm);
+              const isActive = stageId === lead.estado_crm;
+              const isPast = currentIdx > idx;
+              const isPerdido = lead.estado_crm === 'PERDIDO';
+              
+              return (
+                <React.Fragment key={stageId}>
+                  <div className="flex flex-col items-center flex-1 max-w-[60px]">
+                    <div className={`w-2.5 h-2.5 rounded-full transition-all duration-500 ${
+                      isActive ? 'bg-indigo-600 ring-4 ring-indigo-100 scale-110' : 
+                      isPast ? 'bg-emerald-500' : 
+                      isPerdido && isActive ? 'bg-rose-500' : 'bg-slate-200'
+                    }`} />
+                    <span className={`text-[8px] font-black uppercase mt-1.5 truncate w-full text-center ${
+                      isActive ? 'text-indigo-600' : 'text-slate-400'
+                    }`}>
+                      {ESTADO_INFO[stageId].label.split(' ')[0]}
+                    </span>
+                  </div>
+                  {idx < PIPELINE_PATH.length - 1 && (
+                    <div className={`h-0.5 flex-1 transition-all duration-700 ${
+                      isPast ? 'bg-emerald-200' : 'bg-slate-100'
+                    }`} />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
         {/* Cuerpo */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {puedeConvertir && (
@@ -338,9 +374,43 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, onClose, inlineMode = fa
               </div>
             )}
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors">
+          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors">
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Pipeline Horizontal Tracer (Floating) */}
+        <div className="px-6 py-4 bg-white border-b border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between gap-1.5 px-2">
+            {(PIPELINE_PATH as string[]).map((stageId: string, idx: number) => {
+              const currentIdx = PIPELINE_PATH.indexOf(lead.estado_crm);
+              const isActive = stageId === lead.estado_crm;
+              const isPast = currentIdx > idx;
+              const isPerdido = lead.estado_crm === 'PERDIDO';
+              
+              return (
+                <React.Fragment key={stageId}>
+                  <div className="flex flex-col items-center flex-1 max-w-[80px]">
+                    <div className={`w-3.5 h-3.5 rounded-full transition-all duration-700 ${
+                      isActive ? 'bg-indigo-600 ring-4 ring-indigo-100 scale-125' : 
+                      isPast ? 'bg-emerald-500' : 
+                      isPerdido && isActive ? 'bg-rose-500' : 'bg-slate-200'
+                    }`} />
+                    <span className={`text-[9px] font-black uppercase mt-2.5 tracking-tight w-full text-center transition-colors ${
+                      isActive ? 'text-indigo-600' : 'text-slate-400'
+                    }`}>
+                      {ESTADO_INFO[stageId].label.split(' ')[0]}
+                    </span>
+                  </div>
+                  {idx < PIPELINE_PATH.length - 1 && (
+                    <div className={`h-1 flex-1 transition-all duration-1000 rounded-full ${
+                      isPast ? 'bg-emerald-200' : 'bg-slate-100'
+                    }`} />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
         </div>
 
         {/* ── Cuerpo scrolleable ── */}

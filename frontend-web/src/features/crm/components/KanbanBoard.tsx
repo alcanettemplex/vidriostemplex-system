@@ -318,8 +318,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
     );
   };
 
-  // ─── Vista Pipeline Vertical (Propuesta 5) ────────────────────────────────────
-  const renderPipelineVertical = () => {
+  // ─── Vista Pipeline Horizontal (Tipo Stepper) ──────────────────────────────────
+  const renderPipelineHorizontal = () => {
     const colLeads = sortByPriority(filtrarLeads(leads, { stageId: columnaActiva }));
     const pageSize = pagina[columnaActiva] * CARDS_POR_PAGINA;
     const leadsVisible = colLeads.slice(0, pageSize);
@@ -327,42 +327,56 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
     const stageActual = PIPELINE_STAGES.find(s => s.id === columnaActiva);
 
     return (
-      <div className="flex h-[78vh] gap-0 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        {/* Sidebar: etapas */}
-        <div className="w-48 flex-shrink-0 bg-slate-800 flex flex-col overflow-y-auto">
-          {PIPELINE_STAGES.map(stage => {
+      <div className="flex flex-col h-[78vh] gap-0 rounded-xl border border-slate-200 shadow-sm bg-white overflow-hidden">
+        {/* Barra superior de etapas (Pipeline Horizontal) */}
+        <div className="flex-shrink-0 bg-slate-800 p-1 flex overflow-x-auto no-scrollbar gap-1 border-b border-slate-700">
+          {PIPELINE_STAGES.map((stage, index) => {
             const stats = getColStats(stage.id);
             const activo = columnaActiva === stage.id;
+            const esUltimo = index === PIPELINE_STAGES.length - 1;
+
             return (
               <button
                 key={stage.id}
                 onClick={() => setColumnaActiva(stage.id)}
-                className={`flex items-center justify-between px-4 py-3.5 text-left transition-all border-l-4 ${
+                className={`relative flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-4 transition-all group overflow-hidden ${
                   activo
-                    ? 'bg-white/10 border-white text-white'
-                    : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-slate-200'
-                }`}
+                    ? 'bg-indigo-600 text-white shadow-lg opacity-100'
+                    : 'text-slate-400 hover:bg-slate-700 hover:text-slate-200 opacity-80'
+                } rounded-lg`}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${stage.dot}`} />
-                  <span className="text-xs font-bold truncate">{stage.label}</span>
-                </div>
-                <div className="flex flex-col items-end gap-0.5 ml-2">
-                  <span className={`text-xs font-black px-1.5 py-0.5 rounded-full ${
-                    activo ? 'bg-white text-slate-800' : 'bg-white/10 text-slate-400'
-                  }`}>
-                    {stats.count}
+                {/* Indicador de dot */}
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${stage.dot} ${activo ? 'ring-2 ring-white/30' : ''}`} />
+                
+                <div className="flex flex-col items-start min-w-0">
+                  <span className="text-[10px] font-black uppercase tracking-tighter truncate w-full leading-none mb-1">
+                    {stage.label}
                   </span>
-                  {stats.urgentes > 0 && (
-                    <span className="text-[9px] text-rose-400 font-bold animate-pulse">
-                      {stats.urgentes} 🔴
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-[9px] font-black px-1 rounded ${
+                      activo ? 'bg-white/20' : 'bg-slate-900'
+                    }`}>
+                      {stats.count}
                     </span>
-                  )}
+                    {stats.urgentes > 0 && (
+                      <span className="flex items-center gap-0.5 text-[8px] text-rose-400 font-black animate-pulse">
+                        <AlertTriangle className="w-2 h-2" /> {stats.urgentes}
+                      </span>
+                    )}
+                  </div>
                 </div>
+
+                {!esUltimo && (
+                  <div className="absolute -right-1 top-1/2 -translate-y-1/2 z-10 opacity-20 group-hover:opacity-40 pointer-events-none text-white/50">
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
+                )}
               </button>
             );
           })}
         </div>
+
+        <div className="flex-1 flex overflow-hidden">
 
         {/* Panel central: lista de leads */}
         <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden border-r border-slate-200">
@@ -482,6 +496,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
             <p className="text-xs text-slate-300 mt-1">El detalle aparecerá aquí sin abrir ningún popup</p>
           </div>
         )}
+        </div>
       </div>
     );
   };
@@ -489,7 +504,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
   // ─── Vista Kanban Colapsable (Propuesta 4) ────────────────────────────────────
   const renderKanban = () => (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex bg-slate-50 overflow-x-auto min-h-[75vh] p-4 gap-3 rounded-xl border border-slate-200 shadow-inner snap-x">
+      <div className="flex bg-slate-50 overflow-x-auto min-h-[75vh] p-4 gap-4 rounded-xl border border-slate-200 shadow-inner snap-x">
         {PIPELINE_STAGES.map((stage) => {
           const colLeadsRaw = filtrarLeads(leads, { stageId: stage.id });
           const colLeads = sortByPriority(colLeadsRaw);
@@ -699,12 +714,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
         <div className="ml-auto flex items-center gap-0.5 bg-slate-100 rounded-lg p-1">
           <button
             onClick={() => setViewMode('kanban')}
-            title="Vista Kanban (Pipeline vertical)"
+            title="Vista Pipeline Horizontal"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
               viewMode === 'kanban' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <Columns className="w-3.5 h-3.5" /> Pipeline
+            <TrendingUp className="w-3.5 h-3.5 text-indigo-500" /> Pipeline
           </button>
           <button
             onClick={() => setViewMode('tabla')}
@@ -720,7 +735,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
 
       {/* Contenido principal */}
       <div className="p-4">
-        {viewMode === 'tabla' ? renderTabla() : renderPipelineVertical()}
+        {viewMode === 'tabla' ? renderTabla() : renderPipelineHorizontal()}
       </div>
 
       {/* Modal motivo pérdida */}
