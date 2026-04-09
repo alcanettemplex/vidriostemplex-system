@@ -11,7 +11,8 @@ import {
   EvidenciaInstalacion,
   ODPItem,
   ConfiguracionGlobal,
-  MetaMensual
+  MetaMensual,
+  MetaUsuarioMensual
 } from '../models';
 import sequelize from '../config/database';
 
@@ -23,8 +24,8 @@ export const getGeneralData = async (_req: Request, res: Response) => {
     const currentYear = today.getFullYear();
     
     const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } }) || { meta_facturacion_mensual: 120000000 };
-    const meta_mes_db = await MetaMensual.findOne({ where: { anio: currentYear, mes: currentMonth } });
-    const meta_facturacion_actual = meta_mes_db ? meta_mes_db.getDataValue('meta_facturacion') : (config as any)?.meta_facturacion_mensual;
+    const sumaMetasUsuarios = await MetaUsuarioMensual.sum('meta_facturacion', { where: { anio: currentYear, mes: currentMonth } });
+    const meta_facturacion_actual = sumaMetasUsuarios > 0 ? sumaMetasUsuarios : (config as any)?.meta_facturacion_mensual || 120000000;
     
     const firstDayCurrent = new Date(today.getFullYear(), today.getMonth(), 1);
     const firstDayPrev = new Date(today.getFullYear(), today.getMonth() - 1, 1);
@@ -108,23 +109,30 @@ export const getGeneralData = async (_req: Request, res: Response) => {
       raw: true
     }) as unknown as { mes: Date, total_abono: string }[];
 
-    // Retrieve all metas mensuales for the last 6 months to match against
-    const metas_6_meses = await MetaMensual.findAll({
+    // Suma de metas por usuario agrupada por mes (últimos 6 meses)
+    const metas_6_meses_raw = await MetaUsuarioMensual.findAll({
+      attributes: [
+        'anio',
+        'mes',
+        [fn('SUM', col('meta_facturacion')), 'total']
+      ],
       where: {
         [Op.or]: facturationRaw.map(fr => {
           const d = new Date(fr.mes);
           return { anio: d.getFullYear(), mes: d.getMonth() + 1 };
         })
-      }
-    });
+      },
+      group: ['anio', 'mes'],
+      raw: true
+    }) as unknown as { anio: number; mes: number; total: string }[];
 
     const facturacion_6_meses = facturationRaw.map((fr) => {
       const frDate = new Date(fr.mes);
       const mAnio = frDate.getFullYear();
       const mMes = frDate.getMonth() + 1;
-      
-      const metaDb = metas_6_meses.find(m => m.getDataValue('anio') === mAnio && m.getDataValue('mes') === mMes);
-      const metaValue = metaDb ? metaDb.getDataValue('meta_facturacion') : (config as any)?.meta_facturacion_mensual || 120000000;
+
+      const metaRow = metas_6_meses_raw.find(m => m.anio === mAnio && m.mes === mMes);
+      const metaValue = metaRow && Number(metaRow.total) > 0 ? Number(metaRow.total) : (config as any)?.meta_facturacion_mensual || 120000000;
 
       return {
         mes: frDate.toLocaleDateString('es-CO', { month: 'short' }),
@@ -302,7 +310,26 @@ export const getProduccionData = async (_req: Request, res: Response) => {
     const odps_listas_sin_programar = listasIds.length - programadas.length;
 
     const etapas = ['MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR'];
-    const tiempo_por_etapa = etapas.map(etapa => ({ etapa, dias_promedio: 1.2 + Math.random() * 2 }));
+
+    const [tiempoEtapasRows] = await sequelize.query(`
+      WITH ranked AS (
+        SELECT
+          estado_nuevo,
+          fecha,
+          LEAD(fecha) OVER (PARTITION BY odp_id ORDER BY fecha) AS fecha_siguiente
+        FROM historial_estados_odp
+      )
+      SELECT
+        estado_nuevo AS etapa,
+        ROUND(AVG(EXTRACT(EPOCH FROM (fecha_siguiente - fecha)) / 86400)::numeric, 1) AS dias_promedio
+      FROM ranked
+      WHERE estado_nuevo = ANY(:etapas)
+        AND fecha_siguiente IS NOT NULL
+      GROUP BY estado_nuevo
+    `, { replacements: { etapas } }) as [{ etapa: string; dias_promedio: string }[], unknown];
+
+    const tiempoEtapasMap = new Map(tiempoEtapasRows.map(r => [r.etapa, Number(r.dias_promedio)]));
+    const tiempo_por_etapa = etapas.map(etapa => ({ etapa, dias_promedio: tiempoEtapasMap.get(etapa) ?? 0 }));
 
     const proximas_vencer = await ODP.findAll({
       where: { fecha_entrega: { [Op.between]: [today, nextWeek] }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA'] } },

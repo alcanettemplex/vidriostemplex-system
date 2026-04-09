@@ -9,7 +9,6 @@ export type RolUsuario =
   | 'root'
   | 'admin'
   | 'gerencia'
-  | 'gerente'
   | 'jefe_produccion'
   | 'asesor_comercial'
   | 'produccion'

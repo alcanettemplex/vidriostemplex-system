@@ -105,9 +105,9 @@ const ActionsMenu: React.FC<{
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const isAdmin = ['admin', 'gerente', 'gerencia'].includes(userRole);
-    const isAsesor = ['admin', 'asesor_comercial', 'gerente', 'gerencia'].includes(userRole);
-    const isJefe = ['admin', 'jefe_produccion', 'gerente'].includes(userRole);
+    const isAdmin = ['admin', 'gerencia'].includes(userRole);
+    const isAsesor = ['admin', 'asesor_comercial', 'gerencia'].includes(userRole);
+    const isJefe = ['admin', 'jefe_produccion', 'gerencia'].includes(userRole);
 
     const items: { label: string; icon: React.ReactNode; onClick: () => void; danger?: boolean; show: boolean }[] = [
         { label: 'Solicitud Accesorios (SAP)', icon: <Package className="w-4 h-4" />, onClick: onSap, show: isAsesor },

@@ -135,7 +135,7 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
   const [vinculando, setVinculando]     = useState(false);
 
   // ─── Permisos por rol ─────────────────────────────────────────────────────
-  const esAdminOGerencia  = ['admin', 'gerencia', 'gerente', 'root'].includes(rol);
+  const esAdminOGerencia  = ['admin', 'gerencia', 'root'].includes(rol);
   const esAdministrativo  = ['asistente_administrativo', 'admin', 'gerencia', 'root'].includes(rol);
   const puedeAsignarManual = esAdministrativo;
   const puedeEditar       = ['asesor_comercial', 'asistente_administrativo', 'admin', 'gerencia', 'root'].includes(rol);

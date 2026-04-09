@@ -135,7 +135,9 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
     const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
     const [categorias, setCategorias] = useState<string[]>([]);
     const [catSeleccionada, setCatSeleccionada] = useState<Record<number, string>>({});
-    const [siguienteNumeroPV, setSiguienteNumeroPV] = useState<number | null>(null);;
+    const [siguienteNumeroPV, setSiguienteNumeroPV] = useState<number | null>(null);
+    const [clienteBusqueda, setClienteBusqueda] = useState('');
+    const [dropdownClienteAbierto, setDropdownClienteAbierto] = useState(false);
 
     const { register, control, handleSubmit, trigger, reset, setValue, formState: { errors, isSubmitting } } = useForm<ODPFormValues>({
         resolver: zodResolver(odpSchema as any),
@@ -166,6 +168,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
 
     const valorTotalRaw = useWatch({ control, name: 'valor_total' }) || 0;
     const proveedorVidrio = useWatch({ control, name: 'proveedor_vidrio' });
+    const clienteIdWatch = useWatch({ control, name: 'cliente_id' });
+    const clienteSeleccionadoODP = clientes.find(c => c.id === Number(clienteIdWatch));
     const IVA_RATE = 0.19;
     const subtotal = Number(valorTotalRaw) / (1 + IVA_RATE);
     const ivaValor = Number(valorTotalRaw) - subtotal;
@@ -313,16 +317,45 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                                     {/* Cliente */}
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
-                                        <select
-                                            {...register('cliente_id')}
-                                            className={`w-full p-2.5 bg-white border ${errors.cliente_id ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:ring-2 focus:ring-blue-500`}
-                                            disabled={!!odpToEdit}
-                                        >
-                                            {!odpToEdit && <option value={0}>Seleccione un cliente...</option>}
-                                            {clientes.map(c => (
-                                                <option key={c.id} value={c.id}>{c.nombre_razon_social}</option>
-                                            ))}
-                                        </select>
+                                        <input type="hidden" {...register('cliente_id')} />
+                                        {odpToEdit ? (
+                                            <div className={`w-full p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-500`}>
+                                                {clienteSeleccionadoODP?.nombre_razon_social || 'Cliente'}
+                                            </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    value={dropdownClienteAbierto ? clienteBusqueda : (clienteSeleccionadoODP?.nombre_razon_social || clienteBusqueda)}
+                                                    onChange={e => { setClienteBusqueda(e.target.value); setDropdownClienteAbierto(true); }}
+                                                    onFocus={() => { setClienteBusqueda(''); setDropdownClienteAbierto(true); }}
+                                                    placeholder="Buscar cliente..."
+                                                    className={`w-full p-2.5 bg-white border ${errors.cliente_id ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:ring-2 focus:ring-blue-500`}
+                                                />
+                                                {dropdownClienteAbierto && (
+                                                    <>
+                                                        <div className="fixed inset-0 z-10" onClick={() => setDropdownClienteAbierto(false)} />
+                                                        <div className="absolute top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-52 overflow-y-auto">
+                                                            {clientes
+                                                                .filter(c => c.nombre_razon_social.toLowerCase().includes(clienteBusqueda.toLowerCase()))
+                                                                .map(c => (
+                                                                    <button
+                                                                        key={c.id}
+                                                                        type="button"
+                                                                        onClick={() => { setValue('cliente_id', c.id); setClienteBusqueda(''); setDropdownClienteAbierto(false); }}
+                                                                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                                                                    >
+                                                                        {c.nombre_razon_social}
+                                                                    </button>
+                                                                ))}
+                                                            {clientes.filter(c => c.nombre_razon_social.toLowerCase().includes(clienteBusqueda.toLowerCase())).length === 0 && (
+                                                                <p className="px-4 py-3 text-sm text-slate-400 text-center">Sin resultados</p>
+                                                            )}
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
                                         {odpToEdit && (
                                             <p className="text-xs text-slate-400 mt-1">El cliente no se puede cambiar al editar una ODP.</p>
                                         )}

@@ -25,21 +25,21 @@ import {
  * MAPA DE ACCESOS POR ROL
  * Cada ítem define qué roles pueden verlo.
  * Se usa el array 'allowedRoles' para filtrar en tiempo de renderizado.
- * Los roles nuevos son: 'taller', 'compras', 'contabilidad', 'gerente'
+ * Los roles nuevos son: 'taller', 'compras', 'contabilidad', 'gerencia'
  */
 const MENU_ITEMS_CONFIG = [
   {
     text: 'Dashboard',
     icon: LayoutDashboard,
     path: '/',
-    allowedRoles: ['admin', 'gerente', 'gerencia'],
+    allowedRoles: ['admin', 'gerencia'],
     section: 'general'
   },
   {
     text: 'Clientes',
     icon: Users,
     path: '/clientes',
-    allowedRoles: ['admin', 'gerente', 'gerencia', 'asesor_comercial', 'jefe_produccion'],
+    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'],
     section: 'comercial'
   },
   {
@@ -53,7 +53,7 @@ const MENU_ITEMS_CONFIG = [
     text: 'Órdenes (ODP)',
     icon: FileText,
     path: '/odp',
-    allowedRoles: ['admin', 'gerente', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras', 'produccion'],
+    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras', 'produccion'],
     section: 'comercial'
   },
   {
@@ -67,7 +67,7 @@ const MENU_ITEMS_CONFIG = [
     text: 'Producción',
     icon: Wrench,
     path: '/produccion',
-    allowedRoles: ['admin', 'gerente', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion'],
+    allowedRoles: ['admin', 'gerencia', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion'],
     section: 'produccion'
   },
   {
@@ -81,21 +81,21 @@ const MENU_ITEMS_CONFIG = [
     text: 'Instalaciones',
     icon: Truck,
     path: '/instalaciones',
-    allowedRoles: ['admin', 'gerente', 'gerencia', 'jefe_produccion', 'instalador', 'conductor', 'asesor_comercial', 'compras', 'produccion'],
+    allowedRoles: ['admin', 'gerencia', 'jefe_produccion', 'instalador', 'conductor', 'asesor_comercial', 'compras', 'produccion'],
     section: 'produccion'
   },
   {
     text: 'Compras',
     icon: ShoppingCart,
     path: '/compras',
-    allowedRoles: ['admin', 'gerente', 'compras', 'jefe_produccion'],
+    allowedRoles: ['admin', 'gerencia', 'compras', 'jefe_produccion'],
     section: 'logistica'
   },
   {
     text: 'Inventario Perfilería',
     icon: Package,
     path: '/inventario',
-    allowedRoles: ['admin', 'gerencia', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras'],
+    allowedRoles: ['admin', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras'],
     section: 'logistica'
   },
   {
@@ -116,7 +116,7 @@ const MENU_ITEMS_CONFIG = [
     text: 'Contabilidad',
     icon: Calculator,
     path: '/contabilidad',
-    allowedRoles: ['admin', 'gerente', 'contabilidad'],
+    allowedRoles: ['admin', 'gerencia', 'contabilidad'],
     section: 'finanzas'
   },
   {

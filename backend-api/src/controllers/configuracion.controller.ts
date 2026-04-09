@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { ConfiguracionGlobal, MetaMensual } from '../models';
+import { ConfiguracionGlobal, MetaMensual, MetaUsuarioMensual, Usuario } from '../models';
 
 export const obtenerConfiguracion = async (req: Request, res: Response) => {
   try {
@@ -69,7 +69,7 @@ export const actualizarMetasMes = async (req: Request, res: Response) => {
   try {
     const { anio, mes } = req.params;
     const { meta_facturacion, meta_odps_asesor } = req.body;
-    
+
     let meta = await MetaMensual.findOne({ where: { anio, mes } });
     if (meta) {
       await meta.update({ meta_facturacion, meta_odps_asesor });
@@ -80,5 +80,59 @@ export const actualizarMetasMes = async (req: Request, res: Response) => {
     res.json({ message: 'Metas mensuales actualizadas', meta });
   } catch (error: any) {
     res.status(500).json({ error: 'Error actualizando metas del mes: ' + error.message });
+  }
+};
+
+// ─── Metas individuales por usuario ──────────────────────────────────────────
+
+const ROLES_META = ['asesor_comercial', 'jefe_produccion', 'gerencia'];
+
+export const obtenerMetasUsuariosMes = async (req: Request, res: Response) => {
+  try {
+    const { anio, mes } = req.params;
+
+    const usuarios = await Usuario.findAll({
+      where: { rol: ROLES_META },
+      attributes: ['id', 'nombre_completo', 'rol'],
+      order: [['nombre_completo', 'ASC']]
+    });
+
+    const metas = await MetaUsuarioMensual.findAll({
+      where: { anio: Number(anio), mes: Number(mes) }
+    });
+
+    const result = usuarios.map(u => {
+      const meta = metas.find(m => m.getDataValue('usuario_id') === u.getDataValue('id'));
+      return {
+        usuario_id:       u.getDataValue('id'),
+        nombre_completo:  u.getDataValue('nombre_completo'),
+        rol:              u.getDataValue('rol'),
+        meta_facturacion: meta ? Number(meta.getDataValue('meta_facturacion')) : 0
+      };
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error obteniendo metas de usuarios: ' + error.message });
+  }
+};
+
+export const actualizarMetasUsuariosMes = async (req: Request, res: Response) => {
+  try {
+    const { anio, mes } = req.params;
+    const items: { usuario_id: number; meta_facturacion: number }[] = req.body;
+
+    for (const item of items) {
+      await MetaUsuarioMensual.upsert({
+        usuario_id:       item.usuario_id,
+        anio:             Number(anio),
+        mes:              Number(mes),
+        meta_facturacion: item.meta_facturacion ?? 0
+      });
+    }
+
+    res.json({ message: 'Metas de usuarios actualizadas exitosamente' });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error actualizando metas de usuarios: ' + error.message });
   }
 };

@@ -15,6 +15,8 @@ interface Props {
 
 const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved }) => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [clienteBusqueda, setClienteBusqueda] = useState('');
+  const [dropdownAbierto, setDropdownAbierto] = useState(false);
   // 'nuevo' | 'existente'
   const [tipo, setTipo] = useState<'nuevo' | 'existente'>(prospecto?.cliente_id ? 'existente' : 'nuevo');
   const [contactoDiferente, setContactoDiferente] = useState(
@@ -170,14 +172,38 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved }) => {
                 <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                   Cliente <span className="text-red-400">*</span>
                 </label>
-                <select
-                  value={form.cliente_id}
-                  onChange={e => handleSelectCliente(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">Seleccionar cliente...</option>
-                  {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre_razon_social}</option>)}
-                </select>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={dropdownAbierto ? clienteBusqueda : (clienteSeleccionado?.nombre_razon_social || clienteBusqueda)}
+                    onChange={e => { setClienteBusqueda(e.target.value); setDropdownAbierto(true); }}
+                    onFocus={() => { setClienteBusqueda(''); setDropdownAbierto(true); }}
+                    placeholder="Buscar cliente..."
+                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  {dropdownAbierto && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setDropdownAbierto(false)} />
+                      <div className="absolute top-full mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg z-20 max-h-52 overflow-y-auto">
+                        {clientes
+                          .filter(c => c.nombre_razon_social.toLowerCase().includes(clienteBusqueda.toLowerCase()))
+                          .map(c => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => { handleSelectCliente(String(c.id)); setClienteBusqueda(''); setDropdownAbierto(false); }}
+                              className="w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                            >
+                              {c.nombre_razon_social}
+                            </button>
+                          ))}
+                        {clientes.filter(c => c.nombre_razon_social.toLowerCase().includes(clienteBusqueda.toLowerCase())).length === 0 && (
+                          <p className="px-4 py-3 text-sm text-slate-400 text-center">Sin resultados</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Datos del cliente seleccionado */}
