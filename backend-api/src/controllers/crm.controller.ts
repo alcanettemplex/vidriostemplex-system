@@ -368,17 +368,25 @@ export const convertLeadToCliente = async (req: Request, res: Response) => {
 export const getLeads = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
-    const { mes, anio } = req.query;
-    const esAdminOGerencia = ['admin', 'gerencia', 'gerente', 'root', 'asistente_administrativo'].includes(user.rol?.toLowerCase());
+    const { mes, anio, vista } = req.query;
+    const esSinRespuesta = vista === 'sin_respuesta';
+    const esAdminOGerencia = ['admin', 'gerencia', 'root', 'asistente_administrativo'].includes(user.rol?.toLowerCase());
 
-    const whereClause: any = esAdminOGerencia 
-      ? {} 
-      : { 
+    const whereClause: any = esAdminOGerencia
+      ? {}
+      : {
           [Op.or]: [
             { asesor_id: user.id },
             { estado_crm: 'NUEVO' }
           ]
         };
+
+    // Separar pipeline de sin-respuesta
+    if (esSinRespuesta) {
+      whereClause.respondio = 'No responde';
+    } else {
+      whereClause.respondio = { [Op.ne]: 'No responde' };
+    }
 
     // Filtro por mes y año si vienen en el query
     if (mes && anio && mes !== 'undefined' && anio !== 'undefined') {
@@ -421,7 +429,7 @@ export const getCRMStats = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const { mes, anio } = req.query;
-    const esGlobal = ['admin', 'gerencia', 'gerente', 'root', 'asistente_administrativo'].includes(user.rol?.toLowerCase());
+    const esGlobal = ['admin', 'gerencia', 'root', 'asistente_administrativo'].includes(user.rol?.toLowerCase());
     
     const whereBase: any = esGlobal ? {} : { asesor_id: user.id };
 

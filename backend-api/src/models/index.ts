@@ -31,6 +31,7 @@ import SalidaAlmacen from './salida_almacen.model';
 import CotizacionCaptura from './cotizacion_captura.model';
 import Lead from './lead.model';
 import LeadEvento from './lead_evento.model';
+import MetaUsuarioMensual from './meta_usuario_mensual.model';
 
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
@@ -250,6 +251,7 @@ const MODELOS_AUDITADOS = [
   { model: CotizacionCaptura, tabla: 'cotizacion_capturas', pk: 'id' },
   { model: Lead, tabla: 'leads', pk: 'id' },
   { model: LeadEvento, tabla: 'lead_eventos', pk: 'id' },
+  { model: MetaUsuarioMensual, tabla: 'metas_usuario_mensual', pk: 'id' },
 ];
 
 function registrarAuditoria(
@@ -330,5 +332,6 @@ export {
   CotizacionCaptura,
   Lead,
   LeadEvento,
+  MetaUsuarioMensual,
 };
 

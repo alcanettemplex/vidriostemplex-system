@@ -45,12 +45,16 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
       >
         {/* Barra lateral de estado */}
         <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-lg ${
-          esEstancado ? 'bg-orange-400' :
-          stageId === 'NUEVO' ? 'bg-indigo-400' :
-          stageId === 'APROBADO' ? 'bg-emerald-500' :
-          stageId === 'PERDIDO' ? 'bg-rose-400' :
-          stageId === 'FRIO' ? 'bg-slate-300' :
-          'bg-indigo-300'
+          esEstancado      ? 'bg-orange-400' :
+          stageId === 'NUEVO'          ? 'bg-slate-400' :
+          stageId === 'ASIGNADO'       ? 'bg-blue-500' :
+          stageId === 'EN_CONTACTO'    ? 'bg-purple-500' :
+          stageId === 'COTIZANDO'      ? 'bg-amber-500' :
+          stageId === 'VISITA_TECNICA' ? 'bg-indigo-500' :
+          stageId === 'FRIO'           ? 'bg-sky-400' :
+          stageId === 'APROBADO'       ? 'bg-emerald-500' :
+          stageId === 'PERDIDO'        ? 'bg-rose-400' :
+          'bg-slate-300'
         }`} />
 
         {/* Header */}

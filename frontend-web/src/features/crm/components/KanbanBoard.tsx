@@ -6,7 +6,8 @@ import {
   Search, X, ChevronDown, ChevronRight, LayoutList,
   Columns, DollarSign, AlertTriangle, Zap, ArrowUpDown,
   User, Phone, Tag, Clock, UserCheck, Filter, TrendingUp,
-  Table
+  Table, Inbox, MessageCircle, FileText, MapPin, Snowflake,
+  CheckCircle, XCircle
 } from 'lucide-react';
 import { fetchLeadsStart, fetchLeadsSuccess, fetchLeadsFailure, updateLead } from '../crmSlice';
 import { apiGetLeads, apiUpdateLeadStatus, apiAssignLeadToMe } from '../crmService';
@@ -15,14 +16,62 @@ import MotivoPerdidaModal from './MotivoPerdidaModal';
 
 // ─── Etapas del pipeline ─────────────────────────────────────────────────────
 const PIPELINE_STAGES = [
-  { id: 'NUEVO',          label: 'Bolsa Común',  color: 'bg-slate-50 border-slate-200',     dot: 'bg-slate-400',   headerBg: 'bg-slate-100' },
-  { id: 'ASIGNADO',       label: 'Asignados',    color: 'bg-blue-50 border-blue-200',       dot: 'bg-blue-500',    headerBg: 'bg-blue-100' },
-  { id: 'EN_CONTACTO',    label: 'En Contacto',  color: 'bg-purple-50 border-purple-200',   dot: 'bg-purple-500',  headerBg: 'bg-purple-100' },
-  { id: 'COTIZANDO',      label: 'Cotizando',    color: 'bg-amber-50 border-amber-200',     dot: 'bg-amber-500',   headerBg: 'bg-amber-100' },
-  { id: 'VISITA_TECNICA', label: 'V. Técnica',   color: 'bg-indigo-50 border-indigo-200',   dot: 'bg-indigo-500',  headerBg: 'bg-indigo-100' },
-  { id: 'FRIO',           label: 'Enfriados',    color: 'bg-gray-100 border-gray-300',      dot: 'bg-gray-400',    headerBg: 'bg-gray-200' },
-  { id: 'APROBADO',       label: 'Aprobados ✓',  color: 'bg-emerald-50 border-emerald-200', dot: 'bg-emerald-500', headerBg: 'bg-emerald-100' },
-  { id: 'PERDIDO',        label: 'Perdidos',     color: 'bg-rose-50 border-rose-200',       dot: 'bg-rose-400',    headerBg: 'bg-rose-100' },
+  {
+    id: 'NUEVO',          label: 'Bolsa Común',
+    icon: Inbox,
+    iconBg: 'bg-slate-100',   iconColor: 'text-slate-600',
+    activeBg: 'bg-slate-600', badgeBg: 'bg-slate-200 text-slate-800',
+    color: 'bg-slate-50 border-slate-200', dot: 'bg-slate-400', headerBg: 'bg-slate-50',
+  },
+  {
+    id: 'ASIGNADO',       label: 'Asignados',
+    icon: UserCheck,
+    iconBg: 'bg-blue-100',    iconColor: 'text-blue-600',
+    activeBg: 'bg-blue-600',  badgeBg: 'bg-blue-100 text-blue-800',
+    color: 'bg-blue-50 border-blue-200', dot: 'bg-blue-500', headerBg: 'bg-blue-50',
+  },
+  {
+    id: 'EN_CONTACTO',    label: 'En Contacto',
+    icon: MessageCircle,
+    iconBg: 'bg-purple-100',  iconColor: 'text-purple-600',
+    activeBg: 'bg-purple-600',badgeBg: 'bg-purple-100 text-purple-800',
+    color: 'bg-purple-50 border-purple-200', dot: 'bg-purple-500', headerBg: 'bg-purple-50',
+  },
+  {
+    id: 'COTIZANDO',      label: 'Cotizando',
+    icon: FileText,
+    iconBg: 'bg-amber-100',   iconColor: 'text-amber-700',
+    activeBg: 'bg-amber-500', badgeBg: 'bg-amber-100 text-amber-800',
+    color: 'bg-amber-50 border-amber-200', dot: 'bg-amber-500', headerBg: 'bg-amber-50',
+  },
+  {
+    id: 'VISITA_TECNICA', label: 'V. Técnica',
+    icon: MapPin,
+    iconBg: 'bg-indigo-100',  iconColor: 'text-indigo-600',
+    activeBg: 'bg-indigo-600',badgeBg: 'bg-indigo-100 text-indigo-800',
+    color: 'bg-indigo-50 border-indigo-200', dot: 'bg-indigo-500', headerBg: 'bg-indigo-50',
+  },
+  {
+    id: 'FRIO',           label: 'Enfriados',
+    icon: Snowflake,
+    iconBg: 'bg-sky-100',     iconColor: 'text-sky-500',
+    activeBg: 'bg-sky-500',   badgeBg: 'bg-sky-100 text-sky-800',
+    color: 'bg-gray-100 border-gray-300', dot: 'bg-gray-400', headerBg: 'bg-sky-50',
+  },
+  {
+    id: 'APROBADO',       label: 'Aprobados',
+    icon: CheckCircle,
+    iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600',
+    activeBg: 'bg-emerald-600',badgeBg: 'bg-emerald-100 text-emerald-800',
+    color: 'bg-emerald-50 border-emerald-200', dot: 'bg-emerald-500', headerBg: 'bg-emerald-50',
+  },
+  {
+    id: 'PERDIDO',        label: 'Perdidos',
+    icon: XCircle,
+    iconBg: 'bg-rose-100',    iconColor: 'text-rose-500',
+    activeBg: 'bg-rose-600',  badgeBg: 'bg-rose-100 text-rose-700',
+    color: 'bg-rose-50 border-rose-200', dot: 'bg-rose-400', headerBg: 'bg-rose-50',
+  },
 ];
 
 const REQUIERE_MOTIVO = ['PERDIDO'];
@@ -108,10 +157,17 @@ const TablaFila: React.FC<{
         </div>
       </td>
       <td className="px-4 py-3">
-        <div className="flex items-center gap-1.5">
-          <span className={`w-2 h-2 rounded-full ${stage?.dot || 'bg-slate-300'}`} />
-          <span className="text-xs font-semibold text-slate-700">{stage?.label || lead.estado_crm}</span>
-        </div>
+        {stage ? (() => {
+          const Icon = stage.icon;
+          return (
+            <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-1 rounded-lg ${stage.badgeBg}`}>
+              <Icon className={`w-3 h-3 ${stage.iconColor}`} />
+              {stage.label}
+            </span>
+          );
+        })() : (
+          <span className="text-xs text-slate-500">{lead.estado_crm}</span>
+        )}
       </td>
       <td className="px-4 py-3">
         <span className="text-xs text-slate-500">{lead.asesor?.nombre_completo || (
@@ -208,7 +264,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
   const fetchLeads = useCallback(async () => {
     dispatch(fetchLeadsStart());
     try {
-      const { data } = await apiGetLeads(mes, anio);
+      const { data } = await apiGetLeads(mes, anio, 'pipeline');
       dispatch(fetchLeadsSuccess(data));
     } catch (err: any) {
       const msg = err?.response?.data?.error || err?.response?.data?.message || 'No se pudieron cargar los leads. Verifica la conexión.';
@@ -350,37 +406,44 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
     return (
       <div className="flex flex-col h-[78vh] gap-0 rounded-xl border border-slate-200 shadow-sm bg-white overflow-hidden">
         {/* Barra superior de etapas (Pipeline Horizontal) */}
-        <div className="flex-shrink-0 bg-slate-800 p-1 flex overflow-x-auto no-scrollbar gap-1 border-b border-slate-700">
+        <div className="flex-shrink-0 bg-white p-2 flex overflow-x-auto no-scrollbar gap-1.5 border-b border-slate-200">
           {PIPELINE_STAGES.map((stage, index) => {
             const stats = getColStats(stage.id);
             const activo = columnaActiva === stage.id;
             const esUltimo = index === PIPELINE_STAGES.length - 1;
+            const Icon = stage.icon;
 
             return (
               <button
                 key={stage.id}
                 onClick={() => setColumnaActiva(stage.id)}
-                className={`relative flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 px-4 transition-all group overflow-hidden ${
+                className={`relative flex-1 min-w-[110px] flex items-center gap-2 py-2 px-3 rounded-xl transition-all duration-150 ${
                   activo
-                    ? 'bg-indigo-600 text-white shadow-lg opacity-100'
-                    : 'text-slate-400 hover:bg-slate-700 hover:text-slate-200 opacity-80'
-                } rounded-lg`}
+                    ? `${stage.activeBg} text-white shadow-md`
+                    : `${stage.iconBg} hover:brightness-95`
+                }`}
               >
-                {/* Indicador de dot */}
-                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${stage.dot} ${activo ? 'ring-2 ring-white/30' : ''}`} />
-                
-                <div className="flex flex-col items-start min-w-0">
-                  <span className="text-[10px] font-black uppercase tracking-tighter truncate w-full leading-none mb-1">
+                {/* Ícono */}
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                  activo ? 'bg-white/20' : 'bg-white/70'
+                }`}>
+                  <Icon className={`w-3.5 h-3.5 ${activo ? 'text-white' : stage.iconColor}`} />
+                </div>
+
+                <div className="flex flex-col items-start min-w-0 flex-1">
+                  <span className={`text-[10px] font-black uppercase tracking-tight truncate w-full leading-none mb-1 ${
+                    activo ? 'text-white' : stage.iconColor
+                  }`}>
                     {stage.label}
                   </span>
                   <div className="flex items-center gap-1.5">
-                    <span className={`text-[9px] font-black px-1 rounded ${
-                      activo ? 'bg-white/20' : 'bg-slate-900'
+                    <span className={`text-[11px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none ${
+                      activo ? 'bg-white/25 text-white' : stage.badgeBg
                     }`}>
                       {stats.count}
                     </span>
                     {stats.urgentes > 0 && (
-                      <span className="flex items-center gap-0.5 text-[8px] text-rose-400 font-black animate-pulse">
+                      <span className="flex items-center gap-0.5 text-[8px] font-black animate-pulse text-rose-500">
                         <AlertTriangle className="w-2 h-2" /> {stats.urgentes}
                       </span>
                     )}
@@ -388,9 +451,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
                 </div>
 
                 {!esUltimo && (
-                  <div className="absolute -right-1 top-1/2 -translate-y-1/2 z-10 opacity-20 group-hover:opacity-40 pointer-events-none text-white/50">
-                    <ChevronRight className="w-4 h-4" />
-                  </div>
+                  <ChevronRight className={`w-3 h-3 flex-shrink-0 opacity-30 ${activo ? 'text-white' : 'text-slate-400'}`} />
                 )}
               </button>
             );
@@ -401,22 +462,29 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
 
         {/* Panel central: lista de leads */}
         <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden border-r border-slate-200">
-          {/* Header de la etapa */}
-          <div className={`px-4 py-3 border-b border-slate-200 flex items-center justify-between ${stageActual?.headerBg}`}>
-            <div className="flex items-center gap-2">
-              <span className={`w-3 h-3 rounded-full ${stageActual?.dot}`} />
-              <h3 className="font-black text-sm text-slate-800">{stageActual?.label}</h3>
-              <span className="text-xs font-bold bg-white px-2 py-0.5 rounded-full shadow-sm border border-slate-200">
-                {colLeads.length}
-              </span>
-            </div>
-            {colLeads.some(l => calcularPrioridad(l) === 'urgente') && (
-              <span className="text-xs text-rose-600 font-bold flex items-center gap-1 animate-pulse">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                {colLeads.filter(l => calcularPrioridad(l) === 'urgente').length} urgente(s)
-              </span>
-            )}
-          </div>
+          {/* Header de la etapa activa */}
+          {stageActual && (() => {
+            const Icon = stageActual.icon;
+            return (
+              <div className={`px-4 py-3 border-b border-slate-200 flex items-center justify-between ${stageActual.headerBg}`}>
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${stageActual.iconBg}`}>
+                    <Icon className={`w-4 h-4 ${stageActual.iconColor}`} />
+                  </div>
+                  <h3 className="font-black text-sm text-slate-800">{stageActual.label}</h3>
+                  <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${stageActual.badgeBg}`}>
+                    {colLeads.length}
+                  </span>
+                </div>
+                {colLeads.some(l => calcularPrioridad(l) === 'urgente') && (
+                  <span className="text-xs text-rose-600 font-bold flex items-center gap-1 animate-pulse">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    {colLeads.filter(l => calcularPrioridad(l) === 'urgente').length} urgente(s)
+                  </span>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Lista */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -442,23 +510,41 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
                     {/* Barra prioridad */}
                     <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${
                       prioridad === 'urgente' ? 'bg-rose-400' :
-                      prioridad === 'frio' ? 'bg-slate-300' : 'bg-indigo-300'
+                      prioridad === 'frio'    ? 'bg-slate-300' :
+                      stageActual            ? stageActual.dot : 'bg-indigo-300'
                     }`} />
                     {/* Avatar inicial */}
-                    <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-black text-slate-600 flex-shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center text-sm font-black text-indigo-700 flex-shrink-0">
                       {(lead.nombre || '?')[0].toUpperCase()}
                     </div>
                     {/* Info — clickeable para abrir detalle */}
                     <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setLeadSeleccionado(lead)}>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-bold text-slate-800 truncate">{lead.nombre || 'Sin nombre'}</p>
+                        <p className="text-sm font-bold text-slate-800 truncate">{lead.nombre || 'Sin nombre'}</p>
                         <PrioridadBadge prioridad={prioridad} />
                       </div>
-                      <p className="text-[10px] text-slate-500 font-mono truncate">{lead.telefono || '—'}</p>
-                      <p className="text-[10px] text-slate-500 truncate">{lead.producto_interes || '—'}</p>
+                      {/* Teléfono — prominente */}
+                      <p className="text-sm font-black text-slate-700 font-mono tracking-wide mt-0.5">
+                        {lead.telefono || '—'}
+                      </p>
+                      <p className="text-[11px] text-slate-500 truncate mt-0.5">{lead.producto_interes || '—'}</p>
                       {lead.descripcion_contexto && (
                         <p className="text-[10px] text-slate-400 italic truncate">{lead.descripcion_contexto}</p>
                       )}
+                      {/* Asesor asignado */}
+                      <div className="flex items-center gap-1 mt-1">
+                        {lead.asesor ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                            <User className="w-2.5 h-2.5" />
+                            {lead.asesor.nombre_completo}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
+                            <User className="w-2.5 h-2.5" />
+                            Sin asignar
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-1">
                         {lead.segmento && (
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${SEGMENTO_COLOR[lead.segmento] || 'bg-slate-100 text-slate-600'}`}>
@@ -485,7 +571,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           {/* Dropdown de etapas: solo asesor asignado o admin/gerencia */}
                           {(() => {
-                            const esAdminOGerencia = ['admin', 'gerencia', 'gerente', 'root'].includes(rol);
+                            const esAdminOGerencia = ['admin', 'gerencia', 'root'].includes(rol);
                             const esAsesorAsignado = rol === 'asesor_comercial' && lead.asesor_id === user?.id;
                             if (!esAdminOGerencia && !esAsesorAsignado) return null;
 
@@ -637,42 +723,55 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
                 className={`flex items-center justify-between p-3 border-b border-slate-200/60 sticky top-0 backdrop-blur-md rounded-t-xl z-10 cursor-pointer ${stage.headerBg}`}
                 onClick={() => toggleCollapse(stage.id)}
               >
-                {isCollapsed ? (
-                  /* Columna colapsada: solo dot + contador vertical */
-                  <div className="flex flex-col items-center gap-2 w-full">
-                    <span className={`w-2.5 h-2.5 rounded-full ${stage.dot}`} />
-                    <span className="text-[10px] font-black text-slate-500 writing-vertical"
-                      style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>
-                      {stage.label}
-                    </span>
-                    <span className="bg-white text-slate-600 text-[10px] font-black px-1.5 py-0.5 rounded-full border border-slate-200">
-                      {colLeads.length}
-                    </span>
-                    {urgentes > 0 && <span className="text-[8px] text-rose-500 font-black animate-pulse">{urgentes}🔴</span>}
-                  </div>
-                ) : (
-                  /* Columna expandida: cabecera completa */
-                  <>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${stage.dot}`} />
-                      <h3 className="font-extrabold text-xs uppercase tracking-wider text-slate-700 truncate">{stage.label}</h3>
-                      <span className="bg-white text-slate-600 text-xs font-black px-2 py-0.5 rounded-full border border-slate-200 shadow-sm flex-shrink-0">
+                {(() => {
+                  const Icon = stage.icon;
+                  return isCollapsed ? (
+                    /* Columna colapsada: ícono + contador vertical */
+                    <div className="flex flex-col items-center gap-2 w-full">
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${stage.iconBg}`}>
+                        <Icon className={`w-3.5 h-3.5 ${stage.iconColor}`} />
+                      </div>
+                      <span
+                        className={`text-[9px] font-black ${stage.iconColor}`}
+                        style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}
+                      >
+                        {stage.label}
+                      </span>
+                      <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${stage.badgeBg}`}>
                         {colLeads.length}
                       </span>
                       {urgentes > 0 && (
-                        <span className="text-[9px] text-rose-500 font-black animate-pulse flex-shrink-0">
-                          {urgentes}🔴
+                        <span className="text-[8px] text-rose-500 font-black animate-pulse">🔴{urgentes}</span>
+                      )}
+                    </div>
+                  ) : (
+                    /* Columna expandida: cabecera completa */
+                    <>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${stage.iconBg}`}>
+                          <Icon className={`w-3.5 h-3.5 ${stage.iconColor}`} />
+                        </div>
+                        <h3 className="font-extrabold text-xs uppercase tracking-wider text-slate-700 truncate">{stage.label}</h3>
+                        <span className={`text-xs font-black px-2 py-0.5 rounded-full flex-shrink-0 ${stage.badgeBg}`}>
+                          {colLeads.length}
                         </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {montoCOPFmt && (
-                        <span className="text-[9px] text-emerald-700 font-bold hidden lg:block">{montoCOPFmt}</span>
-                      )}
-                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                    </div>
-                  </>
-                )}
+                        {urgentes > 0 && (
+                          <span className="text-[9px] text-rose-500 font-black animate-pulse flex-shrink-0">
+                            🔴{urgentes}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {montoCOPFmt && (
+                          <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200 hidden lg:block">
+                            {montoCOPFmt}
+                          </span>
+                        )}
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* ── Cards (solo si no está colapsado) ── */}

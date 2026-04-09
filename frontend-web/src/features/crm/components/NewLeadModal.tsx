@@ -101,11 +101,18 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
 
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* Banner informativo */}
-          <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 flex gap-3 text-sm text-indigo-800">
-            <Info className="w-4 h-4 shrink-0 text-indigo-500 mt-0.5" />
-            <p>El lead irá a la <strong>Bolsa Común</strong> automáticamente, salvo que asignes un asesor al final.</p>
-          </div>
+          {/* Banner informativo — cambia según respondio */}
+          {formData.respondio === 'No responde' ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-3 text-sm text-amber-800">
+              <Info className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+              <p>Este lead se registrará en el tab <strong>Sin Respuesta</strong>. No entrará al pipeline hasta que responda. Igual quedará guardado el mensaje y la fuente para métricas.</p>
+            </div>
+          ) : (
+            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 flex gap-3 text-sm text-indigo-800">
+              <Info className="w-4 h-4 shrink-0 text-indigo-500 mt-0.5" />
+              <p>El lead irá a la <strong>Bolsa Común</strong> automáticamente, salvo que asignes un asesor al final.</p>
+            </div>
+          )}
 
           {/* Fila 1: Nombre + Teléfono */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -207,8 +214,8 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
             />
           </div>
 
-          {/* Asignación directa (opcional) */}
-          {asesores.length > 0 && (
+          {/* Asignación directa (oculta si no responde) */}
+          {asesores.length > 0 && formData.respondio !== 'No responde' && (
             <div className="space-y-1.5 pt-2 border-t border-dashed border-slate-200">
               <label className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
                 <ChevronDown className="w-3.5 h-3.5" /> Asignar Directamente a (opcional)

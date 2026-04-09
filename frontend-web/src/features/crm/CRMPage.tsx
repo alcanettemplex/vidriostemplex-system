@@ -4,18 +4,19 @@ import KanbanBoard from './components/KanbanBoard';
 import NewLeadModal from './components/NewLeadModal';
 import CRMMetrics from './components/CRMMetrics';
 import DashboardGerencial from './components/DashboardGerencial';
+import SinRespuestaTab from './components/SinRespuestaTab';
 import PeriodSelector from '../../components/common/PeriodSelector';
-import { Plus, Filter, BarChart3, Kanban, TrendingUp } from 'lucide-react';
+import { Plus, BarChart3, Kanban, TrendingUp, PhoneMissed } from 'lucide-react';
 
-type Tab = 'pipeline' | 'metricas' | 'gerencial';
+type Tab = 'pipeline' | 'metricas' | 'gerencial' | 'sin_respuesta';
 
-const ROLES_GLOBAL = ['admin', 'gerencia', 'gerente', 'asistente_administrativo', 'root'];
-const ROLES_GERENCIAL = ['admin', 'gerencia', 'gerente', 'asistente_administrativo', 'root'];
+const ROLES_GLOBAL = ['admin', 'gerencia', 'asistente_administrativo', 'root'];
+const ROLES_GERENCIAL = ['admin', 'gerencia', 'asistente_administrativo', 'root'];
 
 const CRMPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('pipeline');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
   // Estado de periodo (mes actual por defecto)
   const now = new Date();
   const [mes, setMes] = useState(now.getMonth() + 1);
@@ -44,8 +45,8 @@ const CRMPage: React.FC = () => {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <PeriodSelector mes={mes} anio={anio} onChange={handlePeriodChange} />
-          
-          {activeTab === 'pipeline' && (
+
+          {(activeTab === 'pipeline' || activeTab === 'sin_respuesta') && (
             <>
               {(esVistaGlobal || rol === 'asesor_comercial') && (
                 <button
@@ -73,6 +74,17 @@ const CRMPage: React.FC = () => {
         >
           <Kanban className="w-4 h-4" />
           Pipeline
+        </button>
+        <button
+          onClick={() => setActiveTab('sin_respuesta')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+            activeTab === 'sin_respuesta'
+              ? 'bg-white text-slate-800 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <PhoneMissed className="w-4 h-4" />
+          Sin Respuesta
         </button>
         <button
           onClick={() => setActiveTab('metricas')}
@@ -107,6 +119,10 @@ const CRMPage: React.FC = () => {
         </div>
       )}
 
+      {activeTab === 'sin_respuesta' && (
+        <SinRespuestaTab mes={mes} anio={anio} />
+      )}
+
       {activeTab === 'metricas' && (
         <CRMMetrics
           asesorId={asesorId}
@@ -117,8 +133,8 @@ const CRMPage: React.FC = () => {
       )}
 
       {activeTab === 'gerencial' && puedeVerGerencial && (
-        <DashboardGerencial 
-          esVistaGlobal={esVistaGlobal} 
+        <DashboardGerencial
+          esVistaGlobal={esVistaGlobal}
           mes={mes}
           anio={anio}
         />

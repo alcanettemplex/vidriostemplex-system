@@ -6,11 +6,18 @@ const getHeaders = () => ({
   headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
 });
 
-/** Obtener todos los leads (el backend filtra por rol automáticamente) */
-export const apiGetLeads = (mes?: number, anio?: number) => {
-  const params = (mes && anio) ? `?mes=${mes}&anio=${anio}` : '';
-  return axios.get(`${API}/api/crm${params}`, getHeaders());
+/** Obtener leads del pipeline (excluye sin-respuesta) o del tab sin-respuesta */
+export const apiGetLeads = (mes?: number, anio?: number, vista?: 'pipeline' | 'sin_respuesta') => {
+  const params = new URLSearchParams();
+  if (mes && anio) { params.append('mes', String(mes)); params.append('anio', String(anio)); }
+  if (vista) params.append('vista', vista);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  return axios.get(`${API}/api/crm${qs}`, getHeaders());
 };
+
+/** Recuperar un lead del tab sin-respuesta y enviarlo al pipeline */
+export const apiMoverAlPipeline = (id: number) =>
+  axios.patch(`${API}/api/crm/${id}`, { respondio: 'Espera de información' }, getHeaders());
 
 /** Crear un nuevo lead */
 export const apiCreateLead = (data: Record<string, any>) =>
