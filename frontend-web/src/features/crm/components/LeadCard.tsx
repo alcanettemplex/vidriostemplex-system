@@ -17,10 +17,21 @@ const SEGMENTO_COLOR: Record<string, string> = {
   'Intervid':      'bg-fuchsia-100 text-fuchsia-700',
 };
 
+const FECHA_POR_ETAPA: Record<string, string> = {
+  NUEVO: 'createdAt', ASIGNADO: 'fecha_asignado', EN_CONTACTO: 'fecha_en_contacto',
+  COTIZANDO: 'fecha_cotizando', VISITA_TECNICA: 'fecha_visita_tecnica',
+};
+
 const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool }) => {
   const [showDetalle, setShowDetalle] = useState(false);
-  const esEstancado = !['PERDIDO', 'APROBADO', 'FRIO'].includes(lead.estado_crm) && 
-    lead.updatedAt && (Date.now() - new Date(lead.updatedAt).getTime()) > 48 * 60 * 60 * 1000;
+  const esUrgente = (() => {
+    if (['PERDIDO', 'APROBADO', 'FRIO'].includes(lead.estado_crm)) return false;
+    const campo = FECHA_POR_ETAPA[lead.estado_crm] || 'createdAt';
+    const fecha = lead[campo] ? new Date(lead[campo]) : (lead.createdAt ? new Date(lead.createdAt) : null);
+    if (!fecha) return false;
+    return (Date.now() - fecha.getTime()) / (1000 * 60 * 60) > 24;
+  })();
+  const esEstancado = esUrgente;
 
   const esNuevo = stageId === 'NUEVO';
   const esAsesor = rol === 'asesor_comercial';
@@ -63,9 +74,9 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
             <h4 className="font-bold text-slate-800 text-sm leading-tight line-clamp-1">
               {lead.nombre}
             </h4>
-            {esEstancado && (
-              <span className="flex items-center gap-1 text-[9px] font-black text-orange-600 animate-pulse mt-0.5">
-                <Clock className="w-2.5 h-2.5" /> ESTANCADO +48H
+            {esUrgente && (
+              <span className="flex items-center gap-1 text-[9px] font-black text-rose-600 animate-pulse mt-0.5">
+                <Clock className="w-2.5 h-2.5" /> URGENTE +24H
               </span>
             )}
           </div>

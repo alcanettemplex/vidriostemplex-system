@@ -79,20 +79,34 @@ const SEGMENTOS = ['Arquitecto', 'Cliente final', 'Industrial', 'Institucional',
 const CARDS_POR_PAGINA = 7;
 
 // ─── Prioridad automática ──────────────────────────────────────────────────────
-type Prioridad = 'urgente' | 'normal' | 'frio';
+type Prioridad = 'urgente' | 'normal';
+
+const FECHA_POR_ETAPA: Record<string, string> = {
+  NUEVO:          'createdAt',
+  ASIGNADO:       'fecha_asignado',
+  EN_CONTACTO:    'fecha_en_contacto',
+  COTIZANDO:      'fecha_cotizando',
+  VISITA_TECNICA: 'fecha_visita_tecnica',
+  FRIO:           'fecha_frio',
+  APROBADO:       'fecha_aprobado',
+  PERDIDO:        'fecha_perdido',
+};
 
 function calcularPrioridad(lead: any): Prioridad {
-  if (lead.intentos_seguimiento >= 2) return 'urgente';
-  const dias = lead.createdAt
-    ? (Date.now() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-    : 0;
-  if (dias > 7 && !lead.intentos_seguimiento) return 'frio';
-  return 'normal';
+  if (['PERDIDO', 'APROBADO', 'FRIO'].includes(lead.estado_crm)) return 'normal';
+  const campo = FECHA_POR_ETAPA[lead.estado_crm] || 'createdAt';
+  const fecha = lead[campo] ? new Date(lead[campo]) : (lead.createdAt ? new Date(lead.createdAt) : null);
+  if (!fecha) return 'normal';
+  const horas = (Date.now() - fecha.getTime()) / (1000 * 60 * 60);
+  return horas > 24 ? 'urgente' : 'normal';
 }
 
 function sortByPriority(leads: any[]): any[] {
-  const orden: Record<Prioridad, number> = { urgente: 0, normal: 1, frio: 2 };
-  return [...leads].sort((a, b) => orden[calcularPrioridad(a)] - orden[calcularPrioridad(b)]);
+  return [...leads].sort((a, b) => {
+    const pa = calcularPrioridad(a) === 'urgente' ? 0 : 1;
+    const pb = calcularPrioridad(b) === 'urgente' ? 0 : 1;
+    return pa - pb;
+  });
 }
 
 // ─── Badge de prioridad ───────────────────────────────────────────────────────
@@ -100,11 +114,6 @@ const PrioridadBadge: React.FC<{ prioridad: Prioridad }> = ({ prioridad }) => {
   if (prioridad === 'urgente') return (
     <span className="inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-600 animate-pulse border border-rose-200">
       <AlertTriangle className="w-2.5 h-2.5" /> URGENTE
-    </span>
-  );
-  if (prioridad === 'frio') return (
-    <span className="inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-400 border border-slate-200">
-      ❄️ SIN ACTIVIDAD
     </span>
   );
   return null;
@@ -141,8 +150,7 @@ const TablaFila: React.FC<{
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <div className={`w-1.5 h-8 rounded-full ${
-            prioridad === 'urgente' ? 'bg-rose-400' :
-            prioridad === 'frio' ? 'bg-slate-300' : 'bg-indigo-400'
+            prioridad === 'urgente' ? 'bg-rose-400' : 'bg-indigo-400'
           }`} />
           <div>
             <p className="text-sm font-bold text-slate-800 leading-tight">{lead.nombre || '—'}</p>
@@ -523,7 +531,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
                     {/* Barra prioridad */}
                     <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${
                       prioridad === 'urgente' ? 'bg-rose-400' :
-                      prioridad === 'frio'    ? 'bg-slate-300' :
                       stageActual            ? stageActual.dot : 'bg-indigo-300'
                     }`} />
                     {/* Avatar inicial */}
@@ -830,18 +837,13 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
                                 {esNuevaSec && prioridad === 'normal' && (
                                   <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider px-1 pt-1">Normal</div>
                                 )}
-                                {esNuevaSec && prioridad === 'frio' && (
-                                  <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider px-1 pt-1">❄️ Sin actividad reciente</div>
-                                )}
                                 <Draggable draggableId={String(lead.id)} index={index}>
                                   {(provided, snapshot) => (
                                     <div
                                       ref={provided.innerRef}
                                       {...provided.draggableProps}
                                       {...provided.dragHandleProps}
-                                      className={`transition-transform ${snapshot.isDragging ? 'rotate-1 scale-105 shadow-xl z-50' : ''} ${
-                                        prioridad === 'frio' ? 'opacity-60' : ''
-                                      }`}
+                                      className={`transition-transform ${snapshot.isDragging ? 'rotate-1 scale-105 shadow-xl z-50' : ''}`}
                                     >
                                       <LeadCard
                                         lead={lead}

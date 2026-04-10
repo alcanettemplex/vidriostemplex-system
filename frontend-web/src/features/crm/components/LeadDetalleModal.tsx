@@ -533,6 +533,12 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
                   <span className="text-[10px] font-black text-emerald-600 uppercase block mb-1">Monto Proyectado</span>
                   <p className="text-xl font-black text-emerald-800">{formatCOP(lead.monto_proyectado_cotizacion)}</p>
                 </div>
+                {lead.descripcion_contexto && (
+                  <div className="col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <span className="text-[10px] font-black text-slate-500 uppercase block mb-1">Descripción / Contexto</span>
+                    <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">{lead.descripcion_contexto}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>

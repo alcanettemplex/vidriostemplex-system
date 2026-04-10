@@ -2,7 +2,7 @@ import React from 'react';
 import { useDispatch } from 'react-redux';
 import { logout } from '../../features/auth/authSlice';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Bell, Search } from 'lucide-react';
+import { LogOut, Bell } from 'lucide-react';
 import { TemplexLogo } from '../ui/TemplexLogo';
 
 const Navbar: React.FC = () => {
@@ -25,15 +25,6 @@ const Navbar: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-6">
-        <div className="hidden md:flex relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Buscar rápido..."
-            className="pl-10 pr-4 py-1.5 w-64 bg-slate-50 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-          />
-        </div>
-
         <button className="text-slate-400 hover:text-blue-600 transition relative">
           <Bell className="w-5 h-5" />
           <span className="absolute -top-1 -right-1 flex h-3 w-3">
