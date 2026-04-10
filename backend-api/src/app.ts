@@ -27,6 +27,7 @@ import salidasAlmacenRoutes from './routes/salidas_almacen.routes';
 import rootRoutes from './routes/root.routes';
 import cotizacionesRoutes from './routes/cotizaciones.routes';
 import cotizacionCapturasRoutes from './routes/cotizacion_capturas.routes';
+import detalleSAPRoutes from './routes/detalle_sap.routes';
 import crmRoutes from './routes/crm.routes';
 import { requestContext } from './utils/requestContext';
 
@@ -100,6 +101,7 @@ app.use('/api/facturas-salidas', salidasAlmacenRoutes);
 app.use('/api/root', rootRoutes);
 app.use('/api/cotizaciones', cotizacionesRoutes);
 app.use('/api/cotizacion-capturas', cotizacionCapturasRoutes);
+app.use('/api/detalle-sap-imagenes', detalleSAPRoutes);
 app.use('/api/crm', crmRoutes);
 
 import { errorHandler } from './middlewares/errorHandler';

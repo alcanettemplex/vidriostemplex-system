@@ -1,22 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, FileText, Wrench, Truck, DollarSign, Package, Ruler, Plus,
   CheckCircle2, AlertCircle, AlertTriangle, MapPin, User, Calendar, Phone,
   Building2, ExternalLink, CreditCard, Camera, History,
-  ClipboardList, TrendingUp, Printer
+  ClipboardList, TrendingUp, Printer, PenTool, Images, Trash2
 } from 'lucide-react';
+import { toast } from 'react-toastify';
 import PrintableTalonario from './PrintableTalonario';
 import PrintableGarantia from './PrintableGarantia';
 import PrintableNoConformidad from './PrintableNoConformidad';
 import PrintableProduccion from './PrintableProduccion';
 import PrintableDetalleTecnico from './PrintableDetalleTecnico';
+import PrintableDetSAP from './PrintableDetSAP';
 import PrintableSAP from './PrintableSAP';
 import ReportarProblemaForm from './ReportarProblemaForm';
 import SAPModal from './SAPModal';
 import TMModal from './TMModal';
 import CotizacionCapturas from './CotizacionCapturas';
+import Lightbox, { useLightbox } from '../../../components/ui/Lightbox';
 
 // ─── Paleta de estado ─────────────────────────────────────────────────────────
 const estadoProdColor: Record<string, string> = {
@@ -268,9 +271,132 @@ const TabComercial: React.FC<{ odp: any; onRefresh: () => void }> = ({ odp, onRe
   );
 };
 
-const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void }> = ({ odp, onUpdate }) => {
+// ─── Card Det. SAP (galería de imágenes técnicas) ─────────────────────────────
+const DetalleSAPCard: React.FC<{ odpId: number; canUpload: boolean; onOpenLightbox: (src: string) => void }> = ({ odpId, canUpload, onOpenLightbox }) => {
+  const [imagenes, setImagenes] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const token = localStorage.getItem('token');
+
+  const fetchImagenes = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${API}/api/detalle-sap-imagenes?odp_id=${odpId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setImagenes(data);
+    } catch { /* ignorar */ }
+  }, [odpId]);
+
+  useEffect(() => { fetchImagenes(); }, [fetchImagenes]);
+
+  const handleFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) { toast.error('Solo se permiten imágenes'); return; }
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append('imagen', file);
+      formData.append('odp_id', String(odpId));
+      await axios.post(`${API}/api/detalle-sap-imagenes`, formData, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+      });
+      await fetchImagenes();
+      toast.success('Imagen subida correctamente');
+    } catch {
+      toast.error('Error al subir imagen');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFile(file);
+    e.target.value = '';
+  };
+
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) { handleFile(file); break; }
+      }
+    }
+  }, [odpId]);
+
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [handlePaste]);
+
+  const handleDelete = async (id: number) => {
+    try {
+      await axios.delete(`${API}/api/detalle-sap-imagenes/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      await fetchImagenes();
+      toast.success('Imagen eliminada');
+    } catch {
+      toast.error('Error al eliminar imagen');
+    }
+  };
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+          <Images className="w-4 h-4 text-violet-600" /> Detalles Tec. SAP ({imagenes.length})
+        </h3>
+        {canUpload && (
+          <label className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition cursor-pointer">
+            {uploading ? 'Subiendo...' : <><Camera className="w-3.5 h-3.5" /> Subir imagen</>}
+            <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleFileChange} disabled={uploading} />
+          </label>
+        )}
+      </div>
+
+      {imagenes.length === 0 ? (
+        <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center text-slate-400">
+          <Images className="w-10 h-10 mx-auto mb-2 text-slate-200" />
+          <p className="font-bold text-xs">Sin imágenes Det. SAP</p>
+          {canUpload && <p className="text-[11px] mt-1">Sube imágenes o pégalas con Ctrl+V</p>}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {imagenes.map((img: any) => (
+            <div key={img.id} className="group relative rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100 aspect-square">
+              <img
+                src={img.url}
+                alt="Det. SAP"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-zoom-in"
+                onClick={() => onOpenLightbox(img.url)}
+              />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-2 pointer-events-none" />
+              {canUpload && (
+                <button
+                  onClick={() => handleDelete(img.id)}
+                  className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-red-600 text-white rounded-full p-1 hover:bg-red-700 z-10"
+                  title="Eliminar"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {canUpload && <p className="text-[10px] text-slate-400 mt-3 italic text-center">Ctrl+V para pegar imagen desde el portapapeles</p>}
+    </div>
+  );
+};
+
+const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: any }> = ({ odp, onUpdate, currentUser }) => {
   const [uploading, setUploading] = useState(false);
   const [tmModalOpen, setTmModalOpen] = useState(false);
+  const { lightboxSrc, openLightbox, closeLightbox } = useLightbox();
   const tms = odp.tomas_medidas || [];
   const chks = [
     { key: 'chk_medicion', label: 'Toma de Medidas', icon: <Ruler className="w-4 h-4" /> },
@@ -308,8 +434,12 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void }> = ({ odp, onU
     }
   };
 
+  const canUploadSAP = currentUser && ['asesor_comercial', 'jefe_produccion', 'admin', 'gerencia', 'contabilidad'].includes(currentUser.rol);
+
   return (
     <div className="p-6 space-y-6">
+      <Lightbox src={lightboxSrc} onClose={closeLightbox} />
+
       <div className="grid md:grid-cols-2 gap-6">
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
           <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
@@ -342,7 +472,8 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void }> = ({ odp, onU
           <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl p-4 min-h-[160px] relative overflow-hidden group">
             {odp.croquis_url ? (
               <>
-                <img src={odp.croquis_url} alt="Croquis" className="absolute inset-0 w-full h-full object-contain p-2" />
+                <img src={odp.croquis_url} alt="Croquis" className="absolute inset-0 w-full h-full object-contain p-2 cursor-zoom-in"
+                  onClick={() => openLightbox(odp.croquis_url)} />
                 <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
                   <label className="cursor-pointer bg-white text-slate-900 px-4 py-2 rounded-lg font-bold text-xs shadow-xl flex items-center gap-2 hover:scale-105 transition-transform">
                     <Camera className="w-4 h-4" /> CAMBIAR DIBUJO
@@ -366,6 +497,8 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void }> = ({ odp, onU
           <p className="text-[10px] text-slate-400 mt-3 italic text-center uppercase tracking-tighter">Este dibujo aparecerá automáticamente en el formato impreso de Detalle Técnico</p>
         </div>
       </div>
+
+      <DetalleSAPCard odpId={odp.id} canUpload={canUploadSAP} onOpenLightbox={openLightbox} />
 
       <div>
         <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
@@ -419,10 +552,9 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void }> = ({ odp, onU
                   </p>
                   <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
                     {fotos.map((url, i) => (
-                      <a key={i} href={url} target="_blank" rel="noreferrer">
-                        <img src={url} alt={`Foto ${i + 1}`}
-                          className="w-full aspect-square object-cover rounded-lg border border-amber-200 hover:opacity-85 transition bg-slate-50" />
-                      </a>
+                      <img key={i} src={url} alt={`Foto ${i + 1}`}
+                        className="w-full aspect-square object-cover rounded-lg border border-amber-200 hover:opacity-85 transition bg-slate-50 cursor-zoom-in"
+                        onClick={() => openLightbox(url)} />
                     ))}
                   </div>
                 </div>
@@ -454,7 +586,7 @@ const ESTADO_RUTA_ODP: Record<string, { label: string; cls: string }> = {
   completada:  { label: 'Completada', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
 };
 
-const TabInstalacion: React.FC<{ odp: any }> = ({ odp }) => {
+const TabInstalacion: React.FC<{ odp: any; onOpenLightbox: (src: string) => void }> = ({ odp, onOpenLightbox }) => {
   const rutaOdps: any[] = odp.ruta_odps || [];
   const evidencias = odp.evidencias || [];
 
@@ -522,11 +654,11 @@ const TabInstalacion: React.FC<{ odp: any }> = ({ odp }) => {
               <div key={ev.id} className="group relative rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100 aspect-square">
                 {ev.archivo_url ? (
                   <>
-                    <img src={ev.archivo_url} alt="Evidencia" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    <a href={ev.archivo_url} target="_blank" rel="noopener noreferrer"
-                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <img src={ev.archivo_url} alt="Evidencia" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 cursor-zoom-in"
+                      onClick={() => onOpenLightbox(ev.archivo_url)} />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
                       <ExternalLink className="w-6 h-6 text-white" />
-                    </a>
+                    </div>
                   </>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-slate-400">
@@ -543,6 +675,39 @@ const TabInstalacion: React.FC<{ odp: any }> = ({ odp }) => {
           </div>
         )}
       </div>
+
+      {/* ── Firmas del cliente ── */}
+      {(() => {
+        const firmas = rutaOdps.filter((r: any) => r.firma_receptor);
+        if (firmas.length === 0) return null;
+        return (
+          <div>
+            <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
+              <PenTool className="w-4 h-4 text-violet-600" /> Firma(s) del Cliente ({firmas.length})
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {firmas.map((r: any) => (
+                <div key={r.id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+                  <p className="text-xs font-bold text-slate-500 uppercase mb-2">
+                    Recibió: <span className="text-slate-800 font-bold">{r.datos_receptor || '—'}</span>
+                  </p>
+                  <div
+                    className="border border-slate-200 rounded-xl overflow-hidden cursor-zoom-in bg-slate-50"
+                    onClick={() => onOpenLightbox(r.firma_receptor)}
+                  >
+                    <img src={r.firma_receptor} alt="Firma del cliente" className="w-full max-h-40 object-contain p-2" />
+                  </div>
+                  {r.fin_instalacion && (
+                    <p className="text-[10px] text-slate-400 mt-2">
+                      {new Date(r.fin_instalacion).toLocaleString('es-CO')}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
@@ -660,8 +825,19 @@ const TabHistorial: React.FC<{ odp: any }> = ({ odp }) => {
 
 // ─── Centro de Impresión: Sistema de Formatos por Rol ──────────────────────────
 const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
-  const [selectedFormat, setSelectedFormat] = useState<'compra' | 'op' | 'tecnico' | 'garantia' | 'noconformidad' | 'sap'>('op');
+  const [selectedFormat, setSelectedFormat] = useState<'compra' | 'op' | 'tecnico' | 'det_sap' | 'garantia' | 'noconformidad' | 'sap'>('op');
   const [ncIndex, setNcIndex] = useState(0);
+  const [detSapImagenes, setDetSapImagenes] = useState<any[]>([]);
+
+  const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const token = localStorage.getItem('token');
+
+  useEffect(() => {
+    if (selectedFormat !== 'det_sap') return;
+    axios.get(`${API}/api/detalle-sap-imagenes?odp_id=${odp.id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(r => setDetSapImagenes(r.data)).catch(() => setDetSapImagenes([]));
+  }, [selectedFormat, odp.id]);
 
   const handlePrint = () => {
     const area = document.getElementById('printable-area');
@@ -700,6 +876,9 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
           <button onClick={() => setSelectedFormat('tecnico')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'tecnico' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
             <Ruler className="w-3 h-3" /> Det. Técnico
           </button>
+          <button onClick={() => setSelectedFormat('det_sap')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'det_sap' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+            <Images className="w-3 h-3" /> Det. SAP
+          </button>
           <button onClick={() => setSelectedFormat('garantia')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'garantia' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
             <CheckCircle2 className="w-3 h-3" /> Garantía
           </button>
@@ -733,6 +912,7 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
         {selectedFormat === 'compra' && <PrintableTalonario odp={odp} />}
         {selectedFormat === 'op' && <PrintableProduccion odp={odp} />}
         {selectedFormat === 'tecnico' && <PrintableDetalleTecnico odp={odp} />}
+        {selectedFormat === 'det_sap' && <PrintableDetSAP odp={odp} imagenes={detSapImagenes} />}
         {selectedFormat === 'garantia' && <PrintableGarantia odp={odp} />}
         {selectedFormat === 'noconformidad' && <PrintableNoConformidad odp={odp} data={odp?.no_conformidades?.[ncIndex]} />}
         {selectedFormat === 'sap' && <PrintableSAP odp={odp} sap={odp?.saps?.[0]} />}
@@ -750,6 +930,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
   const [activeTab, setActiveTab] = useState(initialTab);
   const [showReportarForm, setShowReportarForm] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const { lightboxSrc, openLightbox, closeLightbox } = useLightbox();
 
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const token = localStorage.getItem('token');
@@ -901,17 +1082,20 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
               <p className="font-bold text-lg">No se pudo cargar la ODP</p>
             </div>
           ) : (
-            <AnimatePresence mode="wait">
-              <motion.div key={activeTab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-                {activeTab === 'general'     && <TabDatosGenerales odp={odp} />}
-                {activeTab === 'comercial'   && odp && <TabComercial odp={odp} onRefresh={fetchODP} />}
-                {activeTab === 'produccion'  && <TabProduccion odp={odp} onUpdate={fetchODP} />}
-                {activeTab === 'instalacion' && <TabInstalacion odp={odp} />}
-                {activeTab === 'financiero'  && <TabFinanciero odp={odp} />}
-                {activeTab === 'historial'   && <TabHistorial odp={odp} />}
-                {activeTab === 'imprimir'    && <TabImprimir odp={odp} />}
-              </motion.div>
-            </AnimatePresence>
+            <>
+              <AnimatePresence mode="wait">
+                <motion.div key={activeTab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+                  {activeTab === 'general'     && <TabDatosGenerales odp={odp} />}
+                  {activeTab === 'comercial'   && odp && <TabComercial odp={odp} onRefresh={fetchODP} />}
+                  {activeTab === 'produccion'  && <TabProduccion odp={odp} onUpdate={fetchODP} currentUser={currentUser} />}
+                  {activeTab === 'instalacion' && <TabInstalacion odp={odp} onOpenLightbox={openLightbox} />}
+                  {activeTab === 'financiero'  && <TabFinanciero odp={odp} />}
+                  {activeTab === 'historial'   && <TabHistorial odp={odp} />}
+                  {activeTab === 'imprimir'    && <TabImprimir odp={odp} />}
+                </motion.div>
+              </AnimatePresence>
+              <Lightbox src={lightboxSrc} onClose={closeLightbox} />
+            </>
           )}
         </div>
       </motion.div>

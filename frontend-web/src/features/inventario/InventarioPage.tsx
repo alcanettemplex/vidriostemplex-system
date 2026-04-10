@@ -126,9 +126,10 @@ const InventarioPage: React.FC = () => {
   const ubicacionesUnicas = Array.from(new Set(items.map(i => i.ubicacion).filter(Boolean))).sort();
 
   const formatMm = (mm: number) => {
-    if (mm >= 6000) return <span className="font-semibold text-emerald-700">{mm.toLocaleString()} mm (barra completa)</span>;
-    if (mm >= 3000) return <span className="text-blue-700">{mm.toLocaleString()} mm</span>;
-    return <span className="text-slate-600">{mm.toLocaleString()} mm</span>;
+    const rounded = Math.round(mm);
+    if (rounded >= 6000) return <span className="font-semibold text-emerald-700">{rounded.toLocaleString()} mm (barra completa)</span>;
+    if (rounded >= 3000) return <span className="text-blue-700">{rounded.toLocaleString()} mm</span>;
+    return <span className="text-slate-600">{rounded.toLocaleString()} mm</span>;
   };
 
   return (

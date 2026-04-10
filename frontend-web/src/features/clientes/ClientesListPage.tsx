@@ -16,7 +16,8 @@ const clienteSchema = z.object({
   telefono: z.string().optional(),
   celular: z.string().optional(),
   segmento: z.string().optional(),
-  email: z.string().email('Email inválido').optional().or(z.literal(''))
+  email: z.string().email('Email inválido').optional().or(z.literal('')),
+  correo_comercial: z.string().email('Correo comercial inválido').optional().or(z.literal(''))
 });
 
 type ClienteFormValues = z.infer<typeof clienteSchema>;
@@ -95,7 +96,8 @@ const ClientesListPage: React.FC = () => {
       telefono: cliente.telefono || '',
       celular: cliente.celular || '',
       segmento: cliente.segmento || '',
-      email: cliente.email || ''
+      email: cliente.email || '',
+      correo_comercial: cliente.correo_comercial || ''
     });
     setIsFormOpen(true);
   };
@@ -138,7 +140,8 @@ const ClientesListPage: React.FC = () => {
               telefono: '',
               celular: '',
               segmento: '',
-              email: ''
+              email: '',
+              correo_comercial: ''
             });
             setIsFormOpen(true);
           }}
@@ -213,6 +216,7 @@ const ClientesListPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       {cliente.email && <p className="text-sm text-slate-600 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> {cliente.email}</p>}
+                      {cliente.correo_comercial && <p className="text-sm text-indigo-600 flex items-center gap-1.5 mt-0.5" title="Correo Comercial"><Mail className="w-3.5 h-3.5" /> <span className="text-xs">{cliente.correo_comercial}</span></p>}
                       {cliente.telefono && <p className="text-sm text-slate-600 flex items-center gap-1.5 mt-1"><Phone className="w-3.5 h-3.5" /> {cliente.telefono}</p>}
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -306,14 +310,26 @@ const ClientesListPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Correo para Factura Electrónica</label>
-                  <input
-                    type="email"
-                    {...register('email')}
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Correo Factura Electrónica</label>
+                    <input
+                      type="email"
+                      {...register('email')}
+                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Correo Comercial</label>
+                    <input
+                      type="email"
+                      {...register('correo_comercial')}
+                      placeholder="contacto@empresa.com"
+                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                    {errors.correo_comercial && <p className="text-red-500 text-xs mt-1">{errors.correo_comercial.message}</p>}
+                  </div>
                 </div>
 
                 <div>

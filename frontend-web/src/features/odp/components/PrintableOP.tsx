@@ -281,7 +281,7 @@ const PrintableOP: React.FC<PrintableOPProps> = ({ odp }) => {
                                 </tr>
                                 <tr>
                                     <td className="text-center py-1">COT</td>
-                                    <td className="text-center text-[9px] font-bold">{odp.cotizaciones?.[0]?.numero_cot?.split('-').pop() || ''}</td>
+                                    <td className="text-center text-[9px] font-bold">{odp.numero_cotizacion || odp.cotizaciones?.[0]?.numero_cot?.split('-').pop() || ''}</td>
                                     <td className="text-center py-1">ODC</td>
                                     <td className="text-center text-[9px] font-bold">{odcs[1]?.numero_odc?.split('-').pop() || ''}</td>
                                     <td className="text-center py-1">PROV</td>

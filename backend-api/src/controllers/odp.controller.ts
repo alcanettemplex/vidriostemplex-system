@@ -162,6 +162,7 @@ export const getODP = async (req: Request, res: Response) => {
         },
         {
           model: RutaODP, as: 'ruta_odps',
+          attributes: ['id', 'estado', 'inicio_instalacion', 'fin_instalacion', 'firma_receptor', 'datos_receptor', 'foto_evidencia_url', 'gps_finalizacion'],
           include: [
             {
               model: RutaInstalacion, as: 'ruta',

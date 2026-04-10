@@ -5,12 +5,27 @@ import BarrasHorizontales from '../charts/BarrasHorizontales';
 
 const fmtDias = (n: number) => `${n.toFixed(1)} d`;
 
+const ESTADO_LABEL: Record<string, string> = {
+  EN_ESPERA: 'En Espera',
+  VISITA_TECNICA: 'Visita Técnica',
+  MEDICION: 'Medición',
+  PEDIDO_PROVEEDOR: 'Pedido Proveedor',
+  ALUMINIO_CORTADO: 'Al. Cortado',
+  VIDRIO_RECIBIDO: 'Vidrio Recibido',
+  ACCESORIOS_SEPARADOS: 'Accesorios Sep.',
+  LISTO_INSTALAR: 'Listo Instalar',
+  PROGRAMADA: 'Programada',
+  INSTALADA: 'Instalada',
+  ENTREGADA: 'Entregada',
+  PAUSADA: 'Pausada',
+};
+
 export const PanelProduccion: React.FC<{ data: any, isLoading: boolean, onViewOdp?: (id: number) => void }> = ({ data, isLoading, onViewOdp }) => {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          {[1,2,3,4].map(i => <div key={i} className="h-20 bg-white border border-slate-200 animate-pulse rounded" />)}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[1,2,3,4,5,6].map(i => <div key={i} className="h-20 bg-white border border-slate-200 animate-pulse rounded" />)}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div className="h-60 bg-white border border-slate-200 animate-pulse rounded" />
@@ -34,11 +49,11 @@ export const PanelProduccion: React.FC<{ data: any, isLoading: boolean, onViewOd
 
   return (
     <div className="space-y-4">
-      
-      {/* ─── 1. KPI CARDS ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+
+      {/* ─── 1. KPI CARDS — fila principal ──────────────────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="bg-white p-3 border border-slate-200 rounded text-[11px]">
-          <div className="text-slate-500 mb-1">ODPs Taller</div>
+          <div className="text-slate-500 mb-1">ODPs en Taller</div>
           <div className="text-[20px] font-medium text-slate-800">{data.odps_en_taller}</div>
         </div>
 
@@ -51,14 +66,14 @@ export const PanelProduccion: React.FC<{ data: any, isLoading: boolean, onViewOd
 
         <div className="bg-white p-3 border border-slate-200 rounded text-[11px]">
           <div className="text-slate-500 mb-1 flex justify-between">
-            <span>Ciclo Promedio</span>
-            <span>Meta: {data.meta_ciclo_dias}d</span>
+            <span>Ciclo Prom.</span>
+            <span className="text-slate-400">Meta: {data.meta_ciclo_dias}d</span>
           </div>
           <div className={`text-[20px] font-medium ${data.tiempo_ciclo_promedio_dias > data.meta_ciclo_dias ? 'text-rose-600' : 'text-emerald-600'}`}>
             {fmtDias(data.tiempo_ciclo_promedio_dias)}
           </div>
-          <div className={`mt-0.5 ${data.tiempo_ciclo_promedio_dias > data.meta_ciclo_dias ? 'text-rose-600' : 'text-emerald-600'}`}>
-            {data.tiempo_ciclo_promedio_dias > data.meta_ciclo_dias ? 'LENTO' : 'ÓPTIMO'}
+          <div className={`mt-0.5 text-[10px] font-medium ${data.tiempo_ciclo_promedio_dias > data.meta_ciclo_dias ? 'text-rose-500' : 'text-emerald-500'}`}>
+            {data.tiempo_ciclo_promedio_dias > data.meta_ciclo_dias ? '▲ LENTO' : '✓ ÓPTIMO'}
           </div>
         </div>
 
@@ -66,19 +81,35 @@ export const PanelProduccion: React.FC<{ data: any, isLoading: boolean, onViewOd
           <div className="text-slate-500 mb-1">Listas s/ Programar</div>
           <div className="text-[20px] font-medium text-amber-600">{data.odps_listas_sin_programar}</div>
         </div>
+
+        <div className={`p-3 rounded border text-[11px] ${(data.odps_pausadas || 0) > 0 ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-200'}`}>
+          <div className={`mb-1 ${(data.odps_pausadas || 0) > 0 ? 'text-orange-700' : 'text-slate-500'}`}>Pausadas</div>
+          <div className={`text-[20px] font-medium ${(data.odps_pausadas || 0) > 0 ? 'text-orange-600' : 'text-slate-400'}`}>
+            {data.odps_pausadas || 0}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-0.5">Requieren revisión</div>
+        </div>
+
+        <div className={`p-3 rounded border text-[11px] ${(data.no_conformidades_abiertas || 0) > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-slate-200'}`}>
+          <div className={`mb-1 ${(data.no_conformidades_abiertas || 0) > 0 ? 'text-red-700' : 'text-slate-500'}`}>NC Abiertas</div>
+          <div className={`text-[20px] font-medium ${(data.no_conformidades_abiertas || 0) > 0 ? 'text-red-600' : 'text-slate-400'}`}>
+            {data.no_conformidades_abiertas || 0}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-0.5">No conformidades</div>
+        </div>
       </div>
 
-      {/* ─── 2. CHARTS PRIMCIPAL ─────────────────────────────────────── */}
+      {/* ─── 2. CHARTS PRINCIPAL ─────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        
+
         {/* Tiempos por Etapa */}
         <div className="bg-white p-3 border border-slate-200 rounded flex flex-col">
           <div className="text-[12px] font-medium text-slate-500 uppercase tracking-wider mb-2">Tiempo Promedio por Etapa</div>
           <div className="flex-1 min-h-[160px]">
-            <BarrasHorizontales 
-              data={chartDataEtapas} 
-              yKey="etapa" 
-              barsKey="dias" 
+            <BarrasHorizontales
+              data={chartDataEtapas}
+              yKey="etapa"
+              barsKey="dias"
               xFormatter={fmtDias}
             />
           </div>
@@ -95,11 +126,11 @@ export const PanelProduccion: React.FC<{ data: any, isLoading: boolean, onViewOd
           <div className="text-[12px] font-medium text-slate-500 uppercase tracking-wider mb-2">ODPs por Servicio</div>
           <div className="flex-1 flex items-center gap-5">
             <div className="w-[140px] h-[140px] shrink-0">
-              <DonutChart 
-                data={donutServicios} 
-                nameKey="tipo_servicio" 
-                dataKey="cantidad" 
-                colors={SERVICIO_COLORS} 
+              <DonutChart
+                data={donutServicios}
+                nameKey="tipo_servicio"
+                dataKey="cantidad"
+                colors={SERVICIO_COLORS}
               />
             </div>
             <div className="flex-1 pl-2 border-l border-slate-100 flex flex-col max-h-[180px] overflow-y-auto">
@@ -118,7 +149,51 @@ export const PanelProduccion: React.FC<{ data: any, isLoading: boolean, onViewOd
 
       </div>
 
-      {/* ─── 3. ODPs VENCEN ──────────────────────────────────────────── */}
+      {/* ─── 3. ODPs MÁS ANTIGUAS EN PRODUCCIÓN ─────────────────────── */}
+      {data.odps_mas_antiguas && data.odps_mas_antiguas.length > 0 && (
+        <div className="bg-white rounded border border-slate-200 flex flex-col">
+          <div className="p-3 border-b border-slate-100 text-[12px] font-medium text-slate-500 uppercase tracking-wider flex items-center gap-2">
+            <span>🕰</span> ODPs Más Antiguas en Producción
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-slate-50">
+                <tr className="border-b border-slate-200 text-[10px] text-slate-500 uppercase">
+                  <th className="py-1.5 px-3 font-medium"># ODP</th>
+                  <th className="py-1.5 px-3 font-medium">Cliente</th>
+                  <th className="py-1.5 px-3 font-medium">Estado</th>
+                  <th className="py-1.5 px-3 text-center font-medium">Días en Sistema</th>
+                </tr>
+              </thead>
+              <tbody className="text-[11px] divide-y divide-slate-100">
+                {data.odps_mas_antiguas.map((odp: any, i: number) => (
+                  <tr
+                    key={i}
+                    onClick={() => onViewOdp && onViewOdp(odp.odp_id)}
+                    className={`cursor-pointer hover:bg-slate-50 transition ${odp.dias_en_sistema > 30 ? 'bg-rose-50/40' : ''}`}
+                  >
+                    <td className="py-1.5 px-3 font-medium text-slate-700">{odp.numero_odp}</td>
+                    <td className="py-1.5 px-3 text-slate-800">{odp.cliente}</td>
+                    <td className="py-1.5 px-3">
+                      <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-600 rounded">
+                        {ESTADO_LABEL[odp.estado_produccion] || odp.estado_produccion.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td className={`py-1.5 px-3 text-center font-medium ${
+                      odp.dias_en_sistema > 30 ? 'text-rose-600' :
+                      odp.dias_en_sistema > 15 ? 'text-amber-600' : 'text-slate-700'
+                    }`}>
+                      {odp.dias_en_sistema} d
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 4. ODPs PRÓXIMAS A VENCER ──────────────────────────────── */}
       <div className="bg-white rounded border border-slate-200 flex flex-col">
         <div className="p-3 border-b border-slate-100 text-[12px] font-medium text-slate-500 uppercase tracking-wider">
           Próximas a Vencer (7 días)
@@ -131,14 +206,14 @@ export const PanelProduccion: React.FC<{ data: any, isLoading: boolean, onViewOd
                 <th className="py-1.5 px-3 font-medium">Cliente</th>
                 <th className="py-1.5 px-3 font-medium">Estado</th>
                 <th className="py-1.5 px-3 font-medium">Fecha Entrega</th>
-                <th className="py-1.5 px-3 font-medium text-center">Faltan</th>
-                <th className="py-1.5 px-3 font-medium text-center">Riesgo</th>
+                <th className="py-1.5 px-3 text-center font-medium">Faltan</th>
+                <th className="py-1.5 px-3 text-center font-medium">Riesgo</th>
               </tr>
             </thead>
             <tbody className="text-[11px] divide-y divide-slate-100">
               {data.odps_proximas_vencer?.map((odp: any, i: number) => (
-                <tr 
-                  key={i} 
+                <tr
+                  key={i}
                   onClick={() => onViewOdp && onViewOdp(odp.odp_id)}
                   className={`cursor-pointer hover:bg-slate-50 transition ${odp.dias_restantes <= 2 ? 'bg-rose-50/50' : ''}`}
                 >
@@ -146,21 +221,21 @@ export const PanelProduccion: React.FC<{ data: any, isLoading: boolean, onViewOd
                   <td className="py-1.5 px-3 text-slate-800">{odp.cliente}</td>
                   <td className="py-1.5 px-3">
                     <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-600 rounded">
-                      {odp.estado_produccion.replace(/_/g, ' ')}
+                      {ESTADO_LABEL[odp.estado_produccion] || odp.estado_produccion.replace(/_/g, ' ')}
                     </span>
                   </td>
                   <td className="py-1.5 px-3 text-slate-600">
                     {odp.fecha_entrega ? new Date(odp.fecha_entrega).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className={`py-1.5 px-3 text-center font-medium ${
-                    odp.dias_restantes <= 2 ? 'text-rose-600' : 
+                    odp.dias_restantes <= 2 ? 'text-rose-600' :
                     odp.dias_restantes <= 5 ? 'text-amber-600' : 'text-emerald-600'
                   }`}>
                     {odp.dias_restantes} d
                   </td>
                   <td className="py-1.5 px-3 text-center">
                     <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase ${
-                      odp.riesgo === 'alto' ? 'bg-rose-50 text-rose-700' : 
+                      odp.riesgo === 'alto' ? 'bg-rose-50 text-rose-700' :
                       odp.riesgo === 'medio' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
                     }`}>
                       {odp.riesgo}

@@ -345,6 +345,16 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
 
   const totalLeadsFiltrados = filtrarLeads(leads).length;
 
+  // Cuando hay búsqueda activa, si la columna activa queda vacía, saltar a la primera con resultados
+  useEffect(() => {
+    if (!busqueda) return;
+    const countActiva = filtrarLeads(leads, { stageId: columnaActiva }).length;
+    if (countActiva === 0) {
+      const primera = PIPELINE_STAGES.find(s => filtrarLeads(leads, { stageId: s.id }).length > 0);
+      if (primera) setColumnaActiva(primera.id);
+    }
+  }, [busqueda, leads]); // eslint-disable-line
+
   // ─── Métricas rápidas por columna ────────────────────────────────────────────
   const getColStats = (stageId: string) => {
     const colLeads = filtrarLeads(leads, { stageId });
@@ -412,6 +422,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
             const activo = columnaActiva === stage.id;
             const esUltimo = index === PIPELINE_STAGES.length - 1;
             const Icon = stage.icon;
+
+            // Ocultar etapas sin resultados cuando hay búsqueda activa
+            if (busqueda && stats.count === 0) return null;
 
             return (
               <button
@@ -698,9 +711,17 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
   const renderKanban = () => (
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="flex bg-slate-50 overflow-x-auto min-h-[75vh] p-4 gap-4 rounded-xl border border-slate-200 shadow-inner snap-x">
+        {busqueda && filtrarLeads(leads).length === 0 && (
+          <div className="flex-1 flex items-center justify-center text-slate-400 text-sm italic">
+            No se encontraron leads que coincidan con "{busqueda}"
+          </div>
+        )}
         {PIPELINE_STAGES.map((stage) => {
           const colLeadsRaw = filtrarLeads(leads, { stageId: stage.id });
           const colLeads = sortByPriority(colLeadsRaw);
+
+          // Cuando hay búsqueda activa, ocultar columnas sin resultados
+          if (busqueda && colLeads.length === 0) return null;
           const isCollapsed = collapsed[stage.id];
           const pageSize = (pagina[stage.id] || 1) * CARDS_POR_PAGINA;
           const leadsVisible = colLeads.slice(0, pageSize);

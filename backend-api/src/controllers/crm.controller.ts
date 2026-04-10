@@ -8,10 +8,16 @@ import ODP from '../models/odp.model';
 export const createLead = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
-    const { 
+    const {
       telefono, nombre, mensaje_entrada, segmento, fuente_lead,
-      respondio, producto_interes, descripcion_contexto, asesor_id 
+      respondio, producto_interes, descripcion_contexto, asesor_id
     } = req.body;
+
+    // Verificar duplicado por teléfono
+    const existente = await Lead.findOne({ where: { telefono: telefono?.trim() } });
+    if (existente) {
+      return res.status(409).json({ error: `Ya existe un lead registrado con el número ${telefono}. Búscalo en el pipeline antes de crear uno nuevo.` });
+    }
 
     const newLead = await Lead.create({
       telefono,

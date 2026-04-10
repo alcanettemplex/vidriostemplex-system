@@ -12,6 +12,8 @@ import ReportarEntregaModal from './ReportarEntregaModal';
 import PrintableOP from '../../odp/components/PrintableOP';
 import PrintableDetalleTecnico from '../../odp/components/PrintableDetalleTecnico';
 import PrintableSAP from '../../odp/components/PrintableSAP';
+import PrintableDetSAP from '../../odp/components/PrintableDetSAP';
+import { Images } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -68,7 +70,22 @@ const InstaladorView: React.FC = () => {
     } finally { setIniciando(null); }
   };
 
-  const abrirDocumento = (odp: any, tipo: 'op' | 'tecnico' | 'sap') => {
+  const abrirDocumento = async (odp: any, tipo: 'op' | 'tecnico' | 'sap' | 'det_sap') => {
+    if (tipo === 'det_sap') {
+      // Fetch imagenes y renderiza en nueva ventana
+      try {
+        const { data } = await axios.get(`${API}/api/detalle-sap-imagenes?odp_id=${odp.id}`, { headers });
+        const el = document.getElementById(`print-det-sap-${odp.id}`);
+        if (!el) { toast.error('Documento Det. SAP no disponible'); return; }
+        const win = window.open('', '_blank', 'width=950,height=800');
+        if (!win) return;
+        win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Det. SAP ${odp.numero_odp}</title><script src="https://cdn.tailwindcss.com"><\/script><style>@page{size:letter portrait;margin:4mm}body{margin:0;padding:0;font-family:sans-serif}.excel-table{width:100%;border-collapse:collapse;border:2px solid #000}.excel-table th,.excel-table td{border:1px solid #000;padding:2px 4px}.excel-table th{font-weight:bold;text-align:center}</style></head><body>${el.innerHTML}</body></html>`);
+        win.document.close();
+        win.focus();
+        setTimeout(() => { win.print(); win.close(); }, 800);
+      } catch { toast.error('Error al cargar Det. SAP'); }
+      return;
+    }
     const win = window.open('', '_blank', 'width=950,height=800');
     if (!win) return;
     let contenidoId = tipo === 'op' ? `print-op-${odp.id}` : tipo === 'tecnico' ? `print-tec-${odp.id}` : `print-sap-${odp.id}`;
@@ -287,6 +304,7 @@ const TaskCard = ({ item, onIniciar, onFinalizar, abrirDoc, abrirMapa, iniciando
                  <DocBtn icon={Printer} label="ODP" onClick={() => abrirDoc(odp, 'op')} />
                  <DocBtn icon={FileText} label="Ficha Técnica" onClick={() => abrirDoc(odp, 'tecnico')} />
                  {sap && <DocBtn icon={ShieldCheck} label="SAP" color="indigo" onClick={() => abrirDoc(odp, 'sap')} />}
+                 <DocBtn icon={Images} label="Det. SAP" color="violet" onClick={() => abrirDoc(odp, 'det_sap')} />
               </div>
            </div>
 
@@ -313,6 +331,7 @@ const TaskCard = ({ item, onIniciar, onFinalizar, abrirDoc, abrirMapa, iniciando
         <div id={`print-op-${odp?.id}`}><PrintableOP odp={odp} /></div>
         <div id={`print-tec-${odp?.id}`}><PrintableDetalleTecnico odp={odp} /></div>
         {sap && <div id={`print-sap-${odp?.id}`}><PrintableSAP odp={odp} sap={sap} /></div>}
+        <div id={`print-det-sap-${odp?.id}`}><PrintableDetSAP odp={odp} imagenes={[]} /></div>
       </div>
     </div>
   );
@@ -320,7 +339,9 @@ const TaskCard = ({ item, onIniciar, onFinalizar, abrirDoc, abrirMapa, iniciando
 
 const DocBtn = ({ icon: Icon, label, onClick, color = 'slate' }: any) => (
   <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all
-    ${color === 'indigo' ? 'border-indigo-100 text-indigo-600 bg-indigo-50 hover:bg-indigo-100' : 'border-slate-200 text-slate-500 bg-white hover:bg-slate-50' }`}>
+    ${color === 'indigo' ? 'border-indigo-100 text-indigo-600 bg-indigo-50 hover:bg-indigo-100' :
+      color === 'violet' ? 'border-violet-100 text-violet-600 bg-violet-50 hover:bg-violet-100' :
+      'border-slate-200 text-slate-500 bg-white hover:bg-slate-50' }`}>
     <Icon className="w-3.5 h-3.5" /> {label}
   </button>
 );

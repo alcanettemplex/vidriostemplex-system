@@ -12,7 +12,8 @@ import {
   ODPItem,
   ConfiguracionGlobal,
   MetaMensual,
-  MetaUsuarioMensual
+  MetaUsuarioMensual,
+  NoConformidad
 } from '../models';
 import sequelize from '../config/database';
 
@@ -212,11 +213,11 @@ export const getVentasData = async (_req: Request, res: Response) => {
     const top_clientes_raw = await ODP.findAll({
       attributes: [
         'cliente_id',
-        [fn('SUM', literal('abono + pendiente')), 'total'],
-        [fn('COUNT', col('id')), 'odps_count']
+        [fn('SUM', literal('"ODP".abono + "ODP".pendiente')), 'total'],
+        [fn('COUNT', col('ODP.id')), 'odps_count']
       ],
       include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
-      group: ['cliente_id', 'cliente.id'],
+      group: ['ODP.cliente_id', 'cliente.id'],
       order: [[literal('total'), 'DESC']],
       limit: 5,
       raw: true,
@@ -261,10 +262,21 @@ export const getVentasData = async (_req: Request, res: Response) => {
       return { asesor_id: u.getDataValue('id'), nombre: (u as any).nombre_completo, real, meta: meta_odps_asesor };
     }));
 
+    // ODPs atrasadas (fecha_entrega < hoy, no entregadas/instaladas)
+    const odps_atrasadas = await ODP.count({
+      where: {
+        fecha_entrega: { [Op.lt]: today },
+        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA'] },
+        estado_caja: { [Op.ne]: 'CANCELADO' }
+      }
+    });
+
     res.json({
       total_abonado: Number(total_abonado),
+      total_facturado_mes: Number(total_facturado_mes),
       total_pendiente: Number(total_pendiente),
       odps_sin_facturar,
+      odps_atrasadas,
       ticket_promedio,
       ticket_promedio_delta_pct,
       top_clientes,
@@ -323,7 +335,7 @@ export const getProduccionData = async (_req: Request, res: Response) => {
         estado_nuevo AS etapa,
         ROUND(AVG(EXTRACT(EPOCH FROM (fecha_siguiente - fecha)) / 86400)::numeric, 1) AS dias_promedio
       FROM ranked
-      WHERE estado_nuevo = ANY(:etapas)
+      WHERE estado_nuevo IN (:etapas)
         AND fecha_siguiente IS NOT NULL
       GROUP BY estado_nuevo
     `, { replacements: { etapas } }) as [{ etapa: string; dias_promedio: string }[], unknown];
@@ -354,7 +366,33 @@ export const getProduccionData = async (_req: Request, res: Response) => {
     const servicios_raw = await ODP.findAll({ attributes: ['tipo_servicio', [fn('COUNT', col('id')), 'total']], group: ['tipo_servicio'], raw: true }) as any[];
     const servicios_distribucion = servicios_raw.map(s => ({ tipo_servicio: s.tipo_servicio || 'Otros', cantidad: parseInt(s.total) }));
 
-    res.json({ odps_en_taller, odps_vencen_esta_semana, tiempo_ciclo_promedio_dias, meta_ciclo_dias: 8, odps_listas_sin_programar, tiempo_por_etapa, odps_proximas_vencer, servicios_distribucion });
+    // ODPs pausadas
+    const odps_pausadas = await ODP.count({ where: { estado_produccion: 'PAUSADA' } });
+
+    // No conformidades abiertas o en proceso
+    const no_conformidades_abiertas = await NoConformidad.count({
+      where: { estado: { [Op.in]: ['ABIERTO', 'EN_PROCESO'] } }
+    });
+
+    // ODPs más antiguas en producción (no ENTREGADA, no INSTALADA)
+    const masAntiguas = await ODP.findAll({
+      where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'EN_ESPERA'] } },
+      include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
+      order: [['fecha_creacion', 'ASC']],
+      limit: 5
+    });
+    const odps_mas_antiguas = masAntiguas.map(o => {
+      const dias = Math.ceil((today.getTime() - new Date(o.getDataValue('fecha_creacion')).getTime()) / (1000 * 3600 * 24));
+      return {
+        odp_id: o.getDataValue('id'),
+        numero_odp: o.getDataValue('numero_odp'),
+        cliente: (o as any).cliente?.nombre_razon_social || 'Desconocido',
+        estado_produccion: o.getDataValue('estado_produccion'),
+        dias_en_sistema: dias
+      };
+    });
+
+    res.json({ odps_en_taller, odps_vencen_esta_semana, tiempo_ciclo_promedio_dias, meta_ciclo_dias: 8, odps_listas_sin_programar, tiempo_por_etapa, odps_proximas_vencer, servicios_distribucion, odps_pausadas, no_conformidades_abiertas, odps_mas_antiguas });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

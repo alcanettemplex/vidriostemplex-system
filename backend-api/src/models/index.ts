@@ -29,6 +29,7 @@ import InventarioPerfileria from './inventario_perfileria.model';
 import PedidoPV from './pedido_pv.model';
 import SalidaAlmacen from './salida_almacen.model';
 import CotizacionCaptura from './cotizacion_captura.model';
+import DetalleSAPImagen from './detalle_sap_imagen.model';
 import Lead from './lead.model';
 import LeadEvento from './lead_evento.model';
 import MetaUsuarioMensual from './meta_usuario_mensual.model';
@@ -210,6 +211,12 @@ CotizacionCaptura.belongsTo(Prospecto, { foreignKey: 'prospecto_id' });
 Usuario.hasMany(CotizacionCaptura, { foreignKey: 'subido_por', as: 'capturas_subidas' });
 CotizacionCaptura.belongsTo(Usuario, { foreignKey: 'subido_por', as: 'subidor' });
 
+// ─── Bloque I: Detalle SAP Imágenes ─────────────────────────────────────────
+ODP.hasMany(DetalleSAPImagen, { foreignKey: 'odp_id', as: 'detalle_sap_imagenes' });
+DetalleSAPImagen.belongsTo(ODP, { foreignKey: 'odp_id' });
+Usuario.hasMany(DetalleSAPImagen, { foreignKey: 'subido_por', as: 'detalle_sap_subidas' });
+DetalleSAPImagen.belongsTo(Usuario, { foreignKey: 'subido_por', as: 'subidor' });
+
 // ─── Bloque G: Salidas de Almacén ────────────────────────────────────────────
 ODP.hasOne(SalidaAlmacen, { foreignKey: 'odp_id', as: 'salida_almacen' });
 SalidaAlmacen.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
@@ -330,6 +337,7 @@ export {
   PedidoPV,
   SalidaAlmacen,
   CotizacionCaptura,
+  DetalleSAPImagen,
   Lead,
   LeadEvento,
   MetaUsuarioMensual,

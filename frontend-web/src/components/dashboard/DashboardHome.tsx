@@ -18,7 +18,7 @@ const DashboardHome: React.FC = () => {
   }
 
   // Si es administrador o gerencia u otro rol autorizado para esto
-  if (user.rol === 'admin' || user.rol === 'gerencia' || user.rol === 'contabilidad') {
+  if (['admin', 'gerencia', 'contabilidad', 'jefe_produccion', 'root'].includes(user.rol)) {
     return <GerenciaDashboard />;
   }
 

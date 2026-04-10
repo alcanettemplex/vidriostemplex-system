@@ -12,6 +12,7 @@ Cliente.init({
   telefono: { type: DataTypes.STRING(20) },
   celular: { type: DataTypes.STRING(20) },
   email: { type: DataTypes.STRING(100) },
+  correo_comercial: { type: DataTypes.STRING(200), allowNull: true },
   segmento: { type: DataTypes.STRING(50) },
   condicion_pago: { type: DataTypes.ENUM('CONTADO', 'CREDITO_30', 'CREDITO_60', 'CUPO_APROBADO'), defaultValue: 'CONTADO' },
   creado_por: { type: DataTypes.INTEGER, allowNull: true },

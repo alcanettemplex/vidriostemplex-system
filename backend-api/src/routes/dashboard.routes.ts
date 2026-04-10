@@ -12,14 +12,14 @@ import { requireRole } from '../middlewares/rbacMiddleware';
 
 const router = Router();
 
-// Dashboard gerencial: solo admin, gerencia y jefe_produccion
-router.get('/', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion'), getDashboardData);
+// Dashboard gerencial: admin, gerencia, jefe_produccion, contabilidad y root
+router.get('/', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'contabilidad', 'root'), getDashboardData);
 
-// Nuevos endpoints avanzados para el Dashboard de Gerente
-router.get('/general', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion'), getGeneralData);
-router.get('/ventas', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion'), getVentasData);
-router.get('/produccion', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion'), getProduccionData);
-router.get('/equipo', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion'), getEquipoData);
-router.get('/alertas', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion'), getAlertas);
+// Endpoints avanzados del Dashboard Gerencial
+router.get('/general', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'contabilidad', 'root'), getGeneralData);
+router.get('/ventas', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'contabilidad', 'root'), getVentasData);
+router.get('/produccion', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'contabilidad', 'root'), getProduccionData);
+router.get('/equipo', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'contabilidad', 'root'), getEquipoData);
+router.get('/alertas', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'contabilidad', 'root'), getAlertas);
 
 export default router;

@@ -108,6 +108,23 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
     setFotoPreview(URL.createObjectURL(f));
   };
 
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    if (step !== 'foto_gps') return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const f = items[i].getAsFile();
+        if (f) { setFoto(f); setFotoPreview(URL.createObjectURL(f)); toast.info('Imagen pegada desde portapapeles'); break; }
+      }
+    }
+  }, [step]);
+
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [handlePaste]);
+
   const handleSubmit = async () => {
     if (!foto) return toast.error('Se requiere foto de evidencia');
     if (!datosReceptor.trim()) return toast.error('Ingresa los datos de quien recibe');

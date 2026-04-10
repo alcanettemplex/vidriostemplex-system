@@ -45,7 +45,7 @@ interface PedidoPV {
   asesor_iniciales: string | null;
   origen: string;
   creado_en: string;
-  odp?: { id: number; numero_odp: string; estado_produccion: string; cliente?: { nombre_razon_social: string } };
+  odp?: { id: number; numero_odp: string; estado_produccion: string; cliente?: { nombre_razon_social: string }; asesor?: { nombre_completo: string } };
   creador?: { id: number; nombre_completo: string };
   verificador?: { id: number; nombre_completo: string } | null;
 }
@@ -570,6 +570,7 @@ const PedidosPVPage: React.FC = () => {
                         <TableCell>Pedido</TableCell>
                         <TableCell>ODP</TableCell>
                         <TableCell>Cliente</TableCell>
+                        <TableCell>Asesor</TableCell>
                         <TableCell>Proveedor</TableCell>
                         <TableCell>Estado</TableCell>
                         <TableCell>Envío</TableCell>
@@ -584,7 +585,7 @@ const PedidosPVPage: React.FC = () => {
                     <TableBody>
                       {pedidosPaginados.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={13} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                          <TableCell colSpan={14} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                             No hay pedidos con los filtros seleccionados
                           </TableCell>
                         </TableRow>
@@ -615,6 +616,10 @@ const PedidosPVPage: React.FC = () => {
                               <Tooltip title={clienteNombre} placement="top">
                                 <Typography fontSize={13} noWrap>{clienteNombre}</Typography>
                               </Tooltip>
+                            </TableCell>
+                            {/* Asesor */}
+                            <TableCell sx={{ fontSize: 12, color: 'text.secondary' }}>
+                              {p.odp?.asesor?.nombre_completo || '—'}
                             </TableCell>
                             {/* Proveedor */}
                             <TableCell sx={{ fontSize: 13 }}>{p.proveedor}</TableCell>

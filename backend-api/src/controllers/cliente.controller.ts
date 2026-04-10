@@ -18,6 +18,7 @@ const clienteSchema = z.object({
   telefono: z.string().optional(),
   celular: z.string().optional(),
   email: z.string().email('Email inválido').optional().or(z.literal('')),
+  correo_comercial: z.string().email('Correo comercial inválido').optional().or(z.literal('')),
   segmento: z.string().optional()
 });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
@@ -88,8 +88,32 @@ const CotizacionCapturas: React.FC<Props> = ({ odp_id, prospecto_id, numeroCotiz
     setPreview(URL.createObjectURL(f));
   };
 
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    if (!PUEDE_SUBIR.includes(rol)) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const f = items[i].getAsFile();
+        if (f) {
+          setFile(f);
+          setPreview(URL.createObjectURL(f));
+          setShowUpload(true);
+          toast.info('Imagen pegada desde el portapapeles');
+          break;
+        }
+      }
+    }
+  }, [rol]);
+
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [handlePaste]);
+
   const handleSubir = async () => {
     if (!file) { toast.error('Selecciona una imagen'); return; }
+    if (!numCot.trim()) { toast.error('Debes ingresar el número de cotización antes de subir'); return; }
     setSubiendo(true);
     try {
       const fd = new FormData();
@@ -250,8 +274,9 @@ const CotizacionCapturas: React.FC<Props> = ({ odp_id, prospecto_id, numeroCotiz
             </button>
             <button
               onClick={handleSubir}
-              disabled={subiendo || !file}
+              disabled={subiendo || !file || !numCot.trim()}
               className="flex-1 py-2 text-sm font-bold bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
+              title={!numCot.trim() ? 'Ingresa el N° de cotización primero' : ''}
             >
               {subiendo ? 'Subiendo...' : 'Subir'}
             </button>

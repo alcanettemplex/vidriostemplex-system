@@ -33,3 +33,14 @@ const storageCotizacion = new CloudinaryStorage({
 });
 
 export const uploadCotizacionConfig = multer({ storage: storageCotizacion });
+
+const storageDetalleSAP = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: async (_req: any, _file: any) => ({
+        folder: 'templex_detalle_sap',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+        transformation: [{ width: 1600, crop: 'limit' }, { quality: 'auto' }],
+    }),
+});
+
+export const uploadDetalleSAPConfig = multer({ storage: storageDetalleSAP });
