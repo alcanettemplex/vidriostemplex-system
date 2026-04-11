@@ -82,12 +82,13 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                     <thead>
                         <tr className="font-bold text-[9px]">
                             <th className="w-8">ITEM</th>
-                            <th className="w-[18%]">COD</th>
-                            <th className="w-[30%]">DESCRIPCIÓN</th>
-                            <th className="w-[15%]">DIMENSIÓN</th>
-                            <th className="w-8">UND</th>
-                            <th className="w-[12%]">EXIST. PERF.</th>
-                            <th className="w-[12%]">GASTO PERF.</th>
+                            <th className="w-[14%]">COD</th>
+                            <th className="w-[24%]">DESCRIPCIÓN</th>
+                            <th className="w-[12%]">DIMENSIÓN</th>
+                            <th className="w-6">UND</th>
+                            <th className="w-[10%]">EXIST. PERF.</th>
+                            <th className="w-[10%]">GASTO PERF.</th>
+                            <th className="w-[18%]">OBSERVACIÓN</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -121,6 +122,7 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                                     <td className="text-[9px]">{item?.und || ''}</td>
                                     <td className="text-[9px]">{item?.exist_perf || ''}</td>
                                     <td className="text-[9px]">{item?.gasto_perf || ''}</td>
+                                    <td className="text-left text-[9px] px-1">{item?.observacion || ''}</td>
                                 </tr>
                             );
                         });

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useDataChangedSocket } from '../../store/useSocketNotifications';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
 import {
@@ -40,12 +41,14 @@ interface PedidoPV {
   espesor_vidrio: string | null;
   factura_pv: string | null;
   observaciones: string | null;
+  color_fila: string | null;
   observacion_verificacion: string | null;
   nombre_cliente_excel: string | null;
   asesor_iniciales: string | null;
   origen: string;
   creado_en: string;
-  odp?: { id: number; numero_odp: string; estado_produccion: string; cliente?: { nombre_razon_social: string }; asesor?: { nombre_completo: string } };
+  odp?: { id: number; numero_odp: string; estado_produccion: string; fecha_creacion?: string; cliente?: { nombre_razon_social: string }; asesor?: { nombre_completo: string } };
+  items_asignados?: { id: number; espesor: string | null; cantidad: number; ancho_mm: number; alto_mm: number }[];
   creador?: { id: number; nombre_completo: string };
   verificador?: { id: number; nombre_completo: string } | null;
 }
@@ -78,6 +81,48 @@ const ESTADO_CONFIG: Record<string, {
 const getBarColor = (p: PedidoPV): string => {
   if (p.dias_diferencia !== null && p.dias_diferencia < 0) return '#c62828'; // retrasado
   return ESTADO_CONFIG[p.estado]?.barColor ?? '#9e9e9e';
+};
+
+// ─── Paleta de colores de fila ────────────────────────────────────────────────
+
+const COLOR_PALETTE = [
+  { value: '#ef5350', label: 'Rojo' },
+  { value: '#ff9800', label: 'Naranja' },
+  { value: '#ffee58', label: 'Amarillo' },
+  { value: '#66bb6a', label: 'Verde' },
+  { value: '#42a5f5', label: 'Azul' },
+  { value: '#ab47bc', label: 'Morado' },
+  { value: '#f06292', label: 'Rosa' },
+  { value: '#90a4ae', label: 'Gris' },
+];
+
+// ─── Calcular días de tránsito (llegada - envío) ──────────────────────────────
+
+const calcDiasTransito = (p: PedidoPV): number | null => {
+  if (!p.fecha_llegada_real || !p.fecha_envio) return null;
+  try {
+    const llegada = new Date(p.fecha_llegada_real + 'T12:00:00');
+    const envio = new Date(p.fecha_envio + 'T12:00:00');
+    return Math.round((llegada.getTime() - envio.getTime()) / (1000 * 60 * 60 * 24));
+  } catch { return null; }
+};
+
+// ─── Calcular espesor resumido ────────────────────────────────────────────────
+
+const calcEspesorResumen = (p: PedidoPV): string => {
+  const items = p.items_asignados || [];
+  if (items.length > 0) {
+    const conteo: Record<string, number> = {};
+    for (const it of items) {
+      if (it.espesor) {
+        const key = it.espesor.toLowerCase().replace('mm', '').trim() + 'mm';
+        conteo[key] = (conteo[key] || 0) + (it.cantidad || 1);
+      }
+    }
+    const partes = Object.entries(conteo).map(([esp, cnt]) => `${esp}(${cnt})`);
+    return partes.join(', ') || '—';
+  }
+  return p.espesor_vidrio || '—';
 };
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
@@ -213,6 +258,10 @@ const PedidosPVPage: React.FC = () => {
   const [printLoadingId, setPrintLoadingId] = useState<number | null>(null);
   const shouldPrintRef = useRef(false);
 
+  // ─── Edición inline ──────────────────────────────────────────────────────
+  const [editingObs, setEditingObs] = useState<{ id: number; value: string } | null>(null);
+  const [savingField, setSavingField] = useState<{ id: number; field: string } | null>(null);
+
   // ─── Por Gestionar ────────────────────────────────────────────────────────
   const [pedidosPorGestionar, setPedidosPorGestionar] = useState<any[]>([]);
   const [modalGestionar, setModalGestionar] = useState<any | null>(null);
@@ -252,6 +301,7 @@ const PedidosPVPage: React.FC = () => {
   }, [headers, user]);
 
   useEffect(() => { cargarDatos(); cargarPorGestionar(); }, [cargarDatos, cargarPorGestionar]);
+  useDataChangedSocket('pedidos_pv', cargarDatos);
 
   // ─── Proveedores y asesores únicos (para filtros) ─────────────────────────
 
@@ -405,6 +455,15 @@ const PedidosPVPage: React.FC = () => {
       setTab(0); // Redirigir a Gestión PV
     } catch { setError('Error al asignar ítems al pedido PV'); }
     finally { setSavingGestionar(false); }
+  };
+
+  const actualizarCampo = async (id: number, field: string, value: unknown) => {
+    setSavingField({ id, field });
+    try {
+      await axios.patch(`${API}/api/pedidos-pv/${id}`, { [field]: value }, { headers });
+      setPedidosSistema(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+    } catch { setError(`Error al actualizar ${field}`); }
+    finally { setSavingField(null); }
   };
 
   const imprimirPedido = async (pedido: PedidoPV) => {
@@ -567,8 +626,10 @@ const PedidosPVPage: React.FC = () => {
                     <TableHead>
                       <TableRow sx={{ '& th': { bgcolor: 'grey.50', fontWeight: 700, fontSize: 13, borderBottom: '2px solid', borderColor: 'divider' } }}>
                         <TableCell sx={{ width: 4, p: 0 }} />
+                        <TableCell>Color</TableCell>
                         <TableCell>Pedido</TableCell>
                         <TableCell>ODP</TableCell>
+                        <TableCell>Fecha ODP</TableCell>
                         <TableCell>Cliente</TableCell>
                         <TableCell>Asesor</TableCell>
                         <TableCell>Proveedor</TableCell>
@@ -576,16 +637,17 @@ const PedidosPVPage: React.FC = () => {
                         <TableCell>Envío</TableCell>
                         <TableCell>Entrega Prometida</TableCell>
                         <TableCell>Llegada</TableCell>
-                        <TableCell align="center">Días</TableCell>
+                        <TableCell align="center">Días tránsito</TableCell>
                         <TableCell>Espesor</TableCell>
                         <TableCell align="right">m²</TableCell>
+                        <TableCell sx={{ minWidth: 140 }}>Observaciones</TableCell>
                         <TableCell align="right">Acciones</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {pedidosPaginados.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={14} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                          <TableCell colSpan={17} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                             No hay pedidos con los filtros seleccionados
                           </TableCell>
                         </TableRow>
@@ -596,10 +658,35 @@ const PedidosPVPage: React.FC = () => {
                         const barColor = getBarColor(p);
                         const clienteNombre = p.odp?.cliente?.nombre_razon_social || p.nombre_cliente_excel || '—';
 
+                        const diasTransito = calcDiasTransito(p);
+                        const espesorResumen = calcEspesorResumen(p);
+                        const isEditingObs = editingObs?.id === p.id;
+
                         return (
-                          <TableRow key={p.id} hover sx={{ '&:hover': { bgcolor: 'action.hover' } }}>
+                          <TableRow key={p.id} hover sx={{
+                            '&:hover': { bgcolor: p.color_fila ? `${p.color_fila}50` : 'action.hover' },
+                            bgcolor: p.color_fila ? `${p.color_fila}28` : undefined,
+                          }}>
                             {/* Barra de color lateral */}
                             <TableCell sx={{ width: 4, p: 0, bgcolor: barColor }} />
+                            {/* Color de fila */}
+                            <TableCell sx={{ p: 0.5 }}>
+                              <Stack direction="row" gap={0.4} flexWrap="wrap" sx={{ maxWidth: 90 }}>
+                                {COLOR_PALETTE.map(c => (
+                                  <Tooltip key={c.value} title={c.label} placement="top">
+                                    <Box
+                                      onClick={() => actualizarCampo(p.id, 'color_fila', p.color_fila === c.value ? null : c.value)}
+                                      sx={{
+                                        width: 14, height: 14, borderRadius: '50%', bgcolor: c.value, cursor: 'pointer',
+                                        border: p.color_fila === c.value ? '2px solid #000' : '2px solid transparent',
+                                        opacity: savingField?.id === p.id && savingField.field === 'color_fila' ? 0.5 : 1,
+                                        '&:hover': { transform: 'scale(1.3)' }, transition: 'transform 0.1s',
+                                      }}
+                                    />
+                                  </Tooltip>
+                                ))}
+                              </Stack>
+                            </TableCell>
                             {/* Pedido */}
                             <TableCell>
                               <Typography fontWeight={700} fontSize={13}>{p.numero_pedido}</Typography>
@@ -610,6 +697,10 @@ const PedidosPVPage: React.FC = () => {
                             {/* ODP */}
                             <TableCell sx={{ fontSize: 13, fontWeight: 600, color: 'primary.main' }}>
                               {p.odp?.numero_odp || '—'}
+                            </TableCell>
+                            {/* Fecha ODP */}
+                            <TableCell sx={{ fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                              {p.odp?.fecha_creacion ? fmtFecha(p.odp.fecha_creacion) : '—'}
                             </TableCell>
                             {/* Cliente */}
                             <TableCell sx={{ maxWidth: 180 }}>
@@ -639,36 +730,24 @@ const PedidosPVPage: React.FC = () => {
                             <TableCell sx={{ fontSize: 12 }}>{fmtFecha(p.fecha_entrega_prometida)}</TableCell>
                             {/* Llegada */}
                             <TableCell sx={{ fontSize: 12 }}>{fmtFecha(p.fecha_llegada_real)}</TableCell>
-                            {/* Días */}
+                            {/* Días tránsito (llegada - envío) */}
                             <TableCell align="center">
-                              {p.dias_diferencia !== null ? (
-                                <Typography fontWeight={700} fontSize={13}
-                                  color={retrasado ? 'error.main' : 'success.main'}>
-                                  {p.dias_diferencia >= 0 ? `+${p.dias_diferencia}` : p.dias_diferencia}
+                              {diasTransito !== null ? (
+                                <Typography fontWeight={700} fontSize={13} color="text.primary">
+                                  {diasTransito}
                                 </Typography>
                               ) : '—'}
                             </TableCell>
                             {/* Espesor */}
-                            <TableCell sx={{ fontSize: 12 }}>
-                              {(() => {
-                                const items: any[] = (p as any).items_asignados || [];
-                                if (items.length > 0) {
-                                  const espesores = Array.from(new Set(
-                                    items.map((it: any) => it.espesor).filter(Boolean)
-                                  ));
-                                  return espesores.length > 0
-                                    ? <Typography fontSize={12} fontWeight={600}>{espesores.join(' / ')}</Typography>
-                                    : '—';
-                                }
-                                return p.espesor_vidrio || '—';
-                              })()}
+                            <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                              <Typography fontSize={12} fontWeight={600}>{espesorResumen}</Typography>
                             </TableCell>
                             {/* m² */}
                             <TableCell align="right" sx={{ fontSize: 12 }}>
                               {(() => {
-                                const items: any[] = (p as any).items_asignados || [];
+                                const items = p.items_asignados || [];
                                 if (items.length > 0) {
-                                  const total = items.reduce((acc: number, it: any) => {
+                                  const total = items.reduce((acc, it) => {
                                     const ancho = Number(it.ancho_mm) || 0;
                                     const alto = Number(it.alto_mm) || 0;
                                     const cant = Number(it.cantidad) || 1;
@@ -678,6 +757,35 @@ const PedidosPVPage: React.FC = () => {
                                 }
                                 return p.metraje_venta ? toFloat(p.metraje_venta).toFixed(2) : '—';
                               })()}
+                            </TableCell>
+                            {/* Observaciones (inline editable) */}
+                            <TableCell sx={{ minWidth: 140 }}>
+                              {isEditingObs ? (
+                                <input
+                                  autoFocus
+                                  style={{ fontSize: 12, padding: '2px 4px', borderRadius: 4, border: '1px solid #1976d2', width: '100%', outline: 'none' }}
+                                  value={editingObs.value}
+                                  onChange={(e) => setEditingObs({ id: p.id, value: e.target.value })}
+                                  onBlur={() => {
+                                    actualizarCampo(p.id, 'observaciones', editingObs.value || null);
+                                    setEditingObs(null);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') { e.currentTarget.blur(); }
+                                    if (e.key === 'Escape') { setEditingObs(null); }
+                                  }}
+                                />
+                              ) : (
+                                <Tooltip title={p.observaciones || 'Clic para editar'} placement="top">
+                                  <Typography
+                                    fontSize={12} noWrap
+                                    onClick={() => setEditingObs({ id: p.id, value: p.observaciones || '' })}
+                                    sx={{ cursor: 'pointer', color: p.observaciones ? 'text.primary' : 'text.disabled', '&:hover': { textDecoration: 'underline' } }}
+                                  >
+                                    {p.observaciones || '+ obs.'}
+                                  </Typography>
+                                </Tooltip>
+                              )}
                             </TableCell>
                             {/* Acciones */}
                             <TableCell align="right">

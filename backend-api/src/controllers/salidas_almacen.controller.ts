@@ -78,6 +78,7 @@ export const createSalida = async (req: Request, res: Response) => {
       creado_por: user?.id || null,
     });
 
+    import('../server').then(({ emitirCambio }) => emitirCambio('facturas_salidas')).catch(() => {});
     res.status(201).json(salida);
   } catch (e: any) {
     if (e.name === 'ZodError') return res.status(400).json({ error: e.errors[0].message });

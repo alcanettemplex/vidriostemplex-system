@@ -44,6 +44,11 @@ io.on('connection', (socket) => {
   });
 });
 
+// ─── Helper para broadcast de cambios de datos (sincronización en tiempo real) ─
+export const emitirCambio = (modulo: string) => {
+  io.emit('data_changed', { modulo });
+};
+
 // ─── Helper para emitir notificaciones dirigidas ─────────────────────────────
 export const emitirNotificacion = (
   destinatarios: { userId?: number; roles?: string[] },

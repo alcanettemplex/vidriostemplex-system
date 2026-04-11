@@ -4,6 +4,31 @@ import { Op, fn, col } from 'sequelize';
 import { ODP, Cliente, Usuario, sequelize } from '../models';
 import Pago from '../models/pago.model';
 
+// Helper: recalcula abono/pendiente/estado_caja de una ODP a partir de sus pagos actuales
+const recalcularFinanciero = async (odp_id: number, t: any) => {
+  const odp = await ODP.findByPk(odp_id, { transaction: t });
+  if (!odp) throw new Error('ODP no encontrada');
+
+  const pagos = await Pago.findAll({ where: { odp_id }, transaction: t, attributes: ['monto'] });
+  const nuevoAbono = (pagos as any[]).reduce((s, p) => s + Number(p.getDataValue('monto') || 0), 0);
+  const valorTotal = Number(odp.getDataValue('valor_total')) || 0;
+  const nuevoPendiente = Math.max(0, valorTotal - nuevoAbono);
+  const estadoActual: string = odp.getDataValue('estado_caja');
+
+  let nuevoEstadoCaja = estadoActual;
+  if (estadoActual !== 'CREDITO_APROBADO') {
+    if (nuevoPendiente <= 0) nuevoEstadoCaja = 'CANCELADO';
+    else if (nuevoAbono > 0) nuevoEstadoCaja = 'ABONADO';
+    else nuevoEstadoCaja = 'PENDIENTE';
+  } else {
+    // Crédito aprobado: si el abono cubre el total, pasar a CANCELADO
+    if (nuevoPendiente <= 0) nuevoEstadoCaja = 'CANCELADO';
+  }
+
+  await odp.update({ abono: nuevoAbono, pendiente: nuevoPendiente, estado_caja: nuevoEstadoCaja }, { transaction: t });
+  return { abono: nuevoAbono, pendiente: nuevoPendiente, estado_caja: nuevoEstadoCaja };
+};
+
 const pagoSchema = z.object({
   odp_id: z.number().int().positive('ODP requerida'),
   monto: z.number().positive('El monto debe ser mayor a 0'),
@@ -112,6 +137,7 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
         pendiente: fmt(Number(odp.pendiente)),
         dias_vencido: diffDays,
         tipo_vencimiento: esCreditoVencido ? 'credito' : 'entrega',
+        fecha_creacion: odp.getDataValue('fecha_creacion'),
       };
     });
 
@@ -270,5 +296,73 @@ export const registrarPago = async (req: Request, res: Response) => {
     }
     console.error('Error al registrar pago:', error);
     res.status(500).json({ error: error.message || 'Error al registrar pago' });
+  }
+};
+
+const pagoEditSchema = z.object({
+  monto: z.number().positive('El monto debe ser mayor a 0').optional(),
+  metodo_pago: z.string().min(1).optional(),
+  referencia_pago: z.string().optional().nullable(),
+  observaciones: z.string().optional().nullable(),
+});
+
+/**
+ * Edita un pago existente y recalcula el financiero de la ODP automáticamente.
+ */
+export const editarPago = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const data = pagoEditSchema.parse(req.body);
+
+    const pago = await Pago.findByPk(id, { transaction: t });
+    if (!pago) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Pago no encontrado' });
+    }
+
+    await pago.update(data as any, { transaction: t });
+    const odp_id = Number(pago.getDataValue('odp_id'));
+    const financiero = await recalcularFinanciero(odp_id, t);
+
+    await t.commit();
+    import('../server').then(({ emitirCambio }) => emitirCambio('contabilidad')).catch(() => {});
+    res.json({ message: 'Pago actualizado', pago, odp_actualizada: financiero });
+  } catch (error: any) {
+    try { await t.rollback(); } catch (_) { /* ya hecho */ }
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Datos inválidos', detalles: error.issues });
+    }
+    console.error('Error al editar pago:', error);
+    res.status(500).json({ error: error.message || 'Error al editar pago' });
+  }
+};
+
+/**
+ * Elimina un pago y recalcula el financiero de la ODP automáticamente.
+ * El estado_caja se revierte a PENDIENTE/ABONADO si corresponde.
+ */
+export const eliminarPago = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+
+    const pago = await Pago.findByPk(id, { transaction: t });
+    if (!pago) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Pago no encontrado' });
+    }
+
+    const odp_id = Number(pago.getDataValue('odp_id'));
+    await pago.destroy({ transaction: t });
+    const financiero = await recalcularFinanciero(odp_id, t);
+
+    await t.commit();
+    import('../server').then(({ emitirCambio }) => emitirCambio('contabilidad')).catch(() => {});
+    res.json({ message: 'Pago eliminado', odp_actualizada: financiero });
+  } catch (error: any) {
+    try { await t.rollback(); } catch (_) { /* ya hecho */ }
+    console.error('Error al eliminar pago:', error);
+    res.status(500).json({ error: error.message || 'Error al eliminar pago' });
   }
 };

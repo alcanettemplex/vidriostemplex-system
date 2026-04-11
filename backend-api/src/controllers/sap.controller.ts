@@ -78,6 +78,7 @@ export const createSAP = async (req: Request, res: Response) => {
       include: [{ model: SAPItem, as: 'items' }, { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
     });
 
+    import('../server').then(({ emitirCambio }) => emitirCambio('odp')).catch(() => {});
     res.status(201).json(sapWithItems);
   } catch (error: any) {
     await t.rollback();

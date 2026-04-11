@@ -78,6 +78,7 @@ export const createProspecto = async (req: Request, res: Response) => {
         { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
       ],
     });
+    import('../server').then(({ emitirCambio }) => emitirCambio('crm')).catch(() => {});
     res.status(201).json(completo);
   } catch (error: any) {
     res.status(500).json({ error: 'Error al crear prospecto', detail: error.message });
@@ -93,8 +94,9 @@ export const updateProspecto = async (req: Request, res: Response) => {
     const prospecto = await Prospecto.findByPk(id);
     if (!prospecto) return res.status(404).json({ error: 'Prospecto no encontrado' });
 
-    // ─── Verificación de ownership (solo creador o admin) ───
-    if ((req as any).user?.rol !== 'admin') {
+    // ─── Verificación de ownership (creador, admin, gerencia o asistente_administrativo) ───
+    const rolUser: string = (req as any).user?.rol || '';
+    if (!['admin', 'gerencia', 'asistente_administrativo'].includes(rolUser)) {
       if (Number(prospecto.getDataValue('asesor_id')) !== Number((req as any).user?.id)) {
         return res.status(403).json({ error: 'Solo el creador del prospecto puede editarlo' });
       }
@@ -310,6 +312,7 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
       ],
     });
 
+    import('../server').then(({ emitirCambio }) => { emitirCambio('crm'); emitirCambio('odp'); }).catch(() => {});
     res.status(201).json({ odp: odpCompleta, prospecto_id: id });
   } catch (error: any) {
     await t.rollback();

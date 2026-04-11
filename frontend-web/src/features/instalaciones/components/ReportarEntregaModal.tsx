@@ -192,7 +192,7 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
               {/* Foto */}
               <div>
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Evidencia Fotográfica *</p>
-                <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFoto} />
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFoto} />
                 {fotoPreview ? (
                   <div className="relative rounded-xl overflow-hidden border border-slate-200">
                     <img src={fotoPreview} alt="Evidencia" className="w-full h-48 object-cover" />

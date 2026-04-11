@@ -76,6 +76,7 @@ export const createTM = async (req: Request, res: Response) => {
       include: [{ model: Usuario, as: 'realizador', attributes: ['id', 'nombre_completo'] }],
     });
 
+    import('../server').then(({ emitirCambio }) => emitirCambio('toma_medidas')).catch(() => {});
     res.status(201).json(tmWithUser);
   } catch (error: any) {
     res.status(500).json({ error: 'Error al crear TM', detail: error.message });

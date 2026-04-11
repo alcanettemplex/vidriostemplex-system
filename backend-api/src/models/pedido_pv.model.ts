@@ -27,6 +27,7 @@ PedidoPV.init({
   espesor_vidrio: { type: DataTypes.STRING(100), allowNull: true },
   factura_pv: { type: DataTypes.STRING(100), allowNull: true },
   observaciones: { type: DataTypes.TEXT, allowNull: true },
+  color_fila: { type: DataTypes.STRING(20), allowNull: true },
   alerta_enviada: { type: DataTypes.BOOLEAN, defaultValue: false },
   verificado_por: { type: DataTypes.INTEGER, allowNull: true },
   fecha_verificacion: { type: DataTypes.DATE, allowNull: true },

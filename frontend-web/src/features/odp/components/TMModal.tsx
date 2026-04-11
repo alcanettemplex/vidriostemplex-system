@@ -285,7 +285,7 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
               </div>
 
               {/* Input de fotos */}
-              <input ref={fotoInputRef} type="file" accept="image/*" multiple capture="environment"
+              <input ref={fotoInputRef} type="file" accept="image/*" multiple
                 onChange={handleAddFotos} className="hidden" />
 
               {/* Grid de previews */}

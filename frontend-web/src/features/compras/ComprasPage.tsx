@@ -3,6 +3,7 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, Trash2, AlertCircle, X, Layers, Plus } from 'lucide-react';
 import ODCModal, { SAPItemConContexto } from './components/ODCModal';
+import { useDataChangedSocket } from '../../store/useSocketNotifications';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -499,6 +500,7 @@ const ComprasPage: React.FC = () => {
   const [vidrioItemsSeleccionados, setVidrioItemsSeleccionados] = useState<number[]>([]);
   const [vidrioProveedor, setVidrioProveedor] = useState('');
   const [vidrioNotas, setVidrioNotas] = useState('');
+  const [vidrioNumeroOdc, setVidrioNumeroOdc] = useState('');
   const [savingVidrio, setSavingVidrio] = useState(false);
 
   const token = localStorage.getItem('token');
@@ -536,6 +538,8 @@ const ComprasPage: React.FC = () => {
   useEffect(() => { fetchTab(tab); setBusqueda(''); }, [tab, fetchTab]);
 
   const refresh = () => fetchTab(tab);
+
+  useDataChangedSocket('compras', refresh);
 
   const refreshTrasRecibida = () => {
     setOdcsSeguimiento(prev => prev.filter(() => false));
@@ -596,6 +600,10 @@ const ComprasPage: React.FC = () => {
 
   const crearODCVidrios = async () => {
     if (!modalVidrio || vidrioItemsSeleccionados.length === 0 || !vidrioProveedor) return;
+    if (!vidrioNumeroOdc.trim() || !/^\d+$/.test(vidrioNumeroOdc.trim())) {
+      alert('El número de ODC es requerido y debe contener solo dígitos');
+      return;
+    }
     setSavingVidrio(true);
     try {
       await axios.post(`${API}/api/compras/vidrios/odc`, {
@@ -603,10 +611,12 @@ const ComprasPage: React.FC = () => {
         proveedor: vidrioProveedor,
         odp_item_ids: vidrioItemsSeleccionados,
         notas: vidrioNotas || null,
+        numero_odc: vidrioNumeroOdc.trim(),
       }, { headers });
       setModalVidrio(null);
       setVidrioItemsSeleccionados([]);
       setVidrioProveedor('');
+      setVidrioNumeroOdc('');
       setVidrioNotas('');
       fetchTab('vidrios');
     } catch { } finally { setSavingVidrio(false); }
@@ -811,6 +821,7 @@ const ComprasPage: React.FC = () => {
                                   <td className="px-3 py-2 w-24 text-slate-500">{item.dimension || '—'}</td>
                                   <td className="px-3 py-2 w-16 text-center font-bold text-slate-700">{item.cantidad}</td>
                                   <td className="px-3 py-2 w-16 text-slate-500">{item.und || '—'}</td>
+                                  <td className="px-3 py-2 text-slate-400 text-xs max-w-[140px] truncate" title={(item as any).observacion || ''}>{(item as any).observacion || '—'}</td>
                                   <td className="px-3 py-2 w-28">
                                     <span className="font-bold text-indigo-600">{item.SAP?.numero_sap || '—'}</span>
                                   </td>
@@ -915,6 +926,7 @@ const ComprasPage: React.FC = () => {
                                 setModalVidrio(odp);
                                 setVidrioItemsSeleccionados(odp.items.filter((it: any) => it.estado_compra === 'pendiente').map((it: any) => it.id));
                                 setVidrioProveedor('');
+                                setVidrioNumeroOdc('');
                                 setVidrioNotas('');
                               }}
                               className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition shadow-sm"
@@ -1006,8 +1018,19 @@ const ComprasPage: React.FC = () => {
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              {/* Proveedor y notas */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* N° ODC, Proveedor y notas */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">N° ODC *</label>
+                  <input
+                    type="text"
+                    value={vidrioNumeroOdc}
+                    onChange={e => setVidrioNumeroOdc(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Ej: 12345"
+                    maxLength={20}
+                    className="w-full text-sm p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono"
+                  />
+                </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1">Proveedor *</label>
                   <input
@@ -1104,7 +1127,7 @@ const ComprasPage: React.FC = () => {
               </button>
               <button
                 onClick={crearODCVidrios}
-                disabled={vidrioItemsSeleccionados.length === 0 || !vidrioProveedor || savingVidrio}
+                disabled={vidrioItemsSeleccionados.length === 0 || !vidrioProveedor || !vidrioNumeroOdc.trim() || savingVidrio}
                 className="px-5 py-2 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
               >
                 {savingVidrio ? 'Creando...' : `Crear ODC (${vidrioItemsSeleccionados.length} ítems)`}

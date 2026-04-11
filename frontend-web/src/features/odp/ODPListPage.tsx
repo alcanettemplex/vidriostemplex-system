@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
+import { useDataChangedSocket } from '../../store/useSocketNotifications';
 import { toast } from 'react-toastify';
 import {
     Plus, Search, FileText, CheckCircle2, Clock, Truck, Eye, Trash2, Edit3,
@@ -191,9 +192,7 @@ const ODPListPage: React.FC = () => {
     const user = useSelector((state: any) => state.auth.user);
     const userRole = (user?.rol || user?.role)?.toLowerCase() || '';
 
-    useEffect(() => { fetchODPs(); }, []);
-
-    const fetchODPs = async () => {
+    const fetchODPs = useCallback(async () => {
         try {
             const token = localStorage.getItem('token');
             const res = await axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp`, {
@@ -205,7 +204,10 @@ const ODPListPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => { fetchODPs(); }, [fetchODPs]);
+    useDataChangedSocket('odp', fetchODPs);
 
     const handleSolicitarVisita = async (odp: ODP) => {
         if (!window.confirm(`¿Solicitar visita técnica para ${odp.numero_odp}?`)) return;

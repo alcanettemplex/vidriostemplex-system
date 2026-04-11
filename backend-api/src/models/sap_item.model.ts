@@ -13,6 +13,7 @@ SAPItem.init({
   cantidad: { type: DataTypes.DECIMAL(10, 2), defaultValue: 1 },
   und: { type: DataTypes.STRING(20), allowNull: true },
   exist_perf: { type: DataTypes.STRING(100), allowNull: true },
+  observacion: { type: DataTypes.TEXT, allowNull: true },
   estado_compra: {
     type: DataTypes.STRING(20),
     defaultValue: 'pendiente',

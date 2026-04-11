@@ -3,19 +3,12 @@ import { OrdenCompra, ODCItem, SAP, SAPItem, ODP, ODPItem, Cliente, Usuario, Inv
 import sequelize from '../config/database';
 import { Op } from 'sequelize';
 
-// Consecutivo automático ODC-YYYY-NNNN
-const generarNumeroODC = async (): Promise<string> => {
-  const last = await OrdenCompra.findOne({
-    where: { numero_odc: { [Op.like]: 'ODC-%' } },
-    order: [['numero_odc', 'DESC']],
-    attributes: ['numero_odc'],
-  });
-  let next = 1;
-  if (last) {
-    const parts = last.getDataValue('numero_odc').split('-');
-    next = parseInt(parts[parts.length - 1]) + 1;
-  }
-  return `ODC-${String(next).padStart(4, '0')}`;
+// Validar unicidad de numero_odc
+const validarNumeroODC = async (numero_odc: string, excludeId?: number): Promise<void> => {
+  const where: any = { numero_odc };
+  if (excludeId) where.id = { [Op.ne]: excludeId };
+  const existente = await OrdenCompra.findOne({ where, attributes: ['id'] });
+  if (existente) throw new Error(`Ya existe una ODC con el número ${numero_odc}`);
 };
 
 // Inclusión profunda de trazabilidad SAP/ODP por item (reutilizable en seguimiento y recibidas)
@@ -163,7 +156,7 @@ export const getSAPParaCompras = async (req: Request, res: Response) => {
 export const createODC = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
-    const { proveedor, notas, items } = req.body;
+    const { proveedor, notas, items, numero_odc } = req.body;
     const userId = (req as any).user?.id;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -174,11 +167,17 @@ export const createODC = async (req: Request, res: Response) => {
       await t.rollback();
       return res.status(400).json({ error: 'El proveedor es requerido' });
     }
-
-    const numero_odc = await generarNumeroODC();
+    if (!numero_odc || !/^\d+$/.test(String(numero_odc).trim())) {
+      await t.rollback();
+      return res.status(400).json({ error: 'El número de ODC es requerido y debe contener solo dígitos' });
+    }
+    try { await validarNumeroODC(String(numero_odc).trim()); } catch (e: any) {
+      await t.rollback();
+      return res.status(409).json({ error: e.message });
+    }
 
     const odc = await OrdenCompra.create({
-      numero_odc,
+      numero_odc: String(numero_odc).trim(),
       sap_id: null,
       odp_id: null,
       tipo: 'perfileria',
@@ -214,6 +213,7 @@ export const createODC = async (req: Request, res: Response) => {
       ],
     });
 
+    import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
     res.status(201).json(odcCompleta);
   } catch (error: any) {
     await t.rollback();
@@ -468,17 +468,23 @@ export const createODCVidrios = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
     const userId = (req as any).user?.id;
-    const { odp_id, proveedor, odp_item_ids, notas } = req.body;
+    const { odp_id, proveedor, odp_item_ids, notas, numero_odc } = req.body;
 
     if (!odp_id || !proveedor || !Array.isArray(odp_item_ids) || odp_item_ids.length === 0) {
       await t.rollback();
       return res.status(400).json({ error: 'odp_id, proveedor y odp_item_ids son requeridos' });
     }
-
-    const numero_odc = await generarNumeroODC();
+    if (!numero_odc || !/^\d+$/.test(String(numero_odc).trim())) {
+      await t.rollback();
+      return res.status(400).json({ error: 'El número de ODC es requerido y debe contener solo dígitos' });
+    }
+    try { await validarNumeroODC(String(numero_odc).trim()); } catch (e: any) {
+      await t.rollback();
+      return res.status(409).json({ error: e.message });
+    }
 
     const odc = await OrdenCompra.create({
-      numero_odc,
+      numero_odc: String(numero_odc).trim(),
       sap_id: null,
       odp_id,
       tipo: 'vidrio',
@@ -525,6 +531,7 @@ export const createODCVidrios = async (req: Request, res: Response) => {
       ],
     });
 
+    import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
     res.status(201).json(odcCompleta);
   } catch (error: any) {
     await t.rollback();

@@ -316,6 +316,7 @@ export const createODP = async (req: Request, res: Response) => {
       }
     }
 
+    import('../server').then(({ emitirCambio }) => emitirCambio('odp')).catch(() => {});
     res.status(201).json(newOdp);
   } catch (error: any) {
     await t.rollback();
@@ -516,6 +517,7 @@ export const updateODP = async (req: Request, res: Response) => {
       }).catch(err => console.error('Error notificación ODP:', err));
     }
 
+    import('../server').then(({ emitirCambio }) => emitirCambio('odp')).catch(() => {});
     res.json({ message: 'ODP actualizada con éxito', odp });
   } catch (error: any) {
     try {

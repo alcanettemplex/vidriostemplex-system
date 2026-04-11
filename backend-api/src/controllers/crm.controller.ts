@@ -50,6 +50,7 @@ export const createLead = async (req: Request, res: Response) => {
       });
     }
 
+    import('../server').then(({ emitirCambio }) => emitirCambio('crm')).catch(() => {});
     res.status(201).json(newLead);
   } catch (error: any) {
     console.error('Error al crear lead:', error?.message || error);
@@ -203,6 +204,7 @@ export const assignLeadToUser = async (req: Request, res: Response) => {
       include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }]
     });
 
+    import('../server').then(({ emitirCambio }) => emitirCambio('crm')).catch(() => {});
     res.json(leadActualizado);
   } catch (error: any) {
     console.error('Error al asignar lead:', error);
@@ -706,6 +708,7 @@ export const vincularODPAlLead = async (req: Request, res: Response) => {
       ],
     });
 
+    import('../server').then(({ emitirCambio }) => emitirCambio('crm')).catch(() => {});
     res.json(leadActualizado);
   } catch (error: any) {
     console.error('Error al vincular ODP al lead:', error);

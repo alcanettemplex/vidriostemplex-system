@@ -38,7 +38,7 @@ const INCLUDE_COMPLETO = [
   {
     model: ODP,
     as: 'odp',
-    attributes: ['id', 'numero_odp', 'estado_produccion'],
+    attributes: ['id', 'numero_odp', 'estado_produccion', 'fecha_creacion'],
     include: [
       { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
       { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }
@@ -157,6 +157,7 @@ export const createPedidoPV = async (req: Request, res: Response) => {
     });
 
     const pedidoCompleto = await PedidoPV.findByPk(pedido.getDataValue('id'), { include: INCLUDE_COMPLETO });
+    import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
     res.status(201).json(pedidoCompleto);
   } catch (error) {
     if (error instanceof z.ZodError) return res.status(400).json({ error: error.issues });
@@ -182,6 +183,7 @@ export const marcarEnviado = async (req: Request, res: Response) => {
     });
 
     const pedidoActualizado = await PedidoPV.findByPk(req.params.id, { include: INCLUDE_COMPLETO });
+    import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
     res.json(pedidoActualizado);
   } catch (error) {
     console.error('Error marcarEnviado:', error);
@@ -201,6 +203,7 @@ export const confirmarProveedor = async (req: Request, res: Response) => {
     });
 
     const pedidoActualizado = await PedidoPV.findByPk(req.params.id, { include: INCLUDE_COMPLETO });
+    import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
     res.json(pedidoActualizado);
   } catch (error) {
     console.error('Error confirmarProveedor:', error);
@@ -242,6 +245,7 @@ export const registrarLlegada = async (req: Request, res: Response) => {
     }
 
     const pedidoActualizado = await PedidoPV.findByPk(req.params.id, { include: INCLUDE_COMPLETO });
+    import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
     res.json(pedidoActualizado);
   } catch (error) {
     console.error('Error registrarLlegada:', error);
@@ -282,6 +286,7 @@ export const verificarPedido = async (req: Request, res: Response) => {
     }
 
     const pedidoActualizado = await PedidoPV.findByPk(req.params.id, { include: INCLUDE_COMPLETO });
+    import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
     res.json(pedidoActualizado);
   } catch (error) {
     console.error('Error verificarPedido:', error);
@@ -317,6 +322,7 @@ export const marcarProblema = async (req: Request, res: Response) => {
     }
 
     const pedidoActualizado = await PedidoPV.findByPk(req.params.id, { include: INCLUDE_COMPLETO });
+    import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
     res.json(pedidoActualizado);
   } catch (error) {
     console.error('Error marcarProblema:', error);
@@ -337,7 +343,7 @@ export const updatePedidoPV = async (req: Request, res: Response) => {
     if (!pedido) return res.status(404).json({ error: 'Pedido PV no encontrado' });
 
     const campos = ['proveedor', 'fecha_envio', 'hora_envio', 'fecha_entrega_prometida',
-      'metraje_venta', 'espesor_vidrio', 'factura_pv', 'observaciones'];
+      'metraje_venta', 'espesor_vidrio', 'factura_pv', 'observaciones', 'color_fila'];
     const update: Record<string, unknown> = {};
     for (const campo of campos) {
       if (req.body[campo] !== undefined) update[campo] = req.body[campo];
@@ -345,6 +351,7 @@ export const updatePedidoPV = async (req: Request, res: Response) => {
 
     await pedido.update(update);
     const pedidoActualizado = await PedidoPV.findByPk(req.params.id, { include: INCLUDE_COMPLETO });
+    import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
     res.json(pedidoActualizado);
   } catch (error) {
     console.error('Error updatePedidoPV:', error);

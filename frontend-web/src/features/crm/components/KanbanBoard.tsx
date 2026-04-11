@@ -13,6 +13,7 @@ import { fetchLeadsStart, fetchLeadsSuccess, fetchLeadsFailure, updateLead } fro
 import { apiGetLeads, apiUpdateLeadStatus, apiAssignLeadToMe } from '../crmService';
 import LeadCard from './LeadCard';
 import MotivoPerdidaModal from './MotivoPerdidaModal';
+import { useDataChangedSocket } from '../../../store/useSocketNotifications';
 
 // ─── Etapas del pipeline ─────────────────────────────────────────────────────
 const PIPELINE_STAGES = [
@@ -286,6 +287,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
   }, [dispatch, mes, anio]);
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
+  useDataChangedSocket('crm', fetchLeads);
 
   // ─── Filtrado central ────────────────────────────────────────────────────────
   const filtrarLeads = (leads: any[], extras: { stageId?: string } = {}) => {

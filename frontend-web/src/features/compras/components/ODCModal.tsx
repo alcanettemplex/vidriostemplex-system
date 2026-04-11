@@ -44,6 +44,7 @@ interface Props {
 }
 
 const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
+  const [numeroOdc, setNumeroOdc] = useState('');
   const [proveedor, setProveedor] = useState('');
   const [notas, setNotas] = useState('');
   const [loading, setLoading] = useState(false);
@@ -140,10 +141,12 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
   })();
 
   const handleCrearODC = async () => {
+    if (!numeroOdc.trim() || !/^\d+$/.test(numeroOdc.trim())) { toast.error('El número de ODC es requerido (solo dígitos)'); return; }
     if (!proveedor.trim()) { toast.error('Ingresa el proveedor'); return; }
     setLoading(true);
     try {
       await axios.post(`${API}/api/compras/odc`, {
+        numero_odc: numeroOdc.trim(),
         proveedor,
         notas: notas || null,
         items: items.map(i => ({
@@ -244,7 +247,19 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
           </div>
 
           {/* Campos de la ODC */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                N° ODC <span className="text-red-400">*</span>
+              </label>
+              <input
+                value={numeroOdc}
+                onChange={e => setNumeroOdc(e.target.value.replace(/\D/g, ''))}
+                placeholder="Ej: 12345"
+                maxLength={20}
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+              />
+            </div>
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                 Proveedor <span className="text-red-400">*</span>
@@ -281,7 +296,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
           </button>
           <button
             onClick={handleCrearODC}
-            disabled={loading || !proveedor.trim()}
+            disabled={loading || !proveedor.trim() || !numeroOdc.trim()}
             className="flex-1 py-3 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
           >
             {loading ? 'Creando...' : `Crear ODC con ${items.length} item(s)`}

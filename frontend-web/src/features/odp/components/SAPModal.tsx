@@ -16,6 +16,7 @@ interface SAPItem {
   dimension: string;
   und: string;
   cantidad: number | string;
+  observacion?: string;
 }
 
 interface SAP {
@@ -38,7 +39,7 @@ const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 const emptyItem = (idx: number): SAPItem => ({
   item: LETRAS[idx] || String(idx + 1),
-  codigo: '', descripcion: '', dimension: '', und: '', cantidad: 1,
+  codigo: '', descripcion: '', dimension: '', und: '', cantidad: 0, observacion: '',
 });
 
 // ─── Autocomplete cell ────────────────────────────────────────────────────────
@@ -176,7 +177,8 @@ const TablaEditable: React.FC<{
             <th className="px-3 py-2">DESCRIPCIÓN</th>
             <th className="px-3 py-2 w-24">DIMENSIÓN</th>
             <th className="px-3 py-2 text-center w-14">UND</th>
-            <th className="px-3 py-2 text-center w-16">CANT.</th>
+            <th className="px-3 py-2 text-center w-14">CANT.</th>
+            <th className="px-3 py-2">OBSERV.</th>
             {canEdit && <th className="w-8"></th>}
           </tr>
         </thead>
@@ -243,13 +245,26 @@ const TablaEditable: React.FC<{
                   <input
                     type="number"
                     min={0}
-                    step={0.01}
+                    step={1}
                     value={item.cantidad}
-                    onChange={e => updateItem(idx, 'cantidad', e.target.value)}
+                    onChange={e => updateItem(idx, 'cantidad', Math.round(Number(e.target.value)))}
                     className="w-full border-0 bg-transparent px-2 py-1.5 text-xs text-center focus:outline-none focus:bg-blue-50 rounded transition"
                   />
                 ) : (
                   <span className="px-2 font-bold text-slate-700">{item.cantidad}</span>
+                )}
+              </td>
+              {/* OBSERVACIÓN */}
+              <td className="px-1 py-0.5 border-r border-slate-100">
+                {canEdit ? (
+                  <input
+                    value={item.observacion || ''}
+                    onChange={e => updateItem(idx, 'observacion', e.target.value)}
+                    placeholder="Observación..."
+                    className="w-full border-0 bg-transparent px-2 py-1.5 text-xs focus:outline-none focus:bg-blue-50 rounded transition"
+                  />
+                ) : (
+                  <span className="px-2 text-slate-500 text-xs">{item.observacion || '—'}</span>
                 )}
               </td>
               {/* ELIMINAR FILA */}
