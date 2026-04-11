@@ -230,7 +230,7 @@ const TabComercial: React.FC<{ odp: any; onRefresh: () => void }> = ({ odp, onRe
         />
       )}
 
-      <CotizacionCapturas odp_id={odp.id} />
+      <CotizacionCapturas odp_id={odp.id} numeroCotizacion={odp.numero_cotizacion || ''} onRefresh={onRefresh} />
 
       <div>
         <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">

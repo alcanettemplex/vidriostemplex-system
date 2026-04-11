@@ -271,7 +271,13 @@ const PrintableOP: React.FC<PrintableOPProps> = ({ odp }) => {
                                 const extraOdcs = odcs.slice(3);
                                 return (<>
                                 <tr>
-                                    <td rowSpan={3 + extraOdcs.length} className="font-bold align-top text-center border-r-2 border-r-black w-24 pt-1">PEDIDO EXTERNO</td>
+                                    <td rowSpan={3 + extraOdcs.length} className="font-bold align-top text-center border-r-2 border-r-black w-24 pt-1">
+                                        <div>PEDIDO EXTERNO</div>
+                                        {odp.pedidos_pv?.[0] && (<>
+                                            <div className="text-blue-600 font-bold text-[11px] mt-1">{odp.pedidos_pv[0].numero_pedido}</div>
+                                            <div className="text-blue-600 font-bold text-[9px]">{odp.pedidos_pv[0].proveedor}</div>
+                                        </>)}
+                                    </td>
                                     <td className="text-center w-12 py-1">SAP</td>
                                     <td className="w-16 text-center text-[9px] font-bold">{odp.saps?.[0]?.numero_sap?.split('-').pop() || ''}</td>
                                     <td className="text-center w-12 py-1">ODC</td>

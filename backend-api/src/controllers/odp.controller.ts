@@ -82,6 +82,7 @@ const odpSchema = z.object({
   pendiente: z.number().nullable().optional(),
   proveedor_vidrio: z.string().optional(),
   numero_pedido_proveedor: z.string().optional(),
+  numero_cotizacion: z.string().optional().nullable(),
   chk_medicion: z.boolean().optional(),
   chk_corte: z.boolean().optional(),
   chk_vidrio: z.boolean().optional(),
@@ -121,7 +122,7 @@ export const getODP = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // Importar modelos dinámicamente para evitar circular imports
-    const { SAP, SAPItem, Cotizacion, TomaMedidas, EvidenciaInstalacion, RutaODP, RutaInstalacion, HistorialEstadoODP, NoConformidad, OrdenCompra } = await import('../models');
+    const { SAP, SAPItem, Cotizacion, TomaMedidas, EvidenciaInstalacion, RutaODP, RutaInstalacion, HistorialEstadoODP, NoConformidad, OrdenCompra, PedidoPV } = await import('../models');
 
     const odp = await ODP.findByPk(id, {
       include: [
@@ -185,7 +186,8 @@ export const getODP = async (req: Request, res: Response) => {
           as: 'notas_produccion',
           include: [{ model: (await import('../models')).Usuario, as: 'usuario', attributes: ['nombre_completo'] }]
         },
-        { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'fecha'], separate: true, order: [['fecha', 'ASC']] }
+        { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
+        { model: PedidoPV, as: 'pedidos_pv', attributes: ['id', 'numero_pedido', 'proveedor', 'estado'], separate: true, order: [['id', 'ASC']] }
       ],
     });
 

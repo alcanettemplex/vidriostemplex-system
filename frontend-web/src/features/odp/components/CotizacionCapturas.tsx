@@ -18,12 +18,13 @@ interface Props {
   odp_id?: number;
   prospecto_id?: number;
   numeroCotizacion?: string;
+  onRefresh?: () => void;
 }
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 const PUEDE_SUBIR = ['asesor_comercial', 'jefe_produccion', 'admin'];
 
-const CotizacionCapturas: React.FC<Props> = ({ odp_id, prospecto_id, numeroCotizacion }) => {
+const CotizacionCapturas: React.FC<Props> = ({ odp_id, prospecto_id, numeroCotizacion, onRefresh }) => {
   const user = useSelector((state: RootState) => state.auth.user) as any;
   const rol = (user?.rol || user?.role || '').toLowerCase();
   const userId = user?.id;
@@ -74,6 +75,7 @@ const CotizacionCapturas: React.FC<Props> = ({ odp_id, prospecto_id, numeroCotiz
       }
       toast.success('Número de cotización guardado');
       setEditandoNumCot(false);
+      onRefresh?.();
     } catch (e: any) {
       toast.error(e.response?.data?.error || 'Error al guardar');
     } finally {
