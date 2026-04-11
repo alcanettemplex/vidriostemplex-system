@@ -15,6 +15,7 @@ export interface SAPItemConContexto {
   cantidad: number;
   und?: string;
   exist_perf?: string;
+  observacion?: string;
   estado_compra: 'pendiente' | 'en_odc' | 'en_existencia';
   SAP: {
     id: number;
@@ -48,6 +49,20 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
   const [proveedor, setProveedor] = useState('');
   const [notas, setNotas] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Copia local editable de los items (para CANT. y UND editables)
+  const [localItems, setLocalItems] = useState<SAPItemConContexto[]>(() =>
+    items.map(i => ({ ...i }))
+  );
+
+  const updateLocalItem = (id: number, field: 'cantidad' | 'und', value: string) => {
+    setLocalItems(prev => prev.map(it =>
+      it.id !== id ? it : {
+        ...it,
+        [field]: field === 'cantidad' ? (parseFloat(value) || 0) : value,
+      }
+    ));
+  };
 
   // Inventario perfilería por código
   const [inventarioPorCodigo, setInventarioPorCodigo] = useState<Record<string, InventarioPerfil[]>>({});
@@ -132,7 +147,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
   // Agrupar items por código para la vista consolidada
   const gruposPorCodigo = (() => {
     const map = new Map<string, SAPItemConContexto[]>();
-    for (const item of items) {
+    for (const item of localItems) {
       const key = item.codigo || '—';
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(item);
@@ -149,7 +164,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
         numero_odc: numeroOdc.trim(),
         proveedor,
         notas: notas || null,
-        items: items.map(i => ({
+        items: localItems.map(i => ({
           sap_item_id: i.id,
           item: i.item,
           codigo: i.codigo,
@@ -221,6 +236,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
                         <th className="px-4 py-1.5 text-left w-28">DIMENSIÓN</th>
                         <th className="px-4 py-1.5 text-center w-16">CANT.</th>
                         <th className="px-4 py-1.5 text-left w-28">UND</th>
+                        <th className="px-4 py-1.5 text-left w-36">OBSERV.</th>
                         <th className="px-4 py-1.5 text-left w-28">SAP</th>
                         <th className="px-4 py-1.5 text-left w-28">ODP</th>
                         <th className="px-4 py-1.5 text-left">CLIENTE</th>
@@ -231,8 +247,27 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
                       {grupo.map((item, i) => (
                         <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
                           <td className="px-4 py-1.5 text-slate-600">{item.dimension || '—'}</td>
-                          <td className="px-4 py-1.5 text-center font-bold text-slate-700">{item.cantidad}</td>
-                          <td className="px-4 py-1.5 text-slate-500">{item.und || '—'}</td>
+                          <td className="px-2 py-1">
+                            <input
+                              type="number"
+                              min={0}
+                              step={1}
+                              value={item.cantidad}
+                              onChange={e => updateLocalItem(item.id, 'cantidad', e.target.value)}
+                              className="w-16 text-center font-bold text-slate-700 border border-slate-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                            />
+                          </td>
+                          <td className="px-2 py-1">
+                            <input
+                              type="text"
+                              value={item.und || ''}
+                              onChange={e => updateLocalItem(item.id, 'und', e.target.value)}
+                              placeholder="UND"
+                              maxLength={10}
+                              className="w-16 text-slate-600 border border-slate-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 uppercase"
+                            />
+                          </td>
+                          <td className="px-4 py-1.5 text-slate-400 text-[10px] truncate max-w-[140px]" title={item.observacion || ''}>{item.observacion || '—'}</td>
                           <td className="px-4 py-1.5 font-bold text-indigo-600">{item.SAP?.numero_sap || '—'}</td>
                           <td className="px-4 py-1.5 font-bold text-slate-700">{item.SAP?.ODP?.numero_odp || '—'}</td>
                           <td className="px-4 py-1.5 text-slate-600 truncate max-w-[180px]">{item.SAP?.ODP?.cliente?.nombre_razon_social || '—'}</td>

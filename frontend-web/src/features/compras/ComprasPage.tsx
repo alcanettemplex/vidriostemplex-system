@@ -797,6 +797,7 @@ const ComprasPage: React.FC = () => {
                                 <th className="px-3 py-1.5 text-left w-24">Dimensión</th>
                                 <th className="px-3 py-1.5 text-center w-16">Cant.</th>
                                 <th className="px-3 py-1.5 text-left w-16">Und</th>
+                                <th className="px-3 py-1.5 text-left w-36">Observ.</th>
                                 <th className="px-3 py-1.5 text-left w-28">SAP</th>
                                 <th className="px-3 py-1.5 text-left w-28">ODP</th>
                                 <th className="px-3 py-1.5 text-left">Cliente</th>
