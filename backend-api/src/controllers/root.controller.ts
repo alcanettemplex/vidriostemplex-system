@@ -176,7 +176,8 @@ export const getMetricasCloudinary = async (_req: Request, res: Response) => {
 
 // ─── HEALTH CHECKS ───────────────────────────────────────────────────────────
 export const getHealthServicios = async (req: Request, res: Response) => {
-  const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const FRONTEND_URL = process.env.FRONTEND_URL || 'https://vidriostemplex-system.pages.dev';
+  const BACKEND_URL = process.env.BACKEND_URL || 'https://vidriostemplex-system.onrender.com';
 
   // Verificar Supabase via query directa a la BD (más confiable que HTTP ping)
   let supabaseStatus: 'online' | 'offline' | 'slow' = 'offline';
@@ -195,8 +196,8 @@ export const getHealthServicios = async (req: Request, res: Response) => {
   );
 
   const servicios = [
-    { name: 'Backend (API)', url: `${req.protocol}://${req.get('host')}/health` },
-    { name: 'Frontend (Netlify)', url: FRONTEND_URL },
+    { name: 'Backend (API)', url: `${BACKEND_URL}/health` },
+    { name: 'Frontend (Cloudflare)', url: FRONTEND_URL },
     { name: 'Supabase (BD)', url: `https://${SUPABASE_PROJECT_REF}.supabase.co` },
     { name: 'Cloudinary', url: 'https://status.cloudinary.com/api/v2/status.json' },
     { name: 'GitHub Status', url: 'https://www.githubstatus.com/api/v2/status.json' },
