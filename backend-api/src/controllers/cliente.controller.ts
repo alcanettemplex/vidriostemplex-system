@@ -54,7 +54,7 @@ export const createCliente = async (req: Request, res: Response) => {
     const data = clienteSchema.parse(req.body);
     const clienteData = {
       ...data,
-      creado_por: (req as any).user?.id,
+      creado_por: req.user?.id,
     };
     const cliente = await Cliente.create(clienteData as any);
     res.status(201).json(cliente);
@@ -77,8 +77,8 @@ export const updateCliente = async (req: Request, res: Response) => {
     if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
 
     // ─── Verificación de ownership (solo creador o admin) ───
-    if ((req as any).user?.rol !== 'admin') {
-      if (Number(cliente.getDataValue('creado_por')) !== Number((req as any).user?.id)) {
+    if (req.user?.rol !== 'admin') {
+      if (Number(cliente.getDataValue('creado_por')) !== Number(req.user?.id)) {
         return res.status(403).json({ error: 'Solo el creador del cliente puede editarlo' });
       }
     }
@@ -102,8 +102,8 @@ export const deleteCliente = async (req: Request, res: Response) => {
     if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
 
     // ─── Verificación de ownership (solo creador o admin) ───
-    if ((req as any).user?.rol !== 'admin') {
-      if (Number(cliente.getDataValue('creado_por')) !== Number((req as any).user?.id)) {
+    if (req.user?.rol !== 'admin') {
+      if (Number(cliente.getDataValue('creado_por')) !== Number(req.user?.id)) {
         return res.status(403).json({ error: 'Solo el creador del cliente puede eliminarlo' });
       }
     }

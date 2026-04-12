@@ -18,7 +18,7 @@ export const getNotasByODP = async (req: Request, res: Response) => {
 export const createNota = async (req: Request, res: Response) => {
   try {
     const { odp_id, texto } = req.body;
-    const usuario_id = (req as any).user?.id;
+    const usuario_id = req.user?.id;
 
     if (!usuario_id) return res.status(401).json({ error: 'No autenticado' });
 

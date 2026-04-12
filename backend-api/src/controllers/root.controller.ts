@@ -8,8 +8,8 @@ import AlertasUmbral from '../models/alertas_umbral.model';
 import { Op } from 'sequelize';
 import jwt from 'jsonwebtoken';
 
-const SUPABASE_PROJECT_REF = 'mvcmofhbjvxjnxefylsa';
-const SUPABASE_MANAGEMENT_TOKEN = 'sbp_b845a1f9d220420f9bca35f956f9c76b6bf472c8';
+const SUPABASE_PROJECT_REF = process.env.SUPABASE_PROJECT_REF || '';
+const SUPABASE_MANAGEMENT_TOKEN = process.env.SUPABASE_MANAGEMENT_TOKEN || '';
 const CLOUDINARY_CLOUD = process.env.CLOUDINARY_CLOUD_NAME || '';
 const CLOUDINARY_KEY = process.env.CLOUDINARY_API_KEY || '';
 const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET || '';

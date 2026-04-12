@@ -55,7 +55,7 @@ export const getCompra = async (req: Request, res: Response) => {
 export const createCompra = async (req: Request, res: Response) => {
   try {
     const data = compraSchema.parse(req.body);
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Usuario no autenticado' });
 
     // Validar que la ODP exista si se vincula

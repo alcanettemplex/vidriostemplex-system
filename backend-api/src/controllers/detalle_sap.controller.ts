@@ -31,7 +31,7 @@ export const createImagen = async (req: Request, res: Response) => {
     const { odp_id } = req.body;
     if (!odp_id) return res.status(400).json({ error: 'Se requiere odp_id' });
 
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     const imagen = await DetalleSAPImagen.create({
       odp_id: Number(odp_id),
@@ -54,7 +54,7 @@ export const createImagen = async (req: Request, res: Response) => {
 export const deleteImagen = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const user = (req as any).user;
+    const user = req.user!;
 
     const imagen = await DetalleSAPImagen.findByPk(id);
     if (!imagen) return res.status(404).json({ error: 'Imagen no encontrada' });

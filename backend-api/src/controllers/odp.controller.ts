@@ -21,6 +21,7 @@ import {
 } from '../models';
 import Pago from '../models/pago.model';
 import { z } from 'zod';
+import { withUniqueRetry } from '../utils/withUniqueRetry';
 
 const odpItemSchema = z.object({
   item: z.string().optional(),
@@ -193,14 +194,30 @@ export const getODP = async (req: Request, res: Response) => {
 
     if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
 
-    // Enriquecer ordenes_compra de cada SAP con sus items (separate query para evitar limitación Sequelize con includes de 3er nivel)
+    // Enriquecer ordenes_compra de cada SAP con sus items (batch query en vez de N+1)
     const { ODCItem } = await import('../models');
     const odpJson: any = odp.toJSON();
     if (odpJson.saps) {
+      const allOdcIds: number[] = [];
       for (const sap of odpJson.saps) {
         if (sap.ordenes_compra) {
-          for (const odc of sap.ordenes_compra) {
-            odc.items = await ODCItem.findAll({ where: { odc_id: odc.id }, raw: true });
+          for (const odc of sap.ordenes_compra) allOdcIds.push(odc.id);
+        }
+      }
+      if (allOdcIds.length > 0) {
+        const { Op } = await import('sequelize');
+        const allItems = await ODCItem.findAll({ where: { odc_id: { [Op.in]: allOdcIds } }, raw: true });
+        const itemsByOdc = new Map<number, typeof allItems>();
+        for (const item of allItems) {
+          const key = (item as any).odc_id;
+          if (!itemsByOdc.has(key)) itemsByOdc.set(key, []);
+          itemsByOdc.get(key)!.push(item);
+        }
+        for (const sap of odpJson.saps) {
+          if (sap.ordenes_compra) {
+            for (const odc of sap.ordenes_compra) {
+              odc.items = itemsByOdc.get(odc.id) || [];
+            }
           }
         }
       }
@@ -215,101 +232,110 @@ export const getODP = async (req: Request, res: Response) => {
 
 
 export const createODP = async (req: Request, res: Response) => {
-  const t = await sequelize.transaction();
   try {
     const data = odpSchema.parse(req.body);
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     if (!userId) {
-      await t.rollback();
       return res.status(401).json({ error: 'Usuario no autenticado' });
     }
 
-    // Generar número ODP consecutivo sin año
-    const lastODP = await ODP.findOne({
-      where: { numero_odp: { [require('sequelize').Op.like]: 'ODP-%' } },
-      order: [['numero_odp', 'DESC']],
-      attributes: ['numero_odp'],
-      transaction: t,
+    const { newOdp, odpId } = await withUniqueRetry(async () => {
+      const t = await sequelize.transaction();
+      try {
+        // Generar número ODP consecutivo sin año
+        const lastODP = await ODP.findOne({
+          where: { numero_odp: { [require('sequelize').Op.like]: 'ODP-%' } },
+          order: [['numero_odp', 'DESC']],
+          attributes: ['numero_odp'],
+          transaction: t,
+        });
+        let nextODPNum = 1;
+        if (lastODP) {
+          const parts = lastODP.getDataValue('numero_odp').split('-');
+          nextODPNum = parseInt(parts[parts.length - 1]) + 1;
+        }
+        const generatedNumeroODP = `ODP-${String(nextODPNum).padStart(4, '0')}`;
+
+        const odpData = {
+          numero_odp: data.numero_odp || generatedNumeroODP,
+          cliente_id: data.cliente_id,
+          asesor_id: data.asesor_id || userId,
+          estado_produccion: data.estado_produccion,
+          estado_facturacion: data.estado_facturacion,
+          estado_caja: data.forma_pago === 'credito' ? 'CREDITO_APROBADO' : (data.estado_caja || 'PENDIENTE'),
+          factura_electronica: data.factura_electronica,
+          url_documento_factura: data.url_documento_factura,
+          autorizacion_especial_despacho: data.autorizacion_especial_despacho,
+          observacion_autorizacion: data.observacion_autorizacion,
+          croquis_url: data.croquis_url,
+          fecha_entrega: data.fecha_entrega,
+          nombre_recibe: data.nombre_recibe,
+          telefono_recibe: data.telefono_recibe,
+          cantidad_total: data.cantidad_total || 1,
+          tipo_servicio: data.tipo_servicio,
+          descripcion_pedido: data.descripcion_pedido,
+          servicios_detalle: data.servicios_detalle,
+          observaciones: data.observaciones,
+          direccion_instalacion: data.direccion_instalacion,
+          matizado: data.matizado,
+          pelicula: data.pelicula,
+          acarreo: data.acarreo,
+          instalacion: data.instalacion,
+          huacal: data.huacal,
+          carton: data.carton,
+          forma_pago: data.forma_pago,
+          valor_total: data.valor_total || 0,
+          abono: data.abono || 0,
+          pendiente: data.valor_total ? Math.max(0, (data.valor_total || 0) - (data.abono || 0)) : (data.pendiente || 0),
+          proveedor_vidrio: data.proveedor_vidrio || null,
+        };
+
+        const createdOdp = await ODP.create(odpData as any, { transaction: t });
+        const createdId = createdOdp.getDataValue('id');
+
+        if (data.items && data.items.length > 0) {
+          const itemsData = data.items.map(item => ({ ...item, odp_id: createdId }));
+          await ODPItem.bulkCreate(itemsData as any, { transaction: t });
+        }
+
+        await t.commit();
+        return { newOdp: createdOdp, odpId: createdId };
+      } catch (err) {
+        await t.rollback();
+        throw err;
+      }
     });
-    let nextODPNum = 1;
-    if (lastODP) {
-      const parts = lastODP.getDataValue('numero_odp').split('-');
-      nextODPNum = parseInt(parts[parts.length - 1]) + 1;
-    }
-    const generatedNumeroODP = `ODP-${String(nextODPNum).padStart(4, '0')}`;
-
-    const odpData = {
-      numero_odp: data.numero_odp || generatedNumeroODP,
-      cliente_id: data.cliente_id,
-      asesor_id: data.asesor_id || userId,
-      estado_produccion: data.estado_produccion,
-      estado_facturacion: data.estado_facturacion,
-      estado_caja: data.forma_pago === 'credito' ? 'CREDITO_APROBADO' : (data.estado_caja || 'PENDIENTE'),
-      factura_electronica: data.factura_electronica,
-      url_documento_factura: data.url_documento_factura,
-      autorizacion_especial_despacho: data.autorizacion_especial_despacho,
-      observacion_autorizacion: data.observacion_autorizacion,
-      croquis_url: data.croquis_url,
-      fecha_entrega: data.fecha_entrega,
-      nombre_recibe: data.nombre_recibe,
-      telefono_recibe: data.telefono_recibe,
-      cantidad_total: data.cantidad_total || 1,
-      tipo_servicio: data.tipo_servicio,
-      descripcion_pedido: data.descripcion_pedido,
-      servicios_detalle: data.servicios_detalle,
-      observaciones: data.observaciones,
-      direccion_instalacion: data.direccion_instalacion,
-      matizado: data.matizado,
-      pelicula: data.pelicula,
-      acarreo: data.acarreo,
-      instalacion: data.instalacion,
-      huacal: data.huacal,
-      carton: data.carton,
-      forma_pago: data.forma_pago,
-      valor_total: data.valor_total || 0,
-      abono: data.abono || 0,
-      pendiente: data.valor_total ? Math.max(0, (data.valor_total || 0) - (data.abono || 0)) : (data.pendiente || 0),
-      proveedor_vidrio: data.proveedor_vidrio || null,
-    };
-
-    const newOdp = await ODP.create(odpData as any, { transaction: t });
-    const odpId = newOdp.getDataValue('id');
-
-    if (data.items && data.items.length > 0) {
-      const itemsData = data.items.map(item => ({ ...item, odp_id: odpId }));
-      await ODPItem.bulkCreate(itemsData as any, { transaction: t });
-    }
-
-    await t.commit();
 
     // ── Crear PedidoPV automático si se seleccionó proveedor ──────────────
     if (data.proveedor_vidrio) {
       try {
-        const ultimoPV = await PedidoPV.findOne({
-          order: [['numero_base', 'DESC']],
-          attributes: ['numero_base'],
+        await withUniqueRetry(async () => {
+          const ultimoPV = await PedidoPV.findOne({
+            order: [['numero_base', 'DESC']],
+            attributes: ['numero_base'],
+          });
+          const numero_base = ultimoPV ? (ultimoPV.getDataValue('numero_base') as number) + 1 : 6733;
+          const numero_pedido = String(numero_base);
+
+          await PedidoPV.create({
+            odp_id: odpId,
+            proveedor: data.proveedor_vidrio,
+            numero_pedido,
+            numero_base,
+            sufijo: null,
+            estado: 'PENDIENTE',
+            origen: 'SISTEMA',
+            creado_por: userId,
+          });
+
+          // Guardar el número generado en la ODP
+          await ODP.update(
+            { numero_pedido_proveedor: numero_pedido },
+            { where: { id: odpId } }
+          );
+
+          console.warn(`PedidoPV ${numero_pedido} creado automáticamente para ODP ${odpId}`);
         });
-        const numero_base = ultimoPV ? (ultimoPV.getDataValue('numero_base') as number) + 1 : 6733;
-        const numero_pedido = String(numero_base);
-
-        const nuevoPedido = await PedidoPV.create({
-          odp_id: odpId,
-          proveedor: data.proveedor_vidrio,
-          numero_pedido,
-          numero_base,
-          sufijo: null,
-          estado: 'PENDIENTE',
-          origen: 'SISTEMA',
-          creado_por: userId,
-        });
-
-        // Guardar el número generado en la ODP
-        await ODP.update(
-          { numero_pedido_proveedor: numero_pedido },
-          { where: { id: odpId } }
-        );
-
-        console.warn(`PedidoPV ${numero_pedido} creado automáticamente para ODP ${odpId}`);
       } catch (pvError: any) {
         console.error('Error creando PedidoPV automático:', pvError.message);
         // No fallar la creación de la ODP por esto
@@ -319,7 +345,6 @@ export const createODP = async (req: Request, res: Response) => {
     import('../server').then(({ emitirCambio }) => emitirCambio('odp')).catch(() => {});
     res.status(201).json(newOdp);
   } catch (error: any) {
-    await t.rollback();
     if (error instanceof z.ZodError) {
       console.error('Validation Error Details:', JSON.stringify((error as any).errors, null, 2));
       return res.status(400).json({ error: 'Datos de ODP inválidos', detalles: (error as any).errors });
@@ -352,10 +377,10 @@ export const updateODP = async (req: Request, res: Response) => {
     const camposUpdate = camposRecibidos.filter(key => key in data);
     const soloEditaChecks = camposUpdate.length > 0 && camposUpdate.every(c => camposPermitidosTaller.includes(c));
     
-    const rolUsuario = (req as any).user?.rol;
+    const rolUsuario = req.user?.rol;
     const esAdminOGerencia = rolUsuario === 'admin' || rolUsuario === 'gerencia';
     const esTaller = ['produccion', 'jefe_produccion'].includes(rolUsuario) && soloEditaChecks;
-    const esCreador = Number(odp.getDataValue('asesor_id')) === Number((req as any).user?.id);
+    const esCreador = Number(odp.getDataValue('asesor_id')) === Number(req.user?.id);
 
     if (!esAdminOGerencia) {
       if (!esTaller && !esCreador) {
@@ -478,7 +503,7 @@ export const updateODP = async (req: Request, res: Response) => {
             odp_id: odpPadre.getDataValue('id'),
             estado_anterior: 'PAUSADA',
             estado_nuevo: 'INSTALADA',
-            usuario_id: (req as any).user?.id || null,
+            usuario_id: req.user?.id || null,
             fecha: new Date(),
             observacion: `Completada automáticamente: la ODP de reproceso ${odp.getDataValue('numero_odp')} resolvió la no conformidad.`
           });
@@ -546,8 +571,8 @@ export const deleteODP = async (req: Request, res: Response) => {
     }
 
     // ─── Verificación de ownership (solo creador o admin) ───
-    if ((req as any).user?.rol !== 'admin') {
-      if (Number(odp.getDataValue('asesor_id')) !== Number((req as any).user?.id)) {
+    if (req.user?.rol !== 'admin') {
+      if (Number(odp.getDataValue('asesor_id')) !== Number(req.user?.id)) {
         await t.rollback();
         return res.status(403).json({ error: 'Solo el creador de la ODP puede eliminarla' });
       }

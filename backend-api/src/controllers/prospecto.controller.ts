@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Prospecto, Cliente, Usuario, TomaMedidas, ODP, ODPItem, CotizacionCaptura } from '../models';
 import sequelize from '../config/database';
+import { withUniqueRetry } from '../utils/withUniqueRetry';
 
 const generarNumeroProspecto = async (): Promise<string> => {
   const last = await Prospecto.findOne({
@@ -62,14 +63,15 @@ export const getProspecto = async (req: Request, res: Response) => {
 export const createProspecto = async (req: Request, res: Response) => {
   try {
     const { cliente_id, nombre_contacto, telefono_contacto, email_contacto, direccion, descripcion } = req.body;
-    const asesor_id = (req as any).user?.id;
+    const asesor_id = req.user?.id;
 
-    const numero_prospecto = await generarNumeroProspecto();
-
-    const prospecto = await Prospecto.create({
-      numero_prospecto, asesor_id, cliente_id, nombre_contacto,
-      telefono_contacto, email_contacto, direccion, descripcion,
-      estado: 'en_gestion',
+    const prospecto = await withUniqueRetry(async () => {
+      const numero_prospecto = await generarNumeroProspecto();
+      return Prospecto.create({
+        numero_prospecto, asesor_id, cliente_id, nombre_contacto,
+        telefono_contacto, email_contacto, direccion, descripcion,
+        estado: 'en_gestion',
+      });
     });
 
     const completo = await Prospecto.findByPk(prospecto.getDataValue('id'), {
@@ -95,9 +97,9 @@ export const updateProspecto = async (req: Request, res: Response) => {
     if (!prospecto) return res.status(404).json({ error: 'Prospecto no encontrado' });
 
     // ─── Verificación de ownership (creador, admin, gerencia o asistente_administrativo) ───
-    const rolUser: string = (req as any).user?.rol || '';
+    const rolUser: string = req.user?.rol || '';
     if (!['admin', 'gerencia', 'asistente_administrativo'].includes(rolUser)) {
-      if (Number(prospecto.getDataValue('asesor_id')) !== Number((req as any).user?.id)) {
+      if (Number(prospecto.getDataValue('asesor_id')) !== Number(req.user?.id)) {
         return res.status(403).json({ error: 'Solo el creador del prospecto puede editarlo' });
       }
     }
@@ -124,8 +126,8 @@ export const noAprobarProspecto = async (req: Request, res: Response) => {
     }
 
     // ─── Verificación de ownership (solo creador o admin) ───
-    if ((req as any).user?.rol !== 'admin') {
-      if (Number(prospecto.getDataValue('asesor_id')) !== Number((req as any).user?.id)) {
+    if (req.user?.rol !== 'admin') {
+      if (Number(prospecto.getDataValue('asesor_id')) !== Number(req.user?.id)) {
         return res.status(403).json({ error: 'Solo el creador del prospecto puede archivarlo' });
       }
     }
@@ -150,7 +152,7 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
       // Para contacto nuevo: cliente_id existente o datos de nuevo cliente
       cliente_id: cliente_id_body, nuevo_cliente,
     } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     const prospecto = await Prospecto.findByPk(id, {
       include: [
@@ -166,8 +168,8 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
     }
 
     // ─── Verificación de ownership (solo creador o admin) ───
-    if ((req as any).user?.rol !== 'admin') {
-      if (Number(prospecto.getDataValue('asesor_id')) !== Number((req as any).user?.id)) {
+    if (req.user?.rol !== 'admin') {
+      if (Number(prospecto.getDataValue('asesor_id')) !== Number(req.user?.id)) {
         await t.rollback();
         return res.status(403).json({ error: 'Solo el creador del prospecto puede aprobarlo' });
       }

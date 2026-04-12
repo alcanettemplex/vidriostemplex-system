@@ -299,7 +299,7 @@ const DetalleSAPCard: React.FC<{ odpId: number; canUpload: boolean; onOpenLightb
       formData.append('imagen', file);
       formData.append('odp_id', String(odpId));
       await axios.post(`${API}/api/detalle-sap-imagenes`, formData, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+        headers: { Authorization: `Bearer ${token}` }
       });
       await fetchImagenes();
       toast.success('Imagen subida correctamente');
@@ -419,10 +419,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
       const token = localStorage.getItem('token');
 
       await axios.post(`${API}/api/odp/${odp.id}/croquis`, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
-        }
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       if (onUpdate) onUpdate();

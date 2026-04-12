@@ -76,7 +76,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
   useEffect(() => {
     axios.get(`${API}/api/compras/codigos-perfileria`, { headers })
       .then(r => setCodigosPerfileria(new Set(r.data as string[])))
-      .catch(() => {});
+      .catch(err => console.error('Error cargando códigos perfilería:', err));
 
     const codigos = Array.from(new Set(items.map(i => i.codigo).filter(Boolean)));
     if (codigos.length === 0) return;

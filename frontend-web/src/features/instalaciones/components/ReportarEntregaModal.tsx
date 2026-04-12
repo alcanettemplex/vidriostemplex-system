@@ -142,7 +142,7 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
       fd.append('firma_receptor', firmaBase64);
 
       await axios.post(`${API}/api/rutas/ruta-odp/${rutaODPId}/finalizar`, fd, {
-        headers: { ...headers, 'Content-Type': 'multipart/form-data' },
+        headers,
       });
 
       toast.success(`ODP ${numeroODP} entregada exitosamente`);

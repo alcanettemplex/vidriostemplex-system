@@ -4,12 +4,13 @@ import {
   getNoConformidadesByODP, 
   updateNoConformidad 
 } from '../controllers/no_conformidad.controller';
-import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
+import { authMiddleware } from '../middlewares/authMiddleware';
+import { requireRole } from '../middlewares/rbacMiddleware';
 
 const router = Router();
 
 router.post('/', authMiddleware, createNoConformidad);
 router.get('/odp/:odpId', authMiddleware, getNoConformidadesByODP);
-router.patch('/:id', authMiddleware, requireRole(['admin', 'gerencia']), updateNoConformidad);
+router.patch('/:id', authMiddleware, requireRole('admin', 'gerencia'), updateNoConformidad);
 
 export default router;

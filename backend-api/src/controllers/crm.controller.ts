@@ -7,7 +7,7 @@ import ODP from '../models/odp.model';
 
 export const createLead = async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
+    const user = req.user!;
     const {
       telefono, nombre, mensaje_entrada, segmento, fuente_lead,
       respondio, producto_interes, descripcion_contexto, asesor_id
@@ -63,7 +63,7 @@ export const updateLeadStatus = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { nuevo_estado, motivo_perdida } = req.body;
-    const user = req.user as any;
+    const user = req.user!;
 
     const lead = await Lead.findByPk(id);
     if (!lead) return res.status(404).json({ error: 'Lead no encontrado' });
@@ -138,7 +138,7 @@ export const updateLeadStatus = async (req: Request, res: Response) => {
 export const assignLeadToMe = async (req: Request, res: Response) => {
    try {
     const { id } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
 
     const lead = await Lead.findByPk(id);
     if (!lead) return res.status(404).json({ error: 'Lead no encontrado' });
@@ -176,7 +176,7 @@ export const assignLeadToMe = async (req: Request, res: Response) => {
 export const assignLeadToUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
     const { asesor_id } = req.body;
 
     if (!asesor_id) return res.status(400).json({ error: 'Se requiere el ID del asesor' });
@@ -229,7 +229,7 @@ export const getLeadTimeline = async (req: Request, res: Response) => {
 export const updateLeadMonto = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
     const { monto_proyectado_cotizacion } = req.body;
 
     const monto = parseFloat(monto_proyectado_cotizacion);
@@ -259,7 +259,7 @@ export const updateLeadMonto = async (req: Request, res: Response) => {
 export const registerLeadSeguimiento = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
     const { nota } = req.body;
 
     const lead = await Lead.findByPk(id);
@@ -301,7 +301,7 @@ export const registerLeadSeguimiento = async (req: Request, res: Response) => {
 export const convertLeadToCliente = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
     const {
       nombre_razon_social,
       numero_documento,
@@ -375,7 +375,7 @@ export const convertLeadToCliente = async (req: Request, res: Response) => {
 
 export const getLeads = async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
+    const user = req.user!;
     const { mes, anio, vista } = req.query;
     const esSinRespuesta = vista === 'sin_respuesta';
     const esAdminOGerencia = ['admin', 'gerencia', 'root', 'asistente_administrativo'].includes(user.rol?.toLowerCase());
@@ -435,7 +435,7 @@ export const getLeads = async (req: Request, res: Response) => {
 
 export const getCRMStats = async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
+    const user = req.user!;
     const { mes, anio } = req.query;
     const esGlobal = ['admin', 'gerencia', 'root', 'asistente_administrativo'].includes(user.rol?.toLowerCase());
     
@@ -609,7 +609,7 @@ export const getCRMStats = async (req: Request, res: Response) => {
 export const updateLeadDetails = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
     const {
       monto_proyectado_cotizacion,
       segmento,
@@ -677,7 +677,7 @@ export const vincularODPAlLead = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { odp_id } = req.body;
-    const user = req.user as any;
+    const user = req.user!;
 
     const lead = await Lead.findByPk(id);
     if (!lead) return res.status(404).json({ error: 'Lead no encontrado' });

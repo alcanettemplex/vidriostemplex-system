@@ -93,7 +93,6 @@ const EvidenciasPage: React.FC = () => {
             await axios.post(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/evidencias`, formData, {
                 headers: {
                     Authorization: `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data'
                 }
             });
 

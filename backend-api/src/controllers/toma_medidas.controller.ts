@@ -36,7 +36,7 @@ export const createTM = async (req: Request, res: Response) => {
       fecha_visita, direccion, nombre_contacto, telefono_contacto,
       contacto_obra, telefono_obra, observaciones, medidas_json,
     } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     // Requiere al menos odp_id o prospecto_id
     if (!odp_id && !prospecto_id) {

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
 import Sidebar from '../components/common/Sidebar';
 import ProtectedRoute from '../components/common/ProtectedRoute';
+import RoleRoute from '../components/common/RoleRoute';
 import LoginPage from '../features/auth/LoginPage';
 import DashboardHome from '../components/dashboard/DashboardHome';
 import ClientesListPage from '../features/clientes/ClientesListPage';
@@ -30,22 +31,50 @@ const AppRoutes: React.FC = () => (
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<DashboardHome />} />
-            <Route path="/clientes" element={<ClientesListPage />} />
-            <Route path="/odp" element={<ODPListPage />} />
-            <Route path="/produccion" element={<ProduccionPage />} />
-            <Route path="/instalaciones" element={<InstalacionesPage />} />
-            <Route path="/compras" element={<ComprasPage />} />
-            <Route path="/contabilidad" element={<ContabilidadPage />} />
-            <Route path="/usuarios" element={<UsuariosPage />} />
-            <Route path="/configuracion" element={<ConfiguracionPage />} />
-            <Route path="/toma-medidas" element={<TomaMedidasPage />} />
-            <Route path="/prospectos" element={<ProspectosPage />} />
-            <Route path="/inventario" element={<InventarioPage />} />
-            <Route path="/pedidos-pv" element={<PedidosPVPage />} />
-            <Route path="/facturas-salidas" element={<FacturasSalidasPage />} />
-            <Route path="/root" element={<RootPage />} />
-            <Route path="/crm" element={<CRMPage />} />
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia']} />}>
+              <Route path="/" element={<DashboardHome />} />
+              <Route path="/configuracion" element={<ConfiguracionPage />} />
+            </Route>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion']} />}>
+              <Route path="/clientes" element={<ClientesListPage />} />
+              <Route path="/prospectos" element={<ProspectosPage />} />
+            </Route>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras', 'produccion']} />}>
+              <Route path="/odp" element={<ODPListPage />} />
+            </Route>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'asesor_comercial', 'asistente_administrativo']} />}>
+              <Route path="/crm" element={<CRMPage />} />
+            </Route>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion']} />}>
+              <Route path="/produccion" element={<ProduccionPage />} />
+            </Route>
+            <Route element={<RoleRoute allowedRoles={['admin', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion']} />}>
+              <Route path="/toma-medidas" element={<TomaMedidasPage />} />
+            </Route>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'jefe_produccion', 'instalador', 'conductor', 'asesor_comercial', 'compras', 'produccion']} />}>
+              <Route path="/instalaciones" element={<InstalacionesPage />} />
+            </Route>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'compras', 'jefe_produccion']} />}>
+              <Route path="/compras" element={<ComprasPage />} />
+            </Route>
+            <Route element={<RoleRoute allowedRoles={['admin', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras']} />}>
+              <Route path="/inventario" element={<InventarioPage />} />
+            </Route>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras']} />}>
+              <Route path="/pedidos-pv" element={<PedidosPVPage />} />
+            </Route>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'contabilidad', 'compras', 'produccion']} />}>
+              <Route path="/facturas-salidas" element={<FacturasSalidasPage />} />
+            </Route>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'contabilidad']} />}>
+              <Route path="/contabilidad" element={<ContabilidadPage />} />
+            </Route>
+            <Route element={<RoleRoute allowedRoles={['admin']} />}>
+              <Route path="/usuarios" element={<UsuariosPage />} />
+            </Route>
+            <Route element={<RoleRoute allowedRoles={['root']} />}>
+              <Route path="/root" element={<RootPage />} />
+            </Route>
           </Route>
         </Routes>
       </main>

@@ -56,11 +56,16 @@ export const updateUsuario = async (req: Request, res: Response) => {
 };
 
 export const deleteUsuario = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const usuario = await Usuario.findByPk(id);
-  if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
-  await usuario.destroy();
-  res.json({ status: 'Usuario eliminado' });
+  try {
+    const { id } = req.params;
+    const usuario = await Usuario.findByPk(id);
+    if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+    await usuario.destroy();
+    res.json({ status: 'Usuario eliminado' });
+  } catch (error: unknown) {
+    console.error('Error al eliminar usuario:', error);
+    res.status(500).json({ error: 'Error al eliminar usuario' });
+  }
 };
 
 export const setupAdmin = async (req: Request, res: Response) => {

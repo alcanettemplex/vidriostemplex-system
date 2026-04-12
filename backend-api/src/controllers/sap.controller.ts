@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { SAP, SAPItem, ODP, Usuario, CatalogoProducto } from '../models';
 import sequelize from '../config/database';
 import { Op } from 'sequelize';
+import { withUniqueRetry } from '../utils/withUniqueRetry';
 
 // Recalcular tiene_aluminio en ODP según todos sus SAP items
 const recalcularAluminioODP = async (odp_id: number): Promise<void> => {
@@ -51,26 +52,34 @@ export const getSAPsByODP = async (req: Request, res: Response) => {
 };
 
 export const createSAP = async (req: Request, res: Response) => {
-  const t = await sequelize.transaction();
   try {
     const { odp_id, notas, items } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     const odp = await ODP.findByPk(odp_id);
-    if (!odp) { await t.rollback(); return res.status(404).json({ error: 'ODP no encontrada' }); }
+    if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
 
-    const numero_sap = await generarNumeroSAP();
+    const sap = await withUniqueRetry(async () => {
+      const t = await sequelize.transaction();
+      try {
+        const numero_sap = await generarNumeroSAP();
 
-    const sap = await SAP.create({
-      numero_sap, odp_id, creado_por: userId, notas, estado: 'borrador',
-    }, { transaction: t });
+        const newSap = await SAP.create({
+          numero_sap, odp_id, creado_por: userId, notas, estado: 'borrador',
+        }, { transaction: t });
 
-    if (items && Array.isArray(items) && items.length > 0) {
-      const sapItems = items.map((item: any) => ({ ...item, sap_id: sap.getDataValue('id') }));
-      await SAPItem.bulkCreate(sapItems, { transaction: t });
-    }
+        if (items && Array.isArray(items) && items.length > 0) {
+          const sapItems = items.map((item: any) => ({ ...item, sap_id: newSap.getDataValue('id') }));
+          await SAPItem.bulkCreate(sapItems, { transaction: t });
+        }
 
-    await t.commit();
+        await t.commit();
+        return newSap;
+      } catch (err) {
+        await t.rollback();
+        throw err;
+      }
+    });
 
     await recalcularAluminioODP(odp_id);
 
@@ -81,7 +90,6 @@ export const createSAP = async (req: Request, res: Response) => {
     import('../server').then(({ emitirCambio }) => emitirCambio('odp')).catch(() => {});
     res.status(201).json(sapWithItems);
   } catch (error: any) {
-    await t.rollback();
     res.status(500).json({ error: 'Error al crear SAP', detail: error.message });
   }
 };

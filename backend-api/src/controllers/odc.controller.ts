@@ -157,7 +157,7 @@ export const createODC = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
     const { proveedor, notas, items, numero_odc } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       await t.rollback();
@@ -233,8 +233,8 @@ export const updateODC = async (req: Request, res: Response) => {
     if (!odc) return res.status(404).json({ error: 'ODC no encontrada' });
 
     // ─── Verificación de ownership (solo creador o admin) ───
-    if ((req as any).user?.rol !== 'admin') {
-      if (Number(odc.getDataValue('creado_por')) !== Number((req as any).user?.id)) {
+    if (req.user?.rol !== 'admin') {
+      if (Number(odc.getDataValue('creado_por')) !== Number(req.user?.id)) {
         return res.status(403).json({ error: 'Solo el creador de la ODC puede editarla' });
       }
     }
@@ -299,8 +299,8 @@ export const deleteODC = async (req: Request, res: Response) => {
     if (!odc) { await t.rollback(); return res.status(404).json({ error: 'ODC no encontrada' }); }
 
     // ─── Verificación de ownership (solo creador o admin) ───
-    if ((req as any).user?.rol !== 'admin') {
-      if (Number(odc.getDataValue('creado_por')) !== Number((req as any).user?.id)) {
+    if (req.user?.rol !== 'admin') {
+      if (Number(odc.getDataValue('creado_por')) !== Number(req.user?.id)) {
         await t.rollback();
         return res.status(403).json({ error: 'Solo el creador de la ODC puede eliminarla' });
       }
@@ -467,7 +467,7 @@ export const getVidriosPorGestionar = async (req: Request, res: Response) => {
 export const createODCVidrios = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { odp_id, proveedor, odp_item_ids, notas, numero_odc } = req.body;
 
     if (!odp_id || !proveedor || !Array.isArray(odp_item_ids) || odp_item_ids.length === 0) {

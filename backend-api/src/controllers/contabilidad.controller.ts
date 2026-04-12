@@ -218,7 +218,7 @@ export const registrarPago = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
     const data = pagoSchema.parse(req.body);
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     if (!userId) {
       await t.rollback();
       return res.status(401).json({ error: 'Usuario no autenticado' });

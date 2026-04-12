@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { PedidoPV, ODP, ODPItem, Usuario, HistorialEstadoODP, sequelize } from '../models';
 import Cliente from '../models/cliente.model';
 import { emitirNotificacion } from '../server';
+import { withUniqueRetry } from '../utils/withUniqueRetry';
 
 // ─── Esquema de validación ────────────────────────────────────────────────────
 
@@ -145,15 +146,17 @@ export const createPedidoPV = async (req: Request, res: Response) => {
     }
 
     const data = pedidoPVSchema.parse(req.body);
-    const { numero_pedido, numero_base } = await generarNumeroPedido(data.sufijo);
 
-    const pedido = await PedidoPV.create({
-      ...data,
-      numero_pedido,
-      numero_base,
-      creado_por: user.id,
-      estado: 'PENDIENTE',
-      origen: 'SISTEMA',
+    const pedido = await withUniqueRetry(async () => {
+      const { numero_pedido, numero_base } = await generarNumeroPedido(data.sufijo);
+      return PedidoPV.create({
+        ...data,
+        numero_pedido,
+        numero_base,
+        creado_por: user.id,
+        estado: 'PENDIENTE',
+        origen: 'SISTEMA',
+      });
     });
 
     const pedidoCompleto = await PedidoPV.findByPk(pedido.getDataValue('id'), { include: INCLUDE_COMPLETO });

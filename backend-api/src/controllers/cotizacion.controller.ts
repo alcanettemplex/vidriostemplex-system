@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Op } from 'sequelize';
 import { z } from 'zod';
 import { Cotizacion, CotizacionItem, ODP, Usuario, Cliente, Prospecto, sequelize } from '../models';
+import { withUniqueRetry } from '../utils/withUniqueRetry';
 
 // ─── Esquemas Zod ─────────────────────────────────────────────────────────────
 
@@ -119,8 +120,8 @@ const INCLUDE_COMPLETO = [
 
 export const getCotizaciones = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
-    const userRol = (req as any).user?.rol;
+    const userId = req.user?.id;
+    const userRol = req.user?.rol;
     const { estado, cliente_id } = req.query;
 
     const where: Record<string, any> = {};
@@ -174,7 +175,7 @@ export const createCotizacion = async (req: Request, res: Response) => {
   }
 
   const data = parsed.data;
-  const userId = (req as any).user?.id;
+  const userId = req.user?.id;
 
   try {
     // Verificar que el cliente existe
@@ -187,55 +188,58 @@ export const createCotizacion = async (req: Request, res: Response) => {
       if (!prospecto) return res.status(404).json({ error: 'Prospecto no encontrado' });
     }
 
-    const numero_cot = await generarNumeroCOT();
     const totales = calcularTotales(data.items, data.descuento);
 
-    const t = await sequelize.transaction();
-    try {
-      const cot = await Cotizacion.create({
-        numero_cot,
-        cliente_id: data.cliente_id,
-        prospecto_id: data.prospecto_id ?? null,
-        nombre_proyecto: data.nombre_proyecto ?? null,
-        tipo_cliente: data.tipo_cliente ?? null,
-        creado_por: userId,
-        descuento: data.descuento,
-        forma_pago: data.forma_pago ?? null,
-        validez_dias: data.validez_dias,
-        notas: data.notas ?? null,
-        estado: data.estado,
-        ...totales,
-      }, { transaction: t });
+    const cotId = await withUniqueRetry(async () => {
+      const numero_cot = await generarNumeroCOT();
+      const t = await sequelize.transaction();
+      try {
+        const cot = await Cotizacion.create({
+          numero_cot,
+          cliente_id: data.cliente_id,
+          prospecto_id: data.prospecto_id ?? null,
+          nombre_proyecto: data.nombre_proyecto ?? null,
+          tipo_cliente: data.tipo_cliente ?? null,
+          creado_por: userId,
+          descuento: data.descuento,
+          forma_pago: data.forma_pago ?? null,
+          validez_dias: data.validez_dias,
+          notas: data.notas ?? null,
+          estado: data.estado,
+          ...totales,
+        }, { transaction: t });
 
-      const cotId = cot.getDataValue('id');
-      const itemsData = data.items.map((item, idx) => ({
-        cotizacion_id: cotId,
-        seccion: item.seccion,
-        descripcion: item.descripcion,
-        codigo: item.codigo ?? null,
-        cantidad: item.cantidad,
-        unidad: item.unidad,
-        precio_unitario: item.precio_unitario,
-        producto_ref: item.producto_ref ?? null,
-        orden: item.orden ?? idx,
-      }));
+        const id = cot.getDataValue('id');
+        const itemsData = data.items.map((item, idx) => ({
+          cotizacion_id: id,
+          seccion: item.seccion,
+          descripcion: item.descripcion,
+          codigo: item.codigo ?? null,
+          cantidad: item.cantidad,
+          unidad: item.unidad,
+          precio_unitario: item.precio_unitario,
+          producto_ref: item.producto_ref ?? null,
+          orden: item.orden ?? idx,
+        }));
 
-      await CotizacionItem.bulkCreate(itemsData, { transaction: t });
-      await t.commit();
+        await CotizacionItem.bulkCreate(itemsData, { transaction: t });
+        await t.commit();
+        return id;
+      } catch (err) {
+        await t.rollback();
+        throw err;
+      }
+    });
 
-      const cotFull = await Cotizacion.findByPk(cotId, {
-        include: [
-          { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
-          { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
-          { model: CotizacionItem, as: 'items' },
-        ],
-      });
+    const cotFull = await Cotizacion.findByPk(cotId, {
+      include: [
+        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+        { model: CotizacionItem, as: 'items' },
+      ],
+    });
 
-      res.status(201).json(cotFull);
-    } catch (err: any) {
-      await t.rollback();
-      throw err;
-    }
+    res.status(201).json(cotFull);
   } catch (error: any) {
     console.error('createCotizacion:', error);
     res.status(500).json({ error: 'Error al crear cotización', detail: error.message });
@@ -361,55 +365,58 @@ export const convertirAODP = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'La cotización no tiene cliente asignado' });
     }
 
-    const t = await sequelize.transaction();
-    try {
-      const numero_odp = await generarNumeroODP(t);
+    const result = await withUniqueRetry(async () => {
+      const t = await sequelize.transaction();
+      try {
+        const numero_odp = await generarNumeroODP(t);
 
-      const notasJuntas = [
-        cot.getDataValue('notas'),
-        observaciones_adicionales,
-      ].filter(Boolean).join('\n');
+        const notasJuntas = [
+          cot.getDataValue('notas'),
+          observaciones_adicionales,
+        ].filter(Boolean).join('\n');
 
-      const newODP = await ODP.create({
-        numero_odp,
-        cliente_id: cot.getDataValue('cliente_id'),
-        asesor_id: cot.getDataValue('creado_por'),
-        descripcion_pedido: cot.getDataValue('nombre_proyecto') || '',
-        valor_total: cot.getDataValue('valor_total'),
-        forma_pago: cot.getDataValue('forma_pago') || null,
-        observaciones: notasJuntas || null,
-        fecha_entrega: fecha_entrega || null,
-        direccion_instalacion: direccion_instalacion || null,
-        estado_produccion: 'EN_ESPERA',
-      }, { transaction: t });
+        const newODP = await ODP.create({
+          numero_odp,
+          cliente_id: cot.getDataValue('cliente_id'),
+          asesor_id: cot.getDataValue('creado_por'),
+          descripcion_pedido: cot.getDataValue('nombre_proyecto') || '',
+          valor_total: cot.getDataValue('valor_total'),
+          forma_pago: cot.getDataValue('forma_pago') || null,
+          observaciones: notasJuntas || null,
+          fecha_entrega: fecha_entrega || null,
+          direccion_instalacion: direccion_instalacion || null,
+          estado_produccion: 'EN_ESPERA',
+        }, { transaction: t });
 
-      await cot.update({
-        odp_id: newODP.getDataValue('id'),
-        estado: 'convertida',
-      }, { transaction: t });
+        await cot.update({
+          odp_id: newODP.getDataValue('id'),
+          estado: 'convertida',
+        }, { transaction: t });
 
-      const prospectoId = cot.getDataValue('prospecto_id');
-      if (prospectoId) {
-        await Prospecto.update(
-          { odp_id: newODP.getDataValue('id'), estado: 'aprobado', fecha_gestion: new Date() },
-          { where: { id: prospectoId }, transaction: t }
-        );
+        const prospectoId = cot.getDataValue('prospecto_id');
+        if (prospectoId) {
+          await Prospecto.update(
+            { odp_id: newODP.getDataValue('id'), estado: 'aprobado', fecha_gestion: new Date() },
+            { where: { id: prospectoId }, transaction: t }
+          );
+        }
+
+        await t.commit();
+        return newODP;
+      } catch (err) {
+        await t.rollback();
+        throw err;
       }
+    });
 
-      await t.commit();
+    const cotActualizada = await Cotizacion.findByPk(id, {
+      include: [
+        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+        { model: CotizacionItem, as: 'items' },
+      ],
+    });
 
-      const cotActualizada = await Cotizacion.findByPk(id, {
-        include: [
-          { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
-          { model: CotizacionItem, as: 'items' },
-        ],
-      });
-
-      res.json({ cotizacion: cotActualizada, odp: newODP });
-    } catch (err: any) {
-      await t.rollback();
-      throw err;
-    }
+    res.json({ cotizacion: cotActualizada, odp: result });
   } catch (error: any) {
     console.error('convertirAODP:', error);
     res.status(500).json({ error: 'Error al convertir cotización a ODP', detail: error.message });

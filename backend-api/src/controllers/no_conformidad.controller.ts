@@ -1,5 +1,12 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import { NoConformidad, ODP, ODPItem, Usuario, Cliente, HistorialEstadoODP } from '../models';
+
+const updateNCSchema = z.object({
+  estado: z.enum(['ABIERTO', 'EN_PROCESO', 'CERRADO']).optional(),
+  acciones_correctivas: z.string().optional().nullable(),
+  observaciones: z.string().optional().nullable(),
+}).strict();
 
 /**
  * Crear un Reporte de No Conformidad completo:
@@ -12,7 +19,7 @@ import { NoConformidad, ODP, ODPItem, Usuario, Cliente, HistorialEstadoODP } fro
  */
 export const createNoConformidad = async (req: Request, res: Response) => {
   try {
-    const usuario = (req as any).user;
+    const usuario = req.user!;
     const {
       odp_id,
       tipo_error,
@@ -40,7 +47,7 @@ export const createNoConformidad = async (req: Request, res: Response) => {
 
     // 2. Verificar permisos: solo asesor dueño, producción, gerencia o admin
     const userRole = usuario.rol;
-    const isOwnerAsesor = userRole === 'asesor' && usuario.id === odp.asesor_id;
+    const isOwnerAsesor = userRole === 'asesor_comercial' && usuario.id === odp.asesor_id;
     const isAuthorized = ['admin', 'gerencia', 'produccion'].includes(userRole) || isOwnerAsesor;
 
     if (!isAuthorized) {
@@ -192,9 +199,13 @@ export const updateNoConformidad = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Reporte no encontrado' });
     }
 
-    await nc.update(req.body);
-    res.json(nc);
+    const data = updateNCSchema.parse(req.body);
+    await nc.update(data as any);
+    return res.json(nc);
   } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Datos inválidos', detalles: error.issues });
+    }
     res.status(500).json({ message: error.message });
   }
 };

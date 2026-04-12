@@ -38,13 +38,4 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
   }
 };
 
-export const requireRole = (roles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user || !roles.includes(req.user.rol as string)) {
-      return res.status(403).json({ error: 'Acceso denegado: rol insuficiente' });
-    }
-    next();
-  };
-};
-
 export default authMiddleware;

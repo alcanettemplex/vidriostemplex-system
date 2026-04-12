@@ -148,7 +148,7 @@ export const getRuta = async (req: Request, res: Response) => {
 export const createRuta = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
-    const user = req.user as any;
+    const user = req.user!;
     const { vehiculo_id, conductor_id, instaladores = [], observaciones, odps = [] } = req.body;
 
     if (!odps.length) {
@@ -163,12 +163,14 @@ export const createRuta = async (req: Request, res: Response) => {
     );
     const rutaId = (ruta as any).id;
 
-    // Asignar instaladores (bulk insert via raw query para junction table)
+    // Asignar instaladores (bulk insert parametrizado para junction table)
     if (instaladores.length) {
-      const vals = instaladores.map((iid: number) => `(${rutaId}, ${iid})`).join(',');
+      const placeholders = instaladores.map((_: number, i: number) => `(:rid, :iid${i})`).join(',');
+      const replacements: Record<string, number> = { rid: rutaId };
+      instaladores.forEach((iid: number, i: number) => { replacements[`iid${i}`] = iid; });
       await sequelize.query(
-        `INSERT INTO ruta_instaladores (ruta_id, instalador_id) VALUES ${vals}`,
-        { transaction: t }
+        `INSERT INTO ruta_instaladores (ruta_id, instalador_id) VALUES ${placeholders}`,
+        { replacements, transaction: t }
       );
     }
 
@@ -244,8 +246,10 @@ export const updateRuta = async (req: Request, res: Response) => {
     if (Array.isArray(instaladores)) {
       await sequelize.query(`DELETE FROM ruta_instaladores WHERE ruta_id = :rid`, { replacements: { rid: id }, transaction: t });
       if (instaladores.length) {
-        const vals = instaladores.map((iid: number) => `(${id}, ${iid})`).join(',');
-        await sequelize.query(`INSERT INTO ruta_instaladores (ruta_id, instalador_id) VALUES ${vals}`, { transaction: t });
+        const placeholders = instaladores.map((_: number, i: number) => `(:rid, :iid${i})`).join(',');
+        const replacements: Record<string, number> = { rid: Number(id) };
+        instaladores.forEach((iid: number, i: number) => { replacements[`iid${i}`] = iid; });
+        await sequelize.query(`INSERT INTO ruta_instaladores (ruta_id, instalador_id) VALUES ${placeholders}`, { replacements, transaction: t });
       }
     }
 
@@ -345,7 +349,7 @@ export const getInstaladores = async (_req: Request, res: Response) => {
 
 export const getMiAsignacion = async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
+    const user = req.user!;
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
@@ -416,7 +420,7 @@ export const iniciarInstalacion = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params; // ruta_odp.id
-    const user = req.user as any;
+    const user = req.user!;
 
     const rutaODP = await RutaODP.findByPk(id, { transaction: t }) as any;
     if (!rutaODP) { await t.rollback(); return res.status(404).json({ error: 'Entrada de ruta no encontrada' }); }
@@ -480,7 +484,7 @@ export const finalizarInstalacion = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params; // ruta_odp.id
-    const user = req.user as any;
+    const user = req.user!;
     const { gps, datos_receptor, firma_receptor } = req.body;
 
     const rutaODP = await RutaODP.findByPk(id, { transaction: t }) as any;
@@ -578,7 +582,7 @@ export const finalizarInstalacion = async (req: Request, res: Response) => {
 
 export const getMiRutaConductor = async (req: Request, res: Response) => {
   try {
-    const user = req.user as any;
+    const user = req.user!;
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
@@ -601,7 +605,7 @@ export const getMiRutaConductor = async (req: Request, res: Response) => {
 export const iniciarRutaConductor = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
 
     const ruta = await RutaInstalacion.findOne({
       where: { id, conductor_id: user.id },
@@ -619,7 +623,7 @@ export const iniciarRutaConductor = async (req: Request, res: Response) => {
 export const llegadaConductor = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
 
     const rutaODP = await RutaODP.findByPk(id, {
       include: [{ model: RutaInstalacion, as: 'ruta', attributes: ['id', 'conductor_id', 'estado'] }],
@@ -640,7 +644,7 @@ export const llegadaConductor = async (req: Request, res: Response) => {
 export const terminarRutaConductor = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
 
     const ruta = await RutaInstalacion.findByPk(id, {
       include: [{ model: RutaODP, as: 'ruta_odps' }],

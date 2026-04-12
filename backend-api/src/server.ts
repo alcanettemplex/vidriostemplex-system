@@ -21,7 +21,7 @@ export const io = new Server(server, {
       if (!origin) return callback(null, true);
       const cleanOrigin = origin.replace(/\/$/, "");
       const isAllowed = allowedOrigins.some(allowed => allowed.replace(/\/$/, "") === cleanOrigin) || 
-                        cleanOrigin.endsWith('.netty.app') || 
+                        cleanOrigin.endsWith('.netlify.app') ||
                         cleanOrigin.endsWith('.vercel.app') ||
                         cleanOrigin.endsWith('.pages.dev');
       if (isAllowed) return callback(null, true);
@@ -32,11 +32,22 @@ export const io = new Server(server, {
   },
 });
 
+const ROLES_VALIDOS = new Set([
+  'root', 'admin', 'gerencia', 'jefe_produccion', 'asesor_comercial',
+  'produccion', 'auxiliar_produccion', 'instalador', 'conductor',
+  'contabilidad', 'compras', 'asistente_administrativo',
+]);
+
 io.on('connection', (socket) => {
-  // El cliente envía su userId y rol al conectarse para unirse a sus rooms
-  socket.on('join', ({ userId, rol }: { userId: number; rol: string }) => {
-    if (userId) socket.join(`user_${userId}`);
-    if (rol) socket.join(`role_${rol}`);
+  socket.on('join', (data: unknown) => {
+    if (!data || typeof data !== 'object') return;
+    const { userId, rol } = data as Record<string, unknown>;
+    if (typeof userId === 'number' && Number.isInteger(userId) && userId > 0) {
+      socket.join(`user_${userId}`);
+    }
+    if (typeof rol === 'string' && ROLES_VALIDOS.has(rol)) {
+      socket.join(`role_${rol}`);
+    }
   });
 
   socket.on('disconnect', () => {

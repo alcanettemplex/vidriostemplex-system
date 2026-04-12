@@ -136,7 +136,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
         headers: { Authorization: `Bearer ${token}` },
       });
       onActualizar();
-    } catch { }
+    } catch (err) { console.error('Error en operación de compras:', err); }
   };
 
   return (
@@ -523,16 +523,16 @@ const ComprasPage: React.FC = () => {
         const res = await axios.get(`${API}/api/compras/recibidas`, { headers });
         setOdcsRecibidas(res.data);
       }
-    } catch { } finally { setLoading(false); }
+    } catch (err) { console.error('Error en operación de compras:', err); } finally { setLoading(false); }
   }, []);
 
   // Cargar conteos de todos los tabs al montar para mostrar badges
   useEffect(() => {
     const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
-    axios.get(`${API}/api/compras/panel`, { headers: h }).then(r => setItemsPendientes(r.data)).catch(() => {});
-    axios.get(`${API}/api/compras/seguimiento`, { headers: h }).then(r => setOdcsSeguimiento(r.data)).catch(() => {});
-    axios.get(`${API}/api/compras/recibidas`, { headers: h }).then(r => setOdcsRecibidas(r.data)).catch(() => {});
-    axios.get(`${API}/api/compras/vidrios`, { headers: h }).then(r => setVidriosPorGestionar(r.data)).catch(() => {});
+    axios.get(`${API}/api/compras/panel`, { headers: h }).then(r => setItemsPendientes(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
+    axios.get(`${API}/api/compras/seguimiento`, { headers: h }).then(r => setOdcsSeguimiento(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
+    axios.get(`${API}/api/compras/recibidas`, { headers: h }).then(r => setOdcsRecibidas(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
+    axios.get(`${API}/api/compras/vidrios`, { headers: h }).then(r => setVidriosPorGestionar(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
   }, []);
 
   useEffect(() => { fetchTab(tab); setBusqueda(''); }, [tab, fetchTab]);
@@ -619,7 +619,7 @@ const ComprasPage: React.FC = () => {
       setVidrioNumeroOdc('');
       setVidrioNotas('');
       fetchTab('vidrios');
-    } catch { } finally { setSavingVidrio(false); }
+    } catch (err) { console.error('Error en operación de compras:', err); } finally { setSavingVidrio(false); }
   };
 
   const toggleEstadoItemVidrio = async (itemId: number, estadoActual: string) => {
@@ -630,7 +630,7 @@ const ComprasPage: React.FC = () => {
         ...odp,
         items: odp.items.map((it: any) => it.id === itemId ? { ...it, estado_compra: nuevoEstado } : it),
       })).filter(odp => odp.items.some((it: any) => it.estado_compra !== 'en_existencia')));
-    } catch { }
+    } catch (err) { console.error('Error en operación de compras:', err); }
   };
 
   return (

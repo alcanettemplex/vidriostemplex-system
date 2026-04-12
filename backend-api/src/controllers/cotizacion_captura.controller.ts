@@ -39,7 +39,7 @@ export const createCaptura = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Se requiere odp_id o prospecto_id' });
     }
 
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     const captura = await CotizacionCaptura.create({
       odp_id: odp_id ? Number(odp_id) : null,
@@ -65,7 +65,7 @@ export const updateNota = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { nota } = req.body;
-    const user = (req as any).user;
+    const user = req.user!;
 
     const captura = await CotizacionCaptura.findByPk(id);
     if (!captura) return res.status(404).json({ error: 'Captura no encontrada' });
@@ -87,7 +87,7 @@ export const updateNota = async (req: Request, res: Response) => {
 export const deleteCaptura = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const user = (req as any).user;
+    const user = req.user!;
 
     const captura = await CotizacionCaptura.findByPk(id);
     if (!captura) return res.status(404).json({ error: 'Captura no encontrada' });

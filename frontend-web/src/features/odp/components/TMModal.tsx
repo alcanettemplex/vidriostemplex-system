@@ -137,7 +137,7 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
         const formData = new FormData();
         formData.append('foto', foto.file);
         await axios.post(`${API}/api/documentos/tm/${selected.id}/foto`, formData, {
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+          headers: { Authorization: `Bearer ${token}` }
         });
       }
       toast.success('Fotos subidas — TM marcada como realizada');

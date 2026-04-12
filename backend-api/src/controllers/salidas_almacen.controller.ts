@@ -65,7 +65,7 @@ export const getConSalida = async (_req: Request, res: Response) => {
 export const createSalida = async (req: Request, res: Response) => {
   try {
     const { odp_id } = req.params;
-    const user = req.user as any;
+    const user = req.user!;
     const data = salidaSchema.parse(req.body);
 
     const existe = await SalidaAlmacen.findOne({ where: { odp_id: Number(odp_id) } });
