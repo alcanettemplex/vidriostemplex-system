@@ -66,6 +66,12 @@ const ContabilidadPage: React.FC = () => {
   });
   const [submittingEdit, setSubmittingEdit] = useState(false);
 
+  // ─── Modal editar total ODP ─────────────────────────────────────────────
+  const [showEditTotalModal, setShowEditTotalModal] = useState(false);
+  const [editTotalTarget, setEditTotalTarget] = useState<any>(null);
+  const [newTotal, setNewTotal] = useState('');
+  const [submittingTotal, setSubmittingTotal] = useState(false);
+
   // ─── Modal eliminar pago ─────────────────────────────────────────────────
   const [showDeletePagoModal, setShowDeletePagoModal] = useState(false);
   const [deletePagoTarget, setDeletePagoTarget] = useState<any>(null);
@@ -76,20 +82,36 @@ const ContabilidadPage: React.FC = () => {
     try {
       setLoadingOdps(true);
       const res = await axios.get(`${API}/api/odp`, { headers: headers() });
-      setOdps(res.data);
-    } catch { setOdps([]); } finally { setLoadingOdps(false); }
+      if (Array.isArray(res.data)) {
+        setOdps(res.data);
+      } else {
+        console.error('Respuesta de ODPs no es un array:', res.data);
+        setOdps([]);
+      }
+    } catch (err) { 
+      console.error('Error fetching ODPs:', err);
+      setOdps([]); 
+    } finally { setLoadingOdps(false); }
   }, []);
 
   const fetchResumen = useCallback(async () => {
     try {
       setLoadingResumen(true);
       const [resumenRes, pagosRes] = await Promise.all([
-        axios.get(`${API}/api/contabilidad/resumen`, { headers: headers() }).catch(() => null),
-        axios.get(`${API}/api/contabilidad/pagos`, { headers: headers() }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/contabilidad/resumen`, { headers: headers() }).catch((err) => {
+          console.error('Error resumen dashboard:', err);
+          return null;
+        }),
+        axios.get(`${API}/api/contabilidad/pagos`, { headers: headers() }).catch((err) => {
+          console.error('Error listado pagos:', err);
+          return { data: [] };
+        }),
       ]);
       if (resumenRes) setResumen(resumenRes.data);
       setPagos(pagosRes?.data || []);
-    } catch { /* silenciar */ } finally { setLoadingResumen(false); }
+    } catch (err) {
+      console.error('Error en Promise.all de contabilidad:', err);
+    } finally { setLoadingResumen(false); }
   }, []);
 
   useEffect(() => { fetchOdps(); fetchResumen(); }, [fetchOdps, fetchResumen]);
@@ -212,6 +234,31 @@ const ContabilidadPage: React.FC = () => {
     } catch (err: any) {
       toast.error(err?.response?.data?.error || 'Error al editar pago');
     } finally { setSubmittingEdit(false); }
+  };
+
+  // ─── Handler editar total ODP ───────────────────────────────────────────
+  const abrirEditTotal = (odp: any) => {
+    setEditTotalTarget(odp);
+    setNewTotal(String(odp.valor_total || ''));
+    setShowEditTotalModal(true);
+  };
+
+  const handleEditTotalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTotalTarget || !newTotal || Number(newTotal) < 0) {
+      toast.error('Ingresa un monto válido'); return;
+    }
+    setSubmittingTotal(true);
+    try {
+      await axios.put(`${API}/api/odp/${editTotalTarget.id}`, {
+        valor_total: Number(newTotal),
+      }, { headers: headers() });
+      toast.success('Monto total actualizado');
+      setShowEditTotalModal(false);
+      fetchOdps();
+    } catch {
+      toast.error('Error al actualizar el monto');
+    } finally { setSubmittingTotal(false); }
   };
 
   // ─── Handler eliminar pago ───────────────────────────────────────────────
@@ -350,7 +397,7 @@ const ContabilidadPage: React.FC = () => {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    {['ODP', 'Fecha Creación', 'Cliente', 'FE No. / Fecha', 'Monto Total', 'Abonado', 'Pendiente', 'Estado Caja', 'Facturación', ''].map(h => (
+                    {['ODP', 'Fecha Creación', 'Cliente', 'Asesor', 'Est. Taller', 'FE No. / Fecha', 'Monto Total', 'Abonado', 'Pendiente', 'Estado Caja', 'Facturación', ''].map(h => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -358,10 +405,10 @@ const ContabilidadPage: React.FC = () => {
                 <tbody className="divide-y divide-slate-100">
                   {loadingOdps ? (
                     Array.from({ length: 5 }).map((_, i) => (
-                      <tr key={i}><td colSpan={10} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td></tr>
+                      <tr key={i}><td colSpan={12} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td></tr>
                     ))
                   ) : filtradas.length === 0 ? (
-                    <tr><td colSpan={10} className="text-center py-12 text-slate-400 font-bold">No hay registros que mostrar.</td></tr>
+                    <tr><td colSpan={12} className="text-center py-12 text-slate-400 font-bold">No hay registros que mostrar.</td></tr>
                   ) : filtradas.map(odp => (
                     <tr key={odp.id} className={`hover:bg-slate-50 transition-colors ${rowColorCredito(odp)}`}>
                       <td className="px-4 py-4 font-bold text-indigo-700 whitespace-nowrap">{odp.numero_odp}</td>
@@ -371,7 +418,22 @@ const ContabilidadPage: React.FC = () => {
                           {fmtFecha(odp.fecha_creacion)}
                         </div>
                       </td>
-                      <td className="px-4 py-4 font-semibold text-slate-800 max-w-[160px] truncate">{odp.cliente?.nombre_razon_social}</td>
+                      <td className="px-4 py-4 font-semibold text-slate-800 max-w-[320px] truncate" title={odp.cliente?.nombre_razon_social}>
+                        {odp.cliente?.nombre_razon_social || '—'}
+                      </td>
+                      {/* Asesor */}
+                      <td className="px-4 py-4 text-slate-600 text-xs whitespace-nowrap">{odp.asesor?.nombre_completo || '—'}</td>
+                      {/* Estado Taller */}
+                      <td className="px-4 py-4">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                          odp.estado_produccion === 'ENTREGADA' || odp.estado_produccion === 'INSTALADA' ? 'bg-green-100 text-green-700 border-green-200' :
+                          odp.estado_produccion === 'PAUSADA' ? 'bg-rose-100 text-rose-700 border-rose-200' :
+                          odp.estado_produccion === 'LISTO_INSTALAR' || odp.estado_produccion === 'PROGRAMADA' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                          'bg-slate-100 text-slate-600 border-slate-200'
+                        }`}>
+                          {(odp.estado_produccion || '—').replace(/_/g, ' ')}
+                        </span>
+                      </td>
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-1.5">
                           {odp.factura_electronica ? (
@@ -396,7 +458,13 @@ const ContabilidadPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-4 py-4 font-bold text-slate-700 whitespace-nowrap">
-                        {Number(odp.valor_total) > 0 ? fmt(Number(odp.valor_total)) : <span className="text-slate-400 text-xs italic">—</span>}
+                        <div className="flex items-center gap-1.5">
+                          {Number(odp.valor_total) > 0 ? fmt(Number(odp.valor_total)) : <span className="text-slate-400 text-xs italic">—</span>}
+                          <button onClick={() => abrirEditTotal(odp)} title="Editar monto total"
+                            className="p-1 rounded text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 transition">
+                            <Pencil className="w-3" />
+                          </button>
+                        </div>
                       </td>
                       <td className="px-4 py-4 font-bold text-emerald-700 whitespace-nowrap">{fmt(Number(odp.abono) || 0)}</td>
                       <td className="px-4 py-4 whitespace-nowrap">
@@ -488,7 +556,7 @@ const ContabilidadPage: React.FC = () => {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      {['Fecha', 'ODP', 'Fecha Creación ODP', 'Cliente', 'Monto', 'Banco / Método', 'Recibo No.', 'Observaciones', 'Registrado por', ''].map(h => (
+                       {['Fecha', 'ODP', 'Fecha Creación ODP', 'Cliente', 'Asesor', 'Monto', 'Banco / Método', 'Recibo No.', 'Observaciones', 'Registrado por', ''].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -513,7 +581,9 @@ const ContabilidadPage: React.FC = () => {
                             {fmtFecha(pago.odp?.fecha_creacion)}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-slate-600 text-xs">{pago.odp?.cliente?.nombre_razon_social || '—'}</td>
+                        <td className="px-4 py-3 text-slate-600 text-xs max-w-[180px] truncate" title={pago.odp?.cliente?.nombre_razon_social}>{pago.odp?.cliente?.nombre_razon_social || '—'}</td>
+                        {/* Asesor */}
+                        <td className="px-4 py-3 text-slate-600 text-xs whitespace-nowrap">{pago.odp?.asesor?.nombre_completo || '—'}</td>
                         <td className="px-4 py-3 font-bold text-emerald-700 whitespace-nowrap">{fmt(Number(pago.monto))}</td>
                         <td className="px-4 py-3 text-slate-700 capitalize text-xs">{pago.metodo_pago}</td>
                         <td className="px-4 py-3 text-slate-500 font-mono text-xs">{pago.referencia_pago || '—'}</td>
@@ -572,7 +642,12 @@ const ContabilidadPage: React.FC = () => {
                         <div className="w-2 h-10 bg-rose-400 rounded-full flex-shrink-0" />
                         <div>
                           <p className="text-sm font-bold text-slate-800">{item.odp}</p>
-                          <p className="text-xs text-slate-500">{item.cliente}</p>
+                          <p className="text-xs text-slate-600 font-medium">{item.cliente}</p>
+                          {item.asesor && (
+                            <p className="text-xs text-indigo-600 font-semibold">
+                              Asesor: {item.asesor}
+                            </p>
+                          )}
                           {item.fecha_creacion && (
                             <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                               <Calendar className="w-3 h-3" /> Creada: {fmtFecha(item.fecha_creacion)}
@@ -639,18 +714,21 @@ const ContabilidadPage: React.FC = () => {
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
             className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200">
             <div className="flex justify-between items-center px-6 py-5 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-emerald-600" /> Registrar Pago
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                <div className="p-2 bg-emerald-50 rounded-lg">
+                  <DollarSign className="w-5 h-5 text-emerald-600" />
+                </div>
+                Registrar Pago
               </h2>
-              <button onClick={() => setShowPagoModal(false)} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
+              <button onClick={() => setShowPagoModal(false)} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handlePagoSubmit} className="p-6 space-y-4">
+            <form onSubmit={handlePagoSubmit} className="p-6 space-y-5">
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">ODP *</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">ODP *</label>
                 {odpFija ? (
-                  <div className="w-full border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-sm font-bold text-slate-700">
+                  <div className="w-full border border-indigo-100 bg-indigo-50/30 rounded-xl px-4 py-3.5 text-[13px] font-bold text-indigo-900 shadow-sm leading-relaxed">
                     {(() => {
                       const o = odps.find(x => String(x.id) === pagoForm.odp_id);
                       return o ? `${o.numero_odp} — ${o.cliente?.nombre_razon_social} — Pendiente: ${fmt(calcPendiente(o))}` : pagoForm.odp_id;
@@ -658,7 +736,7 @@ const ContabilidadPage: React.FC = () => {
                   </div>
                 ) : (
                   <select value={pagoForm.odp_id} onChange={e => setPagoForm(p => ({ ...p, odp_id: e.target.value }))} required
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm">
                     <option value="">-- Seleccionar ODP con pendiente --</option>
                     {odpsPendientes.map(o => (
                       <option key={o.id} value={o.id}>
@@ -670,50 +748,50 @@ const ContabilidadPage: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Monto (COP) *</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Monto (COP) *</label>
                   <input type="number" value={pagoForm.monto} onChange={e => setPagoForm(p => ({ ...p, monto: e.target.value }))}
                     placeholder="0" min="1" required
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Forma de Pago *</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Forma de Pago *</label>
                   <select value={pagoForm.metodo_pago} onChange={e => setPagoForm(p => ({ ...p, metodo_pago: e.target.value, banco: '' }))}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm">
                     {METODOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </div>
               </div>
-              {requiereBancoActual && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Banco *</label>
-                  <select value={pagoForm.banco} onChange={e => setPagoForm(p => ({ ...p, banco: e.target.value }))}
-                    required={requiereBancoActual}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                    <option value="">-- Seleccionar banco --</option>
-                    {BANCOS_COLOMBIA.map(b => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                </div>
-              )}
-              {requiereReciboActual && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Recibo No.</label>
-                  <input value={pagoForm.referencia_pago} onChange={e => setPagoForm(p => ({ ...p, referencia_pago: e.target.value }))}
-                    placeholder="Número de recibo o comprobante"
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-                </div>
-              )}
+
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Observaciones</label>
-                <textarea value={pagoForm.observaciones} onChange={e => setPagoForm(p => ({ ...p, observaciones: e.target.value }))}
-                  placeholder="Notas adicionales del pago..." rows={2}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Banco *</label>
+                <select value={pagoForm.banco} onChange={e => setPagoForm(p => ({ ...p, banco: e.target.value }))}
+                  required={requiereBancoActual} disabled={!requiereBancoActual}
+                  className={`w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm ${!requiereBancoActual ? 'bg-slate-50 opacity-50' : ''}`}>
+                  <option value="">-- Seleccionar banco --</option>
+                  {BANCOS_COLOMBIA.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
               </div>
-              <div className="flex gap-3 pt-2">
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Recibo No.</label>
+                <input value={pagoForm.referencia_pago} onChange={e => setPagoForm(p => ({ ...p, referencia_pago: e.target.value }))}
+                  placeholder="Número de recibo o comprobante"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Observaciones</label>
+                <textarea value={pagoForm.observaciones} onChange={e => setPagoForm(p => ({ ...p, observaciones: e.target.value }))}
+                  placeholder="Notas adicionales..." rows={2}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none shadow-sm" />
+              </div>
+
+              <div className="flex gap-4 pt-4">
                 <button type="button" onClick={() => setShowPagoModal(false)}
-                  className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">Cancelar</button>
+                  className="flex-1 py-3.5 font-bold text-slate-600 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition shadow-sm">Cancelar</button>
                 <button type="submit" disabled={submitting}
-                  className="flex-1 py-2.5 font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition shadow-md shadow-emerald-200 disabled:opacity-50">
-                  {submitting ? 'Registrando...' : 'Registrar Pago'}
+                  className="flex-1 py-3.5 font-bold text-white bg-emerald-600 rounded-2xl hover:bg-emerald-700 transition shadow-lg shadow-emerald-200 disabled:opacity-50">
+                  {submitting ? 'Guardando...' : 'Registrar Pago'}
                 </button>
               </div>
             </form>
@@ -727,68 +805,113 @@ const ContabilidadPage: React.FC = () => {
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
             className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200">
             <div className="flex justify-between items-center px-6 py-5 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <Pencil className="w-5 h-5 text-indigo-600" /> Editar Pago
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                <div className="p-2 bg-indigo-50 rounded-lg">
+                  <Pencil className="w-5 h-5 text-indigo-600" />
+                </div>
+                Editar Pago
               </h2>
               <button onClick={() => { setShowEditPagoModal(false); setEditPagoTarget(null); }}
-                className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
+                className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleEditPagoSubmit} className="p-6 space-y-4">
-              <p className="text-sm text-slate-600">
-                ODP: <span className="font-bold text-indigo-700">{editPagoTarget.odp?.numero_odp || `ODP-${editPagoTarget.odp_id}`}</span>
-                <span className="ml-3 text-slate-400">Pago original: {fmtFecha(editPagoTarget.fecha)}</span>
-              </p>
+            <form onSubmit={handleEditPagoSubmit} className="p-6 space-y-5">
+              <div className="w-full border border-slate-100 bg-slate-50/50 rounded-xl px-4 py-3 text-[13px] font-bold text-slate-700 leading-relaxed shadow-sm">
+                ODP: <span className="text-indigo-700">{editPagoTarget.odp?.numero_odp || `ODP-${editPagoTarget.odp_id}`}</span>
+                <span className="ml-3 text-slate-400 font-medium">Original: {fmtFecha(editPagoTarget.fecha)}</span>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Monto (COP) *</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Monto (COP) *</label>
                   <input type="number" value={editPagoForm.monto}
                     onChange={e => setEditPagoForm(p => ({ ...p, monto: e.target.value }))}
                     placeholder="0" min="1" required
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Forma de Pago *</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Forma de Pago *</label>
                   <select value={editPagoForm.metodo_pago}
                     onChange={e => setEditPagoForm(p => ({ ...p, metodo_pago: e.target.value, banco: '' }))}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
                     {METODOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </div>
               </div>
-              {requiereBancoEdit && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Banco *</label>
-                  <select value={editPagoForm.banco}
-                    onChange={e => setEditPagoForm(p => ({ ...p, banco: e.target.value }))}
-                    required={requiereBancoEdit}
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <option value="">-- Seleccionar banco --</option>
-                    {BANCOS_COLOMBIA.map(b => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                </div>
-              )}
+
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Recibo No.</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Banco *</label>
+                <select value={editPagoForm.banco}
+                  onChange={e => setEditPagoForm(p => ({ ...p, banco: e.target.value }))}
+                  required={requiereBancoEdit} disabled={!requiereBancoEdit}
+                  className={`w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm ${!requiereBancoEdit ? 'bg-slate-50 opacity-50' : ''}`}>
+                  <option value="">-- Seleccionar banco --</option>
+                  {BANCOS_COLOMBIA.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Recibo No.</label>
                 <input value={editPagoForm.referencia_pago}
                   onChange={e => setEditPagoForm(p => ({ ...p, referencia_pago: e.target.value }))}
                   placeholder="Número de recibo o comprobante"
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm" />
               </div>
+
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Observaciones</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Observaciones</label>
                 <textarea value={editPagoForm.observaciones}
                   onChange={e => setEditPagoForm(p => ({ ...p, observaciones: e.target.value }))}
                   placeholder="Notas adicionales..." rows={2}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none shadow-sm" />
               </div>
-              <div className="flex gap-3 pt-2">
+
+              <div className="flex gap-4 pt-4">
                 <button type="button" onClick={() => { setShowEditPagoModal(false); setEditPagoTarget(null); }}
-                  className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">Cancelar</button>
+                  className="flex-1 py-3.5 font-bold text-slate-600 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition shadow-sm">Cancelar</button>
                 <button type="submit" disabled={submittingEdit}
-                  className="flex-1 py-2.5 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition shadow-md shadow-indigo-200 disabled:opacity-50">
+                  className="flex-1 py-3.5 font-bold text-white bg-indigo-600 rounded-2xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 disabled:opacity-50">
                   {submittingEdit ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ═══ MODAL EDITAR TOTAL ODP ════════════════════════════════════════ */}
+      {showEditTotalModal && editTotalTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
+            <div className="flex justify-between items-center px-6 py-5 border-b border-slate-100">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+                <div className="p-2 bg-indigo-50 rounded-lg">
+                  <Calculator className="w-5 h-5 text-indigo-600" />
+                </div>
+                Modificar Monto ODP
+              </h2>
+              <button onClick={() => setShowEditTotalModal(false)} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleEditTotalSubmit} className="p-6 space-y-5">
+              <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">ODP Seleccionada</p>
+                <p className="text-sm font-bold text-slate-800">{editTotalTarget.numero_odp} — {editTotalTarget.cliente?.nombre_razon_social}</p>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Nuevo Valor Total (COP) *</label>
+                <input type="number" value={newTotal} onChange={e => setNewTotal(e.target.value)} required
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm" />
+                <p className="text-[10px] text-slate-400 mt-2 italic px-1">Este cambio afectará el cálculo del saldo pendiente de la orden.</p>
+              </div>
+              <div className="flex gap-4 pt-4">
+                <button type="button" onClick={() => setShowEditTotalModal(false)}
+                  className="flex-1 py-3.5 font-bold text-slate-600 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition shadow-sm">Cancelar</button>
+                <button type="submit" disabled={submittingTotal}
+                  className="flex-1 py-3.5 font-bold text-white bg-indigo-600 rounded-2xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 disabled:opacity-50">
+                  {submittingTotal ? 'Guardando...' : 'Actualizar Monto'}
                 </button>
               </div>
             </form>
@@ -801,29 +924,29 @@ const ContabilidadPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
             className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-slate-200 p-6">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="p-2 bg-rose-100 rounded-xl flex-shrink-0">
-                <Trash2 className="w-5 h-5 text-rose-600" />
+            <div className="flex items-start gap-4 mb-6">
+              <div className="p-3 bg-rose-50 rounded-2xl flex-shrink-0">
+                <Trash2 className="w-6 h-6 text-rose-600" />
               </div>
               <div>
-                <h3 className="font-bold text-slate-800 text-lg">Eliminar pago</h3>
-                <p className="text-sm text-slate-500 mt-1">
-                  Pago de <span className="font-bold text-rose-600">{fmt(Number(deletePagoTarget.monto))}</span> en{' '}
-                  <span className="font-bold">{deletePagoTarget.odp?.numero_odp || `ODP-${deletePagoTarget.odp_id}`}</span>
-                </p>
-                <p className="text-xs text-slate-400 mt-2">
-                  El estado de caja de la ODP se recalculará automáticamente.
+                <h3 className="font-extrabold text-slate-900 text-lg">¿Eliminar este pago?</h3>
+                <p className="text-sm text-slate-500 mt-1 leading-relaxed">
+                  Pago de <span className="font-bold text-slate-800">{fmt(Number(deletePagoTarget.monto))}</span> en{' '}
+                  <span className="font-bold text-indigo-700">{deletePagoTarget.odp?.numero_odp || `ODP-${deletePagoTarget.odp_id}`}</span>.
                 </p>
               </div>
             </div>
-            <div className="flex gap-3">
+            <p className="text-xs text-slate-400 mb-6 bg-slate-50 p-3 rounded-lg border border-slate-100 italic">
+              Esta acción es irreversible y el saldo pendiente de la ODP será recalculado automáticamente.
+            </p>
+            <div className="flex gap-4">
               <button onClick={() => { setShowDeletePagoModal(false); setDeletePagoTarget(null); }}
-                className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
-                Cancelar
+                className="flex-1 py-3 font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+                No, cancelar
               </button>
               <button onClick={handleDeletePago} disabled={submittingDelete}
-                className="flex-1 py-2.5 font-bold text-white bg-rose-600 rounded-xl hover:bg-rose-700 transition disabled:opacity-50">
-                {submittingDelete ? 'Eliminando...' : 'Eliminar'}
+                className="flex-1 py-3 font-bold text-white bg-rose-600 rounded-xl hover:bg-rose-700 transition shadow-lg shadow-rose-200 disabled:opacity-50">
+                {submittingDelete ? 'Eliminando...' : 'Sí, eliminar'}
               </button>
             </div>
           </motion.div>

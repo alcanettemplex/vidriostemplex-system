@@ -10,8 +10,8 @@ import { Plus, BarChart3, Kanban, TrendingUp, PhoneMissed } from 'lucide-react';
 
 type Tab = 'pipeline' | 'metricas' | 'gerencial' | 'sin_respuesta';
 
-const ROLES_GLOBAL = ['admin', 'gerencia', 'asistente_administrativo', 'root'];
-const ROLES_GERENCIAL = ['admin', 'gerencia', 'asistente_administrativo', 'root'];
+const ROLES_GLOBAL = ['admin', 'gerencia', 'asistente_administrativo', 'root', 'marketing'];
+const ROLES_GERENCIAL = ['admin', 'gerencia', 'asistente_administrativo', 'root', 'marketing'];
 
 const CRMPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('pipeline');
@@ -34,7 +34,7 @@ const CRMPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 min-h-screen" style={{ background: '#EEF0F8' }}>
       {/* Encabezado */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
@@ -48,7 +48,7 @@ const CRMPage: React.FC = () => {
 
           {(activeTab === 'pipeline' || activeTab === 'sin_respuesta') && (
             <>
-              {(esVistaGlobal || rol === 'asesor_comercial') && (
+              {(esVistaGlobal || rol === 'asesor_comercial') && rol !== 'marketing' && (
                 <button
                   onClick={() => setIsModalOpen(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold text-sm shadow-sm hover:shadow-md transition-all"

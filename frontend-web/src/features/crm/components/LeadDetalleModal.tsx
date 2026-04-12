@@ -139,7 +139,7 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
   const esAdministrativo  = ['asistente_administrativo', 'admin', 'gerencia', 'root'].includes(rol);
   const puedeAsignarManual = esAdministrativo;
   const puedeEditar       = ['asesor_comercial', 'asistente_administrativo', 'admin', 'gerencia', 'root'].includes(rol);
-  const puedeSeguir       = !!lead.asesor_id && !['APROBADO', 'PERDIDO'].includes(lead.estado_crm);
+  const puedeSeguir       = !!lead.asesor_id && !['APROBADO', 'PERDIDO'].includes(lead.estado_crm) && rol !== 'marketing';
   const puedeMovarEstado  = esAdminOGerencia || (rol === 'asesor_comercial' && lead.asesor_id === userId);
 
   const estadoInfo = ESTADO_INFO[lead.estado_crm] || { label: lead.estado_crm, color: 'text-slate-600', bg: 'bg-slate-100' };

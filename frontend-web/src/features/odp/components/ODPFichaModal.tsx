@@ -1036,7 +1036,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                 {(() => {
                   if (!currentUser) return null;
                   const role = currentUser.rol;
-                  const isOwner = role === 'asesor' && currentUser.id === odp.asesor_id;
+                  const isOwner = role === 'asesor_comercial' && currentUser.id === odp.asesor_id;
                   const canReport = ['admin', 'gerencia', 'produccion'].includes(role) || isOwner;
                   if (!canReport || odp.estado_produccion === 'PAUSADA') return null;
                   return (

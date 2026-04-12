@@ -26,6 +26,9 @@ interface ODP {
     fecha_creacion: string;
     fecha_entrega?: string;
     items: any[];
+    valor_total?: number;
+    abono?: number;
+    pendiente?: number;
 }
 
 type SortField = 'numero_odp' | 'cliente' | 'asesor' | 'estado_produccion' | 'estado_caja' | 'fecha_entrega';
@@ -449,6 +452,9 @@ const ODPListPage: React.FC = () => {
                                 <th className={thClass} onClick={() => handleSort('estado_caja')}>
                                     <span className="flex items-center">Caja <SortIcon field="estado_caja" sortField={sortField} sortDir={sortDir} /></span>
                                 </th>
+                                <th className="px-4 py-3 font-medium text-right whitespace-nowrap">Total</th>
+                                <th className="px-4 py-3 font-medium text-right whitespace-nowrap">Abono</th>
+                                <th className="px-4 py-3 font-medium text-right whitespace-nowrap">Restante</th>
                                 <th className={thClass} onClick={() => handleSort('fecha_entrega')}>
                                     <span className="flex items-center">Listo Material <SortIcon field="fecha_entrega" sortField={sortField} sortDir={sortDir} /></span>
                                 </th>
@@ -459,14 +465,14 @@ const ODPListPage: React.FC = () => {
                             {loading ? (
                                 Array.from({ length: 5 }).map((_, idx) => (
                                     <tr key={idx} className="animate-pulse">
-                                        {Array.from({ length: 7 }).map((__, i) => (
+                                        {Array.from({ length: 10 }).map((__, i) => (
                                             <td key={i} className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-full"></div></td>
                                         ))}
                                     </tr>
                                 ))
                             ) : sorted.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                                    <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
                                         <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                                         No se encontraron órdenes de producción.
                                     </td>
@@ -509,6 +515,27 @@ const ODPListPage: React.FC = () => {
                                             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getCajaColor(odp.estado_caja)}`}>
                                                 {odp.estado_caja.replace(/_/g, ' ')}
                                             </span>
+                                        </td>
+                                        {/* Total */}
+                                        <td className="px-4 py-3 text-right text-xs font-semibold text-slate-700 whitespace-nowrap">
+                                            {Number(odp.valor_total) > 0
+                                                ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(odp.valor_total))
+                                                : <span className="text-slate-300">—</span>}
+                                        </td>
+                                        {/* Abono */}
+                                        <td className="px-4 py-3 text-right text-xs font-semibold text-emerald-700 whitespace-nowrap">
+                                            {Number(odp.abono) > 0
+                                                ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(odp.abono))
+                                                : <span className="text-slate-300">—</span>}
+                                        </td>
+                                        {/* Restante */}
+                                        <td className="px-4 py-3 text-right text-xs whitespace-nowrap">
+                                            {(() => {
+                                                const rest = Math.max(0, Number(odp.valor_total || 0) - Number(odp.abono || 0));
+                                                return rest > 0
+                                                    ? <span className="font-bold text-rose-600">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(rest)}</span>
+                                                    : <span className="text-emerald-500 font-bold text-[10px] uppercase tracking-wide">Pagado</span>;
+                                            })()}
                                         </td>
                                         {/* Listo Material */}
                                         <td className="px-4 py-3 text-xs font-mono">

@@ -134,7 +134,7 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                 {(() => {
                     const sapData = sap || odp.saps?.[0];
                     const odcs: any[] = sapData?.ordenes_compra || [];
-                    const rows = [0, 1, 2].map(i => odcs[i] || null);
+                    const rows = [0, 1, 2, 3, 4].map(i => odcs[i] || null);
                     return (
                         <table className="sap-table mb-1">
                             <thead>
@@ -149,7 +149,7 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                                 {rows.map((odc, i) => (
                                     <tr key={i}>
                                         {i === 0 && (
-                                            <td className="align-top p-1 h-[80px]" rowSpan={3}>
+                                            <td className="align-top p-1 h-[80px]" rowSpan={5}>
                                                 <p className="text-[9px] whitespace-pre-line uppercase font-semibold">
                                                     {sapData?.notas || ''}
                                                 </p>
@@ -161,8 +161,8 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                                                 )}
                                             </td>
                                         )}
-                                        <td className="text-center text-[9px] h-[26px] font-bold">
-                                            {odc?.numero_odc?.split('-').pop() || ''}
+                                        <td className="text-center text-[9px] h-[20px] font-bold">
+                                            {odc?.numero_odc || ''}
                                         </td>
                                         <td className="text-center text-[9px]">
                                             {odc?.items?.map((it: any) => it.item).join(', ') || ''}

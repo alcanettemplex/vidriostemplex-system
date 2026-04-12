@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { Op, fn, col } from 'sequelize';
-import { ODP, Cliente, Usuario, sequelize } from '../models';
-import Pago from '../models/pago.model';
+import { Op } from 'sequelize';
+import { ODP, Cliente, Usuario, Pago, sequelize } from '../models';
 
 // Helper: recalcula abono/pendiente/estado_caja de una ODP a partir de sus pagos actuales
 const recalcularFinanciero = async (odp_id: number, t: any) => {
@@ -21,7 +20,6 @@ const recalcularFinanciero = async (odp_id: number, t: any) => {
     else if (nuevoAbono > 0) nuevoEstadoCaja = 'ABONADO';
     else nuevoEstadoCaja = 'PENDIENTE';
   } else {
-    // Crédito aprobado: si el abono cubre el total, pasar a CANCELADO
     if (nuevoPendiente <= 0) nuevoEstadoCaja = 'CANCELADO';
   }
 
@@ -39,7 +37,6 @@ const pagoSchema = z.object({
 
 /**
  * Resumen financiero global para el módulo de contabilidad.
- * Calcula KPIs a partir de ODPs y pagos registrados.
  */
 export const getResumenFinanciero = async (_req: Request, res: Response) => {
   try {
@@ -49,17 +46,15 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
     // Totales generales
     const totalAbonado = (await ODP.sum('abono')) || 0;
 
-    // Pendiente real: valor_total - abono para ODPs no canceladas (evita NULLs en campo pendiente)
+    // Pendiente real
     const odpsActivas = await ODP.findAll({
       where: { estado_caja: { [Op.notIn]: ['CANCELADO'] } },
       attributes: ['valor_total', 'abono'],
-      raw: true,
     });
-    const totalPendiente = (odpsActivas as any[]).reduce((sum, o) => {
-      return sum + Math.max(0, Number(o.valor_total || 0) - Number(o.abono || 0));
+    const totalPendiente = odpsActivas.reduce((sum, o) => {
+      return sum + Math.max(0, Number(o.getDataValue('valor_total') || 0) - Number(o.getDataValue('abono') || 0));
     }, 0);
 
-    // Facturadas: tiene numero FE o estado = FACTURADA
     const totalFacturadas = await ODP.count({
       where: {
         [Op.or]: [
@@ -69,42 +64,31 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
       },
     });
     const totalPendFactura = await ODP.count({
-      where: {
-        estado_facturacion: 'PENDIENTE',
-        factura_electronica: null,
-      },
+      where: { estado_facturacion: 'PENDIENTE', factura_electronica: null },
     });
 
-    // Totales del mes
-    const abonoMes =
-      (await ODP.sum('abono', { where: { fecha_creacion: { [Op.gte]: firstDayOfMonth } } })) || 0;
-    const pendienteMes =
-      (await ODP.sum('pendiente', { where: { fecha_creacion: { [Op.gte]: firstDayOfMonth } } })) || 0;
+    const abonoMes = (await ODP.sum('abono', { where: { fecha_creacion: { [Op.gte]: firstDayOfMonth } } })) || 0;
+    const pendienteMes = (await ODP.sum('pendiente', { where: { fecha_creacion: { [Op.gte]: firstDayOfMonth } } })) || 0;
 
-    const fmt = (n: number) =>
+    const fmtCurrency = (n: number) =>
       new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 
-    // Cartera vencida: doble criterio
-    // 1) ODPs normales: pendiente > 0, fecha_entrega pasada, NO son crédito vigente
-    // 2) ODPs de crédito: pendiente > 0, fecha_vencimiento_credito pasada
-    const carteraVencida = await ODP.findAll({
+    // Cartera vencida
+    const carteraVencidaRecords = await ODP.findAll({
       where: {
         pendiente: { [Op.gt]: 0 },
         estado_caja: { [Op.notIn]: ['CANCELADO'] },
         [Op.or]: [
-          {
-            fecha_entrega: { [Op.lt]: today },
-            estado_caja: { [Op.notIn]: ['CANCELADO', 'CREDITO_APROBADO'] },
-          },
-          {
-            estado_caja: 'CREDITO_APROBADO',
-            fecha_vencimiento_credito: { [Op.lt]: today, [Op.ne]: null },
-          },
+          { fecha_entrega: { [Op.lt]: today }, estado_caja: { [Op.notIn]: ['CANCELADO', 'CREDITO_APROBADO'] } },
+          { estado_caja: 'CREDITO_APROBADO', fecha_vencimiento_credito: { [Op.lt]: today, [Op.ne]: null } },
         ],
       },
-      include: [{ model: Cliente, as: 'cliente' }],
+      include: [
+        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+      ],
       order: [['fecha_entrega', 'ASC']],
-      limit: 10,
+      limit: 15,
     });
 
     const totalCarteraVencida = await ODP.sum('pendiente', {
@@ -112,39 +96,44 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
         pendiente: { [Op.gt]: 0 },
         estado_caja: { [Op.notIn]: ['CANCELADO'] },
         [Op.or]: [
-          {
-            fecha_entrega: { [Op.lt]: today },
-            estado_caja: { [Op.notIn]: ['CANCELADO', 'CREDITO_APROBADO'] },
-          },
-          {
-            estado_caja: 'CREDITO_APROBADO',
-            fecha_vencimiento_credito: { [Op.lt]: today, [Op.ne]: null },
-          },
+          { fecha_entrega: { [Op.lt]: today }, estado_caja: { [Op.notIn]: ['CANCELADO', 'CREDITO_APROBADO'] } },
+          { estado_caja: 'CREDITO_APROBADO', fecha_vencimiento_credito: { [Op.lt]: today, [Op.ne]: null } },
         ],
       },
     });
 
-    const carteraDetalle = carteraVencida.map((odp: any) => {
-      const esCreditoVencido = odp.getDataValue('estado_caja') === 'CREDITO_APROBADO';
-      const fechaRef = esCreditoVencido
-        ? new Date(odp.getDataValue('fecha_vencimiento_credito'))
-        : new Date(odp.fecha_entrega);
-      const diffTime = Math.abs(today.getTime() - fechaRef.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const carteraDetalle = carteraVencidaRecords.map((odp: any) => {
+      const esCreditoVencido = odp.estado_caja === 'CREDITO_APROBADO';
+      const fechaRefStr = esCreditoVencido ? odp.fecha_vencimiento_credito : odp.fecha_entrega;
+      const todayTime = new Date().setHours(0,0,0,0);
+      const fechaRef = fechaRefStr ? new Date(fechaRefStr) : new Date(todayTime);
+      fechaRef.setHours(0,0,0,0);
+      
+      const diffTime = todayTime - fechaRef.getTime();
+      const diffDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
       return {
         odp: odp.numero_odp,
         cliente: odp.cliente?.nombre_razon_social || 'Sin cliente',
-        pendiente: fmt(Number(odp.pendiente)),
+        asesor: odp.asesor?.nombre_completo || '—',
+        pendiente: fmtCurrency(Number(odp.pendiente) || 0),
         dias_vencido: diffDays,
         tipo_vencimiento: esCreditoVencido ? 'credito' : 'entrega',
-        fecha_creacion: odp.getDataValue('fecha_creacion'),
+        fecha_creacion: odp.fecha_creacion,
       };
     });
 
-    // Pagos recientes
     const pagosRecientes = await Pago.findAll({
       include: [
-        { model: ODP, as: 'odp', attributes: ['id', 'numero_odp'] },
+        { 
+          model: ODP, 
+          as: 'odp', 
+          attributes: ['id', 'numero_odp', 'fecha_creacion', 'cliente_id', 'asesor_id'],
+          include: [
+            { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+            { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }
+          ]
+        },
         { model: Usuario, as: 'registrador', attributes: ['id', 'nombre_completo'] },
       ],
       order: [['fecha', 'DESC']],
@@ -152,13 +141,13 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
     });
 
     res.json({
-      total_abonado: fmt(Number(totalAbonado)),
-      total_pendiente: fmt(Number(totalPendiente)),
+      total_abonado: fmtCurrency(Number(totalAbonado) || 0),
+      total_pendiente: fmtCurrency(Number(totalPendiente) || 0),
       total_facturadas: totalFacturadas,
       pendientes_factura: totalPendFactura,
-      abono_mes: fmt(Number(abonoMes)),
-      pendiente_mes: fmt(Number(pendienteMes)),
-      cartera_vencida: fmt(Number(totalCarteraVencida) || 0),
+      abono_mes: fmtCurrency(Number(abonoMes) || 0),
+      pendiente_mes: fmtCurrency(Number(pendienteMes) || 0),
+      cartera_vencida: fmtCurrency(Number(totalCarteraVencida) || 0),
       cartera_detalle: carteraDetalle,
       pagos_recientes: pagosRecientes,
     });
@@ -169,7 +158,7 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
 };
 
 /**
- * Lista todos los pagos registrados con información de ODP y cliente.
+ * Lista todos los pagos registrados con información detallada.
  */
 export const getPagos = async (_req: Request, res: Response) => {
   try {
@@ -178,8 +167,11 @@ export const getPagos = async (_req: Request, res: Response) => {
         {
           model: ODP,
           as: 'odp',
-          attributes: ['id', 'numero_odp', 'cliente_id'],
-          include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
+          attributes: ['id', 'numero_odp', 'fecha_creacion', 'cliente_id', 'asesor_id'],
+          include: [
+            { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+            { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+          ],
         },
         { model: Usuario, as: 'registrador', attributes: ['id', 'nombre_completo'] },
       ],

@@ -32,7 +32,7 @@ const MENU_ITEMS_CONFIG = [
     text: 'Dashboard',
     icon: LayoutDashboard,
     path: '/',
-    allowedRoles: ['admin', 'gerencia'],
+    allowedRoles: ['admin', 'gerencia', 'marketing'],
     section: 'general'
   },
   {
@@ -60,7 +60,7 @@ const MENU_ITEMS_CONFIG = [
     text: 'CRM & Leads',
     icon: Target,
     path: '/crm',
-    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'asistente_administrativo'],
+    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'asistente_administrativo', 'marketing'],
     section: 'comercial'
   },
   {

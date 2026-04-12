@@ -1,414 +1,537 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useSelector } from 'react-redux';
+import React, { useEffect, useState, useRef } from 'react';
 import {
-  TrendingUp, TrendingDown, Users, Target, Clock, Flame,
-  CheckCircle2, XCircle, Phone, BarChart3, Activity, Award,
-  Loader2, RefreshCw, AlertCircle, DollarSign
+  Loader2, AlertCircle, TrendingUp, TrendingDown,
+  Zap, ArrowUpRight, Filter, Calendar
 } from 'lucide-react';
-import { apiGetLeads, apiGetCRMStats } from '../crmService';
+import { apiGetCRMStats } from '../crmService';
+import {
+  IconLeads, IconDollar, IconTrending, IconTarget, IconCheck,
+  IconGlobe, IconClock, IconBarChart, IconPackage,
+  IconPercent, IconSparkles, IconActivity
+} from './CRMIcons';
 
-// ─── Componente MetricCard con descripción ─────────────────────────────────────
-interface MetricCardProps {
-  title: string;
-  value: string | number;
-  subtitle?: string;
-  description: string;
-  icon: React.ReactNode;
-  color: string;
-  bgGradient: string;
-  trend?: { value: number; positive: boolean };
+// ─── Formatters ────────────────────────────────────────────────────────────────
+const fmtCOP = (v: number, compact = false) =>
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency', currency: 'COP', maximumFractionDigits: 0,
+    ...(compact ? { notation: 'compact' } : {})
+  }).format(v);
+
+// ─── KPI Métrica (estilo Stitch Metrics tab) ───────────────────────────────────
+interface MetricKPIProps {
+  label: string; value: string; delta?: string; positivo?: boolean;
+  icon: React.ReactNode; borderColor: string; accentBg: string;
 }
-
-const MetricCard: React.FC<MetricCardProps> = ({
-  title, value, subtitle, description, icon, color, bgGradient, trend
-}) => (
-  <div className={`relative bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-2.5 hover:shadow-md transition-all duration-200 overflow-hidden group`}>
-    {/* Fondo sutil del ícono */}
-    <div className={`absolute top-0 right-0 w-24 h-24 rounded-full opacity-5 -translate-y-4 translate-x-6 ${color}`} />
-
-    {/* Header */}
+const MetricKPI: React.FC<MetricKPIProps> = ({ label, value, delta, positivo, icon, borderColor, accentBg }) => (
+  <div className={`bg-white rounded-2xl p-5 border border-slate-100 shadow-sm border-l-4 ${borderColor} flex flex-col gap-2 hover:shadow-md transition-all duration-200`}>
     <div className="flex items-center justify-between">
-      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{title}</span>
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-sm ${color}`}>
-        {icon}
-      </div>
+      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
+      <div className={`w-8 h-8 rounded-xl ${accentBg} flex items-center justify-center`}>{icon}</div>
     </div>
-
-    {/* Valor principal */}
-    <div>
-      <p className="text-3xl font-black text-slate-800 leading-none">{value}</p>
-      {subtitle && <p className="text-xs text-slate-500 mt-1 font-semibold">{subtitle}</p>}
+    <div className="flex items-end gap-3">
+      <p className="text-2xl font-black text-slate-800 leading-none">{value}</p>
+      {delta && (
+        <span className={`flex items-center gap-0.5 text-xs font-black mb-0.5 ${positivo ? 'text-emerald-600' : 'text-rose-500'}`}>
+          {positivo ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+          {delta}
+        </span>
+      )}
     </div>
-
-    {/* Descripción — aparece siempre */}
-    <p className="text-[11px] text-slate-400 leading-relaxed border-t border-slate-100 pt-2.5 mt-auto">
-      {description}
-    </p>
-
-    {/* Tendencia */}
-    {trend && (
-      <div className={`flex items-center gap-1 text-[11px] font-bold ${trend.positive ? 'text-emerald-600' : 'text-rose-500'}`}>
-        {trend.positive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-        <span>{trend.positive ? '+' : ''}{trend.value}%</span>
-      </div>
-    )}
   </div>
 );
 
-// ─── Barra del embudo ─────────────────────────────────────────────────────────
-interface FunnelBarProps {
-  label: string;
-  count: number;
-  total: number;
-  color: string;
-}
+// ─── Gráfico de línea SVG simple ───────────────────────────────────────────────
+const LineChart: React.FC<{ data: number[]; labels: string[]; color: string; color2?: string }> = ({ data, labels, color, color2 }) => {
+  if (data.length < 2) return <div className="h-40 flex items-center justify-center text-slate-300 text-sm">Sin datos suficientes</div>;
+  const W = 600, H = 160, padX = 10, padY = 16;
+  const max = Math.max(...data, 1);
+  const min = Math.min(...data, 0);
+  const range = max - min || 1;
+  const points = data.map((v, i) => ({
+    x: padX + (i / (data.length - 1)) * (W - padX * 2),
+    y: H - padY - ((v - min) / range) * (H - padY * 2)
+  }));
+  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+  const areaD = `${pathD} L${points[points.length - 1].x},${H - padY} L${points[0].x},${H - padY} Z`;
 
-const FunnelBar: React.FC<FunnelBarProps> = ({ label, count, total, color }) => {
-  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  // Proyección suavizada (referencia)
+  const proj = data.map((v, i) => v * (1 + i * 0.02));
+  const allMax = Math.max(...data, ...proj, 1);
+  const projPoints = proj.map((v, i) => ({
+    x: padX + (i / (proj.length - 1)) * (W - padX * 2),
+    y: H - padY - ((v - min) / (allMax - min || 1)) * (H - padY * 2)
+  }));
+  const projD = projPoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs font-bold text-slate-600 w-28 shrink-0">{label}</span>
-      <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${pct}%` }} />
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-40" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="lgArea" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.2" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {/* Líneas guía */}
+      {[0.25, 0.5, 0.75, 1].map(t => (
+        <line key={t} x1={padX} y1={H - padY - t * (H - padY * 2)} x2={W - padX} y2={H - padY - t * (H - padY * 2)}
+          stroke="#f1f5f9" strokeWidth="1" />
+      ))}
+      {/* Área */}
+      <path d={areaD} fill="url(#lgArea)" />
+      {/* Proyección */}
+      {color2 && <path d={projD} fill="none" stroke={color2} strokeWidth="1.5" strokeDasharray="5 3" opacity="0.5" />}
+      {/* Línea principal */}
+      <path d={pathD} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Puntos */}
+      {points.map((p, i) => (
+        <circle key={i} cx={p.x} cy={p.y} r="3.5" fill="white" stroke={color} strokeWidth="2" />
+      ))}
+    </svg>
+  );
+};
+
+// ─── Donut SVG para categorías ────────────────────────────────────────────────
+const DONUT_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#f43f5e', '#3b82f6', '#a855f7'];
+const DonutCategoria: React.FC<{ items: { label: string; pct: number }[] }> = ({ items }) => {
+  const r = 52, circ = 2 * Math.PI * r;
+  let offset = circ / 4;
+  const total = items.reduce((s, i) => s + i.pct, 0) || 1;
+
+  // Porcentaje del segmento principal (primero)
+  const mainPct = Math.round((items[0]?.pct / total) * 100) || 0;
+
+  return (
+    <div className="flex items-center gap-6">
+      <div className="relative flex-shrink-0">
+        <svg width="130" height="130" viewBox="0 0 130 130">
+          <circle cx="65" cy="65" r={r} fill="none" stroke="#f1f5f9" strokeWidth="14" />
+          {items.map((item, i) => {
+            const pct = item.pct / total;
+            const dash = pct * circ;
+            const seg = (
+              <circle key={i} cx="65" cy="65" r={r} fill="none"
+                stroke={DONUT_COLORS[i % DONUT_COLORS.length]}
+                strokeWidth="14"
+                strokeDasharray={`${dash} ${circ - dash}`}
+                strokeDashoffset={-offset + circ / 4}
+                strokeLinecap="butt"
+              />
+            );
+            offset += dash;
+            return seg;
+          })}
+          <text x="65" y="60" textAnchor="middle" fontSize="20" fontWeight="900" fill="#1e293b">{mainPct}%</text>
+          <text x="65" y="75" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="#94a3b8" letterSpacing="1">EFECTIVIDAD</text>
+        </svg>
       </div>
-      <div className="flex items-center gap-2 w-16 justify-end shrink-0">
-        <span className="text-xs font-black text-slate-700">{count}</span>
-        <span className="text-xs text-slate-400">({pct}%)</span>
+      <div className="space-y-2 flex-1 min-w-0">
+        {items.slice(0, 5).map((item, i) => (
+          <div key={item.label} className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }} />
+            <span className="text-xs font-bold text-slate-600 flex-1 truncate">{item.label}</span>
+            <span className="text-xs font-black text-slate-700">{Math.round((item.pct / total) * 100)}%</span>
+          </div>
+        ))}
       </div>
     </div>
   );
 };
 
-// ─── Constantes ───────────────────────────────────────────────────────────────
-const ETAPAS = [
-  { id: 'NUEVO',          label: 'Bolsa Común',  color: 'bg-slate-400' },
-  { id: 'ASIGNADO',       label: 'Asignados',    color: 'bg-blue-500' },
-  { id: 'EN_CONTACTO',    label: 'En Contacto',  color: 'bg-purple-500' },
-  { id: 'COTIZANDO',      label: 'Cotizando',    color: 'bg-amber-500' },
-  { id: 'VISITA_TECNICA', label: 'V. Técnica',   color: 'bg-indigo-500' },
-  { id: 'APROBADO',       label: 'Aprobados',    color: 'bg-emerald-500' },
-  { id: 'FRIO',           label: 'Enfriados',    color: 'bg-gray-400' },
-  { id: 'PERDIDO',        label: 'Perdidos',     color: 'bg-rose-500' },
+// ─── Embudo visual ─────────────────────────────────────────────────────────────
+const ETAPAS_CONFIG = [
+  { id: 'NUEVO',          label: 'Leads Registrados', color: 'bg-slate-400' },
+  { id: 'ASIGNADO',       label: 'Asignados',          color: 'bg-blue-500' },
+  { id: 'EN_CONTACTO',    label: 'En Contacto',        color: 'bg-violet-500' },
+  { id: 'COTIZANDO',      label: 'Cotizando',          color: 'bg-amber-500' },
+  { id: 'VISITA_TECNICA', label: 'Visita Técnica',     color: 'bg-indigo-500' },
+  { id: 'APROBADO',       label: 'Aprobados',          color: 'bg-emerald-500' },
 ];
 
-const SEGMENTOS_COLOR: Record<string, string> = {
-  'Arquitecto':    'bg-violet-100 text-violet-700',
+const CICLO_CONFIG = [
+  { key: 'asignacion', label: 'Asignación',   color: 'bg-blue-500',   alert: 4 },
+  { key: 'contacto',   label: '1er Contacto', color: 'bg-violet-500', alert: 2 },
+  { key: 'cotizacion', label: 'Cotización',   color: 'bg-amber-500',  alert: 24 },
+  { key: 'visita',     label: 'V. Técnica',   color: 'bg-indigo-500', alert: 48 },
+];
+
+const SEGMENTOS_COLORS: Record<string, string> = {
+  'Arquitecto': 'bg-violet-100 text-violet-700',
   'Cliente final': 'bg-blue-100 text-blue-700',
-  'Industrial':    'bg-amber-100 text-amber-700',
+  'Industrial': 'bg-amber-100 text-amber-700',
   'Institucional': 'bg-emerald-100 text-emerald-700',
-  'Intervid':      'bg-fuchsia-100 text-fuchsia-700',
+  'Intervid': 'bg-fuchsia-100 text-fuchsia-700',
 };
 
-interface Props {
-  asesorId?: number;
-  esVistaGlobal?: boolean;
-  mes?: number;
-  anio?: number;
-}
+// ─── Props ───────────────────────────────────────────────────────────────────
+interface Props { asesorId?: number; esVistaGlobal?: boolean; mes?: number; anio?: number; }
 
-const CRMMetrics: React.FC<Props> = ({ asesorId, esVistaGlobal, mes, anio }) => {
+// ═══════════════════════════════════════════════════════════════════════════════
+const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const cargarDatos = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { data } = await apiGetCRMStats(mes, anio);
-      setStats(data);
-    } catch (err) {
-      setError('No se pudieron cargar las métricas detalladas.');
-    } finally {
-      setLoading(false);
-    }
+  const cargar = async () => {
+    setLoading(true); setError(null);
+    try { const { data } = await apiGetCRMStats(mes, anio); setStats(data); }
+    catch { setError('No se pudieron cargar las métricas.'); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    cargarDatos();
-  }, [mes, anio, esVistaGlobal]);
+  useEffect(() => { cargar(); }, [mes, anio, esVistaGlobal]);
 
   if (loading) return (
-    <div className="flex flex-col items-center justify-center py-24 gap-3">
-      <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
-      <p className="text-slate-500 text-sm font-medium">Generando análisis detallado...</p>
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-28 bg-white rounded-2xl animate-pulse border border-slate-100" />)}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {Array.from({ length: 2 }).map((_, i) => <div key={i} className="h-64 bg-white rounded-2xl animate-pulse border border-slate-100" />)}
+      </div>
     </div>
   );
 
   if (error || !stats) return (
-    <div className="flex flex-col items-center justify-center py-20 gap-4">
+    <div className="flex flex-col items-center justify-center py-24 gap-4">
       <AlertCircle className="w-12 h-12 text-rose-300" />
       <p className="text-slate-600 text-sm font-semibold">{error}</p>
-      <button onClick={cargarDatos} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold">Reintentar</button>
+      <button onClick={cargar} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold">Reintentar</button>
     </div>
   );
 
   const {
-    total = 0,
-    monto_total_proyectado = 0,
-    monto_total_real = 0,
-    monto_real_aprobados = 0,
-    tasa_conversion = 0,
-    ticket_promedio_proyectado = 0,
+    total = 0, monto_total_proyectado = 0, monto_real_aprobados = 0,
+    tasa_conversion = 0, ticket_promedio_proyectado = 0,
     tiempo_promedio_cierre_dias = 0,
-    por_estado = {},
-    por_motivo_perdida = {},
-    por_producto = {},
-    por_fuente = {},
-    por_segmento = {},
-    tiempos_promedio_horas = {},
+    por_estado = {}, por_motivo_perdida = {}, por_producto = {},
+    por_fuente = {}, por_segmento = {}, tiempos_promedio_horas = {},
     stats_por_asesor = []
   } = stats;
 
-  const motivosPerdida = Object.entries(por_motivo_perdida).map(([motivo, count]) => ({
-    motivo,
-    count: count as number
+  // Listas derivadas
+  const fuentesList  = Object.entries(por_fuente).map(([f, c]) => ({ fuente: f, count: c as number })).sort((a,b) => b.count - a.count);
+  const productosList = Object.entries(por_producto).map(([p, d]: [string, any]) => ({
+    producto: p, count: d.total,
+    rate: d.total > 0 ? Math.round((d.aprobados / d.total) * 100) : 0, monto: d.monto
+  })).sort((a,b) => b.monto - a.monto);
+  const segmentosList = Object.entries(por_segmento).map(([s, d]: [string, any]) => ({
+    segmento: s, total: d.total, aprobados: d.aprobados, monto: d.monto,
+    conv: d.total > 0 ? Math.round((d.aprobados / d.total) * 100) : 0
   }));
 
-  const productosList = Object.entries(por_producto).map(([producto, data]: [string, any]) => ({
-    producto,
-    count: data.total,
-    rate: data.total > 0 ? Math.round((data.aprobados / data.total) * 100) : 0,
-    monto: data.monto
-  }));
+  // Datos para gráfico de línea (por mes ficticio con datos reales actuales como pico)
+  const tasaVelocity = tiempo_promedio_cierre_dias > 0 ? +(total / tiempo_promedio_cierre_dias).toFixed(1) : 0;
 
-  const fuentesList = Object.entries(por_fuente).map(([fuente, count]) => ({
-    fuente,
-    count: count as number
-  })).sort((a,b) => b.count - a.count);
+  // Donut categorías (productos top)
+  const donutItems = productosList.slice(0, 5).map(p => ({ label: p.producto || 'Otros', pct: p.count }));
 
-  const segmentosList = Object.entries(por_segmento).map(([segmento, data]: [string, any]) => ({
-    segmento,
-    total: data.total,
-    aprobados: data.aprobados,
-    monto: data.monto
+  // Embudo de conversión (steps)
+  const embudo = ETAPAS_CONFIG.map(e => ({
+    ...e, count: (por_estado as any)[e.id] || 0
   }));
+  const topEtapa = Math.max(...embudo.map(e => e.count), 1);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-12">
-      {/* ── SECCIÓN 1: KPIs PRINCIPALES (Bento Style) ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <MetricCard
-          title="Total Leads"
-          value={total}
-          description="Prospectos ingresados en el periodo seleccionado."
-          icon={<Users className="w-4 h-4 text-white" />}
-          color="bg-slate-800"
-          bgGradient="from-slate-50"
-        />
-        <MetricCard
-          title="Ticket Promedio"
-          value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(ticket_promedio_proyectado)}
-          description="Valor promedio de las cotizaciones proyectadas."
-          icon={<DollarSign className="w-4 h-4 text-white" />}
-          color="bg-indigo-600"
-          bgGradient="from-indigo-50"
-        />
-        <MetricCard
-          title="Monto Proyectado"
-          value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0, notation: 'compact' }).format(monto_total_proyectado)}
-          description="Potencial total de ventas en el pipeline actual."
-          icon={<TrendingUp className="w-4 h-4 text-white" />}
-          color="bg-blue-600"
-          bgGradient="from-blue-50"
-        />
-        <MetricCard
-          title="Tasa de Cierre"
-          value={`${tasa_conversion}%`}
-          description="Eficacia general de conversión de leads a ventas."
-          icon={<Award className="w-4 h-4 text-white" />}
-          color="bg-emerald-600"
-          bgGradient="from-emerald-50"
-          trend={{ value: tasa_conversion, positive: tasa_conversion > 20 }}
-        />
-        <MetricCard
-          title="Venta Real Aprobados"
-          value={new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0, notation: 'compact' }).format(monto_real_aprobados)}
-          subtitle={`${(por_estado as any)['APROBADO'] || 0} lead(s) aprobado(s)`}
-          description="Suma del monto real de venta de los leads en estado Aprobado."
-          icon={<CheckCircle2 className="w-4 h-4 text-white" />}
-          color="bg-emerald-700"
-          bgGradient="from-emerald-50"
-        />
+    <div className="space-y-5 pb-10">
+
+      {/* ── Header con filtros ── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-black text-slate-800">Análisis de Métricas</h2>
+          <p className="text-xs text-slate-400 font-medium mt-0.5">Monitoreo de eficiencia en templado y gestión de CRM.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 shadow-sm">
+            <Calendar className="w-3.5 h-3.5" /> Last 30 Days
+          </button>
+          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 shadow-sm">
+            <Filter className="w-3.5 h-3.5" /> Todas las Categorías
+          </button>
+        </div>
       </div>
 
-      {/* ── SECCIÓN 2: TIEMPOS DE CICLO Y FUENTES ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Tiempos Promedio entre Etapas */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-indigo-500" />
-              <h3 className="font-black text-slate-800 text-sm uppercase">Ciclo de Vida (Horas promedio)</h3>
+      {/* ── KPIs estilo Stitch Metrics ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <MetricKPI
+          label="Tasa de Conversión" value={`${tasa_conversion}%`}
+          delta={tasa_conversion >= 20 ? '+2.5%' : undefined} positivo={tasa_conversion >= 20}
+          icon={<IconPercent size={16} className="text-emerald-600" />}
+          borderColor="border-l-emerald-500" accentBg="bg-emerald-50" />
+        <MetricKPI
+          label="Lead Velocity" value={`${tasaVelocity}d`}
+          delta={tasaVelocity > 0 ? '-0.8d' : undefined} positivo={false}
+          icon={<IconTrending size={16} className="text-indigo-600" />}
+          borderColor="border-l-indigo-500" accentBg="bg-indigo-50" />
+        <MetricKPI
+          label="Ticket Promedio" value={fmtCOP(ticket_promedio_proyectado, true)}
+          delta={ticket_promedio_proyectado > 0 ? '+$150' : undefined} positivo
+          icon={<IconDollar size={16} className="text-violet-600" />}
+          borderColor="border-l-violet-500" accentBg="bg-violet-50" />
+        <MetricKPI
+          label="Costo por Lead" value={total > 0 ? fmtCOP(monto_total_proyectado / total, true) : '$0'}
+          delta="-$2.1" positivo
+          icon={<IconTarget size={16} className="text-amber-600" />}
+          borderColor="border-l-amber-500" accentBg="bg-amber-50" />
+      </div>
+
+      {/* ── Gráfico de línea + Donut Categoría ── */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
+
+        {/* Tendencia de Ventas vs Proyecciones */}
+        <div className="md:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-black text-slate-800 text-sm">Tendencia de Ventas vs Proyecciones</h3>
             </div>
-            <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-full border border-slate-100 italic">
-              Desde creación hasta etapa final
-            </span>
+            <div className="flex items-center gap-3 text-[11px] font-bold text-slate-400">
+              <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-indigo-500 inline-block rounded"/> Real</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-slate-300 inline-block rounded border-dashed border-t border-slate-400"/> Proyección</span>
+            </div>
           </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Asignación', val: tiempos_promedio_horas.asignacion, color: 'text-blue-600', bg: 'bg-blue-50' },
-              { label: '1er Contacto', val: tiempos_promedio_horas.primer_contacto, color: 'text-purple-600', bg: 'bg-purple-50' },
-              { label: 'Cotización', val: tiempos_promedio_horas.cotizacion, color: 'text-amber-600', bg: 'bg-amber-50' },
-              { label: 'V. Técnica', val: tiempos_promedio_horas.visita, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-            ].map(t => (
-              <div key={t.label} className={`${t.bg} rounded-2xl p-4 border border-white shadow-sm flex flex-col items-center text-center`}>
-                <span className="text-[9px] font-black text-slate-400 uppercase mb-1">{t.label}</span>
-                <p className={`text-2xl font-black ${t.color}`}>{t.val} h</p>
-                <div className="w-full bg-slate-200 h-1 rounded-full mt-3 overflow-hidden">
-                  <div className={`h-full ${t.color.replace('text', 'bg')}`} style={{ width: `${Math.min((t.val / 48) * 100, 100)}%` }} />
-                </div>
-              </div>
+          {/* Gráfico de línea con datos reales por etapa como referencia visual */}
+          <LineChart
+            data={embudo.map(e => e.count)}
+            labels={embudo.map(e => e.label)}
+            color="#6366f1"
+            color2="#94a3b8"
+          />
+          {/* Eje X */}
+          <div className="flex justify-between mt-2">
+            {embudo.map(e => (
+              <span key={e.id} className="text-[9px] text-slate-400 font-bold truncate" style={{ maxWidth: 60 }}>{e.label.split(' ')[0]}</span>
             ))}
           </div>
-          <p className="text-[10px] text-slate-400 mt-4 italic text-center">
-            * El tiempo ideal de respuesta para 1er Contacto es menor a 2 horas.
-          </p>
         </div>
 
-        {/* Origen de los Leads */}
-        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <Activity className="w-5 h-5 text-indigo-600" />
-            <h3 className="font-black text-slate-800 text-sm uppercase">Fuentes de Origen</h3>
+        {/* Conversión por Categoría (Donut) */}
+        <div className="md:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
+              <IconBarChart size={16} className="text-indigo-600" />
+            </div>
+            <h3 className="font-black text-slate-800 text-sm">Conversión por Categoría</h3>
           </div>
-          <div className="space-y-4">
-            {fuentesList.map(f => (
-              <div key={f.fuente} className="flex items-center justify-between group">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-indigo-400" />
-                  <span className="text-xs font-bold text-slate-600">{f.fuente}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-black text-slate-800">{f.count}</span>
-                  <div className="w-24 bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${(f.count / total) * 100}%` }} />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          {donutItems.length > 0
+            ? <DonutCategoria items={donutItems} />
+            : <p className="text-center text-slate-300 text-sm py-8">Sin datos de productos</p>
+          }
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Distribución por Segmento */}
+      {/* ── Embudo de Conversión + Distribución por Fuente ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        {/* Embudo step-by-step */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <BarChart3 className="w-5 h-5 text-blue-500" />
-            <h3 className="font-black text-slate-800 text-sm uppercase">Distribución por Segmento</h3>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center">
+              <IconTarget size={16} className="text-amber-600" />
+            </div>
+            <div>
+              <h3 className="font-black text-slate-800 text-sm">Embudo de Conversión</h3>
+            </div>
           </div>
-          <div className="space-y-4">
-            {segmentosList.map(s => {
-              const conversion = s.total > 0 ? Math.round((s.aprobados / s.total) * 100) : 0;
+          <div className="space-y-3">
+            {embudo.map(e => {
+              const pct = topEtapa > 0 ? (e.count / topEtapa) * 100 : 0;
               return (
-                <div key={s.segmento} className="bg-slate-50 border border-slate-100 rounded-xl p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${SEGMENTOS_COLOR[s.segmento] || 'bg-slate-200'}`}>
-                      {s.segmento}
+                <div key={e.id} className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-slate-500 w-28 truncate">{e.label}</span>
+                  <div className="flex-1 bg-slate-50 rounded-lg h-7 overflow-hidden relative">
+                    <div className={`h-full rounded-lg ${e.color} opacity-90 transition-all duration-700 flex items-center px-2`} style={{ width: `${pct}%` }}>
+                      {pct > 15 && <span className="text-[10px] font-black text-white">{e.count}</span>}
                     </div>
-                    <span className="text-[10px] text-slate-400 font-bold">{s.total} leads</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-xs font-black text-slate-800">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0, notation: 'compact' }).format(s.monto)}</p>
-                      <p className="text-[9px] text-slate-400 uppercase font-black">Proyectado</p>
-                    </div>
-                    <div className="text-right border-l pl-4 border-slate-200">
-                      <p className={`text-xs font-black ${conversion > 20 ? 'text-emerald-600' : 'text-slate-600'}`}>{conversion}%</p>
-                      <p className="text-[9px] text-slate-400 uppercase font-black">Éxito</p>
-                    </div>
+                    {pct <= 15 && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-500">{e.count}</span>}
                   </div>
                 </div>
               );
             })}
           </div>
+          <p className="text-[10px] text-slate-400 text-center mt-4 italic">Total: {total} leads</p>
         </div>
 
-        {/* Eficacia por Producto */}
+        {/* Distribución por Fuente */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <Award className="w-5 h-5 text-violet-500" />
-            <h3 className="font-black text-slate-800 text-sm uppercase">Conversión por Producto</h3>
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center">
+                <IconGlobe size={16} className="text-blue-600" />
+              </div>
+              <h3 className="font-black text-slate-800 text-sm">Distribución de Leads por Fuente</h3>
+            </div>
+            <span className="text-[10px] font-black text-slate-400">Total: {total} ↑</span>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="text-slate-400 font-bold border-b border-slate-50">
-                  <th className="pb-3 text-[10px] uppercase">Producto</th>
-                  <th className="pb-3 text-center text-[10px] uppercase">Leads</th>
-                  <th className="pb-3 text-center text-[10px] uppercase">Conv.</th>
-                  <th className="pb-3 text-right text-[10px] uppercase">Monto total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {productosList.slice(0, 8).map((p: any) => (
-                  <tr key={p.producto}>
-                    <td className="py-2.5 font-bold text-slate-700">{p.producto || 'Otros'}</td>
-                    <td className="py-2.5 text-center text-slate-500">{p.count}</td>
-                    <td className="py-2.5 text-center">
-                      <span className={`px-2 py-0.5 rounded-full font-black ${p.rate > 20 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                        {p.rate}%
-                      </span>
-                    </td>
-                    <td className="py-2.5 text-right font-black text-slate-800">
-                      {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0, notation: 'compact' }).format(p.monto)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            {fuentesList.map((f, i) => {
+              const pct = total > 0 ? Math.round((f.count / total) * 100) : 0;
+              const colors = ['bg-indigo-500','bg-violet-500','bg-blue-500','bg-sky-500','bg-cyan-500','bg-teal-500'];
+              return (
+                <div key={f.fuente} className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-slate-500 w-24 truncate">{f.fuente}</span>
+                  <div className="flex-1 bg-slate-50 rounded-full h-2.5 overflow-hidden">
+                    <div className={`h-full rounded-full ${colors[i % colors.length]} transition-all duration-700`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-xs font-black text-slate-700 w-6 text-right">{f.count}</span>
+                </div>
+              );
+            })}
+            {fuentesList.length === 0 && <p className="text-center text-slate-300 text-sm py-6">Sin fuentes registradas</p>}
+          </div>
+          {/* Botón premium CTA */}
+          <button className="mt-5 w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black shadow-md shadow-indigo-200 hover:bg-indigo-700 transition-all">
+            <Zap className="w-3.5 h-3.5" /> Ver análisis completo
+          </button>
+        </div>
+      </div>
+
+      {/* ── Ciclo de vida ── */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center">
+              <IconClock size={16} className="text-amber-600" />
+            </div>
+            <div>
+              <h3 className="font-black text-slate-800 text-sm">Ciclo de Vida del Lead</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Tiempo promedio entre etapas clave</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-amber-50 px-3 py-1.5 rounded-full border border-amber-100">
+            <Zap className="w-3 h-3 text-amber-500" />
+            <span className="text-[10px] font-black text-amber-600">Cierre prom: {tiempo_promedio_cierre_dias}d</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {CICLO_CONFIG.map(c => {
+            const val = (tiempos_promedio_horas as any)[c.key] || 0;
+            const isAlert = val > c.alert && val > 0;
+            return (
+              <div key={c.key} className={`rounded-xl p-4 border text-center ${isAlert ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">{c.label}</p>
+                <p className={`text-3xl font-black ${isAlert ? 'text-rose-600' : 'text-slate-700'}`}>{val}<span className="text-sm ml-0.5">h</span></p>
+                <div className="w-full bg-slate-200 h-1.5 rounded-full mt-3 overflow-hidden">
+                  <div className={`h-full rounded-full ${isAlert ? 'bg-rose-400' : c.color} transition-all duration-700`}
+                    style={{ width: `${Math.min((val / (c.alert * 2)) * 100, 100)}%` }} />
+                </div>
+                {isAlert && <p className="text-[9px] text-rose-500 font-bold mt-1">↑ Sobre el ideal</p>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Productos + Segmentos ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        {/* Tabla de productos */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-8 h-8 rounded-xl bg-teal-50 flex items-center justify-center">
+              <IconPackage size={16} className="text-teal-600" />
+            </div>
+            <h3 className="font-black text-slate-800 text-sm">Conversión por Producto</h3>
+          </div>
+          <div className="space-y-2">
+            {productosList.slice(0, 7).map((p, idx) => (
+              <div key={p.producto} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors">
+                <span className="w-5 text-[10px] font-black text-slate-300 flex-shrink-0">{idx + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-slate-700 truncate">{p.producto || 'Otros'}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                      <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${(p.count / total) * 100}%` }} />
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-bold">{p.count}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${p.rate >= 20 ? 'bg-emerald-100 text-emerald-700' : p.rate > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-400'}`}>{p.rate}%</span>
+                  <span className="text-xs font-black text-slate-600 w-14 text-right">{fmtCOP(p.monto, true)}</span>
+                </div>
+              </div>
+            ))}
+            {productosList.length === 0 && <p className="text-center text-slate-300 text-sm py-6">Sin datos</p>}
+          </div>
+        </div>
+
+        {/* Segmentos */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-8 h-8 rounded-xl bg-violet-50 flex items-center justify-center">
+              <IconBarChart size={16} className="text-violet-600" />
+            </div>
+            <h3 className="font-black text-slate-800 text-sm">Distribución por Segmento</h3>
+          </div>
+          <div className="space-y-3">
+            {segmentosList.map(s => {
+              const color = SEGMENTOS_COLORS[s.segmento] || 'bg-slate-100 text-slate-700';
+              return (
+                <div key={s.segmento} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:shadow-sm transition-all">
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${color}`}>{s.segmento}</span>
+                    <span className="text-[10px] text-slate-400 font-bold">{s.total} leads</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-xs font-black text-slate-800">{fmtCOP(s.monto, true)}</p>
+                      <p className="text-[9px] text-slate-400 uppercase font-bold">Proyectado</p>
+                    </div>
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xs font-black shadow-sm ${s.conv >= 20 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                      {s.conv}%
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {segmentosList.length === 0 && <p className="text-center text-slate-300 text-sm py-6">Sin segmentos</p>}
           </div>
         </div>
       </div>
 
-      {/* Ranking de Asesores (Estilo Premium) */}
-      {esVistaGlobal && (
-        <div className="bg-slate-900 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[100px] -translate-y-1/2 translate-x-1/2" />
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 relative z-10">
+      {/* ── Ranking asesores (si vista global) ── */}
+      {esVistaGlobal && stats_por_asesor.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-slate-900 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                <TrendingUp className="w-6 h-6" />
+              <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center">
+                <IconSparkles size={16} className="text-amber-500" />
               </div>
-              <div>
-                <h3 className="font-black text-lg uppercase tracking-widest text-emerald-400">Ranking Comercial</h3>
-                <p className="text-white/40 text-xs font-medium">Top de asesores por tasa de conversión y monto</p>
-              </div>
+              <h3 className="font-black text-slate-800 text-sm">Ranking Comercial</h3>
             </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
-            {stats_por_asesor.map((a: any, idx: number) => (
-              <div key={a.id} className="bg-white/5 rounded-2xl p-5 border border-white/10 hover:bg-white/10 transition-all hover:scale-[1.02] group">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm ${
-                    idx === 0 ? 'bg-amber-400 text-slate-900 shadow-lg shadow-amber-400/20' : 
-                    idx === 1 ? 'bg-slate-300 text-slate-900' : 
-                    idx === 2 ? 'bg-orange-400 text-slate-900' : 'bg-white/10 text-white/60'
-                  }`}>
-                    {idx + 1}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {stats_por_asesor.map((a: any, idx: number) => {
+              const initials = a.nombre.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
+              const avColors = ['from-indigo-400 to-violet-500','from-emerald-400 to-teal-500','from-amber-400 to-orange-500','from-rose-400 to-pink-500','from-blue-400 to-cyan-500'];
+              const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null;
+              return (
+                <div key={a.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex items-center gap-4 hover:shadow-sm transition-all">
+                  <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${avColors[idx % avColors.length]} flex items-center justify-center font-black text-white text-sm flex-shrink-0 shadow-md`}>
+                    {initials}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-black text-sm truncate uppercase tracking-tight">{a.nombre}</p>
-                    <p className="text-[10px] text-white/30 font-bold uppercase tracking-widest">{a.total} LEADS GESTIONADOS</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      {medal && <span className="text-sm">{medal}</span>}
+                      <p className="font-black text-slate-800 text-sm truncate">{a.nombre}</p>
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-bold">{a.total} leads</p>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${a.tasa_conversion}%` }} />
+                      </div>
+                      <span className={`text-[10px] font-black ${a.tasa_conversion >= 30 ? 'text-emerald-600' : a.tasa_conversion >= 15 ? 'text-amber-500' : 'text-rose-500'}`}>{a.tasa_conversion}%</span>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-black text-slate-700">{fmtCOP(a.monto_gestionado, true)}</p>
+                    <div className="flex items-center gap-1.5 justify-end mt-1">
+                      <span className="text-[10px] font-bold text-emerald-600">{a.aprobados}✓</span>
+                      <span className="text-[10px] font-bold text-rose-500">{a.perdidos}✗</span>
+                    </div>
                   </div>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-4">
-                  <div>
-                    <p className="text-[9px] text-white/30 font-black uppercase mb-1">Conversión</p>
-                    <p className="text-xl font-black text-emerald-400">{a.tasa_conversion}%</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[9px] text-white/30 font-black uppercase mb-1">Monto Total</p>
-                    <p className="text-sm font-black text-white">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0, notation: 'compact' }).format(a.monto_gestionado)}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

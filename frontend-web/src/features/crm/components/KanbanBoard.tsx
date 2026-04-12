@@ -839,7 +839,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
                                 {esNuevaSec && prioridad === 'normal' && (
                                   <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider px-1 pt-1">Normal</div>
                                 )}
-                                <Draggable draggableId={String(lead.id)} index={index}>
+                                <Draggable draggableId={String(lead.id)} index={index} isDragDisabled={rol === 'marketing'}>
                                   {(provided, snapshot) => (
                                     <div
                                       ref={provided.innerRef}

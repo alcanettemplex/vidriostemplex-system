@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
 import Sidebar from '../components/common/Sidebar';
@@ -31,42 +31,42 @@ const AppRoutes: React.FC = () => (
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route element={<ProtectedRoute />}>
-            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing']} />}>
               <Route path="/" element={<DashboardHome />} />
               <Route path="/configuracion" element={<ConfiguracionPage />} />
             </Route>
-            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'asesor_comercial', 'jefe_produccion']} />}>
               <Route path="/clientes" element={<ClientesListPage />} />
               <Route path="/prospectos" element={<ProspectosPage />} />
             </Route>
-            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras', 'produccion']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras', 'produccion']} />}>
               <Route path="/odp" element={<ODPListPage />} />
             </Route>
-            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'asesor_comercial', 'asistente_administrativo']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'asesor_comercial', 'asistente_administrativo']} />}>
               <Route path="/crm" element={<CRMPage />} />
             </Route>
-            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion']} />}>
               <Route path="/produccion" element={<ProduccionPage />} />
             </Route>
             <Route element={<RoleRoute allowedRoles={['admin', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion']} />}>
               <Route path="/toma-medidas" element={<TomaMedidasPage />} />
             </Route>
-            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'jefe_produccion', 'instalador', 'conductor', 'asesor_comercial', 'compras', 'produccion']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'jefe_produccion', 'instalador', 'conductor', 'asesor_comercial', 'compras', 'produccion']} />}>
               <Route path="/instalaciones" element={<InstalacionesPage />} />
             </Route>
-            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'compras', 'jefe_produccion']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'compras', 'jefe_produccion']} />}>
               <Route path="/compras" element={<ComprasPage />} />
             </Route>
             <Route element={<RoleRoute allowedRoles={['admin', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras']} />}>
               <Route path="/inventario" element={<InventarioPage />} />
             </Route>
-            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras']} />}>
               <Route path="/pedidos-pv" element={<PedidosPVPage />} />
             </Route>
-            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'contabilidad', 'compras', 'produccion']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'contabilidad', 'compras', 'produccion']} />}>
               <Route path="/facturas-salidas" element={<FacturasSalidasPage />} />
             </Route>
-            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'contabilidad']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'contabilidad']} />}>
               <Route path="/contabilidad" element={<ContabilidadPage />} />
             </Route>
             <Route element={<RoleRoute allowedRoles={['admin']} />}>
