@@ -84,13 +84,30 @@ export const getMetricasSupabase = async (_req: Request, res: Response) => {
       { type: QueryTypes.SELECT }
     );
 
-    // Conexiones activas
+    // Conexiones activas — resumen
     const [connections]: any[] = await sequelize.query(
       `SELECT COUNT(*) AS total,
               COUNT(*) FILTER (WHERE state = 'active') AS active,
               COUNT(*) FILTER (WHERE state = 'idle') AS idle
        FROM pg_stat_activity
        WHERE datname = current_database()`,
+      { type: QueryTypes.SELECT }
+    );
+
+    // Detalle de cada conexión
+    const conexionesDetalle: any[] = await sequelize.query(
+      `SELECT
+         pid,
+         COALESCE(application_name, '—') AS application_name,
+         COALESCE(state, '—') AS state,
+         COALESCE(client_addr::text, 'local') AS client_addr,
+         COALESCE(usename, '—') AS usename,
+         COALESCE(to_char(query_start, 'HH24:MI:SS'), '—') AS query_start,
+         COALESCE(left(query, 100), '—') AS ultima_query
+       FROM pg_stat_activity
+       WHERE datname = current_database()
+         AND pid <> pg_backend_pid()
+       ORDER BY state, query_start DESC NULLS LAST`,
       { type: QueryTypes.SELECT }
     );
 
@@ -114,6 +131,7 @@ export const getMetricasSupabase = async (_req: Request, res: Response) => {
         inactivas: Number(connections.idle),
         limite: SUPABASE_FREE.max_connections,
         pct: Math.round((Number(connections.total) / SUPABASE_FREE.max_connections) * 100),
+        detalle: conexionesDetalle,
       },
       tabla_count: Number(tableCount.total),
       tablas: tableSizes,

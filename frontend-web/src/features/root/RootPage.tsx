@@ -211,6 +211,60 @@ const TabSupabase: React.FC = () => {
         <GaugeBar pct={data.db_pct} label="Almacenamiento BD" detail={`${data.db_mb} MB / ${data.limites?.db_mb} MB`} />
         <GaugeBar pct={data.conexiones?.pct} label="Conexiones" detail={`${data.conexiones?.total} activas / ${data.conexiones?.limite} máx`} />
       </div>
+      {/* Detalle de conexiones */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-100">
+          <h3 className="text-sm font-bold text-slate-700">
+            Conexiones activas
+            <span className="ml-2 text-xs font-normal text-slate-400">
+              {data.conexiones?.activas} activas · {data.conexiones?.inactivas} idle
+            </span>
+          </h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="text-left px-4 py-2 font-semibold">PID</th>
+                <th className="text-left px-4 py-2 font-semibold">Aplicación</th>
+                <th className="text-left px-4 py-2 font-semibold">Usuario</th>
+                <th className="text-left px-4 py-2 font-semibold">IP</th>
+                <th className="text-center px-4 py-2 font-semibold">Estado</th>
+                <th className="text-left px-4 py-2 font-semibold">Inicio</th>
+                <th className="text-left px-4 py-2 font-semibold">Última query</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.conexiones?.detalle?.length === 0 && (
+                <tr><td colSpan={7} className="px-4 py-4 text-center text-slate-400">Sin conexiones</td></tr>
+              )}
+              {data.conexiones?.detalle?.map((c: any) => (
+                <tr key={c.pid} className="border-t border-slate-50 hover:bg-slate-50">
+                  <td className="px-4 py-1.5 font-mono text-slate-500">{c.pid}</td>
+                  <td className="px-4 py-1.5 text-slate-700 font-medium">{c.application_name}</td>
+                  <td className="px-4 py-1.5 text-slate-500">{c.usename}</td>
+                  <td className="px-4 py-1.5 font-mono text-slate-500">{c.client_addr}</td>
+                  <td className="px-4 py-1.5 text-center">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      c.state === 'active'
+                        ? 'bg-green-100 text-green-700'
+                        : c.state === 'idle'
+                        ? 'bg-slate-100 text-slate-500'
+                        : 'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {c.state}
+                    </span>
+                  </td>
+                  <td className="px-4 py-1.5 font-mono text-slate-400">{c.query_start}</td>
+                  <td className="px-4 py-1.5 text-slate-400 max-w-[260px] truncate" title={c.ultima_query}>{c.ultima_query}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Tamaño por tabla */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-700">Tamaño por tabla</h3>
