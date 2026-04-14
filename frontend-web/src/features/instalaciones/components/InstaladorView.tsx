@@ -2,13 +2,14 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  MapPin, FileText, Play, CheckCircle2, Clock, 
-  AlertCircle, RefreshCw, Printer, ExternalLink, 
-  LayoutDashboard, History, Calendar, TrendingUp, 
+import {
+  MapPin, FileText, Play, CheckCircle2, Clock,
+  AlertCircle, AlertTriangle, RefreshCw, Printer, ExternalLink,
+  LayoutDashboard, History, Calendar, TrendingUp,
   Award, Target, Zap, ShieldCheck, Camera
 } from 'lucide-react';
 import ReportarEntregaModal from './ReportarEntregaModal';
+import ReportarDanoModal from './ReportarDanoModal';
 import PrintableOP from '../../odp/components/PrintableOP';
 import PrintableDetalleTecnico from '../../odp/components/PrintableDetalleTecnico';
 import PrintableSAP from '../../odp/components/PrintableSAP';
@@ -26,6 +27,7 @@ const InstaladorView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'hoy' | 'historial' | 'metricas'>('hoy');
   const [iniciando, setIniciando] = useState<number | null>(null);
   const [finalizando, setFinalizando] = useState<{ rutaODPId: number; numeroODP: string } | null>(null);
+  const [reportandoDano, setReportandoDano] = useState<{ rutaODPId: number; numeroODP: string } | null>(null);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -179,12 +181,13 @@ const InstaladorView: React.FC = () => {
                 <EmptyState icon={ShieldCheck} title="Misión Cumplida" desc="No tienes tareas pendientes por instalar ahora." />
               ) : (
                 asignacion.filter(a => a.estado !== 'completada').map(item => (
-                  <TaskCard 
-                    key={item.id} 
-                    item={item} 
-                    onIniciar={handleIniciar} 
+                  <TaskCard
+                    key={item.id}
+                    item={item}
+                    onIniciar={handleIniciar}
                     onFinalizar={() => setFinalizando({ rutaODPId: item.id, numeroODP: item.odp.numero_odp })}
-                    abrirDoc={abrirDocumento} 
+                    onReportarDano={() => setReportandoDano({ rutaODPId: item.id, numeroODP: item.odp.numero_odp })}
+                    abrirDoc={abrirDocumento}
                     abrirMapa={abrirMapa}
                     iniciando={iniciando === item.id}
                   />
@@ -237,12 +240,22 @@ const InstaladorView: React.FC = () => {
           onCompletado={() => { setFinalizando(null); cargar(); }}
         />
       )}
+
+      {/* MODAL REPORTAR DAÑO */}
+      {reportandoDano && (
+        <ReportarDanoModal
+          rutaODPId={reportandoDano.rutaODPId}
+          numeroODP={reportandoDano.numeroODP}
+          onClose={() => setReportandoDano(null)}
+          onReportado={() => { setReportandoDano(null); cargar(); }}
+        />
+      )}
     </div>
   );
 };
 
 // ––– SUBCOMPONENTE: TASK CARD –––
-const TaskCard = ({ item, onIniciar, onFinalizar, abrirDoc, abrirMapa, iniciando, isHistory }: any) => {
+const TaskCard = ({ item, onIniciar, onFinalizar, onReportarDano, abrirDoc, abrirMapa, iniciando, isHistory }: any) => {
   const odp = item.odp;
   const enCurso = item.estado === 'en_curso';
   const completada = item.estado === 'completada';
@@ -309,10 +322,16 @@ const TaskCard = ({ item, onIniciar, onFinalizar, abrirDoc, abrirMapa, iniciando
            </div>
 
            {enCurso && (
-             <button onClick={onFinalizar}
-               className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-emerald-50 transition-all flex items-center justify-center gap-3">
-               <Camera className="w-4 h-4" /> Reportar y Finalizar
-             </button>
+             <div className="flex flex-col gap-2">
+               <button onClick={onFinalizar}
+                 className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-emerald-50 transition-all flex items-center justify-center gap-3">
+                 <Camera className="w-4 h-4" /> Reportar y Finalizar
+               </button>
+               <button onClick={onReportarDano}
+                 className="w-full py-3 bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 font-black text-xs uppercase tracking-[0.15em] rounded-2xl transition-all flex items-center justify-center gap-2">
+                 <AlertTriangle className="w-4 h-4" /> Instalación con Daño
+               </button>
+             </div>
            )}
 
            {completada && (

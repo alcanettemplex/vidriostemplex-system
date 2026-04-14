@@ -1,0 +1,2692 @@
+[
+  {
+    "codigo_templex": "ADA0102",
+    "descripcion": "8025 ADAPTADOR 158 MATE",
+    "color": "MATE",
+    "referencia": "158",
+    "stock_metros": 1.6,
+    "cantidad_barras": 1,
+    "ubicacion": "P-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ADA0201",
+    "descripcion": "8025 ADAPTADOR 158 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "158",
+    "stock_metros": 1.9,
+    "cantidad_barras": 1,
+    "ubicacion": "P-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ADA0206",
+    "descripcion": "744 ADAPTADOR 403 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "403",
+    "stock_metros": 3.9,
+    "cantidad_barras": 1,
+    "ubicacion": "P-06",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ADA0404",
+    "descripcion": "3831 ADAPTADOR 175 BLANCO",
+    "color": "BLANCO",
+    "referencia": "175",
+    "stock_metros": 1.0,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ADA0405",
+    "descripcion": "744 ADAPTADOR 403 BLANCO",
+    "color": "BLANCO",
+    "referencia": "403",
+    "stock_metros": 4.0,
+    "cantidad_barras": 1,
+    "ubicacion": "P-06",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ADA0504",
+    "descripcion": "744 ADAPTADOR 403 BRONCE",
+    "color": "BRONCE",
+    "referencia": "403",
+    "stock_metros": 3.6,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ADA0601",
+    "descripcion": "744 ADAPTADOR 403 NEGRO",
+    "color": "NEGRO",
+    "referencia": "403",
+    "stock_metros": 1.0,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ADA0603",
+    "descripcion": "8025 ADAPTADOR 158 NEGRO",
+    "color": "NEGRO",
+    "referencia": "158",
+    "stock_metros": 3.7,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ADA0606",
+    "descripcion": "3831 ADAPTADOR 175 NEGRO",
+    "color": "NEGRO",
+    "referencia": "175",
+    "stock_metros": 1.8,
+    "cantidad_barras": 1,
+    "ubicacion": "P-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ADA0608",
+    "descripcion": "7038 ADAPTADOR 840 NEGRO",
+    "color": "NEGRO",
+    "referencia": "840",
+    "stock_metros": 2.6,
+    "cantidad_barras": 1,
+    "ubicacion": "P-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ALF0101",
+    "descripcion": "ALFAJIA S-332 MATE",
+    "color": "MATE",
+    "referencia": "S-332",
+    "stock_metros": 3.1,
+    "cantidad_barras": 2,
+    "ubicacion": "P-07, R-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ALF0102",
+    "descripcion": "ALFAJIA 413 MATE",
+    "color": "MATE",
+    "referencia": "413",
+    "stock_metros": 8.7,
+    "cantidad_barras": 5,
+    "ubicacion": "P-07, R-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ALF0104",
+    "descripcion": "ALFAJIA S-012 MATE",
+    "color": "MATE",
+    "referencia": "S-012",
+    "stock_metros": 3.2,
+    "cantidad_barras": 3,
+    "ubicacion": "P-07, R-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ALF0105",
+    "descripcion": "SILLAR ALFAJIA 616 MATE",
+    "color": "MATE",
+    "referencia": "616",
+    "stock_metros": 6.0,
+    "cantidad_barras": 1,
+    "ubicacion": "C-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ALF0111",
+    "descripcion": "ALFAJIA 1123 MATE",
+    "color": "MATE",
+    "referencia": "1123",
+    "stock_metros": 1.9,
+    "cantidad_barras": 2,
+    "ubicacion": "R-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ALF0204",
+    "descripcion": "ALFAJIA 413 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "413",
+    "stock_metros": 1.3,
+    "cantidad_barras": 1,
+    "ubicacion": "P-07",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ALF0402",
+    "descripcion": "ALFAJIA S-012 BLANCA",
+    "color": "BLANCO",
+    "referencia": "S-012",
+    "stock_metros": 2.26,
+    "cantidad_barras": 2,
+    "ubicacion": "R-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ALF0501",
+    "descripcion": "ALFAJIA 1123 BRONCE",
+    "color": "BRONCE",
+    "referencia": "1123",
+    "stock_metros": 2.2,
+    "cantidad_barras": 2,
+    "ubicacion": "R-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ALF0503",
+    "descripcion": "ALFAJIA S-012 BRONCE",
+    "color": "BRONCE",
+    "referencia": "S-012",
+    "stock_metros": 1.1,
+    "cantidad_barras": 1,
+    "ubicacion": "R-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ALF0532",
+    "descripcion": "ALFAJIA S-332 BRONCE",
+    "color": "BRONCE",
+    "referencia": "S-332",
+    "stock_metros": 2.2,
+    "cantidad_barras": 2,
+    "ubicacion": "R-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ALF0601",
+    "descripcion": "ALFAJIA 1123 NEGRO",
+    "color": "NEGRO",
+    "referencia": "1123",
+    "stock_metros": 5.0,
+    "cantidad_barras": 4,
+    "ubicacion": "R-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ALF0603",
+    "descripcion": "ALFAJIA 413 NEGRA",
+    "color": "NEGRO",
+    "referencia": "413",
+    "stock_metros": 8.9,
+    "cantidad_barras": 3,
+    "ubicacion": "C-01, P-07, R-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ALF0604",
+    "descripcion": "ALFAJIA S-332 NEGRA",
+    "color": "NEGRO",
+    "referencia": "S-332",
+    "stock_metros": 6.9,
+    "cantidad_barras": 2,
+    "ubicacion": "C-02, R-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ALF0605",
+    "descripcion": "ALFAJIA S-012 NEGRO",
+    "color": "NEGRO",
+    "referencia": "S-012",
+    "stock_metros": 0.7,
+    "cantidad_barras": 1,
+    "ubicacion": "R-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ALF0612",
+    "descripcion": "ALFAJIA 449 NEGRA",
+    "color": "NEGRO",
+    "referencia": "449",
+    "stock_metros": 22.16,
+    "cantidad_barras": 10,
+    "ubicacion": "C-01, C-03, P-07, R-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ANG0101",
+    "descripcion": "ANGULO IRREGULAR A-46 MATE",
+    "color": "MATE",
+    "referencia": "A-46",
+    "stock_metros": 33.5,
+    "cantidad_barras": 6,
+    "ubicacion": "C-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ANG0201",
+    "descripcion": "ANGULO A-01 GRIS PLATA (1/2 X 1/2)",
+    "color": "GRIS PLATA",
+    "referencia": "A-01",
+    "stock_metros": 3.0,
+    "cantidad_barras": 1,
+    "ubicacion": "R-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ANG0401",
+    "descripcion": "ANGULO IRREGULAR A-46 BLANCO",
+    "color": "BLANCO",
+    "referencia": "A-46",
+    "stock_metros": 20.07,
+    "cantidad_barras": 1,
+    "ubicacion": "R-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ANG0409",
+    "descripcion": "ANGULO A-01 BLANCO (1/2 X 1/2)",
+    "color": "BLANCO",
+    "referencia": "A-01",
+    "stock_metros": 8.1,
+    "cantidad_barras": 2,
+    "ubicacion": "C-03, R-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ANG0506",
+    "descripcion": "ANGULO A-01 BRONCE (1/2*1/2)",
+    "color": "BRONCE",
+    "referencia": "A-01",
+    "stock_metros": 1.4,
+    "cantidad_barras": 1,
+    "ubicacion": "R-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ANG0508",
+    "descripcion": "ANGULO IRREGULAR A-46 BRONCE",
+    "color": "BRONCE",
+    "referencia": "A-46",
+    "stock_metros": 3.1,
+    "cantidad_barras": 1,
+    "ubicacion": "P-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ANG0601",
+    "descripcion": "ANGULO IRREGULAR A-46 NEGRO",
+    "color": "NEGRO",
+    "referencia": "A-46",
+    "stock_metros": 1.4,
+    "cantidad_barras": 1,
+    "ubicacion": "R-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ANG0609",
+    "descripcion": "ANGULO A-09 NEGRO (1\" X 1\")",
+    "color": "NEGRO",
+    "referencia": "A-09",
+    "stock_metros": 6.0,
+    "cantidad_barras": 1,
+    "ubicacion": "C-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ANG0610",
+    "descripcion": "ANGULO A-01 NEGRO (1/2 X 1/2)",
+    "color": "NEGRO",
+    "referencia": "A-01",
+    "stock_metros": 1.7,
+    "cantidad_barras": 1,
+    "ubicacion": "R-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0101",
+    "descripcion": "CABEZAL CABINA S-319 MATE",
+    "color": "MATE",
+    "referencia": "S-319",
+    "stock_metros": 3.3,
+    "cantidad_barras": 1,
+    "ubicacion": null,
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0102",
+    "descripcion": "5020 CABEZAL 144 MATE",
+    "color": "MATE",
+    "referencia": "144",
+    "stock_metros": 2.0,
+    "cantidad_barras": 1,
+    "ubicacion": "P-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0104",
+    "descripcion": "744 CABEZAL 392 MATE",
+    "color": "MATE",
+    "referencia": "392",
+    "stock_metros": 5.29,
+    "cantidad_barras": 5,
+    "ubicacion": "R-02, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0106",
+    "descripcion": "8025 CABEZAL 706 MATE",
+    "color": "MATE",
+    "referencia": "706",
+    "stock_metros": 3.8,
+    "cantidad_barras": 1,
+    "ubicacion": "P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0109",
+    "descripcion": "744 CABEZAL 1857 TRES RIELES MATE",
+    "color": "MATE",
+    "referencia": "1857",
+    "stock_metros": 4.0,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0201",
+    "descripcion": "CABEZAL CABINA S-319 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "S-319",
+    "stock_metros": 1.2,
+    "cantidad_barras": 1,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0203",
+    "descripcion": "5020 CABEZAL 144 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "144",
+    "stock_metros": 3.24,
+    "cantidad_barras": 2,
+    "ubicacion": "P-02, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0206",
+    "descripcion": "8025 CABEZAL 706 BLANCO",
+    "color": "BLANCO",
+    "referencia": "706",
+    "stock_metros": 3.49,
+    "cantidad_barras": 1,
+    "ubicacion": "P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0207",
+    "descripcion": "8025 CABEZAL 151 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "151",
+    "stock_metros": 6.3,
+    "cantidad_barras": 4,
+    "ubicacion": "P-01, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0401",
+    "descripcion": "CABEZAL CABINA S-319 BLANCO",
+    "color": "BLANCO",
+    "referencia": "S-319",
+    "stock_metros": 2.6,
+    "cantidad_barras": 3,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0402",
+    "descripcion": "744 CABEZAL 392 BLANCO",
+    "color": "BLANCO",
+    "referencia": "392",
+    "stock_metros": 3.45,
+    "cantidad_barras": 2,
+    "ubicacion": "P-03, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0404",
+    "descripcion": "7038 CABEZAL 700 BLANCO",
+    "color": "BLANCO",
+    "referencia": "700",
+    "stock_metros": 2.9,
+    "cantidad_barras": 1,
+    "ubicacion": "P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0410",
+    "descripcion": "5020 CABEZAL 144 BLANCO",
+    "color": "BLANCO",
+    "referencia": "144",
+    "stock_metros": 4.5,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0501",
+    "descripcion": "CABEZAL CABINA S-319 BRONCE",
+    "color": "BRONCE",
+    "referencia": "S-319",
+    "stock_metros": 4.67,
+    "cantidad_barras": 2,
+    "ubicacion": "P-06, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0504",
+    "descripcion": "8025 CABEZAL 706 BRONCE",
+    "color": "BRONCE",
+    "referencia": "706",
+    "stock_metros": 7.7,
+    "cantidad_barras": 2,
+    "ubicacion": "P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0505",
+    "descripcion": "8025 CABEZAL 151 BRONCE",
+    "color": "BRONCE",
+    "referencia": "151",
+    "stock_metros": 1.9,
+    "cantidad_barras": 1,
+    "ubicacion": "P-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0510",
+    "descripcion": "5020 CABEZAL 144 BRONCE",
+    "color": "BRONCE",
+    "referencia": "144",
+    "stock_metros": 8.5,
+    "cantidad_barras": 2,
+    "ubicacion": "C-02, P-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0601",
+    "descripcion": "7038 CABEZAL 700 NEGRO",
+    "color": "NEGRO",
+    "referencia": "700",
+    "stock_metros": 5.8,
+    "cantidad_barras": 2,
+    "ubicacion": "P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0602",
+    "descripcion": "744 CABEZAL 392 NEGRO",
+    "color": "NEGRO",
+    "referencia": "392",
+    "stock_metros": 1.0,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0603",
+    "descripcion": "8025 CABEZAL 706 NEGRO",
+    "color": "NEGRO",
+    "referencia": "706",
+    "stock_metros": 20.4,
+    "cantidad_barras": 8,
+    "ubicacion": "P-02, P-03, P-07, P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0605",
+    "descripcion": "CABEZAL CABINA S-319 NEGRO",
+    "color": "NEGRO",
+    "referencia": "S-319",
+    "stock_metros": 1.9,
+    "cantidad_barras": 2,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CAB0608",
+    "descripcion": "7038 CABEZAL TRES RIELES 1730 NEGRO",
+    "color": "NEGRO",
+    "referencia": "1730",
+    "stock_metros": 3.6,
+    "cantidad_barras": 1,
+    "ubicacion": "P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "CABE8025",
+    "descripcion": "8025 CABEZAL 151 MATE",
+    "color": "MATE",
+    "referencia": "151",
+    "stock_metros": 6.8,
+    "cantidad_barras": 2,
+    "ubicacion": "P-03, P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "DIV0101",
+    "descripcion": "3831 DIVISOR 292 MATE",
+    "color": "MATE",
+    "referencia": "292",
+    "stock_metros": 7.7,
+    "cantidad_barras": 5,
+    "ubicacion": "P-01, R-02, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "DIV0205",
+    "descripcion": "3831 DIVISOR 1103 MATE",
+    "color": "MATE",
+    "referencia": "1103",
+    "stock_metros": 7.8,
+    "cantidad_barras": 2,
+    "ubicacion": "C-01, P-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "DIV0401",
+    "descripcion": "3831 DIVISOR 292 BLANCO",
+    "color": "BLANCO",
+    "referencia": "292",
+    "stock_metros": 3.3,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "DIV0502",
+    "descripcion": "3831 DIVISOR 292 BRONCE",
+    "color": "BRONCE",
+    "referencia": "292",
+    "stock_metros": 6.9,
+    "cantidad_barras": 2,
+    "ubicacion": "C-01, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENG0101",
+    "descripcion": "744 ENGANCHE 391 MATE",
+    "color": "MATE",
+    "referencia": "391",
+    "stock_metros": 2.8,
+    "cantidad_barras": 2,
+    "ubicacion": "P-02, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENG0102",
+    "descripcion": "5020 ENGANCHE 147 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "147",
+    "stock_metros": 3.7,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENG0103",
+    "descripcion": "5020 ENGANCHE 147 MATE",
+    "color": "MATE",
+    "referencia": "147",
+    "stock_metros": 5.6,
+    "cantidad_barras": 2,
+    "ubicacion": "P-06, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENG0201",
+    "descripcion": "8025 ENGANCHE 191 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "191",
+    "stock_metros": 7.0,
+    "cantidad_barras": 5,
+    "ubicacion": "P-02, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENG0304",
+    "descripcion": "744 ENGANCHE 391 CRUDO",
+    "color": "CRUDO ",
+    "referencia": "391",
+    "stock_metros": 1.9,
+    "cantidad_barras": 1,
+    "ubicacion": null,
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENG0402",
+    "descripcion": "8025 ENGANCHE 191 BLANCO",
+    "color": "BLANCO",
+    "referencia": "191",
+    "stock_metros": 1.1,
+    "cantidad_barras": 1,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENG0403",
+    "descripcion": "744 ENGANCHE 391 BLANCO",
+    "color": "BLANCO",
+    "referencia": "391",
+    "stock_metros": 3.9,
+    "cantidad_barras": 3,
+    "ubicacion": "P-01, R-02, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENG0404",
+    "descripcion": "7038 ENGANCHE 705 BLANCO",
+    "color": "BLANCO",
+    "referencia": "705",
+    "stock_metros": 2.35,
+    "cantidad_barras": 1,
+    "ubicacion": "P-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENG0406",
+    "descripcion": "5020 ENGANCHE 147 BLANCO",
+    "color": "BLANCO",
+    "referencia": "147",
+    "stock_metros": 0.8,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENG0501",
+    "descripcion": "7038 ENGANCHE 705 BRONCE",
+    "color": "BRONCE",
+    "referencia": "705",
+    "stock_metros": 2.2,
+    "cantidad_barras": 1,
+    "ubicacion": "P-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENG0503",
+    "descripcion": "8025 ENGANCHE 191 BRONCE",
+    "color": "BRONCE",
+    "referencia": "191",
+    "stock_metros": 10.5,
+    "cantidad_barras": 7,
+    "ubicacion": "P-02, R-02, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENG0504",
+    "descripcion": "5020 ENGANCHE 147 BRONCE",
+    "color": "BRONCE",
+    "referencia": "147",
+    "stock_metros": 2.7,
+    "cantidad_barras": 2,
+    "ubicacion": "P-01, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENG0601",
+    "descripcion": "744 ENGANCHE 391 NEGRO",
+    "color": "NEGRO",
+    "referencia": "391",
+    "stock_metros": 2.8,
+    "cantidad_barras": 2,
+    "ubicacion": "P-02, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENG0602",
+    "descripcion": "7038 ENGANCHE 705 NEGRO",
+    "color": "NEGRO",
+    "referencia": "705",
+    "stock_metros": 3.6,
+    "cantidad_barras": 1,
+    "ubicacion": "P-06",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENG0607",
+    "descripcion": "8025 ENGANCHE 191 NEGRO",
+    "color": "NEGRO",
+    "referencia": "191",
+    "stock_metros": 5.6,
+    "cantidad_barras": 2,
+    "ubicacion": "P-05, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ENGA8025",
+    "descripcion": "8025 ENGANCHE 191 MATE",
+    "color": "MATE",
+    "referencia": "191",
+    "stock_metros": 7.5,
+    "cantidad_barras": 2,
+    "ubicacion": "C-01, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ESQ0103",
+    "descripcion": "3831 ESQUINERO 416 MATE",
+    "color": "MATE",
+    "referencia": "416",
+    "stock_metros": 6.4,
+    "cantidad_barras": 4,
+    "ubicacion": "P-05, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ESQ0501",
+    "descripcion": "3831 ESQUINERO 416 BRONCE",
+    "color": "BRONCE",
+    "referencia": "416",
+    "stock_metros": 5.8,
+    "cantidad_barras": 2,
+    "ubicacion": "P-01, P-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ESQ0604",
+    "descripcion": "3831 ESQUINERO 416 NEGRO",
+    "color": "NEGRO",
+    "referencia": "416",
+    "stock_metros": 2.4,
+    "cantidad_barras": 1,
+    "ubicacion": "P-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "F080101",
+    "descripcion": "TABLILLA F-08 MATE",
+    "color": "MATE",
+    "referencia": "F-08",
+    "stock_metros": 8.0,
+    "cantidad_barras": 2,
+    "ubicacion": "C-01, P-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "F080501",
+    "descripcion": "TABLILLA F-08 BRONCE",
+    "color": "BRONCE",
+    "referencia": "F-08",
+    "stock_metros": 1.1,
+    "cantidad_barras": 1,
+    "ubicacion": "R-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "F080601",
+    "descripcion": "TABLILLA F-08 NEGRA",
+    "color": "NEGRO",
+    "referencia": "F-08",
+    "stock_metros": 3.3,
+    "cantidad_barras": 1,
+    "ubicacion": "P-07",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "FAR0102",
+    "descripcion": "FALSA RETICULA 511 MATE",
+    "color": "MATE",
+    "referencia": "511",
+    "stock_metros": 4.4,
+    "cantidad_barras": 1,
+    "ubicacion": "P-06",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "FAR0401",
+    "descripcion": "FALSA RETICULA 511 BLANCA",
+    "color": "BLANCO",
+    "referencia": "511",
+    "stock_metros": 6.1,
+    "cantidad_barras": 2,
+    "ubicacion": "P-02, P-06",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "FAR0501",
+    "descripcion": "FALSA RETICULA 511 BRONCE",
+    "color": "BRONCE",
+    "referencia": "511",
+    "stock_metros": 3.9,
+    "cantidad_barras": 1,
+    "ubicacion": "P-06",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "FAR0601",
+    "descripcion": "FALSA RETICULA 511 NEGRA",
+    "color": "NEGRO",
+    "referencia": "511",
+    "stock_metros": 6.0,
+    "cantidad_barras": 1,
+    "ubicacion": "C-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOI0101",
+    "descripcion": "744 HORIZONTAL INFERIOR 390 MATE",
+    "color": "MATE",
+    "referencia": "390",
+    "stock_metros": 0.7,
+    "cantidad_barras": 1,
+    "ubicacion": "R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOI0102",
+    "descripcion": "8025 HORIZONTAL INFERIOR 157 MATE",
+    "color": "MATE",
+    "referencia": "157",
+    "stock_metros": 6.0,
+    "cantidad_barras": 1,
+    "ubicacion": "C-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOI0204",
+    "descripcion": "744 HORIZONTAL INFERIOR 390 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "390",
+    "stock_metros": 0.9,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOI0402",
+    "descripcion": "744 HORIZONTAL INFERIOR 390 BLANCO",
+    "color": "BLANCO",
+    "referencia": "390",
+    "stock_metros": 4.3,
+    "cantidad_barras": 2,
+    "ubicacion": "P-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOI0503",
+    "descripcion": "744 HORIZONTAL INFERIOR 390 BRONCE",
+    "color": "BRONCE",
+    "referencia": "390",
+    "stock_metros": 0.5,
+    "cantidad_barras": 1,
+    "ubicacion": "R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOI0505",
+    "descripcion": "8025 HORIZONTAL INFERIOR 157 BRONCE",
+    "color": "BRONCE",
+    "referencia": "157",
+    "stock_metros": 0.9,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOI0602",
+    "descripcion": "8025 HORIZONTAL INFERIOR 157 NEGRO",
+    "color": "NEGRO",
+    "referencia": "157",
+    "stock_metros": 2.5,
+    "cantidad_barras": 1,
+    "ubicacion": "P-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOI0606",
+    "descripcion": "744 HORIZONTAL INFERIOR 390 NEGRO",
+    "color": "NEGRO",
+    "referencia": "390",
+    "stock_metros": 1.8,
+    "cantidad_barras": 1,
+    "ubicacion": "P-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOR0102",
+    "descripcion": "7038 HORIZONTAL 703 MATE",
+    "color": "MATE",
+    "referencia": "703",
+    "stock_metros": 4.8,
+    "cantidad_barras": 2,
+    "ubicacion": "P-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOR0204",
+    "descripcion": "5020 HORIZONTAL 148 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "148",
+    "stock_metros": 5.3,
+    "cantidad_barras": 2,
+    "ubicacion": "P-05, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOR0408",
+    "descripcion": "5020 HORIZONTAL 148 BLANCO",
+    "color": "BLANCO",
+    "referencia": "148",
+    "stock_metros": 0.5,
+    "cantidad_barras": 1,
+    "ubicacion": "R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOR0502",
+    "descripcion": "5020 HORIZONTAL 148 BRONCE",
+    "color": "BRONCE",
+    "referencia": "148",
+    "stock_metros": 3.7,
+    "cantidad_barras": 2,
+    "ubicacion": "P-02, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOR0602",
+    "descripcion": "7038 HORIZONTAL 703 NEGRO",
+    "color": "NEGRO",
+    "referencia": "703",
+    "stock_metros": 4.2,
+    "cantidad_barras": 2,
+    "ubicacion": "P-06, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOR0603",
+    "descripcion": "5020 HORIZONTAL 148 NEGRO",
+    "color": "NEGRO",
+    "referencia": "148",
+    "stock_metros": 0.8,
+    "cantidad_barras": 1,
+    "ubicacion": "R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HORS061",
+    "descripcion": "8025 HORIZONTAL SUPERIOR 156 NEGRO",
+    "color": "NEGRO",
+    "referencia": "156",
+    "stock_metros": 1.1,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOS0101",
+    "descripcion": "744 HORIZONTAL SUPERIOR 389 MATE",
+    "color": "MATE",
+    "referencia": "389",
+    "stock_metros": 1.2,
+    "cantidad_barras": 2,
+    "ubicacion": "R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOS0202",
+    "descripcion": "744 HORIZONTAL SUPERIOR 389 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "389",
+    "stock_metros": 2.5,
+    "cantidad_barras": 2,
+    "ubicacion": "P-01, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOS0302",
+    "descripcion": "744 HORIZONTAL SUPERIOR 389 CRUDO",
+    "color": "CRUDO ",
+    "referencia": "389",
+    "stock_metros": 3.1,
+    "cantidad_barras": 1,
+    "ubicacion": null,
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOS0401",
+    "descripcion": "744 HORIZONTAL SUPERIOR 389 BLANCO",
+    "color": "BLANCO",
+    "referencia": "389",
+    "stock_metros": 2.3,
+    "cantidad_barras": 1,
+    "ubicacion": "P-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOS0503",
+    "descripcion": "744 HORIZONTAL SUPERIOR 389 BRONCE",
+    "color": "BRONCE",
+    "referencia": "389",
+    "stock_metros": 1.1,
+    "cantidad_barras": 2,
+    "ubicacion": "R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOS0601",
+    "descripcion": "744 HORIZONTAL SUPERIOR 389 NEGRO",
+    "color": "NEGRO",
+    "referencia": "389",
+    "stock_metros": 7.3,
+    "cantidad_barras": 3,
+    "ubicacion": "C-02, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "HOSU8025",
+    "descripcion": "8025 HORIZONTAL SUPERIOR 156 MATE",
+    "color": "MATE",
+    "referencia": "156",
+    "stock_metros": 6.0,
+    "cantidad_barras": 1,
+    "ubicacion": "C-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0101",
+    "descripcion": "3831 JAMBA 174 BRONCE",
+    "color": "BRONCE",
+    "referencia": "174",
+    "stock_metros": 1.2,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0102",
+    "descripcion": "5020 JAMBA 193 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "193",
+    "stock_metros": 3.7,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0103",
+    "descripcion": "5020 JAMBA 193 MATE",
+    "color": "MATE",
+    "referencia": "193",
+    "stock_metros": 6.4,
+    "cantidad_barras": 2,
+    "ubicacion": "P-05, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0104",
+    "descripcion": "7038 JAMBA 702 MATE",
+    "color": "MATE",
+    "referencia": "702",
+    "stock_metros": 7.5,
+    "cantidad_barras": 3,
+    "ubicacion": "P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0106",
+    "descripcion": "8025 JAMBA 708 MATE",
+    "color": "MATE",
+    "referencia": "708",
+    "stock_metros": 6.0,
+    "cantidad_barras": 1,
+    "ubicacion": "C-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0109",
+    "descripcion": "744 JAMBA 1858 TRES RIELES MATE",
+    "color": "MATE",
+    "referencia": "1858",
+    "stock_metros": 6.0,
+    "cantidad_barras": 2,
+    "ubicacion": "P-05, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0206",
+    "descripcion": "3831 JAMBA 174 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "174",
+    "stock_metros": 2.6,
+    "cantidad_barras": 2,
+    "ubicacion": "P-01, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0207",
+    "descripcion": "8025 JAMBA 152 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "152",
+    "stock_metros": 1.0,
+    "cantidad_barras": 1,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0302",
+    "descripcion": "3831 JAMBA 174 CRUDO",
+    "color": "CRUDO ",
+    "referencia": "174",
+    "stock_metros": 15.0,
+    "cantidad_barras": 4,
+    "ubicacion": "C-02, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0306",
+    "descripcion": "744 JAMBA 393 CRUDO",
+    "color": "CRUDO ",
+    "referencia": "393",
+    "stock_metros": 1.7,
+    "cantidad_barras": 1,
+    "ubicacion": null,
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0402",
+    "descripcion": "744 JAMBA 393 BLANCO",
+    "color": "BLANCO",
+    "referencia": "393",
+    "stock_metros": 0.8,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0403",
+    "descripcion": "5020 JAMBA 193 BLANCO",
+    "color": "BLANCO",
+    "referencia": "193",
+    "stock_metros": 1.2,
+    "cantidad_barras": 2,
+    "ubicacion": "R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0405",
+    "descripcion": "7038 JAMBA 702 BLANCO",
+    "color": "BLANCO",
+    "referencia": "702",
+    "stock_metros": 3.0,
+    "cantidad_barras": 1,
+    "ubicacion": "P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0408",
+    "descripcion": "8025 JAMBA 152 BLANCO",
+    "color": "BLANCO",
+    "referencia": "152",
+    "stock_metros": 2.0,
+    "cantidad_barras": 2,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0504",
+    "descripcion": "5020 JAMBA 193 BRONCE",
+    "color": "BRONCE",
+    "referencia": "193",
+    "stock_metros": 3.8,
+    "cantidad_barras": 2,
+    "ubicacion": "P-02, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0505",
+    "descripcion": "744 JAMBA 393 BRONCE",
+    "color": "BRONCE",
+    "referencia": "393",
+    "stock_metros": 1.7,
+    "cantidad_barras": 1,
+    "ubicacion": "P-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0506",
+    "descripcion": "8025 JAMBA 152 BRONCE",
+    "color": "BRONCE",
+    "referencia": "152",
+    "stock_metros": 7.5,
+    "cantidad_barras": 5,
+    "ubicacion": "P-02, P-03, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0508",
+    "descripcion": "8025 JAMBA 708 BRONCE",
+    "color": "BRONCE",
+    "referencia": "708",
+    "stock_metros": 7.5,
+    "cantidad_barras": 3,
+    "ubicacion": "P-03, P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0601",
+    "descripcion": "744 JAMBA 393 NEGRO",
+    "color": "NEGRO",
+    "referencia": "393",
+    "stock_metros": 1.6,
+    "cantidad_barras": 1,
+    "ubicacion": "P-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0603",
+    "descripcion": "7038 JAMBA 702 NEGRO",
+    "color": "NEGRO",
+    "referencia": "702",
+    "stock_metros": 8.0,
+    "cantidad_barras": 2,
+    "ubicacion": "C-01, P-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0604",
+    "descripcion": "3831 JAMBA 174 NEGRO",
+    "color": "NEGRO",
+    "referencia": "174",
+    "stock_metros": 3.4,
+    "cantidad_barras": 4,
+    "ubicacion": "R-03, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0605",
+    "descripcion": "5020 JAMBA 193 NEGRO",
+    "color": "NEGRO",
+    "referencia": "193",
+    "stock_metros": 2.1,
+    "cantidad_barras": 1,
+    "ubicacion": "P-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0606",
+    "descripcion": "744 JAMBA TRES RIELES 1858 NEGRO",
+    "color": "NEGRO",
+    "referencia": "1858",
+    "stock_metros": 7.7,
+    "cantidad_barras": 3,
+    "ubicacion": "P-01, P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM0610",
+    "descripcion": "8025 JAMBA 708 NEGRO",
+    "color": "NEGRO",
+    "referencia": "708",
+    "stock_metros": 5.5,
+    "cantidad_barras": 3,
+    "ubicacion": "P-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "JAM8025",
+    "descripcion": "8025 JAMBA 152 MATE",
+    "color": "MATE",
+    "referencia": "152",
+    "stock_metros": 15.0,
+    "cantidad_barras": 6,
+    "ubicacion": "C-01, P-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "MOS0501",
+    "descripcion": "PERFIL MOSQUITERO M-364 ",
+    "color": "CRUDO ",
+    "referencia": "M-364",
+    "stock_metros": 8.6,
+    "cantidad_barras": 3,
+    "ubicacion": "P-04, P-06, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "MOSMATE",
+    "descripcion": "PERFIL MOSQUITERO M-364 MATE",
+    "color": "MATE",
+    "referencia": "M-364",
+    "stock_metros": 2.8,
+    "cantidad_barras": 2,
+    "ubicacion": "P-01, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "NAV0101",
+    "descripcion": "3831 NAVE 176 MATE",
+    "color": "MATE",
+    "referencia": "176",
+    "stock_metros": 0.5,
+    "cantidad_barras": 1,
+    "ubicacion": "R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "NAV0202",
+    "descripcion": "3831 NAVE 176 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "176",
+    "stock_metros": 4.4,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "NAV0503",
+    "descripcion": "3831 NAVE 176 BRONCE",
+    "color": "BRONCE",
+    "referencia": "176",
+    "stock_metros": 0.9,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "NAV0606",
+    "descripcion": "3831 NAVE 176 NEGRO",
+    "color": "NEGRO",
+    "referencia": "176",
+    "stock_metros": 3.5,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "PCE0202",
+    "descripcion": "PERSIANA 315 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "315",
+    "stock_metros": 1.0,
+    "cantidad_barras": 1,
+    "ubicacion": "R-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "PEF0106",
+    "descripcion": "PERFIL F 463 NEGRO",
+    "color": "NEGRO",
+    "referencia": "F-463",
+    "stock_metros": 20.3,
+    "cantidad_barras": 8,
+    "ubicacion": "C-02, P-02, R-03, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "PEP0101",
+    "descripcion": "PERFIL U DE CABINA S-364 MATE",
+    "color": "MATE",
+    "referencia": "S-364",
+    "stock_metros": 3.0,
+    "cantidad_barras": 1,
+    "ubicacion": "P-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "PER0103",
+    "descripcion": "PERSIANA 315 MATE",
+    "color": "MATE",
+    "referencia": "315",
+    "stock_metros": 12.5,
+    "cantidad_barras": 3,
+    "ubicacion": "C-02, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "PER0301",
+    "descripcion": "PERFIL F 463 MATE",
+    "color": "MATE",
+    "referencia": "F-463",
+    "stock_metros": 4.3,
+    "cantidad_barras": 3,
+    "ubicacion": "P-01, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "PER0302",
+    "descripcion": "PERFIL F 463 CRUDO",
+    "color": "CRUDO ",
+    "referencia": "F-463",
+    "stock_metros": 1.9,
+    "cantidad_barras": 1,
+    "ubicacion": null,
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "PER0303",
+    "descripcion": "PERSIANA 315 CRUDO",
+    "color": "CRUDO ",
+    "referencia": "315",
+    "stock_metros": 7.3,
+    "cantidad_barras": 2,
+    "ubicacion": "C-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "PER0401",
+    "descripcion": "PERSIANA 315 BLANCO",
+    "color": "BLANCO",
+    "referencia": "315",
+    "stock_metros": 3.4,
+    "cantidad_barras": 1,
+    "ubicacion": "P-06",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "PER0601",
+    "descripcion": "PERSIANA 315 NEGRO",
+    "color": "NEGRO",
+    "referencia": "315",
+    "stock_metros": 28.0,
+    "cantidad_barras": 5,
+    "ubicacion": "C-01, P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "PIS0102",
+    "descripcion": "PISAVIDRIO CURVO 635 MATE",
+    "color": "MATE",
+    "referencia": "635",
+    "stock_metros": 11.2,
+    "cantidad_barras": 2,
+    "ubicacion": "C-03, P-06",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "PIS0204",
+    "descripcion": "3831 PISAVIDRIO 177 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "177",
+    "stock_metros": 1.9,
+    "cantidad_barras": 1,
+    "ubicacion": "P-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "PIS0304",
+    "descripcion": "3831 PISAVIDRIO 177 CRUDO",
+    "color": "CRUDO ",
+    "referencia": "177",
+    "stock_metros": 6.0,
+    "cantidad_barras": 1,
+    "ubicacion": "C-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "PIS0405",
+    "descripcion": "3831 PISAVIDRIO 177 BLANCO",
+    "color": "BLANCO",
+    "referencia": "177",
+    "stock_metros": 32.3,
+    "cantidad_barras": 11,
+    "ubicacion": "C-02, P-05, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "PIS0601",
+    "descripcion": "3831 PISAVIDRIO 435 NEGRO",
+    "color": "NEGRO",
+    "referencia": "435",
+    "stock_metros": 1.4,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "RDU0101",
+    "descripcion": "RIEL DUCASSE 1764 MATE",
+    "color": "MATE",
+    "referencia": "1764",
+    "stock_metros": 5.1,
+    "cantidad_barras": 2,
+    "ubicacion": "P-06, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "RDU0601",
+    "descripcion": "RIEL DUCASSE 1764 NEGRO",
+    "color": "NEGRO",
+    "referencia": "1764",
+    "stock_metros": 2.0,
+    "cantidad_barras": 1,
+    "ubicacion": "P-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ROS0301",
+    "descripcion": "RIEL OPTIGLASS SENCILLO SL-010 MATE",
+    "color": "MATE",
+    "referencia": "SL-010",
+    "stock_metros": 5.7,
+    "cantidad_barras": 2,
+    "ubicacion": "P-01, P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ROS0302",
+    "descripcion": "RIEL OPTIGLASS DOBLE SL-011 MATE",
+    "color": "MATE",
+    "referencia": "SL-011",
+    "stock_metros": 3.2,
+    "cantidad_barras": 1,
+    "ubicacion": "P-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ROS0601",
+    "descripcion": "RIEL OPTIGLASS SENCILLO SL-010 NEGRO",
+    "color": "NEGRO",
+    "referencia": "SL-010",
+    "stock_metros": 1.9,
+    "cantidad_barras": 1,
+    "ubicacion": "P-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ROS0602",
+    "descripcion": "RIEL OPTIGLASS DOBLE SL-011 NEGRO",
+    "color": "NEGRO",
+    "referencia": "SL-011",
+    "stock_metros": 3.0,
+    "cantidad_barras": 1,
+    "ubicacion": "P-06",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0101",
+    "descripcion": "SILLAR CABINA S-201 MATE",
+    "color": "MATE",
+    "referencia": "S-201",
+    "stock_metros": 0.7,
+    "cantidad_barras": 1,
+    "ubicacion": "R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0103",
+    "descripcion": "3831 ADAPTADOR 175 MATE",
+    "color": "MATE",
+    "referencia": "175",
+    "stock_metros": 10.9,
+    "cantidad_barras": 7,
+    "ubicacion": "C-02, R-03, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0106",
+    "descripcion": "8025 SILLAR 150 MATE",
+    "color": "MATE",
+    "referencia": "150",
+    "stock_metros": 6.7,
+    "cantidad_barras": 2,
+    "ubicacion": "P-03, P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0109",
+    "descripcion": "744 SILLAR 1856 TRES RIELES MATE",
+    "color": "MATE",
+    "referencia": "1856",
+    "stock_metros": 4.0,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0110",
+    "descripcion": "8025 SILLAR 707 MATE",
+    "color": "MATE",
+    "referencia": "707",
+    "stock_metros": 6.7,
+    "cantidad_barras": 2,
+    "ubicacion": "P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0201",
+    "descripcion": "SILLAR CABINA S-201 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "S-201",
+    "stock_metros": 1.9,
+    "cantidad_barras": 2,
+    "ubicacion": "R-02, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0203",
+    "descripcion": "3831 SILLAR CABEZAL 173 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "173",
+    "stock_metros": 1.5,
+    "cantidad_barras": 1,
+    "ubicacion": "P-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0205",
+    "descripcion": "5020 SILLAR 194 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "194",
+    "stock_metros": 4.9,
+    "cantidad_barras": 2,
+    "ubicacion": "P-01, P-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0207",
+    "descripcion": "8025 SILLAR 150 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "150",
+    "stock_metros": 3.5,
+    "cantidad_barras": 3,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0212",
+    "descripcion": "744 SILLAR 387 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "387",
+    "stock_metros": 1.2,
+    "cantidad_barras": 1,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0301",
+    "descripcion": "3831 SILLAR CABEZAL 173 CRUDO",
+    "color": "CRUDO ",
+    "referencia": "173",
+    "stock_metros": 2.1,
+    "cantidad_barras": 1,
+    "ubicacion": null,
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0402",
+    "descripcion": "8025 SILLAR 707 BLANCO",
+    "color": "BLANCO",
+    "referencia": "707",
+    "stock_metros": 3.49,
+    "cantidad_barras": 1,
+    "ubicacion": "P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0403",
+    "descripcion": "8025 SILLAR 150 BLANCO",
+    "color": "BLANCO",
+    "referencia": "150",
+    "stock_metros": 1.1,
+    "cantidad_barras": 1,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0404",
+    "descripcion": "7038 SILLAR 701 BLANCO",
+    "color": "BLANCO",
+    "referencia": "701",
+    "stock_metros": 2.9,
+    "cantidad_barras": 1,
+    "ubicacion": "P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0408",
+    "descripcion": "744 SILLAR 387 BLANCO",
+    "color": "BLANCO",
+    "referencia": "387",
+    "stock_metros": 3.45,
+    "cantidad_barras": 2,
+    "ubicacion": "P-03, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0415",
+    "descripcion": "3831 SILLAR CABEZAL 173 BLANCO",
+    "color": "BLANCO",
+    "referencia": "173",
+    "stock_metros": 12.0,
+    "cantidad_barras": 10,
+    "ubicacion": "C-02, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0416",
+    "descripcion": "5020 SILLAR 194 BLANCO",
+    "color": "BLANCO",
+    "referencia": "194",
+    "stock_metros": 4.5,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0501",
+    "descripcion": "SILLAR CABINA S-201 BRONCE",
+    "color": "BRONCE",
+    "referencia": "S-201",
+    "stock_metros": 3.6,
+    "cantidad_barras": 3,
+    "ubicacion": "P-01, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0502",
+    "descripcion": "3831 ADAPTADOR 175 BRONCE",
+    "color": "BRONCE",
+    "referencia": "175",
+    "stock_metros": 25.0,
+    "cantidad_barras": 5,
+    "ubicacion": "C-01, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0503",
+    "descripcion": "7038 SILLAR 701 BRONCE",
+    "color": "BRONCE",
+    "referencia": "701",
+    "stock_metros": 3.5,
+    "cantidad_barras": 1,
+    "ubicacion": "P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0504",
+    "descripcion": "3831 SILLAR CABEZAL 173 BRONCE",
+    "color": "BRONCE",
+    "referencia": "173",
+    "stock_metros": 3.4,
+    "cantidad_barras": 2,
+    "ubicacion": "P-01, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0506",
+    "descripcion": "5020 SILLAR 194 BRONCE",
+    "color": "BRONCE",
+    "referencia": "194",
+    "stock_metros": 8.7,
+    "cantidad_barras": 3,
+    "ubicacion": "C-02, P-02, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0508",
+    "descripcion": "8025 SILLAR 707 BRONCE",
+    "color": "BRONCE",
+    "referencia": "707",
+    "stock_metros": 7.7,
+    "cantidad_barras": 2,
+    "ubicacion": "P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0510",
+    "descripcion": "8025 SILLAR 150 BRONCE",
+    "color": "BRONCE",
+    "referencia": "150",
+    "stock_metros": 1.3,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0601",
+    "descripcion": "7038 SILLAR 701 NEGRO",
+    "color": "NEGRO",
+    "referencia": "701",
+    "stock_metros": 9.1,
+    "cantidad_barras": 2,
+    "ubicacion": "C-01, P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0603",
+    "descripcion": "5020 SILLAR 194 NEGRO",
+    "color": "NEGRO",
+    "referencia": "194",
+    "stock_metros": 0.7,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0604",
+    "descripcion": "SILLAR CABINA S-201 NEGRO",
+    "color": "NEGRO",
+    "referencia": "S-201",
+    "stock_metros": 8.7,
+    "cantidad_barras": 3,
+    "ubicacion": "P-05, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0605",
+    "descripcion": "7038 SILLAR TRES RIELES 2190 NEGRO",
+    "color": "NEGRO",
+    "referencia": "2190",
+    "stock_metros": 2.6,
+    "cantidad_barras": 1,
+    "ubicacion": null,
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0606",
+    "descripcion": "3831 SILLAR CABEZAL 173 NEGRO",
+    "color": "NEGRO",
+    "referencia": "173",
+    "stock_metros": 29.14,
+    "cantidad_barras": 5,
+    "ubicacion": "P-05, R-03, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0610",
+    "descripcion": "8025 SILLAR 707 NEGRO",
+    "color": "NEGRO",
+    "referencia": "707",
+    "stock_metros": 20.2,
+    "cantidad_barras": 8,
+    "ubicacion": "P-02, P-03, P-08",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIL0744",
+    "descripcion": "744 SILLAR 387 MATE",
+    "color": "MATE",
+    "referencia": "387",
+    "stock_metros": 3.7,
+    "cantidad_barras": 4,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SILL0501",
+    "descripcion": "5020 SILLAR ALFAJIA 581 BRONCE",
+    "color": "BRONCE",
+    "referencia": "581",
+    "stock_metros": 1.1,
+    "cantidad_barras": 1,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "SIN CODIGO",
+    "descripcion": "#N/A",
+    "color": "#N/A",
+    "referencia": "1103",
+    "stock_metros": 3.9,
+    "cantidad_barras": 1,
+    "ubicacion": "P-06",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "T020101",
+    "descripcion": "TAPALUZ PT02 MATE",
+    "color": "MATE",
+    "referencia": "PT-02",
+    "stock_metros": 6.0,
+    "cantidad_barras": 1,
+    "ubicacion": "C-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "T020601",
+    "descripcion": "TAPALUZ PT02 NEGRO",
+    "color": "NEGRO",
+    "referencia": "PT-02",
+    "stock_metros": 7.9,
+    "cantidad_barras": 4,
+    "ubicacion": "R-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TAP0101",
+    "descripcion": "TAPALUZ PT08 MATE",
+    "color": "MATE",
+    "referencia": "PT-08",
+    "stock_metros": 1.6,
+    "cantidad_barras": 1,
+    "ubicacion": "R-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TAP0201",
+    "descripcion": "TAPALUZ PT08 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "PT-08",
+    "stock_metros": 12.0,
+    "cantidad_barras": 2,
+    "ubicacion": "C-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TPR0101",
+    "descripcion": "5020 TRASLAPE REFORZADO 462 MATE",
+    "color": "MATE",
+    "referencia": "462",
+    "stock_metros": 1.15,
+    "cantidad_barras": 1,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TPR0402",
+    "descripcion": "5020 TRASLAPE REFORZADO 462 BLANCO",
+    "color": "BLANCO",
+    "referencia": "462",
+    "stock_metros": 3.3,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TPR0503",
+    "descripcion": "5020 TRASLAPE REFORZADO 462 BRONCE",
+    "color": "BRONCE",
+    "referencia": "462",
+    "stock_metros": 1.6,
+    "cantidad_barras": 1,
+    "ubicacion": "P-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0102",
+    "descripcion": "5020 TRASLAPE 192 BRONCE",
+    "color": "BRONCE",
+    "referencia": "192",
+    "stock_metros": 11.2,
+    "cantidad_barras": 3,
+    "ubicacion": "C-02, P-01, P-06",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0103",
+    "descripcion": "5020 TRASLAPE 192 MATE",
+    "color": "MATE",
+    "referencia": "192",
+    "stock_metros": 5.0,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0104",
+    "descripcion": "7038 TRASLAPE 704 MATE",
+    "color": "MATE",
+    "referencia": "704",
+    "stock_metros": 3.0,
+    "cantidad_barras": 1,
+    "ubicacion": "P-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0105",
+    "descripcion": "744 TRASLAPE 388 MATE",
+    "color": "MATE",
+    "referencia": "388",
+    "stock_metros": 0.7,
+    "cantidad_barras": 1,
+    "ubicacion": "R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0201",
+    "descripcion": "5020 TRASLAPE 192 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "192",
+    "stock_metros": 3.7,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0203",
+    "descripcion": "744 TRASLAPE 388 BRONCE",
+    "color": "BRONCE",
+    "referencia": "388",
+    "stock_metros": 4.0,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0207",
+    "descripcion": "8025 TRASLAPE 190 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "190",
+    "stock_metros": 1.9,
+    "cantidad_barras": 2,
+    "ubicacion": "R-02, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0306",
+    "descripcion": "744 TRASLAPE 388 CRUDO",
+    "color": "CRUDO ",
+    "referencia": "388",
+    "stock_metros": 1.9,
+    "cantidad_barras": 1,
+    "ubicacion": null,
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0307",
+    "descripcion": "5020 TRASLAPE 192 BLANCO",
+    "color": "BLANCO",
+    "referencia": "192",
+    "stock_metros": 1.2,
+    "cantidad_barras": 1,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0402",
+    "descripcion": "744 TRASLAPE 388 BLANCO",
+    "color": "BLANCO",
+    "referencia": "388",
+    "stock_metros": 4.3,
+    "cantidad_barras": 3,
+    "ubicacion": "P-03, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0403",
+    "descripcion": "8025 TRASLAPE 190 BLANCO",
+    "color": "BLANCO",
+    "referencia": "190",
+    "stock_metros": 2.2,
+    "cantidad_barras": 2,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0501",
+    "descripcion": "7038 TRASLAPE 704 BRONCE",
+    "color": "BRONCE",
+    "referencia": "704",
+    "stock_metros": 2.2,
+    "cantidad_barras": 1,
+    "ubicacion": "P-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0502",
+    "descripcion": "8025 TRASLAPE 190 BRONCE",
+    "color": "BRONCE",
+    "referencia": "190",
+    "stock_metros": 4.8,
+    "cantidad_barras": 3,
+    "ubicacion": "P-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0601",
+    "descripcion": "744 TRASLAPE 388 NEGRO",
+    "color": "NEGRO",
+    "referencia": "388",
+    "stock_metros": 1.1,
+    "cantidad_barras": 1,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0602",
+    "descripcion": "7038 TRASLAPE 704 NEGRO",
+    "color": "NEGRO",
+    "referencia": "704",
+    "stock_metros": 6.0,
+    "cantidad_barras": 2,
+    "ubicacion": "P-01, P-06",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRA0608",
+    "descripcion": "8025 TRASLAPE 190 NEGRO",
+    "color": "NEGRO",
+    "referencia": "190",
+    "stock_metros": 4.8,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TRAS8025",
+    "descripcion": "8025 TRASLAPE 190 MATE",
+    "color": "MATE",
+    "referencia": "190",
+    "stock_metros": 11.8,
+    "cantidad_barras": 4,
+    "ubicacion": "C-01, P-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0101",
+    "descripcion": "TUBULAR T-103 MATE",
+    "color": "MATE",
+    "referencia": "103",
+    "stock_metros": 3.8,
+    "cantidad_barras": 2,
+    "ubicacion": "P-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0102",
+    "descripcion": "TUBULAR T-244 MATE",
+    "color": "MATE",
+    "referencia": "T-244",
+    "stock_metros": 5.1,
+    "cantidad_barras": 5,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0103",
+    "descripcion": "TUBULAR T-70 MATE",
+    "color": "MATE",
+    "referencia": "T-70",
+    "stock_metros": 10.1,
+    "cantidad_barras": 6,
+    "ubicacion": "P-05, R-02, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0104",
+    "descripcion": "TUBULAR T-97 CRUDO",
+    "color": "CRUDO ",
+    "referencia": "T-97",
+    "stock_metros": 2.6,
+    "cantidad_barras": 1,
+    "ubicacion": "P-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0105",
+    "descripcion": "TUBULAR T-94 MATE",
+    "color": "MATE",
+    "referencia": "T-94",
+    "stock_metros": 2.2,
+    "cantidad_barras": 1,
+    "ubicacion": "P-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0106",
+    "descripcion": "TUBULAR T-97 MATE",
+    "color": "MATE",
+    "referencia": "T-97",
+    "stock_metros": 1.3,
+    "cantidad_barras": 1,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0108",
+    "descripcion": "TUBULAR T-198 CRUDO",
+    "color": "CRUDO ",
+    "referencia": "T-198",
+    "stock_metros": 4.3,
+    "cantidad_barras": 1,
+    "ubicacion": "C-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0111",
+    "descripcion": "TUBULAR T-101 MATE",
+    "color": "MATE",
+    "referencia": "T-101",
+    "stock_metros": 3.2,
+    "cantidad_barras": 2,
+    "ubicacion": "P-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0112",
+    "descripcion": "TUBULAR 1101 MATE",
+    "color": "MATE",
+    "referencia": "1101",
+    "stock_metros": 12.1,
+    "cantidad_barras": 11,
+    "ubicacion": "P-03, R-02, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0114",
+    "descripcion": "TUBULAR T-280 MATE",
+    "color": "MATE",
+    "referencia": "T-280",
+    "stock_metros": 2.4,
+    "cantidad_barras": 1,
+    "ubicacion": "P-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0117",
+    "descripcion": "TUBULAR T-95 MATE",
+    "color": "MATE",
+    "referencia": "T-95",
+    "stock_metros": 2.7,
+    "cantidad_barras": 2,
+    "ubicacion": "R-02, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0118",
+    "descripcion": "TUBULAR 1102 MATE",
+    "color": "MATE",
+    "referencia": "1102",
+    "stock_metros": 2.66,
+    "cantidad_barras": 2,
+    "ubicacion": "P-04, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0132",
+    "descripcion": "CUARTO CIRCULAR 1 1/2 \" MATE",
+    "color": "MATE",
+    "referencia": "T-280",
+    "stock_metros": 2.6,
+    "cantidad_barras": 1,
+    "ubicacion": "P-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0201",
+    "descripcion": "TUBULAR T-244 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "T-244",
+    "stock_metros": 2.5,
+    "cantidad_barras": 1,
+    "ubicacion": "P-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0203",
+    "descripcion": "TUBULAR T-244 BLANCO",
+    "color": "BLANCO",
+    "referencia": "T-244",
+    "stock_metros": 5.4,
+    "cantidad_barras": 3,
+    "ubicacion": "P-04, P-06, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0206",
+    "descripcion": "TUBULAR T-80 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "T-80",
+    "stock_metros": 1.0,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0216",
+    "descripcion": "TUBULAR T-90 MATE",
+    "color": "MATE",
+    "referencia": "T-90",
+    "stock_metros": 4.0,
+    "cantidad_barras": 1,
+    "ubicacion": "R-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0304",
+    "descripcion": "TUBULAR T-94 CRUDO",
+    "color": "CRUDO ",
+    "referencia": "T-94",
+    "stock_metros": 1.0,
+    "cantidad_barras": 1,
+    "ubicacion": null,
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0309",
+    "descripcion": "TUBULAR T-101 CRUDO",
+    "color": "CRUDO ",
+    "referencia": "T-101",
+    "stock_metros": 1.5,
+    "cantidad_barras": 1,
+    "ubicacion": "P-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0401",
+    "descripcion": "TUBULAR 1101 BLANCO",
+    "color": "BLANCO",
+    "referencia": "1101",
+    "stock_metros": 6.2,
+    "cantidad_barras": 2,
+    "ubicacion": "P-03, P-06",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0409",
+    "descripcion": "TUBULAR T-70 BLANCO",
+    "color": "BLANCO",
+    "referencia": "T-70",
+    "stock_metros": 4.8,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0501",
+    "descripcion": "TUBULAR T-244 BRONCE",
+    "color": "BRONCE",
+    "referencia": "T-244",
+    "stock_metros": 2.1,
+    "cantidad_barras": 1,
+    "ubicacion": "P-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0502",
+    "descripcion": "TUBULAR T-70 BRONCE",
+    "color": "BRONCE",
+    "referencia": "T-70",
+    "stock_metros": 4.7,
+    "cantidad_barras": 1,
+    "ubicacion": "P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0506",
+    "descripcion": "TUBULAR T-94 BRONCE",
+    "color": "BRONCE",
+    "referencia": "T-94",
+    "stock_metros": 1.0,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0510",
+    "descripcion": "TUBULAR T-95 BRONCE",
+    "color": "BRONCE",
+    "referencia": "T-95",
+    "stock_metros": 1.9,
+    "cantidad_barras": 1,
+    "ubicacion": "P-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0514",
+    "descripcion": "TUBULAR T-97 BRONCE",
+    "color": "BRONCE",
+    "referencia": "T-97",
+    "stock_metros": 1.2,
+    "cantidad_barras": 1,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0601",
+    "descripcion": "TUBULAR 1101 NEGRO",
+    "color": "NEGRO",
+    "referencia": "1101",
+    "stock_metros": 6.0,
+    "cantidad_barras": 4,
+    "ubicacion": "P-01, P-04, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0602",
+    "descripcion": "TUBULAR T-94 NEGRO",
+    "color": "NEGRO",
+    "referencia": "T-94",
+    "stock_metros": 1.7,
+    "cantidad_barras": 2,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0604",
+    "descripcion": "TUBULAR T-244 NEGRO",
+    "color": "NEGRO",
+    "referencia": "T-244",
+    "stock_metros": 5.0,
+    "cantidad_barras": 3,
+    "ubicacion": "P-04, R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0605",
+    "descripcion": "TUBULAR T-101 NEGRO",
+    "color": "NEGRO",
+    "referencia": "T-101",
+    "stock_metros": 4.9,
+    "cantidad_barras": 2,
+    "ubicacion": "P-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0607",
+    "descripcion": "TUBULAR 1102 NEGRO",
+    "color": "NEGRO",
+    "referencia": "1102",
+    "stock_metros": 17.13,
+    "cantidad_barras": 8,
+    "ubicacion": "C-01, P-04, P-06, R-02, R-03, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0608",
+    "descripcion": "TUBULAR T-198 NEGRO",
+    "color": "NEGRO",
+    "referencia": "T-198",
+    "stock_metros": 0.9,
+    "cantidad_barras": 1,
+    "ubicacion": "R-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0610",
+    "descripcion": "TUBULAR T-70 NEGRO",
+    "color": "NEGRO",
+    "referencia": "T-70",
+    "stock_metros": 11.8,
+    "cantidad_barras": 11,
+    "ubicacion": "R-01, R-02, R-03, R-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUB0706",
+    "descripcion": "TUBULAR T-95 NEGRO",
+    "color": "NEGRO",
+    "referencia": "T-95",
+    "stock_metros": 3.2,
+    "cantidad_barras": 2,
+    "ubicacion": "P-04, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "TUBT502",
+    "descripcion": "TUBULAR T-50 BRONCE",
+    "color": "BRONCE",
+    "referencia": "T-50",
+    "stock_metros": 4.8,
+    "cantidad_barras": 1,
+    "ubicacion": "P-06",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "U320203",
+    "descripcion": "U32 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "U-32",
+    "stock_metros": 5.7,
+    "cantidad_barras": 1,
+    "ubicacion": "C-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "U320401",
+    "descripcion": "U32 BLANCA",
+    "color": "BLANCO",
+    "referencia": "U-32",
+    "stock_metros": 11.8,
+    "cantidad_barras": 3,
+    "ubicacion": "C-03, R-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "U570101",
+    "descripcion": "U57 MATE",
+    "color": "MATE",
+    "referencia": "U-57",
+    "stock_metros": 19.844,
+    "cantidad_barras": 10,
+    "ubicacion": "P-03, P-04, P-043, P-06, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "U570201",
+    "descripcion": "U57 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "U-57",
+    "stock_metros": 6.48,
+    "cantidad_barras": 3,
+    "ubicacion": "P-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "U570401",
+    "descripcion": "U57 BLANCO",
+    "color": "BLANCO",
+    "referencia": "U-57",
+    "stock_metros": 2.5,
+    "cantidad_barras": 2,
+    "ubicacion": "R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "U570502",
+    "descripcion": "U57 BRONCE",
+    "color": "BRONCE",
+    "referencia": "U-57",
+    "stock_metros": 2.1,
+    "cantidad_barras": 1,
+    "ubicacion": "P-04",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "U570604",
+    "descripcion": "U57 NEGRO",
+    "color": "NEGRO",
+    "referencia": "U-57",
+    "stock_metros": 7.5,
+    "cantidad_barras": 3,
+    "ubicacion": "P-02, P-04, P-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "U680101",
+    "descripcion": "U68 MATE",
+    "color": "MATE",
+    "referencia": "U-68",
+    "stock_metros": 18.0,
+    "cantidad_barras": 3,
+    "ubicacion": "C-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "U680201",
+    "descripcion": "U68 GRIS PLATA",
+    "color": "GRIS PLATA",
+    "referencia": "U-68",
+    "stock_metros": 4.5,
+    "cantidad_barras": 2,
+    "ubicacion": "R-05",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "U680501",
+    "descripcion": "U68 BRONCE",
+    "color": "BRONCE",
+    "referencia": "U-68",
+    "stock_metros": 6.0,
+    "cantidad_barras": 1,
+    "ubicacion": "C-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "U890101",
+    "descripcion": "U-089 MATE",
+    "color": "MATE",
+    "referencia": "U-89",
+    "stock_metros": 7.9,
+    "cantidad_barras": 4,
+    "ubicacion": "P-04, P-06, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "U890602",
+    "descripcion": "U89 NEGRO",
+    "color": "NEGRO",
+    "referencia": "U-89",
+    "stock_metros": 6.0,
+    "cantidad_barras": 1,
+    "ubicacion": "C-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "VP47P01",
+    "descripcion": "MARCO VENTANA K40 MATE",
+    "color": "MATE",
+    "referencia": "40",
+    "stock_metros": 4.3,
+    "cantidad_barras": 1,
+    "ubicacion": "P-06",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "W0101",
+    "descripcion": "RIEL W CRUDO",
+    "color": "CRUDO ",
+    "referencia": "S-479",
+    "stock_metros": 2.0,
+    "cantidad_barras": 1,
+    "ubicacion": "P-03",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ZOC0105",
+    "descripcion": "ZOCALO 9CMS S-369 BRONCE MOVIL",
+    "color": "BRONCE",
+    "referencia": "S-369",
+    "stock_metros": 3.0,
+    "cantidad_barras": 2,
+    "ubicacion": "P-03, R-02",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ZSE0101",
+    "descripcion": "ZOCALO 10CMS S-351 MATE",
+    "color": "MATE",
+    "referencia": "S-351",
+    "stock_metros": 1.4,
+    "cantidad_barras": 1,
+    "ubicacion": "P-01",
+    "unidad_medida": "metros"
+  },
+  {
+    "codigo_templex": "ZSE0206",
+    "descripcion": "ZOCALO 10CMS S-351 NEGRO",
+    "color": "NEGRO",
+    "referencia": "S-351",
+    "stock_metros": 2.2,
+    "cantidad_barras": 1,
+    "ubicacion": "P-02",
+    "unidad_medida": "metros"
+  }
+]

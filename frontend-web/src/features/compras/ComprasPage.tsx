@@ -3,6 +3,8 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, Trash2, AlertCircle, X, Layers, Plus } from 'lucide-react';
 import ODCModal, { SAPItemConContexto } from './components/ODCModal';
+import ODCVidriosModal, { ODPItemConContexto } from './components/ODCVidriosModal';
+
 import { useDataChangedSocket } from '../../store/useSocketNotifications';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -491,17 +493,12 @@ const ComprasPage: React.FC = () => {
   const [mostrarModal, setMostrarModal] = useState(false);
   const [odcsSeguimiento, setOdcsSeguimiento] = useState<ODC[]>([]);
   const [odcsRecibidas, setOdcsRecibidas] = useState<ODC[]>([]);
-  const [vidriosPorGestionar, setVidriosPorGestionar] = useState<any[]>([]);
+  const [vidriosFlat, setVidriosFlat] = useState<ODPItemConContexto[]>([]);
+  const [seleccionadosVidrios, setSeleccionadosVidrios] = useState<Set<number>>(new Set());
+  const [mostrarModalVidrios, setMostrarModalVidrios] = useState(false);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
-  // Modal vidrios
-  const [modalVidrio, setModalVidrio] = useState<any | null>(null);
-  const [vidrioItemsSeleccionados, setVidrioItemsSeleccionados] = useState<number[]>([]);
-  const [vidrioProveedor, setVidrioProveedor] = useState('');
-  const [vidrioNotas, setVidrioNotas] = useState('');
-  const [vidrioNumeroOdc, setVidrioNumeroOdc] = useState('');
-  const [savingVidrio, setSavingVidrio] = useState(false);
 
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
@@ -517,9 +514,11 @@ const ComprasPage: React.FC = () => {
         const res = await axios.get(`${API}/api/compras/seguimiento`, { headers });
         setOdcsSeguimiento(res.data);
       } else if (t === 'vidrios') {
-        const res = await axios.get(`${API}/api/compras/vidrios`, { headers });
-        setVidriosPorGestionar(res.data);
+        const res = await axios.get(`${API}/api/compras/vidrios/panel`, { headers });
+        setVidriosFlat(res.data);
+        setSeleccionadosVidrios(new Set());
       } else {
+
         const res = await axios.get(`${API}/api/compras/recibidas`, { headers });
         setOdcsRecibidas(res.data);
       }
@@ -532,7 +531,8 @@ const ComprasPage: React.FC = () => {
     axios.get(`${API}/api/compras/panel`, { headers: h }).then(r => setItemsPendientes(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
     axios.get(`${API}/api/compras/seguimiento`, { headers: h }).then(r => setOdcsSeguimiento(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
     axios.get(`${API}/api/compras/recibidas`, { headers: h }).then(r => setOdcsRecibidas(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
-    axios.get(`${API}/api/compras/vidrios`, { headers: h }).then(r => setVidriosPorGestionar(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
+    axios.get(`${API}/api/compras/vidrios/panel`, { headers: h }).then(r => setVidriosFlat(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
+
   }, []);
 
   useEffect(() => { fetchTab(tab); setBusqueda(''); }, [tab, fetchTab]);
@@ -594,44 +594,30 @@ const ComprasPage: React.FC = () => {
   const countBadge = (t: string) => {
     if (t === 'pendientes') return itemsPendientes.length;
     if (t === 'seguimiento') return odcsSeguimiento.length;
-    if (t === 'vidrios') return vidriosPorGestionar.length;
+    if (t === 'vidrios') return vidriosFlat.length;
+
     return odcsRecibidas.length;
   };
 
-  const crearODCVidrios = async () => {
-    if (!modalVidrio || vidrioItemsSeleccionados.length === 0 || !vidrioProveedor) return;
-    if (!vidrioNumeroOdc.trim() || !/^\d+$/.test(vidrioNumeroOdc.trim())) {
-      alert('El número de ODC es requerido y debe contener solo dígitos');
-      return;
-    }
-    setSavingVidrio(true);
-    try {
-      await axios.post(`${API}/api/compras/vidrios/odc`, {
-        odp_id: modalVidrio.id,
-        proveedor: vidrioProveedor,
-        odp_item_ids: vidrioItemsSeleccionados,
-        notas: vidrioNotas || null,
-        numero_odc: vidrioNumeroOdc.trim(),
-      }, { headers });
-      setModalVidrio(null);
-      setVidrioItemsSeleccionados([]);
-      setVidrioProveedor('');
-      setVidrioNumeroOdc('');
-      setVidrioNotas('');
-      fetchTab('vidrios');
-    } catch (err) { console.error('Error en operación de compras:', err); } finally { setSavingVidrio(false); }
-  };
-
+  // Actualización optimista en la lista plana: el item desaparece si pasa a en_existencia
   const toggleEstadoItemVidrio = async (itemId: number, estadoActual: string) => {
     const nuevoEstado = estadoActual === 'en_existencia' ? 'pendiente' : 'en_existencia';
     try {
       await axios.patch(`${API}/api/compras/vidrios/item/${itemId}/estado`, { estado_compra: nuevoEstado }, { headers });
-      setVidriosPorGestionar(prev => prev.map(odp => ({
-        ...odp,
-        items: odp.items.map((it: any) => it.id === itemId ? { ...it, estado_compra: nuevoEstado } : it),
-      })).filter(odp => odp.items.some((it: any) => it.estado_compra !== 'en_existencia')));
+      setVidriosFlat(prev => prev.filter(it => {
+        if (it.id !== itemId) return true;
+        // Si pasa a en_existencia sale de la lista plana (ya no es pendiente)
+        return nuevoEstado === 'pendiente';
+      }));
+      // Deseleccionar el item si se marcó como en existencia
+      setSeleccionadosVidrios(prev => {
+        const next = new Set(prev);
+        if (nuevoEstado === 'en_existencia') next.delete(itemId);
+        return next;
+      });
     } catch (err) { console.error('Error en operación de compras:', err); }
   };
+
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -802,6 +788,7 @@ const ComprasPage: React.FC = () => {
                                 <th className="px-3 py-1.5 text-left w-28">ODP</th>
                                 <th className="px-3 py-1.5 text-left">Cliente</th>
                                 <th className="px-3 py-1.5 text-left w-40">Asesor</th>
+                                <th className="px-3 py-1.5 text-center w-16">Exist.</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -834,6 +821,23 @@ const ComprasPage: React.FC = () => {
                                   </td>
                                   <td className="px-3 py-2 text-slate-400 text-[10px] truncate max-w-[160px]">
                                     {item.SAP?.ODP?.asesor?.nombre_completo || '—'}
+                                  </td>
+                                  <td className="px-3 py-2 text-center w-16" onClick={e => e.stopPropagation()}>
+                                    <button
+                                      title="Marcar como en existencia"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          await axios.patch(`${API}/api/compras/sap-item/${item.id}/existencia`, {}, { headers });
+                                          setItemsPendientes(prev => prev.filter(i => i.id !== item.id));
+                                        } catch {
+                                          // el item permanece en lista si falla
+                                        }
+                                      }}
+                                      className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition border border-emerald-200"
+                                    >
+                                      <Package className="w-4 h-4" />
+                                    </button>
                                   </td>
                                 </tr>
                               ))}
@@ -881,13 +885,46 @@ const ComprasPage: React.FC = () => {
             {/* ── TAB VIDRIOS ── */}
             {tab === 'vidrios' && (() => {
               const q = busqueda.toLowerCase();
-              const lista = vidriosPorGestionar.filter(odp =>
+              const listaFiltrada = vidriosFlat.filter(it =>
                 !busqueda ||
-                odp.numero_odp?.toLowerCase().includes(q) ||
-                odp.cliente?.nombre_razon_social?.toLowerCase().includes(q) ||
-                odp.asesor?.nombre_completo?.toLowerCase().includes(q)
+                (it.tipo_vidrio || '').toLowerCase().includes(q) ||
+                (it.color || '').toLowerCase().includes(q) ||
+                it.ODP?.numero_odp?.toLowerCase().includes(q) ||
+                it.ODP?.cliente?.nombre_razon_social?.toLowerCase().includes(q) ||
+                it.ODP?.asesor?.nombre_completo?.toLowerCase().includes(q)
               );
-              return lista.length === 0 ? (
+              const seleccionadosEnLista = listaFiltrada.filter(i => seleccionadosVidrios.has(i.id));
+
+              // Agrupar por tipo_vidrio (la lista ya viene ordenada por tipo desde el backend)
+              const gruposPorTipo = (() => {
+                const map = new Map<string, ODPItemConContexto[]>();
+                for (const item of listaFiltrada) {
+                  const key = item.tipo_vidrio || item.prod || '—';
+                  if (!map.has(key)) map.set(key, []);
+                  map.get(key)!.push(item);
+                }
+                return map;
+              })();
+
+              const toggleSeleccionVidrio = (id: number) => {
+                setSeleccionadosVidrios(prev => {
+                  const next = new Set(prev);
+                  next.has(id) ? next.delete(id) : next.add(id);
+                  return next;
+                });
+              };
+
+              const toggleTodosVidrios = () => {
+                const ids = listaFiltrada.map(i => i.id);
+                const todosSeleccionados = ids.every(id => seleccionadosVidrios.has(id));
+                if (todosSeleccionados) {
+                  setSeleccionadosVidrios(prev => { const next = new Set(prev); ids.forEach(id => next.delete(id)); return next; });
+                } else {
+                  setSeleccionadosVidrios(prev => { const next = new Set(prev); ids.forEach(id => next.add(id)); return next; });
+                }
+              };
+
+              return listaFiltrada.length === 0 ? (
                 <div className="text-center py-20">
                   <Layers className="w-16 h-16 text-slate-200 mx-auto mb-3" />
                   <p className="text-lg font-bold text-slate-500">
@@ -895,99 +932,151 @@ const ComprasPage: React.FC = () => {
                   </p>
                 </div>
               ) : (
-                <div className="grid gap-4">
-                  {lista.map(odp => {
-                    const itemsPendientes = odp.items.filter((it: any) => it.estado_compra === 'pendiente').length;
-                    const itemsEnOdc = odp.items.filter((it: any) => it.estado_compra === 'en_odc').length;
-                    const itemsExistencia = odp.items.filter((it: any) => it.estado_compra === 'en_existencia').length;
-                    return (
-                      <div key={odp.id} className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:shadow-md transition overflow-hidden">
-                        <div className="flex items-start justify-between p-5">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-3 mb-2 flex-wrap">
-                              <span className="font-black text-indigo-700 text-base">{odp.numero_odp}</span>
-                              {odp.proveedor_vidrio
-                                ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">PV: {odp.proveedor_vidrio}</span>
-                                : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">Sin proveedor PV</span>
-                              }
-                            </div>
-                            <p className="text-sm font-semibold text-slate-700 mb-1">{odp.cliente?.nombre_razon_social}</p>
-                            <div className="flex items-center gap-4 text-xs text-slate-500">
-                              <span>Asesor: <span className="font-bold text-slate-700">{odp.asesor?.nombre_completo || '—'}</span></span>
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end gap-3 ml-4 shrink-0">
-                            <div className="flex items-center gap-2 flex-wrap justify-end">
-                              {itemsPendientes > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full"><Clock className="w-3 h-3" /> {itemsPendientes} pend.</span>}
-                              {itemsEnOdc > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full"><ShoppingCart className="w-3 h-3" /> {itemsEnOdc} en ODC</span>}
-                              {itemsExistencia > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full"><Package className="w-3 h-3" /> {itemsExistencia} exist.</span>}
-                            </div>
-                            <button
-                              onClick={() => {
-                                setModalVidrio(odp);
-                                setVidrioItemsSeleccionados(odp.items.filter((it: any) => it.estado_compra === 'pendiente').map((it: any) => it.id));
-                                setVidrioProveedor('');
-                                setVidrioNumeroOdc('');
-                                setVidrioNotas('');
-                              }}
-                              className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition shadow-sm"
-                            >
-                              Gestionar →
-                            </button>
-                          </div>
-                        </div>
+                <div className="space-y-4">
+                  {/* Barra de acciones */}
+                  <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded accent-cyan-600"
+                        checked={listaFiltrada.length > 0 && listaFiltrada.every(i => seleccionadosVidrios.has(i.id))}
+                        onChange={toggleTodosVidrios}
+                      />
+                      <span className="text-sm text-slate-600">
+                        {seleccionadosVidrios.size > 0
+                          ? <><span className="font-black text-cyan-700">{seleccionadosVidrios.size}</span> ítem(s) seleccionado(s)</>
+                          : <span className="text-slate-400">Seleccionar todos</span>
+                        }
+                      </span>
+                      {seleccionadosVidrios.size > 0 && (
+                        <span className="text-xs text-slate-400">
+                          · {new Set(seleccionadosEnLista.map(i => i.ODP?.id)).size} ODP(s)
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setMostrarModalVidrios(true)}
+                      disabled={seleccionadosVidrios.size === 0}
+                      className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white text-sm font-bold rounded-xl hover:bg-cyan-700 transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" /> Crear ODC ({seleccionadosVidrios.size})
+                    </button>
+                  </div>
 
-                        {/* Tabla de ítems */}
-                        <div className="border-t border-slate-100">
+                  {/* Tabla agrupada por tipo_vidrio */}
+                  <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    {Array.from(gruposPorTipo.entries()).map(([tipo, grupo], gi) => {
+                      const todosDelGrupoSeleccionados = grupo.every(i => seleccionadosVidrios.has(i.id));
+                      const algunoDelGrupoSeleccionado = grupo.some(i => seleccionadosVidrios.has(i.id));
+                      const totalCant = grupo.reduce((s, i) => s + Number(i.cantidad), 0);
+                      return (
+                        <div key={tipo} className={gi > 0 ? 'border-t border-slate-200' : ''}>
+                          {/* Encabezado del grupo de tipo */}
+                          <div
+                            className="flex items-center gap-3 px-4 py-2.5 bg-cyan-50 border-b border-cyan-100 cursor-pointer hover:bg-cyan-100 transition"
+                            onClick={() => {
+                              if (todosDelGrupoSeleccionados) {
+                                setSeleccionadosVidrios(prev => { const next = new Set(prev); grupo.forEach(i => next.delete(i.id)); return next; });
+                              } else {
+                                setSeleccionadosVidrios(prev => { const next = new Set(prev); grupo.forEach(i => next.add(i.id)); return next; });
+                              }
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 rounded accent-cyan-600 shrink-0"
+                              checked={todosDelGrupoSeleccionados}
+                              ref={el => { if (el) el.indeterminate = algunoDelGrupoSeleccionado && !todosDelGrupoSeleccionados; }}
+                              onChange={() => {}}
+                              onClick={e => e.stopPropagation()}
+                            />
+                            <span className="font-bold text-cyan-800">{tipo}</span>
+                            <div className="flex items-center gap-2 ml-auto shrink-0">
+                              <span className="text-xs font-bold text-cyan-700">
+                                Total: {totalCant} und
+                              </span>
+                              {grupo.length > 1 && (
+                                <span className="text-[10px] font-bold text-cyan-600 bg-cyan-100 px-2 py-0.5 rounded-full border border-cyan-200">
+                                  {grupo.length} ítems
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Filas de items del grupo */}
                           <table className="w-full text-xs">
-                            <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                            <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
                               <tr>
-                                <th className="px-4 py-2 text-left w-10">#</th>
-                                <th className="px-4 py-2 text-left">Tipo</th>
-                                <th className="px-4 py-2 text-left">Color</th>
-                                <th className="px-4 py-2 text-left">Esp.</th>
-                                <th className="px-4 py-2 text-left">Medidas</th>
-                                <th className="px-4 py-2 text-center w-10">Cant.</th>
-                                <th className="px-4 py-2 text-center w-28">Estado</th>
-                                <th className="px-4 py-2 text-center w-20">Acción</th>
+                                <th className="px-4 py-1.5 w-10" />
+                                <th className="px-3 py-1.5 text-left">Color</th>
+                                <th className="px-3 py-1.5 text-left w-16">Esp.</th>
+                                <th className="px-3 py-1.5 text-left">Medidas (mm)</th>
+                                <th className="px-3 py-1.5 text-left w-32">Otros</th>
+                                <th className="px-3 py-1.5 text-center w-14">Cant.</th>
+                                <th className="px-3 py-1.5 text-left w-28">ODP</th>
+                                <th className="px-3 py-1.5 text-left">Cliente</th>
+                                <th className="px-3 py-1.5 text-left w-40">Asesor</th>
+                                <th className="px-3 py-1.5 text-center w-20">Exist.</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                              {odp.items.map((it: any, i: number) => {
-                                const est = ESTADO_COMPRA_STYLE[it.estado_compra] || ESTADO_COMPRA_STYLE['pendiente'];
-                                return (
-                                  <tr key={it.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
-                                    <td className="px-4 py-1.5 font-black text-slate-600">{i + 1}</td>
-                                    <td className="px-4 py-1.5 text-slate-700">{it.prod || it.tipo_vidrio || '—'}</td>
-                                    <td className="px-4 py-1.5 text-slate-700">{it.color || '—'}</td>
-                                    <td className="px-4 py-1.5 text-slate-700">{it.espesor || '—'}</td>
-                                    <td className="px-4 py-1.5 text-slate-700">{it.ancho_mm && it.alto_mm ? `${it.ancho_mm}×${it.alto_mm}` : '—'}</td>
-                                    <td className="px-4 py-1.5 text-center font-bold">{it.cantidad || 1}</td>
-                                    <td className="px-4 py-1.5 text-center">
-                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${est.className}`}>{est.label}</span>
-                                    </td>
-                                    <td className="px-4 py-1.5 text-center">
-                                      {it.estado_compra !== 'en_odc' && (
-                                        <button
-                                          onClick={() => toggleEstadoItemVidrio(it.id, it.estado_compra)}
-                                          className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-green-50 text-green-700 border-green-200 hover:bg-green-100 transition"
-                                        >
-                                          {it.estado_compra === 'en_existencia' ? '↩ Revertir' : '✓ Existencia'}
-                                        </button>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
+                              {grupo.map((item, i) => (
+                                <tr
+                                  key={item.id}
+                                  onClick={() => toggleSeleccionVidrio(item.id)}
+                                  className={`cursor-pointer transition ${seleccionadosVidrios.has(item.id) ? 'bg-cyan-50' : i % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/30 hover:bg-slate-100'}`}
+                                >
+                                  <td className="px-4 py-2 w-10" onClick={e => e.stopPropagation()}>
+                                    <input
+                                      type="checkbox"
+                                      className="w-4 h-4 rounded accent-cyan-600"
+                                      checked={seleccionadosVidrios.has(item.id)}
+                                      onChange={() => toggleSeleccionVidrio(item.id)}
+                                    />
+                                  </td>
+                                  <td className="px-3 py-2 text-slate-600">{item.color || '—'}</td>
+                                  <td className="px-3 py-2 text-slate-600">{item.espesor || '—'}</td>
+                                  <td className="px-3 py-2 font-mono text-slate-700">
+                                    {item.ancho_mm && item.alto_mm ? `${item.ancho_mm}×${item.alto_mm}` : '—'}
+                                  </td>
+                                  <td
+                                    className="px-3 py-2 text-slate-400 text-[10px] truncate max-w-[120px]"
+                                    title={item.otros || ''}
+                                  >
+                                    {item.otros || '—'}
+                                  </td>
+                                  <td className="px-3 py-2 text-center font-bold text-slate-700">{item.cantidad}</td>
+                                  <td className="px-3 py-2 font-bold text-indigo-600">{item.ODP?.numero_odp || '—'}</td>
+                                  <td className="px-3 py-2 text-slate-500 truncate max-w-[200px]">
+                                    {item.ODP?.cliente?.nombre_razon_social || '—'}
+                                  </td>
+                                  <td className="px-3 py-2 text-slate-400 text-[10px] truncate max-w-[160px]">
+                                    {item.ODP?.asesor?.nombre_completo || '—'}
+                                  </td>
+                                  <td className="px-3 py-2 text-center w-20" onClick={e => e.stopPropagation()}>
+                                    <button
+                                      title="Marcar como en existencia"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        await toggleEstadoItemVidrio(item.id, item.estado_compra);
+                                      }}
+                                      className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition border border-emerald-200"
+                                    >
+                                      <Package className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
                             </tbody>
                           </table>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })()}
+
 
           </motion.div>
         </AnimatePresence>
@@ -1002,141 +1091,15 @@ const ComprasPage: React.FC = () => {
         />
       )}
 
-      {/* Modal Vidrios — crear ODC */}
-      {modalVidrio && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-slate-100">
-              <div>
-                <h2 className="font-black text-slate-800 text-lg">Crear ODC de Vidrios</h2>
-                <p className="text-sm text-slate-500">{modalVidrio.numero_odp} · {modalVidrio.cliente?.nombre_razon_social}</p>
-              </div>
-              <button onClick={() => setModalVidrio(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition">
-                <X className="w-4 h-4 text-slate-600" />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              {/* N° ODC, Proveedor y notas */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">N° ODC *</label>
-                  <input
-                    type="text"
-                    value={vidrioNumeroOdc}
-                    onChange={e => setVidrioNumeroOdc(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Ej: 12345"
-                    maxLength={20}
-                    className="w-full text-sm p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Proveedor *</label>
-                  <input
-                    type="text"
-                    value={vidrioProveedor}
-                    onChange={e => setVidrioProveedor(e.target.value)}
-                    placeholder="Nombre del proveedor..."
-                    className="w-full text-sm p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Notas (opcional)</label>
-                  <input
-                    type="text"
-                    value={vidrioNotas}
-                    onChange={e => setVidrioNotas(e.target.value)}
-                    placeholder="Notas para la ODC..."
-                    className="w-full text-sm p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Tabla de ítems con checkboxes */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-slate-600">Seleccionar ítems para la ODC *</label>
-                  <span className="text-xs text-slate-400">{vidrioItemsSeleccionados.length} de {modalVidrio.items.length} seleccionados</span>
-                </div>
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
-                      <tr>
-                        <th className="px-3 py-2 text-left w-8">
-                          <input
-                            type="checkbox"
-                            checked={vidrioItemsSeleccionados.length === modalVidrio.items.filter((it: any) => it.estado_compra === 'pendiente').length && modalVidrio.items.filter((it: any) => it.estado_compra === 'pendiente').length > 0}
-                            onChange={e => {
-                              const pendientes = modalVidrio.items.filter((it: any) => it.estado_compra === 'pendiente').map((it: any) => it.id);
-                              setVidrioItemsSeleccionados(e.target.checked ? pendientes : []);
-                            }}
-                          />
-                        </th>
-                        <th className="px-3 py-2 text-left">#</th>
-                        <th className="px-3 py-2 text-left">Tipo</th>
-                        <th className="px-3 py-2 text-left">Color</th>
-                        <th className="px-3 py-2 text-left">Esp.</th>
-                        <th className="px-3 py-2 text-left">Medidas</th>
-                        <th className="px-3 py-2 text-center">Cant.</th>
-                        <th className="px-3 py-2 text-center">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {modalVidrio.items.map((it: any, idx: number) => {
-                        const seleccionado = vidrioItemsSeleccionados.includes(it.id);
-                        const esPendiente = it.estado_compra === 'pendiente';
-                        const est = ESTADO_COMPRA_STYLE[it.estado_compra] || ESTADO_COMPRA_STYLE['pendiente'];
-                        return (
-                          <tr
-                            key={it.id}
-                            onClick={() => {
-                              if (!esPendiente) return;
-                              setVidrioItemsSeleccionados(prev =>
-                                prev.includes(it.id) ? prev.filter(id => id !== it.id) : [...prev, it.id]
-                              );
-                            }}
-                            className={`${esPendiente ? 'cursor-pointer hover:bg-indigo-50/40' : 'opacity-50 cursor-not-allowed'} ${seleccionado ? 'bg-indigo-50' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}
-                          >
-                            <td className="px-3 py-2">
-                              <input type="checkbox" checked={seleccionado} readOnly disabled={!esPendiente} />
-                            </td>
-                            <td className="px-3 py-2 font-bold text-slate-600">{idx + 1}</td>
-                            <td className="px-3 py-2">{it.prod || it.tipo_vidrio || '—'}</td>
-                            <td className="px-3 py-2">{it.color || '—'}</td>
-                            <td className="px-3 py-2">{it.espesor || '—'}</td>
-                            <td className="px-3 py-2">{it.ancho_mm && it.alto_mm ? `${it.ancho_mm}×${it.alto_mm}` : '—'}</td>
-                            <td className="px-3 py-2 text-center font-bold">{it.cantidad || 1}</td>
-                            <td className="px-3 py-2 text-center">
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${est.className}`}>{est.label}</span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="text-xs text-slate-400 mt-1">Solo se pueden seleccionar ítems en estado Pendiente.</p>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="p-5 border-t border-slate-100 flex justify-end gap-3">
-              <button onClick={() => setModalVidrio(null)} className="px-4 py-2 text-sm font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
-                Cancelar
-              </button>
-              <button
-                onClick={crearODCVidrios}
-                disabled={vidrioItemsSeleccionados.length === 0 || !vidrioProveedor || !vidrioNumeroOdc.trim() || savingVidrio}
-                className="px-5 py-2 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
-              >
-                {savingVidrio ? 'Creando...' : `Crear ODC (${vidrioItemsSeleccionados.length} ítems)`}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Modal crear ODC de vidrios (multi-ODP, agrupado por tipo_vidrio) */}
+      {mostrarModalVidrios && seleccionadosVidrios.size > 0 && (
+        <ODCVidriosModal
+          items={vidriosFlat.filter(i => seleccionadosVidrios.has(i.id))}
+          onClose={() => setMostrarModalVidrios(false)}
+          onRefresh={refresh}
+        />
       )}
+
     </div>
   );
 };

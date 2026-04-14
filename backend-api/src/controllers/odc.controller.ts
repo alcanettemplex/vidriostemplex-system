@@ -406,13 +406,7 @@ export const getCodigosPerfileria = async (req: Request, res: Response) => {
   }
 };
 
-// ─── VIDRIOS ─────────────────────────────────────────────────────────────────
-
-// GET /compras/vidrios — ODPs con ítems de vidrio pendientes de gestionar por compras
-// Regla:
-//   1. ODP sin proveedor_vidrio → todos sus ítems sin asignar van a compras
-//   2. ODP con proveedor_vidrio → solo ítems con pedido_pv_id IS NULL (los que Alejandro no asignó)
-//      pero solo si al menos un ítem SÍ fue asignado (la sesión de Alejandro ya terminó)
+// GET /compras/vidrios — ODPs con ítems de vidrio pendientes (vista por ODP, backward compat)
 export const getVidriosPorGestionar = async (req: Request, res: Response) => {
   try {
     const odps = await ODP.findAll({
@@ -438,10 +432,8 @@ export const getVidriosPorGestionar = async (req: Request, res: Response) => {
       let itemsParaCompras: any[] = [];
 
       if (!proveedor_vidrio) {
-        // Sin proveedor → todos los ítems van a compras
         itemsParaCompras = todosItems;
       } else {
-        // Con proveedor → solo si Alejandro ya gestionó (al menos 1 ítem asignado)
         const algunAsignado = todosItems.some((it: any) => it.pedido_pv_id !== null);
         if (algunAsignado) {
           itemsParaCompras = todosItems.filter((it: any) => it.pedido_pv_id === null);
@@ -463,16 +455,81 @@ export const getVidriosPorGestionar = async (req: Request, res: Response) => {
   }
 };
 
-// POST /compras/vidrios/odc — Crear ODC de vidrios directamente desde ítems de ODP
+// GET /compras/vidrios/panel — Lista plana de ODPItems de vidrio pendientes, ordenada por tipo_vidrio ASC
+// Aplica las mismas reglas de negocio que getVidriosPorGestionar pero devuelve una lista plana
+// (igual que getODPsConSAPPendiente para perfilaría) para el panel de selección con checkboxes.
+export const getVidriosPanel = async (req: Request, res: Response) => {
+  try {
+    const odps = await ODP.findAll({
+      include: [
+        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+        {
+          model: ODPItem,
+          as: 'items',
+          where: { estado_compra: 'pendiente' },
+          required: true,
+        },
+      ],
+    });
+
+    const itemsPlanos: any[] = [];
+
+    for (const odp of odps) {
+      const todosItems: any[] = (odp as any).items || [];
+      const proveedor_vidrio = odp.getDataValue('proveedor_vidrio');
+
+      let itemsParaCompras: any[] = [];
+      if (!proveedor_vidrio) {
+        itemsParaCompras = todosItems;
+      } else {
+        const algunAsignado = todosItems.some((it: any) => it.pedido_pv_id !== null);
+        if (algunAsignado) {
+          itemsParaCompras = todosItems.filter((it: any) => it.pedido_pv_id === null);
+        }
+      }
+
+      // Enriquecer cada item con el contexto de su ODP para trazabilidad en el frontend
+      const odpContext = {
+        id: odp.getDataValue('id'),
+        numero_odp: odp.getDataValue('numero_odp'),
+        cliente: (odp as any).cliente,
+        asesor: (odp as any).asesor,
+      };
+
+      for (const item of itemsParaCompras) {
+        itemsPlanos.push({
+          ...(item.toJSON ? item.toJSON() : item),
+          ODP: odpContext,
+        });
+      }
+    }
+
+    // Ordenar por tipo_vidrio ASC (igual que perfilaría ordena por código)
+    itemsPlanos.sort((a, b) =>
+      (a.tipo_vidrio || '').localeCompare(b.tipo_vidrio || '', 'es', { sensitivity: 'base' })
+    );
+
+    res.json(itemsPlanos);
+  } catch (error: any) {
+    console.error('Error getVidriosPanel:', error);
+    res.status(500).json({ error: 'Error al obtener panel de vidrios', detail: error.message });
+  }
+};
+
+// POST /compras/vidrios/odc — Crear ODC de vidrios desde ítems de ODP (multi-ODP)
+// odp_id se guarda como null en la ODC ya que los ítems pueden venir de ODPs distintas;
+// la trazabilidad queda a nivel de cada ODCItem.odp_item_id (igual que perfilaría usa sap_item_id).
 export const createODCVidrios = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
     const userId = req.user?.id;
-    const { odp_id, proveedor, odp_item_ids, notas, numero_odc } = req.body;
+    // odp_id eliminado del destructuring — ahora puede venir de múltiples ODPs
+    const { proveedor, odp_item_ids, notas, numero_odc } = req.body;
 
-    if (!odp_id || !proveedor || !Array.isArray(odp_item_ids) || odp_item_ids.length === 0) {
+    if (!proveedor || !Array.isArray(odp_item_ids) || odp_item_ids.length === 0) {
       await t.rollback();
-      return res.status(400).json({ error: 'odp_id, proveedor y odp_item_ids son requeridos' });
+      return res.status(400).json({ error: 'proveedor y odp_item_ids son requeridos' });
     }
     if (!numero_odc || !/^\d+$/.test(String(numero_odc).trim())) {
       await t.rollback();
@@ -486,7 +543,7 @@ export const createODCVidrios = async (req: Request, res: Response) => {
     const odc = await OrdenCompra.create({
       numero_odc: String(numero_odc).trim(),
       sap_id: null,
-      odp_id,
+      odp_id: null, // null porque los ítems pueden ser de múltiples ODPs
       tipo: 'vidrio',
       proveedor,
       notas: notas || null,
@@ -496,7 +553,6 @@ export const createODCVidrios = async (req: Request, res: Response) => {
 
     const odcId = odc.getDataValue('id');
 
-    // Obtener los ítems para construir los ODCItems
     const items = await ODPItem.findAll({ where: { id: odp_item_ids }, transaction: t });
 
     const odcItems = items.map((it: any, idx: number) => ({
@@ -516,7 +572,6 @@ export const createODCVidrios = async (req: Request, res: Response) => {
 
     await ODCItem.bulkCreate(odcItems, { transaction: t });
 
-    // Marcar los ítems como en_odc
     await ODPItem.update(
       { estado_compra: 'en_odc' },
       { where: { id: odp_item_ids }, transaction: t }

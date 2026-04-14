@@ -148,6 +148,18 @@ const TabDatosGenerales: React.FC<{ odp: any }> = ({ odp }) => {
   );
 };
 
+/** Convierte la clave `item` de la BD a letra legible: A–Z directas, 27→AA, 28→AB… */
+const normalizarItemLabel = (item: string): string => {
+  const abc = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  if (/^[A-Z]$/.test(item)) return item;
+  const pos = parseInt(item, 10);
+  if (!isNaN(pos) && pos >= 27) {
+    const idx = pos - 1; // 27 → índice 26
+    return abc[Math.floor(idx / 26) - 1] + abc[idx % 26]; // 26→AA, 27→AB…
+  }
+  return item;
+};
+
 const TabComercial: React.FC<{ odp: any; onRefresh: () => void }> = ({ odp, onRefresh }) => {
   const [sapModalOpen, setSapModalOpen] = useState(false);
   const saps = odp.saps || [];
@@ -208,9 +220,16 @@ const TabComercial: React.FC<{ odp: any; onRefresh: () => void }> = ({ odp, onRe
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {sap.items?.map((item: any, i: number) => (
+                {[...(sap.items || [])].sort((a: any, b: any) => {
+                  const toIdx = (it: string) => {
+                    if (/^[A-Z]$/.test(it)) return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.indexOf(it);
+                    const n = parseInt(it, 10);
+                    return isNaN(n) ? 9999 : n - 1;
+                  };
+                  return toIdx(a.item) - toIdx(b.item);
+                }).map((item: any, i: number) => (
                   <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                    <td className="px-3 py-1.5 text-center font-black text-slate-600">{item.item}</td>
+                    <td className="px-3 py-1.5 text-center font-black text-slate-600">{normalizarItemLabel(item.item)}</td>
                     <td className="px-3 py-1.5 font-mono text-blue-700 font-bold">{item.codigo || '—'}</td>
                     <td className="px-3 py-1.5 text-slate-700">{item.descripcion || '—'}</td>
                     <td className="px-3 py-1.5 text-slate-500">{item.dimension || '—'}</td>
@@ -218,6 +237,7 @@ const TabComercial: React.FC<{ odp: any; onRefresh: () => void }> = ({ odp, onRe
                   </tr>
                 ))}
               </tbody>
+
             </table>
             {sap.notas && <p className="px-5 py-2 text-xs text-slate-500 italic border-t border-slate-100">"{sap.notas}"</p>}
           </div>
@@ -940,16 +960,29 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
       <style>
         @page { size: letter portrait; margin: 4mm; }
         body { margin: 0; padding: 0; font-family: sans-serif; }
+        /* Tablas estilo Excel (otros formatos) */
         .excel-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
         .excel-table th, .excel-table td { border: 1px solid #000; padding: 2px 4px; }
         .excel-table th { font-weight: bold; text-align: center; }
+        /* Tablas SAP */
+        .sap-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
+        .sap-table th, .sap-table td { border: 1px solid #000; padding: 2px 4px; }
+        .sap-table th { font-weight: bold; text-align: center; background-color: #f0f0f0; }
         .thick-b { border-bottom: 2px solid #000 !important; }
+        /* Páginas SAP */
+        .sap-page { display: block; width: 21.5cm; min-height: 29cm; background: white; color: black; font-family: sans-serif; font-size: 14px; margin: 0 auto; overflow: hidden; page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .sap-page:last-child { page-break-after: avoid; }
+        .print-container { padding: 8px; }
+        /* Colores inline para bg- clases de Tailwind que pueden no cargar a tiempo */
+        .bg-blue-100 { background-color: #dbeafe !important; }
+        .bg-slate-50 { background-color: #f8fafc !important; }
       </style>
     </head><body>${area.innerHTML}</body></html>`);
     win.document.close();
     win.focus();
     setTimeout(() => { win.print(); win.close(); }, 800);
   };
+
 
   return (
     <div className="flex flex-col bg-slate-100 min-h-screen">

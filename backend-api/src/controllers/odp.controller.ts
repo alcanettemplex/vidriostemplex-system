@@ -167,10 +167,6 @@ export const getODP = async (req: Request, res: Response) => {
           include: [
             { model: SAPItem, as: 'items' },
             { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
-            {
-              model: OrdenCompra, as: 'ordenes_compra',
-              attributes: ['id', 'numero_odc', 'proveedor', 'estado', 'fecha_creacion'],
-            },
           ],
           order: [['fecha_creacion', 'DESC']],
         },
@@ -225,30 +221,62 @@ export const getODP = async (req: Request, res: Response) => {
 
     if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
 
-    // Enriquecer ordenes_compra de cada SAP con sus items (batch query en vez de N+1)
+    // Enriquecer ordenes_compra de cada SAP a través de sus SAPItems (soporta ODC multi-SAP)
     const { ODCItem } = await import('../models');
     const odpJson: any = odp.toJSON();
-    if (odpJson.saps) {
-      const allOdcIds: number[] = [];
+
+    if (odpJson.saps && odpJson.saps.length > 0) {
+      const { Op } = await import('sequelize');
+      const allSapItemIds: number[] = [];
+      
       for (const sap of odpJson.saps) {
-        if (sap.ordenes_compra) {
-          for (const odc of sap.ordenes_compra) allOdcIds.push(odc.id);
-        }
+        if (sap.items) sap.items.forEach((item: any) => allSapItemIds.push(item.id));
+        sap.ordenes_compra = []; // Inicializamos vacío siempre
       }
-      if (allOdcIds.length > 0) {
-        const { Op } = await import('sequelize');
-        const allItems = await ODCItem.findAll({ where: { odc_id: { [Op.in]: allOdcIds } }, raw: true });
-        const itemsByOdc = new Map<number, typeof allItems>();
-        for (const item of allItems) {
-          const key = (item as any).odc_id;
-          if (!itemsByOdc.has(key)) itemsByOdc.set(key, []);
-          itemsByOdc.get(key)!.push(item);
-        }
-        for (const sap of odpJson.saps) {
-          if (sap.ordenes_compra) {
-            for (const odc of sap.ordenes_compra) {
-              odc.items = itemsByOdc.get(odc.id) || [];
-            }
+
+      if (allSapItemIds.length > 0) {
+        // Encontrar los ODCItems que apuntan a nuestro cristal/accesorios
+        const odcItemsRelacionados = await ODCItem.findAll({ 
+          where: { sap_item_id: { [Op.in]: allSapItemIds } }, 
+          raw: true 
+        });
+
+        if (odcItemsRelacionados.length > 0) {
+          const odcIds = [...new Set(odcItemsRelacionados.map((i: any) => i.odc_id))];
+
+          // Traer info base de las ODCs
+          const ordenes = await OrdenCompra.findAll({
+            where: { id: { [Op.in]: odcIds } },
+            attributes: ['id', 'numero_odc', 'proveedor', 'estado', 'fecha_creacion'],
+            raw: true
+          });
+          const ordenesMap = new Map(ordenes.map((o: any) => [o.id, o]));
+
+          // Traer TODOS los ítems de estas ODCs (para mostrar todo lo pedido en esa ODC)
+          const allOdcItemsData = await ODCItem.findAll({
+            where: { odc_id: { [Op.in]: odcIds } },
+            raw: true
+          });
+          const itemsByOdc = new Map<number, any[]>();
+          for (const item of allOdcItemsData) {
+            const key = (item as any).odc_id;
+            if (!itemsByOdc.has(key)) itemsByOdc.set(key, []);
+            itemsByOdc.get(key)!.push(item);
+          }
+
+          // Asignar ODCs a los SAPs
+          for (const sap of odpJson.saps) {
+            if (!sap.items) continue;
+            const sapItemIdsContext = new Set(sap.items.map((i: any) => i.id));
+            
+            // Verificamos qué ODCs tocan a este SAP
+            const odcItemsDelSap = odcItemsRelacionados.filter((i: any) => sapItemIdsContext.has(i.sap_item_id));
+            const odcIdsDelSap = [...new Set(odcItemsDelSap.map((i: any) => i.odc_id))];
+
+            sap.ordenes_compra = odcIdsDelSap.map((id) => ({
+              ...ordenesMap.get(id),
+              items: itemsByOdc.get(id) || []
+            }));
           }
         }
       }

@@ -68,7 +68,8 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
   const [inventarioPorCodigo, setInventarioPorCodigo] = useState<Record<string, InventarioPerfil[]>>({});
   const [loadingInventario, setLoadingInventario] = useState(false);
   const [codigosPerfileria, setCodigosPerfileria] = useState<Set<string>>(new Set());
-  const [existPerfLocal, setExistPerfLocal] = useState<Record<number, string>>({});
+  // Perfiles seleccionados localmente — se aplican en BD solo al confirmar la ODC
+  const [perfilesSeleccionados, setPerfilesSeleccionados] = useState<Record<number, InventarioPerfil>>({});
 
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
@@ -96,28 +97,25 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSeleccionarPerfil = async (itemId: number, codigo: string, perfil: InventarioPerfil) => {
-    try {
-      const existText = `${perfil.consecutivo} · ${perfil.ubicacion || '—'}`;
-      await Promise.all([
-        axios.delete(`${API}/api/compras/inventario-perfileria/${perfil.consecutivo}`, { headers }),
-        axios.patch(`${API}/api/compras/sap-item/${itemId}/exist-perf`, { exist_perf: existText }, { headers }),
-      ]);
-      await axios.patch(`${API}/api/compras/sap-item/${itemId}/existencia`, {}, { headers });
-      setExistPerfLocal(prev => ({ ...prev, [itemId]: existText }));
-      setInventarioPorCodigo(prev => ({
-        ...prev,
-        [codigo]: (prev[codigo] || []).filter(p => p.consecutivo !== perfil.consecutivo),
-      }));
-    } catch {
-      toast.error('Error al reservar perfil de inventario');
-    }
+  const handleSeleccionarPerfil = (itemId: number, codigo: string, perfil: InventarioPerfil) => {
+    // Solo guarda localmente — la eliminación del inventario ocurre al confirmar la ODC
+    setPerfilesSeleccionados(prev => ({ ...prev, [itemId]: perfil }));
+    // Ocultar el perfil de otros dropdowns para evitar selección doble
+    setInventarioPorCodigo(prev => ({
+      ...prev,
+      [codigo]: (prev[codigo] || []).filter(p => p.consecutivo !== perfil.consecutivo),
+    }));
   };
 
   const renderExisPerf = (item: SAPItemConContexto) => {
-    const seleccionado = existPerfLocal[item.id];
+    const seleccionado = perfilesSeleccionados[item.id];
     if (seleccionado) {
-      return <span className="text-[10px] font-bold text-green-700">{seleccionado}</span>;
+      // mm primero para identificación rápida visual
+      return (
+        <span className="text-[10px] font-bold text-green-700">
+          {seleccionado.mm != null ? `${Math.round(seleccionado.mm)} mm` : '—'} · #{seleccionado.consecutivo} · {seleccionado.ubicacion || '—'}
+        </span>
+      );
     }
     if (!item.codigo || !codigosPerfileria.has(item.codigo)) return <span className="text-slate-400">—</span>;
     const opciones = inventarioPorCodigo[item.codigo] ?? null;
@@ -125,7 +123,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
     if (opciones.length === 0) return <span className="text-slate-400">—</span>;
     return (
       <select
-        className="text-[10px] border border-slate-200 rounded px-1 py-0.5 w-full max-w-[130px] bg-white cursor-pointer"
+        className="text-[10px] border border-slate-200 rounded px-1 py-0.5 w-full max-w-[150px] bg-white cursor-pointer"
         defaultValue=""
         onChange={e => {
           if (!e.target.value) return;
@@ -136,8 +134,9 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
       >
         <option value="">Seleccionar…</option>
         {opciones.map(p => (
+          // mm al inicio para identificar de vistazo la dimensión del perfil
           <option key={p.consecutivo} value={p.consecutivo}>
-            {p.consecutivo} · {p.ubicacion || '—'} · {p.mm != null ? (Number(p.mm) / 6000).toFixed(2) : '—'}m
+            {p.mm != null ? `${Math.round(p.mm)} mm` : '—'} — #{p.consecutivo} ({p.ubicacion || '—'})
           </option>
         ))}
       </select>
@@ -160,6 +159,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
     if (!proveedor.trim()) { toast.error('Ingresa el proveedor'); return; }
     setLoading(true);
     try {
+      // 1. Crear la ODC en el backend
       await axios.post(`${API}/api/compras/odc`, {
         numero_odc: numeroOdc.trim(),
         proveedor,
@@ -172,6 +172,24 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
           cantidad: i.cantidad,
         })),
       }, { headers });
+
+      // 2. Al confirmar la ODC: consumir del inventario y actualizar exist_perf en cada SAP item
+      //    Las llamadas se hacen aquí (no al seleccionar en el dropdown) para evitar efectos
+      //    secundarios si el usuario cancela el modal después de seleccionar un perfil.
+      const entradasPerfil = Object.entries(perfilesSeleccionados) as [string, InventarioPerfil][];
+      await Promise.allSettled(
+        entradasPerfil.flatMap(([itemIdStr, perfil]) => {
+          const itemId = Number(itemIdStr);
+          const etiquetaMm = perfil.mm != null ? `${Math.round(perfil.mm)} mm` : 'sin mm';
+          const existPerfTexto = `${etiquetaMm} — #${perfil.consecutivo} (${perfil.ubicacion || '—'})`;
+          return [
+            // Eliminar la pieza del inventario de perfilería
+            axios.delete(`${API}/api/compras/inventario-perfileria/${perfil.consecutivo}`, { headers }),
+            // Guardar el texto descriptivo del perfil en el SAP item (trazabilidad)
+            axios.patch(`${API}/api/compras/sap-item/${itemId}/exist-perf`, { exist_perf: existPerfTexto }, { headers }),
+          ];
+        })
+      );
 
       toast.success('ODC creada exitosamente');
       onRefresh();

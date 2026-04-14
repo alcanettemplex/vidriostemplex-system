@@ -197,15 +197,16 @@ const CardTM: React.FC<{
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <span className="font-black text-amber-700 text-sm tracking-tight">{tm.numero_tm}</span>
-            {esProspecto ? (
+            {esProspecto && (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-violet-100 text-violet-700 border-violet-200">
                 <UserPlus className="w-3 h-3" />{tm.prospecto!.numero_prospecto}
               </span>
-            ) : tm.odp ? (
+            )}
+            {tm.odp && (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-indigo-50 text-indigo-700 border-indigo-100">
                 {tm.odp.numero_odp}
               </span>
-            ) : null}
+            )}
             {tm.odp?.fecha_entrega && <BadgeDias fecha={tm.odp.fecha_entrega} />}
           </div>
 
