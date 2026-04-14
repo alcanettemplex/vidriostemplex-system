@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, FileText, Wrench, Truck, DollarSign, Package, Ruler, Plus,
   CheckCircle2, AlertCircle, AlertTriangle, MapPin, User, Calendar, Phone,
-  Building2, ExternalLink, CreditCard, Camera, History,
+  Building2, ExternalLink, CreditCard, Camera, History, Shield, ChevronDown,
   ClipboardList, TrendingUp, Printer, PenTool, Images, Trash2
 } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -16,6 +16,7 @@ import PrintableDetalleTecnico from './PrintableDetalleTecnico';
 import PrintableDetSAP from './PrintableDetSAP';
 import PrintableSAP from './PrintableSAP';
 import ReportarProblemaForm from './ReportarProblemaForm';
+import GarantiaFormModal from './GarantiaFormModal';
 import SAPModal from './SAPModal';
 import TMModal from './TMModal';
 import CotizacionCapturas from './CotizacionCapturas';
@@ -583,12 +584,97 @@ const ESTADO_RUTA_ODP: Record<string, { label: string; cls: string }> = {
   completada:  { label: 'Completada', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
 };
 
-const TabInstalacion: React.FC<{ odp: any; onOpenLightbox: (src: string) => void }> = ({ odp, onOpenLightbox }) => {
+const TabInstalacion: React.FC<{ odp: any; onOpenLightbox: (src: string) => void; currentUser?: any; onRefresh?: () => void }> = ({ odp, onOpenLightbox, currentUser, onRefresh }) => {
   const rutaOdps: any[] = odp.ruta_odps || [];
   const evidencias = odp.evidencias || [];
+  const rutasConDano = rutaOdps.filter((r: any) => r.estado === 'con_dano');
+
+  const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const token = localStorage.getItem('token');
+
+  const isOwnerAsesor = currentUser?.rol === 'asesor_comercial' && currentUser?.id === odp.asesor_id;
+  const puedeRevisar = isOwnerAsesor || ['admin', 'gerencia'].includes(currentUser?.rol);
+
+  const handleRevisarDano = async () => {
+    if (!window.confirm('¿Marcar el daño como revisado? La ODP saldrá del tab "Con Daños".')) return;
+    try {
+      await axios.patch(`${API}/api/odp/${odp.id}/revisar-dano`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('Daño marcado como revisado');
+      onRefresh?.();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Error al revisar el daño');
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
+
+      {/* ── Banner de daño pendiente de revisión ── */}
+      {odp.tiene_dano_instalacion && (
+        <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-black text-orange-800">Instalación con daño reportado</p>
+              <p className="text-xs text-orange-600 mt-0.5">El instalador reportó un problema durante la ejecución. Revisa el detalle abajo y decide si procede una No Conformidad.</p>
+            </div>
+          </div>
+          {puedeRevisar && (
+            <button
+              onClick={handleRevisarDano}
+              className="flex-shrink-0 px-4 py-2 bg-white border border-orange-300 text-orange-700 text-xs font-black rounded-xl hover:bg-orange-50 transition whitespace-nowrap"
+            >
+              Revisado / Sin acción
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Cards de daño ── */}
+      {rutasConDano.length > 0 && (
+        <div>
+          <h3 className="text-sm font-extrabold uppercase tracking-widest text-orange-500 mb-3 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" /> Reportes de Daño ({rutasConDano.length})
+          </h3>
+          <div className="space-y-3">
+            {rutasConDano.map((r: any) => (
+              <div key={r.id} className="bg-orange-50 border border-orange-200 rounded-2xl p-5 shadow-sm">
+                <div className="flex flex-col md:flex-row gap-4">
+                  {r.foto_dano_url && (
+                    <div
+                      className="w-full md:w-36 h-36 rounded-xl overflow-hidden border border-orange-200 flex-shrink-0 cursor-zoom-in bg-orange-100"
+                      onClick={() => onOpenLightbox(r.foto_dano_url)}
+                    >
+                      <img src={r.foto_dano_url} alt="Foto daño" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 bg-orange-100 text-orange-700 text-[10px] font-black rounded-lg uppercase tracking-wider">
+                        Daño en instalación
+                      </span>
+                      {r.inicio_instalacion && (
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {new Date(r.inicio_instalacion).toLocaleString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-700 leading-relaxed">{r.descripcion_dano || '—'}</p>
+                    {r.ruta?.instaladores?.length > 0 && (
+                      <p className="text-xs text-slate-500">
+                        Instalador(es): <strong>{r.ruta.instaladores.map((i: any) => i.nombre_completo).join(', ')}</strong>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
           <Truck className="w-4 h-4 text-indigo-600" /> Programaciones de Instalación ({rutaOdps.length})
@@ -822,8 +908,14 @@ const TabHistorial: React.FC<{ odp: any }> = ({ odp }) => {
 
 // ─── Centro de Impresión: Sistema de Formatos por Rol ──────────────────────────
 const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
-  const [selectedFormat, setSelectedFormat] = useState<'compra' | 'op' | 'tecnico' | 'det_sap' | 'garantia' | 'noconformidad' | 'sap'>('op');
+  const tieneNC = (odp?.no_conformidades?.length || 0) > 0;
+  const tieneGarantias = (odp?.garantias?.length || 0) > 0;
+  const esGarantia = !!odp?.es_garantia;
+
+  type FormatId = 'compra' | 'op' | 'tecnico' | 'det_sap' | 'garantia' | 'noconformidad' | 'sap';
+  const [selectedFormat, setSelectedFormat] = useState<FormatId>('op');
   const [ncIndex, setNcIndex] = useState(0);
+  const [garantiaIndex, setGarantiaIndex] = useState(0);
   const [detSapImagenes, setDetSapImagenes] = useState<any[]>([]);
 
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -876,13 +968,20 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
           <button onClick={() => setSelectedFormat('det_sap')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'det_sap' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
             <Images className="w-3 h-3" /> Det. SAP
           </button>
-          <button onClick={() => setSelectedFormat('garantia')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'garantia' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
-            <CheckCircle2 className="w-3 h-3" /> Garantía
-          </button>
-          <button onClick={() => setSelectedFormat('noconformidad')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'noconformidad' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
-            <AlertCircle className="w-3 h-3" /> No Conform.
-            {odp?.no_conformidades?.length > 0 && <span className="text-[10px] bg-rose-500 text-white px-1.5 rounded-full">{odp.no_conformidades.length}</span>}
-          </button>
+          {/* Garantía: visible si la ODP tiene garantías hijas O si esta ODP ES una garantía */}
+          {(tieneGarantias || esGarantia) && (
+            <button onClick={() => setSelectedFormat('garantia')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'garantia' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+              <Shield className="w-3 h-3 text-blue-500" /> Garantía
+              {tieneGarantias && <span className="text-[10px] bg-blue-500 text-white px-1.5 rounded-full">{odp.garantias.length}</span>}
+            </button>
+          )}
+          {/* NC: visible solo si la ODP tiene no conformidades */}
+          {tieneNC && (
+            <button onClick={() => setSelectedFormat('noconformidad')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'noconformidad' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+              <AlertCircle className="w-3 h-3" /> No Conform.
+              <span className="text-[10px] bg-rose-500 text-white px-1.5 rounded-full">{odp.no_conformidades.length}</span>
+            </button>
+          )}
           <button onClick={() => setSelectedFormat('sap')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'sap' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
             <Package className="w-3 h-3" /> SAP
             {odp?.saps?.length > 0 && <span className="text-[10px] bg-indigo-500 text-white px-1.5 rounded-full">{odp.saps.length}</span>}
@@ -899,6 +998,16 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
                 </select>
             </div>
         )}
+        {selectedFormat === 'garantia' && tieneGarantias && odp?.garantias?.length > 1 && (
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1 px-3">
+                <span className="text-[10px] font-black text-slate-400 uppercase">GARANTÍA:</span>
+                <select className="bg-transparent text-xs font-bold outline-none" value={garantiaIndex} onChange={e => setGarantiaIndex(parseInt(e.target.value))}>
+                    {odp.garantias.map((g: any, idx: number) => (
+                        <option key={idx} value={idx}>{g.numero_garantia} - {new Date(g.fecha_creacion).toLocaleDateString()}</option>
+                    ))}
+                </select>
+            </div>
+        )}
 
         <button onClick={handlePrint} className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white font-black text-xs rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30">
           <Printer className="w-3 h-3" /> IMPRIMIR
@@ -910,7 +1019,11 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
         {selectedFormat === 'op' && <PrintableProduccion odp={odp} />}
         {selectedFormat === 'tecnico' && <PrintableDetalleTecnico odp={odp} />}
         {selectedFormat === 'det_sap' && <PrintableDetSAP odp={odp} imagenes={detSapImagenes} />}
-        {selectedFormat === 'garantia' && <PrintableGarantia odp={odp} />}
+        {selectedFormat === 'garantia' && (
+          esGarantia
+            ? <PrintableGarantia garantia={odp} odp={odp.odp_padre} />
+            : <PrintableGarantia garantia={odp.garantias?.[garantiaIndex]} odp={odp} />
+        )}
         {selectedFormat === 'noconformidad' && <PrintableNoConformidad odp={odp} data={odp?.no_conformidades?.[ncIndex]} />}
         {selectedFormat === 'sap' && <PrintableSAP odp={odp} sap={odp?.saps?.[0]} />}
       </div>
@@ -926,6 +1039,9 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(initialTab);
   const [showReportarForm, setShowReportarForm] = useState(false);
+  const [showGarantiaForm, setShowGarantiaForm] = useState(false);
+  const [reportarMenuOpen, setReportarMenuOpen] = useState(false);
+  const reportarMenuRef = useRef<HTMLDivElement>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const { lightboxSrc, openLightbox, closeLightbox } = useLightbox();
 
@@ -957,6 +1073,17 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
     fetchODP();
   }, [odpId]);
 
+  // Cerrar el menú "Reportar" al hacer click fuera
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (reportarMenuRef.current && !reportarMenuRef.current.contains(e.target as Node)) {
+        setReportarMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   const tabs = [
     { id: 'general',     label: 'Datos Generales', icon: <ClipboardList className="w-4 h-4" /> },
     { id: 'comercial',   label: 'Comercial',        icon: <DollarSign className="w-4 h-4" />,    badge: (odp?.saps?.length || 0) + (odp?.cotizaciones?.length || 0) },
@@ -972,7 +1099,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
       <motion.div initial={{ opacity: 0, scale: 0.96, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
         className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[96vh] flex flex-col border border-slate-200 overflow-hidden relative">
 
-        {/* MODAL REPORTAR PROBLEMA */}
+        {/* MODAL REPORTAR NO CONFORMIDAD */}
         <AnimatePresence>
           {showReportarForm && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -983,6 +1110,15 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* MODAL CREAR GARANTÍA */}
+        {showGarantiaForm && odp && (
+          <GarantiaFormModal
+            odp={odp}
+            onClose={() => setShowGarantiaForm(false)}
+            onCreada={() => { fetchODP(); setShowGarantiaForm(false); }}
+          />
+        )}
 
         {/* HEADER */}
         {loading ? (
@@ -996,6 +1132,15 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                 <span className="font-black text-amber-700">ODP DE REPROCESO</span>
                 <span className="text-amber-600">·</span>
                 <span className="text-amber-600">Referencia: <strong>{odp.odp_padre?.numero_odp || `ODP Padre #${odp.odp_padre_id}`}</strong></span>
+              </div>
+            )}
+            {/* Banner visual: ODP de Garantía */}
+            {odp.es_garantia && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 mb-3 flex items-center gap-2 text-xs">
+                <Shield className="w-3.5 h-3.5 text-blue-600" />
+                <span className="font-black text-blue-700">ODP DE GARANTÍA</span>
+                <span className="text-blue-400">·</span>
+                <span className="text-blue-600">{odp.numero_garantia} · ODP Origen: <strong>{odp.odp_padre?.numero_odp || `#${odp.odp_padre_id}`}</strong></span>
               </div>
             )}
             {/* Banner: ODP Pausada por No Conformidad */}
@@ -1020,9 +1165,11 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                     <Badge className={estadoProdColor[odp.estado_produccion] || 'bg-slate-100 text-slate-700 border-slate-200'}>
                       {odp.estado_produccion?.replace(/_/g, ' ')}
                     </Badge>
-                    <Badge className={cajaColor[odp.estado_caja] || 'bg-slate-100'}>
-                      <CreditCard className="w-3 h-3" />{odp.estado_caja?.replace(/_/g, ' ')}
-                    </Badge>
+                    {!odp.es_garantia && (
+                      <Badge className={cajaColor[odp.estado_caja] || 'bg-slate-100'}>
+                        <CreditCard className="w-3 h-3" />{odp.estado_caja?.replace(/_/g, ' ')}
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-sm text-slate-500 font-medium mt-1">
                     <span className="font-bold text-slate-700">{odp.cliente?.nombre_razon_social}</span>
@@ -1032,18 +1179,64 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {/* Botón Reportar: solo asesor dueño, producción, gerencia o admin */}
+                {/* Botón Reportar: solo asesor dueño, gerencia o admin. Solo para ODPs normales (no garantía, no reproceso) */}
                 {(() => {
                   if (!currentUser) return null;
                   const role = currentUser.rol;
                   const isOwner = role === 'asesor_comercial' && currentUser.id === odp.asesor_id;
-                  const canReport = ['admin', 'gerencia', 'produccion'].includes(role) || isOwner;
+                  const canReport = ['admin', 'gerencia'].includes(role) || isOwner;
                   if (!canReport || odp.estado_produccion === 'PAUSADA') return null;
+                  // Para garantías y reprocesos: solo NC, sin opción de crear otra garantía
+                  const esDerivada = odp.es_garantia || odp.es_no_conformidad;
+                  if (esDerivada) {
+                    return (
+                      <button onClick={() => setShowReportarForm(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-rose-50 border border-rose-200 text-rose-600 rounded-lg hover:bg-rose-100 transition print:hidden">
+                        <AlertCircle className="w-3.5 h-3.5" /> REPORTAR NC
+                      </button>
+                    );
+                  }
                   return (
-                    <button onClick={() => setShowReportarForm(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-rose-50 border border-rose-200 text-rose-600 rounded-lg hover:bg-rose-100 transition print:hidden">
-                      <AlertCircle className="w-3.5 h-3.5" /> REPORTAR PROBLEMA
-                    </button>
+                    <div className="relative print:hidden" ref={reportarMenuRef}>
+                      <button
+                        onClick={() => setReportarMenuOpen(v => !v)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-rose-50 border border-rose-200 text-rose-600 rounded-lg hover:bg-rose-100 transition"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5" /> REPORTAR PROBLEMA <ChevronDown className="w-3 h-3" />
+                      </button>
+                      <AnimatePresence>
+                        {reportarMenuOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                            transition={{ duration: 0.12 }}
+                            className="absolute right-0 top-9 z-[80] bg-white border border-slate-200 rounded-xl shadow-xl w-52 overflow-hidden"
+                          >
+                            <button
+                              onClick={() => { setShowReportarForm(true); setReportarMenuOpen(false); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 transition text-left border-b border-slate-100"
+                            >
+                              <AlertCircle className="w-4 h-4 text-rose-500" />
+                              <div>
+                                <p className="font-bold text-xs">No Conformidad</p>
+                                <p className="text-[10px] text-slate-400">Crear ODP de reproceso</p>
+                              </div>
+                            </button>
+                            <button
+                              onClick={() => { setShowGarantiaForm(true); setReportarMenuOpen(false); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 transition text-left"
+                            >
+                              <Shield className="w-4 h-4 text-blue-500" />
+                              <div>
+                                <p className="font-bold text-xs">Garantía</p>
+                                <p className="text-[10px] text-slate-400">Crear ODP de garantía</p>
+                              </div>
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   );
                 })()}
                 <button onClick={() => setActiveTab('imprimir')}
@@ -1085,7 +1278,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                   {activeTab === 'general'     && <TabDatosGenerales odp={odp} />}
                   {activeTab === 'comercial'   && odp && <TabComercial odp={odp} onRefresh={fetchODP} />}
                   {activeTab === 'produccion'  && <TabProduccion odp={odp} onUpdate={fetchODP} currentUser={currentUser} />}
-                  {activeTab === 'instalacion' && <TabInstalacion odp={odp} onOpenLightbox={openLightbox} />}
+                  {activeTab === 'instalacion' && <TabInstalacion odp={odp} onOpenLightbox={openLightbox} currentUser={currentUser} onRefresh={fetchODP} />}
                   {activeTab === 'financiero'  && <TabFinanciero odp={odp} />}
                   {activeTab === 'historial'   && <TabHistorial odp={odp} />}
                   {activeTab === 'imprimir'    && <TabImprimir odp={odp} />}

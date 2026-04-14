@@ -13,13 +13,15 @@ RutaODP.init({
   inicio_instalacion:  { type: DataTypes.DATE, allowNull: true },
   fin_instalacion:     { type: DataTypes.DATE, allowNull: true },
   estado: {
-    type: DataTypes.ENUM('pendiente', 'en_curso', 'completada'),
+    type: DataTypes.ENUM('pendiente', 'en_curso', 'completada', 'con_dano'),
     defaultValue: 'pendiente',
   },
   datos_receptor:     { type: DataTypes.STRING(300), allowNull: true },
   firma_receptor:     { type: DataTypes.TEXT, allowNull: true },
   foto_evidencia_url: { type: DataTypes.STRING(500), allowNull: true },
   gps_finalizacion:   { type: DataTypes.STRING(100), allowNull: true },
+  descripcion_dano:   { type: DataTypes.TEXT, allowNull: true },
+  foto_dano_url:      { type: DataTypes.STRING(500), allowNull: true },
 }, {
   sequelize,
   modelName: 'RutaODP',

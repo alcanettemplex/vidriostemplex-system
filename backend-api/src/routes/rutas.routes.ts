@@ -14,6 +14,7 @@ import {
   getMiAsignacion,
   iniciarInstalacion,
   finalizarInstalacion,
+  reportarDano,
   getMiRutaConductor,
   iniciarRutaConductor,
   llegadaConductor,
@@ -33,6 +34,7 @@ router.get('/personal', getInstaladores);
 router.get('/mi-asignacion', requireRole('instalador'), getMiAsignacion);
 router.post('/ruta-odp/:id/iniciar', requireRole('instalador'), iniciarInstalacion);
 router.post('/ruta-odp/:id/finalizar', requireRole('instalador'), uploadConfig.single('foto'), finalizarInstalacion);
+router.post('/ruta-odp/:id/reportar-dano', requireRole('instalador'), uploadConfig.single('foto_dano'), reportarDano);
 
 // Conductor: su ruta
 router.get('/mi-ruta-conductor', requireRole('conductor'), getMiRutaConductor);

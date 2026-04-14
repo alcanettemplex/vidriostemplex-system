@@ -78,6 +78,7 @@ Usuario.hasMany(NoConformidad, { foreignKey: 'usuario_reporta_id', as: 'reportes
 NoConformidad.belongsTo(Usuario, { foreignKey: 'usuario_reporta_id', as: 'usuario_reporta' });
 
 ODP.hasMany(ODP, { foreignKey: 'odp_padre_id', as: 'odps_derivadas' });
+ODP.hasMany(ODP, { foreignKey: 'odp_padre_id', as: 'garantias', scope: { es_garantia: true } });
 ODP.belongsTo(ODP, { foreignKey: 'odp_padre_id', as: 'odp_padre' });
 
 // ─── Bloque B: SAP, Cotizacion, TomaMedidas ──────────────────────────────────

@@ -1,13 +1,16 @@
 import React from 'react';
-import { format, addYears, isValid } from 'date-fns';
+import { format, addMonths, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { TemplexLogo } from '../../../components/ui/TemplexLogo';
 
 interface PrintableGarantiaProps {
-    odp?: any;
+    odp?: any;       // ODP padre (para imprimir desde la ficha del padre)
+    garantia?: any;  // ODP hija con es_garantia=true (para imprimir desde la ficha de la garantía)
 }
 
-const PrintableGarantia: React.FC<PrintableGarantiaProps> = ({ odp }) => {
+const PrintableGarantia: React.FC<PrintableGarantiaProps> = ({ odp, garantia }) => {
+    // Si se pasa garantia directamente, usarla; si no, usar odp (compatibilidad con uso anterior)
+    const src = garantia || odp;
 
     const formatDate = (dateStr: string) => {
         if (!dateStr) return '—';
@@ -15,15 +18,29 @@ const PrintableGarantia: React.FC<PrintableGarantiaProps> = ({ odp }) => {
         return isValid(d) ? format(d, 'dd/MM/yyyy') : '—';
     };
 
+    // Vencimiento: 6 meses desde la fecha de instalación del padre
     const getExpiryDate = (dateStr: string) => {
         if (!dateStr) return '—';
         const d = new Date(dateStr);
-        return isValid(d) ? format(addYears(d, 1), 'dd/MM/yyyy') : '—';
+        return isValid(d) ? format(addMonths(d, 6), 'dd/MM/yyyy') : '—';
     };
 
-    const asesorNombre = odp?.asesor?.nombre_completo || '—';
-    const lastProgramacion = odp?.programaciones?.[odp.programaciones.length - 1];
-    const instaladorNombre = lastProgramacion?.instalador?.nombre_completo || '—';
+    // Para la garantía el padre tiene la fecha de entrega/instalación original
+    const fechaInstalacion = garantia
+        ? (garantia.odp_padre?.fecha_entrega || odp?.fecha_entrega)
+        : odp?.fecha_entrega;
+
+    const asesorNombre = src?.asesor?.nombre_completo || '—';
+
+    // Instalador: buscar en ruta_odps (mismo patrón que el resto del sistema)
+    const lastRutaODP = src?.ruta_odps?.[src.ruta_odps.length - 1];
+    const instaladores = lastRutaODP?.ruta?.instaladores;
+    const instaladorNombre = instaladores?.length > 0
+        ? instaladores.map((i: any) => i.nombre_completo).join(', ')
+        : '—';
+
+    // Número de garantía: usar numero_garantia del src, o derivar del odp padre
+    const numeroGarantia = src?.numero_garantia || `G-${odp?.numero_odp?.split('-').pop() || '......'}`;
 
     return (
         <div className="block print:block shadow-xl print:shadow-none w-[21.5cm] min-h-[29cm] bg-white text-black font-sans text-[11px] mx-auto overflow-hidden">
@@ -59,20 +76,22 @@ const PrintableGarantia: React.FC<PrintableGarantiaProps> = ({ odp }) => {
                                 NUMERO CONSECUTIVO<br />DE GARANTIA
                             </td>
                             <td className="w-[35%] text-center font-black text-2xl">
-                                G-{odp?.numero_odp?.split('-').pop() || '......'}
+                                {numeroGarantia}
                             </td>
                         </tr>
 
                         {/* ROW FECHA - ODP */}
                         <tr>
                             <td className="celda-title bg-slate-50 py-3">FECHA DE SOLICITUD</td>
-                            <td className="celda-value text-slate-800">{formatDate(odp?.fecha_creacion)}</td>
+                            <td className="celda-value text-slate-800">{formatDate(src?.fecha_creacion)}</td>
                             <td className="p-0 border-none">
                                 <table className="w-full h-full border-collapse">
                                     <tbody>
                                         <tr>
                                             <td className="w-1/2 celda-title bg-slate-50 text-xl py-3 border border-black border-l-0 border-t-0 border-b-0">ODP</td>
-                                            <td className="w-1/2 text-center text-red-600 font-black text-2xl border-none">{odp?.numero_odp || ''}</td>
+                                            <td className="w-1/2 text-center text-red-600 font-black text-2xl border-none">
+                                                {garantia ? (garantia.odp_padre?.numero_odp || odp?.numero_odp || '') : (odp?.numero_odp || '')}
+                                            </td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -93,52 +112,52 @@ const PrintableGarantia: React.FC<PrintableGarantiaProps> = ({ odp }) => {
                         {/* CLIENTE */}
                         <tr>
                             <td colSpan={2} className="celda-title bg-slate-50 w-[50%] leading-tight text-[10px] py-3">NOMBRE DEL CLIENTE O RAZON<br />SOCIAL:</td>
-                            <td colSpan={2} className="celda-value uppercase">{odp?.cliente?.nombre_razon_social || '—'}</td>
+                            <td colSpan={2} className="celda-value uppercase">{src?.cliente?.nombre_razon_social || '—'}</td>
                         </tr>
 
                         {/* CONTACTO - TELEFONO */}
                         <tr>
                             <td className="celda-title bg-slate-50 py-3">CONTACTO:</td>
-                            <td className="celda-value uppercase">{odp?.nombre_recibe || odp?.cliente?.nombre_razon_social || '—'}</td>
+                            <td className="celda-value uppercase">{src?.nombre_recibe || src?.cliente?.nombre_razon_social || '—'}</td>
                             <td className="celda-title bg-slate-50">TELEFONO:</td>
-                            <td className="celda-value">{odp?.telefono_recibe || odp?.cliente?.celular || odp?.cliente?.telefono || '—'}</td>
+                            <td className="celda-value">{src?.telefono_recibe || src?.cliente?.celular || src?.cliente?.telefono || '—'}</td>
                         </tr>
 
                         {/* DIRECCION */}
                         <tr>
                             <td className="celda-title bg-slate-50 py-3">DIRECCION INSTALACIÓN:</td>
-                            <td colSpan={3} className="celda-value uppercase">{odp?.direccion_instalacion || odp?.cliente?.direccion || '—'}</td>
+                            <td colSpan={3} className="celda-value uppercase">{src?.direccion_instalacion || src?.cliente?.direccion || '—'}</td>
                         </tr>
 
                         {/* TIPO PRODUCTO */}
                         <tr>
                             <td className="celda-title bg-slate-50 py-3">TIPO DE<br />PRODUCTO:</td>
-                            <td colSpan={3} className="celda-value uppercase">{odp?.tipo_servicio || 'SERVICIO DE VIDRIERÍA'}</td>
+                            <td colSpan={3} className="celda-value uppercase">{src?.tipo_servicio || 'SERVICIO DE VIDRIERÍA'}</td>
                         </tr>
 
                         {/* FECHAS INSTALACION Y VENCIMIENTO */}
                         <tr>
                             <td className="celda-title bg-slate-50 text-[9px] py-3 leading-tight">FECHA INSTALACION DEL<br />PRODUCTO:</td>
-                            <td className="celda-value">{formatDate(odp?.fecha_entrega)}</td>
+                            <td className="celda-value">{formatDate(fechaInstalacion)}</td>
                             <td className="celda-title bg-slate-50 text-[9px] leading-tight">FECHA VENCIMIENTO DE<br />GARANTIA:</td>
-                            <td className="celda-value">{getExpiryDate(odp?.fecha_entrega)}</td>
+                            <td className="celda-value">{getExpiryDate(fechaInstalacion)}</td>
                         </tr>
                     </tbody>
                 </table>
 
                 <table className="excel-table border-t-0 min-h-[400px]">
                     <tbody>
-                        {/* DESCRIPCION CLIENTE TARGET */}
+                        {/* DESCRIPCION DEL PROBLEMA */}
                         <tr>
-                            <td className="celda-title bg-slate-100 py-3 tracking-widest border-b-[2px] border-black text-sm">DESCRIPCIÓN DEL PROYECTO / PEDIDO</td>
+                            <td className="celda-title bg-slate-100 py-3 tracking-widest border-b-[2px] border-black text-sm">DESCRIPCIÓN DEL PROBLEMA REPORTADO POR EL CLIENTE</td>
                         </tr>
                         <tr>
                            <td className="h-64 text-left text-sm uppercase px-4 font-medium align-top pt-4">
-                                {odp?.descripcion_pedido || 'Sin descripción detallada.'}
-                                {odp?.observaciones && (
+                                {src?.descripcion_pedido || 'Sin descripción detallada.'}
+                                {src?.observaciones && (
                                     <div className="mt-4 pt-4 border-t border-slate-200">
                                         <p className="font-bold text-[10px]">OBSERVACIONES:</p>
-                                        <p className="normal-case">{odp.observaciones}</p>
+                                        <p className="normal-case">{src.observaciones}</p>
                                     </div>
                                 )}
                            </td>
@@ -161,7 +180,7 @@ const PrintableGarantia: React.FC<PrintableGarantiaProps> = ({ odp }) => {
                     </tbody>
                 </table>
                 <div className="mt-4 text-[9px] text-slate-500 text-center uppercase tracking-widest">
-                    Esta garantía cubre defectos de fabricación por un periodo de un (1) año a partir de la fecha de instalación.
+                    Esta garantía cubre defectos de fabricación por un periodo de seis (6) meses a partir de la fecha de instalación.
                 </div>
             </div>
         </div>

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+﻿import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from '../components/common/Navbar';
 import Sidebar from '../components/common/Sidebar';
@@ -22,11 +22,14 @@ import FacturasSalidasPage from '../features/facturas-salidas/FacturasSalidasPag
 import RootPage from '../features/root/RootPage';
 import CRMPage from '../features/crm/CRMPage';
 
-const AppRoutes: React.FC = () => (
+const AppRoutes: React.FC = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  return (
   <Router>
     <div className="min-h-screen bg-slate-50">
-      <Navbar />
-      <Sidebar />
+      <Navbar onToggleSidebar={() => setSidebarOpen(prev => !prev)} />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="pt-16 md:pl-64 min-h-screen transition-all">
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -80,6 +83,7 @@ const AppRoutes: React.FC = () => (
       </main>
     </div>
   </Router>
-);
+  );
+};
 
 export default AppRoutes;

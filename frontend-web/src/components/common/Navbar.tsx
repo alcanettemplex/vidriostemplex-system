@@ -2,10 +2,14 @@ import React from 'react';
 import { useDispatch } from 'react-redux';
 import { logout } from '../../features/auth/authSlice';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Bell } from 'lucide-react';
+import { LogOut, Bell, Menu } from 'lucide-react';
 import { TemplexLogo } from '../ui/TemplexLogo';
 
-const Navbar: React.FC = () => {
+interface NavbarProps {
+  onToggleSidebar: () => void;
+}
+
+const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -18,7 +22,14 @@ const Navbar: React.FC = () => {
 
   return (
     <nav className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-200 z-50 flex items-center justify-between px-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onToggleSidebar}
+          className="md:hidden p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition"
+          aria-label="Abrir menú"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
         <div className="pt-2 pb-1">
           <TemplexLogo className="h-10 w-36" />
         </div>

@@ -57,9 +57,12 @@ ODP.init({
   chk_huacal: { type: DataTypes.BOOLEAN, defaultValue: false },
   chk_carton: { type: DataTypes.BOOLEAN, defaultValue: false },
   es_no_conformidad: { type: DataTypes.BOOLEAN, defaultValue: false },
+  es_garantia: { type: DataTypes.BOOLEAN, defaultValue: false },
+  numero_garantia: { type: DataTypes.STRING(20), allowNull: true },
   odp_padre_id: { type: DataTypes.INTEGER, allowNull: true },
   tiene_aluminio: { type: DataTypes.BOOLEAN, defaultValue: false },
   fecha_vencimiento_credito: { type: DataTypes.DATEONLY, allowNull: true },
+  tiene_dano_instalacion: { type: DataTypes.BOOLEAN, defaultValue: false },
 }, {
   sequelize,
   modelName: 'ODP',

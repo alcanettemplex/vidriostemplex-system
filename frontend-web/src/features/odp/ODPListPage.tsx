@@ -5,8 +5,8 @@ import { useDataChangedSocket } from '../../store/useSocketNotifications';
 import { toast } from 'react-toastify';
 import {
     Plus, Search, FileText, CheckCircle2, Clock, Truck, Eye, Trash2, Edit3,
-    AlertCircle, Package, DollarSign, Ruler, Printer, MoreVertical,
-    ChevronUp, ChevronDown, ChevronsUpDown, Filter, CheckSquare
+    AlertCircle, AlertTriangle, Package, DollarSign, Ruler, Printer, MoreVertical,
+    ChevronUp, ChevronDown, ChevronsUpDown, Filter, CheckSquare, Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPForm from './components/ODPForm';
@@ -31,7 +31,7 @@ interface ODP {
     pendiente?: number;
 }
 
-type SortField = 'numero_odp' | 'cliente' | 'asesor' | 'estado_produccion' | 'estado_caja' | 'fecha_entrega';
+type SortField = 'numero_odp' | 'cliente' | 'asesor' | 'estado_produccion' | 'estado_caja' | 'fecha_entrega' | 'fecha_creacion';
 type SortDir = 'asc' | 'desc';
 
 const ESTADOS_PRODUCCION = [
@@ -172,7 +172,9 @@ const ODPListPage: React.FC = () => {
     const [odps, setOdps] = useState<ODP[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeTab, setActiveTab] = useState<'activas' | 'visita' | 'listas' | 'completadas'>('activas');
+    const [activeTab, setActiveTab] = useState<'activas' | 'visita' | 'listas' | 'completadas' | 'con_dano' | 'garantia'>('activas');
+    const [garantiaSubTab, setGarantiaSubTab] = useState<'activas' | 'realizadas'>('activas');
+    const [garantias, setGarantias] = useState<ODP[]>([]);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [selectedOdpDetail, setSelectedOdpDetail] = useState<number | null>(null);
     const [editingOdp, setEditingOdp] = useState<ODP | null>(null);
@@ -195,6 +197,18 @@ const ODPListPage: React.FC = () => {
     const user = useSelector((state: any) => state.auth.user);
     const userRole = (user?.rol || user?.role)?.toLowerCase() || '';
 
+    const fetchGarantias = useCallback(async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp/garantias/all`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setGarantias(res.data);
+        } catch (error) {
+            console.error('Error fetching garantías', error);
+        }
+    }, []);
+
     const fetchODPs = useCallback(async () => {
         try {
             const token = localStorage.getItem('token');
@@ -209,8 +223,8 @@ const ODPListPage: React.FC = () => {
         }
     }, []);
 
-    useEffect(() => { fetchODPs(); }, [fetchODPs]);
-    useDataChangedSocket('odp', fetchODPs);
+    useEffect(() => { fetchODPs(); fetchGarantias(); }, [fetchODPs, fetchGarantias]);
+    useDataChangedSocket('odp', () => { fetchODPs(); fetchGarantias(); });
 
     const handleSolicitarVisita = async (odp: ODP) => {
         if (!window.confirm(`¿Solicitar visita técnica para ${odp.numero_odp}?`)) return;
@@ -259,8 +273,18 @@ const ODPListPage: React.FC = () => {
     const odpsVisita = odps.filter(o => o.estado_produccion === 'VISITA_TECNICA');
     const odpsListas = odps.filter(o => ESTADOS_LISTAS.includes(o.estado_produccion));
     const odpsCompletadas = odps.filter(o => ESTADOS_COMPLETADAS.includes(o.estado_produccion));
+    const odpsConDano = odps.filter((o: any) => o.tiene_dano_instalacion === true);
 
-    const tabBase = activeTab === 'visita' ? odpsVisita : activeTab === 'listas' ? odpsListas : activeTab === 'completadas' ? odpsCompletadas : odpsActivas;
+    const ESTADOS_REALIZADAS = ['INSTALADA', 'ENTREGADA'];
+    const garantiasActivas = garantias.filter(g => !ESTADOS_REALIZADAS.includes(g.estado_produccion));
+    const garantiasRealizadas = garantias.filter(g => ESTADOS_REALIZADAS.includes(g.estado_produccion));
+
+    const tabBase = activeTab === 'visita' ? odpsVisita
+        : activeTab === 'listas' ? odpsListas
+        : activeTab === 'completadas' ? odpsCompletadas
+        : activeTab === 'con_dano' ? odpsConDano
+        : activeTab === 'garantia' ? (garantiaSubTab === 'realizadas' ? garantiasRealizadas : garantiasActivas)
+        : odpsActivas;
 
     // Aplicar filtros
     const filtered = tabBase.filter(odp => {
@@ -286,6 +310,7 @@ const ODPListPage: React.FC = () => {
             case 'estado_produccion':valA = a.estado_produccion; valB = b.estado_produccion; break;
             case 'estado_caja':      valA = a.estado_caja; valB = b.estado_caja; break;
             case 'fecha_entrega':    valA = a.fecha_entrega || ''; valB = b.fecha_entrega || ''; break;
+            case 'fecha_creacion':   valA = (a as any).fecha_creacion || ''; valB = (b as any).fecha_creacion || ''; break;
         }
         return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
     });
@@ -293,6 +318,7 @@ const ODPListPage: React.FC = () => {
     const hayFiltrosActivos = filterAsesor || filterEstado || filterMes || filterAnio;
 
     const thClass = "px-4 py-3 font-medium cursor-pointer select-none hover:bg-slate-100 transition";
+    const isGarantiaTab = activeTab === 'garantia';
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
@@ -351,7 +377,49 @@ const ODPListPage: React.FC = () => {
                         <span className={`px-2 py-0.5 rounded-full text-xs font-black ${activeTab === 'completadas' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{odpsCompletadas.length}</span>
                     )}
                 </button>
+                <button
+                    onClick={() => setActiveTab('con_dano')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition border ${activeTab === 'con_dano' ? 'bg-white border-orange-200 text-orange-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white/60'}`}
+                >
+                    <AlertTriangle className="w-4 h-4" />
+                    Con Daños
+                    {odpsConDano.length > 0 && (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-black ${activeTab === 'con_dano' ? 'bg-orange-100 text-orange-700' : 'bg-orange-100 text-orange-600'}`}>{odpsConDano.length}</span>
+                    )}
+                </button>
+                <button
+                    onClick={() => setActiveTab('garantia')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition border ${activeTab === 'garantia' ? 'bg-white border-blue-200 text-blue-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white/60'}`}
+                >
+                    <Shield className="w-4 h-4" />
+                    Garantías
+                    {garantias.length > 0 && (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-black ${activeTab === 'garantia' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{garantias.length}</span>
+                    )}
+                </button>
             </div>
+
+            {/* Sub-tabs de Garantías */}
+            {activeTab === 'garantia' && (
+                <div className="flex gap-2 mb-3 px-1">
+                    <button
+                        onClick={() => setGarantiaSubTab('activas')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition border ${garantiaSubTab === 'activas' ? 'bg-white border-blue-200 text-blue-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white/60'}`}
+                    >
+                        <Shield className="w-3.5 h-3.5" />
+                        Activas
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${garantiaSubTab === 'activas' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{garantiasActivas.length}</span>
+                    </button>
+                    <button
+                        onClick={() => setGarantiaSubTab('realizadas')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition border ${garantiaSubTab === 'realizadas' ? 'bg-white border-emerald-200 text-emerald-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white/60'}`}
+                    >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Realizadas
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${garantiaSubTab === 'realizadas' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{garantiasRealizadas.length}</span>
+                    </button>
+                </div>
+            )}
 
             <div className="glass-panel overflow-hidden">
                 {/* Barra de búsqueda y filtros */}
@@ -437,9 +505,14 @@ const ODPListPage: React.FC = () => {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-slate-50/50 text-slate-500 text-xs uppercase tracking-wider">
-                                <th className={thClass} onClick={() => handleSort('numero_odp')}>
-                                    <span className="flex items-center">Nº ODP <SortIcon field="numero_odp" sortField={sortField} sortDir={sortDir} /></span>
-                                </th>
+                                {isGarantiaTab && (
+                                    <th className="px-4 py-3 font-medium whitespace-nowrap">Nº Garantía</th>
+                                )}
+                                {!isGarantiaTab && (
+                                    <th className={thClass} onClick={() => handleSort('numero_odp')}>
+                                        <span className="flex items-center">Nº ODP <SortIcon field="numero_odp" sortField={sortField} sortDir={sortDir} /></span>
+                                    </th>
+                                )}
                                 <th className={thClass} onClick={() => handleSort('cliente')}>
                                     <span className="flex items-center">Cliente <SortIcon field="cliente" sortField={sortField} sortDir={sortDir} /></span>
                                 </th>
@@ -449,15 +522,26 @@ const ODPListPage: React.FC = () => {
                                 <th className={thClass} onClick={() => handleSort('estado_produccion')}>
                                     <span className="flex items-center">Estado Taller <SortIcon field="estado_produccion" sortField={sortField} sortDir={sortDir} /></span>
                                 </th>
-                                <th className={thClass} onClick={() => handleSort('estado_caja')}>
-                                    <span className="flex items-center">Caja <SortIcon field="estado_caja" sortField={sortField} sortDir={sortDir} /></span>
-                                </th>
-                                <th className="px-4 py-3 font-medium text-right whitespace-nowrap">Total</th>
-                                <th className="px-4 py-3 font-medium text-right whitespace-nowrap">Abono</th>
-                                <th className="px-4 py-3 font-medium text-right whitespace-nowrap">Restante</th>
-                                <th className={thClass} onClick={() => handleSort('fecha_entrega')}>
-                                    <span className="flex items-center">Listo Material <SortIcon field="fecha_entrega" sortField={sortField} sortDir={sortDir} /></span>
-                                </th>
+                                {isGarantiaTab ? (
+                                    <>
+                                        <th className="px-4 py-3 font-medium whitespace-nowrap">ODP Origen</th>
+                                        <th className={thClass} onClick={() => handleSort('fecha_creacion')}>
+                                            <span className="flex items-center">Fecha Creación <SortIcon field="fecha_creacion" sortField={sortField} sortDir={sortDir} /></span>
+                                        </th>
+                                    </>
+                                ) : (
+                                    <>
+                                        <th className={thClass} onClick={() => handleSort('estado_caja')}>
+                                            <span className="flex items-center">Caja <SortIcon field="estado_caja" sortField={sortField} sortDir={sortDir} /></span>
+                                        </th>
+                                        <th className="px-4 py-3 font-medium text-right whitespace-nowrap">Total</th>
+                                        <th className="px-4 py-3 font-medium text-right whitespace-nowrap">Abono</th>
+                                        <th className="px-4 py-3 font-medium text-right whitespace-nowrap">Restante</th>
+                                        <th className={thClass} onClick={() => handleSort('fecha_entrega')}>
+                                            <span className="flex items-center">Listo Material <SortIcon field="fecha_entrega" sortField={sortField} sortDir={sortDir} /></span>
+                                        </th>
+                                    </>
+                                )}
                                 <th className="px-4 py-3 font-medium text-right">Acciones</th>
                             </tr>
                         </thead>
@@ -465,14 +549,14 @@ const ODPListPage: React.FC = () => {
                             {loading ? (
                                 Array.from({ length: 5 }).map((_, idx) => (
                                     <tr key={idx} className="animate-pulse">
-                                        {Array.from({ length: 10 }).map((__, i) => (
+                                        {Array.from({ length: isGarantiaTab ? 7 : 10 }).map((__, i) => (
                                             <td key={i} className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-full"></div></td>
                                         ))}
                                     </tr>
                                 ))
                             ) : sorted.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
+                                    <td colSpan={isGarantiaTab ? 7 : 10} className="px-6 py-12 text-center text-slate-500">
                                         <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                                         No se encontraron órdenes de producción.
                                     </td>
@@ -486,15 +570,32 @@ const ODPListPage: React.FC = () => {
                                         key={odp.id}
                                         className="hover:bg-slate-50/80 transition group"
                                     >
-                                        {/* Nº ODP */}
-                                        <td className="px-4 py-3 font-semibold text-blue-600 text-sm">
-                                            <div className="flex items-center gap-1.5">
-                                                {(odp as any).es_no_conformidad && (
-                                                    <span className="text-[9px] font-black bg-amber-500 text-white px-1 py-0.5 rounded leading-none">NC</span>
-                                                )}
-                                                #{odp.numero_odp}
-                                            </div>
-                                        </td>
+                                        {/* Nº Garantía — solo tab garantía, primera columna */}
+                                        {isGarantiaTab && (
+                                            <td className="px-4 py-3">
+                                                {(odp as any).numero_garantia
+                                                    ? <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-black border border-blue-200">
+                                                        <Shield className="w-3 h-3" />{(odp as any).numero_garantia}
+                                                      </span>
+                                                    : <span className="text-slate-300 text-xs">—</span>}
+                                            </td>
+                                        )}
+                                        {/* Nº ODP — oculto en tab garantía */}
+                                        {!isGarantiaTab && (
+                                            <td className="px-4 py-3 font-semibold text-blue-600 text-sm">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    {(odp as any).es_no_conformidad && (
+                                                        <span className="text-[9px] font-black bg-amber-500 text-white px-1 py-0.5 rounded leading-none">NC</span>
+                                                    )}
+                                                    {(odp as any).es_garantia && (
+                                                        <span className="text-[9px] font-black bg-blue-500 text-white px-1 py-0.5 rounded leading-none flex items-center gap-0.5">
+                                                            <Shield className="w-2.5 h-2.5" /> {(odp as any).numero_garantia || 'G'}
+                                                        </span>
+                                                    )}
+                                                    #{odp.numero_odp}
+                                                </div>
+                                            </td>
+                                        )}
                                         {/* Cliente */}
                                         <td className="px-4 py-3 text-slate-700 font-medium text-sm max-w-[180px] truncate">
                                             {odp.cliente.nombre_razon_social}
@@ -510,39 +611,59 @@ const ODPListPage: React.FC = () => {
                                                 {odp.estado_produccion.replace(/_/g, ' ')}
                                             </span>
                                         </td>
-                                        {/* Caja */}
-                                        <td className="px-4 py-3">
-                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getCajaColor(odp.estado_caja)}`}>
-                                                {odp.estado_caja.replace(/_/g, ' ')}
-                                            </span>
-                                        </td>
-                                        {/* Total */}
-                                        <td className="px-4 py-3 text-right text-xs font-semibold text-slate-700 whitespace-nowrap">
-                                            {Number(odp.valor_total) > 0
-                                                ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(odp.valor_total))
-                                                : <span className="text-slate-300">—</span>}
-                                        </td>
-                                        {/* Abono */}
-                                        <td className="px-4 py-3 text-right text-xs font-semibold text-emerald-700 whitespace-nowrap">
-                                            {Number(odp.abono) > 0
-                                                ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(odp.abono))
-                                                : <span className="text-slate-300">—</span>}
-                                        </td>
-                                        {/* Restante */}
-                                        <td className="px-4 py-3 text-right text-xs whitespace-nowrap">
-                                            {(() => {
-                                                const rest = Math.max(0, Number(odp.valor_total || 0) - Number(odp.abono || 0));
-                                                return rest > 0
-                                                    ? <span className="font-bold text-rose-600">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(rest)}</span>
-                                                    : <span className="text-emerald-500 font-bold text-[10px] uppercase tracking-wide">Pagado</span>;
-                                            })()}
-                                        </td>
-                                        {/* Listo Material */}
-                                        <td className="px-4 py-3 text-xs font-mono">
-                                            {odp.fecha_entrega
-                                                ? <span className="text-slate-700 font-semibold">{new Date(odp.fecha_entrega).toLocaleDateString('es-CO')}</span>
-                                                : <span className="text-slate-300">—</span>}
-                                        </td>
+                                        {/* Columnas variables según tab */}
+                                        {isGarantiaTab ? (
+                                            <>
+                                                {/* ODP Raíz */}
+                                                <td className="px-4 py-3 text-sm font-mono text-slate-600">
+                                                    {(odp as any).odp_padre?.numero_odp
+                                                        ? <span className="font-semibold">#{(odp as any).odp_padre.numero_odp}</span>
+                                                        : <span className="text-slate-300">—</span>}
+                                                </td>
+                                                {/* Fecha Creación */}
+                                                <td className="px-4 py-3 text-xs font-mono">
+                                                    {(odp as any).fecha_creacion
+                                                        ? <span className="text-slate-700 font-semibold">{new Date((odp as any).fecha_creacion).toLocaleDateString('es-CO')}</span>
+                                                        : <span className="text-slate-300">—</span>}
+                                                </td>
+                                            </>
+                                        ) : (
+                                            <>
+                                                {/* Caja */}
+                                                <td className="px-4 py-3">
+                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getCajaColor(odp.estado_caja)}`}>
+                                                        {odp.estado_caja.replace(/_/g, ' ')}
+                                                    </span>
+                                                </td>
+                                                {/* Total */}
+                                                <td className="px-4 py-3 text-right text-xs font-semibold text-slate-700 whitespace-nowrap">
+                                                    {Number(odp.valor_total) > 0
+                                                        ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(odp.valor_total))
+                                                        : <span className="text-slate-300">—</span>}
+                                                </td>
+                                                {/* Abono */}
+                                                <td className="px-4 py-3 text-right text-xs font-semibold text-emerald-700 whitespace-nowrap">
+                                                    {Number(odp.abono) > 0
+                                                        ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(odp.abono))
+                                                        : <span className="text-slate-300">—</span>}
+                                                </td>
+                                                {/* Restante */}
+                                                <td className="px-4 py-3 text-right text-xs whitespace-nowrap">
+                                                    {(() => {
+                                                        const rest = Math.max(0, Number(odp.valor_total || 0) - Number(odp.abono || 0));
+                                                        return rest > 0
+                                                            ? <span className="font-bold text-rose-600">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(rest)}</span>
+                                                            : <span className="text-emerald-500 font-bold text-[10px] uppercase tracking-wide">Pagado</span>;
+                                                    })()}
+                                                </td>
+                                                {/* Listo Material */}
+                                                <td className="px-4 py-3 text-xs font-mono">
+                                                    {odp.fecha_entrega
+                                                        ? <span className="text-slate-700 font-semibold">{new Date(odp.fecha_entrega).toLocaleDateString('es-CO')}</span>
+                                                        : <span className="text-slate-300">—</span>}
+                                                </td>
+                                            </>
+                                        )}
                                         {/* Acciones */}
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex justify-end items-center gap-1">

@@ -100,8 +100,9 @@ const odpSchema = z.object({
 
 export const getODPs = async (req: Request, res: Response) => {
   try {
-    const { SAP, TomaMedidas } = await import('../models');
+    const { SAP, TomaMedidas, Op } = await import('../models').then(m => ({ ...m, Op: require('sequelize').Op }));
     const odps = await ODP.findAll({
+      where: { es_garantia: false } as any,
       include: [
         { model: Cliente, as: 'cliente' },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
@@ -118,12 +119,35 @@ export const getODPs = async (req: Request, res: Response) => {
   }
 };
 
+export const getGarantias = async (req: Request, res: Response) => {
+  try {
+    const { SAP, TomaMedidas } = await import('../models');
+    const garantias = await ODP.findAll({
+      where: { es_garantia: true } as any,
+      include: [
+        { model: Cliente, as: 'cliente' },
+        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
+        { model: ODPItem, as: 'items' },
+        { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp'] },
+        { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
+        { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
+        { model: SAP, as: 'saps', attributes: ['id'], separate: true },
+      ],
+      order: [['fecha_creacion', 'DESC']]
+    });
+    res.json(garantias);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener garantías' });
+  }
+};
+
 export const getODP = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
     // Importar modelos dinámicamente para evitar circular imports
     const { SAP, SAPItem, Cotizacion, TomaMedidas, EvidenciaInstalacion, RutaODP, RutaInstalacion, HistorialEstadoODP, NoConformidad, OrdenCompra, PedidoPV } = await import('../models');
+    const { Op } = require('sequelize');
 
     const odp = await ODP.findByPk(id, {
       include: [
@@ -164,7 +188,7 @@ export const getODP = async (req: Request, res: Response) => {
         },
         {
           model: RutaODP, as: 'ruta_odps',
-          attributes: ['id', 'estado', 'inicio_instalacion', 'fin_instalacion', 'firma_receptor', 'datos_receptor', 'foto_evidencia_url', 'gps_finalizacion'],
+          attributes: ['id', 'estado', 'inicio_instalacion', 'fin_instalacion', 'firma_receptor', 'datos_receptor', 'foto_evidencia_url', 'gps_finalizacion', 'descripcion_dano', 'foto_dano_url'],
           include: [
             {
               model: RutaInstalacion, as: 'ruta',
@@ -188,7 +212,14 @@ export const getODP = async (req: Request, res: Response) => {
           include: [{ model: (await import('../models')).Usuario, as: 'usuario', attributes: ['nombre_completo'] }]
         },
         { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
-        { model: PedidoPV, as: 'pedidos_pv', attributes: ['id', 'numero_pedido', 'proveedor', 'estado'], separate: true, order: [['id', 'ASC']] }
+        { model: PedidoPV, as: 'pedidos_pv', attributes: ['id', 'numero_pedido', 'proveedor', 'estado'], separate: true, order: [['id', 'ASC']] },
+        {
+          model: ODP, as: 'garantias',
+          attributes: ['id', 'numero_odp', 'numero_garantia', 'estado_produccion', 'fecha_creacion', 'descripcion_pedido'],
+          include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
+          separate: true,
+          order: [['fecha_creacion', 'ASC']],
+        },
       ],
     });
 
@@ -654,6 +685,118 @@ export const finalizarInstalacionODP = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error al finalizar instalación ODP:', error);
     res.status(500).json({ error: 'Error al finalizar instalación de la ODP', details: error?.message || error });
+  }
+};
+
+export const revisarDano = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const usuario = req.user!;
+
+    const odp = await ODP.findByPk(id);
+    if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
+
+    const asesorId = odp.getDataValue('asesor_id');
+    const rol = usuario.rol;
+    const esAsesorDueno = rol === 'asesor_comercial' && usuario.id === asesorId;
+    const esAutorizado = ['admin', 'gerencia'].includes(rol) || esAsesorDueno;
+
+    if (!esAutorizado) {
+      return res.status(403).json({ error: 'Solo el asesor creador, admin o gerencia pueden marcar el daño como revisado' });
+    }
+
+    await odp.update({ tiene_dano_instalacion: false } as any);
+
+    res.json({ ok: true, mensaje: 'Daño marcado como revisado. La ODP salió del tab Con Daños.' });
+  } catch (error: any) {
+    console.error('Error al revisar daño ODP:', error);
+    res.status(500).json({ error: 'Error al revisar el daño', details: error?.message });
+  }
+};
+
+export const crearGarantia = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: 'Usuario no autenticado' });
+
+  const t = await sequelize.transaction();
+  try {
+    const { Op } = require('sequelize');
+
+    const odpPadre = await ODP.findByPk(id, { transaction: t });
+    if (!odpPadre) { await t.rollback(); return res.status(404).json({ error: 'ODP padre no encontrada' }); }
+
+    if (odpPadre.getDataValue('es_garantia') || odpPadre.getDataValue('es_no_conformidad')) {
+      await t.rollback();
+      return res.status(400).json({ error: 'No se puede crear una garantía a partir de una ODP derivada' });
+    }
+
+    const { descripcion_problema, nombre_recibe, telefono_recibe, cargo_recibe, tipo_servicio, direccion_instalacion, observaciones, items } = req.body;
+    if (!descripcion_problema?.trim()) { await t.rollback(); return res.status(400).json({ error: 'La descripción del problema es obligatoria' }); }
+
+    // Generar numero_garantia G-XXXX
+    const lastGarantia = await ODP.findOne({
+      where: { numero_garantia: { [Op.like]: 'G-%' } },
+      order: [['numero_garantia', 'DESC']],
+      attributes: ['numero_garantia'],
+      lock: true,
+      transaction: t,
+    });
+    let nextG = 1;
+    if (lastGarantia) {
+      const partsG = lastGarantia.getDataValue('numero_garantia').split('-');
+      nextG = parseInt(partsG[partsG.length - 1]) + 1;
+    }
+    const numero_garantia = `G-${String(nextG).padStart(4, '0')}`;
+
+    // Generar numero_odp para la garantía (continúa el consecutivo general)
+    const lastODP = await ODP.findOne({
+      where: { numero_odp: { [Op.like]: 'ODP-%' } },
+      order: [['numero_odp', 'DESC']],
+      attributes: ['numero_odp'],
+      lock: true,
+      transaction: t,
+    });
+    let nextODPNum = 1;
+    if (lastODP) {
+      const partsODP = lastODP.getDataValue('numero_odp').split('-');
+      nextODPNum = parseInt(partsODP[partsODP.length - 1]) + 1;
+    }
+    const numero_odp = `ODP-${String(nextODPNum).padStart(4, '0')}`;
+
+    const garantia = await ODP.create({
+      numero_odp,
+      numero_garantia,
+      es_garantia: true,
+      odp_padre_id: parseInt(id),
+      cliente_id: odpPadre.getDataValue('cliente_id'),
+      asesor_id: userId,
+      descripcion_pedido: descripcion_problema.trim(),
+      nombre_recibe: nombre_recibe || odpPadre.getDataValue('nombre_recibe') || '',
+      telefono_recibe: telefono_recibe || odpPadre.getDataValue('telefono_recibe') || '',
+      cargo_recibe: cargo_recibe || odpPadre.getDataValue('cargo_recibe') || '',
+      tipo_servicio: tipo_servicio || odpPadre.getDataValue('tipo_servicio') || '',
+      direccion_instalacion: direccion_instalacion || odpPadre.getDataValue('direccion_instalacion') || '',
+      observaciones: observaciones || '',
+      estado_produccion: 'EN_ESPERA',
+      estado_facturacion: 'PENDIENTE',
+      estado_caja: 'PENDIENTE',
+      fecha_creacion: new Date(),
+    } as any, { transaction: t });
+
+    if (Array.isArray(items) && items.length > 0) {
+      await ODPItem.bulkCreate(
+        items.map((item: any) => ({ ...item, odp_id: garantia.getDataValue('id') })),
+        { transaction: t }
+      );
+    }
+
+    await t.commit();
+    res.status(201).json({ ok: true, garantia });
+  } catch (error: any) {
+    try { await t.rollback(); } catch (_) { /* ya commiteado */ }
+    console.error('Error al crear garantía:', error);
+    res.status(500).json({ error: 'Error al crear la garantía', details: error?.message });
   }
 };
 

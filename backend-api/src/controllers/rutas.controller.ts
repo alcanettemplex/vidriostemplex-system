@@ -578,6 +578,51 @@ export const finalizarInstalacion = async (req: Request, res: Response) => {
   }
 };
 
+// ─── INSTALADOR: Reportar daño en instalación ────────────────────────────────
+
+export const reportarDano = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params; // ruta_odp.id
+    const user = req.user!;
+    const { descripcion_dano } = req.body;
+
+    if (!descripcion_dano?.trim()) {
+      return res.status(400).json({ error: 'La descripción del daño es obligatoria' });
+    }
+
+    const rutaODP = await RutaODP.findByPk(id) as any;
+    if (!rutaODP) return res.status(404).json({ error: 'Entrada de ruta no encontrada' });
+    if (rutaODP.estado !== 'en_curso') {
+      return res.status(400).json({ error: `No se puede reportar daño en estado '${rutaODP.estado}'` });
+    }
+
+    // Verificar que el instalador está asignado a esta ruta
+    const [asignado]: any[] = await sequelize.query(
+      `SELECT 1 FROM ruta_instaladores WHERE ruta_id = :rid AND instalador_id = :uid`,
+      { replacements: { rid: rutaODP.ruta_id, uid: user.id }, type: QueryTypes.SELECT }
+    );
+    if (!asignado) return res.status(403).json({ error: 'No estás asignado a esta ruta' });
+
+    const fotoUrl = req.file ? (req.file as any).path : null;
+
+    await rutaODP.update({
+      estado: 'con_dano',
+      descripcion_dano: descripcion_dano.trim(),
+      foto_dano_url: fotoUrl,
+    });
+
+    const odp = await ODP.findByPk(rutaODP.odp_id) as any;
+    if (odp) {
+      await odp.update({ tiene_dano_instalacion: true });
+    }
+
+    res.json({ ok: true, mensaje: 'Daño registrado correctamente' });
+  } catch (e: any) {
+    console.error('reportarDano:', e.message);
+    res.status(500).json({ error: 'Error al registrar el daño' });
+  }
+};
+
 // ─── CONDUCTOR: Mi ruta ───────────────────────────────────────────────────────
 
 export const getMiRutaConductor = async (req: Request, res: Response) => {
