@@ -6,7 +6,7 @@ import CRMMetrics from './components/CRMMetrics';
 import DashboardGerencial from './components/DashboardGerencial';
 import SinRespuestaTab from './components/SinRespuestaTab';
 import PeriodSelector from '../../components/common/PeriodSelector';
-import { Plus, BarChart3, Kanban, TrendingUp, PhoneMissed } from 'lucide-react';
+import { Plus, BarChart3, Kanban, TrendingUp, PhoneMissed, Search, X } from 'lucide-react';
 
 type Tab = 'pipeline' | 'metricas' | 'gerencial' | 'sin_respuesta';
 
@@ -16,6 +16,7 @@ const ROLES_GERENCIAL = ['admin', 'gerencia', 'asistente_administrativo', 'root'
 const CRMPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('pipeline');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
 
   // Estado de periodo (mes actual por defecto)
   const now = new Date();
@@ -48,6 +49,23 @@ const CRMPage: React.FC = () => {
 
           {(activeTab === 'pipeline' || activeTab === 'sin_respuesta') && (
             <>
+              {/* Buscador global — aplica a pipeline Y sin_respuesta */}
+              <div className="relative min-w-[220px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar nombre o teléfono..."
+                  value={busqueda}
+                  onChange={e => setBusqueda(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white shadow-sm"
+                />
+                {busqueda && (
+                  <button onClick={() => setBusqueda('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
               {(esVistaGlobal || rol === 'asesor_comercial') && rol !== 'marketing' && (
                 <button
                   onClick={() => setIsModalOpen(true)}
@@ -115,12 +133,12 @@ const CRMPage: React.FC = () => {
       {/* Contenido de tabs */}
       {activeTab === 'pipeline' && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <KanbanBoard mes={mes} anio={anio} />
+          <KanbanBoard mes={mes} anio={anio} busqueda={busqueda} setBusqueda={setBusqueda} />
         </div>
       )}
 
       {activeTab === 'sin_respuesta' && (
-        <SinRespuestaTab mes={mes} anio={anio} />
+        <SinRespuestaTab mes={mes} anio={anio} busqueda={busqueda} />
       )}
 
       {activeTab === 'metricas' && (

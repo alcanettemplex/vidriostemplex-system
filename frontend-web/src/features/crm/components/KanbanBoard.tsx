@@ -226,16 +226,21 @@ type ViewMode = 'kanban' | 'tabla';
 interface KanbanBoardProps {
   mes?: number;
   anio?: number;
+  busqueda?: string;
+  setBusqueda?: (v: string) => void;
 }
 
-const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
+const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio, busqueda: busquedaExterna, setBusqueda: setBusquedaExterna }) => {
   const dispatch = useDispatch();
   const { leads, loading } = useSelector((state: any) => state.crm);
   const user = useSelector((state: any) => state.auth.user);
   const rol: string = user?.rol || '';
 
   const [perdidaPendiente, setPerdidaPendiente] = useState<PerdidaPendiente | null>(null);
-  const [busqueda, setBusqueda]       = useState('');
+  const [busquedaInterna, setBusquedaInterna] = useState('');
+  // Usar búsqueda externa (CRMPage) si está disponible, si no la interna
+  const busqueda = busquedaExterna !== undefined ? busquedaExterna : busquedaInterna;
+  const setBusqueda = setBusquedaExterna || setBusquedaInterna;
   const [filtroSegmento, setFiltroSegmento] = useState('');
   const [filtroEstado, setFiltroEstado]     = useState('');
   const [viewMode, setViewMode]       = useState<ViewMode>('kanban');
@@ -691,7 +696,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
 
         {/* Panel derecho: detalle permanente */}
         {leadSeleccionado ? (
-          <div className="w-[380px] flex-shrink-0 bg-white border-l border-slate-200 overflow-y-auto">
+          <div className="w-[600px] flex-shrink-0 bg-white border-l border-slate-200 overflow-y-auto">
             <React.Suspense fallback={<div className="p-4 text-slate-400 text-sm">Cargando...</div>}>
               <LeadDetalleModal
                 lead={leadSeleccionado}
@@ -703,7 +708,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
             </React.Suspense>
           </div>
         ) : (
-          <div className="w-[380px] flex-shrink-0 bg-slate-50 border-l border-slate-200 flex flex-col items-center justify-center text-center p-6">
+          <div className="w-[600px] flex-shrink-0 bg-slate-50 border-l border-slate-200 flex flex-col items-center justify-center text-center p-6">
             <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
               <User className="w-8 h-8 text-slate-300" />
             </div>
@@ -887,22 +892,24 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio }) => {
     <>
       {/* Barra de herramientas */}
       <div className="flex flex-wrap items-center gap-3 px-4 pt-4 pb-3 border-b border-slate-200 bg-white">
-        {/* Buscador */}
-        <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Buscar por nombre, teléfono, producto..."
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 bg-slate-50"
-          />
-          {busqueda && (
-            <button onClick={() => setBusqueda('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
+        {/* Buscador: solo visible cuando NO viene controlado desde CRMPage */}
+        {busquedaExterna === undefined && (
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre, teléfono, producto..."
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 bg-slate-50"
+            />
+            {busqueda && (
+              <button onClick={() => setBusqueda('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Filtro segmento */}
         <select

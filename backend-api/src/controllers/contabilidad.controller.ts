@@ -33,6 +33,7 @@ const pagoSchema = z.object({
   metodo_pago: z.string().min(1, 'El método de pago es requerido'),
   referencia_pago: z.string().optional(),
   observaciones: z.string().optional(),
+  fecha: z.string().optional(), // ISO date string YYYY-MM-DD; si no se envía usa NOW
 });
 
 /**
@@ -223,10 +224,12 @@ export const registrarPago = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'ODP no encontrada' });
     }
 
-    // Crear pago
+    // Crear pago (usar fecha enviada por el usuario o la fecha actual)
+    const fechaPago = data.fecha ? new Date(data.fecha) : new Date();
     const pago = await Pago.create(
       {
         ...data,
+        fecha: fechaPago,
         registrado_por: userId,
       } as any,
       { transaction: t },
@@ -296,6 +299,7 @@ const pagoEditSchema = z.object({
   metodo_pago: z.string().min(1).optional(),
   referencia_pago: z.string().optional().nullable(),
   observaciones: z.string().optional().nullable(),
+  fecha: z.string().optional().nullable(), // ISO date string YYYY-MM-DD
 });
 
 /**

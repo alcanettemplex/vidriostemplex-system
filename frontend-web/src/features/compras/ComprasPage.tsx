@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, Trash2, AlertCircle, X, Layers, Plus } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, Trash2, AlertCircle, X, Layers, Plus, Printer } from 'lucide-react';
 import ODCModal, { SAPItemConContexto } from './components/ODCModal';
 import ODCVidriosModal, { ODPItemConContexto } from './components/ODCVidriosModal';
+import PrintableODC from './components/PrintableODC';
 
 import { useDataChangedSocket } from '../../store/useSocketNotifications';
 
@@ -13,12 +14,17 @@ const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 interface ODCItemConContexto {
   id: number;
-  sap_item_id: number;
+  sap_item_id: number | null;
+  odp_item_id?: number | null;
   item: string;
   codigo: string;
   descripcion: string;
   cantidad: number;
+  recibido: boolean;
   sap_item?: {
+    dimension?: string;
+    und?: string;
+    observacion?: string;
     SAP?: {
       numero_sap: string;
       ODP?: {
@@ -103,6 +109,9 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
   const [editNotas, setEditNotas] = useState(odc.notas || '');
   const [editEstado, setEditEstado] = useState<string>(odc.estado);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showRecibirModal, setShowRecibirModal] = useState(false);
+  const [itemsSeleccionados, setItemsSeleccionados] = useState<Set<number>>(new Set());
+  const [recibiendoItems, setRecibiendoItems] = useState(false);
 
   const token = localStorage.getItem('token');
   const odpsInfo = getODPsDeODC(odc);
@@ -110,9 +119,32 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
   // legacy compat
   const odp = odc.sap?.ODP;
   const estadoProd = odp?.estado_produccion || '';
-  const est = ODC_ESTADO_STYLE[odc.estado];
+  const est = ODC_ESTADO_STYLE[odc.estado] || ODC_ESTADO_STYLE['pendiente'];
 
   const handleGuardarEdicion = async () => {
+    // Si el usuario seleccionó "Recibido" y la ODC no está recibida → abrir modal de items
+    if (editEstado === 'recibido' && odc.estado !== 'recibido') {
+      // Guardar proveedor/notas sin cambiar el estado
+      if (editProveedor !== odc.proveedor || editNotas !== (odc.notas || '')) {
+        setLoading(true);
+        try {
+          await axios.put(
+            `${API}/api/compras/odc/${odc.id}`,
+            { proveedor: editProveedor, notas: editNotas, estado: odc.estado },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+        } catch (e: any) {
+          console.error('Error al guardar ODC:', e?.response?.data || e?.message);
+        } finally { setLoading(false); }
+      }
+      setEditando(false);
+      // Pre-seleccionar items no recibidos
+      const noRecibidos = new Set(odc.items.filter(it => !it.recibido).map(it => it.id));
+      setItemsSeleccionados(noRecibidos);
+      setShowRecibirModal(true);
+      return;
+    }
+
     setLoading(true);
     try {
       await axios.put(
@@ -121,15 +153,32 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setEditando(false);
-      const estaRecibiendo = editEstado === 'recibido' && odc.estado !== 'recibido';
-      if (estaRecibiendo && onEstadoCambiado) {
+      onActualizar();
+    } catch (e: any) {
+      console.error('Error al guardar ODC:', e?.response?.data || e?.message);
+    } finally { setLoading(false); }
+  };
+
+  const handleConfirmarRecepcion = async () => {
+    if (itemsSeleccionados.size === 0) return;
+    setRecibiendoItems(true);
+    try {
+      await axios.put(
+        `${API}/api/compras/odc/${odc.id}/recibir-items`,
+        { items_recibidos: Array.from(itemsSeleccionados) },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setShowRecibirModal(false);
+      // Si se marcaron todos → mover a recibidas
+      const todosRecibidos = odc.items.every(it => it.recibido || itemsSeleccionados.has(it.id));
+      if (todosRecibidos && onEstadoCambiado) {
         onEstadoCambiado('recibido');
       } else {
         onActualizar();
       }
     } catch (e: any) {
-      console.error('Error al guardar ODC:', e?.response?.data || e?.message);
-    } finally { setLoading(false); }
+      console.error('Error al recibir items:', e?.response?.data || e?.message);
+    } finally { setRecibiendoItems(false); }
   };
 
   const handleEliminar = async () => {
@@ -141,6 +190,31 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
     } catch (err) { console.error('Error en operación de compras:', err); }
   };
 
+  const handleImprimir = () => {
+    const area = document.getElementById(`odc-print-area-${odc.id}`);
+    if (!area) return;
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head>
+      <meta charset="utf-8"/>
+      <title>ODC ${odc.numero_odc}</title>
+      <script src="https://cdn.tailwindcss.com"><\/script>
+      <style>
+        @page { size: letter portrait; margin: 8mm; }
+        body { margin: 0; padding: 0; font-family: sans-serif; }
+        .odc-table { width: 100%; border-collapse: collapse; }
+        .odc-table th, .odc-table td { border: 1px solid #cbd5e1; padding: 3px 6px; font-size: 10px; }
+        .odc-table th { background-color: #1e293b; color: white; font-weight: bold; text-align: left; text-transform: uppercase; letter-spacing: 0.05em; }
+        .odc-table tr:nth-child(even) { background-color: #f8fafc; }
+      </style>
+    </head><body>${area.innerHTML}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 800);
+  };
+
+  const hayItemsParciales = odc.estado === 'pendiente' && odc.items.some(it => it.recibido);
+
   return (
     <>
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
@@ -149,6 +223,11 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
             <div className="flex items-center gap-3 mb-1.5 flex-wrap">
               <span className="font-black text-indigo-700 text-base">{odc.numero_odc}</span>
               <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${est.className}`}>{est.label}</span>
+              {hayItemsParciales && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                  Recepción parcial
+                </span>
+              )}
               {isMultiODP && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">
                   {odpsInfo.length} ODPs
@@ -188,7 +267,6 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
 
           {/* Botones de acción */}
           <div className="ml-4 shrink-0 flex items-center gap-1.5">
-            {/* Ver detalles */}
             <button
               onClick={() => setVerDetalle(true)}
               title="Ver detalles"
@@ -196,7 +274,6 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
             >
               <Eye className="w-3.5 h-3.5" /> Ver
             </button>
-            {/* Editar */}
             <button
               onClick={() => {
                 setEditProveedor(odc.proveedor);
@@ -209,7 +286,6 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
             >
               <Edit3 className="w-3.5 h-3.5" /> Editar
             </button>
-            {/* Eliminar */}
             <button
               onClick={() => setConfirmDelete(true)}
               title="Eliminar ODC"
@@ -221,27 +297,36 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
         </div>
 
         {/* Items de la ODC */}
-        <div className="border-t border-slate-100">
-          <table className="w-full text-xs">
+        <div className="border-t border-slate-100 overflow-x-auto">
+          <table className="w-full text-xs min-w-[600px]">
             <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-2 text-left w-28">CÓDIGO</th>
                 <th className="px-4 py-2 text-left">DESCRIPCIÓN</th>
                 <th className="px-4 py-2 text-center w-16">CANT.</th>
+                <th className="px-4 py-2 text-left w-24">DIMENSIÓN</th>
+                <th className="px-4 py-2 text-left w-16">UND</th>
+                <th className="px-4 py-2 text-left w-36">OBSERVACIÓN</th>
                 <th className="px-4 py-2 text-left w-24">SAP</th>
                 <th className="px-4 py-2 text-left w-24">ODP</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {odc.items.map((it, i) => (
-                <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
-                  <td className="px-4 py-1.5 font-mono text-blue-700 font-bold">{it.codigo || '—'}</td>
-                  <td className="px-4 py-1.5 text-slate-700">{it.descripcion || '—'}</td>
-                  <td className="px-4 py-1.5 text-center font-bold text-slate-600">{it.cantidad}</td>
-                  <td className="px-4 py-1.5 text-indigo-600 font-bold">{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
-                  <td className="px-4 py-1.5 font-bold text-slate-700">{it.sap_item?.SAP?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
-                </tr>
-              ))}
+              {odc.items.map((it, i) => {
+                const pendiente = !it.recibido && odc.estado === 'pendiente';
+                return (
+                  <tr key={i} className={it.recibido ? 'bg-green-50/40' : hayItemsParciales && pendiente ? 'bg-amber-50' : i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
+                    <td className="px-4 py-1.5 font-mono text-blue-700 font-bold">{it.codigo || '—'}</td>
+                    <td className="px-4 py-1.5 text-slate-700">{it.descripcion || '—'}</td>
+                    <td className="px-4 py-1.5 text-center font-bold text-slate-600">{it.cantidad}</td>
+                    <td className="px-4 py-1.5 text-slate-500">{it.sap_item?.dimension || '—'}</td>
+                    <td className="px-4 py-1.5 text-slate-500">{it.sap_item?.und || '—'}</td>
+                    <td className="px-4 py-1.5 text-slate-400 text-[10px] max-w-[140px] truncate" title={it.sap_item?.observacion || ''}>{it.sap_item?.observacion || '—'}</td>
+                    <td className="px-4 py-1.5 text-indigo-600 font-bold">{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
+                    <td className="px-4 py-1.5 font-bold text-slate-700">{it.sap_item?.SAP?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -250,12 +335,12 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
       {/* ── MODAL VER DETALLES ── */}
       <AnimatePresence>
         {verDetalle && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 print:hidden`}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] flex flex-col border border-slate-200"
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-200"
             >
               <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0">
                 <div>
@@ -265,9 +350,17 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">Detalle completo de la orden de compra</p>
                 </div>
-                <button onClick={() => setVerDetalle(false)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleImprimir}
+                    className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 border border-blue-200 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
+                  >
+                    <Printer className="w-3.5 h-3.5" /> Imprimir
+                  </button>
+                  <button onClick={() => setVerDetalle(false)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               <div className="flex-1 overflow-y-auto p-6 space-y-5">
@@ -300,7 +393,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                     <>
                       <div>
                         <span className="text-slate-400 font-bold uppercase tracking-wider">SAP</span>
-                        <p className="font-semibold text-slate-700 mt-0.5">{odc.sap?.numero_sap || odpsInfo[0] ? '—' : '—'}</p>
+                        <p className="font-semibold text-slate-700 mt-0.5">{odc.sap?.numero_sap || '—'}</p>
                       </div>
                       <div>
                         <span className="text-slate-400 font-bold uppercase tracking-wider">ODP</span>
@@ -333,30 +426,45 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                 {/* Tabla de ítems */}
                 <div>
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Items</p>
-                  <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-xs">
+                  <div className="border border-slate-200 rounded-xl overflow-hidden overflow-x-auto">
+                    <table className="w-full text-xs min-w-[600px]">
                       <thead className="bg-slate-700 text-white text-[10px] uppercase tracking-wider">
                         <tr>
-                          <th className="px-3 py-2 w-28">CÓDIGO</th>
-                          <th className="px-3 py-2">DESCRIPCIÓN</th>
-                          <th className="px-3 py-2 w-20 text-center">CANT.</th>
-                          <th className="px-3 py-2 w-24">SAP</th>
-                          <th className="px-3 py-2 w-24">ODP</th>
+                          <th className="px-3 py-2 text-left w-28">CÓDIGO</th>
+                          <th className="px-3 py-2 text-left">DESCRIPCIÓN</th>
+                          <th className="px-3 py-2 w-16 text-center">CANT.</th>
+                          <th className="px-3 py-2 text-left w-24">DIMENSIÓN</th>
+                          <th className="px-3 py-2 text-left w-16">UND</th>
+                          <th className="px-3 py-2 text-left w-36">OBSERVACIÓN</th>
+                          <th className="px-3 py-2 text-left w-24">SAP</th>
+                          <th className="px-3 py-2 text-left w-24">ODP</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {odc.items.map((it, i) => (
-                          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                            <td className="px-3 py-2 font-mono text-blue-700 font-bold">{it.codigo || '—'}</td>
-                            <td className="px-3 py-2 text-slate-700">{it.descripcion || '—'}</td>
-                            <td className="px-3 py-2 text-center font-bold text-slate-600">{it.cantidad}</td>
-                            <td className="px-3 py-2 text-indigo-600 font-bold">{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
-                            <td className="px-3 py-2 font-bold text-slate-700">{it.sap_item?.SAP?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
-                          </tr>
-                        ))}
+                        {odc.items.map((it, i) => {
+                          const pendiente = !it.recibido && odc.estado === 'pendiente';
+                          return (
+                            <tr key={i} className={it.recibido ? 'bg-green-50/60' : hayItemsParciales && pendiente ? 'bg-amber-50' : i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                              <td className="px-3 py-2 font-mono text-blue-700 font-bold">{it.codigo || '—'}</td>
+                              <td className="px-3 py-2 text-slate-700">{it.descripcion || '—'}</td>
+                              <td className="px-3 py-2 text-center font-bold text-slate-600">{it.cantidad}</td>
+                              <td className="px-3 py-2 text-slate-500">{it.sap_item?.dimension || '—'}</td>
+                              <td className="px-3 py-2 text-slate-500">{it.sap_item?.und || '—'}</td>
+                              <td className="px-3 py-2 text-slate-400 text-[10px] max-w-[140px] truncate" title={it.sap_item?.observacion || ''}>{it.sap_item?.observacion || '—'}</td>
+                              <td className="px-3 py-2 text-indigo-600 font-bold">{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
+                              <td className="px-3 py-2 font-bold text-slate-700">{it.sap_item?.SAP?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
+                  {hayItemsParciales && (
+                    <p className="text-[10px] text-amber-600 mt-2 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+                      Amarillo = pendiente de recibir · Verde = ya recibido
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -372,6 +480,13 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
           </div>
         )}
       </AnimatePresence>
+
+      {/* ── ÁREA DE IMPRESIÓN (siempre en DOM cuando el modal está abierto, oculta en pantalla) ── */}
+      {verDetalle && (
+        <div id={`odc-print-area-${odc.id}`} style={{ display: 'none' }}>
+          <PrintableODC odc={odc} />
+        </div>
+      )}
 
       {/* ── MODAL EDITAR ── */}
       <AnimatePresence>
@@ -422,10 +537,14 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                     className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="pendiente">Pendiente</option>
-                    <option value="en_transito">En tránsito</option>
                     <option value="recibido">Recibido</option>
-                    <option value="problema">Problema</option>
                   </select>
+                  {editEstado === 'recibido' && odc.estado !== 'recibido' && (
+                    <p className="text-[11px] text-amber-600 mt-1.5 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+                      Al guardar se abrirá la selección de ítems recibidos
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -441,7 +560,124 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                   disabled={loading || !editProveedor.trim()}
                   className="flex-1 py-2.5 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
                 >
-                  {loading ? 'Guardando...' : 'Guardar cambios'}
+                  {loading ? 'Guardando...' : editEstado === 'recibido' && odc.estado !== 'recibido' ? 'Siguiente →' : 'Guardar cambios'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── MODAL RECIBIR ITEMS ── */}
+      <AnimatePresence>
+        {showRecibirModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] flex flex-col border border-slate-200"
+            >
+              <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0">
+                <div>
+                  <h3 className="text-base font-black text-slate-800">Recepción de Materiales</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{odc.numero_odc} · Selecciona los ítems que llegaron físicamente</p>
+                </div>
+                <button onClick={() => setShowRecibirModal(false)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-700">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded accent-indigo-600"
+                      checked={odc.items.filter(it => !it.recibido).length > 0 && odc.items.filter(it => !it.recibido).every(it => itemsSeleccionados.has(it.id))}
+                      onChange={e => {
+                        const noRecibidos = odc.items.filter(it => !it.recibido).map(it => it.id);
+                        if (e.target.checked) {
+                          setItemsSeleccionados(new Set(noRecibidos));
+                        } else {
+                          setItemsSeleccionados(new Set());
+                        }
+                      }}
+                    />
+                    Seleccionar todos
+                  </label>
+                  <span className="text-xs text-slate-500">
+                    {itemsSeleccionados.size} de {odc.items.filter(it => !it.recibido).length} ítems pendientes
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {odc.items.map(it => (
+                    <label
+                      key={it.id}
+                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                        it.recibido
+                          ? 'bg-green-50 border-green-200 opacity-60 cursor-not-allowed'
+                          : itemsSeleccionados.has(it.id)
+                          ? 'bg-indigo-50 border-indigo-300'
+                          : 'bg-white border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded accent-indigo-600 mt-0.5 shrink-0"
+                        checked={it.recibido || itemsSeleccionados.has(it.id)}
+                        disabled={it.recibido}
+                        onChange={e => {
+                          if (it.recibido) return;
+                          setItemsSeleccionados(prev => {
+                            const next = new Set(prev);
+                            e.target.checked ? next.add(it.id) : next.delete(it.id);
+                            return next;
+                          });
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-black text-blue-700 text-xs">{it.codigo || '—'}</span>
+                          <span className="text-slate-700 text-xs">{it.descripcion || '—'}</span>
+                          {it.recibido && <span className="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full border border-green-200">Ya recibido</span>}
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5 text-[10px] text-slate-400">
+                          <span>Cant: <strong className="text-slate-600">{it.cantidad}</strong></span>
+                          {it.sap_item?.dimension && <span>Dim: <strong className="text-slate-600">{it.sap_item.dimension}</strong></span>}
+                          {it.sap_item?.und && <span>Und: <strong className="text-slate-600">{it.sap_item.und}</strong></span>}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+
+                {itemsSeleccionados.size > 0 && itemsSeleccionados.size < odc.items.filter(it => !it.recibido).length && (
+                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
+                    <strong>Recepción parcial:</strong> La ODC permanecerá en estado <em>Pendiente</em> con los ítems no seleccionados resaltados en amarillo.
+                  </div>
+                )}
+                {itemsSeleccionados.size > 0 && odc.items.filter(it => !it.recibido).every(it => itemsSeleccionados.has(it.id)) && (
+                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-xl text-xs text-green-700">
+                    <strong>Recepción completa:</strong> La ODC pasará a estado <em>Recibida</em> y los ítems SAP se marcarán como <em>en existencia</em>.
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 px-6 py-4 border-t border-slate-100 shrink-0">
+                <button
+                  onClick={() => setShowRecibirModal(false)}
+                  className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmarRecepcion}
+                  disabled={recibiendoItems || itemsSeleccionados.size === 0}
+                  className="flex-1 py-2.5 font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 transition disabled:opacity-40"
+                >
+                  {recibiendoItems ? 'Procesando...' : `Confirmar recepción (${itemsSeleccionados.size})`}
                 </button>
               </div>
             </motion.div>

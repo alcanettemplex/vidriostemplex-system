@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import TMModal from '../odp/components/TMModal';
+import ProspectoModal from '../prospectos/components/ProspectoModal';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -403,6 +404,8 @@ const TomaMedidasPage: React.FC = () => {
   const [tmModal, setTmModal] = useState<any | null>(null); // ODP-shape para TMModal legacy
   const [programandoTM, setProgramandoTM] = useState<TMItem | null>(null);
   const [busqueda, setBusqueda] = useState('');
+  const [showNuevoProspecto, setShowNuevoProspecto] = useState(false);
+  const [creandoTMParaProspecto, setCreandoTMParaProspecto] = useState(false);
 
   const token = localStorage.getItem('token');
 
@@ -425,6 +428,27 @@ const TomaMedidasPage: React.FC = () => {
   const handleCloseTM = () => {
     setTmModal(null);
     fetchPanel();
+  };
+
+  // Al crear un prospecto desde TM → auto-crear TM para ese prospecto
+  const handleProspectoCreado = async (prospectoCreado?: any) => {
+    setShowNuevoProspecto(false);
+    if (!prospectoCreado?.id) { fetchPanel(); return; }
+    setCreandoTMParaProspecto(true);
+    try {
+      await axios.post(
+        `${API}/api/documentos/tm`,
+        { prospecto_id: prospectoCreado.id },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      toast.success('Solicitud de TM creada correctamente');
+      fetchPanel();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Error al crear la toma de medidas');
+      fetchPanel();
+    } finally {
+      setCreandoTMParaProspecto(false);
+    }
   };
 
   // Adaptar TMItem a formato ODP para el TMModal (solo para TMs con ODP vinculada)
@@ -555,6 +579,14 @@ const TomaMedidasPage: React.FC = () => {
             )}
           </div>
           <button
+            onClick={() => setShowNuevoProspecto(true)}
+            disabled={creandoTMParaProspecto}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition shadow-sm disabled:opacity-50"
+          >
+            <UserPlus className="w-4 h-4" />
+            {creandoTMParaProspecto ? 'Creando TM...' : 'Nueva Solicitud TM'}
+          </button>
+          <button
             onClick={fetchPanel}
             className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
           >
@@ -654,6 +686,15 @@ const TomaMedidasPage: React.FC = () => {
           />
         )}
       </AnimatePresence>
+
+      {/* Modal Nuevo Prospecto en modo TM → auto-crea TM al guardar */}
+      {showNuevoProspecto && (
+        <ProspectoModal
+          onClose={() => setShowNuevoProspecto(false)}
+          onSaved={handleProspectoCreado}
+          modoTM
+        />
+      )}
     </div>
   );
 };

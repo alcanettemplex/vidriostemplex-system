@@ -7,6 +7,7 @@ import {
   createODC,
   updateODC,
   deleteODC,
+  recibirItems,
   toggleExistencia,
   updateExistPerf,
   getInventarioPorCodigo,
@@ -36,6 +37,7 @@ router.get('/inventario-perfileria/:codigo', authMiddleware, getInventarioPorCod
 // CRUD: solo admin + compras
 router.post('/odc', authMiddleware, rc('admin', 'compras'), createODC);
 router.put('/odc/:id', authMiddleware, rc('admin', 'compras'), updateODC);
+router.put('/odc/:id/recibir-items', authMiddleware, rc('admin', 'compras', 'jefe_produccion', 'produccion'), recibirItems);
 router.delete('/odc/:id', authMiddleware, rc('admin', 'compras'), deleteODC);
 router.patch('/sap-item/:id/existencia', authMiddleware, rc('admin', 'compras'), toggleExistencia);
 router.patch('/sap-item/:id/exist-perf', authMiddleware, rc('admin', 'compras'), updateExistPerf);

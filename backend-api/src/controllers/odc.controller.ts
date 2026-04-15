@@ -331,6 +331,84 @@ export const deleteODC = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * PUT /odc/:id/recibir-items
+ * Marca ítems individuales como recibidos.
+ * - Si TODOS los ítems están recibidos → ODC pasa a estado 'recibido' + SAPItems a 'en_existencia'
+ * - Si parcial → ODC queda en 'pendiente'; ítems no recibidos quedan resaltados (recibido=false)
+ */
+export const recibirItems = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const { items_recibidos } = req.body as { items_recibidos: number[] };
+
+    if (!Array.isArray(items_recibidos)) {
+      await t.rollback();
+      return res.status(400).json({ error: 'items_recibidos debe ser un arreglo de IDs' });
+    }
+
+    const odc = await OrdenCompra.findByPk(id, {
+      include: [{ model: ODCItem, as: 'items' }],
+      transaction: t,
+    });
+    if (!odc) {
+      await t.rollback();
+      return res.status(404).json({ error: 'ODC no encontrada' });
+    }
+
+    // Marcar como recibido los ítems seleccionados
+    if (items_recibidos.length > 0) {
+      await ODCItem.update(
+        { recibido: true },
+        { where: { id: { [Op.in]: items_recibidos }, odc_id: id }, transaction: t },
+      );
+    }
+
+    // Verificar si todos los ítems están ahora recibidos
+    const todosLosItems = await ODCItem.findAll({
+      where: { odc_id: id },
+      transaction: t,
+      attributes: ['id', 'recibido', 'sap_item_id'],
+    });
+
+    const todosRecibidos = todosLosItems.length > 0 &&
+      todosLosItems.every((it: any) => it.getDataValue('recibido') === true);
+
+    if (todosRecibidos) {
+      // ODC completa → estado recibido + SAPItems a en_existencia
+      await odc.update({ estado: 'recibido', fecha_recepcion: new Date() }, { transaction: t });
+
+      const sapItemIds = todosLosItems
+        .map((it: any) => it.getDataValue('sap_item_id'))
+        .filter(Boolean);
+      if (sapItemIds.length > 0) {
+        await SAPItem.update(
+          { estado_compra: 'en_existencia' },
+          { where: { id: { [Op.in]: sapItemIds } }, transaction: t },
+        );
+      }
+    } else {
+      // Recepción parcial → mantener pendiente
+      await odc.update({ estado: 'pendiente' }, { transaction: t });
+    }
+
+    await t.commit();
+
+    // Retornar ODC actualizada
+    const updated = await OrdenCompra.findByPk(id, {
+      include: [
+        ...includeItemsTrazabilidad,
+        { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
+      ],
+    });
+    res.json({ message: todosRecibidos ? 'ODC marcada como recibida' : 'Recepción parcial registrada', odc: updated });
+  } catch (error: any) {
+    try { await t.rollback(); } catch (_) { /* ya hecho */ }
+    res.status(500).json({ error: 'Error al registrar recepción', detail: error.message });
+  }
+};
+
 // GET /inventario-perfileria/:codigo — Buscar registros en inventario por código
 export const getInventarioPorCodigo = async (req: Request, res: Response) => {
   try {

@@ -22,9 +22,10 @@ const FUENTE_COLOR: Record<string, string> = {
 interface SinRespuestaTabProps {
   mes: number;
   anio: number;
+  busqueda?: string;
 }
 
-const SinRespuestaTab: React.FC<SinRespuestaTabProps> = ({ mes, anio }) => {
+const SinRespuestaTab: React.FC<SinRespuestaTabProps> = ({ mes, anio, busqueda = '' }) => {
   const dispatch = useDispatch();
   const { leadsSinRespuesta, loadingSinRespuesta } = useSelector((state: any) => state.crm);
 
@@ -51,9 +52,21 @@ const SinRespuestaTab: React.FC<SinRespuestaTabProps> = ({ mes, anio }) => {
     }
   };
 
-  // Resumen por fuente
+  // Filtrado por búsqueda global
+  const leadsFiltrados = busqueda
+    ? leadsSinRespuesta.filter((l: any) => {
+        const q = busqueda.toLowerCase();
+        return (
+          l.nombre?.toLowerCase().includes(q) ||
+          l.telefono?.includes(q) ||
+          l.producto_interes?.toLowerCase().includes(q)
+        );
+      })
+    : leadsSinRespuesta;
+
+  // Resumen por fuente (sobre lista filtrada)
   const porFuente: Record<string, number> = {};
-  leadsSinRespuesta.forEach((l: any) => {
+  leadsFiltrados.forEach((l: any) => {
     const f = l.fuente_lead || 'Otro';
     porFuente[f] = (porFuente[f] || 0) + 1;
   });
@@ -78,8 +91,11 @@ const SinRespuestaTab: React.FC<SinRespuestaTabProps> = ({ mes, anio }) => {
           <div>
             <p className="font-black text-slate-800 text-sm">Leads sin respuesta — {mes}/{anio}</p>
             <p className="text-xs text-slate-500 mt-0.5">
-              {leadsSinRespuesta.length} lead{leadsSinRespuesta.length !== 1 ? 's' : ''} registrados que no mantuvieron comunicación.
-              Usa <strong>"Recuperar"</strong> si eventualmente responden.
+              {leadsFiltrados.length} lead{leadsFiltrados.length !== 1 ? 's' : ''} registrados que no mantuvieron comunicación.
+              {busqueda && leadsFiltrados.length !== leadsSinRespuesta.length && (
+                <span className="ml-1 text-indigo-600 font-bold">(filtrado de {leadsSinRespuesta.length})</span>
+              )}
+              {' '}Usa <strong>"Recuperar"</strong> si eventualmente responden.
             </p>
           </div>
         </div>
@@ -103,10 +119,12 @@ const SinRespuestaTab: React.FC<SinRespuestaTabProps> = ({ mes, anio }) => {
         </button>
       </div>
 
-      {leadsSinRespuesta.length === 0 ? (
+      {leadsFiltrados.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
           <PhoneMissed className="w-10 h-10 opacity-30" />
-          <p className="text-sm font-medium">No hay leads sin respuesta en este periodo.</p>
+          <p className="text-sm font-medium">
+            {busqueda ? `No hay resultados para "${busqueda}"` : 'No hay leads sin respuesta en este periodo.'}
+          </p>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
@@ -122,7 +140,7 @@ const SinRespuestaTab: React.FC<SinRespuestaTabProps> = ({ mes, anio }) => {
               </tr>
             </thead>
             <tbody>
-              {leadsSinRespuesta.map((lead: any) => {
+              {leadsFiltrados.map((lead: any) => {
                 const fecha = lead.createdAt
                   ? new Date(lead.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: '2-digit' })
                   : '—';

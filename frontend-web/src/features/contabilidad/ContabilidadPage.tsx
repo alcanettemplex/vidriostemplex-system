@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import {
   Calculator, DollarSign, FileCheck, AlertCircle,
   CreditCard, Plus, X, Receipt, Clock, Banknote, TrendingDown,
-  Pencil, Trash2, Calendar,
+  Pencil, Trash2, Calendar, ChevronUp, ChevronDown, ChevronsUpDown,
 } from 'lucide-react';
 import { useDataChangedSocket } from '../../store/useSocketNotifications';
 
@@ -31,6 +31,7 @@ type Tab = 'estado_caja' | 'pagos' | 'cartera';
 
 const emptyPagoForm = () => ({
   odp_id: '', monto: '', metodo_pago: 'Transferencia', banco: '', referencia_pago: '', observaciones: '',
+  fecha: new Date().toISOString().split('T')[0],
 });
 
 const ContabilidadPage: React.FC = () => {
@@ -63,6 +64,7 @@ const ContabilidadPage: React.FC = () => {
   const [editPagoTarget, setEditPagoTarget] = useState<any>(null);
   const [editPagoForm, setEditPagoForm] = useState({
     monto: '', metodo_pago: 'Transferencia', banco: '', referencia_pago: '', observaciones: '',
+    fecha: new Date().toISOString().split('T')[0],
   });
   const [submittingEdit, setSubmittingEdit] = useState(false);
 
@@ -76,6 +78,20 @@ const ContabilidadPage: React.FC = () => {
   const [showDeletePagoModal, setShowDeletePagoModal] = useState(false);
   const [deletePagoTarget, setDeletePagoTarget] = useState<any>(null);
   const [submittingDelete, setSubmittingDelete] = useState(false);
+
+  // ─── Ordenamiento tabla Estado Caja ─────────────────────────────────────
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (key: string | null) => {
+    if (!key) return;
+    if (sortCol === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortCol(key);
+      setSortDir('asc');
+    }
+  };
 
   // ─── Fetchers ────────────────────────────────────────────────────────────
   const fetchOdps = useCallback(async () => {
@@ -182,6 +198,7 @@ const ContabilidadPage: React.FC = () => {
         metodo_pago: pagoForm.metodo_pago === 'Transferencia' ? pagoForm.banco : pagoForm.metodo_pago,
         referencia_pago: pagoForm.referencia_pago || undefined,
         observaciones: pagoForm.observaciones || undefined,
+        fecha: pagoForm.fecha || undefined,
       };
       await axios.post(`${API}/api/contabilidad/pagos`, payload, { headers: headers() });
       toast.success('Pago registrado correctamente');
@@ -204,6 +221,7 @@ const ContabilidadPage: React.FC = () => {
       banco: esBanco ? pago.metodo_pago : '',
       referencia_pago: pago.referencia_pago || '',
       observaciones: pago.observaciones || '',
+      fecha: pago.fecha ? new Date(pago.fecha).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     });
     setShowEditPagoModal(true);
   };
@@ -224,6 +242,7 @@ const ContabilidadPage: React.FC = () => {
         metodo_pago: editPagoForm.metodo_pago === 'Transferencia' ? editPagoForm.banco : editPagoForm.metodo_pago,
         referencia_pago: editPagoForm.referencia_pago || null,
         observaciones: editPagoForm.observaciones || null,
+        fecha: editPagoForm.fecha || null,
       };
       await axios.put(`${API}/api/contabilidad/pagos/${editPagoTarget.id}`, payload, { headers: headers() });
       toast.success('Pago actualizado correctamente');
@@ -296,6 +315,33 @@ const ContabilidadPage: React.FC = () => {
   };
 
   const filtradas = filterEstadoCaja === 'todos' ? odps : odps.filter(o => o.estado_caja === filterEstadoCaja);
+
+  const sortedFiltradas = useMemo(() => {
+    if (!sortCol) return filtradas;
+    return [...filtradas].sort((a, b) => {
+      let va: any, vb: any;
+      switch (sortCol) {
+        case 'numero_odp':           va = a.numero_odp || ''; vb = b.numero_odp || ''; break;
+        case 'fecha_creacion':       va = a.fecha_creacion || ''; vb = b.fecha_creacion || ''; break;
+        case 'cliente':              va = a.cliente?.nombre_razon_social || ''; vb = b.cliente?.nombre_razon_social || ''; break;
+        case 'asesor':               va = a.asesor?.nombre_completo || ''; vb = b.asesor?.nombre_completo || ''; break;
+        case 'estado_produccion':    va = a.estado_produccion || ''; vb = b.estado_produccion || ''; break;
+        case 'factura_electronica':  va = a.factura_electronica || ''; vb = b.factura_electronica || ''; break;
+        case 'monto_total':          va = Number(a.valor_total) || 0; vb = Number(b.valor_total) || 0; break;
+        case 'abono':                va = Number(a.abono) || 0; vb = Number(b.abono) || 0; break;
+        case 'pendiente':            va = calcPendiente(a); vb = calcPendiente(b); break;
+        case 'estado_caja':          va = a.estado_caja || ''; vb = b.estado_caja || ''; break;
+        case 'estado_facturacion':   va = a.estado_facturacion || ''; vb = b.estado_facturacion || ''; break;
+        default: return 0;
+      }
+      if (typeof va === 'string') va = va.toLowerCase();
+      if (typeof vb === 'string') vb = vb.toLowerCase();
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filtradas, sortCol, sortDir]);
+
   const odpsPendientes = odps.filter(o => calcPendiente(o) > 0 && o.estado_caja !== 'CANCELADO');
   const carteraDetalle: any[] = resumen?.cartera_detalle || [];
 
@@ -393,12 +439,40 @@ const ContabilidadPage: React.FC = () => {
                 </button>
               ))}
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 390px)', minHeight: '300px' }}>
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                   <tr>
-                    {['ODP', 'Fecha Creación', 'Cliente', 'Asesor', 'Est. Taller', 'FE No. / Fecha', 'Monto Total', 'Abonado', 'Pendiente', 'Estado Caja', 'Facturación', ''].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    {([
+                      { label: 'ODP',              key: 'numero_odp' },
+                      { label: 'Fecha Creación',   key: 'fecha_creacion' },
+                      { label: 'Cliente',          key: 'cliente' },
+                      { label: 'Asesor',           key: 'asesor' },
+                      { label: 'Est. Taller',      key: 'estado_produccion' },
+                      { label: 'FE No. / Fecha',   key: 'factura_electronica' },
+                      { label: 'Monto Total',      key: 'monto_total' },
+                      { label: 'Abonado',          key: 'abono' },
+                      { label: 'Pendiente',        key: 'pendiente' },
+                      { label: 'Estado Caja',      key: 'estado_caja' },
+                      { label: 'Facturación',      key: 'estado_facturacion' },
+                      { label: '',                 key: null },
+                    ] as { label: string; key: string | null }[]).map(col => (
+                      <th
+                        key={col.label || 'action'}
+                        onClick={() => handleSort(col.key)}
+                        className={`text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap select-none ${col.key ? 'cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition-colors' : ''}`}
+                      >
+                        <div className="flex items-center gap-1">
+                          {col.label}
+                          {col.key && (
+                            sortCol === col.key
+                              ? sortDir === 'asc'
+                                ? <ChevronUp className="w-3 h-3 text-indigo-500" />
+                                : <ChevronDown className="w-3 h-3 text-indigo-500" />
+                              : <ChevronsUpDown className="w-3 h-3 text-slate-300" />
+                          )}
+                        </div>
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -407,9 +481,9 @@ const ContabilidadPage: React.FC = () => {
                     Array.from({ length: 5 }).map((_, i) => (
                       <tr key={i}><td colSpan={12} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td></tr>
                     ))
-                  ) : filtradas.length === 0 ? (
+                  ) : sortedFiltradas.length === 0 ? (
                     <tr><td colSpan={12} className="text-center py-12 text-slate-400 font-bold">No hay registros que mostrar.</td></tr>
-                  ) : filtradas.map(odp => (
+                  ) : sortedFiltradas.map(odp => (
                     <tr key={odp.id} className={`hover:bg-slate-50 transition-colors ${rowColorCredito(odp)}`}>
                       <td className="px-4 py-4 font-bold text-indigo-700 whitespace-nowrap">{odp.numero_odp}</td>
                       <td className="px-4 py-4 text-slate-500 text-xs whitespace-nowrap">
@@ -552,9 +626,9 @@ const ContabilidadPage: React.FC = () => {
                 <p className="font-bold">No hay pagos registrados</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 390px)', minHeight: '300px' }}>
                 <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-200">
+                  <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                     <tr>
                        {['Fecha', 'ODP', 'Fecha Creación ODP', 'Cliente', 'Asesor', 'Monto', 'Banco / Método', 'Recibo No.', 'Observaciones', 'Registrado por', ''].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
@@ -754,12 +828,18 @@ const ContabilidadPage: React.FC = () => {
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Forma de Pago *</label>
-                  <select value={pagoForm.metodo_pago} onChange={e => setPagoForm(p => ({ ...p, metodo_pago: e.target.value, banco: '' }))}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm">
-                    {METODOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Fecha Pago *</label>
+                  <input type="date" value={pagoForm.fecha} onChange={e => setPagoForm(p => ({ ...p, fecha: e.target.value }))}
+                    required
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm" />
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Forma de Pago *</label>
+                <select value={pagoForm.metodo_pago} onChange={e => setPagoForm(p => ({ ...p, metodo_pago: e.target.value, banco: '' }))}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm">
+                  {METODOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
               </div>
 
               <div>
@@ -830,13 +910,20 @@ const ContabilidadPage: React.FC = () => {
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Forma de Pago *</label>
-                  <select value={editPagoForm.metodo_pago}
-                    onChange={e => setEditPagoForm(p => ({ ...p, metodo_pago: e.target.value, banco: '' }))}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
-                    {METODOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Fecha Pago *</label>
+                  <input type="date" value={editPagoForm.fecha}
+                    onChange={e => setEditPagoForm(p => ({ ...p, fecha: e.target.value }))}
+                    required
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm" />
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Forma de Pago *</label>
+                <select value={editPagoForm.metodo_pago}
+                  onChange={e => setEditPagoForm(p => ({ ...p, metodo_pago: e.target.value, banco: '' }))}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
+                  {METODOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
               </div>
 
               <div>

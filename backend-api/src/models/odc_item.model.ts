@@ -12,6 +12,7 @@ ODCItem.init({
   codigo: { type: DataTypes.STRING(50) },
   descripcion: { type: DataTypes.STRING(255) },
   cantidad: { type: DataTypes.DECIMAL(10, 2), defaultValue: 1 },
+  recibido: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false },
 }, {
   sequelize, modelName: 'ODCItem', tableName: 'odc_items', timestamps: false,
 });

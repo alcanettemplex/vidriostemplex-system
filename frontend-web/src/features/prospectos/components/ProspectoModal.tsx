@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { X, Building2, User } from 'lucide-react';
+import { X, Building2, User, Ruler } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -10,10 +10,11 @@ interface Cliente { id: number; nombre_razon_social: string; telefono: string | 
 interface Props {
   prospecto?: any;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (prospectoCreado?: any) => void;
+  modoTM?: boolean; // cuando se abre desde "Nueva Solicitud TM"
 }
 
-const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved }) => {
+const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }) => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteBusqueda, setClienteBusqueda] = useState('');
   const [dropdownAbierto, setDropdownAbierto] = useState(false);
@@ -76,13 +77,14 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved }) => {
       };
 
       if (prospecto) {
-        await axios.put(`${API}/api/prospectos/${prospecto.id}`, body, { headers });
+        const { data: updated } = await axios.put(`${API}/api/prospectos/${prospecto.id}`, body, { headers });
         toast.success('Prospecto actualizado');
+        onSaved(updated);
       } else {
-        await axios.post(`${API}/api/prospectos`, body, { headers });
+        const { data: creado } = await axios.post(`${API}/api/prospectos`, body, { headers });
         toast.success('Prospecto creado');
+        onSaved(creado);
       }
-      onSaved();
     } catch (e: any) {
       toast.error(e.response?.data?.error || 'Error al guardar');
     } finally { setLoading(false); }
@@ -94,11 +96,27 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200">
         <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
-          <h2 className="text-lg font-bold text-slate-800">{prospecto ? 'Editar Prospecto' : 'Nuevo Prospecto'}</h2>
+          <div>
+            <h2 className="text-lg font-bold text-slate-800">{prospecto ? 'Editar Prospecto' : modoTM ? 'Nueva Solicitud de Toma de Medidas' : 'Nuevo Prospecto'}</h2>
+            {modoTM && !prospecto && (
+              <p className="text-xs text-amber-600 mt-0.5">Se creará el prospecto y se generará la TM automáticamente</p>
+            )}
+          </div>
           <button onClick={onClose}><X className="w-5 h-5 text-slate-400" /></button>
         </div>
 
         <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+
+          {/* Banner modo TM */}
+          {modoTM && !prospecto && (
+            <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+              <Ruler className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-amber-800">Solicitud de Toma de Medidas</p>
+                <p className="text-xs text-amber-600 mt-0.5">Al crear este prospecto se generará automáticamente una TM pendiente de programar.</p>
+              </div>
+            </div>
+          )}
 
           {/* Tipo de contacto */}
           <div>
