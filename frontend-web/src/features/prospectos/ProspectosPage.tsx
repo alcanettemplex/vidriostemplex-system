@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   UserPlus, Search, RefreshCw, CheckCircle2, XCircle, Clock,
-  Phone, MapPin, Plus, Ruler, X, Calendar, Image, FileText,
+  Phone, MapPin, Plus, Ruler, X, Calendar, Image,
   Mail, ChevronRight, User
 } from 'lucide-react';
 import ProspectoModal from './components/ProspectoModal';
