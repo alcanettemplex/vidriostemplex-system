@@ -10,6 +10,7 @@ import {
 import ProspectoModal from './components/ProspectoModal';
 import AprobarProspectoModal from './components/AprobarProspectoModal';
 import AsignarAsesorODPModal from '../odp/components/AsignarAsesorODPModal';
+import SeleccionarTipoODPModal from '../odp/components/SeleccionarTipoODPModal';
 import SolicitarTMModal from './components/SolicitarTMModal';
 import CotizacionCapturas from '../odp/components/CotizacionCapturas';
 
@@ -290,8 +291,10 @@ const ProspectosPage: React.FC = () => {
   const [editando, setEditando] = useState<Prospecto | null>(null);
   const [aprobando, setAprobando] = useState<Prospecto | null>(null);
   const [showAsignarAsesorProspecto, setShowAsignarAsesorProspecto] = useState(false);
+  const [showSeleccionarTipoProspecto, setShowSeleccionarTipoProspecto] = useState(false);
   const [prospectoParaAprobar, setProspectoParaAprobar] = useState<Prospecto | null>(null);
   const [asesorParaProspecto, setAsesorParaProspecto] = useState<number | null>(null);
+  const [tipoOdpProspecto, setTipoOdpProspecto] = useState<'ODP' | 'OA'>('ODP');
   const [archivandoId, setArchivandoId] = useState<number | null>(null);
   const [motivoArchivo, setMotivoArchivo] = useState('');
   const [solicitandoTM, setSolicitandoTM] = useState<Prospecto | null>(null);
@@ -495,15 +498,27 @@ const ProspectosPage: React.FC = () => {
         />
       )}
 
-      {/* Modal de asignación de asesor — se muestra ANTES de aprobar el prospecto */}
+      {/* Paso 1: asignar asesor al aprobar prospecto */}
       {showAsignarAsesorProspecto && prospectoParaAprobar && (
         <AsignarAsesorODPModal
           onConfirm={(asesorId) => {
             setAsesorParaProspecto(asesorId);
             setShowAsignarAsesorProspecto(false);
-            setAprobando(prospectoParaAprobar);
+            setShowSeleccionarTipoProspecto(true);
           }}
           onCancel={() => { setShowAsignarAsesorProspecto(false); setProspectoParaAprobar(null); }}
+        />
+      )}
+
+      {/* Paso 2: elegir ODP o OA */}
+      {showSeleccionarTipoProspecto && prospectoParaAprobar && (
+        <SeleccionarTipoODPModal
+          onConfirm={(tipo) => {
+            setTipoOdpProspecto(tipo);
+            setShowSeleccionarTipoProspecto(false);
+            setAprobando(prospectoParaAprobar);
+          }}
+          onCancel={() => { setShowSeleccionarTipoProspecto(false); setAsesorParaProspecto(null); setProspectoParaAprobar(null); }}
         />
       )}
 
@@ -512,8 +527,9 @@ const ProspectosPage: React.FC = () => {
         <AprobarProspectoModal
           prospecto={aprobando}
           asesorId={asesorParaProspecto}
-          onClose={() => { setAprobando(null); setAsesorParaProspecto(null); setProspectoParaAprobar(null); }}
-          onAprobado={() => { setAprobando(null); setAsesorParaProspecto(null); setProspectoParaAprobar(null); fetchProspectos(); }}
+          tipoOdp={tipoOdpProspecto}
+          onClose={() => { setAprobando(null); setAsesorParaProspecto(null); setProspectoParaAprobar(null); setTipoOdpProspecto('ODP'); }}
+          onAprobado={() => { setAprobando(null); setAsesorParaProspecto(null); setProspectoParaAprobar(null); setTipoOdpProspecto('ODP'); fetchProspectos(); }}
         />
       )}
 

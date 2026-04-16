@@ -11,6 +11,8 @@ import {
   registrarLlegada,
   verificarPedido,
   marcarProblema,
+  gestionarReposicion,
+  registrarReposicion,
   getSiguienteNumero,
   getPorGestionar,
   asignarItems,
@@ -37,6 +39,8 @@ router.patch('/:id/confirmar-proveedor', requireRole('asesor_comercial', 'admin'
 router.patch('/:id/registrar-llegada', requireRole('produccion', 'compras', 'admin', 'jefe_produccion'), registrarLlegada);
 router.patch('/:id/verificar', requireRole('produccion', 'compras', 'admin', 'jefe_produccion'), verificarPedido);
 router.patch('/:id/problema', requireRole('produccion', 'compras', 'admin', 'jefe_produccion'), marcarProblema);
+router.patch('/:id/gestionar-reposicion', requireRole('produccion', 'compras', 'admin', 'jefe_produccion'), gestionarReposicion);
+router.patch('/:id/registrar-reposicion', requireRole('produccion', 'compras', 'admin', 'jefe_produccion'), registrarReposicion);
 
 // Asignación de ítems — quien tiene puede_gestionar_pv (verificado en controller)
 router.patch('/:id/asignar-items', asignarItems);

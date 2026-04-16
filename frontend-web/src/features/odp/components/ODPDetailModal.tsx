@@ -4,6 +4,7 @@ import { X, FileText, Settings, PenTool, Download, CheckCircle, Package, UserCir
 import { format } from 'date-fns';
 import PrintableTalonario from './PrintableTalonario';
 import PrintableProduccion from './PrintableProduccion';
+import PrintableOA from './PrintableOA';
 import PrintableDetalleTecnico from './PrintableDetalleTecnico';
 interface ODPDetailModalProps {
     odp: any;
@@ -274,7 +275,7 @@ const ODPDetailModal: React.FC<ODPDetailModalProps> = ({ odp, onClose }) => {
             {/* ÁREA DE IMPRESIÓN — fuera del modal para evitar overflow-hidden */}
             <div id="odp-print-area" style={{ display: 'none' }}>
                 {activeTab === 'admin' && <PrintableTalonario odp={odp} />}
-                {activeTab === 'produccion' && <PrintableProduccion odp={odp} />}
+                {activeTab === 'produccion' && (odp?.tipo_odp === 'OA' ? <PrintableOA odp={odp} /> : <PrintableProduccion odp={odp} />)}
                 {activeTab === 'lienzo' && <PrintableDetalleTecnico odp={odp} />}
             </div>
         </>

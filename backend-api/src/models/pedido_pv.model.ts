@@ -37,6 +37,9 @@ PedidoPV.init({
   asesor_iniciales: { type: DataTypes.STRING(10), allowNull: true },
   odp_numero_excel: { type: DataTypes.STRING(30), allowNull: true },
   creado_en: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  tipo_problema: { type: DataTypes.STRING(20), allowNull: true },       // 'INCOMPLETO' | 'DAÑADO' | 'OTRO'
+  estado_reposicion: { type: DataTypes.STRING(20), allowNull: true },   // 'EN_GESTION' | 'REPUESTO'
+  fecha_reposicion_prometida: { type: DataTypes.DATEONLY, allowNull: true },
 }, {
   sequelize,
   modelName: 'PedidoPV',

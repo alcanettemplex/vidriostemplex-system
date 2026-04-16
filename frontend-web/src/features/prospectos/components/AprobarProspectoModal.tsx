@@ -44,12 +44,13 @@ interface Props {
   prospecto: any;
   onClose: () => void;
   onAprobado: () => void;
-  asesorId?: number | null; // si se proporciona, sobreescribe el asesor del usuario logueado
+  asesorId?: number | null;
+  tipoOdp?: 'ODP' | 'OA';
 }
 
 // ─── Componente ──────────────────────────────────────────────────────────────
 
-const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado, asesorId }) => {
+const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado, asesorId, tipoOdp }) => {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
@@ -162,8 +163,8 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
         }
       }
 
-      // Si se asignó a otro asesor desde el modal previo, incluir en el payload
       if (asesorId) payload.asesor_id = asesorId;
+      if (tipoOdp) payload.tipo_odp = tipoOdp;
 
       const res = await axios.post(`${API}/api/prospectos/${prospecto.id}/aprobar`, payload, { headers });
       toast.success('Prospecto aprobado — ODP creada');

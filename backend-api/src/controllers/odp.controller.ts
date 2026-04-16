@@ -95,6 +95,7 @@ const odpSchema = z.object({
   chk_carton: z.boolean().optional(),
   es_no_conformidad: z.boolean().optional(),
   odp_padre_id: z.number().optional().nullable(),
+  tipo_odp: z.enum(['ODP', 'OA']).optional(),
   items: z.array(odpItemSchema).optional()
 });
 
@@ -305,9 +306,10 @@ export const createODP = async (req: Request, res: Response) => {
     const { newOdp, odpId } = await withUniqueRetry(async () => {
       const t = await sequelize.transaction();
       try {
-        // Generar número ODP consecutivo sin año
+        // Generar número consecutivo según tipo (ODP-XXXX / OA-XXXX)
+        const prefijo = data.tipo_odp === 'OA' ? 'OA' : 'ODP';
         const lastODP = await ODP.findOne({
-          where: { numero_odp: { [require('sequelize').Op.like]: 'ODP-%' } },
+          where: { numero_odp: { [require('sequelize').Op.like]: `${prefijo}-%` } },
           order: [['numero_odp', 'DESC']],
           attributes: ['numero_odp'],
           transaction: t,
@@ -317,7 +319,7 @@ export const createODP = async (req: Request, res: Response) => {
           const parts = lastODP.getDataValue('numero_odp').split('-');
           nextODPNum = parseInt(parts[parts.length - 1]) + 1;
         }
-        const generatedNumeroODP = `ODP-${String(nextODPNum).padStart(4, '0')}`;
+        const generatedNumeroODP = `${prefijo}-${String(nextODPNum).padStart(4, '0')}`;
 
         const odpData = {
           numero_odp: data.numero_odp || generatedNumeroODP,
@@ -351,6 +353,7 @@ export const createODP = async (req: Request, res: Response) => {
           abono: data.abono || 0,
           pendiente: data.valor_total ? Math.max(0, (data.valor_total || 0) - (data.abono || 0)) : (data.pendiente || 0),
           proveedor_vidrio: data.proveedor_vidrio || null,
+          tipo_odp: data.tipo_odp || 'ODP',
         };
 
         const createdOdp = await ODP.create(odpData as any, { transaction: t });

@@ -304,10 +304,12 @@ export const marcarProblema = async (req: Request, res: Response) => {
     if (!pedido) return res.status(404).json({ error: 'Pedido PV no encontrado' });
 
     await pedido.update({
-      estado: 'ENVIADO',          // regresa a ENVIADO para re-seguimiento
-      tuvo_problema: true,         // queda marcado en rojo permanentemente
+      estado: 'PROBLEMA',                                        // permanece en PROBLEMA hasta reposición
+      tuvo_problema: true,
+      tipo_problema: req.body.tipo_problema || null,             // 'INCOMPLETO' | 'DAÑADO' | 'OTRO'
       observacion_verificacion: req.body.observacion || null,
-      alerta_enviada: false,       // resetear para que vuelva a alertar si se demora
+      estado_reposicion: null,
+      fecha_reposicion_prometida: null,
     });
 
     const odp = pedido.getDataValue('odp') as any;
@@ -316,7 +318,7 @@ export const marcarProblema = async (req: Request, res: Response) => {
         { userId: odp.asesor_id, roles: ['jefe_produccion', 'compras', 'produccion', 'gerencia'] },
         {
           titulo: `⚠️ Problema — Pedido PV ${pedido.getDataValue('numero_pedido')}`,
-          mensaje: `Vidrios de ODP ${odp.numero_odp} llegaron con problema. Se re-pedirá al proveedor.`,
+          mensaje: `Vidrios de ODP ${odp.numero_odp} llegaron con problema (${req.body.tipo_problema || 'sin clasificar'}).`,
           odp_id: odp.id,
           numero_odp: odp.numero_odp,
           tipo: 'PV_PROBLEMA',
@@ -330,6 +332,68 @@ export const marcarProblema = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error marcarProblema:', error);
     res.status(500).json({ error: 'Error al marcar problema' });
+  }
+};
+
+// PATCH /api/pedidos-pv/:id/gestionar-reposicion — produccion/compras
+export const gestionarReposicion = async (req: Request, res: Response) => {
+  try {
+    const pedido = await PedidoPV.findByPk(req.params.id);
+    if (!pedido) return res.status(404).json({ error: 'Pedido PV no encontrado' });
+    if (pedido.getDataValue('estado') !== 'PROBLEMA') {
+      return res.status(400).json({ error: 'El pedido no está en estado PROBLEMA' });
+    }
+
+    await pedido.update({
+      estado_reposicion: 'EN_GESTION',
+      fecha_reposicion_prometida: req.body.fecha_reposicion_prometida || null,
+    });
+
+    const pedidoActualizado = await PedidoPV.findByPk(req.params.id, { include: INCLUDE_COMPLETO });
+    import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
+    res.json(pedidoActualizado);
+  } catch (error) {
+    console.error('Error gestionarReposicion:', error);
+    res.status(500).json({ error: 'Error al gestionar reposición' });
+  }
+};
+
+// PATCH /api/pedidos-pv/:id/registrar-reposicion — produccion/compras
+// Vidrio repuesto: regresa a LLEGADO para re-verificar
+export const registrarReposicion = async (req: Request, res: Response) => {
+  try {
+    const pedido = await PedidoPV.findByPk(req.params.id, { include: INCLUDE_COMPLETO });
+    if (!pedido) return res.status(404).json({ error: 'Pedido PV no encontrado' });
+    if (pedido.getDataValue('estado') !== 'PROBLEMA') {
+      return res.status(400).json({ error: 'El pedido no está en estado PROBLEMA' });
+    }
+
+    await pedido.update({
+      estado: 'LLEGADO',
+      estado_reposicion: 'REPUESTO',
+      fecha_llegada_real: new Date().toISOString().split('T')[0],
+    });
+
+    const odp = pedido.getDataValue('odp') as any;
+    if (odp) {
+      emitirNotificacion(
+        { userId: odp.asesor_id, roles: ['jefe_produccion', 'compras', 'produccion'] },
+        {
+          titulo: `Reposición — PV ${pedido.getDataValue('numero_pedido')}`,
+          mensaje: `Vidrio repuesto de ODP ${odp.numero_odp}. Pendiente de verificación.`,
+          odp_id: odp.id,
+          numero_odp: odp.numero_odp,
+          tipo: 'PV_REPUESTO',
+        }
+      );
+    }
+
+    const pedidoActualizado = await PedidoPV.findByPk(req.params.id, { include: INCLUDE_COMPLETO });
+    import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
+    res.json(pedidoActualizado);
+  } catch (error) {
+    console.error('Error registrarReposicion:', error);
+    res.status(500).json({ error: 'Error al registrar reposición' });
   }
 };
 

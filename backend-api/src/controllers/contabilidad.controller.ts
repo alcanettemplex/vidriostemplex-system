@@ -59,6 +59,7 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
 
     const totalFacturadas = await ODP.count({
       where: {
+        tipo_odp: 'ODP',
         [Op.or]: [
           { estado_facturacion: 'FACTURADA' },
           { factura_electronica: { [Op.ne]: null } },
@@ -66,7 +67,7 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
       },
     });
     const totalPendFactura = await ODP.count({
-      where: { estado_facturacion: 'PENDIENTE', factura_electronica: null },
+      where: { tipo_odp: 'ODP', estado_facturacion: 'PENDIENTE', factura_electronica: null },
     });
 
     const abonoMes = (await ODP.sum('abono', { where: { fecha_creacion: { [Op.gte]: firstDayOfMonth } } })) || 0;

@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ODPForm from './components/ODPForm';
 import ODPFichaModal from './components/ODPFichaModal';
 import AsignarAsesorODPModal from './components/AsignarAsesorODPModal';
+import SeleccionarTipoODPModal from './components/SeleccionarTipoODPModal';
 import SAPModal from './components/SAPModal';
 import COTModal from './components/COTModal';
 import TMModal from './components/TMModal';
@@ -178,7 +179,9 @@ const ODPListPage: React.FC = () => {
     const [garantias, setGarantias] = useState<ODP[]>([]);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [showAsignarAsesor, setShowAsignarAsesor] = useState(false);
+    const [showSeleccionarTipo, setShowSeleccionarTipo] = useState(false);
     const [asesorParaODP, setAsesorParaODP] = useState<number | null>(null);
+    const [tipoOdp, setTipoOdp] = useState<'ODP' | 'OA'>('ODP');
     const [selectedOdpDetail, setSelectedOdpDetail] = useState<number | null>(null);
     const [editingOdp, setEditingOdp] = useState<ODP | null>(null);
     const [deletingOdp, setDeletingOdp] = useState<ODP | null>(null);
@@ -716,15 +719,27 @@ const ODPListPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Modal de asignación de asesor — se muestra ANTES del ODPForm al crear */}
+            {/* Paso 1: asignar asesor */}
             {showAsignarAsesor && (
                 <AsignarAsesorODPModal
                     onConfirm={(asesorId) => {
                         setAsesorParaODP(asesorId);
                         setShowAsignarAsesor(false);
-                        setIsFormOpen(true);
+                        setShowSeleccionarTipo(true);
                     }}
                     onCancel={() => setShowAsignarAsesor(false)}
+                />
+            )}
+
+            {/* Paso 2: elegir ODP o OA */}
+            {showSeleccionarTipo && (
+                <SeleccionarTipoODPModal
+                    onConfirm={(tipo) => {
+                        setTipoOdp(tipo);
+                        setShowSeleccionarTipo(false);
+                        setIsFormOpen(true);
+                    }}
+                    onCancel={() => { setShowSeleccionarTipo(false); setAsesorParaODP(null); }}
                 />
             )}
 
@@ -734,8 +749,9 @@ const ODPListPage: React.FC = () => {
                     <ODPForm
                         odpToEdit={editingOdp}
                         asesorId={editingOdp ? undefined : asesorParaODP}
-                        onClose={() => { setIsFormOpen(false); setEditingOdp(null); setAsesorParaODP(null); }}
-                        onSuccess={() => { setIsFormOpen(false); setEditingOdp(null); setAsesorParaODP(null); fetchODPs(); }}
+                        tipoOdp={editingOdp ? undefined : tipoOdp}
+                        onClose={() => { setIsFormOpen(false); setEditingOdp(null); setAsesorParaODP(null); setTipoOdp('ODP'); }}
+                        onSuccess={() => { setIsFormOpen(false); setEditingOdp(null); setAsesorParaODP(null); setTipoOdp('ODP'); fetchODPs(); }}
                     />
                 )}
                 {selectedOdpDetail !== null && (

@@ -10,6 +10,7 @@ import {
   Target, Zap, Flag
 } from 'lucide-react';
 import PrintableOP from '../../odp/components/PrintableOP';
+import PrintableOA from '../../odp/components/PrintableOA';
 import PrintableDetalleTecnico from '../../odp/components/PrintableDetalleTecnico';
 import PrintableSAP from '../../odp/components/PrintableSAP';
 
@@ -381,7 +382,7 @@ const StopItem = ({ stop, idx, registrarLlegada, abrirDocumento, abrirMapa, enCu
       </div>
 
       <div className="hidden">
-        <div id={`print-op-${odp?.id}`}><PrintableOP odp={odp} /></div>
+        <div id={`print-op-${odp?.id}`}>{odp?.tipo_odp === 'OA' ? <PrintableOA odp={odp} /> : <PrintableOP odp={odp} />}</div>
         <div id={`print-tec-${odp?.id}`}><PrintableDetalleTecnico odp={odp} /></div>
         {sap && <div id={`print-sap-${odp?.id}`}><PrintableSAP odp={odp} sap={sap} /></div>}
       </div>

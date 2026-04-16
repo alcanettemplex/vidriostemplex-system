@@ -103,6 +103,7 @@ interface ODPFormProps {
     onSuccess: () => void;
     odpToEdit?: any;
     asesorId?: number | null; // si se proporciona, sobreescribe el asesor del usuario logueado
+    tipoOdp?: 'ODP' | 'OA';  // tipo de orden seleccionado antes de abrir el form
 }
 
 type CatalogoItem = { id: number; categoria: string; nombre: string; descripcion: string };
@@ -130,7 +131,7 @@ const ColorField: React.FC<{ index: number; register: any; control: any }> = ({ 
     );
 };
 
-const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesorId }) => {
+const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesorId, tipoOdp }) => {
     const [step, setStep] = useState(1);
     const [clientes, setClientes] = useState<{ id: number; nombre_razon_social: string }[]>([]);
     const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
@@ -248,6 +249,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                 ...(!odpToEdit && requiere_visita_tecnica ? { estado_produccion: 'VISITA_TECNICA' } : {}),
                 // Si se asignó a otro asesor desde el modal previo, incluir en el payload
                 ...(asesorId ? { asesor_id: asesorId } : {}),
+                // Tipo de orden (ODP normal o OA sin IVA)
+                ...(!odpToEdit && tipoOdp ? { tipo_odp: tipoOdp } : {}),
             };
 
             if (odpToEdit) {

@@ -11,6 +11,7 @@ import {
 import ReportarEntregaModal from './ReportarEntregaModal';
 import ReportarDanoModal from './ReportarDanoModal';
 import PrintableOP from '../../odp/components/PrintableOP';
+import PrintableOA from '../../odp/components/PrintableOA';
 import PrintableDetalleTecnico from '../../odp/components/PrintableDetalleTecnico';
 import PrintableSAP from '../../odp/components/PrintableSAP';
 import PrintableDetSAP from '../../odp/components/PrintableDetSAP';
@@ -347,7 +348,7 @@ const TaskCard = ({ item, onIniciar, onFinalizar, onReportarDano, abrirDoc, abri
       </div>
 
       <div className="hidden">
-        <div id={`print-op-${odp?.id}`}><PrintableOP odp={odp} /></div>
+        <div id={`print-op-${odp?.id}`}>{odp?.tipo_odp === 'OA' ? <PrintableOA odp={odp} /> : <PrintableOP odp={odp} />}</div>
         <div id={`print-tec-${odp?.id}`}><PrintableDetalleTecnico odp={odp} /></div>
         {sap && <div id={`print-sap-${odp?.id}`}><PrintableSAP odp={odp} sap={sap} /></div>}
         <div id={`print-det-sap-${odp?.id}`}><PrintableDetSAP odp={odp} imagenes={[]} /></div>

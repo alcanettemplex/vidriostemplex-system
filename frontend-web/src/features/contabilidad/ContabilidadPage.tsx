@@ -102,7 +102,8 @@ const ContabilidadPage: React.FC = () => {
       setLoadingOdps(true);
       const res = await axios.get(`${API}/api/odp`, { headers: headers() });
       if (Array.isArray(res.data)) {
-        setOdps(res.data);
+        // Las OA (sin IVA) no aparecen en contabilidad
+        setOdps(res.data.filter((o: any) => o.tipo_odp !== 'OA'));
       } else {
         console.error('Respuesta de ODPs no es un array:', res.data);
         setOdps([]);

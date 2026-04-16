@@ -27,6 +27,8 @@ import {
     Loader2,
     Calendar,
     Clock,
+    AlertTriangle,
+    Inbox,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPMatrixModal from './components/ODPMatrixModal';
@@ -100,9 +102,15 @@ interface ODP {
     chk_huacal: boolean;
     chk_carton: boolean;
     es_no_conformidad?: boolean;
+    es_garantia?: boolean;
     tiene_aluminio?: boolean;
     tomas_medidas?: { id: number; numero_tm: string; croquis_url: string | null }[];
     saps?: { id: number }[];
+    instalacion?: boolean;
+    acarreo?: boolean;
+    forma_pago?: string;
+    estado_caja?: string;
+    tipo_odp?: string;
 }
 
 const activeStates = [
@@ -141,34 +149,71 @@ const isColLocked = (odp: ODP, key: string): boolean => {
     return ['chk_pelicula', 'chk_matizado', 'chk_huacal', 'chk_carton'].includes(key) && !odp.chk_vidrio;
 };
 
+const isPagoOk = (odp: ODP): boolean =>
+    odp.forma_pago === 'credito' ||
+    odp.estado_caja === 'CANCELADO' ||
+    odp.estado_caja === 'CREDITO_APROBADO';
+
+const getPaymentInfo = (odp: ODP): { label: string; cls: string } => {
+    if (odp.forma_pago === 'credito') return { label: 'Crédito', cls: 'bg-blue-50 text-blue-700' };
+    if (odp.estado_caja === 'CANCELADO') return { label: 'Cancelado ✓', cls: 'bg-emerald-50 text-emerald-700' };
+    if (odp.estado_caja === 'CREDITO_APROBADO') return { label: 'Crédito aprobado', cls: 'bg-indigo-50 text-indigo-700' };
+    if (odp.estado_caja === 'ABONADO') return { label: 'Abono parcial', cls: 'bg-amber-50 text-amber-700' };
+    return { label: 'Pendiente', cls: 'bg-slate-100 text-slate-500' };
+};
+
+const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
 const ProduccionPage: React.FC = () => {
-    const [activeOdps, setActiveOdps]   = useState<ODP[]>([]);
-    const [readyOdps, setReadyOdps]     = useState<ODP[]>([]);
-    const [loading, setLoading]         = useState(true);
-    const [searchTerm, setSearchTerm]   = useState('');
-    const [fichaOdpId, setFichaOdpId]   = useState<number | null>(null);
-    const [selectedQR, setSelectedQR]   = useState<string | null>(null);
+    const [mainTab, setMainTab]           = useState<'activas' | 'pedido_mano' | 'nc_garantias'>('activas');
+    const [manoSubTab, setManoSubTab]     = useState<'listos' | 'espera_pago' | 'entregadas'>('listos');
+
+    const [activeOdps, setActiveOdps]     = useState<ODP[]>([]);
+    const [readyOdps, setReadyOdps]       = useState<ODP[]>([]);
+    const [despachoOdps, setDespachoOdps] = useState<ODP[]>([]);
+    const [manoOdps, setManoOdps]         = useState<ODP[]>([]);
+    const [entregadasOdps, setEntregadasOdps] = useState<ODP[]>([]);
+
+    const [loading, setLoading]           = useState(true);
+    const [searchTerm, setSearchTerm]     = useState('');
+    const [fichaOdpId, setFichaOdpId]     = useState<number | null>(null);
+    const [selectedQR, setSelectedQR]     = useState<string | null>(null);
     const [selectedODPDetail, setSelectedODPDetail] = useState<ODP | null>(null);
-    const [filterType, setFilterType]   = useState<string>('TODAS');
-    const [notes, setNotes]             = useState<{ [key: number]: Nota[] }>({});
-    const [newNotes, setNewNotes]       = useState<{ [key: number]: string }>({});
-    const [panelOdp, setPanelOdp]       = useState<ODP | null>(null);
-    const [panelDetail, setPanelDetail] = useState<ODPDetalle | null>(null);
+    const [filterType, setFilterType]     = useState<string>('TODAS');
+    const [notes, setNotes]               = useState<{ [key: number]: Nota[] }>({});
+    const [newNotes, setNewNotes]         = useState<{ [key: number]: string }>({});
+    const [panelOdp, setPanelOdp]         = useState<ODP | null>(null);
+    const [panelDetail, setPanelDetail]   = useState<ODPDetalle | null>(null);
     const [panelDetailLoading, setPanelDetailLoading] = useState(false);
     const [odpFullDetail, setOdpFullDetail] = useState<any>(null);
-    const [printSap, setPrintSap] = useState<{ odp: any; sap: any } | null>(null);
+    const [printSap, setPrintSap]         = useState<{ odp: any; sap: any } | null>(null);
+    const [marcandoEntregada, setMarcandoEntregada] = useState<number | null>(null);
+
+    // Role check
+    const userRol = (() => {
+        try { return JSON.parse(localStorage.getItem('user') || '{}')?.rol || ''; } catch { return ''; }
+    })();
+    const puedeMarcarEntregada = ['compras', 'produccion', 'admin', 'jefe_produccion', 'gerencia', 'root'].includes(userRol);
 
     const fetchData = useCallback(async (silent = false) => {
         try {
             if (!silent) setLoading(true);
             const token = localStorage.getItem('token');
             const res = await axios.get(
-                `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/odp`,
+                `${API}/api/odp`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             const data: ODP[] = res.data;
-            setActiveOdps(data.filter(o => activeStates.includes(o.estado_produccion)));
-            setReadyOdps(data.filter(o => o.estado_produccion === 'LISTO_INSTALAR'));
+            const allActive = data.filter(o => activeStates.includes(o.estado_produccion));
+            const allReady  = data.filter(o => o.estado_produccion === 'LISTO_INSTALAR');
+            const allEntregadas = data.filter(o =>
+                o.estado_produccion === 'ENTREGADA' && !o.instalacion && !o.acarreo
+            );
+            setActiveOdps(allActive);
+            setReadyOdps(allReady);
+            setDespachoOdps(allReady.filter(o => o.instalacion || o.acarreo));
+            setManoOdps(allReady.filter(o => !o.instalacion && !o.acarreo));
+            setEntregadasOdps(allEntregadas);
         } catch (error) {
             console.error(error);
             toast.error('Error al cargar pedidos de producción');
@@ -179,21 +224,28 @@ const ProduccionPage: React.FC = () => {
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
-    // Sincronizar panelOdp cuando los datos se refresque
+    // Clear panel when switching main tabs
+    useEffect(() => {
+        setPanelOdp(null);
+        setPanelDetail(null);
+        setPrintSap(null);
+    }, [mainTab]);
+
+    // Sync panelOdp when data refreshes
     useEffect(() => {
         if (!panelOdp) return;
-        const all = [...activeOdps, ...readyOdps];
+        const all = [...activeOdps, ...despachoOdps, ...manoOdps, ...entregadasOdps];
         const updated = all.find(o => o.id === panelOdp.id);
         if (updated) setPanelOdp(updated);
         else setPanelOdp(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeOdps, readyOdps]);
+    }, [activeOdps, despachoOdps, manoOdps, entregadasOdps]);
 
     const fetchNotes = async (odpId: number) => {
         try {
             const token = localStorage.getItem('token');
             const res = await axios.get(
-                `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/notas-produccion/${odpId}`,
+                `${API}/api/notas-produccion/${odpId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setNotes(prev => ({ ...prev, [odpId]: res.data }));
@@ -208,7 +260,7 @@ const ProduccionPage: React.FC = () => {
         try {
             const token = localStorage.getItem('token');
             const res = await axios.post(
-                `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/notas-produccion`,
+                `${API}/api/notas-produccion`,
                 { odp_id: odpId, texto: text },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -229,7 +281,7 @@ const ProduccionPage: React.FC = () => {
             const token = localStorage.getItem('token');
             const newValue = !(odp as any)[field];
             await axios.put(
-                `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/odp/${odp.id}`,
+                `${API}/api/odp/${odp.id}`,
                 { [field]: newValue },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -237,6 +289,24 @@ const ProduccionPage: React.FC = () => {
             toast.success('Proceso actualizado');
         } catch (error: any) {
             toast.error(error.response?.data?.error || 'Error al actualizar');
+        }
+    };
+
+    const handleMarcarEntregada = async (odp: ODP) => {
+        setMarcandoEntregada(odp.id);
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(
+                `${API}/api/odp/${odp.id}`,
+                { estado_produccion: 'ENTREGADA' },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            toast.success(`${odp.numero_odp} marcada como Entregada`);
+            fetchData(true);
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || 'Error al actualizar');
+        } finally {
+            setMarcandoEntregada(null);
         }
     };
 
@@ -253,7 +323,7 @@ const ProduccionPage: React.FC = () => {
         try {
             const token = localStorage.getItem('token');
             const res = await axios.get(
-                `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/odp/${odpId}`,
+                `${API}/api/odp/${odpId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setOdpFullDetail(res.data);
@@ -291,8 +361,463 @@ const ProduccionPage: React.FC = () => {
         }
     }).sort((a, b) => new Date(a.fecha_entrega).getTime() - new Date(b.fecha_entrega).getTime());
 
+    const ncOdps = activeOdps
+        .filter(o => o.es_no_conformidad || o.es_garantia)
+        .sort((a, b) => new Date(a.fecha_entrega).getTime() - new Date(b.fecha_entrega).getTime());
+
+    const pagoOkOdps     = manoOdps.filter(o => isPagoOk(o));
+    const esperaPagoOdps = manoOdps.filter(o => !isPagoOk(o));
+    const currentManoOdps = manoSubTab === 'listos' ? pagoOkOdps
+        : manoSubTab === 'espera_pago' ? esperaPagoOdps
+        : entregadasOdps;
+
     if (loading) return (
         <div className="p-8 text-center text-slate-500 font-bold">Cargando Tablero de Taller...</div>
+    );
+
+    // ─── Renderizado del panel de detalle (reutilizable) ─────────────────────
+    const renderPanel = () => {
+        if (!panelOdp) return (
+            <div className="flex flex-col items-center justify-center h-72 text-center p-8">
+                <MessageSquare className="w-10 h-10 text-slate-200 mb-3" />
+                <p className="text-slate-400 text-sm font-medium leading-relaxed">
+                    Selecciona una ODP de la tabla para ver su detalle y bitácora
+                </p>
+            </div>
+        );
+
+        const urgency = getUrgency(panelOdp.fecha_entrega);
+        const pvEstadoConfig: Record<string, { label: string; cls: string }> = {
+            PENDIENTE:            { label: 'Pendiente',           cls: 'bg-slate-100 text-slate-500' },
+            ENVIADO:              { label: 'Enviado',              cls: 'bg-blue-100 text-blue-700' },
+            CONFIRMADO_PROVEEDOR: { label: 'Confirmado',           cls: 'bg-indigo-100 text-indigo-700' },
+            LLEGADO:              { label: 'Llegado — sin verif.', cls: 'bg-amber-100 text-amber-700' },
+            VERIFICADO:           { label: 'Verificado ✓',         cls: 'bg-emerald-100 text-emerald-700' },
+            PROBLEMA:             { label: '⚠ Problema',           cls: 'bg-rose-100 text-rose-700 animate-pulse' },
+        };
+        const sapEstadoCfg: Record<string, string> = {
+            borrador: 'bg-slate-100 text-slate-500',
+            enviada:  'bg-blue-100 text-blue-700',
+            aprobada: 'bg-emerald-100 text-emerald-700',
+        };
+        const odcEstadoCfg = (estado: string) => {
+            const s = estado.toLowerCase();
+            if (s === 'recibida' || s === 'completada') return 'bg-emerald-100 text-emerald-700';
+            if (s === 'parcial') return 'bg-amber-100 text-amber-700';
+            return 'bg-slate-100 text-slate-500';
+        };
+
+        return (
+            <div className="flex flex-col" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+                {/* Panel header */}
+                <div className={`p-4 border-b border-slate-100 flex-shrink-0 border-l-4
+                    ${urgency.color === 'rose'   ? 'border-rose-500 bg-rose-50/30' :
+                      urgency.color === 'orange' ? 'border-orange-500 bg-orange-50/30' :
+                                                   'border-emerald-500 bg-emerald-50/30'}`}
+                >
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <button
+                                    className="text-sm font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors"
+                                    onClick={() => setFichaOdpId(panelOdp.id)}
+                                >
+                                    {panelOdp.numero_odp}
+                                </button>
+                                <button
+                                    onClick={() => setSelectedQR(panelOdp.numero_odp)}
+                                    className="p-1.5 bg-slate-100 text-slate-400 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                >
+                                    <QrCode className="w-3.5 h-3.5" />
+                                </button>
+                                {panelOdp.es_no_conformidad && (
+                                    <span className="text-[9px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded-full">REPROCESO</span>
+                                )}
+                                {panelOdp.es_garantia && (
+                                    <span className="text-[9px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded-full">GARANTÍA</span>
+                                )}
+                            </div>
+                            <p className="text-sm font-bold text-slate-800 leading-tight">{panelOdp.cliente.nombre_razon_social}</p>
+                            <span className={`inline-block mt-1.5 text-[9px] font-black px-1.5 py-0.5 rounded
+                                ${urgency.color === 'rose'   ? 'bg-rose-100 text-rose-600' :
+                                  urgency.color === 'orange' ? 'bg-orange-100 text-orange-600' :
+                                                               'bg-emerald-100 text-emerald-600'}`}>
+                                {urgency.label}
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => setPanelOdp(null)}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors flex-shrink-0"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Contenido scrollable */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-5">
+                    {/* Cristales */}
+                    {(panelOdp.items?.length || 0) > 0 && (
+                        <div>
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cristales</h4>
+                                <button
+                                    onClick={() => setSelectedODPDetail(panelOdp)}
+                                    className="text-[10px] font-black text-indigo-600 hover:text-indigo-700 uppercase"
+                                >
+                                    Ficha completa →
+                                </button>
+                            </div>
+                            <div className="space-y-1.5">
+                                {panelOdp.items.map((item, i) => (
+                                    <div key={i} className="flex justify-between items-center text-xs p-2 rounded-lg bg-slate-50">
+                                        <span className="font-bold text-slate-700">
+                                            {item.cantidad}x <span className="font-medium">{item.tipo_vidrio} {item.espesor}mm</span>
+                                        </span>
+                                        <span className="text-slate-500 font-mono">{item.ancho_mm} × {item.alto_mm}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Pedido PV */}
+                    {panelDetailLoading && (
+                        <div className="flex items-center justify-center gap-2 py-4 text-slate-400">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span className="text-xs font-medium">Cargando detalle...</span>
+                        </div>
+                    )}
+
+                    {!panelDetailLoading && panelDetail && panelDetail.pedidos_pv.length > 0 && (() => {
+                        const hoy = new Date();
+                        return (
+                            <div>
+                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                    <Truck className="w-3 h-3" />
+                                    Pedido de Vidrio
+                                </h4>
+                                <div className="space-y-2">
+                                    {panelDetail.pedidos_pv.map(pv => {
+                                        const cfg = pvEstadoConfig[pv.estado] ?? { label: pv.estado, cls: 'bg-slate-100 text-slate-500' };
+                                        let diasLabel: React.ReactNode = null;
+                                        if (pv.fecha_entrega_prometida && pv.estado !== 'VERIFICADO') {
+                                            const diff = Math.ceil((new Date(pv.fecha_entrega_prometida).getTime() - hoy.getTime()) / 86400000);
+                                            diasLabel = diff < 0
+                                                ? <span className="text-rose-600 font-black">Vencida hace {Math.abs(diff)}d</span>
+                                                : diff === 0
+                                                ? <span className="text-rose-600 font-black">Vence hoy</span>
+                                                : <span className="text-slate-500">Faltan {diff}d</span>;
+                                        }
+                                        return (
+                                            <div key={pv.id} className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+                                                <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-slate-100">
+                                                    <div>
+                                                        <p className="text-[9px] font-black text-slate-400 uppercase">{pv.proveedor}</p>
+                                                        <p className="text-xs font-black text-slate-800">#{pv.numero_pedido}</p>
+                                                    </div>
+                                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.label}</span>
+                                                </div>
+                                                <div className="px-3 py-2 space-y-1.5">
+                                                    {pv.fecha_envio && (
+                                                        <div className="flex items-center justify-between text-[10px]">
+                                                            <span className="flex items-center gap-1 text-slate-400 font-medium"><Clock className="w-3 h-3" /> Enviado</span>
+                                                            <span className="font-bold text-slate-600">{new Date(pv.fecha_envio).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}</span>
+                                                        </div>
+                                                    )}
+                                                    {pv.fecha_entrega_prometida && (
+                                                        <div className="flex items-center justify-between text-[10px]">
+                                                            <span className="flex items-center gap-1 text-slate-400 font-medium"><Calendar className="w-3 h-3" /> Prometida</span>
+                                                            <span className="font-bold text-slate-600 flex items-center gap-1.5">
+                                                                {new Date(pv.fecha_entrega_prometida).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                                                                {diasLabel && <span className="text-[9px]">({diasLabel})</span>}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {pv.fecha_llegada_real && (
+                                                        <div className="flex items-center justify-between text-[10px]">
+                                                            <span className="flex items-center gap-1 text-slate-400 font-medium"><CheckCircle2 className="w-3 h-3 text-emerald-500" /> Llegó</span>
+                                                            <span className="font-bold text-emerald-600">
+                                                                {new Date(pv.fecha_llegada_real).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                                                                {pv.dias_diferencia !== null && (
+                                                                    <span className={`ml-1 ${pv.dias_diferencia > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                                                        ({pv.dias_diferencia > 0 ? `+${pv.dias_diferencia}d tarde` : `${Math.abs(pv.dias_diferencia)}d antes`})
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {pv.observaciones && (
+                                                        <p className="text-[9px] text-slate-500 italic border-t border-slate-100 pt-1.5 mt-1">{pv.observaciones}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* SAP + ODC Perfilería */}
+                    {!panelDetailLoading && panelDetail && panelDetail.saps.length > 0 && (
+                        <div>
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                <ClipboardList className="w-3 h-3" />
+                                Perfilería / SAP
+                            </h4>
+                            <div className="space-y-2">
+                                {panelDetail.saps.map(sap => (
+                                    <div key={sap.id} className="rounded-xl border border-slate-200 overflow-hidden">
+                                        <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-slate-100">
+                                            <div>
+                                                <p className="text-[9px] font-black text-slate-400 uppercase">Solicitud</p>
+                                                <button
+                                                    className="text-xs font-black text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
+                                                    onClick={() => {
+                                                        const sapFull = odpFullDetail?.saps?.find((s: any) => s.id === sap.id);
+                                                        if (sapFull && odpFullDetail) setPrintSap({ odp: odpFullDetail, sap: sapFull });
+                                                    }}
+                                                >
+                                                    {sap.numero_sap}
+                                                </button>
+                                            </div>
+                                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full capitalize ${sapEstadoCfg[sap.estado] ?? 'bg-slate-100 text-slate-500'}`}>
+                                                {sap.estado}
+                                            </span>
+                                        </div>
+                                        {sap.ordenes_compra.filter(o => o.tipo === 'perfileria').length > 0 ? (
+                                            <div className="bg-slate-50 px-3 py-2 space-y-1.5">
+                                                {sap.ordenes_compra.filter(o => o.tipo === 'perfileria').map(odc => (
+                                                    <div key={odc.id} className="flex items-center justify-between text-[10px]">
+                                                        <div>
+                                                            <span className="font-black text-slate-700">{odc.numero_odc}</span>
+                                                            <span className="text-slate-400 ml-1">· {odc.proveedor}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full capitalize ${odcEstadoCfg(odc.estado)}`}>{odc.estado}</span>
+                                                            {odc.fecha_recepcion && (
+                                                                <span className="text-[9px] text-emerald-600 font-bold">
+                                                                    {new Date(odc.fecha_recepcion).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-[9px] text-slate-400 italic px-3 py-2 bg-slate-50">Sin ODC creada</p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ODC directa de vidrio */}
+                    {!panelDetailLoading && panelDetail && (() => {
+                        const odcEstadoCfg = (estado: string) => {
+                            const s = estado.toLowerCase();
+                            if (s === 'recibida' || s === 'completada') return 'bg-emerald-100 text-emerald-700';
+                            if (s === 'parcial') return 'bg-amber-100 text-amber-700';
+                            return 'bg-slate-100 text-slate-500';
+                        };
+                        const odcsVidrio = panelDetail.saps.flatMap(s => s.ordenes_compra.filter(o => o.tipo === 'vidrio'));
+                        if (odcsVidrio.length === 0) return null;
+                        return (
+                            <div>
+                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                    <ShoppingCart className="w-3 h-3" />
+                                    ODC Vidrio
+                                </h4>
+                                <div className="space-y-1.5">
+                                    {odcsVidrio.map(odc => (
+                                        <div key={odc.id} className="flex items-center justify-between text-[10px] px-3 py-2 rounded-xl bg-slate-50 border border-slate-200">
+                                            <div>
+                                                <span className="font-black text-slate-700">{odc.numero_odc}</span>
+                                                <span className="text-slate-400 ml-1">· {odc.proveedor}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full capitalize ${odcEstadoCfg(odc.estado)}`}>{odc.estado}</span>
+                                                {odc.fecha_recepcion && (
+                                                    <span className="text-[9px] text-emerald-600 font-bold">
+                                                        {new Date(odc.fecha_recepcion).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Bitácora */}
+                    <div>
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                            <MessageSquare className="w-3 h-3" />
+                            Bitácora del Taller
+                        </h4>
+                        <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1 mb-3">
+                            {(notes[panelOdp.id]?.length || 0) === 0 ? (
+                                <p className="text-center text-xs text-slate-400 py-6 italic">
+                                    No hay notas registradas para esta ODP.
+                                </p>
+                            ) : notes[panelOdp.id].map(n => (
+                                <div key={n.id} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <p className="text-xs text-slate-700 mb-1 leading-relaxed">{n.texto}</p>
+                                    <div className="flex justify-between text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                                        <span>{n.usuario.nombre_completo}</span>
+                                        <span>
+                                            {new Date(n.fecha).toLocaleDateString()}{' '}
+                                            {new Date(n.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="relative">
+                            <textarea
+                                rows={2}
+                                className="w-full p-3 pr-10 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 resize-none bg-white transition-all"
+                                placeholder="Agregar una nota técnica..."
+                                value={newNotes[panelOdp.id] || ''}
+                                onChange={e => setNewNotes(prev => ({ ...prev, [panelOdp.id]: e.target.value }))}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleAddNote(panelOdp.id);
+                                    }
+                                }}
+                            />
+                            <button
+                                onClick={() => handleAddNote(panelOdp.id)}
+                                className="absolute right-2 bottom-2 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md shadow-indigo-100 transition-all"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // ─── Renderizado de la matriz (reutilizable para Activas y NC) ───────────
+    const renderMatrix = (odps: ODP[], emptyMsg: string) => (
+        <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+            <table className="w-full border-collapse">
+                <thead className="sticky top-0 z-10">
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                        <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[220px] sticky left-0 bg-slate-50 z-20 border-r border-slate-200">
+                            ODP / Cliente
+                        </th>
+                        {COLUMNS.map(col => (
+                            <th key={col.key} className="px-2 py-3 text-center min-w-[72px]">
+                                <div className="flex flex-col items-center gap-0.5">
+                                    <col.Icon className="w-3.5 h-3.5 text-slate-400" />
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">{col.label}</span>
+                                </div>
+                            </th>
+                        ))}
+                        <th className="px-2 py-3 text-center min-w-[56px]">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Avance</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                    {odps.length === 0 ? (
+                        <tr>
+                            <td colSpan={COLUMNS.length + 2} className="p-12 text-center">
+                                <CheckCircle2 className="w-12 h-12 text-slate-100 mx-auto mb-3" />
+                                <p className="text-slate-400 text-sm font-medium">{emptyMsg}</p>
+                            </td>
+                        </tr>
+                    ) : odps.map(odp => {
+                        const urgency    = getUrgency(odp.fecha_entrega);
+                        const isSelected = panelOdp?.id === odp.id;
+                        const applicable = COLUMNS.filter(c => isColApplicable(odp, c.key));
+                        const done       = applicable.filter(c => (odp as any)[c.key]);
+                        const progress   = applicable.length > 0
+                            ? Math.round((done.length / applicable.length) * 100)
+                            : 0;
+                        const borderColor = urgency.color === 'rose' ? 'border-rose-400'
+                            : urgency.color === 'orange' ? 'border-orange-400' : 'border-emerald-400';
+                        const rowBg = isSelected ? 'bg-indigo-50/60'
+                            : urgency.color === 'rose' ? 'hover:bg-rose-50/20'
+                            : urgency.color === 'orange' ? 'hover:bg-orange-50/20' : 'hover:bg-slate-50';
+
+                        return (
+                            <tr
+                                key={odp.id}
+                                onClick={() => handleSelectOdp(odp)}
+                                className={`cursor-pointer transition-colors border-l-4 ${borderColor} ${rowBg}`}
+                            >
+                                <td className={`px-4 py-3 sticky left-0 z-10 border-r border-slate-100 ${isSelected ? 'bg-indigo-50/60' : 'bg-white'}`}>
+                                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                        <span
+                                            className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors cursor-pointer"
+                                            onClick={e => { e.stopPropagation(); setFichaOdpId(odp.id); }}
+                                        >
+                                            {odp.numero_odp}
+                                        </span>
+                                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded
+                                            ${urgency.color === 'rose'   ? 'bg-rose-50 text-rose-600' :
+                                              urgency.color === 'orange' ? 'bg-orange-50 text-orange-600' :
+                                                                           'bg-emerald-50 text-emerald-600'}`}>
+                                            {urgency.label}
+                                        </span>
+                                        {odp.es_no_conformidad && (
+                                            <span className="text-[8px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded-full">NC</span>
+                                        )}
+                                        {odp.es_garantia && (
+                                            <span className="text-[8px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded-full">GAR</span>
+                                        )}
+                                    </div>
+                                    <p className="text-sm font-bold text-slate-700 truncate max-w-[190px]">
+                                        {odp.cliente.nombre_razon_social}
+                                    </p>
+                                </td>
+                                {COLUMNS.map(col => {
+                                    const app     = isColApplicable(odp, col.key);
+                                    const locked  = isColLocked(odp, col.key);
+                                    const checked = !!(odp as any)[col.key];
+                                    if (!app) return (
+                                        <td key={col.key} className="px-2 py-3 text-center">
+                                            <span className="text-slate-200 text-sm select-none">—</span>
+                                        </td>
+                                    );
+                                    return (
+                                        <td key={col.key} className="px-2 py-3 text-center"
+                                            onClick={e => { e.stopPropagation(); toggleCheck(odp, col.key); }}>
+                                            <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border-2 transition-all mx-auto
+                                                ${checked ? 'bg-emerald-50 border-emerald-400 text-emerald-600'
+                                                : locked  ? 'bg-slate-50 border-slate-100 cursor-not-allowed'
+                                                : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer'}`}>
+                                                {locked   ? <Lock className="w-4 h-4 text-slate-300" />
+                                                : checked  ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                                : <col.Icon className="w-4 h-4" />}
+                                            </div>
+                                        </td>
+                                    );
+                                })}
+                                <td className="px-2 py-3 text-center">
+                                    <div className="flex flex-col items-center gap-1.5">
+                                        <span className={`text-xs font-black ${progress === 100 ? 'text-emerald-600' : 'text-slate-500'}`}>{progress}%</span>
+                                        <div className="w-9 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all ${progress === 100 ? 'bg-emerald-500' : urgency.color === 'rose' ? 'bg-rose-500' : 'bg-indigo-500'}`}
+                                                style={{ width: `${progress}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+        </div>
     );
 
     return (
@@ -319,588 +844,298 @@ const ProduccionPage: React.FC = () => {
                             {activeOdps.filter(o => getUrgency(o.fecha_entrega).weight >= 2).length}
                         </p>
                     </div>
+                    <div className="px-4 py-2 text-center border-r border-slate-100">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Despacho</p>
+                        <p className="text-xl font-black text-emerald-600 leading-none">{despachoOdps.length}</p>
+                    </div>
                     <div className="px-4 py-2 text-center">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Listas</p>
-                        <p className="text-xl font-black text-emerald-600 leading-none">{readyOdps.length}</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">En la mano</p>
+                        <p className="text-xl font-black text-amber-600 leading-none">{manoOdps.length}</p>
                     </div>
                 </div>
             </div>
 
-            {/* ── Filtros ── */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 flex flex-col md:flex-row gap-3 items-center">
-                <div className="relative flex-1 w-full">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                        type="text"
-                        placeholder="Buscar por ODP o Cliente..."
-                        className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-slate-50 transition-all"
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                <div className="flex gap-2 flex-shrink-0">
-                    {[
-                        { id: 'TODAS',    label: 'Todas' },
-                        { id: 'URGENTES', label: 'Urgentes', icon: AlertCircle },
-                        { id: 'PELICULA', label: 'Película',  icon: Film },
-                        { id: 'HUACAL',   label: 'Huacal',   icon: Box },
-                        { id: 'NC',       label: 'NC',        icon: AlertCircle },
-                    ].map(f => (
-                        <button
-                            key={f.id}
-                            onClick={() => setFilterType(f.id)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5 transition-all
-                                ${filterType === f.id
-                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
-                        >
-                            {f.icon && <f.icon className="w-3 h-3" />}
-                            {f.label}
-                        </button>
-                    ))}
-                </div>
+            {/* ── Main Tabs ── */}
+            <div className="flex bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-full md:w-fit">
+                {[
+                    { id: 'activas',      label: 'Control Taller',     icon: Wrench },
+                    { id: 'pedido_mano',  label: 'Pedido en la mano',  icon: Inbox },
+                    { id: 'nc_garantias', label: 'NC / Garantías',     icon: AlertTriangle },
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setMainTab(tab.id as any)}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all
+                            ${mainTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-700'}`}
+                    >
+                        <tab.icon className="w-3.5 h-3.5" />
+                        {tab.label}
+                        {tab.id === 'nc_garantias' && ncOdps.length > 0 && (
+                            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${mainTab === tab.id ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-600'}`}>
+                                {ncOdps.length}
+                            </span>
+                        )}
+                    </button>
+                ))}
             </div>
 
-            {/* ── Split Panel ── */}
-            <div className="flex gap-4 items-start">
-
-                {/* Matriz */}
-                <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                        <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                            <Package className="w-4 h-4 text-indigo-500" />
-                            Línea de Producción ({filteredOdps.length})
-                        </h2>
-                        <span className="text-[10px] text-slate-400 font-medium hidden md:block">
-                            Click en celda para marcar · Click en fila para ver detalle y bitácora
-                        </span>
-                    </div>
-
-                    <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
-                        <table className="w-full border-collapse">
-                            <thead className="sticky top-0 z-10">
-                                <tr className="bg-slate-50 border-b border-slate-200">
-                                    <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[220px] sticky left-0 bg-slate-50 z-20 border-r border-slate-200">
-                                        ODP / Cliente
-                                    </th>
-                                    {COLUMNS.map(col => (
-                                        <th key={col.key} className="px-2 py-3 text-center min-w-[72px]">
-                                            <div className="flex flex-col items-center gap-0.5">
-                                                <col.Icon className="w-3.5 h-3.5 text-slate-400" />
-                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">{col.label}</span>
-                                            </div>
-                                        </th>
-                                    ))}
-                                    <th className="px-2 py-3 text-center min-w-[56px]">
-                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Avance</span>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {filteredOdps.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={COLUMNS.length + 2} className="p-12 text-center">
-                                            <CheckCircle2 className="w-12 h-12 text-slate-100 mx-auto mb-3" />
-                                            <p className="text-slate-400 text-sm font-medium">No hay órdenes que coincidan.</p>
-                                        </td>
-                                    </tr>
-                                ) : filteredOdps.map(odp => {
-                                    const urgency    = getUrgency(odp.fecha_entrega);
-                                    const isSelected = panelOdp?.id === odp.id;
-                                    const applicable = COLUMNS.filter(c => isColApplicable(odp, c.key));
-                                    const done       = applicable.filter(c => (odp as any)[c.key]);
-                                    const progress   = applicable.length > 0
-                                        ? Math.round((done.length / applicable.length) * 100)
-                                        : 0;
-
-                                    const borderColor = urgency.color === 'rose'
-                                        ? 'border-rose-400'
-                                        : urgency.color === 'orange'
-                                        ? 'border-orange-400'
-                                        : 'border-emerald-400';
-
-                                    const rowBg = isSelected
-                                        ? 'bg-indigo-50/60'
-                                        : urgency.color === 'rose'
-                                        ? 'hover:bg-rose-50/20'
-                                        : urgency.color === 'orange'
-                                        ? 'hover:bg-orange-50/20'
-                                        : 'hover:bg-slate-50';
-
-                                    return (
-                                        <tr
-                                            key={odp.id}
-                                            onClick={() => handleSelectOdp(odp)}
-                                            className={`cursor-pointer transition-colors border-l-4 ${borderColor} ${rowBg}`}
-                                        >
-                                            {/* Columna ODP */}
-                                            <td className={`px-4 py-3 sticky left-0 z-10 border-r border-slate-100 ${isSelected ? 'bg-indigo-50/60' : 'bg-white'}`}>
-                                                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                                    <span
-                                                        className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors cursor-pointer"
-                                                        onClick={e => { e.stopPropagation(); setFichaOdpId(odp.id); }}
-                                                    >
-                                                        {odp.numero_odp}
-                                                    </span>
-                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded
-                                                        ${urgency.color === 'rose'   ? 'bg-rose-50 text-rose-600' :
-                                                          urgency.color === 'orange' ? 'bg-orange-50 text-orange-600' :
-                                                                                       'bg-emerald-50 text-emerald-600'}`}>
-                                                        {urgency.label}
-                                                    </span>
-                                                    {odp.es_no_conformidad && (
-                                                        <span className="text-[8px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded-full">NC</span>
-                                                    )}
-                                                </div>
-                                                <p className="text-sm font-bold text-slate-700 truncate max-w-[190px]">
-                                                    {odp.cliente.nombre_razon_social}
-                                                </p>
-                                            </td>
-
-                                            {/* Celdas de tareas */}
-                                            {COLUMNS.map(col => {
-                                                const applicable = isColApplicable(odp, col.key);
-                                                const locked     = isColLocked(odp, col.key);
-                                                const checked    = !!(odp as any)[col.key];
-
-                                                if (!applicable) {
-                                                    return (
-                                                        <td key={col.key} className="px-2 py-3 text-center">
-                                                            <span className="text-slate-200 text-sm select-none">—</span>
-                                                        </td>
-                                                    );
-                                                }
-
-                                                return (
-                                                    <td
-                                                        key={col.key}
-                                                        className="px-2 py-3 text-center"
-                                                        onClick={e => { e.stopPropagation(); toggleCheck(odp, col.key); }}
-                                                    >
-                                                        <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border-2 transition-all mx-auto
-                                                            ${checked
-                                                                ? 'bg-emerald-50 border-emerald-400 text-emerald-600'
-                                                                : locked
-                                                                ? 'bg-slate-50 border-slate-100 cursor-not-allowed'
-                                                                : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer'}`}
-                                                        >
-                                                            {locked ? (
-                                                                <Lock className="w-4 h-4 text-slate-300" />
-                                                            ) : checked ? (
-                                                                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                                                            ) : (
-                                                                <col.Icon className="w-4 h-4" />
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                );
-                                            })}
-
-                                            {/* Progreso */}
-                                            <td className="px-2 py-3 text-center">
-                                                <div className="flex flex-col items-center gap-1.5">
-                                                    <span className={`text-xs font-black ${progress === 100 ? 'text-emerald-600' : 'text-slate-500'}`}>
-                                                        {progress}%
-                                                    </span>
-                                                    <div className="w-9 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                        <div
-                                                            className={`h-full rounded-full transition-all ${progress === 100 ? 'bg-emerald-500' : urgency.color === 'rose' ? 'bg-rose-500' : 'bg-indigo-500'}`}
-                                                            style={{ width: `${progress}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Panel de Detalle */}
-                <div
-                    className={`w-[340px] flex-shrink-0 rounded-2xl border shadow-sm overflow-hidden transition-all sticky top-4
-                        ${panelOdp ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-200'}`}
-                    style={{ maxHeight: 'calc(100vh - 200px)' }}
-                >
-                    {!panelOdp ? (
-                        <div className="flex flex-col items-center justify-center h-72 text-center p-8">
-                            <MessageSquare className="w-10 h-10 text-slate-200 mb-3" />
-                            <p className="text-slate-400 text-sm font-medium leading-relaxed">
-                                Selecciona una ODP de la tabla para ver su detalle y bitácora
-                            </p>
+            {/* ══════════════════════════════════════════════
+                TAB: ACTIVAS (Control Taller)
+            ══════════════════════════════════════════════ */}
+            {mainTab === 'activas' && (
+                <>
+                    {/* Filtros */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 flex flex-col md:flex-row gap-3 items-center">
+                        <div className="relative flex-1 w-full">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Buscar por ODP o Cliente..."
+                                className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-slate-50 transition-all"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                            />
                         </div>
-                    ) : (() => {
-                        const urgency = getUrgency(panelOdp.fecha_entrega);
-                        return (
-                            <div className="flex flex-col" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-                                {/* Panel header */}
-                                <div className={`p-4 border-b border-slate-100 flex-shrink-0 border-l-4
-                                    ${urgency.color === 'rose'   ? 'border-rose-500 bg-rose-50/30' :
-                                      urgency.color === 'orange' ? 'border-orange-500 bg-orange-50/30' :
-                                                                   'border-emerald-500 bg-emerald-50/30'}`}
+                        <div className="flex gap-2 flex-shrink-0">
+                            {[
+                                { id: 'TODAS',    label: 'Todas' },
+                                { id: 'URGENTES', label: 'Urgentes', icon: AlertCircle },
+                                { id: 'PELICULA', label: 'Película',  icon: Film },
+                                { id: 'HUACAL',   label: 'Huacal',   icon: Box },
+                                { id: 'NC',       label: 'NC',        icon: AlertCircle },
+                            ].map(f => (
+                                <button
+                                    key={f.id}
+                                    onClick={() => setFilterType(f.id)}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5 transition-all
+                                        ${filterType === f.id
+                                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                                            : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
                                 >
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                <button
-                                                    className="text-sm font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors"
-                                                    onClick={() => setFichaOdpId(panelOdp.id)}
-                                                >
-                                                    {panelOdp.numero_odp}
-                                                </button>
-                                                <button
-                                                    onClick={() => setSelectedQR(panelOdp.numero_odp)}
-                                                    className="p-1.5 bg-slate-100 text-slate-400 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                                                >
-                                                    <QrCode className="w-3.5 h-3.5" />
-                                                </button>
-                                                {panelOdp.es_no_conformidad && (
-                                                    <span className="text-[9px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded-full">REPROCESO</span>
-                                                )}
-                                            </div>
-                                            <p className="text-sm font-bold text-slate-800 leading-tight">{panelOdp.cliente.nombre_razon_social}</p>
-                                            <span className={`inline-block mt-1.5 text-[9px] font-black px-1.5 py-0.5 rounded
-                                                ${urgency.color === 'rose'   ? 'bg-rose-100 text-rose-600' :
-                                                  urgency.color === 'orange' ? 'bg-orange-100 text-orange-600' :
-                                                                               'bg-emerald-100 text-emerald-600'}`}>
-                                                {urgency.label}
-                                            </span>
-                                        </div>
-                                        <button
-                                            onClick={() => setPanelOdp(null)}
-                                            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors flex-shrink-0"
-                                        >
-                                            <X className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
+                                    {f.icon && <f.icon className="w-3 h-3" />}
+                                    {f.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
 
-                                {/* Contenido scrollable */}
-                                <div className="flex-1 overflow-y-auto p-4 space-y-5">
+                    {/* Split Panel */}
+                    <div className="flex gap-4 items-start">
+                        {/* Matriz */}
+                        <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                                <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                                    <Package className="w-4 h-4 text-indigo-500" />
+                                    Línea de Producción ({filteredOdps.length})
+                                </h2>
+                                <span className="text-[10px] text-slate-400 font-medium hidden md:block">
+                                    Click en celda para marcar · Click en fila para ver detalle y bitácora
+                                </span>
+                            </div>
+                            {renderMatrix(filteredOdps, 'No hay órdenes que coincidan.')}
+                        </div>
 
-                                    {/* Cristales */}
-                                    {(panelOdp.items?.length || 0) > 0 && (
-                                        <div>
-                                            <div className="flex justify-between items-center mb-2">
-                                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cristales</h4>
-                                                <button
-                                                    onClick={() => setSelectedODPDetail(panelOdp)}
-                                                    className="text-[10px] font-black text-indigo-600 hover:text-indigo-700 uppercase"
-                                                >
-                                                    Ficha completa →
-                                                </button>
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                {panelOdp.items.map((item, i) => (
-                                                    <div key={i} className="flex justify-between items-center text-xs p-2 rounded-lg bg-slate-50">
-                                                        <span className="font-bold text-slate-700">
-                                                            {item.cantidad}x <span className="font-medium">{item.tipo_vidrio} {item.espesor}mm</span>
-                                                        </span>
-                                                        <span className="text-slate-500 font-mono">{item.ancho_mm} × {item.alto_mm}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
+                        {/* Panel Detalle */}
+                        <div
+                            className={`w-[340px] flex-shrink-0 rounded-2xl border shadow-sm overflow-hidden transition-all sticky top-4
+                                ${panelOdp ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-200'}`}
+                            style={{ maxHeight: 'calc(100vh - 200px)' }}
+                        >
+                            {renderPanel()}
+                        </div>
+                    </div>
 
-                                    {/* ── Sección: Pedido PV (vidrio templado) ── */}
-                                    {panelDetailLoading && (
-                                        <div className="flex items-center justify-center gap-2 py-4 text-slate-400">
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            <span className="text-xs font-medium">Cargando detalle...</span>
-                                        </div>
-                                    )}
-
-                                    {!panelDetailLoading && panelDetail && panelDetail.pedidos_pv.length > 0 && (() => {
-                                        const pvEstadoConfig: Record<string, { label: string; cls: string }> = {
-                                            PENDIENTE:             { label: 'Pendiente',           cls: 'bg-slate-100 text-slate-500' },
-                                            ENVIADO:               { label: 'Enviado',              cls: 'bg-blue-100 text-blue-700' },
-                                            CONFIRMADO_PROVEEDOR:  { label: 'Confirmado',           cls: 'bg-indigo-100 text-indigo-700' },
-                                            LLEGADO:               { label: 'Llegado — sin verif.', cls: 'bg-amber-100 text-amber-700' },
-                                            VERIFICADO:            { label: 'Verificado ✓',         cls: 'bg-emerald-100 text-emerald-700' },
-                                            PROBLEMA:              { label: '⚠ Problema',           cls: 'bg-rose-100 text-rose-700 animate-pulse' },
-                                        };
-                                        return (
-                                            <div>
-                                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                                                    <Truck className="w-3 h-3" />
-                                                    Pedido de Vidrio
-                                                </h4>
-                                                <div className="space-y-2">
-                                                    {panelDetail.pedidos_pv.map(pv => {
-                                                        const cfg = pvEstadoConfig[pv.estado] ?? { label: pv.estado, cls: 'bg-slate-100 text-slate-500' };
-                                                        const hoy = new Date();
-                                                        let diasLabel: React.ReactNode = null;
-                                                        if (pv.fecha_entrega_prometida && pv.estado !== 'VERIFICADO') {
-                                                            const diff = Math.ceil((new Date(pv.fecha_entrega_prometida).getTime() - hoy.getTime()) / 86400000);
-                                                            diasLabel = diff < 0
-                                                                ? <span className="text-rose-600 font-black">Vencida hace {Math.abs(diff)}d</span>
-                                                                : diff === 0
-                                                                ? <span className="text-rose-600 font-black">Vence hoy</span>
-                                                                : <span className="text-slate-500">Faltan {diff}d</span>;
-                                                        }
-                                                        return (
-                                                            <div key={pv.id} className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
-                                                                <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-slate-100">
-                                                                    <div>
-                                                                        <p className="text-[9px] font-black text-slate-400 uppercase">{pv.proveedor}</p>
-                                                                        <p className="text-xs font-black text-slate-800">#{pv.numero_pedido}</p>
-                                                                    </div>
-                                                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${cfg.cls}`}>
-                                                                        {cfg.label}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="px-3 py-2 space-y-1.5">
-                                                                    {pv.fecha_envio && (
-                                                                        <div className="flex items-center justify-between text-[10px]">
-                                                                            <span className="flex items-center gap-1 text-slate-400 font-medium">
-                                                                                <Clock className="w-3 h-3" /> Enviado
-                                                                            </span>
-                                                                            <span className="font-bold text-slate-600">
-                                                                                {new Date(pv.fecha_envio).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
-                                                                            </span>
-                                                                        </div>
-                                                                    )}
-                                                                    {pv.fecha_entrega_prometida && (
-                                                                        <div className="flex items-center justify-between text-[10px]">
-                                                                            <span className="flex items-center gap-1 text-slate-400 font-medium">
-                                                                                <Calendar className="w-3 h-3" /> Prometida
-                                                                            </span>
-                                                                            <span className="font-bold text-slate-600 flex items-center gap-1.5">
-                                                                                {new Date(pv.fecha_entrega_prometida).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
-                                                                                {diasLabel && <span className="text-[9px]">({diasLabel})</span>}
-                                                                            </span>
-                                                                        </div>
-                                                                    )}
-                                                                    {pv.fecha_llegada_real && (
-                                                                        <div className="flex items-center justify-between text-[10px]">
-                                                                            <span className="flex items-center gap-1 text-slate-400 font-medium">
-                                                                                <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Llegó
-                                                                            </span>
-                                                                            <span className="font-bold text-emerald-600">
-                                                                                {new Date(pv.fecha_llegada_real).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
-                                                                                {pv.dias_diferencia !== null && (
-                                                                                    <span className={`ml-1 ${pv.dias_diferencia > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                                                                                        ({pv.dias_diferencia > 0 ? `+${pv.dias_diferencia}d tarde` : `${Math.abs(pv.dias_diferencia)}d antes`})
-                                                                                    </span>
-                                                                                )}
-                                                                            </span>
-                                                                        </div>
-                                                                    )}
-                                                                    {pv.observaciones && (
-                                                                        <p className="text-[9px] text-slate-500 italic border-t border-slate-100 pt-1.5 mt-1">
-                                                                            {pv.observaciones}
-                                                                        </p>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* ── Sección: SAP + ODC Perfilería ── */}
-                                    {!panelDetailLoading && panelDetail && panelDetail.saps.length > 0 && (() => {
-                                        const sapEstadoCfg: Record<string, string> = {
-                                            borrador: 'bg-slate-100 text-slate-500',
-                                            enviada:  'bg-blue-100 text-blue-700',
-                                            aprobada: 'bg-emerald-100 text-emerald-700',
-                                        };
-                                        const odcEstadoCfg = (estado: string) => {
-                                            const s = estado.toLowerCase();
-                                            if (s === 'recibida' || s === 'completada') return 'bg-emerald-100 text-emerald-700';
-                                            if (s === 'parcial') return 'bg-amber-100 text-amber-700';
-                                            return 'bg-slate-100 text-slate-500';
-                                        };
-                                        return (
-                                            <div>
-                                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                                                    <ClipboardList className="w-3 h-3" />
-                                                    Perfilería / SAP
-                                                </h4>
-                                                <div className="space-y-2">
-                                                    {panelDetail.saps.map(sap => (
-                                                        <div key={sap.id} className="rounded-xl border border-slate-200 overflow-hidden">
-                                                            <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-slate-100">
-                                                                <div>
-                                                                    <p className="text-[9px] font-black text-slate-400 uppercase">Solicitud</p>
-                                                                    <button
-                                                                        className="text-xs font-black text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
-                                                                        onClick={() => {
-                                                                            const sapFull = odpFullDetail?.saps?.find((s: any) => s.id === sap.id);
-                                                                            if (sapFull && odpFullDetail) {
-                                                                                setPrintSap({ odp: odpFullDetail, sap: sapFull });
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        {sap.numero_sap}
-                                                                    </button>
-                                                                </div>
-                                                                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full capitalize ${sapEstadoCfg[sap.estado] ?? 'bg-slate-100 text-slate-500'}`}>
-                                                                    {sap.estado}
-                                                                </span>
-                                                            </div>
-                                                            {sap.ordenes_compra.filter(o => o.tipo === 'perfileria').length > 0 ? (
-                                                                <div className="bg-slate-50 px-3 py-2 space-y-1.5">
-                                                                    {sap.ordenes_compra.filter(o => o.tipo === 'perfileria').map(odc => (
-                                                                        <div key={odc.id} className="flex items-center justify-between text-[10px]">
-                                                                            <div>
-                                                                                <span className="font-black text-slate-700">{odc.numero_odc}</span>
-                                                                                <span className="text-slate-400 ml-1">· {odc.proveedor}</span>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full capitalize ${odcEstadoCfg(odc.estado)}`}>
-                                                                                    {odc.estado}
-                                                                                </span>
-                                                                                {odc.fecha_recepcion && (
-                                                                                    <span className="text-[9px] text-emerald-600 font-bold">
-                                                                                        {new Date(odc.fecha_recepcion).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            ) : (
-                                                                <p className="text-[9px] text-slate-400 italic px-3 py-2 bg-slate-50">Sin ODC creada</p>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* ── Sección: ODC directa de vidrio (sin SAP) ── */}
-                                    {!panelDetailLoading && panelDetail && (() => {
-                                        const odcsVidrio = panelDetail.saps.flatMap(s => s.ordenes_compra.filter(o => o.tipo === 'vidrio'));
-                                        if (odcsVidrio.length === 0) return null;
-                                        const odcEstadoCfg = (estado: string) => {
-                                            const s = estado.toLowerCase();
-                                            if (s === 'recibida' || s === 'completada') return 'bg-emerald-100 text-emerald-700';
-                                            if (s === 'parcial') return 'bg-amber-100 text-amber-700';
-                                            return 'bg-slate-100 text-slate-500';
-                                        };
-                                        return (
-                                            <div>
-                                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                                                    <ShoppingCart className="w-3 h-3" />
-                                                    ODC Vidrio
-                                                </h4>
-                                                <div className="space-y-1.5">
-                                                    {odcsVidrio.map(odc => (
-                                                        <div key={odc.id} className="flex items-center justify-between text-[10px] px-3 py-2 rounded-xl bg-slate-50 border border-slate-200">
-                                                            <div>
-                                                                <span className="font-black text-slate-700">{odc.numero_odc}</span>
-                                                                <span className="text-slate-400 ml-1">· {odc.proveedor}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full capitalize ${odcEstadoCfg(odc.estado)}`}>
-                                                                    {odc.estado}
-                                                                </span>
-                                                                {odc.fecha_recepcion && (
-                                                                    <span className="text-[9px] text-emerald-600 font-bold">
-                                                                        {new Date(odc.fecha_recepcion).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Bitácora */}
-                                    <div>
-                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                                            <MessageSquare className="w-3 h-3" />
-                                            Bitácora del Taller
-                                        </h4>
-                                        <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1 mb-3">
-                                            {(notes[panelOdp.id]?.length || 0) === 0 ? (
-                                                <p className="text-center text-xs text-slate-400 py-6 italic">
-                                                    No hay notas registradas para esta ODP.
-                                                </p>
-                                            ) : notes[panelOdp.id].map(n => (
-                                                <div key={n.id} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                                    <p className="text-xs text-slate-700 mb-1 leading-relaxed">{n.texto}</p>
-                                                    <div className="flex justify-between text-[9px] font-black text-slate-400 uppercase tracking-wider">
-                                                        <span>{n.usuario.nombre_completo}</span>
-                                                        <span>
-                                                            {new Date(n.fecha).toLocaleDateString()}{' '}
-                                                            {new Date(n.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <div className="relative">
-                                            <textarea
-                                                rows={2}
-                                                className="w-full p-3 pr-10 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 resize-none bg-white transition-all"
-                                                placeholder="Agregar una nota técnica..."
-                                                value={newNotes[panelOdp.id] || ''}
-                                                onChange={e => setNewNotes(prev => ({ ...prev, [panelOdp.id]: e.target.value }))}
-                                                onKeyDown={e => {
-                                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                                        e.preventDefault();
-                                                        handleAddNote(panelOdp.id);
-                                                    }
-                                                }}
-                                            />
-                                            <button
-                                                onClick={() => handleAddNote(panelOdp.id)}
-                                                className="absolute right-2 bottom-2 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md shadow-indigo-100 transition-all"
+                    {/* Zona de Despacho (solo instalacion/acarreo) */}
+                    {despachoOdps.length > 0 && (
+                        <div className="bg-emerald-50 rounded-3xl border-2 border-emerald-100 overflow-hidden shadow-xl mt-2">
+                            <div className="bg-emerald-500/10 px-6 py-4 border-b border-emerald-100 flex items-center justify-between">
+                                <h2 className="text-lg font-black text-emerald-800 flex items-center gap-2">
+                                    <Truck className="w-5 h-5" />
+                                    Zona de Despacho e Instalación
+                                </h2>
+                                <span className="bg-emerald-500 text-white font-black px-3 py-1.5 rounded-full text-xs shadow-lg shadow-emerald-100">
+                                    {despachoOdps.length} ÓRDENES LISTAS ✅
+                                </span>
+                            </div>
+                            <div className="p-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                {despachoOdps.map(odp => (
+                                    <div key={odp.id} className="bg-white border-2 border-emerald-100 p-4 rounded-2xl shadow-sm hover:shadow-lg transition-all">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <span
+                                                className="font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-xl text-sm border border-emerald-100 cursor-pointer hover:bg-emerald-100 transition-colors"
+                                                onClick={() => setFichaOdpId(odp.id)}
                                             >
-                                                <Plus className="w-3.5 h-3.5" />
+                                                {odp.numero_odp}
+                                            </span>
+                                            <button
+                                                onClick={() => setSelectedQR(odp.numero_odp)}
+                                                className="p-1.5 bg-slate-50 text-slate-400 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                            >
+                                                <QrCode className="w-4 h-4" />
                                             </button>
                                         </div>
+                                        <h3 className="text-sm font-bold text-slate-800 truncate">{odp.cliente.nombre_razon_social}</h3>
+                                        <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest mt-1">Lista para instalación</p>
                                     </div>
-                                </div>
+                                ))}
                             </div>
-                        );
-                    })()}
-                </div>
-            </div>
+                        </div>
+                    )}
+                </>
+            )}
 
-            {/* ── Zona de Despacho ── */}
-            {readyOdps.length > 0 && (
-                <div className="bg-emerald-50 rounded-3xl border-2 border-emerald-100 overflow-hidden shadow-xl mt-2">
-                    <div className="bg-emerald-500/10 px-6 py-4 border-b border-emerald-100 flex items-center justify-between">
-                        <h2 className="text-lg font-black text-emerald-800 flex items-center gap-2">
-                            <Truck className="w-5 h-5" />
-                            Zona de Despacho e Instalación
-                        </h2>
-                        <span className="bg-emerald-500 text-white font-black px-3 py-1.5 rounded-full text-xs shadow-lg shadow-emerald-100">
-                            {readyOdps.length} ÓRDENES LISTAS ✅
-                        </span>
-                    </div>
-                    <div className="p-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                        {readyOdps.map(odp => (
-                            <div key={odp.id} className="bg-white border-2 border-emerald-100 p-4 rounded-2xl shadow-sm hover:shadow-lg transition-all">
-                                <div className="flex justify-between items-start mb-3">
-                                    <span
-                                        className="font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-xl text-sm border border-emerald-100 cursor-pointer hover:bg-emerald-100 transition-colors"
-                                        onClick={() => setFichaOdpId(odp.id)}
-                                    >
-                                        {odp.numero_odp}
-                                    </span>
-                                    <button
-                                        onClick={() => setSelectedQR(odp.numero_odp)}
-                                        className="p-1.5 bg-slate-50 text-slate-400 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                                    >
-                                        <QrCode className="w-4 h-4" />
-                                    </button>
-                                </div>
-                                <h3 className="text-sm font-bold text-slate-800 truncate">{odp.cliente.nombre_razon_social}</h3>
-                                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest mt-1">Lista para instalación</p>
-                            </div>
+            {/* ══════════════════════════════════════════════
+                TAB: PEDIDO EN LA MANO
+            ══════════════════════════════════════════════ */}
+            {mainTab === 'pedido_mano' && (
+                <div className="space-y-4">
+                    {/* Sub-tabs */}
+                    <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm w-fit">
+                        {[
+                            { id: 'listos',      label: 'Listo para entregar', count: pagoOkOdps.length,     color: 'emerald' },
+                            { id: 'espera_pago', label: 'En espera de pago',   count: esperaPagoOdps.length, color: 'amber'   },
+                            { id: 'entregadas',  label: 'Entregadas',           count: entregadasOdps.length, color: 'slate'   },
+                        ].map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setManoSubTab(tab.id as any)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all
+                                    ${manoSubTab === tab.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-slate-400 hover:text-slate-700'}`}
+                            >
+                                {tab.label}
+                                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black
+                                    ${manoSubTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                    {tab.count}
+                                </span>
+                            </button>
                         ))}
+                    </div>
+
+                    {/* Tabla */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                            <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                                <Inbox className="w-4 h-4 text-indigo-500" />
+                                {manoSubTab === 'listos'      ? 'Listas para entregar'
+                                : manoSubTab === 'espera_pago' ? 'En espera de pago'
+                                : 'Entregadas'}
+                                <span className="text-slate-400">({currentManoOdps.length})</span>
+                            </h2>
+                        </div>
+
+                        {currentManoOdps.length === 0 ? (
+                            <div className="p-16 text-center">
+                                <CheckCircle2 className="w-12 h-12 text-slate-100 mx-auto mb-3" />
+                                <p className="text-slate-400 text-sm font-medium">No hay órdenes en esta categoría.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-auto">
+                                <table className="w-full border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-50 border-b border-slate-200">
+                                            <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">ODP / Cliente</th>
+                                            <th className="px-4 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Entrega</th>
+                                            <th className="px-4 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Pago</th>
+                                            {manoSubTab === 'entregadas' ? null : (
+                                                <th className="px-4 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[80px]">Estado caja</th>
+                                            )}
+                                            {(manoSubTab === 'listos' || manoSubTab === 'espera_pago') && puedeMarcarEntregada && (
+                                                <th className="px-4 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Acción</th>
+                                            )}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {currentManoOdps.map(odp => {
+                                            const urgency = getUrgency(odp.fecha_entrega);
+                                            const payInfo = getPaymentInfo(odp);
+                                            return (
+                                                <tr key={odp.id} className={`hover:bg-slate-50 transition-colors border-l-4
+                                                    ${urgency.color === 'rose' ? 'border-rose-400' : urgency.color === 'orange' ? 'border-orange-400' : 'border-emerald-400'}`}>
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                                            <span
+                                                                className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 cursor-pointer hover:bg-indigo-100"
+                                                                onClick={() => setFichaOdpId(odp.id)}
+                                                            >
+                                                                {odp.numero_odp}
+                                                            </span>
+                                                            {odp.es_no_conformidad && (
+                                                                <span className="text-[8px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded-full">NC</span>
+                                                            )}
+                                                            {odp.es_garantia && (
+                                                                <span className="text-[8px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded-full">GAR</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-sm font-bold text-slate-700">{odp.cliente.nombre_razon_social}</p>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className={`text-[9px] font-black px-2 py-1 rounded-full
+                                                            ${urgency.color === 'rose' ? 'bg-rose-50 text-rose-600' : urgency.color === 'orange' ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                                            {urgency.label}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className={`text-[9px] font-black px-2 py-1 rounded-full ${payInfo.cls}`}>
+                                                            {payInfo.label}
+                                                        </span>
+                                                    </td>
+                                                    {manoSubTab === 'entregadas' ? null : (
+                                                        <td className="px-4 py-3 text-center">
+                                                            <span className="text-[9px] text-slate-500 font-medium">
+                                                                {odp.estado_caja || '—'}
+                                                            </span>
+                                                        </td>
+                                                    )}
+                                                    {(manoSubTab === 'listos' || manoSubTab === 'espera_pago') && puedeMarcarEntregada && (
+                                                        <td className="px-4 py-3 text-center">
+                                                            {manoSubTab === 'listos' && (
+                                                                <button
+                                                                    onClick={() => handleMarcarEntregada(odp)}
+                                                                    disabled={marcandoEntregada === odp.id}
+                                                                    className="px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-black uppercase rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-all whitespace-nowrap"
+                                                                >
+                                                                    {marcandoEntregada === odp.id ? 'Marcando...' : 'Marcar Entregada'}
+                                                                </button>
+                                                            )}
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════════════
+                TAB: NC / GARANTÍAS
+            ══════════════════════════════════════════════ */}
+            {mainTab === 'nc_garantias' && (
+                <div className="flex gap-4 items-start">
+                    {/* Matriz NC */}
+                    <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                            <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                                <AlertTriangle className="w-4 h-4 text-rose-500" />
+                                No Conformidades y Garantías ({ncOdps.length})
+                            </h2>
+                            <span className="text-[10px] text-slate-400 font-medium hidden md:block">
+                                Click en celda para marcar · Click en fila para ver detalle
+                            </span>
+                        </div>
+                        {renderMatrix(ncOdps, 'No hay NC ni garantías activas.')}
+                    </div>
+
+                    {/* Panel Detalle */}
+                    <div
+                        className={`w-[340px] flex-shrink-0 rounded-2xl border shadow-sm overflow-hidden transition-all sticky top-4
+                            ${panelOdp ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-200'}`}
+                        style={{ maxHeight: 'calc(100vh - 200px)' }}
+                    >
+                        {renderPanel()}
                     </div>
                 </div>
             )}
@@ -953,15 +1188,13 @@ const ProduccionPage: React.FC = () => {
                 <ODPMatrixModal onClose={() => setSelectedODPDetail(null)} odp={selectedODPDetail} />
             )}
 
-            {/* ── Modal imprimible SAP ── */}
+            {/* Modal SAP */}
             {printSap && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0 print:hidden">
                             <div>
-                                <h3 className="text-base font-black text-slate-800">
-                                    SAP — {printSap.sap.numero_sap}
-                                </h3>
+                                <h3 className="text-base font-black text-slate-800">SAP — {printSap.sap.numero_sap}</h3>
                                 <p className="text-xs text-slate-500 font-medium">{printSap.odp.numero_odp} · {printSap.odp.cliente?.nombre_razon_social}</p>
                             </div>
                             <div className="flex items-center gap-2">

@@ -12,6 +12,7 @@ import PrintableTalonario from './PrintableTalonario';
 import PrintableGarantia from './PrintableGarantia';
 import PrintableNoConformidad from './PrintableNoConformidad';
 import PrintableProduccion from './PrintableProduccion';
+import PrintableOA from './PrintableOA';
 import PrintableDetalleTecnico from './PrintableDetalleTecnico';
 import PrintableDetSAP from './PrintableDetSAP';
 import PrintableSAP from './PrintableSAP';
@@ -1054,7 +1055,7 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
 
       <div className="p-8 overflow-y-auto flex-1 flex flex-col items-center justify-start" id="printable-area">
         {selectedFormat === 'compra' && <PrintableTalonario odp={odp} />}
-        {selectedFormat === 'op' && <PrintableProduccion odp={odp} />}
+        {selectedFormat === 'op' && (odp?.tipo_odp === 'OA' ? <PrintableOA odp={odp} /> : <PrintableProduccion odp={odp} />)}
         {selectedFormat === 'tecnico' && <PrintableDetalleTecnico odp={odp} />}
         {selectedFormat === 'det_sap' && <PrintableDetSAP odp={odp} imagenes={detSapImagenes} />}
         {selectedFormat === 'garantia' && (

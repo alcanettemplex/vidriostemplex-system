@@ -32,6 +32,9 @@ interface PedidoPV {
   proveedor: string;
   estado: string;
   tuvo_problema: boolean;
+  tipo_problema: string | null;
+  estado_reposicion: string | null;
+  fecha_reposicion_prometida: string | null;
   fecha_envio: string | null;
   hora_envio: string | null;
   confirmado_proveedor: boolean;
@@ -164,10 +167,12 @@ const AccionesMenu: React.FC<{
   onLlegada: () => void;
   onVerificar: () => void;
   onProblema: () => void;
+  onGestionarReposicion: () => void;
+  onRegistrarReposicion: () => void;
   onDetalle: () => void;
   onImprimir: () => void;
   printLoading: boolean;
-}> = ({ pedido, puedeEnviar, puedeGestionar, onEnviar, onConfirmar, onLlegada, onVerificar, onProblema, onDetalle, onImprimir, printLoading }) => {
+}> = ({ pedido, puedeEnviar, puedeGestionar, onEnviar, onConfirmar, onLlegada, onVerificar, onProblema, onGestionarReposicion, onRegistrarReposicion, onDetalle, onImprimir, printLoading }) => {
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const open = Boolean(anchor);
 
@@ -182,6 +187,12 @@ const AccionesMenu: React.FC<{
   if (pedido.estado === 'LLEGADO' && puedeGestionar) {
     items.push({ label: 'Verificado correcto', action: onVerificar });
     items.push({ label: 'Marcar problema', action: onProblema, color: '#c62828' });
+  }
+  if (pedido.estado === 'PROBLEMA' && puedeGestionar) {
+    if (!pedido.estado_reposicion)
+      items.push({ label: 'Gestionar reposición', action: onGestionarReposicion, color: '#e65100' });
+    if (pedido.estado_reposicion === 'EN_GESTION')
+      items.push({ label: 'Vidrio repuesto / llegó', action: onRegistrarReposicion, color: '#2e7d32' });
   }
   items.push({ label: 'Ver detalle', action: onDetalle });
   if (pedido.odp_id) items.push({ label: printLoading ? 'Cargando...' : 'Imprimir pedido', action: onImprimir, icon: <Print sx={{ fontSize: 16 }} /> });
@@ -251,6 +262,9 @@ const PedidosPVPage: React.FC = () => {
 
   const [modalVerificar, setModalVerificar] = useState<{ pedido: PedidoPV; tipo: 'verificar' | 'problema' } | null>(null);
   const [obsVerificacion, setObsVerificacion] = useState('');
+  const [tipoProblema, setTipoProblema] = useState('');
+  const [modalReposicion, setModalReposicion] = useState<{ pedido: PedidoPV; tipo: 'gestionar' | 'registrar' } | null>(null);
+  const [fechaReposicion, setFechaReposicion] = useState('');
 
   const [modalDetalle, setModalDetalle] = useState<PedidoPV | null>(null);
   const [fichaOdpId, setFichaOdpId] = useState<number | null>(null);
@@ -425,13 +439,28 @@ const PedidosPVPage: React.FC = () => {
     const endpoint = modalVerificar.tipo === 'verificar' ? 'verificar' : 'problema';
     const body = modalVerificar.tipo === 'verificar'
       ? { observacion_verificacion: obsVerificacion || null }
-      : { observacion: obsVerificacion };
+      : { observacion: obsVerificacion, tipo_problema: tipoProblema || null };
     try {
       await axios.patch(`${API}/api/pedidos-pv/${modalVerificar.pedido.id}/${endpoint}`, body, { headers });
       setModalVerificar(null);
       setObsVerificacion('');
+      setTipoProblema('');
       cargarDatos();
     } catch { setError('Error al procesar acción'); }
+  };
+
+  const accionReposicion = async () => {
+    if (!modalReposicion) return;
+    const endpoint = modalReposicion.tipo === 'gestionar' ? 'gestionar-reposicion' : 'registrar-reposicion';
+    const body = modalReposicion.tipo === 'gestionar'
+      ? { fecha_reposicion_prometida: fechaReposicion || null }
+      : {};
+    try {
+      await axios.patch(`${API}/api/pedidos-pv/${modalReposicion.pedido.id}/${endpoint}`, body, { headers });
+      setModalReposicion(null);
+      setFechaReposicion('');
+      cargarDatos();
+    } catch { setError('Error al procesar reposición'); }
   };
 
   const asignarItemsPV = async () => {
@@ -692,8 +721,29 @@ const PedidosPVPage: React.FC = () => {
                             {/* Pedido */}
                             <TableCell>
                               <Typography fontWeight={700} fontSize={13}>{p.numero_pedido}</Typography>
-                              {p.tuvo_problema && (
+                              {p.tuvo_problema && p.estado !== 'PROBLEMA' && (
                                 <Typography variant="caption" color="error.main">Con problema previo</Typography>
+                              )}
+                              {p.estado === 'PROBLEMA' && (
+                                <Stack direction="row" gap={0.5} mt={0.3} flexWrap="wrap">
+                                  {p.tipo_problema && (
+                                    <Chip label={p.tipo_problema} size="small" color="error" sx={{ fontSize: 10, height: 16 }} />
+                                  )}
+                                  {!p.estado_reposicion && (
+                                    <Chip label="Sin gestión" size="small" sx={{ fontSize: 10, height: 16, bgcolor: '#ffebee', color: '#c62828' }} />
+                                  )}
+                                  {p.estado_reposicion === 'EN_GESTION' && (
+                                    <Chip label="En gestión" size="small" sx={{ fontSize: 10, height: 16, bgcolor: '#fff3e0', color: '#e65100' }} />
+                                  )}
+                                  {p.estado_reposicion === 'REPUESTO' && (
+                                    <Chip label="Repuesto ✓" size="small" sx={{ fontSize: 10, height: 16, bgcolor: '#e8f5e9', color: '#2e7d32' }} />
+                                  )}
+                                  {p.fecha_reposicion_prometida && p.estado_reposicion === 'EN_GESTION' && (
+                                    <Typography variant="caption" color="text.secondary" fontSize={10}>
+                                      Reposición: {fmtFecha(p.fecha_reposicion_prometida)}
+                                    </Typography>
+                                  )}
+                                </Stack>
                               )}
                             </TableCell>
                             {/* ODP */}
@@ -800,7 +850,9 @@ const PedidosPVPage: React.FC = () => {
                                 onConfirmar={() => confirmarProveedor(p)}
                                 onLlegada={() => { setModalLlegada(p); setFechaLlegada(''); }}
                                 onVerificar={() => { setModalVerificar({ pedido: p, tipo: 'verificar' }); setObsVerificacion(''); }}
-                                onProblema={() => { setModalVerificar({ pedido: p, tipo: 'problema' }); setObsVerificacion(''); }}
+                                onProblema={() => { setModalVerificar({ pedido: p, tipo: 'problema' }); setObsVerificacion(''); setTipoProblema(''); }}
+                                onGestionarReposicion={() => { setModalReposicion({ pedido: p, tipo: 'gestionar' }); setFechaReposicion(''); }}
+                                onRegistrarReposicion={() => setModalReposicion({ pedido: p, tipo: 'registrar' })}
                                 onDetalle={() => setModalDetalle(p)}
                                 onImprimir={() => imprimirPedido(p)}
                                 printLoading={printLoadingId === p.id}
@@ -1077,9 +1129,20 @@ const PedidosPVPage: React.FC = () => {
         <DialogContent>
           <Stack gap={2} mt={1}>
             {modalVerificar?.tipo === 'problema' && (
-              <Alert severity="warning">
-                Regresará a <strong>En Tránsito</strong> y quedará marcado con historial de problema.
-              </Alert>
+              <>
+                <Alert severity="warning">
+                  Quedará en estado <strong>Problema</strong> hasta que se gestione la reposición.
+                </Alert>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Tipo de problema *</InputLabel>
+                  <Select value={tipoProblema} label="Tipo de problema *"
+                    onChange={(e) => setTipoProblema(e.target.value)}>
+                    <MenuItem value="INCOMPLETO">Incompleto (faltan piezas)</MenuItem>
+                    <MenuItem value="DAÑADO">Dañado / Rayado</MenuItem>
+                    <MenuItem value="OTRO">Otro</MenuItem>
+                  </Select>
+                </FormControl>
+              </>
             )}
             <TextField
               label={modalVerificar?.tipo === 'verificar' ? 'Observación (opcional)' : 'Descripción del problema *'}
@@ -1088,12 +1151,51 @@ const PedidosPVPage: React.FC = () => {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setModalVerificar(null)}>Cancelar</Button>
+          <Button onClick={() => { setModalVerificar(null); setTipoProblema(''); }}>Cancelar</Button>
           <Button variant="contained"
             color={modalVerificar?.tipo === 'verificar' ? 'success' : 'error'}
             onClick={accionVerificar}
-            disabled={modalVerificar?.tipo === 'problema' && !obsVerificacion}>
+            disabled={modalVerificar?.tipo === 'problema' && (!obsVerificacion || !tipoProblema)}>
             {modalVerificar?.tipo === 'verificar' ? 'Verificado correcto' : 'Confirmar problema'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ─── Modal: Gestionar reposición ──────────────────────────────────────── */}
+      <Dialog open={!!modalReposicion} onClose={() => setModalReposicion(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>
+          {modalReposicion?.tipo === 'gestionar' ? '🔄 Gestionar reposición' : '✅ Registrar llegada del vidrio repuesto'}
+          {' — PV '}{modalReposicion?.pedido.numero_pedido}
+        </DialogTitle>
+        <DialogContent>
+          <Stack gap={2} mt={1}>
+            {modalReposicion?.tipo === 'gestionar' && (
+              <>
+                <Alert severity="info">
+                  Marca que se está gestionando la reposición con el proveedor.
+                </Alert>
+                <TextField
+                  label="Fecha prometida de reposición"
+                  type="date" size="small" fullWidth
+                  InputLabelProps={{ shrink: true }}
+                  value={fechaReposicion}
+                  onChange={(e) => setFechaReposicion(e.target.value)}
+                  helperText="Opcional — cuándo promete el proveedor entregar" />
+              </>
+            )}
+            {modalReposicion?.tipo === 'registrar' && (
+              <Alert severity="success">
+                El vidrio llegó. El pedido volverá a <strong>LLEGADO</strong> para ser verificado.
+              </Alert>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setModalReposicion(null); setFechaReposicion(''); }}>Cancelar</Button>
+          <Button variant="contained"
+            color={modalReposicion?.tipo === 'gestionar' ? 'warning' : 'success'}
+            onClick={accionReposicion}>
+            {modalReposicion?.tipo === 'gestionar' ? 'Confirmar gestión' : 'Confirmar llegada'}
           </Button>
         </DialogActions>
       </Dialog>
