@@ -208,7 +208,11 @@ export const getODP = async (req: Request, res: Response) => {
           include: [{ model: (await import('../models')).Usuario, as: 'usuario', attributes: ['nombre_completo'] }]
         },
         { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
-        { model: PedidoPV, as: 'pedidos_pv', attributes: ['id', 'numero_pedido', 'proveedor', 'estado'], separate: true, order: [['id', 'ASC']] },
+        {
+          model: PedidoPV, as: 'pedidos_pv',
+          attributes: ['id', 'numero_pedido', 'proveedor', 'estado', 'fecha_envio', 'fecha_entrega_prometida', 'fecha_llegada_real', 'dias_diferencia', 'observaciones', 'tuvo_problema'],
+          separate: true, order: [['id', 'ASC']]
+        },
         {
           model: ODP, as: 'garantias',
           attributes: ['id', 'numero_odp', 'numero_garantia', 'estado_produccion', 'fecha_creacion', 'descripcion_pedido'],
@@ -247,7 +251,7 @@ export const getODP = async (req: Request, res: Response) => {
           // Traer info base de las ODCs
           const ordenes = await OrdenCompra.findAll({
             where: { id: { [Op.in]: odcIds } },
-            attributes: ['id', 'numero_odc', 'proveedor', 'estado', 'fecha_creacion'],
+            attributes: ['id', 'numero_odc', 'proveedor', 'tipo', 'estado', 'fecha_creacion', 'fecha_recepcion'],
             raw: true
           });
           const ordenesMap = new Map(ordenes.map((o: any) => [o.id, o]));
@@ -849,3 +853,78 @@ export const uploadCroquisODP = async (req: Request, res: Response) => {
   }
 };
 
+// ─── Actualizar estado de caja manualmente (contabilidad, admin, gerencia) ───
+export const actualizarEstadoCaja = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const schema = z.object({
+      estado_caja: z.enum(['PENDIENTE', 'ABONADO', 'CANCELADO', 'CREDITO_APROBADO']),
+    });
+    const { estado_caja } = schema.parse(req.body);
+
+    const odp = await ODP.findByPk(id);
+    if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
+
+    await odp.update({ estado_caja });
+    res.json({ id: odp.getDataValue('id'), estado_caja });
+  } catch (error: any) {
+    if (error?.name === 'ZodError') return res.status(400).json({ error: error.errors });
+    console.error('Error al actualizar estado caja ODP:', error);
+    res.status(500).json({ error: 'Error al actualizar estado de caja', details: error?.message });
+  }
+};
+
+// ─── Registrar / actualizar factura electrónica (contabilidad, admin, gerencia) ───
+export const facturarODP = async (req: Request, res: Response) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const facturacionSchema = z.object({
+      estado_facturacion: z.enum(['PENDIENTE', 'FACTURADA']),
+      factura_electronica: z.string().min(1, 'Número de FE requerido').optional(),
+      fecha_factura: z.string().optional(),
+    });
+    const data = facturacionSchema.parse(req.body);
+
+    const odp = await ODP.findByPk(id, { transaction });
+    if (!odp) {
+      await transaction.rollback();
+      return res.status(404).json({ error: 'ODP no encontrada' });
+    }
+
+    const updates: Record<string, any> = {
+      estado_facturacion: data.estado_facturacion,
+    };
+
+    if (data.estado_facturacion === 'FACTURADA') {
+      if (!data.factura_electronica) {
+        await transaction.rollback();
+        return res.status(400).json({ error: 'El número de FE es obligatorio para marcar como Facturada' });
+      }
+      updates.factura_electronica = data.factura_electronica;
+      updates.fecha_factura = data.fecha_factura || null;
+
+      // Calcular vencimiento a 30 días para ODPs de crédito
+      if (data.fecha_factura && odp.getDataValue('forma_pago') === 'credito') {
+        const fechaFe = new Date(data.fecha_factura);
+        fechaFe.setDate(fechaFe.getDate() + 30);
+        updates.fecha_vencimiento_credito = fechaFe.toISOString().split('T')[0];
+      }
+    } else {
+      // Al revertir a PENDIENTE se limpia la FE
+      updates.factura_electronica = null;
+      updates.fecha_factura = null;
+    }
+
+    await odp.update(updates, { transaction });
+    await transaction.commit();
+
+    const odpActualizada = await ODP.findByPk(id);
+    res.json(odpActualizada);
+  } catch (error: any) {
+    await transaction.rollback();
+    if (error?.name === 'ZodError') return res.status(400).json({ error: error.errors });
+    console.error('Error al facturar ODP:', error);
+    res.status(500).json({ error: 'Error al registrar la factura', details: error?.message });
+  }
+};

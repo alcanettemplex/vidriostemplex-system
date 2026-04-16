@@ -16,6 +16,7 @@ const INCLUDE_RUTA_COMPLETA = async (): Promise<any[]> => [
   { model: Vehiculo, as: 'vehiculo', attributes: ['id', 'placa', 'tipo'] },
   { model: Usuario, as: 'conductor', attributes: ['id', 'nombre_completo', 'rol'] },
   { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
+  { model: Usuario, as: 'oficial', attributes: ['id', 'nombre_completo', 'rol'] },
   {
     model: Usuario, as: 'instaladores',
     attributes: ['id', 'nombre_completo', 'rol'],
@@ -149,7 +150,7 @@ export const createRuta = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
     const user = req.user!;
-    const { vehiculo_id, conductor_id, instaladores = [], observaciones, odps = [] } = req.body;
+    const { vehiculo_id, conductor_id, oficial_id, instaladores = [], observaciones, odps = [] } = req.body;
 
     if (!odps.length) {
       await t.rollback();
@@ -158,7 +159,7 @@ export const createRuta = async (req: Request, res: Response) => {
 
     // Crear la ruta
     const ruta = await RutaInstalacion.create(
-      { vehiculo_id, conductor_id, creado_por: user.id, observaciones },
+      { vehiculo_id, conductor_id, oficial_id: oficial_id || null, creado_por: user.id, observaciones },
       { transaction: t }
     );
     const rutaId = (ruta as any).id;
@@ -230,7 +231,7 @@ export const updateRuta = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const { vehiculo_id, conductor_id, instaladores, observaciones, odps } = req.body;
+    const { vehiculo_id, conductor_id, oficial_id, instaladores, observaciones, odps } = req.body;
 
     const ruta = await RutaInstalacion.findByPk(id, { transaction: t });
     if (!ruta) { await t.rollback(); return res.status(404).json({ error: 'Ruta no encontrada' }); }
@@ -239,6 +240,7 @@ export const updateRuta = async (req: Request, res: Response) => {
     const upd: any = {};
     if (vehiculo_id !== undefined) upd.vehiculo_id = vehiculo_id;
     if (conductor_id !== undefined) upd.conductor_id = conductor_id;
+    if (oficial_id !== undefined) upd.oficial_id = oficial_id || null;
     if (observaciones !== undefined) upd.observaciones = observaciones;
     if (Object.keys(upd).length) await ruta.update(upd, { transaction: t });
 
@@ -692,24 +694,53 @@ export const terminarRutaConductor = async (req: Request, res: Response) => {
     const user = req.user!;
 
     const ruta = await RutaInstalacion.findByPk(id, {
-      include: [{ model: RutaODP, as: 'ruta_odps' }],
+      include: [
+        { model: RutaODP, as: 'ruta_odps' },
+        { model: Usuario, as: 'instaladores', attributes: ['id', 'nombre_completo'], through: { attributes: [] } },
+        { model: Usuario, as: 'conductor', attributes: ['id', 'nombre_completo'] },
+      ],
     }) as any;
 
     if (!ruta) return res.status(404).json({ error: 'Ruta no encontrada' });
-    if (ruta.conductor_id !== user.id) return res.status(403).json({ error: 'No eres el conductor de esta ruta' });
+
+    // Si hay oficial asignado, solo él puede completar la ruta; si no, el conductor
+    const responsableId = ruta.oficial_id ?? ruta.conductor_id;
+    if (responsableId !== user.id) {
+      return res.status(403).json({ error: ruta.oficial_id ? 'Solo el oficial de ruta puede completarla' : 'No eres el conductor de esta ruta' });
+    }
+
     if (ruta.estado !== 'en_curso') return res.status(400).json({ error: 'La ruta no está en curso' });
 
     // Verificar que el conductor haya marcado llegada a TODAS las paradas
     const paradasSinLlegada = ruta.ruta_odps.filter((p: any) => !p.llegada_conductor);
     if (paradasSinLlegada.length > 0) {
-      return res.status(400).json({ 
-        error: `Aún tienes ${paradasSinLlegada.length} paradas sin registrar llegada. Debes marcar llegada en todos los puntos antes de finalizar la ruta.` 
+      return res.status(400).json({
+        error: `Aún tienes ${paradasSinLlegada.length} paradas sin registrar llegada. Debes marcar llegada en todos los puntos antes de finalizar la ruta.`
       });
     }
 
-    await ruta.update({ estado: 'completada', fin_ruta: new Date() });
-    res.json({ ok: true });
-  } catch (e) {
+    const finRuta = new Date();
+    await ruta.update({ estado: 'completada', fin_ruta: finRuta });
+
+    // Notificar al equipo de la ruta (instaladores + conductor + roles de gestión)
+    import('../server').then(({ io }) => {
+      const instaladoresIds = (ruta.instaladores || []).map((i: any) => i.id);
+      const notificados = new Set<number>([...instaladoresIds]);
+      if (ruta.conductor_id) notificados.add(ruta.conductor_id);
+      if (ruta.oficial_id) notificados.add(ruta.oficial_id);
+
+      const msg = {
+        type: 'RUTA_COMPLETADA',
+        message: `Ruta de instalación #${ruta.id} completada por ${user.nombre_completo || 'el equipo'}`,
+        notificacionPara: ['admin', 'gerencia', 'jefe_produccion'],
+        timestamp: finRuta,
+      };
+      io.emit('notification', msg);
+    }).catch(() => {});
+
+    res.json({ ok: true, fin_ruta: finRuta });
+  } catch (e: any) {
+    console.error('terminarRutaConductor:', e.message);
     res.status(500).json({ error: 'Error al finalizar ruta' });
   }
 };

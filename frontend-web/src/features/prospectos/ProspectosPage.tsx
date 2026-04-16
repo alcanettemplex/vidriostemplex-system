@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import ProspectoModal from './components/ProspectoModal';
 import AprobarProspectoModal from './components/AprobarProspectoModal';
+import AsignarAsesorODPModal from '../odp/components/AsignarAsesorODPModal';
 import SolicitarTMModal from './components/SolicitarTMModal';
 import CotizacionCapturas from '../odp/components/CotizacionCapturas';
 
@@ -288,6 +289,9 @@ const ProspectosPage: React.FC = () => {
   const [modalCrear, setModalCrear] = useState(false);
   const [editando, setEditando] = useState<Prospecto | null>(null);
   const [aprobando, setAprobando] = useState<Prospecto | null>(null);
+  const [showAsignarAsesorProspecto, setShowAsignarAsesorProspecto] = useState(false);
+  const [prospectoParaAprobar, setProspectoParaAprobar] = useState<Prospecto | null>(null);
+  const [asesorParaProspecto, setAsesorParaProspecto] = useState<number | null>(null);
   const [archivandoId, setArchivandoId] = useState<number | null>(null);
   const [motivoArchivo, setMotivoArchivo] = useState('');
   const [solicitandoTM, setSolicitandoTM] = useState<Prospecto | null>(null);
@@ -475,7 +479,7 @@ const ProspectosPage: React.FC = () => {
             prospecto={detalle}
             onClose={() => setDetalle(null)}
             onEditar={() => { setEditando(detalle); setDetalle(null); }}
-            onAprobar={() => { setAprobando(detalle); setDetalle(null); }}
+            onAprobar={() => { setProspectoParaAprobar(detalle); setShowAsignarAsesorProspecto(true); setDetalle(null); }}
             onNoAprobar={() => { setArchivandoId(detalle.id); setMotivoArchivo(''); setDetalle(null); }}
             onSolicitarTM={() => { setSolicitandoTM(detalle); setDetalle(null); }}
           />
@@ -491,12 +495,25 @@ const ProspectosPage: React.FC = () => {
         />
       )}
 
+      {/* Modal de asignación de asesor — se muestra ANTES de aprobar el prospecto */}
+      {showAsignarAsesorProspecto && prospectoParaAprobar && (
+        <AsignarAsesorODPModal
+          onConfirm={(asesorId) => {
+            setAsesorParaProspecto(asesorId);
+            setShowAsignarAsesorProspecto(false);
+            setAprobando(prospectoParaAprobar);
+          }}
+          onCancel={() => { setShowAsignarAsesorProspecto(false); setProspectoParaAprobar(null); }}
+        />
+      )}
+
       {/* Modal aprobar → generar ODP */}
       {aprobando && (
         <AprobarProspectoModal
           prospecto={aprobando}
-          onClose={() => setAprobando(null)}
-          onAprobado={() => { setAprobando(null); fetchProspectos(); }}
+          asesorId={asesorParaProspecto}
+          onClose={() => { setAprobando(null); setAsesorParaProspecto(null); setProspectoParaAprobar(null); }}
+          onAprobado={() => { setAprobando(null); setAsesorParaProspecto(null); setProspectoParaAprobar(null); fetchProspectos(); }}
         />
       )}
 

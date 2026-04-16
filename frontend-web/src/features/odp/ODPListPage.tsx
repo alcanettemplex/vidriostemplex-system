@@ -11,6 +11,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPForm from './components/ODPForm';
 import ODPFichaModal from './components/ODPFichaModal';
+import AsignarAsesorODPModal from './components/AsignarAsesorODPModal';
 import SAPModal from './components/SAPModal';
 import COTModal from './components/COTModal';
 import TMModal from './components/TMModal';
@@ -176,6 +177,8 @@ const ODPListPage: React.FC = () => {
     const [garantiaSubTab, setGarantiaSubTab] = useState<'activas' | 'realizadas'>('activas');
     const [garantias, setGarantias] = useState<ODP[]>([]);
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [showAsignarAsesor, setShowAsignarAsesor] = useState(false);
+    const [asesorParaODP, setAsesorParaODP] = useState<number | null>(null);
     const [selectedOdpDetail, setSelectedOdpDetail] = useState<number | null>(null);
     const [editingOdp, setEditingOdp] = useState<ODP | null>(null);
     const [deletingOdp, setDeletingOdp] = useState<ODP | null>(null);
@@ -329,7 +332,7 @@ const ODPListPage: React.FC = () => {
                     <p className="text-slate-500 text-sm mt-1">Gestiona los pedidos y su flujo por planta</p>
                 </div>
                 <button
-                    onClick={() => setIsFormOpen(true)}
+                    onClick={() => setShowAsignarAsesor(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm font-medium"
                 >
                     <Plus className="w-4 h-4" />
@@ -713,13 +716,26 @@ const ODPListPage: React.FC = () => {
                 </div>
             </div>
 
+            {/* Modal de asignación de asesor — se muestra ANTES del ODPForm al crear */}
+            {showAsignarAsesor && (
+                <AsignarAsesorODPModal
+                    onConfirm={(asesorId) => {
+                        setAsesorParaODP(asesorId);
+                        setShowAsignarAsesor(false);
+                        setIsFormOpen(true);
+                    }}
+                    onCancel={() => setShowAsignarAsesor(false)}
+                />
+            )}
+
             {/* Modales */}
             <AnimatePresence>
                 {(isFormOpen || editingOdp) && (
                     <ODPForm
                         odpToEdit={editingOdp}
-                        onClose={() => { setIsFormOpen(false); setEditingOdp(null); }}
-                        onSuccess={() => { setIsFormOpen(false); setEditingOdp(null); fetchODPs(); }}
+                        asesorId={editingOdp ? undefined : asesorParaODP}
+                        onClose={() => { setIsFormOpen(false); setEditingOdp(null); setAsesorParaODP(null); }}
+                        onSuccess={() => { setIsFormOpen(false); setEditingOdp(null); setAsesorParaODP(null); fetchODPs(); }}
                     />
                 )}
                 {selectedOdpDetail !== null && (

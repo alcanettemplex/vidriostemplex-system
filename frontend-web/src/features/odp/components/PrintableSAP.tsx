@@ -47,6 +47,14 @@ const normalizarItem = (item: string): { letraDisplay: string; indice: number } 
     return { letraDisplay: item, indice: 9999 };
 };
 
+/** Formatea cantidad: sin decimales si es entero, con decimales si los tiene */
+const fmtCant = (v: any): string => {
+    if (v === null || v === undefined || v === '') return '';
+    const n = Number(v);
+    if (isNaN(n)) return String(v);
+    return n % 1 === 0 ? String(Math.round(n)) : String(n);
+};
+
 /** Genera la letra de display para un índice 0-based en la cuadrícula del imprimible */
 const letraDeIndice = (idx: number): string => {
     const abc = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -196,7 +204,19 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                             {odc?.numero_odc || ''}
                         </td>
                         <td className="text-center text-[11px]">
-                            {odc?.items?.map((it: any) => it.item).join(', ') || ''}
+                            {odc?.items?.length
+                                ? (() => {
+                                    const mapa = new Map<number, string>();
+                                    odc.items.forEach((it: any) => {
+                                        const { letraDisplay, indice } = normalizarItem(String(it.item));
+                                        if (!mapa.has(indice)) mapa.set(indice, letraDisplay);
+                                    });
+                                    return Array.from(mapa.entries())
+                                        .sort((a, b) => a[0] - b[0])
+                                        .map(e => e[1])
+                                        .join(', ');
+                                })()
+                                : ''}
                         </td>
                         <td className="text-center text-[11px]">
                             {odc
@@ -250,10 +270,10 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                             <thead>
                                 <tr className="font-bold text-[11px]">
                                     <th className="w-8">ITEM</th>
+                                    <th className="w-8">CANT</th>
                                     <th className="w-[14%]">COD</th>
                                     <th className="w-[24%]">DESCRIPCIÓN</th>
                                     <th className="w-[12%]">DIMENSIÓN</th>
-                                    <th className="w-6">UND</th>
                                     <th className="w-[10%]">EXIST. PERF.</th>
                                     <th className="w-[10%]">GASTO PERF.</th>
                                     <th className="w-[18%]">OBSERVACIÓN</th>
@@ -270,6 +290,7 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                                             className={`h-[24px] ${enODC ? 'bg-blue-100' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}
                                         >
                                             <td className="font-bold text-center">{letra}</td>
+                                            <td className="text-[11px] text-center">{item ? fmtCant(item.cantidad) : ''}</td>
                                             <td className="text-[11px]">{item?.codigo || ''}</td>
                                             <td className="text-left text-[11px] px-1">
                                                 <span>{item?.descripcion || ''}</span>
@@ -280,7 +301,6 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                                                 )}
                                             </td>
                                             <td className="text-[11px]">{item?.dimension || ''}</td>
-                                            <td className="text-[11px]">{item?.und || ''}</td>
                                             <td className="text-[11px]">{item?.exist_perf || ''}</td>
                                             <td className="text-[11px]">{item?.gasto_perf || ''}</td>
                                             <td className="text-left text-[11px] px-1">{item?.observacion || ''}</td>

@@ -217,6 +217,7 @@ const TabComercial: React.FC<{ odp: any; onRefresh: () => void }> = ({ odp, onRe
                   <th className="px-3 py-1.5">DESCRIPCIÓN</th>
                   <th className="px-3 py-1.5 w-24">DIMENSIÓN</th>
                   <th className="px-3 py-1.5 text-center w-16">CANT.</th>
+                  <th className="px-3 py-1.5 w-32">OBSERV.</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -233,7 +234,8 @@ const TabComercial: React.FC<{ odp: any; onRefresh: () => void }> = ({ odp, onRe
                     <td className="px-3 py-1.5 font-mono text-blue-700 font-bold">{item.codigo || '—'}</td>
                     <td className="px-3 py-1.5 text-slate-700">{item.descripcion || '—'}</td>
                     <td className="px-3 py-1.5 text-slate-500">{item.dimension || '—'}</td>
-                    <td className="px-3 py-1.5 text-center font-bold">{item.cantidad}</td>
+                    <td className="px-3 py-1.5 text-center font-bold">{Number(item.cantidad) % 1 === 0 ? Math.round(Number(item.cantidad)) : item.cantidad}</td>
+                    <td className="px-3 py-1.5 text-slate-400 text-[10px] max-w-[120px] truncate" title={item.observacion || ''}>{item.observacion || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1015,10 +1017,13 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
               <span className="text-[10px] bg-rose-500 text-white px-1.5 rounded-full">{odp.no_conformidades.length}</span>
             </button>
           )}
-          <button onClick={() => setSelectedFormat('sap')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'sap' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
-            <Package className="w-3 h-3" /> SAP
-            {odp?.saps?.length > 0 && <span className="text-[10px] bg-indigo-500 text-white px-1.5 rounded-full">{odp.saps.length}</span>}
-          </button>
+          {/* SAP: visible solo si la ODP tiene al menos un SAP gestionado */}
+          {odp?.saps?.length > 0 && (
+            <button onClick={() => setSelectedFormat('sap')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'sap' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+              <Package className="w-3 h-3" /> SAP
+              <span className="text-[10px] bg-indigo-500 text-white px-1.5 rounded-full">{odp.saps.length}</span>
+            </button>
+          )}
         </div>
 
         {selectedFormat === 'noconformidad' && odp?.no_conformidades?.length > 1 && (

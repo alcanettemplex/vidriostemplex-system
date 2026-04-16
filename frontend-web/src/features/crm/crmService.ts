@@ -15,9 +15,9 @@ export const apiGetLeads = (mes?: number, anio?: number, vista?: 'pipeline' | 's
   return axios.get(`${API}/api/crm${qs}`, getHeaders());
 };
 
-/** Recuperar un lead del tab sin-respuesta y enviarlo al pipeline */
+/** Recuperar un lead del tab sin-respuesta → Bolsa Común (estado NUEVO, sin asesor) */
 export const apiMoverAlPipeline = (id: number) =>
-  axios.patch(`${API}/api/crm/${id}`, { respondio: 'Espera de información' }, getHeaders());
+  axios.put(`${API}/api/crm/${id}/recuperar`, {}, getHeaders());
 
 /** Crear un nuevo lead */
 export const apiCreateLead = (data: Record<string, any>) =>

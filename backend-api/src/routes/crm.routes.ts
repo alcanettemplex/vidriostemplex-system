@@ -13,6 +13,7 @@ import {
   updateLeadDetails,
   searchODPsForLead,
   vincularODPAlLead,
+  recuperarLead,
 } from '../controllers/crm.controller';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { authMiddleware } from '../middlewares/authMiddleware';
@@ -54,6 +55,9 @@ router.post('/:id/convertir', requireRole('asesor_comercial', 'admin', 'gerencia
 
 // Estadísticas gerenciales CRM
 router.get('/stats/resumen', requireRole(...ROLES_CRM_LECTURA), getCRMStats);
+
+// Recuperar lead desde "Sin Respuesta" a Bolsa Común
+router.put('/:id/recuperar', requireRole('asesor_comercial', 'asistente_administrativo', 'admin', 'gerencia'), recuperarLead);
 
 // Vínculo Lead APROBADO → ODP
 router.get('/odps/buscar', requireRole(...ROLES_CRM_LECTURA), searchODPsForLead);

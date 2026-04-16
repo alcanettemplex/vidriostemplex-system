@@ -106,7 +106,11 @@ function sortByPriority(leads: any[]): any[] {
   return [...leads].sort((a, b) => {
     const pa = calcularPrioridad(a) === 'urgente' ? 0 : 1;
     const pb = calcularPrioridad(b) === 'urgente' ? 0 : 1;
-    return pa - pb;
+    if (pa !== pb) return pa - pb;
+    // Secundario: fecha_asignado DESC (más reciente primero)
+    const fa = a.fecha_asignado ? new Date(a.fecha_asignado).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+    const fb = b.fecha_asignado ? new Date(b.fecha_asignado).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+    return fb - fa;
   });
 }
 

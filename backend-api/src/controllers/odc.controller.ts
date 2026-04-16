@@ -673,6 +673,48 @@ export const createODCVidrios = async (req: Request, res: Response) => {
   }
 };
 
+// GET /compras/vidrios/existencia — Lista plana de ODPItems con estado_compra = 'en_existencia'
+// Excluye ODPs en estado ENTREGADA
+export const getVidriosExistencia = async (req: Request, res: Response) => {
+  try {
+    const { Op: Op2 } = require('sequelize');
+    const odps = await ODP.findAll({
+      where: { estado_produccion: { [Op2.ne]: 'ENTREGADA' } },
+      include: [
+        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+        {
+          model: ODPItem,
+          as: 'items',
+          where: { estado_compra: 'en_existencia' },
+          required: true,
+        },
+      ],
+    });
+
+    const itemsPlanos: any[] = [];
+    for (const odp of odps) {
+      const odpContext = {
+        id: odp.getDataValue('id'),
+        numero_odp: odp.getDataValue('numero_odp'),
+        estado_produccion: odp.getDataValue('estado_produccion'),
+        cliente: (odp as any).cliente,
+        asesor: (odp as any).asesor,
+      };
+      for (const item of (odp as any).items) {
+        itemsPlanos.push({ ...(item.toJSON ? item.toJSON() : item), ODP: odpContext });
+      }
+    }
+    itemsPlanos.sort((a, b) =>
+      (a.tipo_vidrio || '').localeCompare(b.tipo_vidrio || '', 'es', { sensitivity: 'base' })
+    );
+    res.json(itemsPlanos);
+  } catch (error: any) {
+    console.error('Error getVidriosExistencia:', error);
+    res.status(500).json({ error: 'Error al obtener ítems en existencia', detail: error.message });
+  }
+};
+
 // PATCH /compras/vidrios/item/:id/estado — Marcar ítem de vidrio en_existencia o pendiente
 export const updateEstadoItemVidrio = async (req: Request, res: Response) => {
   try {

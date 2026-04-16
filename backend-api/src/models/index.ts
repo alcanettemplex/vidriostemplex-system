@@ -147,6 +147,7 @@ TomaMedidas.belongsTo(Prospecto, { foreignKey: 'prospecto_id', as: 'prospecto' }
 RutaInstalacion.belongsTo(Vehiculo, { foreignKey: 'vehiculo_id', as: 'vehiculo' });
 RutaInstalacion.belongsTo(Usuario, { foreignKey: 'conductor_id', as: 'conductor' });
 RutaInstalacion.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
+RutaInstalacion.belongsTo(Usuario, { foreignKey: 'oficial_id', as: 'oficial' });
 
 RutaInstalacion.belongsToMany(Usuario, {
   through: 'ruta_instaladores',

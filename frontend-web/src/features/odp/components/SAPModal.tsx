@@ -176,7 +176,6 @@ const TablaEditable: React.FC<{
             <th className="px-3 py-2 w-28">CÓDIGO</th>
             <th className="px-3 py-2">DESCRIPCIÓN</th>
             <th className="px-3 py-2 w-24">DIMENSIÓN</th>
-            <th className="px-3 py-2 text-center w-14">UND</th>
             <th className="px-3 py-2 text-center w-14">CANT.</th>
             <th className="px-3 py-2">OBSERV.</th>
             {canEdit && <th className="w-8"></th>}
@@ -224,19 +223,6 @@ const TablaEditable: React.FC<{
                   />
                 ) : (
                   <span className="px-2 text-slate-600">{item.dimension || '—'}</span>
-                )}
-              </td>
-              {/* UND */}
-              <td className="px-1 py-0.5 border-r border-slate-100 text-center">
-                {canEdit ? (
-                  <input
-                    value={item.und || ''}
-                    onChange={e => updateItem(idx, 'und', e.target.value)}
-                    placeholder="ML"
-                    className="w-full border-0 bg-transparent px-2 py-1.5 text-xs text-center focus:outline-none focus:bg-blue-50 rounded transition"
-                  />
-                ) : (
-                  <span className="px-2 text-slate-600">{item.und || '—'}</span>
                 )}
               </td>
               {/* CANTIDAD */}

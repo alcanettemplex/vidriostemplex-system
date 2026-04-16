@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import {
   X, Clock, User, Phone, DollarSign,
@@ -97,6 +97,7 @@ const SEGMENTOS = ['Arquitecto', 'Cliente final', 'Industrial', 'Institucional',
 // ─── Componente principal ─────────────────────────────────────────────────────
 const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineMode = false }) => {
   const dispatch = useDispatch();
+  const currentUser = useSelector((state: any) => state.auth.user);
 
   // Estado del timeline
   const [timeline, setTimeline]           = useState<any[]>([]);
@@ -105,10 +106,14 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
   // Estado de edición de datos principales
   const [editandoInfo, setEditandoInfo]   = useState(false);
   const [formData, setFormData]           = useState({
+    nombre: lead.nombre || '',
+    telefono: lead.telefono || '',
     segmento: lead.segmento || '',
     producto_interes: lead.producto_interes || '',
     monto_proyectado: lead.monto_proyectado_cotizacion || '',
-    producto_otro: ''
+    producto_otro: '',
+    descripcion_contexto: lead.descripcion_contexto || '',
+    fuente_lead: lead.fuente_lead || 'Presencial',
   });
 
   // Estado del seguimiento
@@ -138,7 +143,7 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
   const esAdminOGerencia  = ['admin', 'gerencia', 'root'].includes(rol);
   const esAdministrativo  = ['asistente_administrativo', 'admin', 'gerencia', 'root'].includes(rol);
   const puedeAsignarManual = esAdministrativo;
-  const puedeEditar       = ['asesor_comercial', 'asistente_administrativo', 'admin', 'gerencia', 'root'].includes(rol);
+  const puedeEditar       = ['asesor_comercial', 'asistente_administrativo', 'admin', 'gerencia', 'root'].includes(rol) || (!!lead.asesor_id && lead.asesor_id === currentUser?.id);
   const puedeSeguir       = !!lead.asesor_id && !['APROBADO', 'PERDIDO'].includes(lead.estado_crm) && rol !== 'marketing';
   const puedeMovarEstado  = esAdminOGerencia || (rol === 'asesor_comercial' && lead.asesor_id === userId);
 
@@ -183,9 +188,13 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
     setRegistrando(true);
     try {
       const payload = {
-        monto_proyectado_cotizacion: parseFloat(String(formData.monto_proyectado)),
+        nombre: formData.nombre,
+        telefono: formData.telefono,
+        monto_proyectado_cotizacion: parseFloat(String(formData.monto_proyectado)) || 0,
         segmento: formData.segmento,
-        producto_interes: finalProducto
+        producto_interes: finalProducto,
+        descripcion_contexto: formData.descripcion_contexto,
+        fuente_lead: formData.fuente_lead,
       };
 
       const { data } = await apiUpdateLeadDetails(lead.id, payload);
@@ -480,6 +489,26 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
               <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Nombre</label>
+                    <input
+                      type="text"
+                      value={formData.nombre}
+                      onChange={e => setFormData({...formData, nombre: e.target.value})}
+                      className="w-full text-xs border rounded-lg p-2 bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Teléfono</label>
+                    <input
+                      type="text"
+                      value={formData.telefono}
+                      onChange={e => setFormData({...formData, telefono: e.target.value})}
+                      className="w-full text-xs border rounded-lg p-2 bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
                     <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Segmento</label>
                     <select
                       value={formData.segmento}
@@ -519,6 +548,28 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
                       className="w-full text-xs border rounded-lg p-2 mt-2 bg-white outline-none focus:ring-2 focus:ring-indigo-300 border-indigo-200"
                     />
                   )}
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Fuente del Lead</label>
+                  <select
+                    value={formData.fuente_lead}
+                    onChange={e => setFormData({...formData, fuente_lead: e.target.value})}
+                    className="w-full text-xs border rounded-lg p-2 bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-300"
+                  >
+                    {['Web', 'Facebook', 'Instagram', 'WhatsApp', 'Llamada', 'Presencial', 'Otro'].map(f => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Descripción / Contexto</label>
+                  <textarea
+                    rows={3}
+                    value={formData.descripcion_contexto}
+                    onChange={e => setFormData({...formData, descripcion_contexto: e.target.value})}
+                    placeholder="Información adicional sobre el prospecto..."
+                    className="w-full text-xs border rounded-lg p-2 bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+                  />
                 </div>
                 <div className="flex gap-2 pt-2">
                   <button onClick={handleGuardarCambios} className="flex-1 bg-indigo-600 text-white font-black text-[11px] py-2.5 rounded-xl">GUARDAR CAMBIOS</button>

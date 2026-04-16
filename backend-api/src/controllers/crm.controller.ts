@@ -615,7 +615,9 @@ export const updateLeadDetails = async (req: Request, res: Response) => {
       segmento,
       producto_interes,
       nombre,
-      telefono
+      telefono,
+      descripcion_contexto,
+      fuente_lead,
     } = req.body;
 
     const lead = await Lead.findByPk(id);
@@ -627,6 +629,8 @@ export const updateLeadDetails = async (req: Request, res: Response) => {
     if (producto_interes !== undefined) updates.producto_interes = producto_interes;
     if (nombre !== undefined) updates.nombre = nombre;
     if (telefono !== undefined) updates.telefono = telefono;
+    if (descripcion_contexto !== undefined) updates.descripcion_contexto = descripcion_contexto;
+    if (fuente_lead !== undefined) updates.fuente_lead = fuente_lead;
 
     await lead.update(updates);
 
@@ -641,6 +645,41 @@ export const updateLeadDetails = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error al actualizar detalles lead:', error);
     res.status(500).json({ error: 'Error del servidor' });
+  }
+};
+
+// Recuperar lead de "Sin Respuesta" → Bolsa Común (NUEVO, sin asesor)
+export const recuperarLead = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = req.user!;
+
+    const lead = await Lead.findByPk(id);
+    if (!lead) return res.status(404).json({ error: 'Lead no encontrado' });
+
+    await lead.update({
+      estado_crm: 'NUEVO',
+      asesor_id: null,
+      fecha_asignado: null,
+      respondio: 'Espera de información',
+    });
+
+    await LeadEvento.create({
+      tipo: 'CAMBIO_ESTADO',
+      detalle_texto: `Lead recuperado desde "Sin Respuesta" y devuelto a Bolsa Común.`,
+      lead_id: lead.getDataValue('id'),
+      creado_por: user.id,
+    });
+
+    const leadActualizado = await Lead.findByPk(id, {
+      include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
+    });
+
+    import('../server').then(({ emitirCambio }) => emitirCambio('crm')).catch(() => {});
+    res.json(leadActualizado);
+  } catch (error: any) {
+    console.error('Error al recuperar lead:', error);
+    res.status(500).json({ error: 'Error del servidor al recuperar lead' });
   }
 };
 

@@ -30,6 +30,7 @@ const recalcularFinanciero = async (odp_id: number, t: any) => {
 const pagoSchema = z.object({
   odp_id: z.number().int().positive('ODP requerida'),
   monto: z.number().positive('El monto debe ser mayor a 0'),
+  diferencia: z.number().min(0).optional().default(0), // Descuento adicional que reduce pendiente pero no cuenta en abono
   metodo_pago: z.string().min(1, 'El método de pago es requerido'),
   referencia_pago: z.string().optional(),
   observaciones: z.string().optional(),
@@ -236,11 +237,13 @@ export const registrarPago = async (req: Request, res: Response) => {
     );
 
     // Actualizar financiero de la ODP
-    // Derivar pendiente desde valor_total - abono para evitar errores por campo pendiente NULL
+    // monto: se suma al abono (aparece en stats)
+    // diferencia: reduce el pendiente adicional sin contar en abono (descuento o ajuste)
     const valorTotal = Number(odp.getDataValue('valor_total')) || 0;
     const abonoActual = Number(odp.getDataValue('abono')) || 0;
-    const nuevoAbono = abonoActual + data.monto;
-    const nuevoPendiente = Math.max(0, valorTotal - nuevoAbono);
+    const nuevoAbono = abonoActual + data.monto; // stats solo usan monto
+    const pendienteActual = Math.max(0, valorTotal - abonoActual);
+    const nuevoPendiente = Math.max(0, pendienteActual - data.monto - (data.diferencia || 0));
 
     // Determinar nuevo estado de caja
     let nuevoEstadoCaja = 'ABONADO';

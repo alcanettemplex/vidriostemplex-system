@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, crearGarantia } from '../controllers/odp.controller';
+import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, crearGarantia, facturarODP, actualizarEstadoCaja } from '../controllers/odp.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { uploadConfig } from '../config/upload';
@@ -27,6 +27,12 @@ router.post('/:id/croquis', authMiddleware, requireRole('admin', 'gerencia', 'as
 
 // Marcar daño de instalación como revisado: asesor dueño, admin, gerencia (owner check en controller)
 router.patch('/:id/revisar-dano', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial'), revisarDano);
+
+// Facturación: contabilidad, admin, gerencia pueden registrar/actualizar FE
+router.patch('/:id/facturar', authMiddleware, requireRole('admin', 'gerencia', 'contabilidad'), facturarODP);
+
+// Estado de caja: contabilidad, admin, gerencia pueden cambiar estado_caja manualmente
+router.patch('/:id/caja', authMiddleware, requireRole('admin', 'gerencia', 'contabilidad'), actualizarEstadoCaja);
 
 // Garantías: listado global y creación desde una ODP padre
 router.get('/garantias/all', authMiddleware, getGarantias);

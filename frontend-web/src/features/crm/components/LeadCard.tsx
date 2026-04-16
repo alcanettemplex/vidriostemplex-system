@@ -43,6 +43,10 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
     ? new Date(lead.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })
     : 'Nuevo';
 
+  const fechaAsignado = lead.fecha_asignado
+    ? new Date(lead.fecha_asignado).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: '2-digit' })
+    : null;
+
   const montoFmt = lead.monto_proyectado_cotizacion
     ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(lead.monto_proyectado_cotizacion)
     : null;
@@ -124,9 +128,17 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-2 border-t border-dashed border-slate-100 pl-1">
-          <div className="flex items-center gap-1 text-[10px] text-slate-400 font-medium">
-            <Clock className={`w-3 h-3 ${esEstancado ? 'text-orange-500' : ''}`} />
-            {fechaCreado}
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1 text-[10px] text-slate-400 font-medium">
+              <Clock className={`w-3 h-3 ${esEstancado ? 'text-orange-500' : ''}`} />
+              {fechaCreado}
+            </div>
+            {fechaAsignado && (
+              <div className="flex items-center gap-1 text-[9px] text-blue-500 font-bold">
+                <UserCheck className="w-2.5 h-2.5" />
+                Asig. {fechaAsignado}
+              </div>
+            )}
           </div>
           {['EN_CONTACTO', 'COTIZANDO', 'VISITA_TECNICA'].includes(stageId) && (
             <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border ${

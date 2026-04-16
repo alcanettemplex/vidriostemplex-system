@@ -5,6 +5,7 @@ import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, L
 import ODCModal, { SAPItemConContexto } from './components/ODCModal';
 import ODCVidriosModal, { ODPItemConContexto } from './components/ODCVidriosModal';
 import PrintableODC from './components/PrintableODC';
+import ODPFichaModal from '../odp/components/ODPFichaModal';
 
 import { useDataChangedSocket } from '../../store/useSocketNotifications';
 
@@ -91,6 +92,7 @@ const TABS = [
   { key: 'seguimiento',  label: 'Seguimiento',  icon: Truck },
   { key: 'recibidas',    label: 'Recibidas',    icon: CheckCircle2 },
   { key: 'vidrios',      label: 'Vidrios',      icon: Layers },
+  { key: 'existencia',   label: 'En Existencia', icon: Package },
 ];
 
 const ESTADO_COMPRA_STYLE: Record<string, { label: string; className: string }> = {
@@ -101,7 +103,7 @@ const ESTADO_COMPRA_STYLE: Record<string, { label: string; className: string }> 
 
 // ─── Componente tarjeta ODC (Seguimiento / Recibidas) ───────────────────────
 
-const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?: (nuevoEstado: string) => void }> = ({ odc, onActualizar, onEstadoCambiado }) => {
+const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?: (nuevoEstado: string) => void; onFichaOdp?: (id: number) => void }> = ({ odc, onActualizar, onEstadoCambiado, onFichaOdp }) => {
   const [loading, setLoading] = useState(false);
   const [verDetalle, setVerDetalle] = useState(false);
   const [editando, setEditando] = useState(false);
@@ -305,7 +307,6 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                 <th className="px-4 py-2 text-left">DESCRIPCIÓN</th>
                 <th className="px-4 py-2 text-center w-16">CANT.</th>
                 <th className="px-4 py-2 text-left w-24">DIMENSIÓN</th>
-                <th className="px-4 py-2 text-left w-16">UND</th>
                 <th className="px-4 py-2 text-left w-36">OBSERVACIÓN</th>
                 <th className="px-4 py-2 text-left w-24">SAP</th>
                 <th className="px-4 py-2 text-left w-24">ODP</th>
@@ -318,12 +319,11 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                   <tr key={i} className={it.recibido ? 'bg-green-50/40' : hayItemsParciales && pendiente ? 'bg-amber-50' : i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
                     <td className="px-4 py-1.5 font-mono text-blue-700 font-bold">{it.codigo || '—'}</td>
                     <td className="px-4 py-1.5 text-slate-700">{it.descripcion || '—'}</td>
-                    <td className="px-4 py-1.5 text-center font-bold text-slate-600">{it.cantidad}</td>
+                    <td className="px-4 py-1.5 text-center font-bold text-slate-600">{Number(it.cantidad) % 1 === 0 ? Math.round(Number(it.cantidad)) : it.cantidad}</td>
                     <td className="px-4 py-1.5 text-slate-500">{it.sap_item?.dimension || '—'}</td>
-                    <td className="px-4 py-1.5 text-slate-500">{it.sap_item?.und || '—'}</td>
                     <td className="px-4 py-1.5 text-slate-400 text-[10px] max-w-[140px] truncate" title={it.sap_item?.observacion || ''}>{it.sap_item?.observacion || '—'}</td>
                     <td className="px-4 py-1.5 text-indigo-600 font-bold">{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
-                    <td className="px-4 py-1.5 font-bold text-slate-700">{it.sap_item?.SAP?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
+                    <td className="px-4 py-1.5 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => { const id = it.sap_item?.SAP?.ODP?.id || odc.sap?.ODP?.id; if (id) onFichaOdp?.(id); }}>{it.sap_item?.SAP?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
                   </tr>
                 );
               })}
@@ -434,7 +434,6 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                           <th className="px-3 py-2 text-left">DESCRIPCIÓN</th>
                           <th className="px-3 py-2 w-16 text-center">CANT.</th>
                           <th className="px-3 py-2 text-left w-24">DIMENSIÓN</th>
-                          <th className="px-3 py-2 text-left w-16">UND</th>
                           <th className="px-3 py-2 text-left w-36">OBSERVACIÓN</th>
                           <th className="px-3 py-2 text-left w-24">SAP</th>
                           <th className="px-3 py-2 text-left w-24">ODP</th>
@@ -447,12 +446,11 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                             <tr key={i} className={it.recibido ? 'bg-green-50/60' : hayItemsParciales && pendiente ? 'bg-amber-50' : i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
                               <td className="px-3 py-2 font-mono text-blue-700 font-bold">{it.codigo || '—'}</td>
                               <td className="px-3 py-2 text-slate-700">{it.descripcion || '—'}</td>
-                              <td className="px-3 py-2 text-center font-bold text-slate-600">{it.cantidad}</td>
+                              <td className="px-3 py-2 text-center font-bold text-slate-600">{Number(it.cantidad) % 1 === 0 ? Math.round(Number(it.cantidad)) : it.cantidad}</td>
                               <td className="px-3 py-2 text-slate-500">{it.sap_item?.dimension || '—'}</td>
-                              <td className="px-3 py-2 text-slate-500">{it.sap_item?.und || '—'}</td>
                               <td className="px-3 py-2 text-slate-400 text-[10px] max-w-[140px] truncate" title={it.sap_item?.observacion || ''}>{it.sap_item?.observacion || '—'}</td>
                               <td className="px-3 py-2 text-indigo-600 font-bold">{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
-                              <td className="px-3 py-2 font-bold text-slate-700">{it.sap_item?.SAP?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
+                              <td className="px-3 py-2 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => { const id = it.sap_item?.SAP?.ODP?.id || odc.sap?.ODP?.id; if (id) onFichaOdp?.(id); }}>{it.sap_item?.SAP?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
                             </tr>
                           );
                         })}
@@ -646,7 +644,6 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                         <div className="flex items-center gap-3 mt-0.5 text-[10px] text-slate-400">
                           <span>Cant: <strong className="text-slate-600">{it.cantidad}</strong></span>
                           {it.sap_item?.dimension && <span>Dim: <strong className="text-slate-600">{it.sap_item.dimension}</strong></span>}
-                          {it.sap_item?.und && <span>Und: <strong className="text-slate-600">{it.sap_item.und}</strong></span>}
                         </div>
                       </div>
                     </label>
@@ -723,7 +720,8 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
 // ─── Componente principal ────────────────────────────────────────────────────
 
 const ComprasPage: React.FC = () => {
-  const [tab, setTab] = useState<'pendientes' | 'seguimiento' | 'recibidas' | 'vidrios'>('pendientes');
+  const [tab, setTab] = useState<'pendientes' | 'seguimiento' | 'recibidas' | 'vidrios' | 'existencia'>('pendientes');
+  const [fichaOdpId, setFichaOdpId] = useState<number | null>(null);
   const [itemsPendientes, setItemsPendientes] = useState<SAPItemConContexto[]>([]);
   const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
   const [mostrarModal, setMostrarModal] = useState(false);
@@ -732,6 +730,7 @@ const ComprasPage: React.FC = () => {
   const [vidriosFlat, setVidriosFlat] = useState<ODPItemConContexto[]>([]);
   const [seleccionadosVidrios, setSeleccionadosVidrios] = useState<Set<number>>(new Set());
   const [mostrarModalVidrios, setMostrarModalVidrios] = useState(false);
+  const [vidriosExistencia, setVidriosExistencia] = useState<ODPItemConContexto[]>([]);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
@@ -753,8 +752,10 @@ const ComprasPage: React.FC = () => {
         const res = await axios.get(`${API}/api/compras/vidrios/panel`, { headers });
         setVidriosFlat(res.data);
         setSeleccionadosVidrios(new Set());
+      } else if (t === 'existencia') {
+        const res = await axios.get(`${API}/api/compras/vidrios/existencia`, { headers });
+        setVidriosExistencia(res.data);
       } else {
-
         const res = await axios.get(`${API}/api/compras/recibidas`, { headers });
         setOdcsRecibidas(res.data);
       }
@@ -768,7 +769,7 @@ const ComprasPage: React.FC = () => {
     axios.get(`${API}/api/compras/seguimiento`, { headers: h }).then(r => setOdcsSeguimiento(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
     axios.get(`${API}/api/compras/recibidas`, { headers: h }).then(r => setOdcsRecibidas(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
     axios.get(`${API}/api/compras/vidrios/panel`, { headers: h }).then(r => setVidriosFlat(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
-
+    axios.get(`${API}/api/compras/vidrios/existencia`, { headers: h }).then(r => setVidriosExistencia(r.data)).catch(err => console.error('Error cargando existencia:', err));
   }, []);
 
   useEffect(() => { fetchTab(tab); setBusqueda(''); }, [tab, fetchTab]);
@@ -831,8 +832,16 @@ const ComprasPage: React.FC = () => {
     if (t === 'pendientes') return itemsPendientes.length;
     if (t === 'seguimiento') return odcsSeguimiento.length;
     if (t === 'vidrios') return vidriosFlat.length;
-
+    if (t === 'existencia') return vidriosExistencia.length;
     return odcsRecibidas.length;
+  };
+
+  // Desmarcar ítem de existencia → vuelve a pendiente
+  const desmarcaExistencia = async (itemId: number) => {
+    try {
+      await axios.patch(`${API}/api/compras/vidrios/item/${itemId}/estado`, { estado_compra: 'pendiente' }, { headers });
+      setVidriosExistencia(prev => prev.filter(it => it.id !== itemId));
+    } catch (err) { console.error('Error al desmarcar existencia:', err); }
   };
 
   // Actualización optimista en la lista plana: el item desaparece si pasa a en_existencia
@@ -840,17 +849,18 @@ const ComprasPage: React.FC = () => {
     const nuevoEstado = estadoActual === 'en_existencia' ? 'pendiente' : 'en_existencia';
     try {
       await axios.patch(`${API}/api/compras/vidrios/item/${itemId}/estado`, { estado_compra: nuevoEstado }, { headers });
-      setVidriosFlat(prev => prev.filter(it => {
-        if (it.id !== itemId) return true;
-        // Si pasa a en_existencia sale de la lista plana (ya no es pendiente)
-        return nuevoEstado === 'pendiente';
-      }));
-      // Deseleccionar el item si se marcó como en existencia
-      setSeleccionadosVidrios(prev => {
-        const next = new Set(prev);
-        if (nuevoEstado === 'en_existencia') next.delete(itemId);
-        return next;
-      });
+      if (nuevoEstado === 'en_existencia') {
+        // Sale de vidrios pendientes
+        const itemMovido = vidriosFlat.find(it => it.id === itemId);
+        setVidriosFlat(prev => prev.filter(it => it.id !== itemId));
+        setSeleccionadosVidrios(prev => { const next = new Set(prev); next.delete(itemId); return next; });
+        // Aparece en existencia
+        if (itemMovido) setVidriosExistencia(prev => [...prev, { ...itemMovido, estado_compra: 'en_existencia' }]);
+      } else {
+        // Vuelve a pendiente
+        setVidriosFlat(prev => prev.filter(it => it.id !== itemId));
+        setVidriosExistencia(prev => prev.filter(it => it.id !== itemId));
+      }
     } catch (err) { console.error('Error en operación de compras:', err); }
   };
 
@@ -1002,7 +1012,7 @@ const ComprasPage: React.FC = () => {
                             <span className="text-sm text-slate-700 font-medium flex-1 truncate">{grupo[0].descripcion || '—'}</span>
                             <div className="flex items-center gap-2 shrink-0">
                               <span className="text-xs font-bold text-indigo-600">
-                                Total: {totalCant} {grupo[0].und || ''}
+                                Total: {totalCant}
                               </span>
                               {grupo.length > 1 && (
                                 <span className="text-[10px] font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full border border-indigo-200">
@@ -1018,7 +1028,6 @@ const ComprasPage: React.FC = () => {
                                 <th className="px-4 py-1.5 w-10" />
                                 <th className="px-3 py-1.5 text-left w-24">Dimensión</th>
                                 <th className="px-3 py-1.5 text-center w-16">Cant.</th>
-                                <th className="px-3 py-1.5 text-left w-16">Und</th>
                                 <th className="px-3 py-1.5 text-left w-36">Observ.</th>
                                 <th className="px-3 py-1.5 text-left w-28">SAP</th>
                                 <th className="px-3 py-1.5 text-left w-28">ODP</th>
@@ -1043,14 +1052,13 @@ const ComprasPage: React.FC = () => {
                                     />
                                   </td>
                                   <td className="px-3 py-2 w-24 text-slate-500">{item.dimension || '—'}</td>
-                                  <td className="px-3 py-2 w-16 text-center font-bold text-slate-700">{item.cantidad}</td>
-                                  <td className="px-3 py-2 w-16 text-slate-500">{item.und || '—'}</td>
+                                  <td className="px-3 py-2 w-16 text-center font-bold text-slate-700">{Number(item.cantidad) % 1 === 0 ? Math.round(Number(item.cantidad)) : item.cantidad}</td>
                                   <td className="px-3 py-2 text-slate-400 text-xs max-w-[140px] truncate" title={(item as any).observacion || ''}>{(item as any).observacion || '—'}</td>
                                   <td className="px-3 py-2 w-28">
                                     <span className="font-bold text-indigo-600">{item.SAP?.numero_sap || '—'}</span>
                                   </td>
-                                  <td className="px-3 py-2 w-28">
-                                    <span className="font-bold text-slate-700">{item.SAP?.ODP?.numero_odp || '—'}</span>
+                                  <td className="px-3 py-2 w-28" onClick={e => { e.stopPropagation(); if (item.SAP?.ODP?.id) setFichaOdpId(item.SAP.ODP.id); }}>
+                                    <span className="font-bold text-indigo-700 cursor-pointer hover:underline">{item.SAP?.ODP?.numero_odp || '—'}</span>
                                   </td>
                                   <td className="px-3 py-2 text-slate-500 truncate max-w-[200px]">
                                     {item.SAP?.ODP?.cliente?.nombre_razon_social || '—'}
@@ -1098,7 +1106,7 @@ const ComprasPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="grid gap-4">
-                  {lista.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} onEstadoCambiado={refreshTrasRecibida} />)}
+                  {lista.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} onEstadoCambiado={refreshTrasRecibida} onFichaOdp={setFichaOdpId} />)}
                 </div>
               );
             })()}
@@ -1113,7 +1121,7 @@ const ComprasPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="grid gap-4">
-                  {lista.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} />)}
+                  {lista.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} onFichaOdp={setFichaOdpId} />)}
                 </div>
               );
             })()}
@@ -1281,8 +1289,8 @@ const ComprasPage: React.FC = () => {
                                   >
                                     {item.otros || '—'}
                                   </td>
-                                  <td className="px-3 py-2 text-center font-bold text-slate-700">{item.cantidad}</td>
-                                  <td className="px-3 py-2 font-bold text-indigo-600">{item.ODP?.numero_odp || '—'}</td>
+                                  <td className="px-3 py-2 text-center font-bold text-slate-700">{Number(item.cantidad) % 1 === 0 ? Math.round(Number(item.cantidad)) : item.cantidad}</td>
+                                  <td className="px-3 py-2 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={e => { e.stopPropagation(); if (item.ODP?.id) setFichaOdpId(item.ODP.id); }}>{item.ODP?.numero_odp || '—'}</td>
                                   <td className="px-3 py-2 text-slate-500 truncate max-w-[200px]">
                                     {item.ODP?.cliente?.nombre_razon_social || '—'}
                                   </td>
@@ -1314,6 +1322,98 @@ const ComprasPage: React.FC = () => {
             })()}
 
 
+            {/* ── TAB EXISTENCIA ── */}
+            {tab === 'existencia' && (() => {
+              const q = busqueda.toLowerCase();
+              const lista = vidriosExistencia.filter(it =>
+                !busqueda ||
+                (it.tipo_vidrio || '').toLowerCase().includes(q) ||
+                (it.color || '').toLowerCase().includes(q) ||
+                it.ODP?.numero_odp?.toLowerCase().includes(q) ||
+                it.ODP?.cliente?.nombre_razon_social?.toLowerCase().includes(q)
+              );
+
+              // Agrupar por tipo_vidrio
+              const grupos = (() => {
+                const map = new Map<string, ODPItemConContexto[]>();
+                for (const item of lista) {
+                  const key = item.tipo_vidrio || item.prod || '—';
+                  if (!map.has(key)) map.set(key, []);
+                  map.get(key)!.push(item);
+                }
+                return map;
+              })();
+
+              return lista.length === 0 ? (
+                <div className="text-center py-20">
+                  <Package className="w-16 h-16 text-slate-200 mx-auto mb-3" />
+                  <p className="text-lg font-bold text-slate-500">
+                    {busqueda ? 'Sin resultados' : 'No hay ítems seleccionados por existencia'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-emerald-700">
+                    <strong>{lista.length}</strong> ítem(s) marcados como "en existencia" (no necesitan orden de compra). Usa el botón de desmarcar para devolverlos a Vidrios pendientes.
+                  </div>
+                  <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    {Array.from(grupos.entries()).map(([tipo, grupo], gi) => (
+                      <div key={tipo} className={gi > 0 ? 'border-t border-slate-200' : ''}>
+                        <div className="flex items-center gap-3 px-4 py-2.5 bg-emerald-50 border-b border-emerald-100">
+                          <span className="font-bold text-emerald-800">{tipo}</span>
+                          <span className="ml-auto text-xs font-bold text-emerald-700">
+                            {grupo.reduce((s, i) => s + Number(i.cantidad), 0)} und
+                          </span>
+                        </div>
+                        <table className="w-full text-xs">
+                          <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+                            <tr>
+                              <th className="px-3 py-1.5 text-left">Color</th>
+                              <th className="px-3 py-1.5 text-left w-16">Esp.</th>
+                              <th className="px-3 py-1.5 text-left">Medidas</th>
+                              <th className="px-3 py-1.5 text-left w-32">Otros</th>
+                              <th className="px-3 py-1.5 text-center w-14">Cant.</th>
+                              <th className="px-3 py-1.5 text-left w-28">ODP</th>
+                              <th className="px-3 py-1.5 text-left">Cliente</th>
+                              <th className="px-3 py-1.5 text-center w-24">Desmarcar</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50">
+                            {grupo.map((item, i) => (
+                              <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
+                                <td className="px-3 py-2 text-slate-600">{item.color || '—'}</td>
+                                <td className="px-3 py-2 text-slate-600">{item.espesor || '—'}</td>
+                                <td className="px-3 py-2 font-mono text-slate-700">
+                                  {item.ancho_mm && item.alto_mm ? `${item.ancho_mm}×${item.alto_mm}` : '—'}
+                                </td>
+                                <td className="px-3 py-2 text-slate-400 text-[10px] truncate max-w-[120px]" title={item.otros || ''}>
+                                  {item.otros || '—'}
+                                </td>
+                                <td className="px-3 py-2 text-center font-bold text-slate-700">{Number(item.cantidad) % 1 === 0 ? Math.round(Number(item.cantidad)) : item.cantidad}</td>
+                                <td className="px-3 py-2 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => item.ODP?.id && setFichaOdpId(item.ODP.id)}>{item.ODP?.numero_odp || '—'}</td>
+                                <td className="px-3 py-2 text-slate-500 truncate max-w-[200px]">
+                                  {item.ODP?.cliente?.nombre_razon_social || '—'}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <button
+                                    onClick={() => desmarcaExistencia(item.id)}
+                                    title="Desmarcar — devolver a Vidrios pendientes"
+                                    className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 transition border border-amber-200"
+                                  >
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
           </motion.div>
         </AnimatePresence>
       )}
@@ -1336,6 +1436,7 @@ const ComprasPage: React.FC = () => {
         />
       )}
 
+      {fichaOdpId && <ODPFichaModal odpId={fichaOdpId} onClose={() => setFichaOdpId(null)} />}
     </div>
   );
 };

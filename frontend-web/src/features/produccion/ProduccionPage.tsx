@@ -2,29 +2,35 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'react-toastify';
-import { 
-    CheckCircle2, 
-    QrCode, 
-    Ruler, 
-    Scissors, 
-    Layers, 
+import ODPFichaModal from '../odp/components/ODPFichaModal';
+import {
+    CheckCircle2,
+    QrCode,
+    Ruler,
+    Scissors,
+    Layers,
     Wrench,
     Truck,
     AlertCircle,
     Package,
     Lock,
     MessageSquare,
-    ChevronDown,
-    ChevronUp,
     Plus,
     Sparkles,
     Film,
     Box,
     Archive,
-    Search
+    Search,
+    X,
+    ShoppingCart,
+    ClipboardList,
+    Loader2,
+    Calendar,
+    Clock,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPMatrixModal from './components/ODPMatrixModal';
+import PrintableSAP from '../odp/components/PrintableSAP';
 
 interface Nota {
     id: number;
@@ -32,6 +38,42 @@ interface Nota {
     texto: string;
     fecha: string;
     usuario: { nombre_completo: string };
+}
+
+interface PedidoPVDetalle {
+    id: number;
+    numero_pedido: string;
+    proveedor: string;
+    estado: 'PENDIENTE' | 'ENVIADO' | 'CONFIRMADO_PROVEEDOR' | 'LLEGADO' | 'VERIFICADO' | 'PROBLEMA';
+    fecha_envio: string | null;
+    fecha_entrega_prometida: string | null;
+    fecha_llegada_real: string | null;
+    dias_diferencia: number | null;
+    observaciones: string | null;
+    tuvo_problema: boolean;
+}
+
+interface ODCDetalle {
+    id: number;
+    numero_odc: string;
+    proveedor: string;
+    tipo: 'perfileria' | 'vidrio';
+    estado: string;
+    fecha_creacion: string;
+    fecha_recepcion: string | null;
+}
+
+interface SAPDetalle {
+    id: number;
+    numero_sap: string;
+    estado: 'borrador' | 'enviada' | 'aprobada';
+    fecha_creacion: string;
+    ordenes_compra: ODCDetalle[];
+}
+
+interface ODPDetalle {
+    pedidos_pv: PedidoPVDetalle[];
+    saps: SAPDetalle[];
 }
 
 interface ODP {
@@ -63,504 +105,811 @@ interface ODP {
     saps?: { id: number }[];
 }
 
-const activeStates = ['EN_ESPERA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'PAUSADA'];
+const activeStates = [
+    'EN_ESPERA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO',
+    'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'PAUSADA'
+];
+
+const COLUMNS = [
+    { key: 'chk_medicion',  label: 'Medición',  Icon: Ruler },
+    { key: 'chk_corte',     label: 'Aluminio',  Icon: Scissors },
+    { key: 'chk_vidrio',    label: 'Vidrio',    Icon: Layers },
+    { key: 'chk_accesorios',label: 'Herrajes',  Icon: Package },
+    { key: 'chk_ensamble',  label: 'Ensamble',  Icon: Wrench },
+    { key: 'chk_matizado',  label: 'Matizado',  Icon: Sparkles },
+    { key: 'chk_pelicula',  label: 'Película',  Icon: Film },
+    { key: 'chk_huacal',    label: 'Huacal',    Icon: Box },
+    { key: 'chk_carton',    label: 'Cartón',    Icon: Archive },
+];
+
+const isColApplicable = (odp: ODP, key: string): boolean => {
+    switch (key) {
+        case 'chk_medicion':   return (odp.tomas_medidas?.length || 0) > 0;
+        case 'chk_corte':      return !!odp.tiene_aluminio;
+        case 'chk_vidrio':     return (odp.items?.length || 0) > 0;
+        case 'chk_accesorios': return (odp.saps?.length || 0) > 0;
+        case 'chk_ensamble':   return !!odp.tiene_aluminio;
+        case 'chk_matizado':   return !!odp.matizado;
+        case 'chk_pelicula':   return !!odp.pelicula;
+        case 'chk_huacal':     return !!odp.huacal;
+        case 'chk_carton':     return !!odp.carton;
+        default: return false;
+    }
+};
+
+const isColLocked = (odp: ODP, key: string): boolean => {
+    return ['chk_pelicula', 'chk_matizado', 'chk_huacal', 'chk_carton'].includes(key) && !odp.chk_vidrio;
+};
 
 const ProduccionPage: React.FC = () => {
-    const [activeOdps, setActiveOdps] = useState<ODP[]>([]);
-    const [readyOdps, setReadyOdps] = useState<ODP[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [expandedOdpId, setExpandedOdpId] = useState<number | null>(null);
-    const [selectedQR, setSelectedQR] = useState<string | null>(null);
+    const [activeOdps, setActiveOdps]   = useState<ODP[]>([]);
+    const [readyOdps, setReadyOdps]     = useState<ODP[]>([]);
+    const [loading, setLoading]         = useState(true);
+    const [searchTerm, setSearchTerm]   = useState('');
+    const [fichaOdpId, setFichaOdpId]   = useState<number | null>(null);
+    const [selectedQR, setSelectedQR]   = useState<string | null>(null);
     const [selectedODPDetail, setSelectedODPDetail] = useState<ODP | null>(null);
-    
-    // Filtros
-    const [filterType, setFilterType] = useState<string>('TODAS'); // TODAS, URGENTES, PROVEEDOR, PELICULA, MATIZADO, HUACAL, CARTON, NC
-
-    const [notes, setNotes] = useState<{ [key: number]: Nota[] }>({});
-    const [newNote, setNewNote] = useState('');
+    const [filterType, setFilterType]   = useState<string>('TODAS');
+    const [notes, setNotes]             = useState<{ [key: number]: Nota[] }>({});
+    const [newNotes, setNewNotes]       = useState<{ [key: number]: string }>({});
+    const [panelOdp, setPanelOdp]       = useState<ODP | null>(null);
+    const [panelDetail, setPanelDetail] = useState<ODPDetalle | null>(null);
+    const [panelDetailLoading, setPanelDetailLoading] = useState(false);
+    const [odpFullDetail, setOdpFullDetail] = useState<any>(null);
+    const [printSap, setPrintSap] = useState<{ odp: any; sap: any } | null>(null);
 
     const fetchData = useCallback(async (silent = false) => {
         try {
             if (!silent) setLoading(true);
             const token = localStorage.getItem('token');
-            const res = await axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
+            const res = await axios.get(
+                `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/odp`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
             const data: ODP[] = res.data;
-            const activas = data.filter(o => activeStates.includes(o.estado_produccion));
-            const listas = data.filter(o => o.estado_produccion === 'LISTO_INSTALAR');
-
-            setActiveOdps(activas);
-            setReadyOdps(listas);
+            setActiveOdps(data.filter(o => activeStates.includes(o.estado_produccion)));
+            setReadyOdps(data.filter(o => o.estado_produccion === 'LISTO_INSTALAR'));
         } catch (error) {
             console.error(error);
-            toast.error("Error al cargar pedidos de producción");
+            toast.error('Error al cargar pedidos de producción');
         } finally {
             if (!silent) setLoading(false);
         }
     }, []);
 
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    // Sincronizar panelOdp cuando los datos se refresque
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        if (!panelOdp) return;
+        const all = [...activeOdps, ...readyOdps];
+        const updated = all.find(o => o.id === panelOdp.id);
+        if (updated) setPanelOdp(updated);
+        else setPanelOdp(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeOdps, readyOdps]);
 
     const fetchNotes = async (odpId: number) => {
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/notas-produccion/${odpId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await axios.get(
+                `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/notas-produccion/${odpId}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
             setNotes(prev => ({ ...prev, [odpId]: res.data }));
         } catch (error) {
-            console.error("Error fetching notes:", error);
+            console.error('Error fetching notes:', error);
         }
     };
 
     const handleAddNote = async (odpId: number) => {
-        if (!newNote.trim()) return;
+        const text = newNotes[odpId]?.trim();
+        if (!text) return;
         try {
             const token = localStorage.getItem('token');
-            const res = await axios.post(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/notas-produccion`, {
-                odp_id: odpId,
-                texto: newNote
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await axios.post(
+                `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/notas-produccion`,
+                { odp_id: odpId, texto: text },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
             setNotes(prev => ({ ...prev, [odpId]: [res.data, ...(prev[odpId] || [])] }));
-            setNewNote('');
-            toast.success("Nota agregada");
+            setNewNotes(prev => ({ ...prev, [odpId]: '' }));
+            toast.success('Nota agregada');
         } catch (error) {
-            toast.error("Error al agregar nota");
+            toast.error('Error al agregar nota');
         }
     };
 
     const toggleCheck = async (odp: ODP, field: string) => {
-        // Validación de dependencias de vidrio
-        const dependsOnVidrio = ['chk_pelicula', 'chk_matizado', 'chk_huacal', 'chk_carton'];
-        if (dependsOnVidrio.includes(field) && !odp.chk_vidrio) {
-            toast.warning("Esta tarea requiere que el vidrio haya sido recibido primero.");
+        if (isColLocked(odp, field)) {
+            toast.warning('Esta tarea requiere que el vidrio haya sido recibido primero.');
             return;
         }
-
         try {
             const token = localStorage.getItem('token');
             const newValue = !(odp as any)[field];
-            
-            await axios.put(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp/${odp.id}`, 
-                { [field]: newValue }, 
+            await axios.put(
+                `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/odp/${odp.id}`,
+                { [field]: newValue },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-
-            // Refrescar datos silenciosamente para captar cambios automáticos (como LISTO_INSTALAR)
             fetchData(true);
-            toast.success("Proceso actualizado");
+            toast.success('Proceso actualizado');
         } catch (error: any) {
-            toast.error(error.response?.data?.error || "Error al actualizar");
+            toast.error(error.response?.data?.error || 'Error al actualizar');
         }
     };
 
-
-  const getUrgency = (fecha: string) => {
-        const hoy = new Date();
-        const entrega = new Date(fecha);
-        const diff = Math.ceil((entrega.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
-        if (diff <= 1) return { label: diff === 0 ? 'VENCE HOY' : (diff < 0 ? 'VENCIDA' : 'VENCE MAÑANA'), color: 'rose', weight: 3 };
+    const getUrgency = (fecha: string) => {
+        const diff = Math.ceil((new Date(fecha).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+        if (diff <= 1) return { label: diff === 0 ? 'VENCE HOY' : diff < 0 ? 'VENCIDA' : 'VENCE MAÑANA', color: 'rose', weight: 3 };
         if (diff <= 3) return { label: `En ${diff} días`, color: 'orange', weight: 2 };
         return { label: `En ${diff} días`, color: 'emerald', weight: 1 };
     };
 
-    const filteredOdps = activeOdps.filter(odp => {
-        const matchesSearch = odp.numero_odp.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                             odp.cliente.nombre_razon_social.toLowerCase().includes(searchTerm.toLowerCase());
-        
-        if (!matchesSearch) return false;
+    const fetchPanelDetail = async (odpId: number) => {
+        setPanelDetailLoading(true);
+        setOdpFullDetail(null);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.get(
+                `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/odp/${odpId}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setOdpFullDetail(res.data);
+            setPanelDetail({
+                pedidos_pv: res.data.pedidos_pv || [],
+                saps: res.data.saps || [],
+            });
+        } catch (error) {
+            console.error('Error fetching panel detail:', error);
+        } finally {
+            setPanelDetailLoading(false);
+        }
+    };
 
+    const handleSelectOdp = (odp: ODP) => {
+        setPanelOdp(odp);
+        setPanelDetail(null);
+        setPrintSap(null);
+        if (!notes[odp.id]) fetchNotes(odp.id);
+        fetchPanelDetail(odp.id);
+    };
+
+    const filteredOdps = activeOdps.filter(odp => {
+        const matchesSearch =
+            odp.numero_odp.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            odp.cliente.nombre_razon_social.toLowerCase().includes(searchTerm.toLowerCase());
+        if (!matchesSearch) return false;
         const urgency = getUrgency(odp.fecha_entrega);
         switch (filterType) {
             case 'URGENTES': return urgency.weight >= 2;
-            case 'PROVEEDOR': return odp.numero_pedido_proveedor && odp.estado_produccion === 'PEDIDO_PROVEEDOR';
             case 'PELICULA': return odp.pelicula;
-            case 'MATIZADO': return odp.matizado;
-            case 'HUACAL': return odp.huacal;
-            case 'CARTON': return odp.carton;
-            case 'NC': return odp.es_no_conformidad;
-            default: return true;
+            case 'HUACAL':   return odp.huacal;
+            case 'NC':       return odp.es_no_conformidad;
+            default:         return true;
         }
     }).sort((a, b) => new Date(a.fecha_entrega).getTime() - new Date(b.fecha_entrega).getTime());
 
-    const renderCheckItem = (odp: ODP, field: string, label: string, Icon: any, isAlwaysShown = false) => {
-        const fieldName = (field.startsWith('chk_') ? field : `chk_${field}`) as keyof ODP;
-        const isApplicable = isAlwaysShown || (odp as any)[field.replace('chk_', '')];
-        
-        if (!isApplicable) return null;
-
-        const checked = !!odp[fieldName as keyof ODP];
-        const dependsOnVidrio = ['chk_pelicula', 'chk_matizado', 'chk_huacal', 'chk_carton'].includes(fieldName);
-        const isLocked = dependsOnVidrio && !odp.chk_vidrio;
-
-        return (
-            <div 
-                key={field}
-                className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all cursor-pointer select-none
-                    ${checked ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 
-                      isLocked ? 'bg-slate-50 border-slate-100 text-slate-300 opacity-50 cursor-not-allowed' : 
-                      'bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:bg-slate-50'}`}
-                onClick={() => !isLocked && toggleCheck(odp, fieldName)}
-            >
-                <div className="relative">
-                    <Icon className={`w-6 h-6 mb-1 ${checked ? 'text-emerald-500' : isLocked ? 'text-slate-300' : 'text-slate-400'}`} />
-                    {isLocked && <Lock className="w-3 h-3 absolute -top-1 -right-1 text-rose-400" />}
-                    {checked && !isLocked && <CheckCircle2 className="w-4 h-4 absolute -bottom-1 -right-1 text-emerald-500 bg-white rounded-full" />}
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-tight text-center leading-none">{label}</span>
-            </div>
-        );
-    };
-
-    if (loading) return <div className="p-8 text-center text-slate-500 font-bold loading-pulse">Cargando Tablero de Taller...</div>;
+    if (loading) return (
+        <div className="p-8 text-center text-slate-500 font-bold">Cargando Tablero de Taller...</div>
+    );
 
     return (
-        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 text-slate-900">
-            {/* Header & Stats */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <>
+        <div className="p-4 md:p-6 max-w-[1700px] mx-auto space-y-4 text-slate-900">
+
+            {/* ── Header ── */}
+            <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                        <Wrench className="w-8 h-8 text-indigo-600" />
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                        <Wrench className="w-6 h-6 text-indigo-600" />
                         Control de Taller
                     </h1>
-                    <p className="text-slate-500 font-medium font-sans">Gestión dinámica de producción y bitácora</p>
+                    <p className="text-slate-500 text-sm font-medium">Gestión dinámica de producción y bitácora</p>
                 </div>
                 <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200">
-                   <div className="px-4 py-2 text-center border-r border-slate-100">
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Activas</p>
-                       <p className="text-xl font-black text-indigo-600 leading-none">{activeOdps.length}</p>
-                   </div>
-                   <div className="px-4 py-2 text-center border-r border-slate-100">
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Urgentes</p>
-                       <p className="text-xl font-black text-rose-600 leading-none">{activeOdps.filter(o => getUrgency(o.fecha_entrega).weight >= 2).length}</p>
-                   </div>
-                   <div className="px-4 py-2 text-center">
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Listas</p>
-                       <p className="text-xl font-black text-emerald-600 leading-none">{readyOdps.length}</p>
-                   </div>
-                </div>
-            </div>
-
-            {/* Filtros */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-4">
-                <div className="flex flex-col md:flex-row gap-4 items-center">
-                    <div className="relative flex-1 w-full">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input 
-                            type="text" 
-                            placeholder="Buscar por ODP o Cliente..."
-                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-medium text-sm bg-slate-50/30"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                    <div className="px-4 py-2 text-center border-r border-slate-100">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Activas</p>
+                        <p className="text-xl font-black text-indigo-600 leading-none">{activeOdps.length}</p>
                     </div>
-                    <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto no-scrollbar">
-                        {[
-                            { id: 'TODAS', label: 'Todas', icon: null },
-                            { id: 'URGENTES', label: 'Urgentes', icon: AlertCircle, color: ' rose' },
-                            { id: 'PELICULA', label: 'Película', icon: Film },
-                            { id: 'HUACAL', label: 'Huacal', icon: Box },
-                            { id: 'NC', label: 'NC', icon: AlertCircle, color: 'rose' }
-                        ].map(f => (
-                            <button
-                                key={f.id}
-                                onClick={() => setFilterType(f.id)}
-                                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap flex items-center gap-2 transition-all
-                                    ${filterType === f.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
-                            >
-                                {f.icon && <f.icon className="w-3.5 h-3.5" />}
-                                {f.label}
-                            </button>
-                        ))}
+                    <div className="px-4 py-2 text-center border-r border-slate-100">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Urgentes</p>
+                        <p className="text-xl font-black text-rose-600 leading-none">
+                            {activeOdps.filter(o => getUrgency(o.fecha_entrega).weight >= 2).length}
+                        </p>
+                    </div>
+                    <div className="px-4 py-2 text-center">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Listas</p>
+                        <p className="text-xl font-black text-emerald-600 leading-none">{readyOdps.length}</p>
                     </div>
                 </div>
             </div>
 
-            {/* Lista Scrollable */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center bg-stripes-slate">
-                    <h2 className="text-sm font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                        <Package className="w-4 h-4 text-indigo-500" />
-                        Línea de Producción ({filteredOdps.length})
-                    </h2>
+            {/* ── Filtros ── */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 flex flex-col md:flex-row gap-3 items-center">
+                <div className="relative flex-1 w-full">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                        type="text"
+                        placeholder="Buscar por ODP o Cliente..."
+                        className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-slate-50 transition-all"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                    />
                 </div>
+                <div className="flex gap-2 flex-shrink-0">
+                    {[
+                        { id: 'TODAS',    label: 'Todas' },
+                        { id: 'URGENTES', label: 'Urgentes', icon: AlertCircle },
+                        { id: 'PELICULA', label: 'Película',  icon: Film },
+                        { id: 'HUACAL',   label: 'Huacal',   icon: Box },
+                        { id: 'NC',       label: 'NC',        icon: AlertCircle },
+                    ].map(f => (
+                        <button
+                            key={f.id}
+                            onClick={() => setFilterType(f.id)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5 transition-all
+                                ${filterType === f.id
+                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                                    : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                        >
+                            {f.icon && <f.icon className="w-3 h-3" />}
+                            {f.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
 
-                <div className="max-h-[700px] overflow-y-auto overflow-x-hidden divide-y divide-slate-100 custom-scrollbar">
-                    {filteredOdps.length === 0 ? (
-                        <div className="p-12 text-center">
-                            <CheckCircle2 className="w-16 h-16 text-slate-100 mx-auto mb-4" />
-                            <p className="text-slate-400 font-bold">No hay órdenes que coincidan con los filtros.</p>
-                        </div>
-                    ) : (
-                        filteredOdps.map(odp => {
-                            const urgency = getUrgency(odp.fecha_entrega);
-                            const isExpanded = expandedOdpId === odp.id;
-                            
-                            // Calcular progreso dinámico
-                            const fields: string[] = [];
-                            if (odp.tomas_medidas?.length) fields.push('chk_medicion');
-                            if (odp.tiene_aluminio) { fields.push('chk_corte'); fields.push('chk_ensamble'); }
-                            if (odp.items?.length) fields.push('chk_vidrio');
-                            if (odp.saps?.length) fields.push('chk_accesorios');
-                            if (odp.matizado) fields.push('chk_matizado');
-                            if (odp.pelicula) fields.push('chk_pelicula');
-                            if (odp.huacal) fields.push('chk_huacal');
-                            if (odp.carton) fields.push('chk_carton');
-                            
-                            const done = fields.filter(f => (odp as any)[f]).length;
-                            const progress = (done / fields.length) * 100;
+            {/* ── Split Panel ── */}
+            <div className="flex gap-4 items-start">
 
-                            const missingTasks = fields.filter(f => !(odp as any)[f])
-                                .map(f => f.replace('chk_', '').toUpperCase());
+                {/* Matriz */}
+                <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                        <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                            <Package className="w-4 h-4 text-indigo-500" />
+                            Línea de Producción ({filteredOdps.length})
+                        </h2>
+                        <span className="text-[10px] text-slate-400 font-medium hidden md:block">
+                            Click en celda para marcar · Click en fila para ver detalle y bitácora
+                        </span>
+                    </div>
 
-                            return (
-                                <div key={odp.id} className={`transition-all ${isExpanded ? 'bg-indigo-50/20' : 'hover:bg-slate-50/50'}`}>
-                                    {/* Fila Colapsada */}
-                                    <div 
-                                        className={`flex flex-col md:flex-row items-center gap-4 p-4 cursor-pointer border-l-4 ${urgency.color === 'rose' ? 'border-rose-500' : urgency.color === 'orange' ? 'border-orange-500' : 'border-emerald-500'}`}
-                                        onClick={() => {
-                                            if (isExpanded) setExpandedOdpId(null);
-                                            else {
-                                                setExpandedOdpId(odp.id);
-                                                fetchNotes(odp.id);
-                                            }
-                                        }}
-                                    >
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-3 mb-1">
-                                                <span className="text-sm font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
-                                                    {odp.numero_odp}
-                                                </span>
-                                                {odp.es_no_conformidad && (
-                                                    <span className="text-[10px] font-black bg-rose-500 text-white px-2 py-0.5 rounded-full shadow-sm animate-pulse">
-                                                        REPROCESO
+                    <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
+                        <table className="w-full border-collapse">
+                            <thead className="sticky top-0 z-10">
+                                <tr className="bg-slate-50 border-b border-slate-200">
+                                    <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[220px] sticky left-0 bg-slate-50 z-20 border-r border-slate-200">
+                                        ODP / Cliente
+                                    </th>
+                                    {COLUMNS.map(col => (
+                                        <th key={col.key} className="px-2 py-3 text-center min-w-[72px]">
+                                            <div className="flex flex-col items-center gap-0.5">
+                                                <col.Icon className="w-3.5 h-3.5 text-slate-400" />
+                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">{col.label}</span>
+                                            </div>
+                                        </th>
+                                    ))}
+                                    <th className="px-2 py-3 text-center min-w-[56px]">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Avance</span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {filteredOdps.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={COLUMNS.length + 2} className="p-12 text-center">
+                                            <CheckCircle2 className="w-12 h-12 text-slate-100 mx-auto mb-3" />
+                                            <p className="text-slate-400 text-sm font-medium">No hay órdenes que coincidan.</p>
+                                        </td>
+                                    </tr>
+                                ) : filteredOdps.map(odp => {
+                                    const urgency    = getUrgency(odp.fecha_entrega);
+                                    const isSelected = panelOdp?.id === odp.id;
+                                    const applicable = COLUMNS.filter(c => isColApplicable(odp, c.key));
+                                    const done       = applicable.filter(c => (odp as any)[c.key]);
+                                    const progress   = applicable.length > 0
+                                        ? Math.round((done.length / applicable.length) * 100)
+                                        : 0;
+
+                                    const borderColor = urgency.color === 'rose'
+                                        ? 'border-rose-400'
+                                        : urgency.color === 'orange'
+                                        ? 'border-orange-400'
+                                        : 'border-emerald-400';
+
+                                    const rowBg = isSelected
+                                        ? 'bg-indigo-50/60'
+                                        : urgency.color === 'rose'
+                                        ? 'hover:bg-rose-50/20'
+                                        : urgency.color === 'orange'
+                                        ? 'hover:bg-orange-50/20'
+                                        : 'hover:bg-slate-50';
+
+                                    return (
+                                        <tr
+                                            key={odp.id}
+                                            onClick={() => handleSelectOdp(odp)}
+                                            className={`cursor-pointer transition-colors border-l-4 ${borderColor} ${rowBg}`}
+                                        >
+                                            {/* Columna ODP */}
+                                            <td className={`px-4 py-3 sticky left-0 z-10 border-r border-slate-100 ${isSelected ? 'bg-indigo-50/60' : 'bg-white'}`}>
+                                                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                                    <span
+                                                        className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors cursor-pointer"
+                                                        onClick={e => { e.stopPropagation(); setFichaOdpId(odp.id); }}
+                                                    >
+                                                        {odp.numero_odp}
                                                     </span>
-                                                )}
-                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg
-                                                    ${urgency.color === 'rose' ? 'bg-rose-50 text-rose-600 border border-rose-100' : 
-                                                      urgency.color === 'orange' ? 'bg-orange-50 text-orange-600 border border-orange-100' : 
-                                                      'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
-                                                    {urgency.label}
-                                                </span>
-                                            </div>
-                                            <h3 className="text-base font-bold text-slate-800 truncate">{odp.cliente.nombre_razon_social}</h3>
-                                        </div>
+                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded
+                                                        ${urgency.color === 'rose'   ? 'bg-rose-50 text-rose-600' :
+                                                          urgency.color === 'orange' ? 'bg-orange-50 text-orange-600' :
+                                                                                       'bg-emerald-50 text-emerald-600'}`}>
+                                                        {urgency.label}
+                                                    </span>
+                                                    {odp.es_no_conformidad && (
+                                                        <span className="text-[8px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded-full">NC</span>
+                                                    )}
+                                                </div>
+                                                <p className="text-sm font-bold text-slate-700 truncate max-w-[190px]">
+                                                    {odp.cliente.nombre_razon_social}
+                                                </p>
+                                            </td>
 
-                                        <div className="hidden lg:block flex-1 max-w-xs">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex justify-between items-center">
-                                                <span>Progreso:</span>
-                                                <span className="text-indigo-600">{Math.round(progress)}%</span>
-                                            </p>
-                                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                <motion.div 
-                                                    initial={{ width: 0 }} animate={{ width: `${progress}%` }}
-                                                    className={`h-full ${urgency.color === 'rose' ? 'bg-rose-500' : 'bg-indigo-500'}`}
-                                                />
-                                            </div>
-                                            <p className="text-[9px] font-medium text-slate-400 mt-1 truncate">
-                                                Falta: {missingTasks.length > 0 ? missingTasks.join(' · ') : 'NADA'}
-                                            </p>
-                                        </div>
+                                            {/* Celdas de tareas */}
+                                            {COLUMNS.map(col => {
+                                                const applicable = isColApplicable(odp, col.key);
+                                                const locked     = isColLocked(odp, col.key);
+                                                const checked    = !!(odp as any)[col.key];
 
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex -space-x-1.5 h-6">
-                                                {fields.slice(0, 5).map(f => (
-                                                    <div key={f} className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-[8px] font-black
-                                                        ${(odp as any)[f] ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                                                        {f.charAt(4).toUpperCase()}
-                                                    </div>
-                                                ))}
-                                                {fields.length > 5 && (
-                                                    <div className="w-6 h-6 rounded-full border-2 border-white bg-indigo-100 text-indigo-600 flex items-center justify-center text-[8px] font-black">
-                                                        +{fields.length - 5}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            {isExpanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
-                                        </div>
-                                    </div>
+                                                if (!applicable) {
+                                                    return (
+                                                        <td key={col.key} className="px-2 py-3 text-center">
+                                                            <span className="text-slate-200 text-sm select-none">—</span>
+                                                        </td>
+                                                    );
+                                                }
 
-                                    {/* Vista Expandida */}
-                                    <AnimatePresence>
-                                        {isExpanded && (
-                                            <motion.div 
-                                                initial={{ height: 0, opacity: 0 }}
-                                                animate={{ height: 'auto', opacity: 1 }}
-                                                exit={{ height: 0, opacity: 0 }}
-                                                className="overflow-hidden bg-white/50 border-t border-slate-100"
-                                            >
-                                                <div className="p-6 grid grid-cols-1 xl:grid-cols-12 gap-8">
-                                                    {/* Col 1: Checks & Info Técnica */}
-                                                    <div className="xl:col-span-7 space-y-6">
-                                                        <div>
-                                                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Checklist de Requisitos</h4>
-                                                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                                                                {odp.tomas_medidas && odp.tomas_medidas.length > 0 && (() => {
-                                                                    const tm = odp.tomas_medidas?.find(t => t.croquis_url);
-                                                                    const checked = odp.chk_medicion;
-                                                                    return (
-                                                                        <div
-                                                                            className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all select-none
-                                                                                ${checked ? 'bg-emerald-50 border-emerald-500 text-emerald-700 cursor-default' : 'bg-white border-slate-200 text-slate-500 cursor-pointer hover:border-indigo-300 hover:bg-slate-50'}`}
-                                                                            onClick={() => !checked && toggleCheck(odp, 'chk_medicion')}
-                                                                        >
-                                                                            <div className="relative">
-                                                                                <Ruler className={`w-6 h-6 mb-1 ${checked ? 'text-emerald-500' : 'text-slate-400'}`} />
-                                                                                {checked && <CheckCircle2 className="w-4 h-4 absolute -bottom-1 -right-1 text-emerald-500 bg-white rounded-full" />}
-                                                                            </div>
-                                                                            <span className="text-[10px] font-black uppercase tracking-tight text-center leading-none">Medición</span>
-                                                                            {tm && <span className="text-[9px] font-bold text-emerald-600 mt-0.5 leading-none">{tm.numero_tm}</span>}
-                                                                        </div>
-                                                                    );
-                                                                })()}
-                                                                {odp.tiene_aluminio && renderCheckItem(odp, 'chk_corte', 'Aluminio', Scissors, true)}
-                                                                {odp.items?.length > 0 && renderCheckItem(odp, 'chk_vidrio', 'Vidrio', Layers, true)}
-                                                                {!!odp.saps?.length && renderCheckItem(odp, 'chk_accesorios', 'Herrajes', Package, true)}
-                                                                {odp.tiene_aluminio && renderCheckItem(odp, 'chk_ensamble', 'Ensamble', Wrench, true)}
-                                                                {renderCheckItem(odp, 'chk_matizado', 'Matizado', Sparkles)}
-                                                                {renderCheckItem(odp, 'chk_pelicula', 'Película', Film)}
-                                                                {renderCheckItem(odp, 'chk_huacal', 'Huacal', Box)}
-                                                                {renderCheckItem(odp, 'chk_carton', 'Cartón', Archive)}
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                                                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center justify-between">
-                                                                <span>Detalle de Cristales</span>
-                                                                <button onClick={() => setSelectedODPDetail(odp)} className="text-indigo-600 hover:text-indigo-700 font-black text-[10px] uppercase">Ver Ficha Completa →</button>
-                                                            </h4>
-                                                            <div className="space-y-2">
-                                                                {odp.items?.map((item, i) => (
-                                                                    <div key={i} className="flex justify-between items-center text-xs p-2 rounded-lg bg-slate-50">
-                                                                        <span className="font-bold text-slate-700">{item.cantidad}x <span className="font-medium">{item.tipo_vidrio} {item.espesor}mm</span></span>
-                                                                        <span className="text-slate-500 font-mono">{item.ancho_mm} x {item.alto_mm}</span>
-                                                                    </div>
-                                                                ))}
-                                                                {(!odp.items || odp.items.length === 0) && <p className="text-xs text-slate-400 italic font-sans">No hay ítems registrados.</p>}
-                                                            </div>
-                                                            {odp.numero_pedido_proveedor && (
-                                                                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="bg-amber-50 p-1.5 rounded-lg">
-                                                                           <Truck className="w-3.5 h-3.5 text-amber-600" />
-                                                                        </div>
-                                                                        <div>
-                                                                            <p className="text-[9px] font-black text-slate-400 uppercase">Proveedor: {odp.proveedor_vidrio}</p>
-                                                                            <p className="text-xs font-bold text-slate-700 font-sans">Pedido #{odp.numero_pedido_proveedor}</p>
-                                                                        </div>
-                                                                    </div>
-                                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase
-                                                                        ${odp.chk_vidrio ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700 anim-pulse'}`}>
-                                                                        {odp.chk_vidrio ? 'Recibido ✅' : 'En Camino 🚚'}
-                                                                    </span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Col 2: Bitácora */}
-                                                    <div className="xl:col-span-5 flex flex-col h-full bg-slate-50/50 rounded-2xl border border-slate-200 p-4">
-                                                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                            <MessageSquare className="w-3.5 h-3.5" />
-                                                            Bitácora del Taller
-                                                        </h4>
-                                                        
-                                                        <div className="flex-1 overflow-y-auto max-h-[300px] space-y-3 mb-4 pr-1 scrolly">
-                                                            {(notes[odp.id]?.length || 0) === 0 ? (
-                                                                <p className="text-center text-xs text-slate-400 mt-8 italic font-sans">No hay notas registradas para esta ODP.</p>
+                                                return (
+                                                    <td
+                                                        key={col.key}
+                                                        className="px-2 py-3 text-center"
+                                                        onClick={e => { e.stopPropagation(); toggleCheck(odp, col.key); }}
+                                                    >
+                                                        <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border-2 transition-all mx-auto
+                                                            ${checked
+                                                                ? 'bg-emerald-50 border-emerald-400 text-emerald-600'
+                                                                : locked
+                                                                ? 'bg-slate-50 border-slate-100 cursor-not-allowed'
+                                                                : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer'}`}
+                                                        >
+                                                            {locked ? (
+                                                                <Lock className="w-4 h-4 text-slate-300" />
+                                                            ) : checked ? (
+                                                                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                                                             ) : (
-                                                                notes[odp.id].map(n => (
-                                                                    <div key={n.id} className="bg-white p-3 rounded-xl shadow-sm border border-slate-100">
-                                                                        <p className="text-xs text-slate-700 font-medium font-sans mb-1">{n.texto}</p>
-                                                                        <div className="flex justify-between items-center text-[9px] font-black text-slate-400 uppercase tracking-wider">
-                                                                            <span>{n.usuario.nombre_completo}</span>
-                                                                            <span>{new Date(n.fecha).toLocaleDateString()} {new Date(n.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                ))
+                                                                <col.Icon className="w-4 h-4" />
                                                             )}
                                                         </div>
+                                                    </td>
+                                                );
+                                            })}
 
-                                                        <div className="relative">
-                                                            <textarea 
-                                                                rows={2}
-                                                                className="w-full p-3 pr-10 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 resize-none font-medium font-sans bg-white"
-                                                                placeholder="Agregar una nota técnica..."
-                                                                value={newNote}
-                                                                onChange={(e) => setNewNote(e.target.value)}
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                                                        e.preventDefault();
-                                                                        handleAddNote(odp.id);
-                                                                    }
-                                                                }}
-                                                            />
-                                                            <button 
-                                                                onClick={() => handleAddNote(odp.id)}
-                                                                className="absolute right-2 bottom-2 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md shadow-indigo-100 transition-all"
-                                                            >
-                                                                <Plus className="w-3.5 h-3.5" />
-                                                            </button>
-                                                        </div>
+                                            {/* Progreso */}
+                                            <td className="px-2 py-3 text-center">
+                                                <div className="flex flex-col items-center gap-1.5">
+                                                    <span className={`text-xs font-black ${progress === 100 ? 'text-emerald-600' : 'text-slate-500'}`}>
+                                                        {progress}%
+                                                    </span>
+                                                    <div className="w-9 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full transition-all ${progress === 100 ? 'bg-emerald-500' : urgency.color === 'rose' ? 'bg-rose-500' : 'bg-indigo-500'}`}
+                                                            style={{ width: `${progress}%` }}
+                                                        />
                                                     </div>
                                                 </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Panel de Detalle */}
+                <div
+                    className={`w-[340px] flex-shrink-0 rounded-2xl border shadow-sm overflow-hidden transition-all sticky top-4
+                        ${panelOdp ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-200'}`}
+                    style={{ maxHeight: 'calc(100vh - 200px)' }}
+                >
+                    {!panelOdp ? (
+                        <div className="flex flex-col items-center justify-center h-72 text-center p-8">
+                            <MessageSquare className="w-10 h-10 text-slate-200 mb-3" />
+                            <p className="text-slate-400 text-sm font-medium leading-relaxed">
+                                Selecciona una ODP de la tabla para ver su detalle y bitácora
+                            </p>
+                        </div>
+                    ) : (() => {
+                        const urgency = getUrgency(panelOdp.fecha_entrega);
+                        return (
+                            <div className="flex flex-col" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+                                {/* Panel header */}
+                                <div className={`p-4 border-b border-slate-100 flex-shrink-0 border-l-4
+                                    ${urgency.color === 'rose'   ? 'border-rose-500 bg-rose-50/30' :
+                                      urgency.color === 'orange' ? 'border-orange-500 bg-orange-50/30' :
+                                                                   'border-emerald-500 bg-emerald-50/30'}`}
+                                >
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                <button
+                                                    className="text-sm font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors"
+                                                    onClick={() => setFichaOdpId(panelOdp.id)}
+                                                >
+                                                    {panelOdp.numero_odp}
+                                                </button>
+                                                <button
+                                                    onClick={() => setSelectedQR(panelOdp.numero_odp)}
+                                                    className="p-1.5 bg-slate-100 text-slate-400 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                                >
+                                                    <QrCode className="w-3.5 h-3.5" />
+                                                </button>
+                                                {panelOdp.es_no_conformidad && (
+                                                    <span className="text-[9px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded-full">REPROCESO</span>
+                                                )}
+                                            </div>
+                                            <p className="text-sm font-bold text-slate-800 leading-tight">{panelOdp.cliente.nombre_razon_social}</p>
+                                            <span className={`inline-block mt-1.5 text-[9px] font-black px-1.5 py-0.5 rounded
+                                                ${urgency.color === 'rose'   ? 'bg-rose-100 text-rose-600' :
+                                                  urgency.color === 'orange' ? 'bg-orange-100 text-orange-600' :
+                                                                               'bg-emerald-100 text-emerald-600'}`}>
+                                                {urgency.label}
+                                            </span>
+                                        </div>
+                                        <button
+                                            onClick={() => setPanelOdp(null)}
+                                            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors flex-shrink-0"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
-                            );
-                        })
-                    )}
+
+                                {/* Contenido scrollable */}
+                                <div className="flex-1 overflow-y-auto p-4 space-y-5">
+
+                                    {/* Cristales */}
+                                    {(panelOdp.items?.length || 0) > 0 && (
+                                        <div>
+                                            <div className="flex justify-between items-center mb-2">
+                                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cristales</h4>
+                                                <button
+                                                    onClick={() => setSelectedODPDetail(panelOdp)}
+                                                    className="text-[10px] font-black text-indigo-600 hover:text-indigo-700 uppercase"
+                                                >
+                                                    Ficha completa →
+                                                </button>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                {panelOdp.items.map((item, i) => (
+                                                    <div key={i} className="flex justify-between items-center text-xs p-2 rounded-lg bg-slate-50">
+                                                        <span className="font-bold text-slate-700">
+                                                            {item.cantidad}x <span className="font-medium">{item.tipo_vidrio} {item.espesor}mm</span>
+                                                        </span>
+                                                        <span className="text-slate-500 font-mono">{item.ancho_mm} × {item.alto_mm}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* ── Sección: Pedido PV (vidrio templado) ── */}
+                                    {panelDetailLoading && (
+                                        <div className="flex items-center justify-center gap-2 py-4 text-slate-400">
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <span className="text-xs font-medium">Cargando detalle...</span>
+                                        </div>
+                                    )}
+
+                                    {!panelDetailLoading && panelDetail && panelDetail.pedidos_pv.length > 0 && (() => {
+                                        const pvEstadoConfig: Record<string, { label: string; cls: string }> = {
+                                            PENDIENTE:             { label: 'Pendiente',           cls: 'bg-slate-100 text-slate-500' },
+                                            ENVIADO:               { label: 'Enviado',              cls: 'bg-blue-100 text-blue-700' },
+                                            CONFIRMADO_PROVEEDOR:  { label: 'Confirmado',           cls: 'bg-indigo-100 text-indigo-700' },
+                                            LLEGADO:               { label: 'Llegado — sin verif.', cls: 'bg-amber-100 text-amber-700' },
+                                            VERIFICADO:            { label: 'Verificado ✓',         cls: 'bg-emerald-100 text-emerald-700' },
+                                            PROBLEMA:              { label: '⚠ Problema',           cls: 'bg-rose-100 text-rose-700 animate-pulse' },
+                                        };
+                                        return (
+                                            <div>
+                                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                                    <Truck className="w-3 h-3" />
+                                                    Pedido de Vidrio
+                                                </h4>
+                                                <div className="space-y-2">
+                                                    {panelDetail.pedidos_pv.map(pv => {
+                                                        const cfg = pvEstadoConfig[pv.estado] ?? { label: pv.estado, cls: 'bg-slate-100 text-slate-500' };
+                                                        const hoy = new Date();
+                                                        let diasLabel: React.ReactNode = null;
+                                                        if (pv.fecha_entrega_prometida && pv.estado !== 'VERIFICADO') {
+                                                            const diff = Math.ceil((new Date(pv.fecha_entrega_prometida).getTime() - hoy.getTime()) / 86400000);
+                                                            diasLabel = diff < 0
+                                                                ? <span className="text-rose-600 font-black">Vencida hace {Math.abs(diff)}d</span>
+                                                                : diff === 0
+                                                                ? <span className="text-rose-600 font-black">Vence hoy</span>
+                                                                : <span className="text-slate-500">Faltan {diff}d</span>;
+                                                        }
+                                                        return (
+                                                            <div key={pv.id} className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+                                                                <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-slate-100">
+                                                                    <div>
+                                                                        <p className="text-[9px] font-black text-slate-400 uppercase">{pv.proveedor}</p>
+                                                                        <p className="text-xs font-black text-slate-800">#{pv.numero_pedido}</p>
+                                                                    </div>
+                                                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${cfg.cls}`}>
+                                                                        {cfg.label}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="px-3 py-2 space-y-1.5">
+                                                                    {pv.fecha_envio && (
+                                                                        <div className="flex items-center justify-between text-[10px]">
+                                                                            <span className="flex items-center gap-1 text-slate-400 font-medium">
+                                                                                <Clock className="w-3 h-3" /> Enviado
+                                                                            </span>
+                                                                            <span className="font-bold text-slate-600">
+                                                                                {new Date(pv.fecha_envio).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    {pv.fecha_entrega_prometida && (
+                                                                        <div className="flex items-center justify-between text-[10px]">
+                                                                            <span className="flex items-center gap-1 text-slate-400 font-medium">
+                                                                                <Calendar className="w-3 h-3" /> Prometida
+                                                                            </span>
+                                                                            <span className="font-bold text-slate-600 flex items-center gap-1.5">
+                                                                                {new Date(pv.fecha_entrega_prometida).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                                                                                {diasLabel && <span className="text-[9px]">({diasLabel})</span>}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    {pv.fecha_llegada_real && (
+                                                                        <div className="flex items-center justify-between text-[10px]">
+                                                                            <span className="flex items-center gap-1 text-slate-400 font-medium">
+                                                                                <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Llegó
+                                                                            </span>
+                                                                            <span className="font-bold text-emerald-600">
+                                                                                {new Date(pv.fecha_llegada_real).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                                                                                {pv.dias_diferencia !== null && (
+                                                                                    <span className={`ml-1 ${pv.dias_diferencia > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                                                                        ({pv.dias_diferencia > 0 ? `+${pv.dias_diferencia}d tarde` : `${Math.abs(pv.dias_diferencia)}d antes`})
+                                                                                    </span>
+                                                                                )}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                    {pv.observaciones && (
+                                                                        <p className="text-[9px] text-slate-500 italic border-t border-slate-100 pt-1.5 mt-1">
+                                                                            {pv.observaciones}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* ── Sección: SAP + ODC Perfilería ── */}
+                                    {!panelDetailLoading && panelDetail && panelDetail.saps.length > 0 && (() => {
+                                        const sapEstadoCfg: Record<string, string> = {
+                                            borrador: 'bg-slate-100 text-slate-500',
+                                            enviada:  'bg-blue-100 text-blue-700',
+                                            aprobada: 'bg-emerald-100 text-emerald-700',
+                                        };
+                                        const odcEstadoCfg = (estado: string) => {
+                                            const s = estado.toLowerCase();
+                                            if (s === 'recibida' || s === 'completada') return 'bg-emerald-100 text-emerald-700';
+                                            if (s === 'parcial') return 'bg-amber-100 text-amber-700';
+                                            return 'bg-slate-100 text-slate-500';
+                                        };
+                                        return (
+                                            <div>
+                                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                                    <ClipboardList className="w-3 h-3" />
+                                                    Perfilería / SAP
+                                                </h4>
+                                                <div className="space-y-2">
+                                                    {panelDetail.saps.map(sap => (
+                                                        <div key={sap.id} className="rounded-xl border border-slate-200 overflow-hidden">
+                                                            <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-slate-100">
+                                                                <div>
+                                                                    <p className="text-[9px] font-black text-slate-400 uppercase">Solicitud</p>
+                                                                    <button
+                                                                        className="text-xs font-black text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
+                                                                        onClick={() => {
+                                                                            const sapFull = odpFullDetail?.saps?.find((s: any) => s.id === sap.id);
+                                                                            if (sapFull && odpFullDetail) {
+                                                                                setPrintSap({ odp: odpFullDetail, sap: sapFull });
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        {sap.numero_sap}
+                                                                    </button>
+                                                                </div>
+                                                                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full capitalize ${sapEstadoCfg[sap.estado] ?? 'bg-slate-100 text-slate-500'}`}>
+                                                                    {sap.estado}
+                                                                </span>
+                                                            </div>
+                                                            {sap.ordenes_compra.filter(o => o.tipo === 'perfileria').length > 0 ? (
+                                                                <div className="bg-slate-50 px-3 py-2 space-y-1.5">
+                                                                    {sap.ordenes_compra.filter(o => o.tipo === 'perfileria').map(odc => (
+                                                                        <div key={odc.id} className="flex items-center justify-between text-[10px]">
+                                                                            <div>
+                                                                                <span className="font-black text-slate-700">{odc.numero_odc}</span>
+                                                                                <span className="text-slate-400 ml-1">· {odc.proveedor}</span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full capitalize ${odcEstadoCfg(odc.estado)}`}>
+                                                                                    {odc.estado}
+                                                                                </span>
+                                                                                {odc.fecha_recepcion && (
+                                                                                    <span className="text-[9px] text-emerald-600 font-bold">
+                                                                                        {new Date(odc.fecha_recepcion).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-[9px] text-slate-400 italic px-3 py-2 bg-slate-50">Sin ODC creada</p>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* ── Sección: ODC directa de vidrio (sin SAP) ── */}
+                                    {!panelDetailLoading && panelDetail && (() => {
+                                        const odcsVidrio = panelDetail.saps.flatMap(s => s.ordenes_compra.filter(o => o.tipo === 'vidrio'));
+                                        if (odcsVidrio.length === 0) return null;
+                                        const odcEstadoCfg = (estado: string) => {
+                                            const s = estado.toLowerCase();
+                                            if (s === 'recibida' || s === 'completada') return 'bg-emerald-100 text-emerald-700';
+                                            if (s === 'parcial') return 'bg-amber-100 text-amber-700';
+                                            return 'bg-slate-100 text-slate-500';
+                                        };
+                                        return (
+                                            <div>
+                                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                                    <ShoppingCart className="w-3 h-3" />
+                                                    ODC Vidrio
+                                                </h4>
+                                                <div className="space-y-1.5">
+                                                    {odcsVidrio.map(odc => (
+                                                        <div key={odc.id} className="flex items-center justify-between text-[10px] px-3 py-2 rounded-xl bg-slate-50 border border-slate-200">
+                                                            <div>
+                                                                <span className="font-black text-slate-700">{odc.numero_odc}</span>
+                                                                <span className="text-slate-400 ml-1">· {odc.proveedor}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full capitalize ${odcEstadoCfg(odc.estado)}`}>
+                                                                    {odc.estado}
+                                                                </span>
+                                                                {odc.fecha_recepcion && (
+                                                                    <span className="text-[9px] text-emerald-600 font-bold">
+                                                                        {new Date(odc.fecha_recepcion).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Bitácora */}
+                                    <div>
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                            <MessageSquare className="w-3 h-3" />
+                                            Bitácora del Taller
+                                        </h4>
+                                        <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1 mb-3">
+                                            {(notes[panelOdp.id]?.length || 0) === 0 ? (
+                                                <p className="text-center text-xs text-slate-400 py-6 italic">
+                                                    No hay notas registradas para esta ODP.
+                                                </p>
+                                            ) : notes[panelOdp.id].map(n => (
+                                                <div key={n.id} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                                    <p className="text-xs text-slate-700 mb-1 leading-relaxed">{n.texto}</p>
+                                                    <div className="flex justify-between text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                                                        <span>{n.usuario.nombre_completo}</span>
+                                                        <span>
+                                                            {new Date(n.fecha).toLocaleDateString()}{' '}
+                                                            {new Date(n.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="relative">
+                                            <textarea
+                                                rows={2}
+                                                className="w-full p-3 pr-10 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 resize-none bg-white transition-all"
+                                                placeholder="Agregar una nota técnica..."
+                                                value={newNotes[panelOdp.id] || ''}
+                                                onChange={e => setNewNotes(prev => ({ ...prev, [panelOdp.id]: e.target.value }))}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                                        e.preventDefault();
+                                                        handleAddNote(panelOdp.id);
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                onClick={() => handleAddNote(panelOdp.id)}
+                                                className="absolute right-2 bottom-2 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md shadow-indigo-100 transition-all"
+                                            >
+                                                <Plus className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
 
-            {/* SECCIÓN 2: LISTAS PARA DESPACHO */}
+            {/* ── Zona de Despacho ── */}
             {readyOdps.length > 0 && (
-                <div className="bg-emerald-50 rounded-3xl border-2 border-emerald-100 overflow-hidden shadow-xl mt-8">
-                    <div className="bg-emerald-500/10 px-6 py-5 border-b border-emerald-100 flex items-center justify-between">
-                        <h2 className="text-xl font-black text-emerald-800 flex items-center gap-3">
-                            <Truck className="w-6 h-6" />
+                <div className="bg-emerald-50 rounded-3xl border-2 border-emerald-100 overflow-hidden shadow-xl mt-2">
+                    <div className="bg-emerald-500/10 px-6 py-4 border-b border-emerald-100 flex items-center justify-between">
+                        <h2 className="text-lg font-black text-emerald-800 flex items-center gap-2">
+                            <Truck className="w-5 h-5" />
                             Zona de Despacho e Instalación
                         </h2>
-                        <span className="bg-emerald-500 text-white font-black px-4 py-1.5 rounded-full text-xs shadow-lg shadow-emerald-100">
+                        <span className="bg-emerald-500 text-white font-black px-3 py-1.5 rounded-full text-xs shadow-lg shadow-emerald-100">
                             {readyOdps.length} ÓRDENES LISTAS ✅
                         </span>
                     </div>
-                    <div className="p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div className="p-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                         {readyOdps.map(odp => (
-                            <div key={odp.id} className="bg-white border-2 border-emerald-100 p-5 rounded-3xl shadow-sm hover:shadow-xl transition-all group">
-                                <div className="flex justify-between items-start mb-4">
-                                    <span className="font-black text-emerald-700 bg-emerald-50 px-3 py-1 rounded-xl text-sm border border-emerald-100">
+                            <div key={odp.id} className="bg-white border-2 border-emerald-100 p-4 rounded-2xl shadow-sm hover:shadow-lg transition-all">
+                                <div className="flex justify-between items-start mb-3">
+                                    <span
+                                        className="font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-xl text-sm border border-emerald-100 cursor-pointer hover:bg-emerald-100 transition-colors"
+                                        onClick={() => setFichaOdpId(odp.id)}
+                                    >
                                         {odp.numero_odp}
                                     </span>
-                                    <button 
+                                    <button
                                         onClick={() => setSelectedQR(odp.numero_odp)}
-                                        className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                        className="p-1.5 bg-slate-50 text-slate-400 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
                                     >
-                                        <QrCode className="w-5 h-5" />
+                                        <QrCode className="w-4 h-4" />
                                     </button>
                                 </div>
-                                <h3 className="text-base font-black text-slate-800 truncate font-sans">{odp.cliente.nombre_razon_social}</h3>
-                                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest mt-2">Lista para instalación</p>
+                                <h3 className="text-sm font-bold text-slate-800 truncate">{odp.cliente.nombre_razon_social}</h3>
+                                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest mt-1">Lista para instalación</p>
                             </div>
                         ))}
                     </div>
                 </div>
             )}
 
-
-            {/* Modals */}
+            {/* ── Modal QR ── */}
             <AnimatePresence>
                 {selectedQR && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-                        <motion.div 
+                        <motion.div
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
@@ -571,19 +920,18 @@ const ProduccionPage: React.FC = () => {
                                     <QrCode className="w-8 h-8" />
                                 </div>
                                 <h3 className="font-black text-2xl tracking-tight">Etiqueta de ODP</h3>
-                                <p className="text-indigo-100 text-sm mt-1 font-sans">Identificador de producción</p>
+                                <p className="text-indigo-100 text-sm mt-1">Identificador de producción</p>
                             </div>
                             <div className="p-10 flex flex-col items-center justify-center">
                                 <div className="bg-white p-6 rounded-[40px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-slate-100">
-                                    <QRCodeSVG 
-                                        value={`${process.env.REACT_APP_URL || window.location.origin}/odp-search?q=${selectedQR}`} 
-                                        size={180} 
-                                        bgColor={"#ffffff"}
-                                        fgColor={"#1e293b"}
-                                        level={"Q"}
+                                    <QRCodeSVG
+                                        value={`${process.env.REACT_APP_URL || window.location.origin}/odp-search?q=${selectedQR}`}
+                                        size={180} bgColor="#ffffff" fgColor="#1e293b" level="Q"
                                     />
                                 </div>
-                                <p className="mt-8 text-3xl font-black text-indigo-900 tracking-[0.2em] bg-indigo-50 px-8 py-3 rounded-2xl border border-indigo-100">{selectedQR}</p>
+                                <p className="mt-8 text-3xl font-black text-indigo-900 tracking-[0.2em] bg-indigo-50 px-8 py-3 rounded-2xl border border-indigo-100">
+                                    {selectedQR}
+                                </p>
                             </div>
                             <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
                                 <button
@@ -592,7 +940,7 @@ const ProduccionPage: React.FC = () => {
                                 >
                                     Cerrar
                                 </button>
-                                <button className="flex-1 px-6 py-4 font-black text-white bg-indigo-600 rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 uppercase text-xs tracking-widest active:scale-95 font-sans">
+                                <button className="flex-1 px-6 py-4 font-black text-white bg-indigo-600 rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 uppercase text-xs tracking-widest active:scale-95">
                                     Imprimir
                                 </button>
                             </div>
@@ -602,26 +950,45 @@ const ProduccionPage: React.FC = () => {
             </AnimatePresence>
 
             {selectedODPDetail && (
-                <ODPMatrixModal 
-                    onClose={() => setSelectedODPDetail(null)}
-                    odp={selectedODPDetail}
-                />
+                <ODPMatrixModal onClose={() => setSelectedODPDetail(null)} odp={selectedODPDetail} />
             )}
 
-            <style>{`
-                .no-scrollbar::-webkit-scrollbar { display: none; }
-                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-                .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
-                .scrolly::-webkit-scrollbar { width: 4px; }
-                .scrolly::-webkit-scrollbar-track { background: transparent; }
-                .scrolly::-webkit-scrollbar-thumb { background: #f1f5f9; border-radius: 10px; }
-                .anim-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-                @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-            `}</style>
+            {/* ── Modal imprimible SAP ── */}
+            {printSap && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0 print:hidden">
+                            <div>
+                                <h3 className="text-base font-black text-slate-800">
+                                    SAP — {printSap.sap.numero_sap}
+                                </h3>
+                                <p className="text-xs text-slate-500 font-medium">{printSap.odp.numero_odp} · {printSap.odp.cliente?.nombre_razon_social}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => window.print()}
+                                    className="px-4 py-2 bg-indigo-600 text-white text-xs font-black rounded-xl hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-100 uppercase tracking-wider"
+                                >
+                                    Imprimir
+                                </button>
+                                <button
+                                    onClick={() => setPrintSap(null)}
+                                    className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="flex-1 overflow-auto p-4 bg-slate-50 print:p-0 print:bg-white">
+                            <PrintableSAP odp={printSap.odp} sap={printSap.sap} />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
+
+        {fichaOdpId && <ODPFichaModal odpId={fichaOdpId} onClose={() => setFichaOdpId(null)} />}
+        </>
     );
 };
 

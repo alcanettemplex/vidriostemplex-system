@@ -151,6 +151,8 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
       proveedor_vidrio, numero_pedido_proveedor,
       // Para contacto nuevo: cliente_id existente o datos de nuevo cliente
       cliente_id: cliente_id_body, nuevo_cliente,
+      // asesor_id opcional: si se pasa, asigna la ODP a ese asesor; si no, al usuario logueado
+      asesor_id: asesor_id_body,
     } = req.body;
     const userId = req.user?.id;
 
@@ -228,7 +230,7 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
     const odp = await ODPModel.create({
       numero_odp,
       cliente_id: cliente_id_final,
-      asesor_id: userId,
+      asesor_id: asesor_id_body || userId,
       estado_produccion: 'EN_ESPERA',
       tipo_servicio,
       descripcion_pedido,

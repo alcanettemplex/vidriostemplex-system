@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
+import ODPFichaModal from '../odp/components/ODPFichaModal';
 import {
   Calculator, DollarSign, FileCheck, AlertCircle,
   CreditCard, Plus, X, Receipt, Clock, Banknote, TrendingDown,
@@ -15,7 +16,7 @@ const headers = () => ({ Authorization: `Bearer ${getToken()}` });
 const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 const fmtFecha = (f: string | null | undefined) => {
   if (!f) return '—';
-  try { return new Date(f).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return f; }
+  try { return new Date(f).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'America/Bogota' }); } catch { return f; }
 };
 
 const BANCOS_COLOMBIA = [
@@ -30,7 +31,7 @@ const METODOS_PAGO = ['Efectivo', 'Tarjeta', 'Transferencia'];
 type Tab = 'estado_caja' | 'pagos' | 'cartera';
 
 const emptyPagoForm = () => ({
-  odp_id: '', monto: '', metodo_pago: 'Transferencia', banco: '', referencia_pago: '', observaciones: '',
+  odp_id: '', monto: '', diferencia: '0', metodo_pago: 'Transferencia', banco: '', referencia_pago: '', observaciones: '',
   fecha: new Date().toISOString().split('T')[0],
 });
 
@@ -41,6 +42,7 @@ const ContabilidadPage: React.FC = () => {
   const [odps, setOdps] = useState<any[]>([]);
   const [loadingOdps, setLoadingOdps] = useState(true);
   const [filterEstadoCaja, setFilterEstadoCaja] = useState('todos');
+  const [filterBusqueda, setFilterBusqueda] = useState('');
 
   // ─── Resumen / pagos ─────────────────────────────────────────────────────
   const [resumen, setResumen] = useState<any>(null);
@@ -54,6 +56,7 @@ const ContabilidadPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
 
   // ─── Modal FE (nueva o edición) ──────────────────────────────────────────
+  const [fichaOdpId, setFichaOdpId] = useState<number | null>(null);
   const [showFeModal, setShowFeModal] = useState(false);
   const [feTarget, setFeTarget] = useState<{ id: number; numero_odp: string } | null>(null);
   const [feForm, setFeForm] = useState({ numero_fe: '', fecha_fe: '' });
@@ -137,7 +140,10 @@ const ContabilidadPage: React.FC = () => {
   // ─── Handlers estado caja / facturación ──────────────────────────────────
   const updateCaja = async (id: number, campo: string, valor: string) => {
     try {
-      await axios.put(`${API}/api/odp/${id}`, { [campo]: valor }, { headers: headers() });
+      const endpoint = campo === 'estado_caja'
+        ? `${API}/api/odp/${id}/caja`
+        : `${API}/api/odp/${id}/facturar`;
+      await axios.patch(endpoint, { [campo]: valor }, { headers: headers() });
       setOdps(prev => prev.map(o => o.id === id ? { ...o, [campo]: valor } : o));
       toast.success('Estado actualizado');
     } catch { toast.error('Error al actualizar estado'); }
@@ -167,7 +173,7 @@ const ContabilidadPage: React.FC = () => {
     if (!feForm.fecha_fe) { toast.error('Ingresa la fecha de la factura'); return; }
     setSubmittingFe(true);
     try {
-      await axios.put(`${API}/api/odp/${feTarget.id}`, {
+      await axios.patch(`${API}/api/odp/${feTarget.id}/facturar`, {
         estado_facturacion: 'FACTURADA',
         factura_electronica: feForm.numero_fe.trim(),
         fecha_factura: feForm.fecha_fe,
@@ -195,6 +201,7 @@ const ContabilidadPage: React.FC = () => {
       const payload = {
         odp_id: Number(pagoForm.odp_id),
         monto: Number(pagoForm.monto),
+        diferencia: Number(pagoForm.diferencia) || 0,
         metodo_pago: pagoForm.metodo_pago === 'Transferencia' ? pagoForm.banco : pagoForm.metodo_pago,
         referencia_pago: pagoForm.referencia_pago || undefined,
         observaciones: pagoForm.observaciones || undefined,
@@ -314,7 +321,18 @@ const ContabilidadPage: React.FC = () => {
     return '';
   };
 
-  const filtradas = filterEstadoCaja === 'todos' ? odps : odps.filter(o => o.estado_caja === filterEstadoCaja);
+  const filtradas = odps.filter(o => {
+    if (filterEstadoCaja !== 'todos' && o.estado_caja !== filterEstadoCaja) return false;
+    if (filterBusqueda) {
+      const q = filterBusqueda.toLowerCase();
+      return (
+        o.numero_odp?.toLowerCase().includes(q) ||
+        o.cliente?.nombre_razon_social?.toLowerCase().includes(q) ||
+        o.asesor?.nombre_completo?.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
 
   const sortedFiltradas = useMemo(() => {
     if (!sortCol) return filtradas;
@@ -438,6 +456,15 @@ const ContabilidadPage: React.FC = () => {
                   {f === 'todos' ? 'Todos' : f.replace('_', ' ')}
                 </button>
               ))}
+              <div className="ml-auto">
+                <input
+                  type="text"
+                  value={filterBusqueda}
+                  onChange={e => setFilterBusqueda(e.target.value)}
+                  placeholder="Buscar ODP, cliente o asesor..."
+                  className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 w-56 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                />
+              </div>
             </div>
             <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 390px)', minHeight: '300px' }}>
               <table className="w-full text-sm">
@@ -485,7 +512,7 @@ const ContabilidadPage: React.FC = () => {
                     <tr><td colSpan={12} className="text-center py-12 text-slate-400 font-bold">No hay registros que mostrar.</td></tr>
                   ) : sortedFiltradas.map(odp => (
                     <tr key={odp.id} className={`hover:bg-slate-50 transition-colors ${rowColorCredito(odp)}`}>
-                      <td className="px-4 py-4 font-bold text-indigo-700 whitespace-nowrap">{odp.numero_odp}</td>
+                      <td className="px-4 py-4 font-bold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => setFichaOdpId(odp.id)}>{odp.numero_odp}</td>
                       <td className="px-4 py-4 text-slate-500 text-xs whitespace-nowrap">
                         <div className="flex items-center gap-1">
                           <Calendar className="w-3 h-3 text-slate-400" />
@@ -828,11 +855,18 @@ const ContabilidadPage: React.FC = () => {
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Fecha Pago *</label>
-                  <input type="date" value={pagoForm.fecha} onChange={e => setPagoForm(p => ({ ...p, fecha: e.target.value }))}
-                    required
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm" />
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Diferencia (COP)</label>
+                  <input type="number" value={pagoForm.diferencia} onChange={e => setPagoForm(p => ({ ...p, diferencia: e.target.value }))}
+                    placeholder="0" min="0"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 shadow-sm" />
+                  <p className="text-[10px] text-slate-400 mt-1">Descuento adicional (no cuenta en abono estadístico)</p>
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Fecha Pago *</label>
+                <input type="date" value={pagoForm.fecha} onChange={e => setPagoForm(p => ({ ...p, fecha: e.target.value }))}
+                  required
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Forma de Pago *</label>
@@ -1039,6 +1073,8 @@ const ContabilidadPage: React.FC = () => {
           </motion.div>
         </div>
       )}
+
+      {fichaOdpId && <ODPFichaModal odpId={fichaOdpId} onClose={() => setFichaOdpId(null)} />}
     </div>
   );
 };

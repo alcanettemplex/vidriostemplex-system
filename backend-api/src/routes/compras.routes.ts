@@ -15,6 +15,7 @@ import {
   getCodigosPerfileria,
   getVidriosPorGestionar,
   getVidriosPanel,
+  getVidriosExistencia,
   createODCVidrios,
   updateEstadoItemVidrio,
 } from '../controllers/odc.controller';
@@ -44,8 +45,9 @@ router.patch('/sap-item/:id/exist-perf', authMiddleware, rc('admin', 'compras'),
 router.delete('/inventario-perfileria/:consecutivo', authMiddleware, rc('admin', 'compras'), deleteInventarioPerfileria);
 
 // Vidrios - VER: todos + jefe_produccion; CRUD: solo compras
-router.get('/vidrios/panel', authMiddleware, getVidriosPanel);   // lista plana por tipo_vidrio
-router.get('/vidrios', authMiddleware, getVidriosPorGestionar);   // backward compat (vista por ODP)
+router.get('/vidrios/panel', authMiddleware, getVidriosPanel);         // lista plana por tipo_vidrio (pendientes)
+router.get('/vidrios/existencia', authMiddleware, getVidriosExistencia); // items en_existencia (no ENTREGADA)
+router.get('/vidrios', authMiddleware, getVidriosPorGestionar);         // backward compat (vista por ODP)
 router.post('/vidrios/odc', authMiddleware, rc('admin', 'compras'), createODCVidrios);
 router.patch('/vidrios/item/:id/estado', authMiddleware, rc('admin', 'compras'), updateEstadoItemVidrio);
 

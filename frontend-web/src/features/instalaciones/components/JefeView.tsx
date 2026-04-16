@@ -196,16 +196,19 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                     {ruta.conductor && (
                       <span className="flex items-center gap-1">🧑‍✈️ {ruta.conductor.nombre_completo}</span>
                     )}
+                    {ruta.oficial && (
+                      <span className="flex items-center gap-1 text-indigo-600 font-semibold">⭐ Oficial: {ruta.oficial.nombre_completo}</span>
+                    )}
                     {ruta.instaladores?.length > 0 && (
                       <span className="flex items-center gap-1"><Users className="w-3 h-3" />{ruta.instaladores.map((i: any) => i.nombre_completo).join(', ')}</span>
                     )}
                   </div>
-                  {ruta.estado !== 'completada' && !readOnly && (
+                  {!readOnly && (ruta.estado === 'programada' || ruta.estado === 'en_curso') && (
                     <div className="flex gap-1">
-                      <button onClick={() => handleEditar(ruta)} className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-500">
+                      <button onClick={() => handleEditar(ruta)} className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-500" title="Editar / reprogramar ruta">
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => handleCancelar(ruta.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-400">
+                      <button onClick={() => handleCancelar(ruta.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-400" title="Cancelar ruta">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>

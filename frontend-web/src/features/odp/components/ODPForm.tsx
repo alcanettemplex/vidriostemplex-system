@@ -102,6 +102,7 @@ interface ODPFormProps {
     onClose: () => void;
     onSuccess: () => void;
     odpToEdit?: any;
+    asesorId?: number | null; // si se proporciona, sobreescribe el asesor del usuario logueado
 }
 
 type CatalogoItem = { id: number; categoria: string; nombre: string; descripcion: string };
@@ -129,7 +130,7 @@ const ColorField: React.FC<{ index: number; register: any; control: any }> = ({ 
     );
 };
 
-const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
+const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesorId }) => {
     const [step, setStep] = useState(1);
     const [clientes, setClientes] = useState<{ id: number; nombre_razon_social: string }[]>([]);
     const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
@@ -245,6 +246,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit }) => {
                 tipo_servicio: data.servicios_detalle[0].tipo_servicio,
                 descripcion_pedido: data.servicios_detalle.map(s => `${s.cantidad}x ${s.tipo_servicio}: ${s.descripcion}`).join('\n'),
                 ...(!odpToEdit && requiere_visita_tecnica ? { estado_produccion: 'VISITA_TECNICA' } : {}),
+                // Si se asignó a otro asesor desde el modal previo, incluir en el payload
+                ...(asesorId ? { asesor_id: asesorId } : {}),
             };
 
             if (odpToEdit) {

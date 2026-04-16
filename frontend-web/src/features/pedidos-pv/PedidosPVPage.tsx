@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useDataChangedSocket } from '../../store/useSocketNotifications';
 import axios from 'axios';
+import ODPFichaModal from '../odp/components/ODPFichaModal';
 import { useSelector } from 'react-redux';
 import {
   Box, Typography, Chip, CircularProgress, Alert, Button, Dialog, DialogTitle,
@@ -252,6 +253,7 @@ const PedidosPVPage: React.FC = () => {
   const [obsVerificacion, setObsVerificacion] = useState('');
 
   const [modalDetalle, setModalDetalle] = useState<PedidoPV | null>(null);
+  const [fichaOdpId, setFichaOdpId] = useState<number | null>(null);
 
   // ─── Impresión ────────────────────────────────────────────────────────────
   const [printData, setPrintData] = useState<{ pedido: PedidoPV; odp: any } | null>(null);
@@ -695,7 +697,8 @@ const PedidosPVPage: React.FC = () => {
                               )}
                             </TableCell>
                             {/* ODP */}
-                            <TableCell sx={{ fontSize: 13, fontWeight: 600, color: 'primary.main' }}>
+                            <TableCell sx={{ fontSize: 13, fontWeight: 600, color: 'primary.main', cursor: p.odp_id ? 'pointer' : 'default', textDecoration: p.odp_id ? 'underline' : 'none' }}
+                              onClick={() => p.odp_id && setFichaOdpId(p.odp_id)}>
                               {p.odp?.numero_odp || '—'}
                             </TableCell>
                             {/* Fecha ODP */}
@@ -847,7 +850,8 @@ const PedidosPVPage: React.FC = () => {
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                           <Box>
                             <Stack direction="row" gap={1} alignItems="center" mb={0.5}>
-                              <Typography fontWeight={700} fontSize={15}>
+                              <Typography fontWeight={700} fontSize={15} sx={{ cursor: pv.odp_id ? 'pointer' : 'default', color: 'primary.main', '&:hover': { textDecoration: pv.odp_id ? 'underline' : 'none' } }}
+                                onClick={() => pv.odp_id && setFichaOdpId(pv.odp_id)}>
                                 {odp?.numero_odp || '—'}
                               </Typography>
                               <Chip label={`PV ${pv.numero_pedido}`} size="small" color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
@@ -1281,6 +1285,8 @@ const PedidosPVPage: React.FC = () => {
           <Button onClick={() => setModalDetalle(null)}>Cerrar</Button>
         </DialogActions>
       </Dialog>
+
+      {fichaOdpId && <ODPFichaModal odpId={fichaOdpId} onClose={() => setFichaOdpId(null)} />}
     </Box>
   );
 };

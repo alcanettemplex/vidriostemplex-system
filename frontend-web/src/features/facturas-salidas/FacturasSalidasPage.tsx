@@ -3,6 +3,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
+import ODPFichaModal from '../odp/components/ODPFichaModal';
 import {
   FileCheck, Warehouse, Plus, Pencil, Trash2, X, RefreshCw,
 } from 'lucide-react';
@@ -56,6 +57,7 @@ const FacturasSalidasPage: React.FC = () => {
 
   // Modal crear/editar SA
   const [modalSA, setModalSA] = useState<{ odp?: ODPFacturada; salida?: SalidaAlmacen } | null>(null);
+  const [fichaOdpId, setFichaOdpId] = useState<number | null>(null);
   const [formSA, setFormSA] = useState({ numero: '', fecha: '' });
   const [savingSA, setSavingSA] = useState(false);
 
@@ -241,7 +243,7 @@ const FacturasSalidasPage: React.FC = () => {
                   ) : facturadasFiltradas.map(odp => (
                     <motion.tr key={odp.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                       className="hover:bg-slate-50 transition-colors">
-                      <td className="px-5 py-4 font-mono font-bold text-slate-800">{odp.numero_odp}</td>
+                      <td className="px-5 py-4 font-mono font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => setFichaOdpId(odp.id)}>{odp.numero_odp}</td>
                       <td className="px-5 py-4 text-slate-700">{odp.cliente?.nombre_razon_social || '—'}</td>
                       <td className="px-5 py-4 text-slate-600">{fmtFecha(odp.fecha_factura)}</td>
                       <td className="px-5 py-4">
@@ -285,7 +287,7 @@ const FacturasSalidasPage: React.FC = () => {
                   ) : conSalidaFiltradas.map(s => (
                     <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                       className="hover:bg-slate-50 transition-colors">
-                      <td className="px-5 py-4 font-mono font-bold text-slate-800">{s.odp?.numero_odp}</td>
+                      <td className="px-5 py-4 font-mono font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => s.odp?.id && setFichaOdpId(s.odp.id)}>{s.odp?.numero_odp}</td>
                       <td className="px-5 py-4 text-slate-700">{s.odp?.cliente?.nombre_razon_social || '—'}</td>
                       <td className="px-5 py-4">
                         {s.odp?.factura_electronica
@@ -382,6 +384,7 @@ const FacturasSalidasPage: React.FC = () => {
           </motion.div>
         </div>
       )}
+    {fichaOdpId && <ODPFichaModal odpId={fichaOdpId} onClose={() => setFichaOdpId(null)} />}
     </div>
   );
 };

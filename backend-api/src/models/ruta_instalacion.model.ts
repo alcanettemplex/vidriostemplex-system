@@ -12,8 +12,10 @@ RutaInstalacion.init({
     type: DataTypes.ENUM('programada', 'en_curso', 'completada', 'cancelada'),
     defaultValue: 'programada',
   },
+  oficial_id:    { type: DataTypes.INTEGER, allowNull: true },
   observaciones: { type: DataTypes.TEXT, allowNull: true },
   inicio_ruta:   { type: DataTypes.DATE, allowNull: true },
+  fin_ruta:      { type: DataTypes.DATE, allowNull: true },
   creado_en:     { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 }, {
   sequelize,
