@@ -252,15 +252,16 @@ const DetalleModal: React.FC<{
                 className="py-2.5 text-sm font-bold border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition">
                 Editar
               </button>
-              {p.tomas_medidas.length === 0 ? (
-                <button onClick={onSolicitarTM}
-                  className="py-2.5 text-sm font-bold bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition flex items-center justify-center gap-1.5">
-                  <Ruler className="w-3.5 h-3.5" /> Solicitar TM
+              {p.tomas_medidas.some(tm => ['solicitada', 'programada'].includes(tm.estado)) ? (
+                <button disabled title="Ya hay una toma de medidas pendiente"
+                  className="py-2.5 text-sm font-bold bg-slate-100 text-slate-400 rounded-xl border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5">
+                  <Ruler className="w-3.5 h-3.5" /> TM en curso
                 </button>
               ) : (
-                <button disabled title="Próximamente disponible"
-                  className="py-2.5 text-sm font-bold bg-slate-100 text-slate-400 rounded-xl border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5" /> Cotización
+                <button onClick={onSolicitarTM}
+                  className="py-2.5 text-sm font-bold bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition flex items-center justify-center gap-1.5">
+                  <Ruler className="w-3.5 h-3.5" />
+                  {p.tomas_medidas.length === 0 ? 'Solicitar TM' : 'Nueva TM'}
                 </button>
               )}
             </div>
