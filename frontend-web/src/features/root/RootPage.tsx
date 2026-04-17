@@ -620,6 +620,7 @@ const TabBackup: React.FC = () => {
 // ─── Tab Mantenimiento ────────────────────────────────────────────────────────
 const TAREAS = [
   { id: 'resumen_inconsistencias', label: 'Resumen de inconsistencias', desc: 'Vista global de registros con referencias rotas', method: 'GET' },
+  { id: 'tm_inconsistencias', label: 'TMs con triángulo roto (TM↔ODP↔Prospecto)', desc: 'TMs vinculadas a ODP cuyo Prospecto no refleja la misma ODP — requiere corrección manual', method: 'GET', warning: true },
   { id: 'odps_inconsistentes', label: 'ODPs con estado inconsistente', desc: 'ODPs con combinaciones de estado inválidas', method: 'GET' },
   { id: 'pagos_huerfanos', label: 'Pagos huérfanos', desc: 'Pagos sin ODP asociada en el sistema', method: 'GET' },
   { id: 'integridad_referencial', label: 'Integridad referencial', desc: 'Verifica claves foráneas entre tablas principales', method: 'GET' },
@@ -662,7 +663,51 @@ const TabMantenimiento: React.FC = () => {
                 {running === tarea.id ? 'Ejecutando...' : 'Ejecutar'}
               </button>
             </div>
-            {resultado && (
+            {resultado && tarea.id === 'tm_inconsistencias' ? (
+              <div className="mt-3">
+                {resultado.total === 0 ? (
+                  <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2 text-xs font-bold">
+                    ✓ Sin inconsistencias detectadas
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-xs font-bold mb-2">
+                      ⚠ {resultado.total} registro{resultado.total !== 1 ? 's' : ''} con triángulo roto
+                    </div>
+                    <div className="overflow-auto max-h-64 rounded-lg border border-slate-200">
+                      <table className="w-full text-[11px]">
+                        <thead className="bg-slate-100 text-slate-600 uppercase tracking-wide">
+                          <tr>
+                            <th className="text-left px-3 py-2">TM</th>
+                            <th className="text-left px-3 py-2">Estado TM</th>
+                            <th className="text-left px-3 py-2">ODP vinculada</th>
+                            <th className="text-left px-3 py-2">Prospecto</th>
+                            <th className="text-left px-3 py-2">Estado PR</th>
+                            <th className="text-left px-3 py-2">ODP en PR</th>
+                            <th className="text-left px-3 py-2">Cliente</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {resultado.registros.map((r: any) => (
+                            <tr key={r.tm_id} className="border-t border-slate-100 hover:bg-amber-50">
+                              <td className="px-3 py-1.5 font-bold text-amber-700">{r.numero_tm}</td>
+                              <td className="px-3 py-1.5">{r.tm_estado}</td>
+                              <td className="px-3 py-1.5 font-medium text-slate-700">{r.numero_odp || '—'}</td>
+                              <td className="px-3 py-1.5 font-bold text-sky-700">{r.numero_prospecto}</td>
+                              <td className="px-3 py-1.5">{r.pr_estado}</td>
+                              <td className={`px-3 py-1.5 font-bold ${r.pr_odp_id ? 'text-slate-500' : 'text-red-600'}`}>
+                                {r.pr_odp_id ? `ODP-${r.pr_odp_id}` : 'SIN ODP'}
+                              </td>
+                              <td className="px-3 py-1.5 text-slate-500">{r.cliente || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : resultado && (
               <pre className="mt-3 text-[11px] bg-slate-50 border border-slate-200 rounded-lg p-3 overflow-auto max-h-48 text-slate-700">
                 {JSON.stringify(resultado, null, 2)}
               </pre>

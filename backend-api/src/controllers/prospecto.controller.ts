@@ -17,6 +17,21 @@ const generarNumeroProspecto = async (): Promise<string> => {
   return `PR-${String(next).padStart(4, '0')}`;
 };
 
+// GET /prospectos/cliente/:cliente_id/en-gestion — prospectos activos de un cliente
+export const getProspectosEnGestionPorCliente = async (req: Request, res: Response) => {
+  try {
+    const { cliente_id } = req.params;
+    const prospectos = await Prospecto.findAll({
+      where: { cliente_id, estado: 'en_gestion' },
+      attributes: ['id', 'numero_prospecto', 'descripcion', 'estado', 'odp_id'],
+      order: [['id', 'DESC']],
+    });
+    res.json(prospectos);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al consultar prospectos', detail: error.message });
+  }
+};
+
 // GET /prospectos — listar todos (con filtro de estado opcional)
 export const getProspectos = async (req: Request, res: Response) => {
   try {

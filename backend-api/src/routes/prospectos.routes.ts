@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getProspectos, getProspecto, createProspecto, updateProspecto, noAprobarProspecto, aprobarProspecto } from '../controllers/prospecto.controller';
+import { getProspectos, getProspecto, createProspecto, updateProspecto, noAprobarProspecto, aprobarProspecto, getProspectosEnGestionPorCliente } from '../controllers/prospecto.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 
@@ -9,6 +9,7 @@ const rc = (...r: any[]) => requireRole(...r);
 
 // VER: todos autenticados
 router.get('/', authMiddleware, getProspectos);
+router.get('/cliente/:cliente_id/en-gestion', authMiddleware, getProspectosEnGestionPorCliente);
 router.get('/:id', authMiddleware, getProspecto);
 
 // CREAR: todos autenticados (cualquiera puede crear)

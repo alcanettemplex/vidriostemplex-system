@@ -140,6 +140,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     const [siguienteNumeroPV, setSiguienteNumeroPV] = useState<number | null>(null);
     const [clienteBusqueda, setClienteBusqueda] = useState('');
     const [dropdownClienteAbierto, setDropdownClienteAbierto] = useState(false);
+    const [prospectosBanner, setProspectosBanner] = useState<{ id: number; numero_prospecto: string; descripcion: string }[]>([]);
 
     const { register, control, handleSubmit, trigger, reset, setValue, formState: { errors, isSubmitting } } = useForm<ODPFormValues>({
         resolver: zodResolver(odpSchema as any),
@@ -172,6 +173,16 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     const proveedorVidrio = useWatch({ control, name: 'proveedor_vidrio' });
     const clienteIdWatch = useWatch({ control, name: 'cliente_id' });
     const clienteSeleccionadoODP = clientes.find(c => c.id === Number(clienteIdWatch));
+
+    // Verificar prospectos en gestión al seleccionar cliente (solo en creación)
+    useEffect(() => {
+        if (odpToEdit || !clienteIdWatch) { setProspectosBanner([]); return; }
+        const base = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+        const token = localStorage.getItem('token');
+        axios.get(`${base}/api/prospectos/cliente/${clienteIdWatch}/en-gestion`, {
+            headers: { Authorization: `Bearer ${token}` },
+        }).then(r => setProspectosBanner(r.data)).catch(() => setProspectosBanner([]));
+    }, [clienteIdWatch, odpToEdit]);
     const IVA_RATE = 0.19;
     const subtotal = Number(valorTotalRaw) / (1 + IVA_RATE);
     const ivaValor = Number(valorTotalRaw) - subtotal;
@@ -375,6 +386,30 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                             <p className="text-xs text-slate-400 mt-1">El cliente no se puede cambiar al editar una ODP.</p>
                                         )}
                                         {errors.cliente_id && <p className="text-red-500 text-xs mt-1">{errors.cliente_id.message}</p>}
+
+                                        {/* Banner: cliente con prospectos en gestión */}
+                                        {prospectosBanner.length > 0 && (
+                                            <div className="mt-2 bg-amber-50 border border-amber-300 rounded-lg px-4 py-3">
+                                                <div className="flex items-start gap-2">
+                                                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-xs font-bold text-amber-800 uppercase tracking-wide mb-1">
+                                                            Este cliente tiene {prospectosBanner.length === 1 ? 'un prospecto activo' : `${prospectosBanner.length} prospectos activos`}
+                                                        </p>
+                                                        <ul className="text-xs text-amber-700 space-y-0.5 mb-2">
+                                                            {prospectosBanner.map(p => (
+                                                                <li key={p.id} className="font-semibold">
+                                                                    • {p.numero_prospecto}{p.descripcion ? ` — ${p.descripcion}` : ''}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                        <p className="text-xs text-amber-700">
+                                                            Realiza la ODP desde el módulo <strong>Prospectos</strong> para no dañar el flujo. <span className="font-bold">Atte: AlcaNET</span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Fecha Entrega */}

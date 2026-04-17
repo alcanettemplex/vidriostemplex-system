@@ -516,6 +516,37 @@ export const ejecutarMantenimiento = async (req: Request, res: Response) => {
         break;
       }
 
+      case 'tm_inconsistencias': {
+        const rows: any[] = await sequelize.query(`
+          SELECT
+            tm.id          AS tm_id,
+            tm.numero_tm,
+            tm.estado      AS tm_estado,
+            tm.odp_id      AS tm_odp_id,
+            o.numero_odp,
+            pr.id          AS prospecto_id,
+            pr.numero_prospecto,
+            pr.estado      AS pr_estado,
+            pr.odp_id      AS pr_odp_id,
+            c.nombre_razon_social AS cliente
+          FROM toma_medidas tm
+          LEFT JOIN prospectos pr ON pr.id = tm.prospecto_id
+          LEFT JOIN odp o        ON o.id  = tm.odp_id
+          LEFT JOIN clientes c   ON c.id  = pr.cliente_id
+          WHERE tm.prospecto_id IS NOT NULL
+            AND tm.odp_id IS NOT NULL
+            AND (pr.odp_id IS NULL OR pr.odp_id != tm.odp_id)
+          ORDER BY tm.numero_tm
+        `, { type: QueryTypes.SELECT });
+
+        resultado = {
+          descripcion: 'TMs vinculadas a ODP cuyo Prospecto no tiene la misma ODP asignada',
+          total: rows.length,
+          registros: rows,
+        };
+        break;
+      }
+
       case 'resumen_inconsistencias': {
         const [totalOdp]: any[] = await sequelize.query(`SELECT COUNT(*) AS c FROM odp`, { type: QueryTypes.SELECT });
         const [sinCliente]: any[] = await sequelize.query(

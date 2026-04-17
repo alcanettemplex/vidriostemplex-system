@@ -199,6 +199,75 @@ export const retornarTM = async (req: Request, res: Response) => {
   }
 };
 
+// TMs sin ODP asignada — para el selector de "Relacionar TM"
+export const getTMsSinODP = async (_req: Request, res: Response) => {
+  try {
+    const tms = await TomaMedidas.findAll({
+      where: { odp_id: null },
+      include: [
+        { model: Usuario, as: 'realizador', attributes: ['id', 'nombre_completo'] },
+        {
+          model: Prospecto, as: 'prospecto', required: false,
+          attributes: ['id', 'numero_prospecto', 'nombre_contacto', 'descripcion'],
+          include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
+        },
+      ],
+      order: [['fecha_creacion', 'DESC']],
+    });
+    res.json(tms);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al obtener TMs sin ODP', detail: error.message });
+  }
+};
+
+// Vincular una TM (sin ODP) a una ODP existente
+// Reglas de estado:
+//   - TM realizada  → ODP sube a MEDICION (+ chk_medicion=true)
+//   - TM no realizada → ODP sube a VISITA_TECNICA (si estaba EN_ESPERA)
+export const vincularTMaODP = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { odp_id } = req.body;
+
+    if (!odp_id) return res.status(400).json({ error: 'Se requiere odp_id' });
+
+    const tm = await TomaMedidas.findByPk(id);
+    if (!tm) return res.status(404).json({ error: 'TM no encontrada' });
+    if (tm.getDataValue('odp_id')) {
+      return res.status(400).json({ error: 'Esta TM ya está vinculada a una ODP' });
+    }
+
+    const odp = await ODP.findByPk(odp_id);
+    if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
+
+    await tm.update({ odp_id });
+
+    const estadoTM = tm.getDataValue('estado');
+    const estadoODP = odp.getDataValue('estado_produccion');
+
+    if (estadoTM === 'realizada') {
+      const updates: any = { chk_medicion: true };
+      if (['EN_ESPERA', 'VISITA_TECNICA'].includes(estadoODP)) {
+        updates.estado_produccion = 'MEDICION';
+      }
+      await odp.update(updates);
+    } else {
+      if (estadoODP === 'EN_ESPERA') {
+        await odp.update({ estado_produccion: 'VISITA_TECNICA' });
+      }
+    }
+
+    const tmActualizada = await TomaMedidas.findByPk(id, {
+      include: [{ model: Usuario, as: 'realizador', attributes: ['id', 'nombre_completo'] }],
+    });
+
+    import('../server').then(({ emitirCambio }) => emitirCambio('toma_medidas')).catch(() => {});
+    res.json(tmActualizada);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al vincular TM', detail: error.message });
+  }
+};
+
 export const uploadFotoTM = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

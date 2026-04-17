@@ -225,10 +225,8 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                                     {/* OBSERVACIONES */}
                                     <div className="border-[2px] border-black p-2 mt-1 bg-white min-h-[120px]">
                                         <p className="font-bold uppercase tracking-widest mb-1 text-[11px]">ENTREGA SOLICITADA - DIRECCION: <span className="font-normal">{odp.direccion_instalacion}</span></p>
-                                        <p className="font-bold uppercase tracking-widest mt-2 mb-1">OBSERVACIONES:</p>
-                                        <p className="text-sm uppercase font-semibold text-slate-700 whitespace-pre-line">
-                                            {odp.observaciones}
-                                        </p>
+                                        <p className="font-bold uppercase tracking-widest mt-1 mb-0.5 text-[10px]">OBSERVACIONES:</p>
+                                        <p className="font-normal uppercase text-[10px] leading-tight whitespace-pre-line">{odp.observaciones}</p>
                                     </div>
 
                                     {/* GRILLA CHECKBOXES */}

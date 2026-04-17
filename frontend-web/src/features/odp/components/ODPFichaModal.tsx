@@ -421,8 +421,15 @@ const DetalleSAPCard: React.FC<{ odpId: number; canUpload: boolean; onOpenLightb
 const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: any }> = ({ odp, onUpdate, currentUser }) => {
   const [uploading, setUploading] = useState(false);
   const [tmModalOpen, setTmModalOpen] = useState(false);
+  const [solicitandoTM, setSolicitandoTM] = useState(false);
+  const [relacionarOpen, setRelacionarOpen] = useState(false);
+  const [tmsSinODP, setTmsSinODP] = useState<any[]>([]);
+  const [loadingTmsSinODP, setLoadingTmsSinODP] = useState(false);
+  const [vinculando, setVinculando] = useState(false);
   const { lightboxSrc, openLightbox, closeLightbox } = useLightbox();
   const tms = odp.tomas_medidas || [];
+  const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const canSolicitarTM = currentUser && ['asesor_comercial', 'jefe_produccion', 'admin', 'gerencia'].includes(currentUser.rol);
   const todosLosChks = [
     { key: 'chk_medicion',   label: 'Toma de Medidas',   icon: <Ruler className="w-4 h-4" />,         aplica: (tms?.length ?? 0) > 0 },
     { key: 'chk_corte',      label: 'Aluminio / Corte',  icon: <Wrench className="w-4 h-4" />,        aplica: !!odp.tiene_aluminio },
@@ -436,6 +443,62 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
   ];
   const chks = todosLosChks.filter(c => c.aplica);
   const completados = chks.filter(c => odp[c.key]).length;
+
+  const handleSolicitarTM = async () => {
+    if (!window.confirm(`¿Solicitar toma de medidas para ${odp.numero_odp}? La ODP pasará a estado VISITA TÉCNICA.`)) return;
+    try {
+      setSolicitandoTM(true);
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      await axios.post(`${API}/api/documentos/tm`, {
+        odp_id: odp.id,
+        direccion: odp.direccion_instalacion || odp.cliente?.direccion || '',
+        nombre_contacto: odp.nombre_recibe || odp.cliente?.nombre_razon_social || '',
+        telefono_contacto: odp.telefono_recibe || odp.cliente?.telefono || '',
+      }, { headers });
+      await axios.put(`${API}/api/odp/${odp.id}`, { estado_produccion: 'VISITA_TECNICA' }, { headers });
+      toast.success('Toma de medidas solicitada');
+      if (onUpdate) onUpdate();
+    } catch {
+      toast.error('Error al solicitar toma de medidas');
+    } finally {
+      setSolicitandoTM(false);
+    }
+  };
+
+  const handleAbrirRelacionar = async () => {
+    setRelacionarOpen(true);
+    setLoadingTmsSinODP(true);
+    try {
+      const token = localStorage.getItem('token');
+      const { data } = await axios.get(`${API}/api/documentos/tm/sin-odp`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setTmsSinODP(data);
+    } catch {
+      toast.error('Error al cargar TMs disponibles');
+    } finally {
+      setLoadingTmsSinODP(false);
+    }
+  };
+
+  const handleVincularTM = async (tmId: number, numeroTM: string) => {
+    if (!window.confirm(`¿Vincular ${numeroTM} a ${odp.numero_odp}?`)) return;
+    try {
+      setVinculando(true);
+      const token = localStorage.getItem('token');
+      await axios.patch(`${API}/api/documentos/tm/${tmId}/vincular-odp`, { odp_id: odp.id }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success(`${numeroTM} vinculada correctamente`);
+      setRelacionarOpen(false);
+      if (onUpdate) onUpdate();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Error al vincular TM');
+    } finally {
+      setVinculando(false);
+    }
+  };
 
   const handleCroquisUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -560,8 +623,30 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
         <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
           <Ruler className="w-4 h-4 text-amber-600" /> Tomas de Medida ({tms.length})
         </h3>
+        {/* Botones de acción — visibles para roles autorizados */}
+        {canSolicitarTM && (
+          <div className="flex gap-2 mb-3">
+            {tms.length === 0 && (
+              <button
+                onClick={handleSolicitarTM}
+                disabled={solicitandoTM}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 transition"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {solicitandoTM ? 'Solicitando...' : 'Solicitar TM'}
+              </button>
+            )}
+            <button
+              onClick={handleAbrirRelacionar}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition"
+            >
+              <ExternalLink className="w-3.5 h-3.5" /> Relacionar TM existente
+            </button>
+          </div>
+        )}
+
         {tms.length === 0 ? (
-          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center text-slate-400">
+          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center text-slate-400">
             <Ruler className="w-10 h-10 mx-auto mb-2 text-slate-200" />
             <p className="font-bold">Sin tomas de medida registradas</p>
           </div>
@@ -631,6 +716,67 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
       {/* TMModal */}
       {tmModalOpen && (
         <TMModal odp={odp} onClose={() => setTmModalOpen(false)} />
+      )}
+
+      {/* Modal Relacionar TM existente */}
+      {relacionarOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <Ruler className="w-4 h-4 text-sky-600" /> Relacionar TM a {odp.numero_odp}
+              </h3>
+              <button onClick={() => setRelacionarOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-4">
+              {loadingTmsSinODP ? (
+                <p className="text-center text-slate-400 py-8">Cargando TMs disponibles...</p>
+              ) : tmsSinODP.length === 0 ? (
+                <div className="text-center text-slate-400 py-8">
+                  <Ruler className="w-10 h-10 mx-auto mb-2 text-slate-200" />
+                  <p className="font-bold">No hay TMs sin ODP asignada</p>
+                </div>
+              ) : tmsSinODP.map((tm: any) => (
+                <div key={tm.id} className="border border-slate-200 rounded-xl p-4 mb-3 hover:border-sky-300 transition">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="font-black text-amber-700">{tm.numero_tm}</span>
+                      <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${
+                        tm.estado === 'realizada' ? 'bg-emerald-100 text-emerald-700'
+                        : tm.estado === 'programada' ? 'bg-blue-100 text-blue-700'
+                        : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {tm.estado}
+                      </span>
+                      {tm.prospecto && (
+                        <p className="text-xs text-sky-600 font-semibold mt-0.5">
+                          Prospecto: {tm.prospecto.numero_prospecto} — {tm.prospecto.cliente?.nombre_razon_social || tm.prospecto.nombre_contacto}
+                        </p>
+                      )}
+                      {tm.direccion && (
+                        <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                          <MapPin className="w-3 h-3" />{tm.direccion}
+                        </p>
+                      )}
+                      {tm.realizador && (
+                        <p className="text-xs text-slate-400 mt-0.5">{tm.realizador.nombre_completo}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleVincularTM(tm.id, tm.numero_tm)}
+                      disabled={vinculando}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-sky-600 text-white rounded-lg hover:bg-sky-700 disabled:opacity-50 transition shrink-0 ml-3"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Vincular
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
