@@ -1,225 +1,273 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
-const fmtCOP = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 const fmtM = (n: number) => {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return fmtCOP(n);
+  return `$${n}`;
 };
 
-export const PanelVentas: React.FC<{ data: any, isLoading: boolean }> = ({ data, isLoading }) => {
+const useCountUp = (target: number, duration = 1400) => {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!target) { setValue(0); return; }
+    let raf: number;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min((now - start) / duration, 1);
+      const eased = p === 1 ? 1 : 1 - Math.pow(2, -10 * p);
+      setValue(Math.floor(eased * target));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return value;
+};
+
+// ─── Gauge circular ───────────────────────────────────────────────────────────
+const GaugeMeta: React.FC<{ real: number; meta: number }> = ({ real, meta }) => {
+  const pct       = meta > 0 ? Math.min((real / meta) * 100, 100) : 0;
+  const SIZE      = 220;
+  const cx        = SIZE / 2; const cy = SIZE / 2;
+  const R         = 84; const SW = 13;
+  const GAP       = 52;
+  const TOTAL_DEG = 360 - GAP;
+  const C         = (TOTAL_DEG / 360) * 2 * Math.PI * R;
+  const fullC     = 2 * Math.PI * R;
+  const ROT       = 90 + GAP / 2;
+  const filled    = (pct / 100) * C;
+  const empty     = C - filled;
+  const color     = pct >= 100 ? '#22c55e' : pct >= 60 ? '#f59e0b' : '#ef4444';
+  const animPct   = useCountUp(Math.round(pct));
+
+  return (
+    <div className="relative flex-shrink-0" style={{ width: SIZE, height: SIZE }}>
+      <svg width={SIZE} height={SIZE} className="overflow-visible">
+        <circle cx={cx} cy={cy} r={R} fill="none"
+          stroke="rgba(0,0,0,0.08)" strokeWidth={SW}
+          strokeDasharray={`${C} ${fullC - C}`}
+          transform={`rotate(${ROT} ${cx} ${cy})`} strokeLinecap="round" />
+        <motion.circle cx={cx} cy={cy} r={R} fill="none"
+          stroke={color} strokeWidth={SW + 10} opacity={0.1}
+          strokeDasharray={`${C} ${fullC - C}`}
+          initial={{ strokeDashoffset: C }}
+          animate={{ strokeDashoffset: empty }}
+          transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+          transform={`rotate(${ROT} ${cx} ${cy})`} strokeLinecap="round" />
+        <motion.circle cx={cx} cy={cy} r={R} fill="none"
+          stroke={color} strokeWidth={SW}
+          strokeDasharray={`${C} ${fullC - C}`}
+          initial={{ strokeDashoffset: C }}
+          animate={{ strokeDashoffset: empty }}
+          transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+          transform={`rotate(${ROT} ${cx} ${cy})`} strokeLinecap="round" />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        <motion.p className="text-[46px] font-semibold leading-none tabular-nums" style={{ color }}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.6, duration: 0.5 }}>
+          {animPct}%
+        </motion.p>
+        <p className="text-[10px] text-slate-400 mt-1 tracking-wide">de la meta</p>
+        <p className="text-[14px] text-slate-800 font-semibold mt-1 tabular-nums">{fmtM(real)}</p>
+        <p className="text-[10px] text-slate-400 mt-0.5">meta: {fmtM(meta)}</p>
+      </div>
+    </div>
+  );
+};
+
+// ─── Avatar ───────────────────────────────────────────────────────────────────
+const Avatar: React.FC<{ nombre: string; size?: number }> = ({ nombre, size = 28 }) => {
+  const initials = (nombre || 'U').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+  const hue = (nombre || '').split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0) % 360;
+  return (
+    <div className="rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
+      style={{ width: size, height: size, fontSize: size * 0.36, background: `hsl(${hue},60%,48%)` }}>
+      {initials}
+    </div>
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const cardVar: any = {
+  hidden: { opacity: 0, y: 16 },
+  visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.07, duration: 0.5, ease: [0.22, 1, 0.36, 1] } }),
+};
+
+// ─── Panel ────────────────────────────────────────────────────────────────────
+export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data, isLoading }) => {
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          {[1,2,3,4].map(i => <div key={i} className="h-20 bg-white border border-slate-200 animate-pulse rounded" />)}
+      <div className="space-y-3 animate-pulse">
+        <div className="grid grid-cols-12 gap-3">
+          <div className="col-span-12 lg:col-span-5 h-80 rounded-2xl bg-slate-200" />
+          <div className="col-span-12 lg:col-span-7 h-80 rounded-2xl bg-slate-200" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          {[1,2,3,4].map(i => <div key={i} className="h-16 bg-white border border-slate-200 animate-pulse rounded" />)}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <div className="h-60 bg-white border border-slate-200 animate-pulse rounded" />
-          <div className="h-60 bg-white border border-slate-200 animate-pulse rounded" />
-        </div>
+        <div className="grid grid-cols-3 gap-3">{[0,1,2].map(i => <div key={i} className="h-20 rounded-2xl bg-slate-200" />)}</div>
+        <div className="h-56 rounded-2xl bg-slate-200" />
       </div>
     );
   }
 
-  if (!data) return <div className="p-8 text-center text-[12px] text-slate-500">Sin datos operativos.</div>;
+  if (!data) return <div className="p-10 text-center text-slate-400 text-sm">Sin datos disponibles</div>;
 
-  const maxCliente = data.top_clientes?.length > 0 ? Math.max(...data.top_clientes.map((c: any) => c.total)) : 100;
-
-  // Cartera crítica >60d
+  const totalFacturado = data.total_facturado_mes || 0;
+  const meta           = data.meta_facturacion_actual || 120_000_000;
+  const asesores       = (data.meta_vs_real_asesores || []).slice().sort((a: any, b: any) => b.real - a.real);
+  const cartera        = data.cartera_vencida_detalle || [];
   const carteraCritica = data.cartera_por_antiguedad?.find((c: any) => c.rango === '>60 días')?.total || 0;
 
-  // % asesores cumpliendo meta
-  const asesores = data.meta_vs_real_asesores || [];
-  const asesoresCumplen = asesores.filter((a: any) => a.real >= a.meta).length;
-  const pctAsesoresMeta = asesores.length > 0 ? Math.round((asesoresCumplen / asesores.length) * 100) : 0;
-
-  // Facturado mes (abonos + pendiente del mes)
-  const totalFacturadoMes = data.total_facturado_mes || data.total_abonado || 0;
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
 
-      {/* ─── 1. KPI CARDS ROW 1 ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white p-3 border border-slate-200 rounded text-[11px]">
-          <div className="text-slate-500 mb-1">Facturado Mes</div>
-          <div className="text-[20px] font-medium text-blue-600">{fmtM(totalFacturadoMes)}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Recaudado: {fmtM(data.total_abonado)}</div>
-        </div>
+      {/* ── ROW 1: Gauge + Ranking ───────────────────────────────────── */}
+      <div className="grid grid-cols-12 gap-3">
 
-        <div className="bg-white p-3 border border-slate-200 rounded text-[11px]">
-          <div className="text-slate-500 mb-1">Pendiente Cobro Total</div>
-          <div className="text-[20px] font-medium text-rose-600">{fmtM(data.total_pendiente)}</div>
-        </div>
+        {/* Gauge */}
+        <motion.div custom={0} variants={cardVar} initial="hidden" animate="visible"
+          className="col-span-12 lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 flex flex-col items-center gap-3">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest self-start">Meta mensual de facturación</p>
+          <GaugeMeta real={totalFacturado} meta={meta} />
+          <div className="grid grid-cols-2 gap-2 w-full">
+            {[
+              { label: 'Recaudado',    value: fmtM(data.total_abonado || 0),    color: 'text-emerald-600' },
+              { label: 'Pendiente',    value: fmtM(data.total_pendiente || 0),  color: 'text-rose-500' },
+              { label: 'Ticket prom.', value: fmtM(data.ticket_promedio || 0),  color: 'text-slate-800' },
+              { label: 'Sin facturar', value: `${data.odps_sin_facturar || 0} ODPs`, color: (data.odps_sin_facturar || 0) > 5 ? 'text-amber-500' : 'text-slate-800' },
+            ].map((item, i) => (
+              <div key={i} className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
+                <p className="text-[9px] text-slate-400 uppercase tracking-wider mb-1">{item.label}</p>
+                <p className={`text-[13px] font-semibold tabular-nums ${item.color}`}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
 
-        <div className="bg-white p-3 border border-slate-200 rounded text-[11px]">
-          <div className="text-slate-500 mb-1">Ticket Promedio</div>
-          <div className="text-[20px] font-medium text-slate-800">{fmtM(data.ticket_promedio)}</div>
-          {data.ticket_promedio_delta_pct !== undefined && (
-            <div className={`mt-0.5 ${data.ticket_promedio_delta_pct > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {data.ticket_promedio_delta_pct > 0 ? '+' : ''}{data.ticket_promedio_delta_pct}%
+        {/* Ranking asesores */}
+        <motion.div custom={1} variants={cardVar} initial="hidden" animate="visible"
+          className="col-span-12 lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 flex flex-col">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Ranking — meta vs real por asesor</p>
+          {asesores.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center text-slate-400 text-[12px]">No hay asesores registrados</div>
+          ) : (
+            <div className="flex-1 space-y-5 overflow-y-auto">
+              {asesores.map((as: any, i: number) => {
+                const pct      = as.meta > 0 ? Math.min((as.real / as.meta) * 100, 100) : 0;
+                const pctLabel = as.meta > 0 ? Math.round((as.real / as.meta) * 100) : 0;
+                const color    = pct >= 100 ? '#22c55e' : pct >= 60 ? '#f59e0b' : '#ef4444';
+                const medals   = ['🥇','🥈','🥉'];
+                return (
+                  <div key={as.asesor_id}>
+                    <div className="flex items-center gap-2.5 mb-2">
+                      <span className="text-[13px] w-4 shrink-0">{medals[i] || `#${i+1}`}</span>
+                      <Avatar nombre={as.nombre || 'U'} />
+                      <span className="text-[12px] font-medium text-slate-700 flex-1 truncate">{as.nombre}</span>
+                      <span className="text-[11px] text-slate-400 tabular-nums">{fmtM(as.real)} / {fmtM(as.meta)}</span>
+                      <span className="text-[12px] font-bold tabular-nums w-10 text-right" style={{ color }}>{pctLabel}%</span>
+                    </div>
+                    <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden ml-7">
+                      <motion.div className="absolute inset-y-0 left-0 rounded-full"
+                        style={{ background: color }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1], delay: 0.25 + i * 0.1 }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
-        </div>
-
-        <div className={`p-3 rounded border text-[11px] ${data.odps_sin_facturar > 5 ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
-          <div className={`mb-1 ${data.odps_sin_facturar > 5 ? 'text-amber-800' : 'text-slate-500'}`}>Por Facturar (Remisiones)</div>
-          <div className={`text-[20px] font-medium ${data.odps_sin_facturar > 5 ? 'text-amber-600' : 'text-slate-800'}`}>
-            {data.odps_sin_facturar} ODPs
-          </div>
-        </div>
+        </motion.div>
       </div>
 
-      {/* ─── 2. KPI CARDS ROW 2 — Nuevos indicadores ─────────────────────── */}
+      {/* ── ROW 2: Chips rápidos ─────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className={`p-3 rounded border text-[11px] ${carteraCritica > 0 ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'}`}>
-          <div className={`mb-1 font-medium ${carteraCritica > 0 ? 'text-rose-700' : 'text-slate-500'}`}>Cartera Crítica &gt;60 días</div>
-          <div className={`text-[20px] font-medium ${carteraCritica > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+        <motion.div custom={2} variants={cardVar} initial="hidden" animate="visible"
+          className={`rounded-2xl p-4 border ${carteraCritica > 0 ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'}`}>
+          <p className={`text-[10px] font-semibold uppercase tracking-widest mb-2 ${carteraCritica > 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+            Cartera Crítica &gt;60 días
+          </p>
+          <p className={`text-[22px] font-semibold tabular-nums ${carteraCritica > 0 ? 'text-rose-500' : 'text-slate-400'}`}>
             {carteraCritica > 0 ? fmtM(carteraCritica) : 'Sin cartera crítica'}
-          </div>
-          {carteraCritica > 0 && (
-            <div className="text-[10px] text-rose-500 mt-0.5">Requiere gestión urgente</div>
-          )}
-        </div>
+          </p>
+        </motion.div>
 
-        <div className={`p-3 rounded border text-[11px] ${data.odps_atrasadas > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
-          <div className={`mb-1 ${data.odps_atrasadas > 0 ? 'text-amber-800' : 'text-slate-500'}`}>ODPs Vencidas (sin entregar)</div>
-          <div className={`text-[20px] font-medium ${data.odps_atrasadas > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-            {data.odps_atrasadas > 0 ? `${data.odps_atrasadas} ODPs` : 'Sin atrasos'}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Fecha entrega superada</div>
-        </div>
+        <motion.div custom={3} variants={cardVar} initial="hidden" animate="visible"
+          className={`rounded-2xl p-4 border ${(data.odps_atrasadas || 0) > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
+          <p className={`text-[10px] font-semibold uppercase tracking-widest mb-2 ${(data.odps_atrasadas || 0) > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+            ODPs Vencidas sin Entregar
+          </p>
+          <p className={`text-[22px] font-semibold tabular-nums ${(data.odps_atrasadas || 0) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+            {(data.odps_atrasadas || 0) > 0 ? `${data.odps_atrasadas} ODPs` : 'Sin atrasos'}
+          </p>
+        </motion.div>
 
-        <div className={`p-3 rounded border text-[11px] ${pctAsesoresMeta >= 50 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
-          <div className={`mb-1 ${pctAsesoresMeta >= 50 ? 'text-emerald-800' : 'text-rose-700'}`}>Asesores en Meta</div>
-          <div className={`text-[20px] font-medium ${pctAsesoresMeta >= 50 ? 'text-emerald-600' : 'text-rose-600'}`}>
-            {asesoresCumplen} / {asesores.length}
-          </div>
-          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mt-1">
-            <div
-              className={`h-full rounded-full ${pctAsesoresMeta >= 50 ? 'bg-emerald-500' : 'bg-rose-500'}`}
-              style={{ width: `${pctAsesoresMeta}%` }}
-            />
-          </div>
-        </div>
+        <motion.div custom={4} variants={cardVar} initial="hidden" animate="visible"
+          className="bg-white border border-slate-200 rounded-2xl p-4">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Top Cliente</p>
+          {data.top_clientes?.[0] ? (
+            <>
+              <p className="text-[14px] font-semibold text-slate-800 truncate">{data.top_clientes[0].nombre}</p>
+              <p className="text-[12px] text-indigo-600 tabular-nums mt-0.5">{fmtM(data.top_clientes[0].total)} · {data.top_clientes[0].odps} pedidos</p>
+            </>
+          ) : <p className="text-slate-400 text-[12px]">Sin datos</p>}
+        </motion.div>
       </div>
 
-      {/* ─── 3. GRUPO MEDIO ────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-
-        {/* TOP CLIENTES */}
-        <div className="bg-white p-3 border border-slate-200 rounded">
-          <div className="text-[12px] font-medium text-slate-500 uppercase tracking-wider mb-3">Top 5 Clientes (Histórico)</div>
-          <div className="space-y-3 mt-4">
-            {data.top_clientes?.map((c: any) => (
-              <div key={c.cliente_id} className="text-[11px]">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="font-medium text-slate-700 w-48 truncate" title={c.nombre}>{c.nombre}</span>
-                  <span className="font-medium text-blue-700">{fmtM(c.total)}</span>
-                </div>
-                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-indigo-500 rounded-full"
-                    style={{ width: `${(c.total / maxCliente) * 100}%` }}
-                  />
-                </div>
-                <div className="text-[10px] text-slate-400 mt-0.5 uppercase tracking-wide">{c.odps} pedidos</div>
+      {/* ── ROW 3: Cartera detalle ────────────────────────────────────── */}
+      <motion.div custom={5} variants={cardVar} initial="hidden" animate="visible"
+        className="bg-white border border-slate-200 rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Alertas de Cartera</p>
+          <div className="flex gap-3">
+            {(data.cartera_por_antiguedad || []).map((cpa: any, i: number) => (
+              <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                <span className={`w-1.5 h-1.5 rounded-full ${i===0?'bg-emerald-500':i===1?'bg-amber-500':'bg-rose-500'}`} />
+                <span className="text-slate-400">{cpa.rango}</span>
+                <span className="text-slate-600 font-medium tabular-nums">{fmtM(cpa.total)}</span>
               </div>
             ))}
           </div>
         </div>
-
-        {/* CARTERA VENCIDA DETALLE */}
-        <div className="bg-white p-3 border border-slate-200 rounded flex flex-col">
-          <div className="text-[12px] font-medium text-slate-500 uppercase tracking-wider mb-2">Alertas de Cartera</div>
-          <div className="flex-1 overflow-auto max-h-[180px] border border-slate-100">
+        {cartera.length === 0 ? (
+          <p className="text-center text-slate-400 py-6 text-[12px]">Sin alertas de cartera activas</p>
+        ) : (
+          <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
-              <thead className="bg-slate-50">
-                <tr className="border-b border-slate-200 text-[10px] text-slate-500 uppercase">
-                  <th className="py-1.5 px-2 font-medium">Cliente</th>
-                  <th className="py-1.5 px-2 text-right font-medium">Monto</th>
-                  <th className="py-1.5 px-2 text-center font-medium">Días</th>
-                  <th className="py-1.5 px-2 text-center font-medium">Estado</th>
+              <thead>
+                <tr className="text-[9px] text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                  <th className="pb-2 font-semibold">Cliente</th>
+                  <th className="pb-2 font-semibold text-right">Monto</th>
+                  <th className="pb-2 font-semibold text-center">Días</th>
+                  <th className="pb-2 font-semibold text-center">Riesgo</th>
                 </tr>
               </thead>
-              <tbody className="text-[11px] divide-y divide-slate-100">
-                {data.cartera_vencida_detalle?.map((cv: any, i: number) => (
-                  <tr key={i} className="hover:bg-slate-50">
-                    <td className="py-1.5 px-2 text-slate-800 max-w-[120px] truncate" title={cv.nombre}>{cv.nombre}</td>
-                    <td className="py-1.5 px-2 text-right text-slate-700">{fmtM(cv.monto)}</td>
-                    <td className="py-1.5 px-2 text-center text-rose-600">+{cv.dias_vencido}d</td>
-                    <td className="py-1.5 px-2 text-center">
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase ${
-                        cv.riesgo === 'critico' ? 'bg-rose-50 text-rose-700' :
-                        cv.riesgo === 'alerta' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
-                      }`}>
-                        {cv.riesgo}
-                      </span>
+              <tbody className="divide-y divide-slate-100">
+                {cartera.map((cv: any, i: number) => (
+                  <motion.tr key={i}
+                    initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 + i * 0.04 }}
+                    className="text-[11px] hover:bg-slate-50 transition-colors">
+                    <td className="py-2 pr-3 text-slate-600 max-w-[160px] truncate">{cv.nombre}</td>
+                    <td className="py-2 pr-3 text-right text-slate-800 font-medium tabular-nums">{fmtM(cv.monto)}</td>
+                    <td className="py-2 text-center text-rose-500 font-semibold">+{cv.dias_vencido}d</td>
+                    <td className="py-2 text-center">
+                      <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                        cv.riesgo === 'critico' ? 'bg-rose-100 text-rose-600'
+                          : cv.riesgo === 'alerta' ? 'bg-amber-100 text-amber-600'
+                            : 'bg-emerald-100 text-emerald-600'
+                      }`}>{cv.riesgo}</span>
                     </td>
-                  </tr>
+                  </motion.tr>
                 ))}
-                {(!data.cartera_vencida_detalle || data.cartera_vencida_detalle.length === 0) && (
-                  <tr><td colSpan={4} className="py-4 text-center text-slate-400">Sin alertas de cartera</td></tr>
-                )}
               </tbody>
             </table>
           </div>
+        )}
+      </motion.div>
 
-          <div className="pt-2 mt-2 border-t border-slate-100">
-            <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-1.5">Antigüedad de cartera</div>
-            <div className="flex gap-2">
-              {data.cartera_por_antiguedad?.map((cpa: any, i: number) => (
-                <div key={i} className="flex-1 bg-slate-50 p-1.5 rounded text-center relative overflow-hidden">
-                  <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${i===0?'bg-emerald-400':i===1?'bg-amber-400':'bg-rose-500'}`} />
-                  <div className="text-[9px] text-slate-400 uppercase tracking-wide">{cpa.rango}</div>
-                  <div className="text-[11px] font-medium text-slate-800">{fmtM(cpa.total)}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* ─── 4. ASESORES ─────────────────────────────────────────────── */}
-      <div className="bg-white p-3 border border-slate-200 rounded">
-        <div className="text-[12px] font-medium text-slate-500 uppercase tracking-wider mb-4">Meta vs Real por Asesor (Mes)</div>
-        <div className="space-y-3">
-          {data.meta_vs_real_asesores?.map((as: any) => {
-            const pct = Math.min((as.real / as.meta) * 100, 100);
-            const colorClass = pct >= 100 ? 'bg-emerald-500' : pct >= 60 ? 'bg-amber-400' : 'bg-rose-500';
-            const pctLabel = Math.round((as.real / as.meta) * 100);
-
-            return (
-              <div key={as.asesor_id} className="text-[11px]">
-                <div className="flex justify-between mb-1">
-                  <span className="text-slate-700 w-32 truncate">{as.nombre}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-800 font-medium">{as.real} / {as.meta} ODPs</span>
-                    <span className={`text-[10px] font-medium ${pctLabel >= 100 ? 'text-emerald-600' : pctLabel >= 60 ? 'text-amber-600' : 'text-rose-600'}`}>
-                      {pctLabel}%
-                    </span>
-                  </div>
-                </div>
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden relative">
-                   <div
-                    className={`h-full ${colorClass} rounded-full transition-all`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-          {(!data.meta_vs_real_asesores || data.meta_vs_real_asesores.length === 0) && (
-            <div className="text-slate-400 py-4 text-center text-[11px]">No hay asesores comerciales registrados</div>
-          )}
-        </div>
-      </div>
     </div>
   );
 };

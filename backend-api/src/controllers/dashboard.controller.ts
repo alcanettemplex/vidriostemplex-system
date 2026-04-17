@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Op, fn, col, literal } from 'sequelize';
+import { Op, fn, col, literal, QueryTypes } from 'sequelize';
 import {
   ODP,
   Cliente,
@@ -11,63 +11,104 @@ import {
   EvidenciaInstalacion,
   ODPItem,
   ConfiguracionGlobal,
-  MetaMensual,
   MetaUsuarioMensual,
   NoConformidad
 } from '../models';
 import sequelize from '../config/database';
 
+// ─── Helpers de periodo ───────────────────────────────────────────────────────
+
+function parsePeriod(req: Request) {
+  const today = new Date();
+  const mesInicio  = parseInt(req.query.mes_inicio  as string) || (today.getMonth() + 1);
+  const anioInicio = parseInt(req.query.anio_inicio as string) || today.getFullYear();
+  const mesFin     = parseInt(req.query.mes_fin     as string) || mesInicio;
+  const anioFin    = parseInt(req.query.anio_fin    as string) || anioInicio;
+
+  const firstDay = new Date(anioInicio, mesInicio - 1, 1);
+  const lastDay  = new Date(anioFin, mesFin, 0, 23, 59, 59, 999);
+
+  return { firstDay, lastDay, mesInicio, anioInicio, mesFin, anioFin };
+}
+
+function generateMonthList(mesInicio: number, anioInicio: number, mesFin: number, anioFin: number) {
+  const months: { mes: number; anio: number }[] = [];
+  let m = mesInicio, y = anioInicio;
+  while (y < anioFin || (y === anioFin && m <= mesFin)) {
+    months.push({ mes: m, anio: y });
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+  return months;
+}
+
 // ─── 1. PANEL GENERAL ────────────────────────────────────────────────────────
-export const getGeneralData = async (_req: Request, res: Response) => {
+export const getGeneralData = async (req: Request, res: Response) => {
   try {
     const today = new Date();
-    const currentMonth = today.getMonth() + 1;
-    const currentYear = today.getFullYear();
-    
-    const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } }) || { meta_facturacion_mensual: 120000000 };
-    const sumaMetasUsuarios = await MetaUsuarioMensual.sum('meta_facturacion', { where: { anio: currentYear, mes: currentMonth } });
-    const meta_facturacion_actual = sumaMetasUsuarios > 0 ? sumaMetasUsuarios : (config as any)?.meta_facturacion_mensual || 120000000;
-    
-    const firstDayCurrent = new Date(today.getFullYear(), today.getMonth(), 1);
-    const firstDayPrev = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const lastDayPrev = new Date(today.getFullYear(), today.getMonth(), 0);
+    const { firstDay, lastDay, mesInicio, anioInicio, mesFin, anioFin } = parsePeriod(req);
 
-    // ODPs Activas: NOT IN ('ENTREGADA')
-    const odps_activas = await ODP.count({ where: { estado_produccion: { [Op.ne]: 'ENTREGADA' } } });
-    const prev_odps_activas = await ODP.count({ 
-      where: { 
-        estado_produccion: { [Op.ne]: 'ENTREGADA' },
-        fecha_creacion: { [Op.lt]: firstDayCurrent }
-      } 
-    });
-    const odps_activas_delta_pct = prev_odps_activas > 0 ? Math.round(((odps_activas - prev_odps_activas) / prev_odps_activas) * 100) : 0;
+    const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
+    const diasAlertaCartera = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
+    const fechaUmbralCartera = new Date(today.getTime() - diasAlertaCartera * 24 * 3600 * 1000);
 
-    // Facturado Mes (Valor total = abono + pendiente)
-    const currentAbonos = await ODP.sum('abono', { where: { fecha_creacion: { [Op.gte]: firstDayCurrent } } }) || 0;
-    const currentPendientes = await ODP.sum('pendiente', { where: { fecha_creacion: { [Op.gte]: firstDayCurrent } } }) || 0;
-    const facturado_mes = Number(currentAbonos) + Number(currentPendientes);
+    // Meta de facturación: suma de metas individuales del periodo
+    const monthList = generateMonthList(mesInicio, anioInicio, mesFin, anioFin);
+    const sumaMetasUsuarios = monthList.length > 0
+      ? await MetaUsuarioMensual.sum('meta_facturacion', {
+          where: { [Op.or]: monthList.map(m => ({ anio: m.anio, mes: m.mes })) }
+        })
+      : 0;
+    const meta_facturacion_actual = sumaMetasUsuarios > 0
+      ? sumaMetasUsuarios
+      : (config as any)?.meta_facturacion_mensual || 120000000;
 
-    const prevAbonos = await ODP.sum('abono', { where: { fecha_creacion: { [Op.between]: [firstDayPrev, lastDayPrev] } } }) || 0;
-    const prevPendientes = await ODP.sum('pendiente', { where: { fecha_creacion: { [Op.between]: [firstDayPrev, lastDayPrev] } } }) || 0;
-    const prev_facturado_mes = Number(prevAbonos) + Number(prevPendientes);
-
-    const facturado_mes_delta_pct = prev_facturado_mes > 0 ? Math.round(((facturado_mes - prev_facturado_mes) / prev_facturado_mes) * 100) : 0;
-
-    // Cartera Vencida Total (pendiente > 0, fecha_entrega < hoy, estado_caja != CANCELADO)
-    const carteraVencidaItems = await ODP.findAll({
+    // ODPs activas en el periodo (no ENTREGADAS)
+    const odps_activas = await ODP.count({
       where: {
-        pendiente: { [Op.gt]: 0 },
-        fecha_entrega: { [Op.lt]: today },
-        estado_caja: { [Op.ne]: 'CANCELADO' }
+        estado_produccion: { [Op.ne]: 'ENTREGADA' },
+        fecha_creacion: { [Op.between]: [firstDay, lastDay] }
       }
     });
-    const cartera_vencida_total = carteraVencidaItems.reduce((acc, obj) => acc + Number(obj.getDataValue('abono')) + Number(obj.getDataValue('pendiente')), 0); // O jo: el prompt pide "monto", asumo que es el saldo por cobrar
-    const total_pendiente = carteraVencidaItems.reduce((acc, obj) => acc + Number(obj.getDataValue('pendiente')), 0);
-    const cartera_vencida_clientes = new Set(carteraVencidaItems.map(o => o.getDataValue('cliente_id'))).size;
 
-    // Tasa entrega a tiempo (INSTALADA/ENTREGADA en fecha <= fecha_entrega)
+    // Delta vs periodo equivalente anterior
+    const periodMs = lastDay.getTime() - firstDay.getTime();
+    const prevLastDay  = new Date(firstDay.getTime() - 1);
+    const prevFirstDay = new Date(prevLastDay.getTime() - periodMs);
+    const prev_odps_activas = await ODP.count({
+      where: {
+        estado_produccion: { [Op.ne]: 'ENTREGADA' },
+        fecha_creacion: { [Op.between]: [prevFirstDay, prevLastDay] }
+      }
+    });
+    const odps_activas_delta_pct = prev_odps_activas > 0
+      ? Math.round(((odps_activas - prev_odps_activas) / prev_odps_activas) * 100)
+      : 0;
+
+    // Facturado en el periodo
+    const abonos    = await ODP.sum('abono',    { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] } } }) || 0;
+    const pdtes     = await ODP.sum('pendiente', { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] } } }) || 0;
+    const facturado_mes = Number(abonos) + Number(pdtes);
+
+    // Cartera vencida: SOLO créditos que superaron el umbral de días
+    const carteraItems = await ODP.findAll({
+      where: {
+        forma_pago: 'credito',
+        pendiente: { [Op.gt]: 0 },
+        fecha_entrega: { [Op.lt]: fechaUmbralCartera },
+        estado_caja: { [Op.ne]: 'CANCELADO' },
+        fecha_creacion: { [Op.between]: [firstDay, lastDay] }
+      }
+    });
+    const cartera_vencida_total    = carteraItems.reduce((acc, o) => acc + Number(o.getDataValue('pendiente')), 0);
+    const cartera_vencida_clientes = new Set(carteraItems.map(o => o.getDataValue('cliente_id'))).size;
+
+    // Tasa de entrega a tiempo (ODPs del periodo que llegaron a INSTALADA/ENTREGADA)
     const entregadasRaw = await ODP.findAll({
-      where: { estado_produccion: { [Op.in]: ['INSTALADA', 'ENTREGADA'] } },
+      where: {
+        estado_produccion: { [Op.in]: ['INSTALADA', 'ENTREGADA'] },
+        fecha_creacion: { [Op.between]: [firstDay, lastDay] }
+      },
       include: [{
         model: HistorialEstadoODP,
         as: 'historial_estados',
@@ -78,89 +119,75 @@ export const getGeneralData = async (_req: Request, res: Response) => {
       }]
     });
     const entregadas_a_tiempo = entregadasRaw.filter(o => {
-      const fechaEntra = o.get('historial_estados') && (o.get('historial_estados') as any).length > 0 ? (o.get('historial_estados') as any)[0].fecha : null;
-      if (!fechaEntra || !o.getDataValue('fecha_entrega')) return false;
-      return new Date(fechaEntra) <= new Date(o.getDataValue('fecha_entrega'));
+      const hist = o.get('historial_estados') as any;
+      const fechaHist = hist && hist.length > 0 ? hist[0].fecha : null;
+      if (!fechaHist || !o.getDataValue('fecha_entrega')) return false;
+      return new Date(fechaHist) <= new Date(o.getDataValue('fecha_entrega'));
     }).length;
+    const tasa_entrega_tiempo_pct = entregadasRaw.length > 0
+      ? Math.round((entregadas_a_tiempo / entregadasRaw.length) * 100)
+      : 0;
 
-    const tasa_entrega_tiempo_pct = entregadasRaw.length > 0 ? Math.round((entregadas_a_tiempo / entregadasRaw.length) * 100) : 0;
-
-    // ODPs por estado
+    // ODPs por estado — snapshot actual (sin filtro de periodo)
     const odps_por_estado_raw = await ODP.findAll({
       attributes: ['estado_produccion', [fn('COUNT', col('id')), 'cantidad']],
       group: ['estado_produccion'],
       raw: true
-    }) as unknown as { estado_produccion: string, cantidad: string }[];
-    
+    }) as unknown as { estado_produccion: string; cantidad: string }[];
     const odps_por_estado = odps_por_estado_raw.map(o => ({
       estado: o.estado_produccion,
       cantidad: parseInt(o.cantidad)
     }));
 
-    // Facturación 6 Meses
-    const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1);
-    const facturationRaw = await ODP.findAll({
-      attributes: [
-        [fn('DATE_TRUNC', 'month', col('fecha_creacion')), 'mes'],
-        [fn('SUM', literal('abono + pendiente')), 'total_abono']
-      ],
-      where: { fecha_creacion: { [Op.gte]: sixMonthsAgo } },
-      group: [fn('DATE_TRUNC', 'month', col('fecha_creacion'))],
-      order: [[fn('DATE_TRUNC', 'month', col('fecha_creacion')), 'ASC']],
-      raw: true
-    }) as unknown as { mes: Date, total_abono: string }[];
+    // Gráfico mensual: cantidad ODPs, abono, pendiente, cancelado, crédito por mes
+    const estadisticasMensualesRaw = await sequelize.query<{
+      mes: Date; cantidad_odps: string;
+      total_abono: string; total_pendiente: string;
+      total_cancelado: string; total_credito: string;
+    }>(`
+      SELECT
+        DATE_TRUNC('month', fecha_creacion) AS mes,
+        COUNT(*)::int                        AS cantidad_odps,
+        SUM(abono)                           AS total_abono,
+        SUM(pendiente)                       AS total_pendiente,
+        SUM(CASE WHEN estado_caja = 'CANCELADO'  THEN abono + pendiente ELSE 0 END) AS total_cancelado,
+        SUM(CASE WHEN forma_pago  = 'credito'    THEN abono + pendiente ELSE 0 END) AS total_credito
+      FROM odp
+      WHERE fecha_creacion BETWEEN :firstDay AND :lastDay
+      GROUP BY DATE_TRUNC('month', fecha_creacion)
+      ORDER BY mes ASC
+    `, { replacements: { firstDay, lastDay }, type: QueryTypes.SELECT });
 
-    // Suma de metas por usuario agrupada por mes (últimos 6 meses)
-    const metas_6_meses_raw = await MetaUsuarioMensual.findAll({
-      attributes: [
-        'anio',
-        'mes',
-        [fn('SUM', col('meta_facturacion')), 'total']
-      ],
-      where: {
-        [Op.or]: facturationRaw.map(fr => {
-          const d = new Date(fr.mes);
-          return { anio: d.getFullYear(), mes: d.getMonth() + 1 };
-        })
-      },
-      group: ['anio', 'mes'],
-      raw: true
-    }) as unknown as { anio: number; mes: number; total: string }[];
+    const estadisticas_mensuales = estadisticasMensualesRaw.map(row => ({
+      mes:              new Date(row.mes).toLocaleDateString('es-CO', { month: 'short', year: '2-digit' }),
+      cantidad_odps:    Number(row.cantidad_odps)  || 0,
+      total_abono:      Number(row.total_abono)    || 0,
+      total_pendiente:  Number(row.total_pendiente)|| 0,
+      total_cancelado:  Number(row.total_cancelado)|| 0,
+      total_credito:    Number(row.total_credito)  || 0,
+    }));
 
-    const facturacion_6_meses = facturationRaw.map((fr) => {
-      const frDate = new Date(fr.mes);
-      const mAnio = frDate.getFullYear();
-      const mMes = frDate.getMonth() + 1;
-
-      const metaRow = metas_6_meses_raw.find(m => m.anio === mAnio && m.mes === mMes);
-      const metaValue = metaRow && Number(metaRow.total) > 0 ? Number(metaRow.total) : (config as any)?.meta_facturacion_mensual || 120000000;
-
-      return {
-        mes: frDate.toLocaleDateString('es-CO', { month: 'short' }),
-        real: Number(fr.total_abono) || 0,
-        meta: Number(metaValue) || 120000000
-      };
-    });
-
-    // Embudo
+    // Embudo de conversión (periodo seleccionado)
+    const periodWhere = { fecha_creacion: { [Op.between]: [firstDay, lastDay] } };
     const embudo_conversion = {
-      creadas: await ODP.count({ where: { fecha_creacion: { [Op.gte]: firstDayCurrent } } }),
-      en_produccion: await ODP.count({ where: { estado_produccion: { [Op.notIn]: ['EN_ESPERA', 'ENTREGADA', 'INSTALADA'] }, fecha_creacion: { [Op.gte]: firstDayCurrent } } }),
-      instaladas: await ODP.count({ where: { estado_produccion: 'INSTALADA', fecha_creacion: { [Op.gte]: firstDayCurrent } } }),
-      entregadas: await ODP.count({ where: { estado_produccion: 'ENTREGADA', fecha_creacion: { [Op.gte]: firstDayCurrent } } }),
-      facturadas: await ODP.count({ where: { factura_electronica: { [Op.ne]: null }, fecha_creacion: { [Op.gte]: firstDayCurrent } } }),
+      creadas:       await ODP.count({ where: { ...periodWhere } }),
+      en_produccion: await ODP.count({ where: { ...periodWhere, estado_produccion: { [Op.notIn]: ['EN_ESPERA', 'ENTREGADA', 'INSTALADA'] } } }),
+      instaladas:    await ODP.count({ where: { ...periodWhere, estado_produccion: 'INSTALADA' } }),
+      entregadas:    await ODP.count({ where: { ...periodWhere, estado_produccion: 'ENTREGADA' } }),
+      facturadas:    await ODP.count({ where: { ...periodWhere, factura_electronica: { [Op.ne]: null } } }),
     };
 
-    // Caja
+    // Distribución de caja (periodo)
     const caja_raw = await ODP.findAll({
       attributes: ['estado_caja', [fn('COUNT', col('id')), 'total']],
+      where: periodWhere,
       group: ['estado_caja'],
       raw: true
-    }) as unknown as { estado_caja: string, total: string }[];
-    const total_caja = caja_raw.reduce((acc, curr) => acc + parseInt(curr.total), 0);
+    }) as unknown as { estado_caja: string; total: string }[];
+    const total_caja = caja_raw.reduce((acc, c) => acc + parseInt(c.total), 0);
     const estado_caja_distribucion = caja_raw.map(c => ({
       estado: c.estado_caja,
-      pct: total_caja > 0 ? Math.round((parseInt(c.total) / total_caja) * 100) : 0
+      pct:    total_caja > 0 ? Math.round((parseInt(c.total) / total_caja) * 100) : 0
     }));
 
     res.json({
@@ -168,13 +195,12 @@ export const getGeneralData = async (_req: Request, res: Response) => {
       odps_activas,
       odps_activas_delta_pct,
       facturado_mes: Number(facturado_mes),
-      facturado_mes_delta_pct,
-      cartera_vencida_total: total_pendiente,
+      cartera_vencida_total,
       cartera_vencida_clientes,
       tasa_entrega_tiempo_pct,
       meta_entrega_tiempo_pct: 85,
       odps_por_estado,
-      facturacion_6_meses,
+      estadisticas_mensuales,
       embudo_conversion,
       estado_caja_distribucion
     });
@@ -184,38 +210,38 @@ export const getGeneralData = async (_req: Request, res: Response) => {
 };
 
 // ─── 2. PANEL VENTAS ─────────────────────────────────────────────────────────
-export const getVentasData = async (_req: Request, res: Response) => {
+export const getVentasData = async (req: Request, res: Response) => {
   try {
-    const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } }) || { meta_odps_cerradas_asesor: 12, dias_alerta_cartera_vencida: 60 };
     const today = new Date();
-    
-    const currentMonth = today.getMonth() + 1;
-    const currentYear = today.getFullYear();
-    const meta_mes_db = await MetaMensual.findOne({ where: { anio: currentYear, mes: currentMonth } });
-    const meta_odps_asesor = meta_mes_db ? meta_mes_db.getDataValue('meta_odps_asesor') : ((config as any)?.meta_odps_cerradas_asesor || 12);
+    const { firstDay, lastDay, mesInicio, anioInicio, mesFin, anioFin } = parsePeriod(req);
 
-    const firstDayCurrent = new Date(today.getFullYear(), today.getMonth(), 1);
+    const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
+    const diasAlertaCartera   = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
+    const fechaUmbralCartera  = new Date(today.getTime() - diasAlertaCartera * 24 * 3600 * 1000);
 
-    const currentAbono = await ODP.sum('abono', { where: { fecha_creacion: { [Op.gte]: firstDayCurrent } } }) || 0;
-    const currentPdte = await ODP.sum('pendiente', { where: { fecha_creacion: { [Op.gte]: firstDayCurrent } } }) || 0;
-    const total_facturado_mes = Number(currentAbono) + Number(currentPdte);
-    
-    // Lo "Recaudado" es solo abonos de cualquier ODP pagado este mes, lo mantenemos como métrica
-    const total_abonado = currentAbono; 
+    const periodWhere = { fecha_creacion: { [Op.between]: [firstDay, lastDay] } };
 
-    const total_pendiente = await ODP.sum('pendiente', { where: { pendiente: { [Op.gt]: 0 } } }) || 0;
-    const odps_sin_facturar = await ODP.count({ where: { factura_electronica: null } });
+    // Totales del periodo
+    const totalAbono = await ODP.sum('abono',    { where: periodWhere }) || 0;
+    const totalPdte  = await ODP.sum('pendiente', { where: periodWhere }) || 0;
+    const total_facturado_mes = Number(totalAbono) + Number(totalPdte);
+    const total_abonado       = Number(totalAbono);
+    const total_pendiente     = await ODP.sum('pendiente', {
+      where: { ...periodWhere, pendiente: { [Op.gt]: 0 } }
+    }) || 0;
 
-    const countMes = await ODP.count({ where: { fecha_creacion: { [Op.gte]: firstDayCurrent } } });
-    const ticket_promedio = countMes > 0 ? Math.round(total_facturado_mes / countMes) : 0;
-    const ticket_promedio_delta_pct = 5;
+    const odps_sin_facturar = await ODP.count({ where: { ...periodWhere, factura_electronica: null } });
+    const countPeriod       = await ODP.count({ where: periodWhere });
+    const ticket_promedio   = countPeriod > 0 ? Math.round(total_facturado_mes / countPeriod) : 0;
 
+    // Top clientes del periodo
     const top_clientes_raw = await ODP.findAll({
       attributes: [
         'cliente_id',
         [fn('SUM', literal('"ODP".abono + "ODP".pendiente')), 'total'],
         [fn('COUNT', col('ODP.id')), 'odps_count']
       ],
+      where: periodWhere,
       include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
       group: ['ODP.cliente_id', 'cliente.id'],
       order: [[literal('total'), 'DESC']],
@@ -223,66 +249,104 @@ export const getVentasData = async (_req: Request, res: Response) => {
       raw: true,
       nest: true
     }) as unknown as any[];
-
     const top_clientes = top_clientes_raw.map(tc => ({
       cliente_id: tc.cliente_id,
-      nombre: tc.cliente.nombre_razon_social,
-      total: Number(tc.total),
-      odps: parseInt(tc.odps_count)
+      nombre:     tc.cliente.nombre_razon_social,
+      total:      Number(tc.total),
+      odps:       parseInt(tc.odps_count)
     }));
 
-    const carteraVencida = await ODP.findAll({
-      where: { pendiente: { [Op.gt]: 0 }, fecha_entrega: { [Op.lt]: today }, estado_caja: { [Op.ne]: 'CANCELADO' } },
+    // Cartera vencida: SOLO créditos que superaron el umbral
+    const carteraRaw = await ODP.findAll({
+      where: {
+        forma_pago:   'credito',
+        pendiente:    { [Op.gt]: 0 },
+        fecha_entrega:{ [Op.lt]: fechaUmbralCartera },
+        estado_caja:  { [Op.ne]: 'CANCELADO' },
+        ...periodWhere
+      },
       include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
       order: [['fecha_entrega', 'ASC']],
       limit: 10
     });
-
-    const cartera_vencida_detalle = carteraVencida.map(o => {
+    const cartera_vencida_detalle = carteraRaw.map(o => {
       const diff = Math.ceil((today.getTime() - new Date(o.getDataValue('fecha_entrega')).getTime()) / (1000 * 3600 * 24));
-      const configDiasAlerta = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
       return {
-        cliente_id: o.getDataValue('cliente_id'),
-        nombre: (o as any).cliente?.nombre_razon_social || 'Cliente desconocido',
-        monto: Number(o.getDataValue('pendiente')),
+        cliente_id:   o.getDataValue('cliente_id'),
+        nombre:       (o as any).cliente?.nombre_razon_social || 'Cliente desconocido',
+        monto:        Number(o.getDataValue('pendiente')),
         dias_vencido: diff,
-        riesgo: diff > configDiasAlerta ? 'critico' : (diff > Math.floor(configDiasAlerta/2) ? 'alerta' : 'normal')
+        riesgo:       diff > diasAlertaCartera * 2   ? 'critico'
+                    : diff > diasAlertaCartera * 1.5  ? 'alerta'
+                    : 'normal'
+      };
+    });
+    const cartera_por_antiguedad = [
+      { rango: `${diasAlertaCartera}–${Math.round(diasAlertaCartera * 1.5)} días`, total: cartera_vencida_detalle.filter(d => d.riesgo === 'normal').reduce((a, c) => a + c.monto, 0) },
+      { rango: `${Math.round(diasAlertaCartera * 1.5)}–${diasAlertaCartera * 2} días`, total: cartera_vencida_detalle.filter(d => d.riesgo === 'alerta').reduce((a, c) => a + c.monto, 0) },
+      { rango: `>${diasAlertaCartera * 2} días`, total: cartera_vencida_detalle.filter(d => d.riesgo === 'critico').reduce((a, c) => a + c.monto, 0) }
+    ];
+
+    // Ranking asesores — meta financiera
+    const monthList = generateMonthList(mesInicio, anioInicio, mesFin, anioFin);
+    const asesores  = await Usuario.findAll({ where: { rol: 'asesor_comercial' } });
+
+    const realByAsesor = await ODP.findAll({
+      attributes: ['asesor_id', [fn('SUM', literal('abono + pendiente')), 'total']],
+      where: { ...periodWhere, asesor_id: { [Op.ne]: null } },
+      group: ['asesor_id'],
+      raw: true
+    }) as unknown as { asesor_id: number; total: string }[];
+
+    const metaByAsesor = monthList.length > 0
+      ? await MetaUsuarioMensual.findAll({
+          attributes: ['usuario_id', [fn('SUM', col('meta_facturacion')), 'total']],
+          where: { [Op.or]: monthList.map(m => ({ anio: m.anio, mes: m.mes })) },
+          group: ['usuario_id'],
+          raw: true
+        }) as unknown as { usuario_id: number; total: string }[]
+      : [];
+
+    const meta_vs_real_asesores = asesores.map(u => {
+      const uid     = u.getDataValue('id');
+      const realRow = realByAsesor.find(r => Number(r.asesor_id) === uid);
+      const metaRow = metaByAsesor.find(m => Number(m.usuario_id) === uid);
+      return {
+        asesor_id: uid,
+        nombre:    (u as any).nombre_completo,
+        real:      Number(realRow?.total) || 0,
+        meta:      Number(metaRow?.total) || 0
       };
     });
 
-    const cartera_por_antiguedad = [
-      { rango: "0-30 días", total: cartera_vencida_detalle.filter(d => d.dias_vencido <= 30).reduce((acc, c) => acc + c.monto, 0) },
-      { rango: "31-60 días", total: cartera_vencida_detalle.filter(d => d.dias_vencido > 30 && d.dias_vencido <= 60).reduce((acc, c) => acc + c.monto, 0) },
-      { rango: ">60 días", total: cartera_vencida_detalle.filter(d => d.dias_vencido > 60).reduce((acc, c) => acc + c.monto, 0) }
-    ];
+    const meta_facturacion_actual = monthList.length > 0
+      ? await MetaUsuarioMensual.sum('meta_facturacion', {
+          where: { [Op.or]: monthList.map(m => ({ anio: m.anio, mes: m.mes })) }
+        }) || (config as any)?.meta_facturacion_mensual || 120000000
+      : (config as any)?.meta_facturacion_mensual || 120000000;
 
-    const asesores = await Usuario.findAll({ where: { rol: 'asesor_comercial' } });
-    const meta_vs_real_asesores = await Promise.all(asesores.map(async (u) => {
-      const real = await ODP.count({ where: { asesor_id: u.getDataValue('id'), estado_produccion: 'ENTREGADA', fecha_creacion: { [Op.gte]: firstDayCurrent } } });
-      return { asesor_id: u.getDataValue('id'), nombre: (u as any).nombre_completo, real, meta: meta_odps_asesor };
-    }));
-
-    // ODPs atrasadas (fecha_entrega < hoy, no entregadas/instaladas)
+    // ODPs atrasadas — snapshot (no filtro de periodo)
     const odps_atrasadas = await ODP.count({
       where: {
-        fecha_entrega: { [Op.lt]: today },
-        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA'] },
-        estado_caja: { [Op.ne]: 'CANCELADO' }
+        fecha_entrega:    { [Op.lt]: today },
+        estado_produccion:{ [Op.notIn]: ['ENTREGADA', 'INSTALADA'] },
+        estado_caja:      { [Op.ne]: 'CANCELADO' }
       }
     });
 
     res.json({
-      total_abonado: Number(total_abonado),
+      total_abonado:       Number(total_abonado),
       total_facturado_mes: Number(total_facturado_mes),
-      total_pendiente: Number(total_pendiente),
+      total_pendiente:     Number(total_pendiente),
       odps_sin_facturar,
       odps_atrasadas,
       ticket_promedio,
-      ticket_promedio_delta_pct,
+      ticket_promedio_delta_pct: 0,
       top_clientes,
       cartera_vencida_detalle,
       cartera_por_antiguedad,
-      meta_vs_real_asesores
+      meta_vs_real_asesores,
+      meta_facturacion_actual: Number(meta_facturacion_actual)
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -290,16 +354,17 @@ export const getVentasData = async (_req: Request, res: Response) => {
 };
 
 // ─── 3. PANEL PRODUCCIÓN ───────────────────────────────────────────────────
-export const getProduccionData = async (_req: Request, res: Response) => {
+export const getProduccionData = async (req: Request, res: Response) => {
   try {
-    const today = new Date();
+    const today   = new Date();
     const nextWeek = new Date(today.getTime() + (7 * 24 * 3600 * 1000));
+    const { firstDay, lastDay } = parsePeriod(req);
 
-    const odps_en_taller = await ODP.count({ where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'EN_ESPERA'] } } });
+    const odps_en_taller         = await ODP.count({ where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'EN_ESPERA'] } } });
     const odps_vencen_esta_semana = await ODP.count({ where: { fecha_entrega: { [Op.between]: [today, nextWeek] }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA'] } } });
 
-    const entregadasUltimoMes = await ODP.findAll({
-      where: { estado_produccion: 'ENTREGADA', fecha_creacion: { [Op.gte]: new Date(today.getFullYear(), today.getMonth() - 1, 1) } },
+    const entregadasPeriodo = await ODP.findAll({
+      where: { estado_produccion: 'ENTREGADA', fecha_creacion: { [Op.between]: [firstDay, lastDay] } },
       include: [{
         model: HistorialEstadoODP,
         as: 'historial_estados',
@@ -308,73 +373,66 @@ export const getProduccionData = async (_req: Request, res: Response) => {
         order: [['fecha', 'DESC']]
       }]
     });
-
     let sumDias = 0;
-    entregadasUltimoMes.forEach(o => {
-      const created = new Date(o.getDataValue('fecha_creacion'));
-      const finished = o.get('historial_estados') && (o.get('historial_estados') as any).length > 0 ? new Date((o.get('historial_estados') as any)[0].fecha) : today;
+    entregadasPeriodo.forEach(o => {
+      const created  = new Date(o.getDataValue('fecha_creacion'));
+      const finished = (o.get('historial_estados') as any)?.length > 0
+        ? new Date((o.get('historial_estados') as any)[0].fecha) : today;
       sumDias += Math.ceil((finished.getTime() - created.getTime()) / (1000 * 3600 * 24));
     });
-    const tiempo_ciclo_promedio_dias = entregadasUltimoMes.length > 0 ? Number((sumDias / entregadasUltimoMes.length).toFixed(1)) : 0;
+    const tiempo_ciclo_promedio_dias = entregadasPeriodo.length > 0
+      ? Number((sumDias / entregadasPeriodo.length).toFixed(1)) : 0;
 
-    const listasIds = await ODP.findAll({ where: { estado_produccion: 'LISTO_INSTALAR' }, attributes: ['id'] });
+    const listasIds   = await ODP.findAll({ where: { estado_produccion: 'LISTO_INSTALAR' }, attributes: ['id'] });
     const programadas = await RutaODP.findAll({ where: { odp_id: { [Op.in]: listasIds.map(o => o.getDataValue('id')) }, estado: { [Op.ne]: 'completada' } }, attributes: ['odp_id'] });
     const odps_listas_sin_programar = listasIds.length - programadas.length;
 
     const etapas = ['MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR'];
-
     const [tiempoEtapasRows] = await sequelize.query(`
       WITH ranked AS (
-        SELECT
-          estado_nuevo,
-          fecha,
-          LEAD(fecha) OVER (PARTITION BY odp_id ORDER BY fecha) AS fecha_siguiente
+        SELECT estado_nuevo, fecha,
+               LEAD(fecha) OVER (PARTITION BY odp_id ORDER BY fecha) AS fecha_siguiente
         FROM historial_estados_odp
       )
-      SELECT
-        estado_nuevo AS etapa,
-        ROUND(AVG(EXTRACT(EPOCH FROM (fecha_siguiente - fecha)) / 86400)::numeric, 1) AS dias_promedio
+      SELECT estado_nuevo AS etapa,
+             ROUND(AVG(EXTRACT(EPOCH FROM (fecha_siguiente - fecha)) / 86400)::numeric, 1) AS dias_promedio
       FROM ranked
-      WHERE estado_nuevo IN (:etapas)
-        AND fecha_siguiente IS NOT NULL
+      WHERE estado_nuevo IN (:etapas) AND fecha_siguiente IS NOT NULL
       GROUP BY estado_nuevo
     `, { replacements: { etapas } }) as [{ etapa: string; dias_promedio: string }[], unknown];
-
-    const tiempoEtapasMap = new Map(tiempoEtapasRows.map(r => [r.etapa, Number(r.dias_promedio)]));
+    const tiempoEtapasMap  = new Map(tiempoEtapasRows.map(r => [r.etapa, Number(r.dias_promedio)]));
     const tiempo_por_etapa = etapas.map(etapa => ({ etapa, dias_promedio: tiempoEtapasMap.get(etapa) ?? 0 }));
 
-    const proximas_vencer = await ODP.findAll({
+    const proximas_vencer_raw = await ODP.findAll({
       where: { fecha_entrega: { [Op.between]: [today, nextWeek] }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA'] } },
       include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
       order: [['fecha_entrega', 'ASC']],
       limit: 10
     });
-
-    const odps_proximas_vencer = proximas_vencer.map(o => {
+    const odps_proximas_vencer = proximas_vencer_raw.map(o => {
       const rest = Math.ceil((new Date(o.getDataValue('fecha_entrega')).getTime() - today.getTime()) / (1000 * 3600 * 24));
       return {
-        odp_id: o.getDataValue('id'),
-        numero_odp: o.getDataValue('numero_odp'),
-        cliente: (o as any).cliente?.nombre_razon_social || 'Desconocido',
-        estado_produccion: o.getDataValue('estado_produccion'),
-        fecha_entrega: o.getDataValue('fecha_entrega'),
-        dias_restantes: rest,
-        riesgo: rest <= 2 ? 'alto' : (rest <= 5 ? 'medio' : 'bajo')
+        odp_id:           o.getDataValue('id'),
+        numero_odp:       o.getDataValue('numero_odp'),
+        cliente:          (o as any).cliente?.nombre_razon_social || 'Desconocido',
+        estado_produccion:o.getDataValue('estado_produccion'),
+        fecha_entrega:    o.getDataValue('fecha_entrega'),
+        dias_restantes:   rest,
+        riesgo:           rest <= 2 ? 'alto' : rest <= 5 ? 'medio' : 'bajo'
       };
     });
 
-    const servicios_raw = await ODP.findAll({ attributes: ['tipo_servicio', [fn('COUNT', col('id')), 'total']], group: ['tipo_servicio'], raw: true }) as any[];
+    const servicios_raw = await ODP.findAll({
+      attributes: ['tipo_servicio', [fn('COUNT', col('id')), 'total']],
+      where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] } },
+      group: ['tipo_servicio'],
+      raw: true
+    }) as any[];
     const servicios_distribucion = servicios_raw.map(s => ({ tipo_servicio: s.tipo_servicio || 'Otros', cantidad: parseInt(s.total) }));
 
-    // ODPs pausadas
-    const odps_pausadas = await ODP.count({ where: { estado_produccion: 'PAUSADA' } });
+    const odps_pausadas             = await ODP.count({ where: { estado_produccion: 'PAUSADA' } });
+    const no_conformidades_abiertas = await NoConformidad.count({ where: { estado: { [Op.in]: ['ABIERTO', 'EN_PROCESO'] } } });
 
-    // No conformidades abiertas o en proceso
-    const no_conformidades_abiertas = await NoConformidad.count({
-      where: { estado: { [Op.in]: ['ABIERTO', 'EN_PROCESO'] } }
-    });
-
-    // ODPs más antiguas en producción (no ENTREGADA, no INSTALADA)
     const masAntiguas = await ODP.findAll({
       where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'EN_ESPERA'] } },
       include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
@@ -384,11 +442,11 @@ export const getProduccionData = async (_req: Request, res: Response) => {
     const odps_mas_antiguas = masAntiguas.map(o => {
       const dias = Math.ceil((today.getTime() - new Date(o.getDataValue('fecha_creacion')).getTime()) / (1000 * 3600 * 24));
       return {
-        odp_id: o.getDataValue('id'),
-        numero_odp: o.getDataValue('numero_odp'),
-        cliente: (o as any).cliente?.nombre_razon_social || 'Desconocido',
-        estado_produccion: o.getDataValue('estado_produccion'),
-        dias_en_sistema: dias
+        odp_id:           o.getDataValue('id'),
+        numero_odp:       o.getDataValue('numero_odp'),
+        cliente:          (o as any).cliente?.nombre_razon_social || 'Desconocido',
+        estado_produccion:o.getDataValue('estado_produccion'),
+        dias_en_sistema:  dias
       };
     });
 
@@ -399,111 +457,118 @@ export const getProduccionData = async (_req: Request, res: Response) => {
 };
 
 // ─── 4. PANEL EQUIPO ────────────────────────────────────────────────────────
-export const getEquipoData = async (_req: Request, res: Response) => {
+export const getEquipoData = async (req: Request, res: Response) => {
   try {
     const today = new Date();
+    const { firstDay, lastDay, mesInicio, anioInicio, mesFin, anioFin } = parsePeriod(req);
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr        = today.toISOString().split('T')[0];
+    const periodWhere     = { fecha_creacion: { [Op.between]: [firstDay, lastDay] } };
 
-    // ── KPIs base ──────────────────────────────────────────────────────────────
-    const total_asesores = await Usuario.count({ where: { rol: 'asesor_comercial' } });
+    const total_asesores     = await Usuario.count({ where: { rol: 'asesor_comercial' } });
     const total_instaladores = await Usuario.count({ where: { rol: 'instalador' } });
-    const total_odps = await ODP.count({ where: { estado_produccion: { [Op.ne]: 'ENTREGADA' } } });
+    const total_odps         = await ODP.count({ where: { estado_produccion: { [Op.ne]: 'ENTREGADA' } } });
     const odps_por_asesor_promedio = total_asesores > 0 ? Number((total_odps / total_asesores).toFixed(1)) : 0;
-    const items_totales = await ODPItem.count();
-    const items_verificados = await ODPItem.count({ where: { verificacion_prod: true } });
+    const items_totales      = await ODPItem.count();
+    const items_verificados  = await ODPItem.count({ where: { verificacion_prod: true } });
     const eficiencia_taller_pct = items_totales > 0 ? Math.round((items_verificados / items_totales) * 100) : 0;
 
-    // ── Ranking asesores ───────────────────────────────────────────────────────
-    const asesores = await Usuario.findAll({ where: { rol: 'asesor_comercial' } });
-    const ranking_asesores = await Promise.all(asesores.map(async (u) => {
-      const cerradas = await ODP.count({ where: { asesor_id: u.getDataValue('id'), estado_produccion: 'ENTREGADA' } });
-      return { asesor_id: u.getDataValue('id'), nombre: (u as any).nombre_completo, odps_cerradas_mes: cerradas, tiempo_promedio_cierre_dias: 10 + Math.random() * 5, meta: 12 };
-    }));
+    // Ranking asesores — meta financiera del periodo
+    const asesores  = await Usuario.findAll({ where: { rol: 'asesor_comercial' } });
+    const monthList = generateMonthList(mesInicio, anioInicio, mesFin, anioFin);
 
-    // ── Carga instaladores (existente) ─────────────────────────────────────────
-    const instaladores = await Usuario.findAll({ where: { rol: 'instalador' } });
+    const realByAsesor = await ODP.findAll({
+      attributes: ['asesor_id', [fn('SUM', literal('abono + pendiente')), 'total']],
+      where: { ...periodWhere, asesor_id: { [Op.ne]: null } },
+      group: ['asesor_id'],
+      raw: true
+    }) as unknown as { asesor_id: number; total: string }[];
+
+    const metaByAsesor = monthList.length > 0
+      ? await MetaUsuarioMensual.findAll({
+          attributes: ['usuario_id', [fn('SUM', col('meta_facturacion')), 'total']],
+          where: { [Op.or]: monthList.map(m => ({ anio: m.anio, mes: m.mes })) },
+          group: ['usuario_id'],
+          raw: true
+        }) as unknown as { usuario_id: number; total: string }[]
+      : [];
+
+    const ranking_asesores = asesores.map(u => {
+      const uid     = u.getDataValue('id');
+      const realRow = realByAsesor.find(r => Number(r.asesor_id) === uid);
+      const metaRow = metaByAsesor.find(m => Number(m.usuario_id) === uid);
+      return {
+        asesor_id: uid,
+        nombre:    (u as any).nombre_completo,
+        real:      Number(realRow?.total) || 0,
+        meta:      Number(metaRow?.total) || 0
+      };
+    });
+
+    // Carga instaladores
+    const instaladores    = await Usuario.findAll({ where: { rol: 'instalador' } });
     const carga_instaladores = await Promise.all(instaladores.map(async (u) => {
-      const instas = await EvidenciaInstalacion.count({ where: { instalador_id: u.getDataValue('id') } });
+      const instas    = await EvidenciaInstalacion.count({ where: { instalador_id: u.getDataValue('id') } });
       const evidencias = await EvidenciaInstalacion.count({ where: { instalador_id: u.getDataValue('id') } });
       return { instalador_id: u.getDataValue('id'), nombre: (u as any).nombre_completo, instalaciones_mes: instas, con_evidencia: evidencias, sin_evidencia: Math.max(0, instas - evidencias) };
     }));
 
-    // ── PROPUESTA A: Rendimiento por instalador ────────────────────────────────
+    // Rendimiento instaladores
     const [rendimientoRows] = await sequelize.query(`
-      SELECT
-        u.id AS instalador_id,
-        u.nombre_completo AS nombre,
-        COUNT(e.id) AS instalaciones_mes,
-        ROUND(AVG(
-          EXTRACT(EPOCH FROM (ro.fin_instalacion - ro.inicio_instalacion)) / 60
-        )::numeric, 1) AS avg_minutos_instalacion,
-        COUNT(CASE WHEN ro.fin_instalacion::date = CURRENT_DATE THEN 1 END) AS completadas_hoy
+      SELECT u.id AS instalador_id, u.nombre_completo AS nombre,
+             COUNT(e.id) AS instalaciones_mes,
+             ROUND(AVG(EXTRACT(EPOCH FROM (ro.fin_instalacion - ro.inicio_instalacion)) / 60)::numeric, 1) AS avg_minutos_instalacion,
+             COUNT(CASE WHEN ro.fin_instalacion::date = CURRENT_DATE THEN 1 END) AS completadas_hoy
       FROM evidencias_instalacion e
       JOIN ruta_odp ro ON ro.odp_id = e.odp_id AND ro.estado = 'completada'
       JOIN usuarios u ON e.instalador_id = u.id
-      WHERE e.fecha >= :firstDayOfMonth
-        AND ro.fin_instalacion IS NOT NULL
-        AND ro.inicio_instalacion IS NOT NULL
+      WHERE e.fecha >= :firstDay AND ro.fin_instalacion IS NOT NULL AND ro.inicio_instalacion IS NOT NULL
       GROUP BY u.id, u.nombre_completo
       ORDER BY instalaciones_mes DESC
-    `, { replacements: { firstDayOfMonth } });
+    `, { replacements: { firstDay } });
 
-    // ── PROPUESTA B: Análisis por conductor ────────────────────────────────────
+    // Análisis conductores
     const [conductoresRows] = await sequelize.query(`
-      SELECT
-        u.id AS conductor_id,
-        u.nombre_completo AS nombre,
-        COUNT(ri.id) AS rutas_mes,
-        COUNT(CASE WHEN ri.estado = 'completada' THEN 1 END) AS rutas_completadas,
-        ROUND(AVG(
-          EXTRACT(EPOCH FROM (
-            (SELECT MAX(ro2.fin_instalacion) FROM ruta_odp ro2 WHERE ro2.ruta_id = ri.id)
-            - ri.inicio_ruta
-          )) / 60
-        )::numeric, 0) AS avg_minutos_ruta,
-        ROUND(AVG(
-          EXTRACT(EPOCH FROM (ro.llegada_conductor - (ro.fecha_programada::timestamp)))
-          / 3600
-        )::numeric, 1) AS avg_horas_puntualidad
+      SELECT u.id AS conductor_id, u.nombre_completo AS nombre,
+             COUNT(ri.id) AS rutas_mes,
+             COUNT(CASE WHEN ri.estado = 'completada' THEN 1 END) AS rutas_completadas,
+             ROUND(AVG(EXTRACT(EPOCH FROM ((SELECT MAX(ro2.fin_instalacion) FROM ruta_odp ro2 WHERE ro2.ruta_id = ri.id) - ri.inicio_ruta)) / 60)::numeric, 0) AS avg_minutos_ruta,
+             ROUND(AVG(EXTRACT(EPOCH FROM (ro.llegada_conductor - (ro.fecha_programada::timestamp))) / 3600)::numeric, 1) AS avg_horas_puntualidad
       FROM rutas_instalacion ri
       JOIN usuarios u ON ri.conductor_id = u.id
       LEFT JOIN ruta_odp ro ON ro.ruta_id = ri.id AND ro.llegada_conductor IS NOT NULL
-      WHERE ri.creado_en >= :firstDayOfMonth
-        AND ri.conductor_id IS NOT NULL
+      WHERE ri.creado_en >= :firstDay AND ri.conductor_id IS NOT NULL
       GROUP BY u.id, u.nombre_completo
       ORDER BY rutas_mes DESC
-    `, { replacements: { firstDayOfMonth } });
+    `, { replacements: { firstDay } });
 
-    // ── PROPUESTA C: Estado actual del día ────────────────────────────────────
+    // Operaciones hoy
     const [odpsHoyRows] = await sequelize.query(`
-      SELECT
-        COUNT(*) FILTER (WHERE estado = 'pendiente')  AS pendientes,
-        COUNT(*) FILTER (WHERE estado = 'en_curso')   AS en_curso,
-        COUNT(*) FILTER (WHERE estado = 'completada') AS completadas
-      FROM ruta_odp
-      WHERE fecha_programada = :todayStr
+      SELECT COUNT(*) FILTER (WHERE estado = 'pendiente')  AS pendientes,
+             COUNT(*) FILTER (WHERE estado = 'en_curso')   AS en_curso,
+             COUNT(*) FILTER (WHERE estado = 'completada') AS completadas
+      FROM ruta_odp WHERE fecha_programada = :todayStr
     `, { replacements: { todayStr } });
 
     const rutasActivas = await RutaInstalacion.findAll({
       where: { estado: 'en_curso' },
       include: [
-        { model: Vehiculo, as: 'vehiculo', attributes: ['placa', 'tipo'] },
-        { model: Usuario, as: 'conductor', attributes: ['nombre_completo'] },
-        { model: RutaODP, as: 'ruta_odps', attributes: ['id', 'estado', 'odp_id', 'llegada_conductor', 'inicio_instalacion'] },
+        { model: Vehiculo,  as: 'vehiculo',   attributes: ['placa', 'tipo'] },
+        { model: Usuario,   as: 'conductor',  attributes: ['nombre_completo'] },
+        { model: RutaODP,   as: 'ruta_odps',  attributes: ['id', 'estado', 'odp_id', 'llegada_conductor', 'inicio_instalacion'] },
       ],
     }) as any[];
 
     const operaciones_hoy = {
       odps: odpsHoyRows[0] || { pendientes: 0, en_curso: 0, completadas: 0 },
       rutas_activas: rutasActivas.map(r => ({
-        id: r.id,
-        conductor: r.conductor?.nombre_completo || 'Sin conductor',
-        vehiculo: r.vehiculo ? `${r.vehiculo.tipo.toUpperCase()} ${r.vehiculo.placa}` : '—',
-        inicio_ruta: r.inicio_ruta,
-        stops_total: r.ruta_odps?.length || 0,
-        stops_completadas: r.ruta_odps?.filter((s: any) => s.estado === 'completada').length || 0,
-        stops_en_curso: r.ruta_odps?.filter((s: any) => s.estado === 'en_curso').length || 0,
+        id:               r.id,
+        conductor:        r.conductor?.nombre_completo || 'Sin conductor',
+        vehiculo:         r.vehiculo ? `${r.vehiculo.tipo.toUpperCase()} ${r.vehiculo.placa}` : '—',
+        inicio_ruta:      r.inicio_ruta,
+        stops_total:      r.ruta_odps?.length || 0,
+        stops_completadas:r.ruta_odps?.filter((s: any) => s.estado === 'completada').length || 0,
+        stops_en_curso:   r.ruta_odps?.filter((s: any) => s.estado === 'en_curso').length || 0,
       })),
     };
 
@@ -511,7 +576,7 @@ export const getEquipoData = async (_req: Request, res: Response) => {
       total_asesores, total_instaladores, odps_por_asesor_promedio, eficiencia_taller_pct,
       ranking_asesores, carga_instaladores,
       rendimiento_instaladores: rendimientoRows,
-      analisis_conductores: conductoresRows,
+      analisis_conductores:     conductoresRows,
       operaciones_hoy,
     });
   } catch (error: any) {
@@ -526,6 +591,10 @@ export const getAlertas = async (_req: Request, res: Response) => {
     const today = new Date();
     const alertThreshold = new Date(today.getTime() + (2 * 24 * 3600 * 1000));
 
+    const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
+    const diasAlertaCartera  = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
+    const fechaUmbralCartera = new Date(today.getTime() - diasAlertaCartera * 24 * 3600 * 1000);
+
     const proximasSinAvance = await ODP.findAll({
       where: { fecha_entrega: { [Op.lte]: alertThreshold }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'LISTO_INSTALAR'] } },
       limit: 10
@@ -534,14 +603,19 @@ export const getAlertas = async (_req: Request, res: Response) => {
       alerts.push({ tipo: 'critico', categoria: 'produccion', titulo: 'ODP próxima a vencer sin avance', mensaje: `ODP ${o.getDataValue('numero_odp')} vence pronto y sigue en estado ${o.getDataValue('estado_produccion')}.`, odp_id: o.getDataValue('id'), accion: 'Ver ODP' });
     });
 
-    const setentaDiasAtras = new Date(today.getTime() - (60 * 24 * 3600 * 1000));
+    // Cartera crítica — créditos que superaron el umbral configurado
     const carteraCritica = await ODP.findAll({
-      where: { pendiente: { [Op.gt]: 0 }, fecha_entrega: { [Op.lt]: setentaDiasAtras }, estado_caja: { [Op.ne]: 'CANCELADO' } },
+      where: {
+        forma_pago:   'credito',
+        pendiente:    { [Op.gt]: 0 },
+        fecha_entrega:{ [Op.lt]: fechaUmbralCartera },
+        estado_caja:  { [Op.ne]: 'CANCELADO' }
+      },
       include: [{ model: Cliente, as: 'cliente' }],
       limit: 5
     });
     carteraCritica.forEach(o => {
-      alerts.push({ tipo: 'critico', categoria: 'cartera', titulo: 'Cartera vencida crítica', mensaje: `${(o as any).cliente?.nombre_razon_social} tiene deuda de $${o.getDataValue('pendiente')} a más de 60 días.`, cliente_id: o.getDataValue('cliente_id'), accion: 'Ver cliente' });
+      alerts.push({ tipo: 'critico', categoria: 'cartera', titulo: 'Cartera vencida crítica', mensaje: `${(o as any).cliente?.nombre_razon_social} tiene deuda de $${o.getDataValue('pendiente')} a más de ${diasAlertaCartera} días.`, cliente_id: o.getDataValue('cliente_id'), accion: 'Ver cliente' });
     });
 
     res.json(alerts);
@@ -550,16 +624,14 @@ export const getAlertas = async (_req: Request, res: Response) => {
   }
 };
 
-// ─── 6. DASHBOARD TRADICIONAL (MANTENER COMPATIBILIDAD) ───────────────────────
+// ─── 6. DASHBOARD TRADICIONAL (COMPATIBILIDAD) ───────────────────────────────
 export const getDashboardData = async (_req: Request, res: Response) => {
   try {
-    const today = new Date();
+    const today           = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-
-    const facturadoMes = await ODP.sum('abono', { where: { fecha_creacion: { [Op.gte]: firstDayOfMonth } } }) || 0;
-    const enProduccion = await ODP.count({ where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'EN_ESPERA'] } } });
+    const facturadoMes    = await ODP.sum('abono', { where: { fecha_creacion: { [Op.gte]: firstDayOfMonth } } }) || 0;
+    const enProduccion    = await ODP.count({ where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'EN_ESPERA'] } } });
     const pedidos_atrasados = await ODP.count({ where: { fecha_entrega: { [Op.lt]: today }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA'] } } });
-
     res.json({
       ventas_mes: facturadoMes,
       en_produccion: enProduccion,

@@ -57,12 +57,16 @@ const PrintableDetalleTecnico: React.FC<PrintableDetalleTecnicoProps> = ({ odp }
                 </table>
 
                 {/* ---------- ESPACIO DE DIBUJO ---------- */}
-                <div className="border-2 border-black mt-2 w-full p-2 relative" style={{ height: '700px' }}>
-                    {/* Placeholder content where User will implement drawing later */}
-                    {odp.croquis_url && (
-                        <div className="absolute inset-0 flex items-center justify-center opacity-80 pointer-events-none p-4">
-                            <img src={odp.croquis_url} className="w-full h-full object-contain" alt="Croquis" />
-                        </div>
+                <div className="border-2 border-black mt-2 w-full overflow-hidden" style={{ height: '700px' }}>
+                    {odp.croquis_url ? (
+                        <img
+                            src={odp.croquis_url}
+                            className="w-full h-full object-contain"
+                            alt="Croquis"
+                            style={{ display: 'block' }}
+                        />
+                    ) : (
+                        <div className="w-full h-full" />
                     )}
                 </div>
 

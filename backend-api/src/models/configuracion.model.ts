@@ -8,7 +8,6 @@ ConfiguracionGlobal.init({
   
   // Financieras
   meta_facturacion_mensual: { type: DataTypes.DECIMAL(15, 2), defaultValue: 120000000.00 },
-  meta_odps_cerradas_asesor: { type: DataTypes.INTEGER, defaultValue: 12 },
   
   // Producción
   meta_ciclo_produccion_dias: { type: DataTypes.INTEGER, defaultValue: 8 },

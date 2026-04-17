@@ -1,220 +1,311 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Settings } from 'lucide-react';
-import BarrasVerticales from '../charts/BarrasVerticales';
-import LineaVsBarras from '../charts/LineaVsBarras';
+import { Settings, TrendingUp, TrendingDown } from 'lucide-react';
+import {
+  ComposedChart, Bar, Line,
+  XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
+} from 'recharts';
 import DonutChart from '../charts/DonutChart';
 
-/** Constantes de Formato y UX */
 const fmtM = (n: number) => {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+  if (n >= 1_000)     return `$${(n / 1_000).toFixed(0)}K`;
   return `$${n}`;
 };
 
+const useCountUp = (target: number, duration = 1400) => {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!target) { setValue(0); return; }
+    let raf: number;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const p     = Math.min((now - start) / duration, 1);
+      const eased = p === 1 ? 1 : 1 - Math.pow(2, -10 * p);
+      setValue(Math.floor(eased * target));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return value;
+};
+
 const ESTADO_COLORS: Record<string, string> = {
-  EN_ESPERA: '#94a3b8',
-  MEDICION: '#818cf8',
-  PEDIDO_PROVEEDOR: '#f59e0b',
-  ALUMINIO_CORTADO: '#06b6d4',
-  VIDRIO_RECIBIDO: '#3b82f6',
-  ACCESORIOS_SEPARADOS: '#8b5cf6',
-  LISTO_INSTALAR: '#f97316',
-  PROGRAMADA: '#14b8a6',
-  INSTALADA: '#22c55e',
-  ENTREGADA: '#10b981',
-  PAUSADA: '#e11d48',
+  EN_ESPERA: '#94a3b8', VISITA_TECNICA: '#c084fc', MEDICION: '#818cf8',
+  PEDIDO_PROVEEDOR: '#f59e0b', ALUMINIO_CORTADO: '#06b6d4', VIDRIO_RECIBIDO: '#3b82f6',
+  ACCESORIOS_SEPARADOS: '#8b5cf6', LISTO_INSTALAR: '#f97316', PROGRAMADA: '#14b8a6',
+  INSTALADA: '#22c55e', ENTREGADA: '#10b981', PAUSADA: '#e11d48',
 };
-
 const ESTADO_LABELS: Record<string, string> = {
-  EN_ESPERA: 'En Espera',
-  MEDICION: 'Medición',
-  PEDIDO_PROVEEDOR: 'Ped. Prov.',
-  ALUMINIO_CORTADO: 'Corte',
-  VIDRIO_RECIBIDO: 'Vidrio',
-  ACCESORIOS_SEPARADOS: 'Accesorios',
-  LISTO_INSTALAR: 'A Instalar',
-  PROGRAMADA: 'Prog.',
-  INSTALADA: 'Instalada',
-  ENTREGADA: 'Entregada',
-  PAUSADA: 'Pausada',
+  EN_ESPERA: 'En Espera', VISITA_TECNICA: 'Visita Técnica', MEDICION: 'Medición',
+  PEDIDO_PROVEEDOR: 'Ped. Proveedor', ALUMINIO_CORTADO: 'Al. Cortado', VIDRIO_RECIBIDO: 'Vidrio',
+  ACCESORIOS_SEPARADOS: 'Accesorios', LISTO_INSTALAR: 'A Instalar', PROGRAMADA: 'Programada',
+  INSTALADA: 'Instalada', ENTREGADA: 'Entregada', PAUSADA: 'Pausada',
+};
+const CAJA_COLORS: Record<string, string> = {
+  CANCELADO: '#16a34a', ABONADO: '#d97706', CREDITO_APROBADO: '#2563eb', PENDIENTE: '#dc2626'
 };
 
-export const PanelGeneral: React.FC<{ data: any, isLoading: boolean }> = ({ data, isLoading }) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const cardVar: any = {
+  hidden:  { opacity: 0, y: 16 },
+  visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.07, duration: 0.5, ease: [0.22, 1, 0.36, 1] } }),
+};
+
+// ─── Tooltip del gráfico mensual ──────────────────────────────────────────────
+const MonthlyTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  const map: Record<string, string> = {
+    total_abono:     'Abono',
+    total_pendiente: 'Pendiente',
+    total_cancelado: 'Cancelado',
+    total_credito:   'Créditos',
+    cantidad_odps:   'ODPs',
+  };
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] shadow-lg min-w-[140px]">
+      <p className="text-slate-400 mb-1.5 font-semibold uppercase tracking-widest text-[9px]">{label}</p>
+      {payload.map((p: any, i: number) => (
+        <p key={i} className="font-semibold flex justify-between gap-3" style={{ color: p.color || p.stroke }}>
+          <span>{map[p.dataKey] || p.name}</span>
+          <span>{p.dataKey === 'cantidad_odps' ? p.value : fmtM(p.value)}</span>
+        </p>
+      ))}
+    </div>
+  );
+};
+
+export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data, isLoading }) => {
+  const odpsActivas  = useCountUp(data?.odps_activas || 0);
+  const facturadoMes = useCountUp(data?.facturado_mes || 0);
+  const carteraVenc  = useCountUp(data?.cartera_vencida_total || 0);
+  const tasaEntrega  = useCountUp(data?.tasa_entrega_tiempo_pct || 0);
+
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          {[1,2,3,4].map(i => <div key={i} className="h-20 bg-white border border-slate-200 animate-pulse rounded" />)}
+      <div className="space-y-3 animate-pulse">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[0,1,2,3].map(i => <div key={i} className="h-28 rounded-2xl bg-slate-200" />)}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <div className="h-60 bg-white border border-slate-200 animate-pulse rounded" />
-          <div className="h-60 bg-white border border-slate-200 animate-pulse rounded" />
+        <div className="grid grid-cols-12 gap-3">
+          <div className="col-span-12 lg:col-span-8 h-64 rounded-2xl bg-slate-200" />
+          <div className="col-span-12 lg:col-span-4 h-64 rounded-2xl bg-slate-200" />
+        </div>
+        <div className="grid grid-cols-12 gap-3">
+          <div className="col-span-12 lg:col-span-7 h-44 rounded-2xl bg-slate-200" />
+          <div className="col-span-12 lg:col-span-5 h-44 rounded-2xl bg-slate-200" />
         </div>
       </div>
     );
   }
 
-  if (!data) return <div className="p-8 text-center text-[12px] text-slate-500">Sin datos operativos.</div>;
+  if (!data) return <div className="p-10 text-center text-slate-400 text-sm">Sin datos disponibles</div>;
 
-  const chartDataEstados = data.odps_por_estado?.map((s: any) => ({
-    name: ESTADO_LABELS[s.estado] || s.estado,
-    cantidad: s.cantidad,
-    fill: ESTADO_COLORS[s.estado] || '#64748b'
-  })) || [];
-
-  const chartDataCaja = data.estado_caja_distribucion?.map((c: any) => ({
-    name: c.estado,
-    pct: c.pct
-  })) || [];
-
-  const cajaColors: any = {
-    CANCELADO: '#10b981',
-    ABONADO: '#f59e0b',
-    CREDITO_APROBADO: '#3b82f6',
-    PENDIENTE: '#e24b4a'
-  };
-
-  const embudoKeys = ['creadas', 'en_produccion', 'instaladas', 'entregadas', 'facturadas'];
-  const embudoLabels = ['ODP creadas', 'En producción', 'Instaladas', 'Entregadas', 'Facturadas'];
-  const embudoColors = ['#3266ad', '#5a8dc2', '#7baed4', '#a2c8e0', '#c5dded'];
-  
-  const embudoVals = embudoKeys.map(k => data.embudo_conversion?.[k] || 0);
-  const maxEmbudo = Math.max(...embudoVals, 1);
+  const chartData    = data.estadisticas_mensuales || [];
+  const cajaDist     = (data.estado_caja_distribucion || []).map((c: any) => ({ name: c.estado, pct: c.pct }));
+  const embudoKeys   = ['creadas', 'en_produccion', 'instaladas', 'entregadas', 'facturadas'];
+  const embudoLabels = ['Creadas', 'En producción', 'Instaladas', 'Entregadas', 'Facturadas'];
+  const embudoColors = ['#6d28d9','#4f46e5','#2563eb','#059669','#047857'];
+  const embudoVals   = embudoKeys.map(k => data.embudo_conversion?.[k] || 0);
+  const maxEmbudo    = Math.max(...embudoVals, 1);
+  const estadosData  = (data.odps_por_estado || []).filter((s: any) => s.cantidad > 0);
+  const totalEstados = estadosData.reduce((acc: number, s: any) => acc + s.cantidad, 0);
+  const metaPct      = data.meta_facturacion_actual > 0
+    ? Math.min((data.facturado_mes / data.meta_facturacion_actual) * 100, 100) : 0;
 
   return (
-    <div className="space-y-4">
-      
-      {/* ─── 1. KPI CARDS ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white p-3 border border-slate-200 rounded text-[11px]">
-          <div className="text-slate-500 mb-1">ODPs activas</div>
-          <div className="text-[20px] font-medium text-slate-800">{data.odps_activas}</div>
+    <div className="space-y-3">
+
+      {/* ── ROW 1: 4 KPI cards ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+
+        <motion.div custom={0} variants={cardVar} initial="hidden" animate="visible"
+          className="bg-white border border-slate-200 rounded-2xl p-5"
+          whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(99,102,241,0.12)' }}>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">ODPs Activas</p>
+          <p className="text-[44px] font-semibold text-slate-800 leading-none tabular-nums">{odpsActivas}</p>
           {data.odps_activas_delta_pct !== undefined && (
-            <div className={`mt-0.5 ${data.odps_activas_delta_pct > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {data.odps_activas_delta_pct > 0 ? '+' : ''}{data.odps_activas_delta_pct}% vs mes ant.
+            <div className={`flex items-center gap-1 mt-2 text-[11px] font-medium ${data.odps_activas_delta_pct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {data.odps_activas_delta_pct >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              {data.odps_activas_delta_pct > 0 ? '+' : ''}{data.odps_activas_delta_pct}% vs periodo anterior
             </div>
           )}
-        </div>
+        </motion.div>
 
-        <div className="bg-white p-3 border border-slate-200 rounded text-[11px] relative">
-          <div className="text-slate-500 mb-1 flex justify-between items-center group">
-            <span>Facturado mes</span>
-            <div className="flex items-center gap-1.5">
-              {data.meta_facturacion_actual > 0 && <span>Meta: {fmtM(data.meta_facturacion_actual)}</span>}
-              <Link to="/configuracion" title="Ajustar Meta Variable Mensual" className="inline-flex p-0.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-colors opacity-60 group-hover:opacity-100">
-                <Settings className="w-3.5 h-3.5" />
-              </Link>
-            </div>
+        <motion.div custom={1} variants={cardVar} initial="hidden" animate="visible"
+          className="bg-white border border-slate-200 rounded-2xl p-5 relative overflow-hidden"
+          whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(99,102,241,0.12)' }}>
+          <div className="flex justify-between items-start mb-3">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Facturado Periodo</p>
+            <Link to="/configuracion" className="text-slate-300 hover:text-indigo-500 transition-colors">
+              <Settings className="w-3.5 h-3.5" />
+            </Link>
           </div>
-          <div className="text-[20px] font-medium text-slate-800">{fmtM(data.facturado_mes)}</div>
-          {data.facturado_mes_delta_pct !== undefined && (
-            <div className={`mt-0.5 ${data.facturado_mes_delta_pct > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {data.facturado_mes_delta_pct > 0 ? '+' : ''}{data.facturado_mes_delta_pct}%
-            </div>
-          )}
+          <p className="text-[38px] font-semibold text-slate-800 leading-none tabular-nums">{fmtM(facturadoMes)}</p>
           {data.meta_facturacion_actual > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-100 rounded-b overflow-hidden">
-               <div className="h-full bg-blue-600" style={{ width: `${Math.min((data.facturado_mes / data.meta_facturacion_actual) * 100, 100)}%` }}></div>
-            </div>
+            <p className="text-[10px] text-slate-400 mt-1.5">Meta: {fmtM(data.meta_facturacion_actual)}</p>
           )}
-        </div>
-
-        <div className="bg-white p-3 border border-slate-200 rounded text-[11px]">
-          <div className="text-slate-500 mb-1">Cartera vencida</div>
-          <div className="text-[20px] font-medium text-slate-800">{fmtM(data.cartera_vencida_total)}</div>
-          <div className="mt-0.5 text-rose-600">{data.cartera_vencida_clientes} clientes</div>
-        </div>
-
-        <div className="bg-white p-3 border border-slate-200 rounded text-[11px]">
-          <div className="text-slate-500 mb-1 flex justify-between">
-            <span>Tasa entrega a tiempo</span>
-            <span>Meta: {data.meta_entrega_tiempo_pct}%</span>
+          <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-100">
+            <motion.div className="h-full bg-gradient-to-r from-indigo-500 to-purple-400 rounded-b-2xl"
+              initial={{ width: 0 }}
+              animate={{ width: `${metaPct}%` }}
+              transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1], delay: 0.4 }} />
           </div>
-          <div className="text-[20px] font-medium text-slate-800">{data.tasa_entrega_tiempo_pct}%</div>
-          <div className={`mt-0.5 ${data.tasa_entrega_tiempo_pct >= data.meta_entrega_tiempo_pct ? 'text-emerald-600' : 'text-amber-500'}`}>
-             vs {data.meta_entrega_tiempo_pct}% requerido
+        </motion.div>
+
+        <motion.div custom={2} variants={cardVar} initial="hidden" animate="visible"
+          className="bg-white border border-slate-200 rounded-2xl p-5"
+          whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(220,38,38,0.1)' }}>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Cartera Vencida</p>
+          <p className="text-[38px] font-semibold text-rose-600 leading-none tabular-nums">{fmtM(carteraVenc)}</p>
+          <p className="text-[11px] text-slate-400 mt-2">
+            {data.cartera_vencida_clientes > 0
+              ? `${data.cartera_vencida_clientes} cliente${data.cartera_vencida_clientes > 1 ? 's' : ''} con crédito vencido`
+              : 'Sin créditos vencidos'}
+          </p>
+        </motion.div>
+
+        <motion.div custom={3} variants={cardVar} initial="hidden" animate="visible"
+          className="bg-white border border-slate-200 rounded-2xl p-5"
+          whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(16,185,129,0.1)' }}>
+          <div className="flex justify-between items-start mb-3">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Entrega a Tiempo</p>
+            <span className="text-[10px] text-slate-400">Meta: {data.meta_entrega_tiempo_pct}%</span>
           </div>
-        </div>
+          <p className={`text-[44px] font-semibold leading-none tabular-nums ${tasaEntrega >= (data.meta_entrega_tiempo_pct || 85) ? 'text-emerald-600' : 'text-amber-500'}`}>
+            {tasaEntrega}%
+          </p>
+          <p className={`text-[11px] mt-2 ${tasaEntrega >= (data.meta_entrega_tiempo_pct || 85) ? 'text-emerald-600' : 'text-amber-500'}`}>
+            {tasaEntrega >= (data.meta_entrega_tiempo_pct || 85) ? '✓ Por encima de meta' : '↓ Por debajo de meta'}
+          </p>
+        </motion.div>
       </div>
 
-      {/* ─── 2. CHARTS PRIMCIPAL ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <div className="bg-white p-3 border border-slate-200 rounded">
-          <div className="text-[12px] font-medium text-slate-500 uppercase tracking-wider mb-3">ODPs por estado actual</div>
+      {/* ── ROW 2: Gráfico mensual + Caja ──────────────────────────────── */}
+      <div className="grid grid-cols-12 gap-3">
+        <motion.div custom={4} variants={cardVar} initial="hidden" animate="visible"
+          className="col-span-12 lg:col-span-8 bg-white border border-slate-200 rounded-2xl p-5">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Estadísticas por mes</p>
+
+          {/* Leyenda manual */}
+          <div className="flex flex-wrap gap-3 mb-3">
+            {[
+              { color: '#22c55e', label: 'Abono' },
+              { color: '#f97316', label: 'Pendiente' },
+              { color: '#94a3b8', label: 'Cancelado' },
+              { color: '#6366f1', label: 'Créditos' },
+              { color: '#0ea5e9', label: 'ODPs (eje →)', dashed: true },
+            ].map(item => (
+              <span key={item.label} className="flex items-center gap-1 text-[10px] text-slate-500">
+                <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: item.color, opacity: item.dashed ? 0.8 : 1 }} />
+                {item.label}
+              </span>
+            ))}
+          </div>
+
           <div className="h-[200px]">
-            <BarrasVerticales 
-              data={chartDataEstados} 
-              dataKeyName="name" 
-              dataKeyValue="cantidad"
-              color="#818cf8"
-            />
+            {chartData.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-[12px] text-slate-400">
+                Sin datos para el periodo seleccionado
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={chartData} margin={{ top: 4, right: 36, left: 0, bottom: 0 }} barCategoryGap="30%">
+                  <XAxis dataKey="mes" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis yAxisId="left"  tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtM} width={52} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fill: '#0ea5e9', fontSize: 10 }} axisLine={false} tickLine={false} width={28} />
+                  <Tooltip content={<MonthlyTooltip />} />
+                  <Bar yAxisId="left" dataKey="total_abono"     name="Abono"     fill="#22c55e" radius={[3,3,0,0]} />
+                  <Bar yAxisId="left" dataKey="total_pendiente" name="Pendiente" fill="#f97316" radius={[3,3,0,0]} />
+                  <Bar yAxisId="left" dataKey="total_cancelado" name="Cancelado" fill="#94a3b8" radius={[3,3,0,0]} />
+                  <Bar yAxisId="left" dataKey="total_credito"   name="Créditos"  fill="#6366f1" radius={[3,3,0,0]} />
+                  <Line yAxisId="right" type="monotone" dataKey="cantidad_odps" name="ODPs"
+                    stroke="#0ea5e9" strokeWidth={2} dot={{ r: 3, fill: '#0ea5e9', strokeWidth: 0 }}
+                    activeDot={{ r: 5, fill: '#0284c7', strokeWidth: 0 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )}
           </div>
-        </div>
+        </motion.div>
 
-        <div className="bg-white p-3 border border-slate-200 rounded">
-          <div className="text-[12px] font-medium text-slate-500 uppercase tracking-wider mb-3">Facturación últimos 6 meses (COP)</div>
-          <div className="h-[200px]">
-            <LineaVsBarras 
-              data={data.facturacion_6_meses || []} 
-              xKey="mes" 
-              barsKey="real" 
-              lineKey="meta" 
-              yAxisFormatter={fmtM}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ─── 3. EMBUDO & CAJA ────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        
-        <div className="bg-white p-3 border border-slate-200 rounded">
-          <div className="text-[12px] font-medium text-slate-500 uppercase tracking-wider mb-2">Embudo de conversión de órdenes</div>
-          <div className="mt-2 text-[11px]">
-            {embudoLabels.map((lbl, i) => {
-              const val = embudoVals[i];
-              const wPct = Math.max((val / maxEmbudo) * 100, 5); // at least 5% bar
-              const pctOfTotal = embudoVals[0] > 0 ? Math.round((val / embudoVals[0]) * 100) : 0;
-              return (
-                <div key={lbl} className="flex items-center gap-2 mb-1.5">
-                  <span className="text-slate-500 w-[120px] shrink-0">{lbl}</span>
-                  <div 
-                    className="h-[22px] rounded text-white flex items-center px-2 font-medium" 
-                    style={{ width: `${wPct}%`, background: embudoColors[i], minWidth: '30px' }}
-                  >
-                    {val}
-                  </div>
-                  <span className="text-slate-500 ml-1">{pctOfTotal}%</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="bg-white p-3 border border-slate-200 rounded">
-          <div className="text-[12px] font-medium text-slate-500 uppercase tracking-wider mb-2">Estado de caja</div>
-          <div className="flex items-center gap-5 h-[200px]">
-            <div className="w-[140px] h-[140px] shrink-0">
-              <DonutChart 
-                data={chartDataCaja} 
-                nameKey="name" 
-                dataKey="pct" 
-                colors={chartDataCaja.map((c: any) => cajaColors[c.name] || '#94a3b8')} 
-              />
+        <motion.div custom={5} variants={cardVar} initial="hidden" animate="visible"
+          className="col-span-12 lg:col-span-4 bg-white border border-slate-200 rounded-2xl p-5 flex flex-col">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Estado de Caja</p>
+          <div className="flex-1 flex flex-col items-center justify-center gap-4">
+            <div className="w-[120px] h-[120px]">
+              <DonutChart data={cajaDist} nameKey="name" dataKey="pct"
+                colors={cajaDist.map((c: any) => CAJA_COLORS[c.name] || '#64748b')} />
             </div>
-            <div className="flex-1 space-y-2">
-              {chartDataCaja.map((c: any) => (
-                <div key={c.name} className="flex items-center text-[12px] text-slate-800">
-                  <span className="w-2.5 h-2.5 rounded-sm shrink-0 mr-2" style={{ background: cajaColors[c.name] || '#94a3b8' }}></span>
-                  <span className="capitalize">{c.name.replace('_', ' ')}</span>
-                  <span className="ml-auto font-medium">{c.pct}%</span>
+            <div className="w-full space-y-2">
+              {cajaDist.map((c: any) => (
+                <div key={c.name} className="flex items-center text-[11px]">
+                  <span className="w-2 h-2 rounded-sm shrink-0 mr-2" style={{ background: CAJA_COLORS[c.name] || '#64748b' }} />
+                  <span className="text-slate-500 capitalize flex-1">{c.name.replace(/_/g, ' ')}</span>
+                  <span className="text-slate-800 font-semibold">{c.pct}%</span>
                 </div>
               ))}
             </div>
           </div>
-        </div>
+        </motion.div>
+      </div>
+
+      {/* ── ROW 3: Embudo + ODPs por estado ───────────────────────────── */}
+      <div className="grid grid-cols-12 gap-3">
+        <motion.div custom={6} variants={cardVar} initial="hidden" animate="visible"
+          className="col-span-12 lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Embudo de conversión — periodo seleccionado</p>
+          <div className="space-y-2.5">
+            {embudoLabels.map((lbl, i) => {
+              const val      = embudoVals[i];
+              const wPct     = Math.max((val / maxEmbudo) * 100, 3);
+              const pctFirst = embudoVals[0] > 0 ? Math.round((val / embudoVals[0]) * 100) : 0;
+              return (
+                <div key={lbl} className="flex items-center gap-3 text-[11px]">
+                  <span className="text-slate-400 w-[105px] shrink-0">{lbl}</span>
+                  <div className="flex-1 h-6 relative">
+                    <motion.div
+                      className="h-full rounded-lg flex items-center px-2.5 text-white text-[11px] font-semibold absolute left-0 top-0"
+                      style={{ background: embudoColors[i], minWidth: 32 }}
+                      initial={{ width: 0, opacity: 0 }}
+                      animate={{ width: `${wPct}%`, opacity: 1 }}
+                      transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.15 + i * 0.09 }}>
+                      {val}
+                    </motion.div>
+                  </div>
+                  <span className="text-slate-400 w-8 text-right shrink-0">{pctFirst}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        <motion.div custom={7} variants={cardVar} initial="hidden" animate="visible"
+          className="col-span-12 lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">ODPs por estado actual</p>
+          <div className="space-y-2">
+            {estadosData
+              .sort((a: any, b: any) => b.cantidad - a.cantidad)
+              .map((s: any, i: number) => {
+                const barW = Math.max((s.cantidad / totalEstados) * 90, 2);
+                return (
+                  <div key={s.estado} className="flex items-center gap-2.5 text-[11px]">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: ESTADO_COLORS[s.estado] || '#64748b' }} />
+                    <span className="text-slate-500 flex-1 truncate">{ESTADO_LABELS[s.estado] || s.estado}</span>
+                    <div className="flex items-center gap-1.5">
+                      <motion.div className="h-1.5 rounded-full"
+                        style={{ background: ESTADO_COLORS[s.estado] || '#64748b', opacity: 0.6 }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${barW}px` }}
+                        transition={{ duration: 0.7, ease: [0.22,1,0.36,1], delay: 0.1 + i * 0.04 }} />
+                      <span className="text-slate-800 font-semibold w-5 text-right">{s.cantidad}</span>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </motion.div>
       </div>
 
     </div>

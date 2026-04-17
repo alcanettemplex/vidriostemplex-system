@@ -95,11 +95,6 @@ export const ConfiguracionPage: React.FC = () => {
     setConfig({ ...config, [e.target.name]: raw ? Number(raw) : '' });
   };
 
-  const handleOdpsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '');
-    setMetaMensual({ ...metaMensual, [e.target.name]: raw ? Number(raw) : '' });
-  };
-
   const handleMetaUsuario = (usuario_id: number, raw: string) => {
     const val = parseCOP(raw);
     setMetasUsuarios(prev =>
@@ -308,21 +303,6 @@ export const ConfiguracionPage: React.FC = () => {
                 )}
               </div>
 
-              {/* ── Meta ODPs por asesor ──────────────────────────────────── */}
-              <div className="px-6 pb-5 pt-4 border-t border-slate-100 mt-2">
-                <label className="block text-sm font-bold text-slate-700 mb-1">Meta: ODPs Cerradas por Asesor</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    name="meta_odps_asesor"
-                    value={metaMensual?.meta_odps_asesor ?? ''}
-                    onChange={handleOdpsChange}
-                    className="w-36 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 font-mono font-bold text-slate-800 focus:ring-2 focus:ring-indigo-300 outline-none transition"
-                  />
-                  <p className="text-xs text-slate-400 font-medium">ODPs / mes por asesor — alimenta las gráficas de rendimiento comercial.</p>
-                </div>
-              </div>
             </>
           )}
         </section>

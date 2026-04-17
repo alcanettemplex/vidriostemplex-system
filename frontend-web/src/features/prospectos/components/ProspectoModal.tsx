@@ -5,7 +5,7 @@ import { X, Building2, User, Ruler } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-interface Cliente { id: number; nombre_razon_social: string; telefono: string | null; celular: string | null; email: string | null; }
+interface Cliente { id: number; nombre_razon_social: string; numero_documento?: string; telefono: string | null; celular: string | null; email: string | null; }
 
 interface Props {
   prospecto?: any;
@@ -204,7 +204,11 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
                       <div className="fixed inset-0 z-10" onClick={() => setDropdownAbierto(false)} />
                       <div className="absolute top-full mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg z-20 max-h-52 overflow-y-auto">
                         {clientes
-                          .filter(c => c.nombre_razon_social.toLowerCase().includes(clienteBusqueda.toLowerCase()))
+                          .filter(c => {
+                            const q = clienteBusqueda.toLowerCase();
+                            return c.nombre_razon_social.toLowerCase().includes(q) ||
+                              (c.numero_documento && c.numero_documento.toLowerCase().includes(q));
+                          })
                           .map(c => (
                             <button
                               key={c.id}
@@ -212,10 +216,15 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
                               onClick={() => { handleSelectCliente(String(c.id)); setClienteBusqueda(''); setDropdownAbierto(false); }}
                               className="w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
                             >
-                              {c.nombre_razon_social}
+                              <span className="block font-medium">{c.nombre_razon_social}</span>
+                              {c.numero_documento && <span className="block text-xs text-slate-400">{c.numero_documento}</span>}
                             </button>
                           ))}
-                        {clientes.filter(c => c.nombre_razon_social.toLowerCase().includes(clienteBusqueda.toLowerCase())).length === 0 && (
+                        {clientes.filter(c => {
+                          const q = clienteBusqueda.toLowerCase();
+                          return c.nombre_razon_social.toLowerCase().includes(q) ||
+                            (c.numero_documento && c.numero_documento.toLowerCase().includes(q));
+                        }).length === 0 && (
                           <p className="px-4 py-3 text-sm text-slate-400 text-center">Sin resultados</p>
                         )}
                       </div>

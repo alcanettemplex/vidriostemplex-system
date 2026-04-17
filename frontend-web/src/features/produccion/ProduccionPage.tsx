@@ -29,6 +29,9 @@ import {
     Clock,
     AlertTriangle,
     Inbox,
+    PackageCheck,
+    ShieldCheck,
+    TriangleAlert,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPMatrixModal from './components/ODPMatrixModal';
@@ -189,11 +192,21 @@ const ProduccionPage: React.FC = () => {
     const [printSap, setPrintSap]         = useState<{ odp: any; sap: any } | null>(null);
     const [marcandoEntregada, setMarcandoEntregada] = useState<number | null>(null);
 
+    // Modales PV inline
+    const [pvModalLlegada, setPvModalLlegada]       = useState<PedidoPVDetalle | null>(null);
+    const [pvFechaLlegada, setPvFechaLlegada]       = useState('');
+    const [pvModalAccion, setPvModalAccion]         = useState<{ pv: PedidoPVDetalle; tipo: 'verificar' | 'problema' } | null>(null);
+    const [pvObsAccion, setPvObsAccion]             = useState('');
+    const [pvLoadingAccion, setPvLoadingAccion]     = useState(false);
+    const [marcandoListo, setMarcandoListo]         = useState(false);
+
     // Role check
     const userRol = (() => {
         try { return JSON.parse(localStorage.getItem('user') || '{}')?.rol || ''; } catch { return ''; }
     })();
     const puedeMarcarEntregada = ['compras', 'produccion', 'admin', 'jefe_produccion', 'gerencia', 'root'].includes(userRol);
+    const puedePV = ['compras', 'produccion', 'jefe_produccion', 'admin', 'gerencia', 'root'].includes(userRol);
+    const puedeMarcarListo = ['compras', 'produccion', 'jefe_produccion', 'admin', 'gerencia', 'root'].includes(userRol);
 
     const fetchData = useCallback(async (silent = false) => {
         try {
@@ -307,6 +320,70 @@ const ProduccionPage: React.FC = () => {
             toast.error(error.response?.data?.error || 'Error al actualizar');
         } finally {
             setMarcandoEntregada(null);
+        }
+    };
+
+    const handlePvRegistrarLlegada = async () => {
+        if (!pvModalLlegada) return;
+        setPvLoadingAccion(true);
+        try {
+            const token = localStorage.getItem('token');
+            await axios.patch(
+                `${API}/api/pedidos-pv/${pvModalLlegada.id}/registrar-llegada`,
+                { fecha_llegada_real: pvFechaLlegada || undefined },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            toast.success('Llegada registrada');
+            setPvModalLlegada(null);
+            setPvFechaLlegada('');
+            if (panelOdp) fetchPanelDetail(panelOdp.id);
+        } catch (e: any) {
+            toast.error(e.response?.data?.error || 'Error al registrar llegada');
+        } finally { setPvLoadingAccion(false); }
+    };
+
+    const handlePvAccion = async () => {
+        if (!pvModalAccion) return;
+        setPvLoadingAccion(true);
+        const endpoint = pvModalAccion.tipo === 'verificar' ? 'verificar' : 'problema';
+        const body = pvModalAccion.tipo === 'verificar'
+            ? { observacion_verificacion: pvObsAccion || null }
+            : { observacion: pvObsAccion };
+        try {
+            const token = localStorage.getItem('token');
+            await axios.patch(
+                `${API}/api/pedidos-pv/${pvModalAccion.pv.id}/${endpoint}`,
+                body,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            toast.success(pvModalAccion.tipo === 'verificar' ? 'PV verificado correctamente' : 'Problema reportado');
+            setPvModalAccion(null);
+            setPvObsAccion('');
+            if (panelOdp) fetchPanelDetail(panelOdp.id);
+        } catch (e: any) {
+            toast.error(e.response?.data?.error || 'Error al procesar acción');
+        } finally { setPvLoadingAccion(false); }
+    };
+
+    const handleMarcarListoInstalar = async () => {
+        if (!panelOdp) return;
+        if (!window.confirm(`¿Marcar "${panelOdp.numero_odp}" como Listo para Instalar?\nEsta acción avanzará la ODP directamente a esa etapa.`)) return;
+        setMarcandoListo(true);
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(
+                `${API}/api/odp/${panelOdp.id}`,
+                { estado_produccion: 'LISTO_INSTALAR' },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            toast.success(`${panelOdp.numero_odp} marcada como Listo para Instalar`);
+            fetchData(true);
+            setPanelOdp(null);
+            setPanelDetail(null);
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || 'Error al actualizar estado');
+        } finally {
+            setMarcandoListo(false);
         }
     };
 
@@ -454,6 +531,20 @@ const ProduccionPage: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Botón Marcar Listo para Instalar */}
+                {puedeMarcarListo && activeStates.includes(panelOdp.estado_produccion) && (
+                    <div className="px-4 pt-3 pb-1 flex-shrink-0">
+                        <button
+                            onClick={handleMarcarListoInstalar}
+                            disabled={marcandoListo}
+                            className="w-full flex items-center justify-center gap-2 py-2 text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition disabled:opacity-40"
+                        >
+                            <CheckCircle2 className="w-4 h-4" />
+                            {marcandoListo ? 'Procesando...' : 'Marcar como Listo para Instalar'}
+                        </button>
+                    </div>
+                )}
+
                 {/* Contenido scrollable */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-5">
                     {/* Cristales */}
@@ -549,6 +640,33 @@ const ProduccionPage: React.FC = () => {
                                                     )}
                                                     {pv.observaciones && (
                                                         <p className="text-[9px] text-slate-500 italic border-t border-slate-100 pt-1.5 mt-1">{pv.observaciones}</p>
+                                                    )}
+                                                    {/* Botones de acción según estado */}
+                                                    {puedePV && ['ENVIADO', 'CONFIRMADO_PROVEEDOR'].includes(pv.estado) && (
+                                                        <div className="border-t border-slate-100 pt-2 mt-1">
+                                                            <button
+                                                                onClick={() => { setPvModalLlegada(pv); setPvFechaLlegada(''); }}
+                                                                className="w-full flex items-center justify-center gap-1.5 text-[10px] font-black py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition"
+                                                            >
+                                                                <PackageCheck className="w-3.5 h-3.5" /> Registrar llegada
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    {puedePV && pv.estado === 'LLEGADO' && (
+                                                        <div className="border-t border-slate-100 pt-2 mt-1 flex gap-1.5">
+                                                            <button
+                                                                onClick={() => { setPvModalAccion({ pv, tipo: 'verificar' }); setPvObsAccion(''); }}
+                                                                className="flex-1 flex items-center justify-center gap-1 text-[10px] font-black py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition"
+                                                            >
+                                                                <ShieldCheck className="w-3.5 h-3.5" /> Verificar
+                                                            </button>
+                                                            <button
+                                                                onClick={() => { setPvModalAccion({ pv, tipo: 'problema' }); setPvObsAccion(''); }}
+                                                                className="flex-1 flex items-center justify-center gap-1 text-[10px] font-black py-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition"
+                                                            >
+                                                                <TriangleAlert className="w-3.5 h-3.5" /> Problema
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -1221,6 +1339,92 @@ const ProduccionPage: React.FC = () => {
         </div>
 
         {fichaOdpId && <ODPFichaModal odpId={fichaOdpId} onClose={() => setFichaOdpId(null)} />}
+
+        {/* Modal: Registrar llegada PV */}
+        <AnimatePresence>
+            {pvModalLlegada && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+                >
+                    <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-slate-200 p-6"
+                    >
+                        <div className="flex justify-between items-center mb-4">
+                            <div>
+                                <h3 className="font-bold text-slate-800">Registrar llegada</h3>
+                                <p className="text-xs text-slate-500 mt-0.5">PV #{pvModalLlegada.numero_pedido} · {pvModalLlegada.proveedor}</p>
+                            </div>
+                            <button onClick={() => setPvModalLlegada(null)}><X className="w-5 h-5 text-slate-400" /></button>
+                        </div>
+                        <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                            Fecha de llegada <span className="text-slate-400 font-normal">(opcional)</span>
+                        </label>
+                        <input
+                            type="date"
+                            value={pvFechaLlegada}
+                            onChange={e => setPvFechaLlegada(e.target.value)}
+                            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 mb-5"
+                        />
+                        <div className="flex gap-3">
+                            <button onClick={() => setPvModalLlegada(null)}
+                                className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm">
+                                Cancelar
+                            </button>
+                            <button onClick={handlePvRegistrarLlegada} disabled={pvLoadingAccion}
+                                className="flex-1 py-2.5 font-bold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition disabled:opacity-40 text-sm flex items-center justify-center gap-2">
+                                <PackageCheck className="w-4 h-4" />
+                                {pvLoadingAccion ? 'Guardando...' : 'Registrar'}
+                            </button>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+
+        {/* Modal: Verificar / Problema PV */}
+        <AnimatePresence>
+            {pvModalAccion && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+                >
+                    <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-slate-200 p-6"
+                    >
+                        <div className="flex justify-between items-center mb-4">
+                            <div>
+                                <h3 className="font-bold text-slate-800">
+                                    {pvModalAccion.tipo === 'verificar' ? 'Verificar pedido' : 'Reportar problema'}
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-0.5">PV #{pvModalAccion.pv.numero_pedido} · {pvModalAccion.pv.proveedor}</p>
+                            </div>
+                            <button onClick={() => setPvModalAccion(null)}><X className="w-5 h-5 text-slate-400" /></button>
+                        </div>
+                        <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                            {pvModalAccion.tipo === 'verificar' ? 'Observación (opcional)' : 'Descripción del problema'}
+                        </label>
+                        <textarea
+                            rows={3}
+                            value={pvObsAccion}
+                            onChange={e => setPvObsAccion(e.target.value)}
+                            placeholder={pvModalAccion.tipo === 'verificar' ? 'Todo correcto...' : 'Describir el problema...'}
+                            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-5 resize-none"
+                        />
+                        <div className="flex gap-3">
+                            <button onClick={() => setPvModalAccion(null)}
+                                className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm">
+                                Cancelar
+                            </button>
+                            <button onClick={handlePvAccion} disabled={pvLoadingAccion}
+                                className={`flex-1 py-2.5 font-bold text-white rounded-xl transition disabled:opacity-40 text-sm flex items-center justify-center gap-2
+                                    ${pvModalAccion.tipo === 'verificar' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600'}`}>
+                                {pvModalAccion.tipo === 'verificar' ? <ShieldCheck className="w-4 h-4" /> : <TriangleAlert className="w-4 h-4" />}
+                                {pvLoadingAccion ? 'Guardando...' : pvModalAccion.tipo === 'verificar' ? 'Verificado' : 'Confirmar problema'}
+                            </button>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
         </>
     );
 };

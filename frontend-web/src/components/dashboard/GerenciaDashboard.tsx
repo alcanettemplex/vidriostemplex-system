@@ -1,22 +1,31 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useDashboardData } from './hooks/useDashboardData';
-import { PanelGeneral } from './panels/PanelGeneral';
-import { PanelVentas } from './panels/PanelVentas';
-import { PanelProduccion } from './panels/PanelProduccion';
-import { PanelEquipo } from './panels/PanelEquipo';
-import { PanelAlertas } from './panels/PanelAlertas';
+import { useDashboardData, PeriodParams } from './hooks/useDashboardData';
+import { PanelGeneral }   from './panels/PanelGeneral';
+import { PanelVentas }    from './panels/PanelVentas';
+import { PanelProduccion }from './panels/PanelProduccion';
+import { PanelEquipo }    from './panels/PanelEquipo';
+import { PanelAlertas }   from './panels/PanelAlertas';
 import ODPFichaModal from '../../features/odp/components/ODPFichaModal';
 import { RefreshCw } from 'lucide-react';
 
-/**
- * GerenciaDashboard: Centro de mando gerencial con 5 pestañas.
- * Diseño ultra-denso y corporativo (HTML reference).
- */
+const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const YEARS = [2024, 2025, 2026, 2027];
+
 export const GerenciaDashboard: React.FC = () => {
-  const { general, ventas, produccion, equipo, alertas, loading, error, refetch } = useDashboardData();
-  const [activeTab, setActiveTab] = useState<'general'|'ventas'|'produccion'|'equipo'|'alertas'>('general');
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const today = new Date();
+
+  const [period, setPeriod] = useState<PeriodParams>({
+    mesInicio:  today.getMonth() + 1,
+    anioInicio: today.getFullYear(),
+    mesFin:     today.getMonth() + 1,
+    anioFin:    today.getFullYear(),
+  });
+
+  const { general, ventas, produccion, equipo, alertas, loading, error, refetch } = useDashboardData(period);
+
+  const [activeTab, setActiveTab]         = useState<'general'|'ventas'|'produccion'|'equipo'|'alertas'>('general');
+  const [isRefreshing, setIsRefreshing]   = useState(false);
   const [selectedOdpId, setSelectedOdpId] = useState<number | null>(null);
 
   const alertasCriticas = alertas?.filter((a: any) => a.tipo === 'critico').length || 0;
@@ -24,38 +33,85 @@ export const GerenciaDashboard: React.FC = () => {
   const handleRefetch = async () => {
     setIsRefreshing(true);
     await refetch();
-    setTimeout(() => setIsRefreshing(false), 500); 
+    setTimeout(() => setIsRefreshing(false), 500);
   };
 
+  const handlePeriodChange = (field: keyof PeriodParams, value: number) => {
+    setPeriod(prev => ({ ...prev, [field]: value }));
+  };
+
+  const periodLabel = (() => {
+    const desdeStr = `${MESES[period.mesInicio - 1]} ${period.anioInicio}`;
+    const hastaStr = `${MESES[period.mesFin - 1]} ${period.anioFin}`;
+    return desdeStr === hastaStr ? desdeStr : `${desdeStr} – ${hastaStr}`;
+  })();
+
   const tabs = [
-    { id: 'general', label: 'Visión general', alert: 0 },
-    { id: 'ventas', label: 'Ventas & cartera', alert: 0 },
+    { id: 'general',    label: 'Visión general', alert: 0 },
+    { id: 'ventas',     label: 'Ventas & cartera', alert: 0 },
     { id: 'produccion', label: 'Producción', alert: 0 },
-    { id: 'equipo', label: 'Equipo', alert: 0 },
-    { id: 'alertas', label: 'Alertas', alert: alertasCriticas }
+    { id: 'equipo',     label: 'Equipo', alert: 0 },
+    { id: 'alertas',    label: 'Alertas', alert: alertasCriticas },
   ] as const;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto min-h-screen bg-slate-50">
-      
-      {/* ─── HEADER Y CONTROLES ────────────────────────────────────────── */}
+
+      {/* ─── HEADER ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-            Dashboard Gerencial
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-800">Dashboard Gerencial</h1>
+          <p className="text-[11px] text-slate-400 mt-0.5 font-medium">{periodLabel}</p>
         </div>
-        
-        <div className="flex items-center gap-3">
+
+        <div className="flex flex-wrap items-center gap-2">
           {error && (
             <span className="text-[11px] font-bold bg-rose-100 text-rose-700 px-2 py-1 rounded border border-rose-200">
               Error de conexión
             </span>
           )}
+
+          {/* ── Selector de periodo ─────────────────────────────────────── */}
+          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-1.5">
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Desde</span>
+            <select
+              value={period.mesInicio}
+              onChange={e => handlePeriodChange('mesInicio', Number(e.target.value))}
+              className="bg-transparent text-[11px] font-bold text-slate-700 outline-none cursor-pointer"
+            >
+              {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+            </select>
+            <select
+              value={period.anioInicio}
+              onChange={e => handlePeriodChange('anioInicio', Number(e.target.value))}
+              className="bg-transparent text-[11px] font-bold text-slate-700 outline-none cursor-pointer"
+            >
+              {YEARS.map(y => <option key={y}>{y}</option>)}
+            </select>
+
+            <span className="text-slate-200 font-light mx-0.5">|</span>
+
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Hasta</span>
+            <select
+              value={period.mesFin}
+              onChange={e => handlePeriodChange('mesFin', Number(e.target.value))}
+              className="bg-transparent text-[11px] font-bold text-slate-700 outline-none cursor-pointer"
+            >
+              {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+            </select>
+            <select
+              value={period.anioFin}
+              onChange={e => handlePeriodChange('anioFin', Number(e.target.value))}
+              className="bg-transparent text-[11px] font-bold text-slate-700 outline-none cursor-pointer"
+            >
+              {YEARS.map(y => <option key={y}>{y}</option>)}
+            </select>
+          </div>
+
           <span className="text-[11px] font-medium text-slate-500 hidden sm:flex items-center gap-1.5 bg-white border border-slate-200 px-2 py-1 rounded">
-            Actualización automática
+            Auto-actualización
           </span>
-          <button 
+          <button
             onClick={handleRefetch}
             className={`p-1.5 bg-white border border-slate-200 rounded text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors focus:outline-none ${isRefreshing ? 'animate-spin text-indigo-500' : ''}`}
             title="Sincronizar datos"
@@ -65,7 +121,7 @@ export const GerenciaDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── TABS DE NAVEGACIÓN ESTILO MINIMALISTA ────────────────────────── */}
+      {/* ─── TABS ────────────────────────────────────────────────────────── */}
       <div className="flex gap-1 mb-5 border-b border-slate-200">
         {tabs.map(tab => {
           const isActive = activeTab === tab.id;
@@ -73,9 +129,8 @@ export const GerenciaDashboard: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`relative px-4 py-2 text-[12px] font-medium transition-colors outline-none
-                ${isActive ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-800 border-b-2 border-transparent'}
-              `}
+              className={`relative px-4 py-2 text-[12px] font-medium transition-colors outline-none border-b-2
+                ${isActive ? 'text-indigo-600 border-indigo-600' : 'text-slate-500 hover:text-slate-800 border-transparent'}`}
               style={{ marginBottom: '-1px' }}
             >
               {tab.label}
@@ -89,7 +144,7 @@ export const GerenciaDashboard: React.FC = () => {
         })}
       </div>
 
-      {/* ─── CONTENIDO DE LOS PANELES ──────────────────────────────────── */}
+      {/* ─── PANELES ─────────────────────────────────────────────────────── */}
       <div className="min-h-[600px] pb-6">
         <AnimatePresence mode="wait">
           {activeTab === 'general' && (
@@ -97,25 +152,21 @@ export const GerenciaDashboard: React.FC = () => {
               <PanelGeneral data={general} isLoading={loading.general} />
             </motion.div>
           )}
-
           {activeTab === 'ventas' && (
             <motion.div key="pt-ven" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <PanelVentas data={ventas} isLoading={loading.ventas} />
             </motion.div>
           )}
-
           {activeTab === 'produccion' && (
             <motion.div key="pt-prod" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <PanelProduccion data={produccion} isLoading={loading.produccion} onViewOdp={setSelectedOdpId} />
             </motion.div>
           )}
-
           {activeTab === 'equipo' && (
             <motion.div key="pt-eq" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <PanelEquipo data={equipo} isLoading={loading.equipo} />
             </motion.div>
           )}
-
           {activeTab === 'alertas' && (
             <motion.div key="pt-al" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <PanelAlertas data={alertas} isLoading={loading.alertas} onViewOdp={setSelectedOdpId} />
@@ -124,20 +175,17 @@ export const GerenciaDashboard: React.FC = () => {
         </AnimatePresence>
       </div>
 
-      {/* MODAL ODP */}
       <AnimatePresence>
         {selectedOdpId && (
-          <ODPFichaModal 
-            odpId={selectedOdpId} 
-            onClose={() => setSelectedOdpId(null)} 
-            initialTab="general" 
+          <ODPFichaModal
+            odpId={selectedOdpId}
+            onClose={() => setSelectedOdpId(null)}
+            initialTab="general"
           />
         )}
       </AnimatePresence>
-
     </div>
   );
 };
 
 export default GerenciaDashboard;
-

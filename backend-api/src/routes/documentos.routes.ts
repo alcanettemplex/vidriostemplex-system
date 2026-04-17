@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getSAPsByODP, createSAP, updateSAP, deleteSAP, buscarCatalogo } from '../controllers/sap.controller';
 import { getCotizacionesByODP, createCotizacion, updateCotizacion } from '../controllers/cotizacion.controller';
-import { getTMsByODP, getTMPanel, createTM, programarTM, updateTM, uploadFotoTM } from '../controllers/toma_medidas.controller';
+import { getTMsByODP, getTMPanel, createTM, programarTM, updateTM, uploadFotoTM, retornarTM } from '../controllers/toma_medidas.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { uploadConfig } from '../config/upload';
@@ -25,6 +25,7 @@ router.get('/tm/panel', authMiddleware, requireRole('admin', 'jefe_produccion', 
 router.get('/tm/odp/:odp_id', authMiddleware, getTMsByODP);
 router.post('/tm', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial'), createTM);
 router.patch('/tm/:id/programar', authMiddleware, requireRole('admin', 'jefe_produccion'), programarTM);
+router.patch('/tm/:id/retornar', authMiddleware, requireRole('admin', 'jefe_produccion'), retornarTM);
 router.put('/tm/:id', authMiddleware, requireRole('admin', 'jefe_produccion'), updateTM);
 router.post('/tm/:id/foto', authMiddleware, requireRole('admin', 'jefe_produccion'), uploadConfig.single('foto'), uploadFotoTM);
 

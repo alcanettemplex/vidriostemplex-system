@@ -8,7 +8,6 @@ MetaMensual.init({
   anio: { type: DataTypes.INTEGER, allowNull: false },
   mes: { type: DataTypes.INTEGER, allowNull: false }, // 1 a 12
   meta_facturacion: { type: DataTypes.DECIMAL(15, 2), defaultValue: 120000000.00 },
-  meta_odps_asesor: { type: DataTypes.INTEGER, defaultValue: 12 },
 }, {
   sequelize,
   modelName: 'MetaMensual',

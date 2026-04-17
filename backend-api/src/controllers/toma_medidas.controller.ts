@@ -184,6 +184,21 @@ export const updateTM = async (req: Request, res: Response) => {
   }
 };
 
+export const retornarTM = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const tm = await TomaMedidas.findByPk(id);
+    if (!tm) return res.status(404).json({ error: 'TM no encontrada' });
+    if (tm.getDataValue('estado') !== 'programada') {
+      return res.status(400).json({ error: 'Solo se puede retornar una TM en estado programada' });
+    }
+    await tm.update({ estado: 'solicitada', fecha_visita: null });
+    res.json(tm);
+  } catch {
+    res.status(500).json({ error: 'Error al retornar TM a solicitada' });
+  }
+};
+
 export const uploadFotoTM = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

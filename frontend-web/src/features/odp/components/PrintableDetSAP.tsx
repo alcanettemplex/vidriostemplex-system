@@ -58,21 +58,29 @@ const PrintableDetSAP: React.FC<PrintableDetSAPProps> = ({ odp, imagenes = [] })
         </table>
 
         {/* ---------- GALERÍA DE IMÁGENES SAP ---------- */}
-        <div className="border-2 border-black mt-2 w-full p-2" style={{ minHeight: '700px' }}>
+        <div className="border-2 border-black mt-2 w-full overflow-hidden" style={{ minHeight: '700px' }}>
           {imagenes.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+            <div className="flex items-center justify-center h-full text-slate-400 text-sm" style={{ minHeight: '700px' }}>
               Sin imágenes Det. SAP
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
+          ) : imagenes.length === 1 ? (
+            <img
+              src={imagenes[0].url}
+              alt="Det. SAP 1"
+              style={{ width: '100%', height: '700px', objectFit: 'contain', display: 'block' }}
+            />
+          ) : imagenes.length === 2 ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', height: '700px', gap: '4px', padding: '4px' }}>
               {imagenes.map((img, i) => (
-                <div key={i} className="border border-slate-200 rounded overflow-hidden" style={{ height: '320px' }}>
-                  <img
-                    src={img.url}
-                    alt={`Det. SAP ${i + 1}`}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
+                <img key={i} src={img.url} alt={`Det. SAP ${i + 1}`}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+              ))}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '4px' }}>
+              {imagenes.map((img, i) => (
+                <img key={i} src={img.url} alt={`Det. SAP ${i + 1}`}
+                  style={{ width: '100%', height: '340px', objectFit: 'contain', display: 'block' }} />
               ))}
             </div>
           )}

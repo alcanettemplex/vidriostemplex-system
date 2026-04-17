@@ -133,7 +133,7 @@ const ColorField: React.FC<{ index: number; register: any; control: any }> = ({ 
 
 const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesorId, tipoOdp }) => {
     const [step, setStep] = useState(1);
-    const [clientes, setClientes] = useState<{ id: number; nombre_razon_social: string }[]>([]);
+    const [clientes, setClientes] = useState<{ id: number; nombre_razon_social: string; numero_documento?: string }[]>([]);
     const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
     const [categorias, setCategorias] = useState<string[]>([]);
     const [catSeleccionada, setCatSeleccionada] = useState<Record<number, string>>({});
@@ -343,7 +343,11 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                         <div className="fixed inset-0 z-10" onClick={() => setDropdownClienteAbierto(false)} />
                                                         <div className="absolute top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-52 overflow-y-auto">
                                                             {clientes
-                                                                .filter(c => c.nombre_razon_social.toLowerCase().includes(clienteBusqueda.toLowerCase()))
+                                                                .filter(c => {
+                                                                const q = clienteBusqueda.toLowerCase();
+                                                                return c.nombre_razon_social.toLowerCase().includes(q) ||
+                                                                  (c.numero_documento && c.numero_documento.toLowerCase().includes(q));
+                                                              })
                                                                 .map(c => (
                                                                     <button
                                                                         key={c.id}
@@ -351,10 +355,15 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                                         onClick={() => { setValue('cliente_id', c.id); setClienteBusqueda(''); setDropdownClienteAbierto(false); }}
                                                                         className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700 transition-colors"
                                                                     >
-                                                                        {c.nombre_razon_social}
+                                                                        <span className="block font-medium">{c.nombre_razon_social}</span>
+                                                                        {c.numero_documento && <span className="block text-xs text-slate-400">{c.numero_documento}</span>}
                                                                     </button>
                                                                 ))}
-                                                            {clientes.filter(c => c.nombre_razon_social.toLowerCase().includes(clienteBusqueda.toLowerCase())).length === 0 && (
+                                                            {clientes.filter(c => {
+                                                                const q = clienteBusqueda.toLowerCase();
+                                                                return c.nombre_razon_social.toLowerCase().includes(q) ||
+                                                                  (c.numero_documento && c.numero_documento.toLowerCase().includes(q));
+                                                              }).length === 0 && (
                                                                 <p className="px-4 py-3 text-sm text-slate-400 text-center">Sin resultados</p>
                                                             )}
                                                         </div>

@@ -9,10 +9,9 @@ export const obtenerConfiguracion = async (req: Request, res: Response) => {
     if (!config) {
       config = await ConfiguracionGlobal.create({
         id: 1,
-        meta_facturacion_mensual: 120000000.00,
-        meta_odps_cerradas_asesor: 12,
+        meta_facturacion_mensual:   120000000.00,
         meta_ciclo_produccion_dias: 8,
-        dias_alerta_odp_estancada: 2,
+        dias_alerta_odp_estancada:  2,
         dias_alerta_cartera_vencida: 60
       });
     }
@@ -45,18 +44,11 @@ export const obtenerMetasMes = async (req: Request, res: Response) => {
     const { anio, mes } = req.params;
     let meta = await MetaMensual.findOne({ where: { anio, mes } });
     
-    // Si no hay meta mensual especifica, leemos configuración global de respaldo
+    // Si no hay meta mensual específica, crear con valor global de respaldo
     if (!meta) {
-      const globalConfig = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
+      const globalConfig       = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
       const facturacionDefault = globalConfig ? globalConfig.getDataValue('meta_facturacion_mensual') : 120000000;
-      const odpsDefault = globalConfig ? globalConfig.getDataValue('meta_odps_cerradas_asesor') : 12;
-      
-      meta = await MetaMensual.create({
-        anio,
-        mes,
-        meta_facturacion: facturacionDefault,
-        meta_odps_asesor: odpsDefault
-      });
+      meta = await MetaMensual.create({ anio, mes, meta_facturacion: facturacionDefault });
     }
 
     res.json(meta);
@@ -67,14 +59,14 @@ export const obtenerMetasMes = async (req: Request, res: Response) => {
 
 export const actualizarMetasMes = async (req: Request, res: Response) => {
   try {
-    const { anio, mes } = req.params;
-    const { meta_facturacion, meta_odps_asesor } = req.body;
+    const { anio, mes }      = req.params;
+    const { meta_facturacion } = req.body;
 
     let meta = await MetaMensual.findOne({ where: { anio, mes } });
     if (meta) {
-      await meta.update({ meta_facturacion, meta_odps_asesor });
+      await meta.update({ meta_facturacion });
     } else {
-      meta = await MetaMensual.create({ anio, mes, meta_facturacion, meta_odps_asesor });
+      meta = await MetaMensual.create({ anio, mes, meta_facturacion });
     }
 
     res.json({ message: 'Metas mensuales actualizadas', meta });

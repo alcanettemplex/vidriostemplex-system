@@ -5,7 +5,8 @@ import {
   X, FileText, Wrench, Truck, DollarSign, Package, Ruler, Plus,
   CheckCircle2, AlertCircle, AlertTriangle, MapPin, User, Calendar, Phone,
   Building2, ExternalLink, CreditCard, Camera, History, Shield, ChevronDown,
-  ClipboardList, TrendingUp, Printer, PenTool, Images, Trash2
+  ClipboardList, TrendingUp, Printer, PenTool, Images, Trash2,
+  Sparkles, Film, Box, Archive
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import PrintableTalonario from './PrintableTalonario';
@@ -422,12 +423,18 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
   const [tmModalOpen, setTmModalOpen] = useState(false);
   const { lightboxSrc, openLightbox, closeLightbox } = useLightbox();
   const tms = odp.tomas_medidas || [];
-  const chks = [
-    { key: 'chk_medicion', label: 'Toma de Medidas', icon: <Ruler className="w-4 h-4" /> },
-    { key: 'chk_vidrio', label: 'Vidrio', icon: <CheckCircle2 className="w-4 h-4" /> },
-    { key: 'chk_corte', label: 'Aluminio / Corte', icon: <Wrench className="w-4 h-4" /> },
-    { key: 'chk_accesorios', label: 'Herrajes / Acceso.', icon: <Package className="w-4 h-4" /> },
+  const todosLosChks = [
+    { key: 'chk_medicion',   label: 'Toma de Medidas',   icon: <Ruler className="w-4 h-4" />,         aplica: (tms?.length ?? 0) > 0 },
+    { key: 'chk_corte',      label: 'Aluminio / Corte',  icon: <Wrench className="w-4 h-4" />,        aplica: !!odp.tiene_aluminio },
+    { key: 'chk_vidrio',     label: 'Vidrio',            icon: <CheckCircle2 className="w-4 h-4" />,  aplica: (odp.items?.length ?? 0) > 0 },
+    { key: 'chk_accesorios', label: 'Herrajes / Acceso.', icon: <Package className="w-4 h-4" />,      aplica: (odp.saps?.length ?? 0) > 0 },
+    { key: 'chk_ensamble',   label: 'Ensamble',          icon: <Wrench className="w-4 h-4" />,        aplica: !!odp.tiene_aluminio },
+    { key: 'chk_matizado',   label: 'Matizado',          icon: <Sparkles className="w-4 h-4" />,      aplica: !!odp.matizado },
+    { key: 'chk_pelicula',   label: 'Película',          icon: <Film className="w-4 h-4" />,          aplica: !!odp.pelicula },
+    { key: 'chk_huacal',     label: 'Huacal',            icon: <Box className="w-4 h-4" />,           aplica: !!odp.huacal },
+    { key: 'chk_carton',     label: 'Cartón',            icon: <Archive className="w-4 h-4" />,       aplica: !!odp.carton },
   ];
+  const chks = todosLosChks.filter(c => c.aplica);
   const completados = chks.filter(c => odp[c.key]).length;
 
   const handleCroquisUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -468,22 +475,27 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
           </h3>
           <div className="flex items-center gap-2 mb-4">
             <div className="flex-1 bg-slate-100 rounded-full h-2.5">
-              <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-700" style={{ width: `${(completados / 4) * 100}%` }} />
+              <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-700"
+                style={{ width: chks.length > 0 ? `${(completados / chks.length) * 100}%` : '0%' }} />
             </div>
-            <span className="text-sm font-black text-slate-700">{completados}/4</span>
-            <Badge className={completados === 4 ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200'}>
-              {completados === 4 ? 'LISTO' : 'EN CURSO'}
+            <span className="text-sm font-black text-slate-700">{completados}/{chks.length}</span>
+            <Badge className={completados === chks.length && chks.length > 0 ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200'}>
+              {completados === chks.length && chks.length > 0 ? 'LISTO' : 'EN CURSO'}
             </Badge>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            {chks.map(chk => (
-              <div key={chk.key} className={`p-4 rounded-xl border-2 text-center transition-all ${odp[chk.key] ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
-                <div className="flex justify-center mb-2">{chk.icon}</div>
-                <p className="text-xs font-bold">{chk.label}</p>
-                <p className="text-xs mt-1">{odp[chk.key] ? '✓ Completado' : 'Pendiente'}</p>
-              </div>
-            ))}
-          </div>
+          {chks.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-4">Esta ODP no requiere seguimiento de componentes.</p>
+          ) : (
+            <div className={`grid gap-3 ${chks.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {chks.map(chk => (
+                <div key={chk.key} className={`p-4 rounded-xl border-2 text-center transition-all ${odp[chk.key] ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                  <div className="flex justify-center mb-2">{chk.icon}</div>
+                  <p className="text-xs font-bold">{chk.label}</p>
+                  <p className="text-xs mt-1">{odp[chk.key] ? '✓ Completado' : 'Pendiente'}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
@@ -495,9 +507,32 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
               <>
                 <img src={odp.croquis_url} alt="Croquis" className="absolute inset-0 w-full h-full object-contain p-2 cursor-zoom-in"
                   onClick={() => openLightbox(odp.croquis_url)} />
-                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-                  <label className="cursor-pointer bg-white text-slate-900 px-4 py-2 rounded-lg font-bold text-xs shadow-xl flex items-center gap-2 hover:scale-105 transition-transform">
-                    <Camera className="w-4 h-4" /> CAMBIAR DIBUJO
+                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
+                  {/* Ver en grande */}
+                  <button
+                    type="button"
+                    onClick={() => openLightbox(odp.croquis_url)}
+                    className="bg-white text-slate-900 px-3 py-2 rounded-lg font-bold text-xs shadow-xl flex items-center gap-1.5 hover:scale-105 transition-transform"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Ver
+                  </button>
+                  {/* Imprimir */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const win = window.open('', '_blank');
+                      if (!win) return;
+                      win.document.write(`<!DOCTYPE html><html><head><title>Croquis</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff;}img{max-width:100%;max-height:100vh;object-fit:contain;display:block;}@media print{img{width:100%;height:auto;}}</style></head><body><img src="${odp.croquis_url}" onload="window.print();window.close();" /></body></html>`);
+                      win.document.close();
+                    }}
+                    className="bg-white text-slate-900 px-3 py-2 rounded-lg font-bold text-xs shadow-xl flex items-center gap-1.5 hover:scale-105 transition-transform"
+                  >
+                    <Printer className="w-3.5 h-3.5" /> Imprimir
+                  </button>
+                  {/* Cambiar imagen */}
+                  <label className="cursor-pointer bg-white text-slate-900 px-3 py-2 rounded-lg font-bold text-xs shadow-xl flex items-center gap-1.5 hover:scale-105 transition-transform">
+                    <Camera className="w-3.5 h-3.5" /> Cambiar
                     <input type="file" className="hidden" accept="image/*" onChange={handleCroquisUpload} />
                   </label>
                 </div>

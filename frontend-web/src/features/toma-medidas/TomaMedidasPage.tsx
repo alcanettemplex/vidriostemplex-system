@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Ruler, Clock, CalendarCheck, CheckCircle2, MapPin, User,
   RefreshCw, AlertTriangle, Phone, Package, FileText,
-  UserPlus, X, Calendar, Search
+  UserPlus, X, Calendar, Search, RotateCcw
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import TMModal from '../odp/components/TMModal';
@@ -177,7 +177,8 @@ const CardTM: React.FC<{
   tm: TMItem;
   onProgramar?: (tm: TMItem) => void;
   onOpenTM?: (tm: TMItem) => void;
-}> = ({ tm, onProgramar, onOpenTM }) => {
+  onRetornar?: (tm: TMItem) => void;
+}> = ({ tm, onProgramar, onOpenTM, onRetornar }) => {
   const esProspecto = !!tm.prospecto;
   const contacto = esProspecto
     ? tm.prospecto!.cliente?.nombre_razon_social || tm.prospecto!.nombre_contacto || '—'
@@ -288,7 +289,24 @@ const CardTM: React.FC<{
               <Calendar className="w-3.5 h-3.5" /> Programar
             </button>
           )}
-          {(tm.estado === 'programada' || tm.estado === 'realizada') && onOpenTM && (
+          {tm.estado === 'programada' && onOpenTM && (
+            <button
+              onClick={() => onOpenTM(tm)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition shadow-sm whitespace-nowrap"
+            >
+              <Ruler className="w-3.5 h-3.5" /> Abrir TM
+            </button>
+          )}
+          {tm.estado === 'programada' && onRetornar && (
+            <button
+              onClick={() => onRetornar(tm)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200 transition shadow-sm whitespace-nowrap"
+              title="Retornar a Solicitadas"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Retornar
+            </button>
+          )}
+          {tm.estado === 'realizada' && onOpenTM && (
             <button
               onClick={() => onOpenTM(tm)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition shadow-sm whitespace-nowrap"
@@ -428,6 +446,19 @@ const TomaMedidasPage: React.FC = () => {
   const handleCloseTM = () => {
     setTmModal(null);
     fetchPanel();
+  };
+
+  const handleRetornarTM = async (tm: TMItem) => {
+    if (!window.confirm(`¿Retornar "${tm.numero_tm}" a Solicitadas? Se eliminará la fecha de visita programada.`)) return;
+    try {
+      await axios.patch(`${API}/api/documentos/tm/${tm.id}/retornar`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success('TM retornada a Solicitadas');
+      fetchPanel();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Error al retornar la TM');
+    }
   };
 
   // Al crear un prospecto desde TM → auto-crear TM para ese prospecto
@@ -651,6 +682,7 @@ const TomaMedidasPage: React.FC = () => {
               key={tm.id}
               tm={tm}
               onOpenTM={abrirTMModal}
+              onRetornar={handleRetornarTM}
             />
           ))}
         </Panel>

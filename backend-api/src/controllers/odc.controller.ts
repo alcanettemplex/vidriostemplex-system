@@ -387,6 +387,21 @@ export const recibirItems = async (req: Request, res: Response) => {
           { estado_compra: 'en_existencia' },
           { where: { id: { [Op.in]: sapItemIds } }, transaction: t },
         );
+
+        // Auto-activar chk_accesorios en la ODP: trazar SAPItem → SAP → ODP
+        const sapItem = await SAPItem.findOne({
+          where: { id: { [Op.in]: sapItemIds } },
+          include: [{ model: SAP, attributes: ['id', 'odp_id'] }],
+          transaction: t,
+        });
+        const sapData = (sapItem as any)?.SAP ?? (sapItem as any)?.dataValues?.SAP;
+        const odpId: number | null = sapData?.odp_id ?? sapData?.getDataValue?.('odp_id') ?? null;
+        if (odpId) {
+          await ODP.update(
+            { chk_accesorios: true },
+            { where: { id: odpId, chk_accesorios: false }, transaction: t },
+          );
+        }
       }
     } else {
       // Recepción parcial → mantener pendiente
