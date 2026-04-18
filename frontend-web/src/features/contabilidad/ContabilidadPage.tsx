@@ -16,7 +16,16 @@ const headers = () => ({ Authorization: `Bearer ${getToken()}` });
 const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 const fmtFecha = (f: string | null | undefined) => {
   if (!f) return '—';
-  try { return new Date(f).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'America/Bogota' }); } catch { return f; }
+  try {
+    // Extraer YYYY-MM-DD del string ISO para evitar el offset UTC→Bogotá (UTC-5)
+    // que convierte medianoche UTC al día anterior en Colombia.
+    const datePart = typeof f === 'string' ? f.substring(0, 10) : '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      const [y, m, d] = datePart.split('-').map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+    return new Date(f).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'America/Bogota' });
+  } catch { return f; }
 };
 
 const BANCOS_COLOMBIA = [
