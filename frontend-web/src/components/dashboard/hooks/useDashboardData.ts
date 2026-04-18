@@ -37,7 +37,7 @@ export const useDashboardData = (period: PeriodParams): DashboardData => {
   const fetchSection = useCallback(async (section: keyof typeof loading, params: PeriodParams) => {
     setLoading(prev => ({ ...prev, [section]: true }));
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const qs    = new URLSearchParams({
         mes_inicio:  String(params.mesInicio),
         anio_inicio: String(params.anioInicio),

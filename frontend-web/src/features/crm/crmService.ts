@@ -3,7 +3,7 @@ import axios from 'axios';
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 const getHeaders = () => ({
-  headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+  headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` }
 });
 
 /** Obtener leads del pipeline (excluye sin-respuesta) o del tab sin-respuesta */
