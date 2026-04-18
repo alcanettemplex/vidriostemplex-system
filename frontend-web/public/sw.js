@@ -1,4 +1,4 @@
-const CACHE_NAME = 'templex-v1';
+const CACHE_NAME = 'templex-v2';
 
 const SHELL_ASSETS = [
   '/',
