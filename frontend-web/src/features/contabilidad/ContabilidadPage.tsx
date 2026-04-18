@@ -305,7 +305,12 @@ const ContabilidadPage: React.FC = () => {
   };
 
   // ─── Datos derivados ─────────────────────────────────────────────────────
-  const calcPendiente = (o: any) => Math.max(0, Number(o.valor_total || 0) - Number(o.abono || 0));
+  // Usa el pendiente almacenado en BD (ya descuenta diferencia/retención).
+  // Fallback a valor_total-abono solo si pendiente no está disponible (ODPs antiguas).
+  const calcPendiente = (o: any) =>
+    o.pendiente != null
+      ? Number(o.pendiente)
+      : Math.max(0, Number(o.valor_total || 0) - Number(o.abono || 0));
 
   const diasParaVencer = (o: any): number | null => {
     if (o.estado_caja !== 'CREDITO_APROBADO' || !o.fecha_vencimiento_credito) return null;

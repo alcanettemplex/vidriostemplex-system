@@ -20,6 +20,7 @@ import {
   Shield,
   Target,
   X,
+  BookOpen,
 } from 'lucide-react';
 import { TemplexLogo } from '../ui/TemplexLogo';
 
@@ -142,6 +143,13 @@ const MENU_ITEMS_CONFIG = [
     allowedRoles: ['root'],
     section: 'sistema'
   },
+  {
+    text: 'Manuales',
+    icon: BookOpen,
+    path: '/manuales',
+    allowedRoles: ['root', 'admin', 'gerencia', 'marketing', 'asesor_comercial', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion', 'instalador', 'conductor', 'contabilidad', 'compras', 'asistente_administrativo'],
+    section: 'ayuda'
+  },
 ];
 
 // Etiquetas de sección para separadores visuales en el menú
@@ -153,6 +161,7 @@ const SECTION_LABELS: Record<string, string> = {
   finanzas: 'Finanzas',
   admin: 'Administración',
   sistema: 'Sistema',
+  ayuda: 'Ayuda',
 };
 
 interface SidebarProps {
@@ -182,7 +191,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   // Filtrar el menú por rol
   const authorizedMenu = MENU_ITEMS_CONFIG.filter(item => {
     if (!userRole) return false;
-    if (userRole === 'root') return item.allowedRoles.includes('root');
+    if (userRole === 'root') return item.allowedRoles.includes('root') || item.section === 'ayuda';
     if (userRole === 'admin') return item.section !== 'sistema';
     return item.allowedRoles.includes(userRole);
   });

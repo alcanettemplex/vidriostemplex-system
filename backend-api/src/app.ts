@@ -30,6 +30,7 @@ import cotizacionCapturasRoutes from './routes/cotizacion_capturas.routes';
 import detalleSAPRoutes from './routes/detalle_sap.routes';
 import crmRoutes from './routes/crm.routes';
 import searchRoutes from './routes/search.routes';
+import manualesRoutes from './routes/manuales.routes';
 import { requestContext } from './utils/requestContext';
 
 const app = express();
@@ -105,6 +106,7 @@ app.use('/api/cotizacion-capturas', cotizacionCapturasRoutes);
 app.use('/api/detalle-sap-imagenes', detalleSAPRoutes);
 app.use('/api/crm', crmRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/manuales', manualesRoutes);
 
 import { errorHandler } from './middlewares/errorHandler';
 app.use(errorHandler);

@@ -905,12 +905,14 @@ export const facturarODP = async (req: Request, res: Response) => {
         return res.status(400).json({ error: 'El número de FE es obligatorio para marcar como Facturada' });
       }
       updates.factura_electronica = data.factura_electronica;
-      updates.fecha_factura = data.fecha_factura || null;
+      updates.fecha_factura = data.fecha_factura
+        ? new Date(data.fecha_factura + 'T12:00:00.000Z')
+        : null;
 
       // Calcular vencimiento a 30 días para ODPs de crédito
       if (data.fecha_factura && odp.getDataValue('forma_pago') === 'credito') {
-        const fechaFe = new Date(data.fecha_factura);
-        fechaFe.setDate(fechaFe.getDate() + 30);
+        const fechaFe = new Date(data.fecha_factura + 'T12:00:00.000Z');
+        fechaFe.setUTCDate(fechaFe.getUTCDate() + 30);
         updates.fecha_vencimiento_credito = fechaFe.toISOString().split('T')[0];
       }
     } else {

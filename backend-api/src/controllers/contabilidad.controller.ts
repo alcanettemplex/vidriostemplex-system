@@ -226,8 +226,8 @@ export const registrarPago = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'ODP no encontrada' });
     }
 
-    // Crear pago (usar fecha enviada por el usuario o la fecha actual)
-    const fechaPago = data.fecha ? new Date(data.fecha) : new Date();
+    // Crear pago — usar T12:00:00Z para evitar offset de zona horaria al mostrar en Bogotá
+    const fechaPago = data.fecha ? new Date(data.fecha + 'T12:00:00.000Z') : new Date();
     const pago = await Pago.create(
       {
         ...data,
@@ -321,7 +321,9 @@ export const editarPago = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Pago no encontrado' });
     }
 
-    await pago.update(data as any, { transaction: t });
+    const updateData: any = { ...data };
+    if (data.fecha) updateData.fecha = new Date(data.fecha + 'T12:00:00.000Z');
+    await pago.update(updateData, { transaction: t });
     const odp_id = Number(pago.getDataValue('odp_id'));
     const financiero = await recalcularFinanciero(odp_id, t);
 

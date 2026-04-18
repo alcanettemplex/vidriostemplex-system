@@ -21,6 +21,7 @@ import PedidosPVPage from '../features/pedidos-pv/PedidosPVPage';
 import FacturasSalidasPage from '../features/facturas-salidas/FacturasSalidasPage';
 import RootPage from '../features/root/RootPage';
 import CRMPage from '../features/crm/CRMPage';
+import ManualesPage from '../features/manuales/ManualesPage';
 
 const AppRoutes: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -78,6 +79,7 @@ const AppRoutes: React.FC = () => {
             <Route element={<RoleRoute allowedRoles={['root']} />}>
               <Route path="/root" element={<RootPage />} />
             </Route>
+            <Route path="/manuales" element={<ManualesPage />} />
           </Route>
         </Routes>
       </main>
