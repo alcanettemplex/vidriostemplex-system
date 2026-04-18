@@ -38,7 +38,7 @@ const EvidenciasPage: React.FC = () => {
 
     const fetchODPsData = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const res = await axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -79,7 +79,7 @@ const EvidenciasPage: React.FC = () => {
         }
 
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const file = fileInputRef.current.files[0];
 
             const formData = new FormData();

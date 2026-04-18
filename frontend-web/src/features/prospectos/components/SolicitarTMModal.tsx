@@ -19,7 +19,7 @@ const SolicitarTMModal: React.FC<Props> = ({ prospecto, onClose, onCreada }) => 
     observaciones: '',
   });
   const [loading, setLoading] = useState(false);
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const set = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }));
 
   const contacto = prospecto.cliente?.nombre_razon_social || prospecto.nombre_contacto || '—';

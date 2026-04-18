@@ -23,7 +23,7 @@ const ESTADO_STYLES: Record<string, string> = {
 };
 
 const ConductorView: React.FC = () => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
   const [rutas, setRutas] = useState<any[]>([]);

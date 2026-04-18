@@ -71,7 +71,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
   // Perfiles seleccionados localmente — se aplican en BD solo al confirmar la ODC
   const [perfilesSeleccionados, setPerfilesSeleccionados] = useState<Record<number, InventarioPerfil>>({});
 
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {

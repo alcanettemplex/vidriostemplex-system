@@ -52,7 +52,7 @@ interface Props {
 
 const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado, asesorId, tipoOdp }) => {
   const navigate = useNavigate();
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
   const esContactoNuevo = !prospecto.cliente_id;

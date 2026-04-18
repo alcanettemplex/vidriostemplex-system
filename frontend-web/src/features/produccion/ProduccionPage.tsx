@@ -211,7 +211,7 @@ const ProduccionPage: React.FC = () => {
     const fetchData = useCallback(async (silent = false) => {
         try {
             if (!silent) setLoading(true);
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const res = await axios.get(
                 `${API}/api/odp`,
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -256,7 +256,7 @@ const ProduccionPage: React.FC = () => {
 
     const fetchNotes = async (odpId: number) => {
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const res = await axios.get(
                 `${API}/api/notas-produccion/${odpId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -271,7 +271,7 @@ const ProduccionPage: React.FC = () => {
         const text = newNotes[odpId]?.trim();
         if (!text) return;
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const res = await axios.post(
                 `${API}/api/notas-produccion`,
                 { odp_id: odpId, texto: text },
@@ -291,7 +291,7 @@ const ProduccionPage: React.FC = () => {
             return;
         }
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const newValue = !(odp as any)[field];
             await axios.put(
                 `${API}/api/odp/${odp.id}`,
@@ -308,7 +308,7 @@ const ProduccionPage: React.FC = () => {
     const handleMarcarEntregada = async (odp: ODP) => {
         setMarcandoEntregada(odp.id);
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             await axios.put(
                 `${API}/api/odp/${odp.id}`,
                 { estado_produccion: 'ENTREGADA' },
@@ -327,7 +327,7 @@ const ProduccionPage: React.FC = () => {
         if (!pvModalLlegada) return;
         setPvLoadingAccion(true);
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             await axios.patch(
                 `${API}/api/pedidos-pv/${pvModalLlegada.id}/registrar-llegada`,
                 { fecha_llegada_real: pvFechaLlegada || undefined },
@@ -350,7 +350,7 @@ const ProduccionPage: React.FC = () => {
             ? { observacion_verificacion: pvObsAccion || null }
             : { observacion: pvObsAccion };
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             await axios.patch(
                 `${API}/api/pedidos-pv/${pvModalAccion.pv.id}/${endpoint}`,
                 body,
@@ -370,7 +370,7 @@ const ProduccionPage: React.FC = () => {
         if (!window.confirm(`¿Marcar "${panelOdp.numero_odp}" como Listo para Instalar?\nEsta acción avanzará la ODP directamente a esa etapa.`)) return;
         setMarcandoListo(true);
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             await axios.put(
                 `${API}/api/odp/${panelOdp.id}`,
                 { estado_produccion: 'LISTO_INSTALAR' },
@@ -398,7 +398,7 @@ const ProduccionPage: React.FC = () => {
         setPanelDetailLoading(true);
         setOdpFullDetail(null);
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const res = await axios.get(
                 `${API}/api/odp/${odpId}`,
                 { headers: { Authorization: `Bearer ${token}` } }

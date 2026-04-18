@@ -300,7 +300,7 @@ const ProspectosPage: React.FC = () => {
   const [motivoArchivo, setMotivoArchivo] = useState('');
   const [solicitandoTM, setSolicitandoTM] = useState<Prospecto | null>(null);
 
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
   const fetchProspectos = useCallback(async () => {

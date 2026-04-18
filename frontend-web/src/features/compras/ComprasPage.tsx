@@ -115,7 +115,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
   const [itemsSeleccionados, setItemsSeleccionados] = useState<Set<number>>(new Set());
   const [recibiendoItems, setRecibiendoItems] = useState(false);
 
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const odpsInfo = getODPsDeODC(odc);
   const isMultiODP = odpsInfo.length > 1;
   // legacy compat
@@ -735,7 +735,7 @@ const ComprasPage: React.FC = () => {
   const [busqueda, setBusqueda] = useState('');
 
 
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
   const fetchTab = useCallback(async (t: string) => {
@@ -764,7 +764,7 @@ const ComprasPage: React.FC = () => {
 
   // Cargar conteos de todos los tabs al montar para mostrar badges
   useEffect(() => {
-    const h = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+    const h = { Authorization: `Bearer ${sessionStorage.getItem('token')}` };
     axios.get(`${API}/api/compras/panel`, { headers: h }).then(r => setItemsPendientes(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
     axios.get(`${API}/api/compras/seguimiento`, { headers: h }).then(r => setOdcsSeguimiento(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
     axios.get(`${API}/api/compras/recibidas`, { headers: h }).then(r => setOdcsRecibidas(r.data)).catch(err => console.error('Error cargando datos de compras:', err));

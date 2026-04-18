@@ -20,7 +20,7 @@ const ESTADO_ODP_RUTA_STYLES: Record<string, string> = {
 };
 
 const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
   const [tab, setTab] = useState<'listos' | 'pago' | 'produccion'>('listos');

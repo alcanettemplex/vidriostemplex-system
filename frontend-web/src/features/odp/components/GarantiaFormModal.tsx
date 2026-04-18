@@ -13,7 +13,7 @@ interface Props {
 }
 
 const GarantiaFormModal: React.FC<Props> = ({ odp, onClose, onCreada }) => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   // Campos del formulario — pre-cargados de la ODP padre, todos editables
   const [descripcionProblema, setDescripcionProblema] = useState('');

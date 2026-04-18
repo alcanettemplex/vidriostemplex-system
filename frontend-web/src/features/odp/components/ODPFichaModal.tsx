@@ -303,7 +303,7 @@ const DetalleSAPCard: React.FC<{ odpId: number; canUpload: boolean; onOpenLightb
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   const fetchImagenes = useCallback(async () => {
     try {
@@ -448,7 +448,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
     if (!window.confirm(`¿Solicitar toma de medidas para ${odp.numero_odp}? La ODP pasará a estado VISITA TÉCNICA.`)) return;
     try {
       setSolicitandoTM(true);
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       await axios.post(`${API}/api/documentos/tm`, {
         odp_id: odp.id,
@@ -470,7 +470,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
     setRelacionarOpen(true);
     setLoadingTmsSinODP(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const { data } = await axios.get(`${API}/api/documentos/tm/sin-odp`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -486,7 +486,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
     if (!window.confirm(`¿Vincular ${numeroTM} a ${odp.numero_odp}?`)) return;
     try {
       setVinculando(true);
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       await axios.patch(`${API}/api/documentos/tm/${tmId}/vincular-odp`, { odp_id: odp.id }, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -510,7 +510,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
       formData.append('croquis', file);
 
       const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
 
       await axios.post(`${API}/api/odp/${odp.id}/croquis`, formData, {
         headers: { Authorization: `Bearer ${token}` }
@@ -794,7 +794,7 @@ const TabInstalacion: React.FC<{ odp: any; onOpenLightbox: (src: string) => void
   const rutasConDano = rutaOdps.filter((r: any) => r.estado === 'con_dano');
 
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   const isOwnerAsesor = currentUser?.rol === 'asesor_comercial' && currentUser?.id === odp.asesor_id;
   const puedeRevisar = isOwnerAsesor || ['admin', 'gerencia'].includes(currentUser?.rol);
@@ -1123,7 +1123,7 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
   const [detSapImagenes, setDetSapImagenes] = useState<any[]>([]);
 
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   useEffect(() => {
     if (selectedFormat !== 'det_sap') return;
@@ -1266,7 +1266,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
   const { lightboxSrc, openLightbox, closeLightbox } = useLightbox();
 
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   // Obtener usuario actual para validar permisos
   useEffect(() => {

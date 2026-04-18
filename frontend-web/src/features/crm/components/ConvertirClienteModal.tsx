@@ -6,7 +6,7 @@ import { useDispatch } from 'react-redux';
 import { updateLead } from '../crmSlice';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-const getHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+const getHeaders = () => ({ headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` } });
 
 const TIPOS_DOCUMENTO = ['NIT', 'C.C', 'C.E', 'PPT', 'Otros'];
 const CONDICIONES_PAGO = [

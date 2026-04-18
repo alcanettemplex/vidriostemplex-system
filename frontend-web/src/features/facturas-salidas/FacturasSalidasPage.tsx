@@ -42,7 +42,7 @@ interface SalidaAlmacen {
 
 const FacturasSalidasPage: React.FC = () => {
   const user = useSelector((s: any) => s.auth.user);
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
   const puedeEditar = ['admin', 'compras', 'produccion'].includes(user?.rol || '');

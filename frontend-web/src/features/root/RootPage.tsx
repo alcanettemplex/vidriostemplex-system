@@ -11,7 +11,7 @@ const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 const headers = () => ({
   'Content-Type': 'application/json',
-  Authorization: `Bearer ${localStorage.getItem('token')}`,
+  Authorization: `Bearer ${sessionStorage.getItem('token')}`,
 });
 
 // ─── Sub-componentes de UI ────────────────────────────────────────────────────

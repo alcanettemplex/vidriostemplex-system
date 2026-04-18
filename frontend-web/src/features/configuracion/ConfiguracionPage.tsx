@@ -57,7 +57,7 @@ export const ConfiguracionPage: React.FC = () => {
   const [selectedYear, setSelectedYear]   = useState<number>(new Date().getFullYear());
 
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-  const token   = localStorage.getItem('token');
+  const token   = sessionStorage.getItem('token');
 
   // ─── Fetch ────────────────────────────────────────────────────────────────
 

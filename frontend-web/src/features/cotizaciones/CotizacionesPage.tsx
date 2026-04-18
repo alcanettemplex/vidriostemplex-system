@@ -74,7 +74,7 @@ const CotizacionesPage: React.FC = () => {
   const cargarCotizaciones = useCallback(async () => {
     dispatch(fetchCotizacionesStart());
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const { data } = await axios.get(`${API}/api/cotizaciones`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -137,7 +137,7 @@ const CotizacionesPage: React.FC = () => {
     if (!window.confirm('¿Eliminar esta cotización? Esta acción no se puede deshacer.')) return;
     setDeletingId(id);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       await axios.delete(`${API}/api/cotizaciones/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });

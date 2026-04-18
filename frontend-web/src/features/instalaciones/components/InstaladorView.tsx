@@ -20,7 +20,7 @@ import { Images } from 'lucide-react';
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 const InstaladorView: React.FC = () => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
   const [asignacion, setAsignacion] = useState<any[]>([]);

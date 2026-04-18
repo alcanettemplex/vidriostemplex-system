@@ -54,7 +54,7 @@ const AutocompleteCell: React.FC<{
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<any>(null);
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   useEffect(() => { setQuery(value); }, [value]);
 
@@ -648,7 +648,7 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
 
   const user = useSelector((state: any) => state.auth.user);
   const userRole = (user?.rol || user?.role)?.toLowerCase() || '';
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   const canEdit = userRole === 'admin' ||
     userRole === 'jefe_produccion' ||

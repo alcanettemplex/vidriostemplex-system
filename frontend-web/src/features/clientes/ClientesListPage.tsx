@@ -36,7 +36,7 @@ const ClientesListPage: React.FC = () => {
 
   const fetchClientes = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const res = await axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/clientes`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -65,7 +65,7 @@ const ClientesListPage: React.FC = () => {
 
   const onSubmit = async (data: ClienteFormValues) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (editingClienteId) {
         await axios.put(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/clientes/${editingClienteId}`, data, {
           headers: { Authorization: `Bearer ${token}` }
@@ -105,7 +105,7 @@ const ClientesListPage: React.FC = () => {
   const confirmDelete = async () => {
     if (!deletingCliente) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       await axios.delete(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/clientes/${deletingCliente.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });

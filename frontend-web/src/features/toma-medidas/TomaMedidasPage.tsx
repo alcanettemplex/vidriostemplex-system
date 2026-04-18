@@ -113,7 +113,7 @@ const ProgramarModal: React.FC<{
 }> = ({ tm, onClose, onProgramado }) => {
   const [fecha, setFecha] = useState('');
   const [loading, setLoading] = useState(false);
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   const handleProgramar = async () => {
     if (!fecha) { toast.error('Selecciona una fecha'); return; }
@@ -425,7 +425,7 @@ const TomaMedidasPage: React.FC = () => {
   const [showNuevoProspecto, setShowNuevoProspecto] = useState(false);
   const [creandoTMParaProspecto, setCreandoTMParaProspecto] = useState(false);
 
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   const fetchPanel = useCallback(async () => {
     try {

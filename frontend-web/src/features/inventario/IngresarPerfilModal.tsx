@@ -33,7 +33,7 @@ const newFila = (): FilaPerfil => ({
 });
 
 const IngresarPerfilModal: React.FC<Props> = ({ onClose, onGuardado }) => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
   const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);

@@ -178,7 +178,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     useEffect(() => {
         if (odpToEdit || !clienteIdWatch) { setProspectosBanner([]); return; }
         const base = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         axios.get(`${base}/api/prospectos/cliente/${clienteIdWatch}/en-gestion`, {
             headers: { Authorization: `Bearer ${token}` },
         }).then(r => setProspectosBanner(r.data)).catch(() => setProspectosBanner([]));
@@ -194,7 +194,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     });
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
         const base = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -250,7 +250,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
 
     const onSubmit = async (data: ODPFormValues) => {
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const { requiere_visita_tecnica, ...rest } = data;
             const payload = {
                 ...rest,

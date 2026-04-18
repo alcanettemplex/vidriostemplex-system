@@ -34,7 +34,7 @@ const ConvertirAODPModal: React.FC<Props> = ({ open, onClose, cotizacion: cot })
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const { data } = await axios.post(
         `${API}/api/cotizaciones/${cot.id}/convertir`,
         {

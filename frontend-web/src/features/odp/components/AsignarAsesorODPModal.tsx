@@ -14,7 +14,7 @@ interface AsignarAsesorODPModalProps {
 
 const AsignarAsesorODPModal: React.FC<AsignarAsesorODPModalProps> = ({ onConfirm, onCancel }) => {
     const currentUser = useSelector((state: any) => state.auth.user);
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     const headers = { Authorization: `Bearer ${token}` };
 
     const [opcion, setOpcion] = useState<'mia' | 'otro' | null>(null);

@@ -40,7 +40,7 @@ const ODCVidriosModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
   const [notas, setNotas] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
   // Agrupar por tipo_vidrio para mostrar la vista consolidada (igual que en el tab)

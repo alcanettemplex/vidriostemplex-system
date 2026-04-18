@@ -49,7 +49,7 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await axios.get(`${API_URL}/api/manuales/${tipo}`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob',
@@ -78,7 +78,7 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await axios.get(`${API_URL}/api/manuales/${tipo}`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob',

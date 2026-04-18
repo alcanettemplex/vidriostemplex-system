@@ -47,7 +47,7 @@ const CotizacionCapturas: React.FC<Props> = ({ odp_id, prospecto_id, numeroCotiz
   const [editandoNumCot, setEditandoNumCot] = useState(false);
   const [guardandoNumCot, setGuardandoNumCot] = useState(false);
 
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
   const params = odp_id ? { odp_id } : { prospecto_id };
 

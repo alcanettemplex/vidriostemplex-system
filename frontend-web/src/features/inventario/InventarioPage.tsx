@@ -42,7 +42,7 @@ const InventarioPage: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editValues, setEditValues] = useState<{ ubicacion: string; mm: string }>({ ubicacion: '', mm: '' });
 
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
   const loadItems = useCallback(async () => {

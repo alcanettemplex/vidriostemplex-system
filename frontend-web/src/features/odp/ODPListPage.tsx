@@ -205,7 +205,7 @@ const ODPListPage: React.FC = () => {
 
     const fetchGarantias = useCallback(async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const res = await axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp/garantias/all`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -217,7 +217,7 @@ const ODPListPage: React.FC = () => {
 
     const fetchODPs = useCallback(async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const res = await axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -235,7 +235,7 @@ const ODPListPage: React.FC = () => {
     const handleSolicitarVisita = async (odp: ODP) => {
         if (!window.confirm(`¿Solicitar visita técnica para ${odp.numero_odp}?`)) return;
         try {
-            const tkn = localStorage.getItem('token');
+            const tkn = sessionStorage.getItem('token');
             await axios.put(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/odp/${odp.id}`,
                 { estado_produccion: 'VISITA_TECNICA' },
                 { headers: { Authorization: `Bearer ${tkn}` } }
@@ -249,7 +249,7 @@ const ODPListPage: React.FC = () => {
 
     const handleDelete = async (id: number) => {
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             await axios.delete(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });

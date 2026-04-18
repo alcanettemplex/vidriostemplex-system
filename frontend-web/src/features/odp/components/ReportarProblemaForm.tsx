@@ -70,7 +70,7 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
     try {
       setLoading(true);
       const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const selectedItem = selectedItemIndex !== null ? items[selectedItemIndex] : null;
 
       const payload = {

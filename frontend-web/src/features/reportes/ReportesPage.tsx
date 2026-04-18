@@ -27,7 +27,7 @@ const ReportesPage: React.FC = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             const res = await axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp`, {
                 headers: { Authorization: `Bearer ${token}` }
             });

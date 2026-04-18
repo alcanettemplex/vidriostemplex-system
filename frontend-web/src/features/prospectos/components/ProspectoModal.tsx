@@ -33,7 +33,7 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
     descripcion: prospecto?.descripcion || '',
   });
   const [loading, setLoading] = useState(false);
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {

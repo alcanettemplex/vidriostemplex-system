@@ -24,7 +24,7 @@ const TIPOS_DANO = [
 ];
 
 const ReportarDanoModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, onReportado }) => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const [tipoDano, setTipoDano] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [foto, setFoto] = useState<File | null>(null);

@@ -147,7 +147,7 @@ const CotizacionDetailModal: React.FC<Props> = ({ open, onClose, cotizacion: cot
   const cambiarEstado = async (nuevoEstado: EstadoCOT, motivo?: string) => {
     setLoadingEstado(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const { data } = await axios.patch(
         `${API}/api/cotizaciones/${cot.id}/estado`,
         { estado: nuevoEstado, ...(motivo ? { motivo } : {}) },

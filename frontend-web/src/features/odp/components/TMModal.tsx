@@ -41,7 +41,7 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
   const fotoInputRef = useRef<HTMLInputElement>(null);
 
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   useEffect(() => { fetchTMs(); }, []); // eslint-disable-line
 

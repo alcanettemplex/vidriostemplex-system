@@ -18,7 +18,7 @@ interface Props {
 }
 
 const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, onClose, onSaved }) => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);

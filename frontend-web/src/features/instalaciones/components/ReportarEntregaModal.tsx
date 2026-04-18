@@ -15,7 +15,7 @@ interface Props {
 type Step = 'foto_gps' | 'firma';
 
 const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, onCompletado }) => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
   const [step, setStep] = useState<Step>('foto_gps');

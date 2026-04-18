@@ -27,7 +27,7 @@ const UsuariosPage: React.FC = () => {
   const [form, setForm] = useState({ username: '', password: '', nombre_completo: '', email: '', rol: 'asesor_comercial', puede_gestionar_pv: false });
 
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData(); }, []);
