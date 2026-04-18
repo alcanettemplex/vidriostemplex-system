@@ -445,11 +445,14 @@ export const ejecutarMantenimiento = async (req: Request, res: Response) => {
           `SELECT id, numero_odp, estado_produccion, estado_facturacion, estado_caja
            FROM odp
            WHERE (estado_produccion = 'ENTREGADA' AND estado_facturacion = 'PENDIENTE')
-              OR (estado_caja = 'CANCELADO' AND estado_produccion NOT IN ('INSTALADA','ENTREGADA'))
            ORDER BY id`,
           { type: QueryTypes.SELECT }
         );
-        resultado = { descripcion: 'ODPs con estados inconsistentes', cantidad: rows.length, registros: rows };
+        resultado = {
+          descripcion: 'ODPs entregadas sin facturar (estado_produccion=ENTREGADA y estado_facturacion=PENDIENTE)',
+          cantidad: rows.length,
+          registros: rows,
+        };
         break;
       }
 
