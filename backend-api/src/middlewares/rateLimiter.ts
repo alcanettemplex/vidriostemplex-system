@@ -20,12 +20,12 @@ export const globalLimiter = rateLimit({
  * Protege contra ataques de fuerza bruta al login.
  */
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
+  windowMs: 5 * 60 * 1000,
+  max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     error: 'Demasiados intentos de login',
-    message: 'Has excedido el límite de intentos. Espera 15 minutos antes de intentar de nuevo.',
+    message: 'Has excedido el límite de intentos. Espera 5 minutos antes de intentar de nuevo.',
   },
 });
