@@ -78,10 +78,10 @@ const MonthlyTooltip = ({ active, payload, label }: any) => {
 };
 
 export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data, isLoading }) => {
-  const odpsActivas  = useCountUp(data?.odps_activas || 0);
-  const facturadoMes = useCountUp(data?.facturado_mes || 0);
-  const carteraVenc  = useCountUp(data?.cartera_vencida_total || 0);
-  const tasaEntrega  = useCountUp(data?.tasa_entrega_tiempo_pct || 0);
+  const odpsActivas   = useCountUp(data?.odps_activas || 0);
+  const facturadoMes  = useCountUp(data?.facturado_mes || 0);
+  const carteraVenc   = useCountUp(data?.cartera_vencida_total || 0);
+  const totalRecaudado = useCountUp(data?.total_abonado || 0);
 
   if (isLoading) {
     return (
@@ -168,18 +168,21 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
         </motion.div>
 
         <motion.div custom={3} variants={cardVar} initial="hidden" animate="visible"
-          className="bg-white border border-slate-200 rounded-2xl p-5"
+          className="bg-white border border-slate-200 rounded-2xl p-5 relative overflow-hidden"
           whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(16,185,129,0.1)' }}>
-          <div className="flex justify-between items-start mb-3">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Entrega a Tiempo</p>
-            <span className="text-[10px] text-slate-400">Meta: {data.meta_entrega_tiempo_pct}%</span>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Total Recaudado</p>
+          <p className="text-[38px] font-semibold text-emerald-600 leading-none tabular-nums">{fmtM(totalRecaudado)}</p>
+          {data.facturado_mes > 0 && (
+            <p className="text-[11px] text-slate-400 mt-2">
+              {Math.round((totalRecaudado / data.facturado_mes) * 100)}% del facturado
+            </p>
+          )}
+          <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-100">
+            <motion.div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-b-2xl"
+              initial={{ width: 0 }}
+              animate={{ width: data.facturado_mes > 0 ? `${Math.min((totalRecaudado / data.facturado_mes) * 100, 100)}%` : '0%' }}
+              transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1], delay: 0.4 }} />
           </div>
-          <p className={`text-[44px] font-semibold leading-none tabular-nums ${tasaEntrega >= (data.meta_entrega_tiempo_pct || 85) ? 'text-emerald-600' : 'text-amber-500'}`}>
-            {tasaEntrega}%
-          </p>
-          <p className={`text-[11px] mt-2 ${tasaEntrega >= (data.meta_entrega_tiempo_pct || 85) ? 'text-emerald-600' : 'text-amber-500'}`}>
-            {tasaEntrega >= (data.meta_entrega_tiempo_pct || 85) ? '✓ Por encima de meta' : '↓ Por debajo de meta'}
-          </p>
         </motion.div>
       </div>
 

@@ -148,31 +148,69 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         {/* Ranking asesores */}
         <motion.div custom={1} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 flex flex-col">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Ranking — meta vs real por asesor</p>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Ranking — meta vs real por asesor</p>
+          {/* Header cols */}
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <div className="flex-1" />
+            <span className="text-[9px] text-slate-400 uppercase tracking-wider w-16 text-right">Meta</span>
+            <span className="text-[9px] text-slate-400 uppercase tracking-wider w-16 text-right">Facturado</span>
+            <span className="text-[9px] text-slate-400 uppercase tracking-wider w-16 text-right">Recaudado</span>
+            <span className="text-[9px] text-slate-400 uppercase tracking-wider w-9 text-right">%</span>
+          </div>
           {asesores.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-slate-400 text-[12px]">No hay asesores registrados</div>
+            <div className="flex-1 flex items-center justify-center text-slate-400 text-[12px]">No hay usuarios registrados</div>
           ) : (
-            <div className="flex-1 space-y-5 overflow-y-auto">
+            <div className="flex-1 space-y-4 overflow-y-auto pr-1">
               {asesores.map((as: any, i: number) => {
-                const pct      = as.meta > 0 ? Math.min((as.real / as.meta) * 100, 100) : 0;
-                const pctLabel = as.meta > 0 ? Math.round((as.real / as.meta) * 100) : 0;
-                const color    = pct >= 100 ? '#22c55e' : pct >= 60 ? '#f59e0b' : '#ef4444';
-                const medals   = ['🥇','🥈','🥉'];
+                const pct       = as.meta > 0 ? Math.min((as.real / as.meta) * 100, 100) : 0;
+                const pctLabel  = as.meta > 0 ? Math.round((as.real / as.meta) * 100) : 0;
+                const color     = pct >= 100 ? '#22c55e' : pct >= 60 ? '#f59e0b' : '#ef4444';
+                const pctRec    = as.meta > 0 ? Math.min((as.recaudado / as.meta) * 100, 100) : 0;
+                const medals    = ['🥇','🥈','🥉'];
+                const rolBadge: Record<string, { label: string; cls: string }> = {
+                  asesor_comercial: { label: 'Asesor', cls: 'bg-indigo-50 text-indigo-600' },
+                  gerencia:         { label: 'Gerencia', cls: 'bg-purple-50 text-purple-600' },
+                  jefe_produccion:  { label: 'J. Prod.', cls: 'bg-amber-50 text-amber-600' },
+                };
+                const badge = rolBadge[as.rol] || { label: as.rol, cls: 'bg-slate-50 text-slate-500' };
                 return (
                   <div key={as.asesor_id}>
-                    <div className="flex items-center gap-2.5 mb-2">
+                    <div className="flex items-center gap-2 mb-1.5">
                       <span className="text-[13px] w-4 shrink-0">{medals[i] || `#${i+1}`}</span>
                       <Avatar nombre={as.nombre || 'U'} />
-                      <span className="text-[12px] font-medium text-slate-700 flex-1 truncate">{as.nombre}</span>
-                      <span className="text-[11px] text-slate-400 tabular-nums">{fmtM(as.real)} / {fmtM(as.meta)}</span>
-                      <span className="text-[12px] font-bold tabular-nums w-10 text-right" style={{ color }}>{pctLabel}%</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[12px] font-semibold text-slate-700 truncate">{as.nombre}</span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${badge.cls}`}>{badge.label}</span>
+                        </div>
+                      </div>
+                      <span className="text-[11px] text-slate-500 tabular-nums w-16 text-right">{fmtM(as.meta)}</span>
+                      <span className="text-[11px] font-semibold text-slate-700 tabular-nums w-16 text-right">{fmtM(as.real)}</span>
+                      <span className="text-[11px] font-semibold text-emerald-600 tabular-nums w-16 text-right">{fmtM(as.recaudado)}</span>
+                      <span className="text-[12px] font-bold tabular-nums w-9 text-right" style={{ color }}>{pctLabel}%</span>
                     </div>
-                    <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden ml-7">
-                      <motion.div className="absolute inset-y-0 left-0 rounded-full"
+                    {/* Barra facturado */}
+                    <div className="relative h-1.5 bg-slate-100 rounded-full overflow-hidden ml-6">
+                      <motion.div className="absolute inset-y-0 left-0 rounded-full opacity-30"
                         style={{ background: color }}
                         initial={{ width: 0 }}
                         animate={{ width: `${pct}%` }}
-                        transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1], delay: 0.25 + i * 0.1 }} />
+                        transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1], delay: 0.2 + i * 0.08 }} />
+                      <motion.div className="absolute inset-y-0 left-0 rounded-full"
+                        style={{ background: color }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pctRec}%` }}
+                        transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1], delay: 0.3 + i * 0.08 }} />
+                    </div>
+                    <div className="flex items-center gap-3 ml-6 mt-0.5">
+                      <div className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full opacity-40" style={{ background: color }} />
+                        <span className="text-[9px] text-slate-400">Facturado</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+                        <span className="text-[9px] text-slate-400">Recaudado</span>
+                      </div>
                     </div>
                   </div>
                 );

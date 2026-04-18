@@ -195,6 +195,7 @@ export const getGeneralData = async (req: Request, res: Response) => {
       odps_activas,
       odps_activas_delta_pct,
       facturado_mes: Number(facturado_mes),
+      total_abonado: Number(abonos),
       cartera_vencida_total,
       cartera_vencida_clientes,
       tasa_entrega_tiempo_pct,
@@ -287,12 +288,21 @@ export const getVentasData = async (req: Request, res: Response) => {
       { rango: `>${diasAlertaCartera * 2} días`, total: cartera_vencida_detalle.filter(d => d.riesgo === 'critico').reduce((a, c) => a + c.monto, 0) }
     ];
 
-    // Ranking asesores — meta financiera
+    // Ranking asesores — meta financiera (asesor_comercial + gerencia + jefe_produccion)
     const monthList = generateMonthList(mesInicio, anioInicio, mesFin, anioFin);
-    const asesores  = await Usuario.findAll({ where: { rol: 'asesor_comercial' } });
+    const asesores  = await Usuario.findAll({
+      where: { rol: { [Op.in]: ['asesor_comercial', 'gerencia', 'jefe_produccion'] } }
+    });
 
     const realByAsesor = await ODP.findAll({
       attributes: ['asesor_id', [fn('SUM', literal('abono + pendiente')), 'total']],
+      where: { ...periodWhere, asesor_id: { [Op.ne]: null } },
+      group: ['asesor_id'],
+      raw: true
+    }) as unknown as { asesor_id: number; total: string }[];
+
+    const recaudadoByAsesor = await ODP.findAll({
+      attributes: ['asesor_id', [fn('SUM', col('abono')), 'total']],
       where: { ...periodWhere, asesor_id: { [Op.ne]: null } },
       group: ['asesor_id'],
       raw: true
@@ -308,14 +318,17 @@ export const getVentasData = async (req: Request, res: Response) => {
       : [];
 
     const meta_vs_real_asesores = asesores.map(u => {
-      const uid     = u.getDataValue('id');
-      const realRow = realByAsesor.find(r => Number(r.asesor_id) === uid);
-      const metaRow = metaByAsesor.find(m => Number(m.usuario_id) === uid);
+      const uid          = u.getDataValue('id');
+      const realRow      = realByAsesor.find(r => Number(r.asesor_id) === uid);
+      const recRow       = recaudadoByAsesor.find(r => Number(r.asesor_id) === uid);
+      const metaRow      = metaByAsesor.find(m => Number(m.usuario_id) === uid);
       return {
-        asesor_id: uid,
-        nombre:    (u as any).nombre_completo,
-        real:      Number(realRow?.total) || 0,
-        meta:      Number(metaRow?.total) || 0
+        asesor_id:  uid,
+        nombre:     (u as any).nombre_completo,
+        rol:        (u as any).rol,
+        real:       Number(realRow?.total) || 0,       // facturado = abono + pendiente
+        recaudado:  Number(recRow?.total)  || 0,       // solo abono (cobrado)
+        meta:       Number(metaRow?.total) || 0,
       };
     });
 
