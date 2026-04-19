@@ -59,7 +59,7 @@ interface ODC {
 const getODPsDeODC = (odc: ODC): Array<{ numero_odp: string; cliente: string }> => {
   const map = new Map<string, string>();
   for (const it of odc.items) {
-    const odp = it.sap_item?.SAP?.ODP;
+    const odp = it.sap_item?.SAP?.ODP ?? (it as any).odp_item?.ODP;
     if (odp?.numero_odp) map.set(odp.numero_odp, odp.cliente?.nombre_razon_social || '');
   }
   // fallback a sap header (ODCs antiguas)
@@ -323,7 +323,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                     <td className="px-4 py-1.5 text-slate-500">{it.sap_item?.dimension || '—'}</td>
                     <td className="px-4 py-1.5 text-slate-400 text-[10px] max-w-[140px] truncate" title={it.sap_item?.observacion || ''}>{it.sap_item?.observacion || '—'}</td>
                     <td className="px-4 py-1.5 text-indigo-600 font-bold">{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
-                    <td className="px-4 py-1.5 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => { const id = it.sap_item?.SAP?.ODP?.id || odc.sap?.ODP?.id; if (id) onFichaOdp?.(id); }}>{it.sap_item?.SAP?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
+                    <td className="px-4 py-1.5 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => { const id = it.sap_item?.SAP?.ODP?.id || (it as any).odp_item?.ODP?.id || odc.sap?.ODP?.id; if (id) onFichaOdp?.(id); }}>{it.sap_item?.SAP?.ODP?.numero_odp || (it as any).odp_item?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
                   </tr>
                 );
               })}
@@ -450,7 +450,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                               <td className="px-3 py-2 text-slate-500">{it.sap_item?.dimension || '—'}</td>
                               <td className="px-3 py-2 text-slate-400 text-[10px] max-w-[140px] truncate" title={it.sap_item?.observacion || ''}>{it.sap_item?.observacion || '—'}</td>
                               <td className="px-3 py-2 text-indigo-600 font-bold">{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
-                              <td className="px-3 py-2 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => { const id = it.sap_item?.SAP?.ODP?.id || odc.sap?.ODP?.id; if (id) onFichaOdp?.(id); }}>{it.sap_item?.SAP?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
+                              <td className="px-3 py-2 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => { const id = it.sap_item?.SAP?.ODP?.id || (it as any).odp_item?.ODP?.id || odc.sap?.ODP?.id; if (id) onFichaOdp?.(id); }}>{it.sap_item?.SAP?.ODP?.numero_odp || (it as any).odp_item?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
                             </tr>
                           );
                         })}

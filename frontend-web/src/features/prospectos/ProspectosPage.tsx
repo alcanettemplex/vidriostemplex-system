@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -62,7 +63,8 @@ const DetalleModal: React.FC<{
   onAprobar: () => void;
   onNoAprobar: () => void;
   onSolicitarTM: () => void;
-}> = ({ prospecto: p, onClose, onEditar, onAprobar, onNoAprobar, onSolicitarTM }) => {
+  isReadOnly?: boolean;
+}> = ({ prospecto: p, onClose, onEditar, onAprobar, onNoAprobar, onSolicitarTM, isReadOnly }) => {
   const est = ESTADO_STYLE[p.estado];
   const contacto = p.cliente?.nombre_razon_social || p.nombre_contacto || '—';
 
@@ -244,7 +246,7 @@ const DetalleModal: React.FC<{
         </div>
 
         {/* Footer con acciones */}
-        {p.estado === 'en_gestion' && (
+        {p.estado === 'en_gestion' && !isReadOnly && (
           <div className="border-t border-slate-100 px-6 py-4 flex-shrink-0 space-y-2">
             <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3">Acciones</p>
             <div className="grid grid-cols-2 gap-2">
@@ -283,6 +285,9 @@ const DetalleModal: React.FC<{
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const ProspectosPage: React.FC = () => {
+  const authUser = useSelector((state: any) => state.auth?.user);
+  const isReadOnly = authUser?.rol === 'asistente_administrativo';
+
   const [prospectos, setProspectos] = useState<Prospecto[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<string>('en_gestion');
@@ -372,12 +377,14 @@ const ProspectosPage: React.FC = () => {
           <button onClick={fetchProspectos} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition">
             <RefreshCw className="w-4 h-4" />
           </button>
+          {!isReadOnly && (
           <button
             onClick={() => setModalCrear(true)}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition shadow-sm"
           >
             <Plus className="w-4 h-4" /> Nuevo Prospecto
           </button>
+          )}
         </div>
       </div>
 
@@ -486,6 +493,7 @@ const ProspectosPage: React.FC = () => {
             onAprobar={() => { setProspectoParaAprobar(detalle); setShowAsignarAsesorProspecto(true); setDetalle(null); }}
             onNoAprobar={() => { setArchivandoId(detalle.id); setMotivoArchivo(''); setDetalle(null); }}
             onSolicitarTM={() => { setSolicitandoTM(detalle); setDetalle(null); }}
+            isReadOnly={isReadOnly}
           />
         )}
       </AnimatePresence>

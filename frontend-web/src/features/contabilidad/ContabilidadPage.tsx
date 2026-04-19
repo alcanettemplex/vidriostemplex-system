@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
@@ -45,6 +46,9 @@ const emptyPagoForm = () => ({
 });
 
 const ContabilidadPage: React.FC = () => {
+  const authUser = useSelector((state: any) => state.auth?.user);
+  const isReadOnly = authUser?.rol === 'asistente_administrativo';
+
   const [tab, setTab] = useState<Tab>('estado_caja');
 
   // ─── ODPs ────────────────────────────────────────────────────────────────
@@ -407,12 +411,14 @@ const ContabilidadPage: React.FC = () => {
           </h1>
           <p className="text-slate-500 font-medium mt-1">Control de facturación, caja, pagos y cuentas por cobrar</p>
         </div>
+        {!isReadOnly && (
         <button
           onClick={() => { setOdpFija(false); setPagoForm(p => ({ ...p, odp_id: '' })); setShowPagoModal(true); }}
           className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-md shadow-emerald-200 hover:bg-emerald-700 transition-all hover:-translate-y-0.5"
         >
           <Plus className="w-5 h-5" /> Registrar Pago
         </button>
+        )}
       </div>
 
       {/* KPIs */}
@@ -638,7 +644,7 @@ const ContabilidadPage: React.FC = () => {
                         </select>
                       </td>
                       <td className="px-4 py-4">
-                        {odp.estado_caja !== 'CANCELADO' && (
+                        {!isReadOnly && odp.estado_caja !== 'CANCELADO' && (
                           <button
                             onClick={() => { setOdpFija(true); setPagoForm(p => ({ ...p, odp_id: String(odp.id), monto: '' })); setShowPagoModal(true); }}
                             className="text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-all flex items-center gap-1 whitespace-nowrap"
@@ -707,6 +713,7 @@ const ContabilidadPage: React.FC = () => {
                         <td className="px-4 py-3 text-slate-600 text-xs whitespace-nowrap">{pago.registrador?.nombre_completo || '—'}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
+                            {!isReadOnly && (<>
                             <button
                               onClick={() => abrirEditPago(pago)}
                               title="Editar pago"
@@ -721,6 +728,7 @@ const ContabilidadPage: React.FC = () => {
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
+                            </>)}
                           </div>
                         </td>
                       </tr>

@@ -507,7 +507,7 @@ export const updateODP = async (req: Request, res: Response) => {
 
     // ─── Lógica de autocompletado LISTO_INSTALAR ───
     const updatedOdp = await ODP.findByPk(id, { transaction });
-    if (updatedOdp && updatedOdp.getDataValue('estado_produccion') !== 'LISTO_INSTALAR') {
+    if (updatedOdp && updatedOdp.getDataValue('estado_produccion') !== 'LISTO_INSTALAR' && !updatedOdp.getDataValue('sin_items')) {
       const { SAP: SAPModel, TomaMedidas: TMModel } = await import('../models');
       const [tmCount, sapCount, itemCount] = await Promise.all([
         TMModel.count({ where: { odp_id: id }, transaction }),
@@ -557,6 +557,18 @@ export const updateODP = async (req: Request, res: Response) => {
     }
 
     await transaction.commit();
+
+    // ─── Regla automática: PedidoPV VERIFICADO → ENTREGADO cuando ODP es INSTALADA/ENTREGADA ───
+    if (data.estado_produccion === 'INSTALADA' || data.estado_produccion === 'ENTREGADA') {
+      try {
+        await PedidoPV.update(
+          { estado: 'ENTREGADO' },
+          { where: { odp_id: odp.getDataValue('id'), estado: 'VERIFICADO' } }
+        );
+      } catch (pvErr) {
+        console.error('⚠️ Error al marcar PedidoPV como ENTREGADO:', pvErr);
+      }
+    }
 
     // ─── Regla automática: ODP padre → INSTALADA cuando el reproceso se completa ───
     if (data.estado_produccion === 'INSTALADA' && odp.getDataValue('es_no_conformidad') && odp.getDataValue('odp_padre_id')) {
@@ -931,5 +943,61 @@ export const facturarODP = async (req: Request, res: Response) => {
     if (error?.name === 'ZodError') return res.status(400).json({ error: error.errors });
     console.error('Error al facturar ODP:', error);
     res.status(500).json({ error: 'Error al registrar la factura', details: error?.message });
+  }
+};
+
+// PUT /odp/:id/aprobar-sin-items
+// El asesor creador aprueba manualmente una ODP creada sin requerimientos (sin_items=true)
+// Esto quita el bloqueo y permite que la ODP avance a LISTO_INSTALAR si corresponde
+export const aprobarSinItems = async (req: Request, res: Response) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const odp = await ODP.findByPk(id, { transaction });
+    if (!odp) { await transaction.rollback(); return res.status(404).json({ error: 'ODP no encontrada' }); }
+    if (!odp.getDataValue('sin_items')) { await transaction.rollback(); return res.status(400).json({ error: 'Esta ODP no está marcada como sin requerimientos' }); }
+
+    await odp.update({ sin_items: false }, { transaction });
+
+    // Verificar si ya puede avanzar a LISTO_INSTALAR
+    const [tmCount, sapCount, itemCount] = await Promise.all([
+      TomaMedidas.count({ where: { odp_id: id }, transaction }),
+      SAP.count({ where: { odp_id: id }, transaction }),
+      ODPItem.count({ where: { odp_id: id }, transaction }),
+    ]);
+    const needsMedicion = tmCount > 0;
+    const needsCorte = !!odp.getDataValue('tiene_aluminio');
+    const needsVidrio = itemCount > 0;
+    const needsAccesorios = sapCount > 0;
+    const isMedicionDone = !needsMedicion || odp.getDataValue('chk_medicion');
+    const isCorteDone = !needsCorte || odp.getDataValue('chk_corte');
+    const isVidrioDone = !needsVidrio || odp.getDataValue('chk_vidrio');
+    const isAccesoriosDone = !needsAccesorios || odp.getDataValue('chk_accesorios');
+    const needsEnsamble = !!odp.getDataValue('tiene_aluminio');
+    const isEnsambleDone = !needsEnsamble || odp.getDataValue('chk_ensamble');
+    const isMatizadoDone = !odp.getDataValue('matizado') || odp.getDataValue('chk_matizado');
+    const isPeliculaDone = !odp.getDataValue('pelicula') || odp.getDataValue('chk_pelicula');
+    const isHuacalDone = !odp.getDataValue('huacal') || odp.getDataValue('chk_huacal');
+    const isCartonDone = !odp.getDataValue('carton') || odp.getDataValue('chk_carton');
+
+    if (isMedicionDone && isCorteDone && isVidrioDone && isAccesoriosDone && isEnsambleDone && isMatizadoDone && isPeliculaDone && isHuacalDone && isCartonDone) {
+      const estadoActual = odp.getDataValue('estado_produccion');
+      if (estadoActual !== 'LISTO_INSTALAR') {
+        await odp.update({ estado_produccion: 'LISTO_INSTALAR' }, { transaction });
+        await HistorialEstadoODP.create({
+          odp_id: id, estado_anterior: estadoActual, estado_nuevo: 'LISTO_INSTALAR',
+          usuario_id: req.user?.id || null, fecha: new Date(),
+          observacion: 'Aprobación manual: ODP sin requerimientos habilitada por el asesor.',
+        }, { transaction });
+      }
+    }
+
+    await transaction.commit();
+    const odpActualizada = await ODP.findByPk(id);
+    res.json(odpActualizada);
+  } catch (error: any) {
+    await transaction.rollback();
+    console.error('Error al aprobar ODP sin items:', error);
+    res.status(500).json({ error: 'Error al aprobar ODP', details: error?.message });
   }
 };

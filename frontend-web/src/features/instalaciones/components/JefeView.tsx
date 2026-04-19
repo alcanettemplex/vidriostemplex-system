@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { CheckCircle2, Clock, AlertTriangle, MapPin, Truck, Users, Calendar, Pencil, Trash2, Plus, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, MapPin, Truck, Users, Calendar, Pencil, Trash2, Plus, RefreshCw, PackageCheck } from 'lucide-react';
 import ProgramarRutaModal from './ProgramarRutaModal';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -57,6 +57,18 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     setOdpsParaModal(odps.listos);
     setRutaEditar(ruta);
     setShowModal(true);
+  };
+
+  const handleFinalizarODP = async (rutaOdpId: number, numeroOdp: string) => {
+    if (!window.confirm(`¿Marcar como entregada la ODP ${numeroOdp}?`)) return;
+    try {
+      const fd = new FormData();
+      await axios.post(`${API}/api/rutas/ruta-odp/${rutaOdpId}/finalizar`, fd, { headers: { ...headers, 'Content-Type': 'multipart/form-data' } });
+      toast.success(`ODP ${numeroOdp} marcada como entregada`);
+      cargar();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Error al finalizar ODP');
+    }
   };
 
   const handleCancelar = async (rutaId: number) => {
@@ -237,6 +249,15 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${ESTADO_ODP_RUTA_STYLES[ro.estado] || ''}`}>
                           {ro.estado}
                         </span>
+                        {!readOnly && ro.estado !== 'completada' && (
+                          <button
+                            onClick={() => handleFinalizarODP(ro.id, ro.odp?.numero_odp)}
+                            className="p-1 rounded hover:bg-emerald-50 text-emerald-400 hover:text-emerald-600"
+                            title="Marcar como entregada"
+                          >
+                            <PackageCheck className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}

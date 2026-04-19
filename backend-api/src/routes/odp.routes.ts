@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, crearGarantia, facturarODP, actualizarEstadoCaja } from '../controllers/odp.controller';
+import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems } from '../controllers/odp.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { uploadConfig } from '../config/upload';
@@ -33,6 +33,9 @@ router.patch('/:id/facturar', authMiddleware, requireRole('admin', 'gerencia', '
 
 // Estado de caja: contabilidad, admin, gerencia pueden cambiar estado_caja manualmente
 router.patch('/:id/caja', authMiddleware, requireRole('admin', 'gerencia', 'contabilidad'), actualizarEstadoCaja);
+
+// Aprobar ODP sin requerimientos (pago adelantado): asesor creador, admin, gerencia
+router.patch('/:id/aprobar-sin-items', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), aprobarSinItems);
 
 // Garantías: listado global y creación desde una ODP padre
 router.get('/garantias/all', authMiddleware, getGarantias);

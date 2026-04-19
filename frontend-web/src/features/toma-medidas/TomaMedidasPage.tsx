@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -212,7 +213,7 @@ const CardTM: React.FC<{
             {tm.odp?.fecha_entrega && <BadgeDias fecha={tm.odp.fecha_entrega} />}
           </div>
 
-          <p className="font-bold text-slate-800 text-sm truncate">{contacto}</p>
+          <p className="font-bold text-slate-800 text-sm">{contacto}</p>
 
           {(tm.telefono_contacto || (esProspecto && tm.prospecto!.telefono_contacto) || tm.odp?.telefono_recibe) && (
             <p className="text-xs text-slate-600 flex items-center gap-1 mt-0.5">
@@ -246,7 +247,7 @@ const CardTM: React.FC<{
           {direccion && (
             <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
               <MapPin className="w-3 h-3 flex-shrink-0 text-rose-400" />
-              <span className="truncate">{direccion}</span>
+              <span>{direccion}</span>
             </p>
           )}
 
@@ -268,14 +269,14 @@ const CardTM: React.FC<{
           {descripcion && (
             <p className="text-xs text-slate-500 flex items-start gap-1 mt-2">
               <Package className="w-3 h-3 flex-shrink-0 mt-0.5 text-slate-400" />
-              <span className="line-clamp-2">{descripcion}</span>
+              <span>{descripcion}</span>
             </p>
           )}
 
           {tm.observaciones && (
             <p className="text-xs text-amber-700 flex items-start gap-1 mt-1 bg-amber-50 p-1.5 rounded">
               <FileText className="w-3 h-3 flex-shrink-0 mt-0.5" />
-              <span className="line-clamp-2">{tm.observaciones}</span>
+              <span>{tm.observaciones}</span>
             </p>
           )}
         </div>
@@ -337,7 +338,7 @@ const CardODPSinTM: React.FC<{
           <p className="font-black text-amber-700 text-sm tracking-tight">{odp.numero_odp}</p>
           <BadgeDias fecha={odp.fecha_entrega} />
         </div>
-        <p className="font-bold text-slate-800 text-sm truncate mt-0.5">{odp.cliente?.nombre_razon_social || '—'}</p>
+        <p className="font-bold text-slate-800 text-sm mt-0.5">{odp.cliente?.nombre_razon_social || '—'}</p>
         <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
           <User className="w-3 h-3 flex-shrink-0" />Asesor: <span className="font-semibold">{odp.asesor?.nombre_completo || '—'}</span>
         </p>
@@ -350,7 +351,7 @@ const CardODPSinTM: React.FC<{
         {odp.direccion_instalacion && (
           <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
             <MapPin className="w-3 h-3 flex-shrink-0 text-rose-400" />
-            <span className="truncate">{odp.direccion_instalacion}</span>
+            <span>{odp.direccion_instalacion}</span>
           </p>
         )}
         {(odp.nombre_recibe || odp.telefono_recibe) && (
@@ -370,7 +371,7 @@ const CardODPSinTM: React.FC<{
         {odp.descripcion_pedido && (
           <p className="text-xs text-slate-500 flex items-start gap-1 mt-2">
             <Package className="w-3 h-3 flex-shrink-0 mt-0.5 text-slate-400" />
-            <span className="line-clamp-2">{odp.descripcion_pedido}</span>
+            <span>{odp.descripcion_pedido}</span>
           </p>
         )}
       </div>
@@ -415,6 +416,9 @@ const Panel: React.FC<{
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const TomaMedidasPage: React.FC = () => {
+  const authUser = useSelector((state: any) => state.auth?.user);
+  const isReadOnly = authUser?.rol === 'asistente_administrativo';
+
   const [data, setData] = useState<PanelData>({
     solicitadas: [], odpsSinTM: [], programadas: [], realizadas: [],
   });
@@ -609,6 +613,7 @@ const TomaMedidasPage: React.FC = () => {
               </button>
             )}
           </div>
+          {!isReadOnly && (
           <button
             onClick={() => setShowNuevoProspecto(true)}
             disabled={creandoTMParaProspecto}
@@ -617,6 +622,7 @@ const TomaMedidasPage: React.FC = () => {
             <UserPlus className="w-4 h-4" />
             {creandoTMParaProspecto ? 'Creando TM...' : 'Nueva Solicitud TM'}
           </button>
+          )}
           <button
             onClick={fetchPanel}
             className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
@@ -655,8 +661,8 @@ const TomaMedidasPage: React.FC = () => {
             <CardTM
               key={`tm-${tm.id}`}
               tm={tm}
-              onProgramar={setProgramandoTM}
-              onOpenTM={abrirTMModal}
+              onProgramar={isReadOnly ? undefined : setProgramandoTM}
+              onOpenTM={isReadOnly ? undefined : abrirTMModal}
             />
           ))}
           {/* ODPs en VISITA_TECNICA sin TM registrada */}
@@ -681,8 +687,8 @@ const TomaMedidasPage: React.FC = () => {
             <CardTM
               key={tm.id}
               tm={tm}
-              onOpenTM={abrirTMModal}
-              onRetornar={handleRetornarTM}
+              onOpenTM={isReadOnly ? undefined : abrirTMModal}
+              onRetornar={isReadOnly ? undefined : handleRetornarTM}
             />
           ))}
         </Panel>

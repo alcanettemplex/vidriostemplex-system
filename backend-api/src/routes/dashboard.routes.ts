@@ -12,14 +12,13 @@ import { requireRole } from '../middlewares/rbacMiddleware';
 
 const router = Router();
 
-// Dashboard gerencial: admin, gerencia, jefe_produccion, contabilidad y root
-router.get('/', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'contabilidad', 'root'), getDashboardData);
+const DASHBOARD_ROLES = ['admin', 'gerencia', 'jefe_produccion', 'contabilidad', 'root', 'asesor_comercial', 'produccion', 'compras', 'asistente_administrativo'] as const;
 
-// Endpoints avanzados del Dashboard Gerencial
-router.get('/general', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'contabilidad', 'root'), getGeneralData);
-router.get('/ventas', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'contabilidad', 'root'), getVentasData);
-router.get('/produccion', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'contabilidad', 'root'), getProduccionData);
-router.get('/equipo', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'contabilidad', 'root'), getEquipoData);
-router.get('/alertas', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'contabilidad', 'root'), getAlertas);
+router.get('/', authMiddleware, requireRole(...DASHBOARD_ROLES), getDashboardData);
+router.get('/general', authMiddleware, requireRole(...DASHBOARD_ROLES), getGeneralData);
+router.get('/ventas', authMiddleware, requireRole(...DASHBOARD_ROLES), getVentasData);
+router.get('/produccion', authMiddleware, requireRole(...DASHBOARD_ROLES), getProduccionData);
+router.get('/equipo', authMiddleware, requireRole(...DASHBOARD_ROLES), getEquipoData);
+router.get('/alertas', authMiddleware, requireRole(...DASHBOARD_ROLES), getAlertas);
 
 export default router;

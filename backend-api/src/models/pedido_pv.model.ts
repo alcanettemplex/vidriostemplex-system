@@ -12,7 +12,7 @@ PedidoPV.init({
   proveedor: { type: DataTypes.STRING(100), allowNull: false },
   creado_por: { type: DataTypes.INTEGER, allowNull: true },
   estado: {
-    type: DataTypes.ENUM('PENDIENTE', 'ENVIADO', 'CONFIRMADO_PROVEEDOR', 'LLEGADO', 'VERIFICADO', 'PROBLEMA'),
+    type: DataTypes.ENUM('PENDIENTE', 'ENVIADO', 'CONFIRMADO_PROVEEDOR', 'LLEGADO', 'VERIFICADO', 'ENTREGADO', 'PROBLEMA'),
     allowNull: false,
     defaultValue: 'PENDIENTE',
   },

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,6 +24,9 @@ const clienteSchema = z.object({
 type ClienteFormValues = z.infer<typeof clienteSchema>;
 
 const ClientesListPage: React.FC = () => {
+  const authUser = useSelector((state: any) => state.auth?.user);
+  const isReadOnly = authUser?.rol === 'asistente_administrativo';
+
   const [clientes, setClientes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -129,6 +133,7 @@ const ClientesListPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900">Directorio de Clientes</h1>
           <p className="text-slate-500 text-sm mt-1">Administra la base de datos de personas y empresas</p>
         </div>
+        {!isReadOnly && (
         <button
           onClick={() => {
             setEditingClienteId(null);
@@ -150,6 +155,7 @@ const ClientesListPage: React.FC = () => {
           <Plus className="w-4 h-4" />
           Nuevo Cliente
         </button>
+        )}
       </div>
 
       <div className="glass-panel overflow-hidden">
@@ -221,6 +227,7 @@ const ClientesListPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
+                        {!isReadOnly && (<>
                         <button
                           onClick={() => handleEdit(cliente)}
                           className="text-slate-400 hover:text-blue-600 transition p-1.5 hover:bg-blue-50 rounded"
@@ -235,6 +242,7 @@ const ClientesListPage: React.FC = () => {
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
+                        </>)}
                       </div>
                     </td>
                   </motion.tr>

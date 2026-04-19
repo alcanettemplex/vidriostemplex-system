@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 
-const DOCS_DIR = path.resolve(process.cwd(), '..', 'documentation');
+const DOCS_DIR = path.resolve(__dirname, '..', 'assets');
 
 const PDFS: Record<string, { file: string; roles: string[] }> = {
   usuario: {

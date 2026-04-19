@@ -12,7 +12,10 @@ interface ODCItemPrint {
     dimension?: string;
     und?: string;
     observacion?: string;
-    SAP?: { numero_sap: string; ODP?: { numero_odp: string } };
+    SAP?: { numero_sap: string; ODP?: { numero_odp: string; cliente?: { nombre_razon_social: string } } };
+  };
+  odp_item?: {
+    ODP?: { numero_odp: string; cliente?: { nombre_razon_social: string } };
   };
 }
 
@@ -41,6 +44,13 @@ const PrintableODC: React.FC<PrintableODCProps> = ({ odc }) => {
     : null;
 
   const totalItems = odc.items.reduce((s, it) => s + Number(it.cantidad), 0);
+
+  // Resolver ODP y SAP: primero desde odc.sap, luego desde items (ODC de vidrio sin SAP)
+  const refODP = odc.sap?.ODP
+    ?? odc.items.find(it => it.odp_item?.ODP)?.odp_item?.ODP
+    ?? odc.items.find(it => it.sap_item?.SAP?.ODP)?.sap_item?.SAP?.ODP;
+  const refSAP = odc.sap?.numero_sap
+    ?? odc.items.find(it => it.sap_item?.SAP?.numero_sap)?.sap_item?.SAP?.numero_sap;
 
   return (
     <div className="print-root block w-[21.5cm] min-h-[29cm] print:min-h-0 bg-white shadow-xl print:shadow-none text-black font-sans text-[10px] mx-auto overflow-hidden print:overflow-visible">
@@ -77,19 +87,7 @@ const PrintableODC: React.FC<PrintableODCProps> = ({ odc }) => {
           <div className="border border-slate-200 rounded p-3">
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Proveedor</p>
             <p className="font-black text-slate-800 text-sm">{odc.proveedor}</p>
-          </div>
-          <div className="border border-slate-200 rounded p-3">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Fecha emisión</p>
-            <p className="font-semibold text-slate-700">{fecha}</p>
-            {fechaRec && (
-              <>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-2 mb-1">Fecha recepción</p>
-                <p className="font-semibold text-green-700">{fechaRec}</p>
-              </>
-            )}
-          </div>
-          <div className="border border-slate-200 rounded p-3">
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Creado por</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-2 mb-1">Creado por</p>
             <p className="font-semibold text-slate-700">{odc.creador?.nombre_completo || '—'}</p>
             {odc.notas && (
               <>
@@ -98,17 +96,32 @@ const PrintableODC: React.FC<PrintableODCProps> = ({ odc }) => {
               </>
             )}
           </div>
-        </div>
-
-        {/* ODP / SAP info si aplica */}
-        {odc.sap?.ODP && (
-          <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded text-[10px]">
-            <span className="font-bold text-slate-500 uppercase tracking-wider text-[9px]">Referencia: </span>
-            <span className="font-bold text-indigo-700">{odc.sap.ODP.numero_odp}</span>
-            {odc.sap.numero_sap && <><span className="mx-2 text-slate-300">·</span><span className="font-bold text-slate-600">SAP {odc.sap.numero_sap}</span></>}
-            {odc.sap.ODP.cliente?.nombre_razon_social && <><span className="mx-2 text-slate-300">·</span><span className="text-slate-600">{odc.sap.ODP.cliente.nombre_razon_social}</span></>}
+          <div className="border-2 border-indigo-200 bg-indigo-50 rounded p-3">
+            <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider mb-1">ODP Relacionada</p>
+            {refODP ? (
+              <>
+                <p className="font-black text-indigo-800 text-sm">{refODP.numero_odp}</p>
+                {refODP.cliente?.nombre_razon_social && (
+                  <p className="text-[10px] text-indigo-600 mt-1 font-semibold">{refODP.cliente.nombre_razon_social}</p>
+                )}
+              </>
+            ) : (
+              <p className="text-[10px] text-indigo-400 italic">Sin ODP asociada</p>
+            )}
           </div>
-        )}
+          <div className="border-2 border-slate-300 bg-slate-50 rounded p-3">
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">SAP / Fechas</p>
+            {refSAP && <p className="font-black text-slate-700">SAP {refSAP}</p>}
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-2 mb-1">Fecha emisión</p>
+            <p className="font-semibold text-slate-700">{fecha}</p>
+            {fechaRec && (
+              <>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-2 mb-1">Fecha recepción</p>
+                <p className="font-semibold text-green-700">{fechaRec}</p>
+              </>
+            )}
+          </div>
+        </div>
 
         {/* Tabla de ítems */}
         <div className="mb-5">
@@ -138,7 +151,7 @@ const PrintableODC: React.FC<PrintableODCProps> = ({ odc }) => {
                   <td style={{ color: '#64748b' }}>{it.sap_item?.und || '—'}</td>
                   <td style={{ color: '#94a3b8', fontSize: '9px' }}>{it.sap_item?.observacion || '—'}</td>
                   <td style={{ fontWeight: 'bold', color: '#4f46e5' }}>{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
-                  <td style={{ fontWeight: 'bold' }}>{it.sap_item?.SAP?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
+                  <td style={{ fontWeight: 'bold' }}>{it.sap_item?.SAP?.ODP?.numero_odp || it.odp_item?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
                 </tr>
               ))}
             </tbody>

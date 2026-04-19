@@ -35,6 +35,18 @@ const includeItemsTrazabilidad = [
           },
         ],
       },
+      {
+        model: ODPItem,
+        as: 'odp_item',
+        include: [
+          {
+            model: ODP,
+            include: [
+              { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+            ],
+          },
+        ],
+      },
     ],
   },
 ];
@@ -314,7 +326,8 @@ export const deleteODC = async (req: Request, res: Response) => {
 
     // Revertir estado de sap_items a 'pendiente' si no están en otra ODC
     for (const sapItemId of sapItemIds) {
-      const enOtraODC = await ODCItem.count({ where: { sap_item_id: sapItemId } });
+      if (!sapItemId) continue;
+      const enOtraODC = await ODCItem.count({ where: { sap_item_id: sapItemId }, transaction: t });
       if (enOtraODC === 0) {
         await SAPItem.update(
           { estado_compra: 'pendiente' },

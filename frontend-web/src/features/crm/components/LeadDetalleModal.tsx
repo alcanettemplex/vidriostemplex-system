@@ -116,6 +116,21 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
     fuente_lead: lead.fuente_lead || 'Presencial',
   });
 
+  // Resetear formulario y estado al cambiar de lead
+  useEffect(() => {
+    setEditandoInfo(false);
+    setFormData({
+      nombre: lead.nombre || '',
+      telefono: lead.telefono || '',
+      segmento: lead.segmento || '',
+      producto_interes: lead.producto_interes || '',
+      monto_proyectado: lead.monto_proyectado_cotizacion || '',
+      producto_otro: '',
+      descripcion_contexto: lead.descripcion_contexto || '',
+      fuente_lead: lead.fuente_lead || 'Presencial',
+    });
+  }, [lead.id]); // eslint-disable-line
+
   // Estado del seguimiento
   const [notaSeguimiento, setNota]        = useState('');
   const [registrando, setRegistrando]     = useState(false);

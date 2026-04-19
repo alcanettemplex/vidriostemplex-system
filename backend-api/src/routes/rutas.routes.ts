@@ -26,14 +26,14 @@ router.use(authMiddleware);
 
 // ─── Rutas estáticas antes de /:id ──────────────────────────────────────────
 // Jefe: datos para gestión
-router.get('/odps-para-gestion', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion'), getODPsParaGestion);
+router.get('/odps-para-gestion', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'), getODPsParaGestion);
 router.get('/vehiculos', getVehiculos);
 router.get('/personal', getInstaladores);
 
 // Instalador: mi asignación del día
 router.get('/mi-asignacion', requireRole('instalador'), getMiAsignacion);
 router.post('/ruta-odp/:id/iniciar', requireRole('instalador'), iniciarInstalacion);
-router.post('/ruta-odp/:id/finalizar', requireRole('instalador'), uploadConfig.single('foto'), finalizarInstalacion);
+router.post('/ruta-odp/:id/finalizar', requireRole('instalador', 'produccion', 'jefe_produccion', 'admin'), uploadConfig.single('foto'), finalizarInstalacion);
 router.post('/ruta-odp/:id/reportar-dano', requireRole('instalador'), uploadConfig.single('foto_dano'), reportarDano);
 
 // Conductor: su ruta
@@ -43,10 +43,10 @@ router.post('/:id/terminar-ruta', requireRole('conductor'), terminarRutaConducto
 router.post('/ruta-odp/:id/llegada', requireRole('conductor'), llegadaConductor);
 
 // ─── CRUD de rutas (jefe) ────────────────────────────────────────────────────
-router.get('/', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion'), getRutas);
-router.get('/:id', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion'), getRuta);
-router.post('/', requireRole('admin', 'gerencia', 'jefe_produccion'), createRuta);
+router.get('/', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'), getRutas);
+router.get('/:id', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'), getRuta);
+router.post('/', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), createRuta);
 router.put('/:id', requireRole('admin', 'gerencia', 'jefe_produccion'), updateRuta);
-router.delete('/:id', requireRole('admin', 'gerencia', 'jefe_produccion'), cancelarRuta);
+router.delete('/:id', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), cancelarRuta);
 
 export default router;

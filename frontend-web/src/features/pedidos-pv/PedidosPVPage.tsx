@@ -75,10 +75,11 @@ const ESTADO_CONFIG: Record<string, {
   barColor: string;
 }> = {
   PENDIENTE:            { label: 'Pendiente',   color: 'default',  icon: <HourglassEmpty sx={{ fontSize: 13 }} />, barColor: '#9e9e9e' },
-  ENVIADO:              { label: 'En Tránsito',  color: 'primary',  icon: <LocalShipping sx={{ fontSize: 13 }} />,  barColor: '#1976d2' },
+  ENVIADO:              { label: 'Solicitado',   color: 'primary',  icon: <LocalShipping sx={{ fontSize: 13 }} />,  barColor: '#1976d2' },
   CONFIRMADO_PROVEEDOR: { label: 'Confirmado',   color: 'info',     icon: <CheckCircleOutline sx={{ fontSize: 13 }} />, barColor: '#0288d1' },
   LLEGADO:              { label: 'Recibido',     color: 'warning',  icon: <LocalShipping sx={{ fontSize: 13 }} />,  barColor: '#f57c00' },
-  VERIFICADO:           { label: 'Entregado',    color: 'success',  icon: <CheckCircleOutline sx={{ fontSize: 13 }} />, barColor: '#2e7d32' },
+  VERIFICADO:           { label: 'Verificado',   color: 'success',  icon: <CheckCircleOutline sx={{ fontSize: 13 }} />, barColor: '#2e7d32' },
+  ENTREGADO:            { label: 'Entregado',    color: 'success',  icon: <CheckCircleOutline sx={{ fontSize: 13 }} />, barColor: '#1b5e20' },
   PROBLEMA:             { label: 'Problema',     color: 'error',    icon: <Cancel sx={{ fontSize: 13 }} />,         barColor: '#c62828' },
 };
 

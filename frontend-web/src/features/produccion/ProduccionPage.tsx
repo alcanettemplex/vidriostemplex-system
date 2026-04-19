@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'react-toastify';
@@ -201,9 +202,8 @@ const ProduccionPage: React.FC = () => {
     const [marcandoListo, setMarcandoListo]         = useState(false);
 
     // Role check
-    const userRol = (() => {
-        try { return JSON.parse(localStorage.getItem('user') || '{}')?.rol || ''; } catch { return ''; }
-    })();
+    const authUser = useSelector((state: any) => state.auth.user);
+    const userRol: string = (authUser?.rol || authUser?.role || '').toLowerCase();
     const puedeMarcarEntregada = ['compras', 'produccion', 'admin', 'jefe_produccion', 'gerencia', 'root'].includes(userRol);
     const puedePV = ['compras', 'produccion', 'jefe_produccion', 'admin', 'gerencia', 'root'].includes(userRol);
     const puedeMarcarListo = ['compras', 'produccion', 'jefe_produccion', 'admin', 'gerencia', 'root'].includes(userRol);

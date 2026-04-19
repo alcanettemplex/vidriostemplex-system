@@ -500,28 +500,57 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
     }
   };
 
-  const handleCroquisUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleCroquisFile = async (file: File) => {
     if (!file) return;
-
     try {
       setUploading(true);
       const formData = new FormData();
       formData.append('croquis', file);
-
       const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
       const token = sessionStorage.getItem('token');
-
       await axios.post(`${API}/api/odp/${odp.id}/croquis`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
-
       if (onUpdate) onUpdate();
     } catch (error) {
       console.error('Error uploading croquis:', error);
       alert('Error al subir el croquis');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleCroquisUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleCroquisFile(file);
+  };
+
+  const handlePegarPortapapeles = async () => {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imageType = item.types.find(t => t.startsWith('image/'));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const file = new File([blob], 'croquis-pegado.png', { type: imageType });
+          handleCroquisFile(file);
+          return;
+        }
+      }
+      toast.error('No hay imagen en el portapapeles');
+    } catch {
+      toast.error('No se pudo acceder al portapapeles. Usa Ctrl+V dentro del área.');
+    }
+  };
+
+  const handleCroquisPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) { handleCroquisFile(file); break; }
+      }
     }
   };
 
@@ -565,7 +594,11 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
           <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
             <FileText className="w-4 h-4 text-indigo-600" /> Croquis / Plano Técnico
           </h3>
-          <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl p-4 min-h-[160px] relative overflow-hidden group">
+          <div
+            className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl p-4 min-h-[160px] relative overflow-hidden group focus:outline-none focus:border-indigo-400"
+            tabIndex={0}
+            onPaste={handleCroquisPaste}
+          >
             {odp.croquis_url ? (
               <>
                 <img src={odp.croquis_url} alt="Croquis" className="absolute inset-0 w-full h-full object-contain p-2 cursor-zoom-in"
@@ -598,6 +631,14 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
                     <Camera className="w-3.5 h-3.5" /> Cambiar
                     <input type="file" className="hidden" accept="image/*" onChange={handleCroquisUpload} />
                   </label>
+                  {/* Pegar desde portapapeles */}
+                  <button
+                    type="button"
+                    onClick={handlePegarPortapapeles}
+                    className="bg-white text-slate-900 px-3 py-2 rounded-lg font-bold text-xs shadow-xl flex items-center gap-1.5 hover:scale-105 transition-transform"
+                  >
+                    <ClipboardList className="w-3.5 h-3.5" /> Pegar
+                  </button>
                 </div>
               </>
             ) : (
@@ -606,14 +647,24 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
                   <Camera className="w-6 h-6" />
                 </div>
                 <p className="text-slate-500 text-xs font-bold mb-3 uppercase tracking-wider">Aún no hay un dibujo técnico</p>
-                <label className="cursor-pointer bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-black text-xs shadow-lg shadow-indigo-600/20 flex items-center gap-2 hover:bg-indigo-700 transition">
-                  {uploading ? 'SUBIENDO...' : 'SUBIR CROQUIS'}
-                  <input type="file" className="hidden" accept="image/*" onChange={handleCroquisUpload} disabled={uploading} />
-                </label>
+                <div className="flex flex-col items-center gap-2">
+                  <label className="cursor-pointer bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-black text-xs shadow-lg shadow-indigo-600/20 flex items-center gap-2 hover:bg-indigo-700 transition">
+                    {uploading ? 'SUBIENDO...' : 'SUBIR CROQUIS'}
+                    <input type="file" className="hidden" accept="image/*" onChange={handleCroquisUpload} disabled={uploading} />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handlePegarPortapapeles}
+                    disabled={uploading}
+                    className="bg-slate-100 text-slate-700 px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-slate-200 transition border border-slate-200"
+                  >
+                    <ClipboardList className="w-3.5 h-3.5" /> Pegar desde portapapeles
+                  </button>
+                </div>
               </div>
             )}
           </div>
-          <p className="text-[10px] text-slate-400 mt-3 italic text-center uppercase tracking-tighter">Este dibujo aparecerá automáticamente en el formato impreso de Detalle Técnico</p>
+          <p className="text-[10px] text-slate-400 mt-3 italic text-center uppercase tracking-tighter">Haz clic en el área y pega con Ctrl+V, o usa el botón para subir archivo · Aparece en el impreso</p>
         </div>
       </div>
 

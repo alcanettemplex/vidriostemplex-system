@@ -40,6 +40,20 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
     axios.get(`${API}/api/clientes`, { headers }).then(r => setClientes(r.data)).catch(() => {});
   }, []); // eslint-disable-line
 
+  // Resetear form cuando cambia el prospecto seleccionado
+  useEffect(() => {
+    setTipo(prospecto?.cliente_id ? 'existente' : 'nuevo');
+    setContactoDiferente(!!(prospecto?.nombre_contacto && prospecto?.cliente_id));
+    setForm({
+      cliente_id: prospecto?.cliente_id || '',
+      nombre_contacto: prospecto?.nombre_contacto || '',
+      telefono_contacto: prospecto?.telefono_contacto || '',
+      email_contacto: prospecto?.email_contacto || '',
+      direccion: prospecto?.direccion || '',
+      descripcion: prospecto?.descripcion || '',
+    });
+  }, [prospecto?.id]); // eslint-disable-line
+
   const set = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }));
 
   // Al seleccionar cliente existente, precargar teléfono/email del cliente

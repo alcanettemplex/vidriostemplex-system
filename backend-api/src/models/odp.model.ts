@@ -64,6 +64,7 @@ ODP.init({
   fecha_vencimiento_credito: { type: DataTypes.DATEONLY, allowNull: true },
   tiene_dano_instalacion: { type: DataTypes.BOOLEAN, defaultValue: false },
   tipo_odp: { type: DataTypes.STRING(10), allowNull: false, defaultValue: 'ODP' }, // 'ODP' | 'OA'
+  sin_items: { type: DataTypes.BOOLEAN, defaultValue: false }, // ODP creada sin requerimientos (pago adelantado)
 }, {
   sequelize,
   modelName: 'ODP',

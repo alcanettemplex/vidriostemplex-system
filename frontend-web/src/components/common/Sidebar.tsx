@@ -35,28 +35,28 @@ const MENU_ITEMS_CONFIG = [
     text: 'Dashboard',
     icon: LayoutDashboard,
     path: '/',
-    allowedRoles: ['admin', 'gerencia', 'marketing'],
+    allowedRoles: ['root', 'admin', 'gerencia', 'marketing', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'instalador', 'conductor', 'contabilidad', 'compras', 'asistente_administrativo'],
     section: 'general'
   },
   {
     text: 'Clientes',
     icon: Users,
     path: '/clientes',
-    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'],
+    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'asistente_administrativo'],
     section: 'comercial'
   },
   {
     text: 'Prospectos',
     icon: UserPlus,
     path: '/prospectos',
-    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'],
+    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'asistente_administrativo'],
     section: 'comercial'
   },
   {
     text: 'Órdenes (ODP)',
     icon: FileText,
     path: '/odp',
-    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras', 'produccion'],
+    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras', 'produccion', 'asistente_administrativo'],
     section: 'comercial'
   },
   {
@@ -70,21 +70,21 @@ const MENU_ITEMS_CONFIG = [
     text: 'Producción',
     icon: Wrench,
     path: '/produccion',
-    allowedRoles: ['admin', 'gerencia', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion'],
+    allowedRoles: ['admin', 'gerencia', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion', 'asistente_administrativo'],
     section: 'produccion'
   },
   {
     text: 'Toma de Medidas',
     icon: Ruler,
     path: '/toma-medidas',
-    allowedRoles: ['admin', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion'],
+    allowedRoles: ['admin', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'],
     section: 'produccion'
   },
   {
     text: 'Instalaciones',
     icon: Truck,
     path: '/instalaciones',
-    allowedRoles: ['admin', 'gerencia', 'jefe_produccion', 'instalador', 'conductor', 'asesor_comercial', 'compras', 'produccion'],
+    allowedRoles: ['admin', 'gerencia', 'jefe_produccion', 'instalador', 'conductor', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'],
     section: 'produccion'
   },
   {
@@ -105,7 +105,7 @@ const MENU_ITEMS_CONFIG = [
     text: 'Pedidos PV',
     icon: GlassWater,
     path: '/pedidos-pv',
-    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras'],
+    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras', 'asistente_administrativo'],
     section: 'logistica'
   },
   {
@@ -119,7 +119,7 @@ const MENU_ITEMS_CONFIG = [
     text: 'Contabilidad',
     icon: Calculator,
     path: '/contabilidad',
-    allowedRoles: ['admin', 'gerencia', 'contabilidad'],
+    allowedRoles: ['admin', 'gerencia', 'contabilidad', 'asistente_administrativo'],
     section: 'finanzas'
   },
   {

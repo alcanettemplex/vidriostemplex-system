@@ -31,6 +31,7 @@ interface ODP {
     valor_total?: number;
     abono?: number;
     pendiente?: number;
+    sin_items?: boolean;
 }
 
 type SortField = 'numero_odp' | 'cliente' | 'asesor' | 'estado_produccion' | 'estado_caja' | 'fecha_entrega' | 'fecha_creacion';
@@ -247,6 +248,21 @@ const ODPListPage: React.FC = () => {
         }
     };
 
+    const handleAprobarSinItems = async (odp: ODP) => {
+        if (!window.confirm(`¿Aprobar ODP ${odp.numero_odp} para instalación? (sin requerimientos de vidrio)`)) return;
+        try {
+            const tkn = sessionStorage.getItem('token');
+            await axios.patch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/odp/${odp.id}/aprobar-sin-items`,
+                {},
+                { headers: { Authorization: `Bearer ${tkn}` } }
+            );
+            toast.success(`${odp.numero_odp} — Aprobada para instalación`);
+            fetchODPs();
+        } catch (err: any) {
+            toast.error(err.response?.data?.error || 'Error al aprobar ODP');
+        }
+    };
+
     const handleDelete = async (id: number) => {
         try {
             const token = sessionStorage.getItem('token');
@@ -334,6 +350,7 @@ const ODPListPage: React.FC = () => {
                     <h1 className="text-2xl font-bold text-slate-900">Órdenes de Producción</h1>
                     <p className="text-slate-500 text-sm mt-1">Gestiona los pedidos y su flujo por planta</p>
                 </div>
+                {userRole !== 'asistente_administrativo' && (
                 <button
                     onClick={() => setShowAsignarAsesor(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm font-medium"
@@ -341,6 +358,7 @@ const ODPListPage: React.FC = () => {
                     <Plus className="w-4 h-4" />
                     Nueva Orden
                 </button>
+                )}
             </div>
 
             {/* Tabs */}
@@ -598,6 +616,9 @@ const ODPListPage: React.FC = () => {
                                                             <Shield className="w-2.5 h-2.5" /> {(odp as any).numero_garantia || 'G'}
                                                         </span>
                                                     )}
+                                                    {odp.sin_items && !['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA'].includes(odp.estado_produccion) && (
+                                                        <span className="text-[9px] font-black bg-orange-500 text-white px-1 py-0.5 rounded leading-none" title="Sin requerimientos — pendiente aprobación">SIN REQ.</span>
+                                                    )}
                                                     #{odp.numero_odp}
                                                 </div>
                                             </td>
@@ -680,7 +701,16 @@ const ODPListPage: React.FC = () => {
                                                 >
                                                     <Eye className="w-4 h-4" />
                                                 </button>
-                                                {userRole !== 'produccion' && odp.estado_produccion !== 'ENTREGADA' && (
+                                                {odp.sin_items && !['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA'].includes(odp.estado_produccion) && ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'].includes(userRole) && (
+                                                <button
+                                                    onClick={() => handleAprobarSinItems(odp)}
+                                                    className="text-orange-400 hover:text-orange-600 transition p-1.5 hover:bg-orange-50 rounded"
+                                                    title="Aprobar para instalación (sin requerimientos)"
+                                                >
+                                                    <CheckCircle2 className="w-4 h-4" />
+                                                </button>
+                                                )}
+                                                {!['produccion','asistente_administrativo'].includes(userRole) && odp.estado_produccion !== 'ENTREGADA' && (
                                                 <button
                                                     onClick={() => setEditingOdp(odp)}
                                                     className="text-slate-400 hover:text-emerald-600 transition p-1.5 hover:bg-emerald-50 rounded"
@@ -689,7 +719,7 @@ const ODPListPage: React.FC = () => {
                                                     <Edit3 className="w-4 h-4" />
                                                 </button>
                                                 )}
-                                                {userRole !== 'produccion' && (
+                                                {!['produccion','asistente_administrativo'].includes(userRole) && (
                                                 <button
                                                     onClick={() => setPrintOdp(odp)}
                                                     className="text-slate-400 hover:text-slate-700 transition p-1.5 hover:bg-slate-100 rounded"
@@ -698,7 +728,7 @@ const ODPListPage: React.FC = () => {
                                                     <Printer className="w-4 h-4" />
                                                 </button>
                                                 )}
-                                                {userRole !== 'produccion' && (
+                                                {!['produccion','asistente_administrativo'].includes(userRole) && (
                                                 <ActionsMenu
                                                     odp={odp}
                                                     userRole={userRole}

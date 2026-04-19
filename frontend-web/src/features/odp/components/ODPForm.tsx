@@ -252,6 +252,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
         try {
             const token = sessionStorage.getItem('token');
             const { requiere_visita_tecnica, ...rest } = data;
+            const sinItems = itemFields.length === 0;
             const payload = {
                 ...rest,
                 cantidad_total: data.servicios_detalle.reduce((acc, curr) => acc + curr.cantidad, 0),
@@ -262,6 +263,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                 ...(asesorId ? { asesor_id: asesorId } : {}),
                 // Tipo de orden (ODP normal o OA sin IVA)
                 ...(!odpToEdit && tipoOdp ? { tipo_odp: tipoOdp } : {}),
+                // Pago adelantado sin requerimientos de vidrio
+                ...(!odpToEdit && sinItems ? { sin_items: true } : {}),
             };
 
             if (odpToEdit) {
@@ -745,6 +748,14 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                         <Plus className="w-4 h-4" /> Agregar Cristal
                                     </button>
                                 </div>
+                                {!odpToEdit && itemFields.length === 0 && (
+                                    <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                                        <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                                        <p className="text-xs text-amber-700">
+                                            <strong>Sin requerimientos de vidrio:</strong> La ODP se creará en modo pago adelantado. El asesor deberá aprobarla manualmente para que pase a LISTO INSTALAR.
+                                        </p>
+                                    </div>
+                                )}
 
                                 {errors.items?.root && (
                                     <div className="p-3 bg-red-50 text-red-600 rounded-lg flex items-center gap-2 mb-4">
