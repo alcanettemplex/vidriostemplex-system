@@ -85,10 +85,9 @@ export const getGeneralData = async (req: Request, res: Response) => {
       ? Math.round(((odps_activas - prev_odps_activas) / prev_odps_activas) * 100)
       : 0;
 
-    // Facturado en el periodo
-    const abonos    = await ODP.sum('abono',    { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] } } }) || 0;
-    const pdtes     = await ODP.sum('pendiente', { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] } } }) || 0;
-    const facturado_mes = Number(abonos) + Number(pdtes);
+    // Facturado en el periodo = suma de valor_total de todas las ODPs/OAs
+    const facturado_mes = Number(await ODP.sum('valor_total', { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] } } }) || 0);
+    const abonos        = await ODP.sum('abono', { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] } } }) || 0;
 
     // Cartera vencida: SOLO créditos que superaron el umbral de días
     const carteraItems = await ODP.findAll({
@@ -223,9 +222,8 @@ export const getVentasData = async (req: Request, res: Response) => {
     const periodWhere = { fecha_creacion: { [Op.between]: [firstDay, lastDay] } };
 
     // Totales del periodo
-    const totalAbono = await ODP.sum('abono',    { where: periodWhere }) || 0;
-    const totalPdte  = await ODP.sum('pendiente', { where: periodWhere }) || 0;
-    const total_facturado_mes = Number(totalAbono) + Number(totalPdte);
+    const total_facturado_mes = Number(await ODP.sum('valor_total', { where: periodWhere }) || 0);
+    const totalAbono          = await ODP.sum('abono', { where: periodWhere }) || 0;
     const total_abonado       = Number(totalAbono);
     const total_pendiente     = await ODP.sum('pendiente', {
       where: { ...periodWhere, pendiente: { [Op.gt]: 0 } }
@@ -294,13 +292,15 @@ export const getVentasData = async (req: Request, res: Response) => {
       where: { rol: { [Op.in]: ['asesor_comercial', 'gerencia', 'jefe_produccion'] } }
     });
 
+    // facturado = suma de valor_total (monto contratado de cada ODP/OA)
     const realByAsesor = await ODP.findAll({
-      attributes: ['asesor_id', [fn('SUM', literal('abono + pendiente')), 'total']],
+      attributes: ['asesor_id', [fn('SUM', col('valor_total')), 'total']],
       where: { ...periodWhere, asesor_id: { [Op.ne]: null } },
       group: ['asesor_id'],
       raw: true
     }) as unknown as { asesor_id: number; total: string }[];
 
+    // recaudado = suma de abonos efectivamente cobrados
     const recaudadoByAsesor = await ODP.findAll({
       attributes: ['asesor_id', [fn('SUM', col('abono')), 'total']],
       where: { ...periodWhere, asesor_id: { [Op.ne]: null } },

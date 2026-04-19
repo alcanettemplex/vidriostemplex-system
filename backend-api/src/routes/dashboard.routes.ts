@@ -12,7 +12,7 @@ import { requireRole } from '../middlewares/rbacMiddleware';
 
 const router = Router();
 
-const DASHBOARD_ROLES = ['admin', 'gerencia', 'jefe_produccion', 'contabilidad', 'root', 'asesor_comercial', 'produccion', 'compras', 'asistente_administrativo'] as const;
+const DASHBOARD_ROLES = ['admin', 'gerencia', 'jefe_produccion', 'contabilidad', 'root', 'asesor_comercial', 'produccion', 'compras', 'asistente_administrativo', 'marketing'] as const;
 
 router.get('/', authMiddleware, requireRole(...DASHBOARD_ROLES), getDashboardData);
 router.get('/general', authMiddleware, requireRole(...DASHBOARD_ROLES), getGeneralData);
