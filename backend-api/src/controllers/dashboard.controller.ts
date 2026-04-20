@@ -12,7 +12,8 @@ import {
   ODPItem,
   ConfiguracionGlobal,
   MetaUsuarioMensual,
-  NoConformidad
+  NoConformidad,
+  Prospecto
 } from '../models';
 import sequelize from '../config/database';
 
@@ -506,15 +507,33 @@ export const getEquipoData = async (req: Request, res: Response) => {
         }) as unknown as { usuario_id: number; total: string }[]
       : [];
 
+    const prospectosByAsesor = await Prospecto.findAll({
+      attributes: ['asesor_id', [fn('COUNT', col('id')), 'total']],
+      where: { odp_id: null, asesor_id: { [Op.ne]: null } },
+      group: ['asesor_id'],
+      raw: true
+    }) as unknown as { asesor_id: number; total: string }[];
+
+    const odpsByAsesor = await ODP.findAll({
+      attributes: ['asesor_id', [fn('COUNT', col('id')), 'total']],
+      where: { asesor_id: { [Op.ne]: null }, estado_produccion: { [Op.ne]: 'ENTREGADA' } },
+      group: ['asesor_id'],
+      raw: true
+    }) as unknown as { asesor_id: number; total: string }[];
+
     const ranking_asesores = asesores.map(u => {
-      const uid     = u.getDataValue('id');
-      const realRow = realByAsesor.find(r => Number(r.asesor_id) === uid);
-      const metaRow = metaByAsesor.find(m => Number(m.usuario_id) === uid);
+      const uid        = u.getDataValue('id');
+      const realRow    = realByAsesor.find(r => Number(r.asesor_id) === uid);
+      const metaRow    = metaByAsesor.find(m => Number(m.usuario_id) === uid);
+      const prospRow   = prospectosByAsesor.find(p => Number(p.asesor_id) === uid);
+      const odpRow     = odpsByAsesor.find(o => Number(o.asesor_id) === uid);
       return {
-        asesor_id: uid,
-        nombre:    (u as any).nombre_completo,
-        real:      Number(realRow?.total) || 0,
-        meta:      Number(metaRow?.total) || 0
+        asesor_id:          uid,
+        nombre:             (u as any).nombre_completo,
+        real:               Number(realRow?.total) || 0,
+        meta:               Number(metaRow?.total) || 0,
+        prospectos_activos: Number(prospRow?.total) || 0,
+        odps_abiertas:      Number(odpRow?.total) || 0,
       };
     });
 
