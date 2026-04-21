@@ -440,9 +440,11 @@ export const iniciarInstalacion = async (req: Request, res: Response) => {
       return res.status(400).json({ error: `Estado actual: ${rutaODP.estado}. Solo se puede iniciar desde 'pendiente'` });
     }
 
-    // Verificar que el instalador está asignado a esta ruta
+    // Verificar que el instalador está asignado a esta ruta (ayudante o oficial)
     const [asignado]: any[] = await sequelize.query(
-      `SELECT 1 FROM ruta_instaladores WHERE ruta_id = :rid AND instalador_id = :uid`,
+      `SELECT 1 FROM ruta_instaladores WHERE ruta_id = :rid AND instalador_id = :uid
+       UNION
+       SELECT 1 FROM rutas_instalacion WHERE id = :rid AND oficial_id = :uid`,
       { replacements: { rid: rutaODP.ruta_id, uid: user.id }, type: QueryTypes.SELECT, transaction: t }
     );
     if (!asignado) { await t.rollback(); return res.status(403).json({ error: 'No estás asignado a esta ruta' }); }
@@ -607,9 +609,11 @@ export const reportarDano = async (req: Request, res: Response) => {
       return res.status(400).json({ error: `No se puede reportar daño en estado '${rutaODP.estado}'` });
     }
 
-    // Verificar que el instalador está asignado a esta ruta
+    // Verificar que el instalador está asignado a esta ruta (ayudante o oficial)
     const [asignado]: any[] = await sequelize.query(
-      `SELECT 1 FROM ruta_instaladores WHERE ruta_id = :rid AND instalador_id = :uid`,
+      `SELECT 1 FROM ruta_instaladores WHERE ruta_id = :rid AND instalador_id = :uid
+       UNION
+       SELECT 1 FROM rutas_instalacion WHERE id = :rid AND oficial_id = :uid`,
       { replacements: { rid: rutaODP.ruta_id, uid: user.id }, type: QueryTypes.SELECT }
     );
     if (!asignado) return res.status(403).json({ error: 'No estás asignado a esta ruta' });
