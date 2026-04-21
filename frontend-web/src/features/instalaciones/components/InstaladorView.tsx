@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  MapPin, FileText, Play, CheckCircle2, Clock,
+  MapPin, FileText, Play, CheckCircle2, Clock, Phone,
   AlertCircle, AlertTriangle, RefreshCw, Printer, ExternalLink,
   LayoutDashboard, History, Calendar, TrendingUp,
   Award, Target, Zap, ShieldCheck, Camera
@@ -22,6 +23,7 @@ const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 const InstaladorView: React.FC = () => {
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
+  const currentUser = useSelector((state: any) => state.auth.user);
 
   const [asignacion, setAsignacion] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -191,6 +193,7 @@ const InstaladorView: React.FC = () => {
                     abrirDoc={abrirDocumento}
                     abrirMapa={abrirMapa}
                     iniciando={iniciando === item.id}
+                    currentUserId={currentUser?.id}
                   />
                 ))
               )}
@@ -203,7 +206,7 @@ const InstaladorView: React.FC = () => {
                 <EmptyState icon={History} title="Sin registro" desc="Aún no hay instalaciones completadas en tu historial reciente." />
               ) : (
                 asignacion.filter(a => a.estado === 'completada').map(item => (
-                   <TaskCard key={item.id} item={item} isHistory />
+                   <TaskCard key={item.id} item={item} isHistory currentUserId={currentUser?.id} />
                 ))
               )}
             </div>
@@ -256,94 +259,124 @@ const InstaladorView: React.FC = () => {
 };
 
 // ––– SUBCOMPONENTE: TASK CARD –––
-const TaskCard = ({ item, onIniciar, onFinalizar, onReportarDano, abrirDoc, abrirMapa, iniciando, isHistory }: any) => {
+const TaskCard = ({ item, onIniciar, onFinalizar, onReportarDano, abrirDoc, abrirMapa, iniciando, isHistory, currentUserId }: any) => {
   const odp = item.odp;
   const enCurso = item.estado === 'en_curso';
   const completada = item.estado === 'completada';
   const sap = odp?.saps?.[0];
+  const esOficial = item.ruta?.oficial?.id === currentUserId;
+
+  const telefono = odp?.telefono_recibe || odp?.cliente?.celular || odp?.cliente?.telefono;
 
   return (
     <div className={`bg-white rounded-[40px] border-2 shadow-sm overflow-hidden transition-all duration-300
       ${enCurso ? 'border-amber-200' : completada ? 'border-emerald-100' : 'border-slate-100 hover:border-indigo-100'}`}>
-      
+
+      {/* HEADER */}
       <div className={`p-6 border-b border-slate-100 ${enCurso ? 'bg-amber-50/20' : completada ? 'bg-emerald-50/10' : 'bg-slate-50/30'}`}>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-           <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg
-                ${enCurso ? 'bg-amber-500 text-white shadow-lg shadow-amber-100' : completada ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                {item.orden}
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg
+              ${enCurso ? 'bg-amber-500 text-white shadow-lg shadow-amber-100' : completada ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+              {item.orden}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-black text-slate-900 text-xl tracking-tight">{odp?.numero_odp}</h3>
+                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter
+                  ${enCurso ? 'bg-amber-100 text-amber-700' : completada ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                  {item.estado}
+                </span>
+                {esOficial && (
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-700 uppercase tracking-tighter">
+                    Oficial
+                  </span>
+                )}
               </div>
-              <div>
-                 <div className="flex items-center gap-2">
-                    <h3 className="font-black text-slate-900 text-xl tracking-tight">{odp?.numero_odp}</h3>
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter 
-                      ${enCurso ? 'bg-amber-100 text-amber-700' : completada ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                      {item.estado}
-                    </span>
-                 </div>
-                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{odp?.cliente?.nombre_razon_social}</p>
-              </div>
-           </div>
-           {!isHistory && !completada && !enCurso && (
-              <button onClick={() => onIniciar(item.id)} disabled={iniciando}
-                className="px-8 py-3 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl shadow-indigo-100 active:scale-95 transition-all">
-                {iniciando ? 'Iniciando...' : 'Iniciar Trabajo'}
-              </button>
-           )}
+              <p className="text-sm font-bold text-slate-700 mt-0.5">{odp?.cliente?.nombre_razon_social}</p>
+            </div>
+          </div>
+          {/* Solo el oficial puede iniciar el trabajo */}
+          {!isHistory && !completada && !enCurso && esOficial && (
+            <button onClick={() => onIniciar(item.id)} disabled={iniciando}
+              className="px-8 py-3 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl shadow-indigo-100 active:scale-95 transition-all">
+              {iniciando ? 'Iniciando...' : 'Iniciar Trabajo'}
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-12 gap-8">
-        <div className="md:col-span-4 space-y-4">
-           {odp?.direccion_instalacion && (
-             <div onClick={() => abrirMapa(odp.direccion_instalacion)} className="bg-slate-50 p-4 rounded-3xl border border-slate-100 cursor-pointer hover:border-indigo-200 transition-all">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2"><MapPin className="w-3 h-3 text-rose-500" /> UBICACIÓN</p>
-                <p className="text-xs font-bold text-slate-700 leading-relaxed">{odp.direccion_instalacion}</p>
-             </div>
-           )}
-           {item.ruta?.vehiculo && (
-             <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50/30 rounded-2xl text-[11px] font-black text-indigo-700 uppercase tracking-widest">
-               <Truck className="w-4 h-4" />Placa {item.ruta.vehiculo.placa}
-             </div>
-           )}
+      {/* BODY */}
+      <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-12 gap-6">
+        {/* Columna izquierda: ubicación + contacto + vehículo */}
+        <div className="md:col-span-4 space-y-3">
+          {odp?.direccion_instalacion && (
+            <div onClick={() => abrirMapa?.(odp.direccion_instalacion)}
+              className="bg-slate-50 p-4 rounded-3xl border border-slate-100 cursor-pointer hover:border-indigo-200 transition-all">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-1">
+                <MapPin className="w-3 h-3 text-rose-500" /> Dirección
+              </p>
+              <p className="text-xs font-bold text-slate-700 leading-relaxed">{odp.direccion_instalacion}</p>
+            </div>
+          )}
+          {telefono && (
+            <a href={`tel:${telefono}`}
+              className="flex items-center gap-3 px-4 py-3 bg-emerald-50/50 rounded-2xl border border-emerald-100 hover:bg-emerald-50 transition-all">
+              <Phone className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+              <div>
+                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">
+                  {odp?.nombre_recibe || odp?.cliente?.nombre_razon_social}
+                </p>
+                <p className="text-xs font-bold text-emerald-700">{telefono}</p>
+              </div>
+            </a>
+          )}
+          {item.ruta?.vehiculo && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50/30 rounded-2xl text-[11px] font-black text-indigo-700 uppercase tracking-widest">
+              <Truck className="w-4 h-4" /> Placa {item.ruta.vehiculo.placa}
+            </div>
+          )}
         </div>
 
-        <div className="md:col-span-8 flex flex-col justify-between space-y-6">
-           <div className="space-y-4">
+        {/* Columna derecha: descripción + documentos + acciones */}
+        <div className="md:col-span-8 flex flex-col justify-between space-y-5">
+          <div className="space-y-4">
+            {odp?.descripcion_pedido && (
               <p className="text-sm text-slate-500 font-medium leading-relaxed italic bg-blue-50/30 p-4 rounded-3xl border border-blue-50">
-                {odp?.descripcion_pedido || "Proceder con la instalación estándar según requerimientos técnicos."}
+                {odp.descripcion_pedido}
               </p>
-              
-              <div className="flex flex-wrap gap-2">
-                 <DocBtn icon={Printer} label="ODP" onClick={() => abrirDoc(odp, 'op')} />
-                 <DocBtn icon={FileText} label="Ficha Técnica" onClick={() => abrirDoc(odp, 'tecnico')} />
-                 {sap && <DocBtn icon={ShieldCheck} label="SAP" color="indigo" onClick={() => abrirDoc(odp, 'sap')} />}
-                 <DocBtn icon={Images} label="Det. SAP" color="violet" onClick={() => abrirDoc(odp, 'det_sap')} />
+            )}
+            <div className="flex flex-wrap gap-2">
+              <DocBtn icon={Printer} label="ODP" onClick={() => abrirDoc(odp, 'op')} />
+              <DocBtn icon={FileText} label="Ficha Técnica" onClick={() => abrirDoc(odp, 'tecnico')} />
+              {sap && <DocBtn icon={ShieldCheck} label="SAP" color="indigo" onClick={() => abrirDoc(odp, 'sap')} />}
+              <DocBtn icon={Images} label="Det. SAP" color="violet" onClick={() => abrirDoc(odp, 'det_sap')} />
+            </div>
+          </div>
+
+          {/* Acciones en curso — solo oficial */}
+          {enCurso && esOficial && (
+            <div className="flex flex-col gap-2">
+              <button onClick={onFinalizar}
+                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-emerald-50 transition-all flex items-center justify-center gap-3">
+                <Camera className="w-4 h-4" /> Reportar y Finalizar
+              </button>
+              <button onClick={onReportarDano}
+                className="w-full py-3 bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 font-black text-xs uppercase tracking-[0.15em] rounded-2xl transition-all flex items-center justify-center gap-2">
+                <AlertTriangle className="w-4 h-4" /> Instalación con Daño
+              </button>
+            </div>
+          )}
+
+          {completada && (
+            <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-3xl border border-emerald-100">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              <div>
+                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">TRABAJO COMPLETADO</p>
+                <p className="text-xs font-bold text-emerald-700">{new Date(item.fin_instalacion).toLocaleString()}</p>
               </div>
-           </div>
-
-           {enCurso && (
-             <div className="flex flex-col gap-2">
-               <button onClick={onFinalizar}
-                 className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-emerald-50 transition-all flex items-center justify-center gap-3">
-                 <Camera className="w-4 h-4" /> Reportar y Finalizar
-               </button>
-               <button onClick={onReportarDano}
-                 className="w-full py-3 bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 font-black text-xs uppercase tracking-[0.15em] rounded-2xl transition-all flex items-center justify-center gap-2">
-                 <AlertTriangle className="w-4 h-4" /> Instalación con Daño
-               </button>
-             </div>
-           )}
-
-           {completada && (
-             <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-3xl border border-emerald-100">
-               <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-               <div>
-                  <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">TRABAJO COMPLETADO</p>
-                  <p className="text-xs font-bold text-emerald-700">{new Date(item.fin_instalacion).toLocaleString()}</p>
-               </div>
-             </div>
-           )}
+            </div>
+          )}
         </div>
       </div>
 

@@ -384,6 +384,7 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
             { model: Vehiculo, as: 'vehiculo', attributes: ['placa', 'tipo'] },
             { model: Usuario, as: 'instaladores', attributes: ['id', 'nombre_completo'], through: { attributes: [] } },
             { model: Usuario, as: 'conductor', attributes: ['id', 'nombre_completo'] },
+            { model: Usuario, as: 'oficial', attributes: ['id', 'nombre_completo'] },
           ],
         },
         {
