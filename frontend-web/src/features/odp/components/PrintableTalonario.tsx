@@ -235,152 +235,150 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                                 )}
                             </div>
 
-                            {/* ---------- SECCIONES DE PIE — solo última página ---------- */}
+                            {/* ---------- PIE — todas las páginas ---------- */}
+                            {/* OBSERVACIONES */}
+                            <div className="border-[2px] border-black p-2 mt-1 bg-white min-h-[50px]">
+                                <p className="font-bold uppercase tracking-widest mb-1 text-[11px]">ENTREGA SOLICITADA - DIRECCION: <span className="font-normal">{odp.direccion_instalacion}</span></p>
+                                <p className="font-bold uppercase tracking-widest mt-1 mb-0.5 text-[10px]">OBSERVACIONES:</p>
+                                <p className="font-normal uppercase text-[10px] leading-tight whitespace-pre-line">{odp.observaciones}</p>
+                            </div>
+
+                            {/* LEGAL & FIRMA */}
+                            <div className="border-l-[2px] border-r-[2px] border-b-[2px] border-black p-1 text-center bg-white">
+                                <p className="text-[5.5px] leading-[7px] text-justify px-2 font-medium text-slate-900 uppercase">
+                                    Autorizo de manera voluntaria, previa, expresa e informada a VIDRIOS Y ALUMINIOS TEMPLEX S.A.S. con NIT 900.XXX.XXX-X, para que en los terminos del articulo 10 de la ley 1581 de 2012 en concordancia con el decreto 1377 de 2013, recopile, almacene, use, circule y en general realice el tratamiento de los datos personales de caracter financiero, crediticio, comercial y de servicios, que me identifican o que me hacen identificable, con el proposito de consulta y reporte ante las Centrales de Riesgo y Bases de Datos (CIFIN - DATACRÉDITO - FENALCO - PROCREDITO) que administran informacion de habitos de pago. El incumplimiento de las obligaciones contraidas con VIDRIOS Y ALUMINIOS TEMPLEX S.A.S. autoriza el reporte de dicha informacion. La firma de este documento equivale a su aceptacion firme segun ley en las condiciones indicadas. La mercancia se entrega en buen estado y no se aceptan devoluciones pasados 8 dias.
+                                </p>
+                                <p className="font-bold italic mt-2 text-[10px] uppercase">ACEPTO LA DESCRIPCION DEL PRODUCTO Y LAS CONDICIONES COMERCIALES</p>
+                                <div className="mt-6 mb-1">
+                                    <div className="w-64 mx-auto text-center">
+                                        {odp.nombre_recibe && (
+                                            <p className="font-bold text-[10px] uppercase mb-1">{odp.nombre_recibe}</p>
+                                        )}
+                                        <div className="border-b border-black"></div>
+                                        <p className="font-bold fs-8 uppercase mt-0.5 tracking-widest">NOMBRE DEL CONTACTO</p>
+                                        {(odp.telefono_recibe || odp.cargo_recibe) && (
+                                            <p className="text-[8px] mt-0.5 text-slate-700">
+                                                {odp.cargo_recibe && <span className="uppercase font-semibold">{odp.cargo_recibe}</span>}
+                                                {odp.cargo_recibe && odp.telefono_recibe && <span> — </span>}
+                                                {odp.telefono_recibe && <span>{odp.telefono_recibe}</span>}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* FORMA DE PAGO — solo última página (valores del pedido completo) */}
                             {esUltimaPagina && (
-                                <>
-                                    {/* OBSERVACIONES */}
-                                    <div className="border-[2px] border-black p-2 mt-1 bg-white min-h-[50px]">
-                                        <p className="font-bold uppercase tracking-widest mb-1 text-[11px]">ENTREGA SOLICITADA - DIRECCION: <span className="font-normal">{odp.direccion_instalacion}</span></p>
-                                        <p className="font-bold uppercase tracking-widest mt-1 mb-0.5 text-[10px]">OBSERVACIONES:</p>
-                                        <p className="font-normal uppercase text-[10px] leading-tight whitespace-pre-line">{odp.observaciones}</p>
-                                    </div>
-
-                                    {/* LEGAL & FIRMA */}
-                                    <div className="border-l-[2px] border-r-[2px] border-b-[2px] border-black p-1 text-center bg-white">
-                                        <p className="text-[5.5px] leading-[7px] text-justify px-2 font-medium text-slate-900 uppercase">
-                                            Autorizo de manera voluntaria, previa, expresa e informada a VIDRIOS Y ALUMINIOS TEMPLEX S.A.S. con NIT 900.XXX.XXX-X, para que en los terminos del articulo 10 de la ley 1581 de 2012 en concordancia con el decreto 1377 de 2013, recopile, almacene, use, circule y en general realice el tratamiento de los datos personales de caracter financiero, crediticio, comercial y de servicios, que me identifican o que me hacen identificable, con el proposito de consulta y reporte ante las Centrales de Riesgo y Bases de Datos (CIFIN - DATACRÉDITO - FENALCO - PROCREDITO) que administran informacion de habitos de pago. El incumplimiento de las obligaciones contraidas con VIDRIOS Y ALUMINIOS TEMPLEX S.A.S. autoriza el reporte de dicha informacion. La firma de este documento equivale a su aceptacion firme segun ley en las condiciones indicadas. La mercancia se entrega en buen estado y no se aceptan devoluciones pasados 8 dias.
-                                        </p>
-                                        <p className="font-bold italic mt-2 text-[10px] uppercase">ACEPTO LA DESCRIPCION DEL PRODUCTO Y LAS CONDICIONES COMERCIALES</p>
-                                        <div className="mt-6 mb-1">
-                                            <div className="w-64 mx-auto text-center">
-                                                {odp.nombre_recibe && (
-                                                    <p className="font-bold text-[10px] uppercase mb-1">{odp.nombre_recibe}</p>
-                                                )}
-                                                <div className="border-b border-black"></div>
-                                                <p className="font-bold fs-8 uppercase mt-0.5 tracking-widest">NOMBRE DEL CONTACTO</p>
-                                                {(odp.telefono_recibe || odp.cargo_recibe) && (
-                                                    <p className="text-[8px] mt-0.5 text-slate-700">
-                                                        {odp.cargo_recibe && <span className="uppercase font-semibold">{odp.cargo_recibe}</span>}
-                                                        {odp.cargo_recibe && odp.telefono_recibe && <span> — </span>}
-                                                        {odp.telefono_recibe && <span>{odp.telefono_recibe}</span>}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* FORMA DE PAGO */}
-                                    <table className="excel-table mt-1 bg-white">
-                                        <tbody>
-                                            <tr><td colSpan={6} className="font-bold text-center fs-8 uppercase tracking-widest">FORMA DE PAGO</td></tr>
-                                            {[0, 1].map((i) => {
-                                                const pago = odp.pagos?.[i];
-                                                const labelFormaPago = pago?.metodo_pago || '';
-                                                return (
-                                                    <tr key={i}>
-                                                        <td className="w-[10%] font-bold uppercase pl-2">RECIBO No:</td>
-                                                        <td className="w-[20%] text-[9px] font-bold pl-2">{pago?.referencia_pago || ''}</td>
-                                                        <td className="w-[15%] text-[9px] font-bold pl-2 uppercase">{labelFormaPago}</td>
-                                                        <td className="w-[25%] text-[9px] font-bold pl-2">{pago ? `$ ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(pago.monto))}` : ''}</td>
-                                                        <td className="w-[15%] font-bold uppercase pl-2">{i === 0 ? 'CODIGO:' : 'FE No.:'}</td>
-                                                        <td className="w-[15%] text-[9px] font-bold uppercase pl-2">
-                                                            {i === 0
-                                                                ? (() => {
-                                                                    const codigos: Record<string, string> = {
-                                                                        'Suministro e Instalación': 'SUMINS01',
-                                                                        'Venta / Suministro': 'VTAVID01',
-                                                                        'Mantenimiento': 'INS002',
-                                                                    };
-                                                                    const tipo = odp.tipo_servicio || odp.servicios_detalle?.[0]?.tipo_servicio || '';
-                                                                    return codigos[tipo] || '';
-                                                                })()
-                                                                : (odp.factura_electronica
-                                                                    ? `FE-${odp.factura_electronica} — ${odp.fecha_factura ? format(new Date(odp.fecha_factura + 'T00:00:00'), 'dd/MM/yyyy') : ''}`
-                                                                    : '')
-                                                            }
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-
-                                    {/* GRILLA CHECKBOXES */}
-                                    <div className="mt-1">
-                                        <table style={{ tableLayout: 'fixed', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '11px', width: '100%' }}>
-                                            <colgroup>
-                                                <col style={{ width: '11%' }} />
-                                                <col style={{ width: '6%' }} />
-                                                <col style={{ width: '11%' }} />
-                                                <col style={{ width: '6%' }} />
-                                                <col style={{ width: '14%' }} />
-                                                <col style={{ width: '8%' }} />
-                                                <col style={{ width: '8%' }} />
-                                                <col style={{ width: '8%' }} />
-                                                <col style={{ width: '8%' }} />
-                                                <col style={{ width: '8%' }} />
-                                                <col style={{ width: '12%' }} />
-                                            </colgroup>
-                                            <tbody>
-                                                <tr>
-                                                    {label('MATIZADO')}
-                                                    {td(odp.matizado ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
-                                                    {label('PELICULA')}
-                                                    {td(odp.pelicula ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
-                                                    <td rowSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', verticalAlign: 'top', textTransform: 'uppercase' }}>
-                                                        PEDIDO EXTERNO
-                                                        {numerosExterno && (
-                                                            <div style={{ fontWeight: 'bold', marginTop: '6px', fontSize: '13px', color: '#1a3ec9', lineHeight: '1.4' }}>
-                                                                {numerosExterno}
-                                                            </div>
-                                                        )}
+                                <table className="excel-table mt-1 bg-white">
+                                    <tbody>
+                                        <tr><td colSpan={6} className="font-bold text-center fs-8 uppercase tracking-widest">FORMA DE PAGO</td></tr>
+                                        {[0, 1].map((i) => {
+                                            const pago = odp.pagos?.[i];
+                                            const labelFormaPago = pago?.metodo_pago || '';
+                                            return (
+                                                <tr key={i}>
+                                                    <td className="w-[10%] font-bold uppercase pl-2">RECIBO No:</td>
+                                                    <td className="w-[20%] text-[9px] font-bold pl-2">{pago?.referencia_pago || ''}</td>
+                                                    <td className="w-[15%] text-[9px] font-bold pl-2 uppercase">{labelFormaPago}</td>
+                                                    <td className="w-[25%] text-[9px] font-bold pl-2">{pago ? `$ ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(pago.monto))}` : ''}</td>
+                                                    <td className="w-[15%] font-bold uppercase pl-2">{i === 0 ? 'CODIGO:' : 'FE No.:'}</td>
+                                                    <td className="w-[15%] text-[9px] font-bold uppercase pl-2">
+                                                        {i === 0
+                                                            ? (() => {
+                                                                const codigos: Record<string, string> = {
+                                                                    'Suministro e Instalación': 'SUMINS01',
+                                                                    'Venta / Suministro': 'VTAVID01',
+                                                                    'Mantenimiento': 'INS002',
+                                                                };
+                                                                const tipo = odp.tipo_servicio || odp.servicios_detalle?.[0]?.tipo_servicio || '';
+                                                                return codigos[tipo] || '';
+                                                            })()
+                                                            : (odp.factura_electronica
+                                                                ? `FE-${odp.factura_electronica} — ${odp.fecha_factura ? format(new Date(odp.fecha_factura + 'T00:00:00'), 'dd/MM/yyyy') : ''}`
+                                                                : '')
+                                                        }
                                                     </td>
-                                                    {label('SAP')}
-                                                    {val(odp.saps?.[0]?.numero_sap?.split('-').pop() || '')}
-                                                    {label('ODC')}
-                                                    {val(odcs[0]?.numero_odc?.split('-').pop() || '')}
-                                                    {label('PROV')}
-                                                    {val(odcs[0]?.proveedor || '')}
                                                 </tr>
-                                                <tr>
-                                                    {label('ACARREO')}
-                                                    {td(odp.acarreo ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
-                                                    {label('HUACAL')}
-                                                    {td(odp.huacal ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
-                                                    {label('COT')}
-                                                    {val(odp.numero_cotizacion || odp.cotizaciones?.[0]?.numero_cot?.split('-').pop() || '')}
-                                                    {label('ODC')}
-                                                    {val(odcs[1]?.numero_odc?.split('-').pop() || '')}
-                                                    {label('PROV')}
-                                                    {val(odcs[1]?.proveedor || '')}
-                                                </tr>
-                                                <tr>
-                                                    {label('INSTALACIÓN')}
-                                                    {td(odp.instalacion ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
-                                                    {label('CARTÓN')}
-                                                    {td(odp.carton ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
-                                                    {td(odp.proveedor_vidrio || '', { fontWeight: 'bold', textAlign: 'center', color: '#1a3ec9' })}
-                                                    {label('TM')}
-                                                    {val(odp.tomas_medidas?.[0]?.numero_tm?.split('-').pop() || '')}
-                                                    {label('ODC')}
-                                                    {val(odcs[2]?.numero_odc?.split('-').pop() || '')}
-                                                    {label('PROV')}
-                                                    {val(odcs[2]?.proveedor || '')}
-                                                </tr>
-                                                {extraOdcs.map((odc: any, i: number) => (
-                                                    <tr key={odc.id || i}>
-                                                        <td colSpan={8} style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
-                                                        {label('ODC')}
-                                                        {val(odc.numero_odc?.split('-').pop())}
-                                                        {label('PROV')}
-                                                        {val(odc.proveedor)}
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             )}
+
+                            {/* GRILLA CHECKBOXES */}
+                            <div className="mt-1">
+                                <table style={{ tableLayout: 'fixed', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '11px', width: '100%' }}>
+                                    <colgroup>
+                                        <col style={{ width: '11%' }} />
+                                        <col style={{ width: '6%' }} />
+                                        <col style={{ width: '11%' }} />
+                                        <col style={{ width: '6%' }} />
+                                        <col style={{ width: '14%' }} />
+                                        <col style={{ width: '8%' }} />
+                                        <col style={{ width: '8%' }} />
+                                        <col style={{ width: '8%' }} />
+                                        <col style={{ width: '8%' }} />
+                                        <col style={{ width: '8%' }} />
+                                        <col style={{ width: '12%' }} />
+                                    </colgroup>
+                                    <tbody>
+                                        <tr>
+                                            {label('MATIZADO')}
+                                            {td(odp.matizado ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                            {label('PELICULA')}
+                                            {td(odp.pelicula ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                            <td rowSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', verticalAlign: 'top', textTransform: 'uppercase' }}>
+                                                PEDIDO EXTERNO
+                                                {numerosExterno && (
+                                                    <div style={{ fontWeight: 'bold', marginTop: '6px', fontSize: '13px', color: '#1a3ec9', lineHeight: '1.4' }}>
+                                                        {numerosExterno}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            {label('SAP')}
+                                            {val(odp.saps?.[0]?.numero_sap?.split('-').pop() || '')}
+                                            {label('ODC')}
+                                            {val(odcs[0]?.numero_odc?.split('-').pop() || '')}
+                                            {label('PROV')}
+                                            {val(odcs[0]?.proveedor || '')}
+                                        </tr>
+                                        <tr>
+                                            {label('ACARREO')}
+                                            {td(odp.acarreo ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                            {label('HUACAL')}
+                                            {td(odp.huacal ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                            {label('COT')}
+                                            {val(odp.numero_cotizacion || odp.cotizaciones?.[0]?.numero_cot?.split('-').pop() || '')}
+                                            {label('ODC')}
+                                            {val(odcs[1]?.numero_odc?.split('-').pop() || '')}
+                                            {label('PROV')}
+                                            {val(odcs[1]?.proveedor || '')}
+                                        </tr>
+                                        <tr>
+                                            {label('INSTALACIÓN')}
+                                            {td(odp.instalacion ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                            {label('CARTÓN')}
+                                            {td(odp.carton ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                            {td(odp.proveedor_vidrio || '', { fontWeight: 'bold', textAlign: 'center', color: '#1a3ec9' })}
+                                            {label('TM')}
+                                            {val(odp.tomas_medidas?.[0]?.numero_tm?.split('-').pop() || '')}
+                                            {label('ODC')}
+                                            {val(odcs[2]?.numero_odc?.split('-').pop() || '')}
+                                            {label('PROV')}
+                                            {val(odcs[2]?.proveedor || '')}
+                                        </tr>
+                                        {extraOdcs.map((odc: any, i: number) => (
+                                            <tr key={odc.id || i}>
+                                                <td colSpan={8} style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
+                                                {label('ODC')}
+                                                {val(odc.numero_odc?.split('-').pop())}
+                                                {label('PROV')}
+                                                {val(odc.proveedor)}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
 
                             {/* PIE DE PÁGINA */}
                             <div className="flex justify-end mt-1">

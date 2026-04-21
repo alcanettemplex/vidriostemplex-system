@@ -190,19 +190,14 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                                             </tr>
                                         );
                                     })}
-                                    {/* Asesor y separador solo en última página */}
-                                    {esUltimaPagina && (
-                                        <>
-                                            <tr className="h-[5px]">
-                                                <td colSpan={15} className="bg-slate-200 border-none"></td>
-                                            </tr>
-                                            <tr>
-                                                <td colSpan={15} className="text-left font-bold border-none pt-1">
-                                                    Asesor: <span className="font-normal ml-2 uppercase text-[9px]">{odp.asesor?.nombre_completo || `${odp.asesor?.first_name} ${odp.asesor?.last_name}`}</span>
-                                                </td>
-                                            </tr>
-                                        </>
-                                    )}
+                                    <tr className="h-[5px]">
+                                        <td colSpan={15} className="bg-slate-200 border-none"></td>
+                                    </tr>
+                                    <tr>
+                                        <td colSpan={15} className="text-left font-bold border-none pt-1">
+                                            Asesor: <span className="font-normal ml-2 uppercase text-[9px]">{odp.asesor?.nombre_completo || `${odp.asesor?.first_name} ${odp.asesor?.last_name}`}</span>
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
 
@@ -219,92 +214,88 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                                 )}
                             </div>
 
-                            {/* ---------- SECCIONES DE PIE — solo última página ---------- */}
-                            {esUltimaPagina && (
-                                <>
-                                    {/* OBSERVACIONES */}
-                                    <div className="border-[2px] border-black p-2 mt-1 bg-white min-h-[120px]">
-                                        <p className="font-bold uppercase tracking-widest mb-1 text-[11px]">ENTREGA SOLICITADA - DIRECCION: <span className="font-normal">{odp.direccion_instalacion}</span></p>
-                                        <p className="font-bold uppercase tracking-widest mt-1 mb-0.5 text-[10px]">OBSERVACIONES:</p>
-                                        <p className="font-normal uppercase text-[10px] leading-tight whitespace-pre-line">{odp.observaciones}</p>
-                                    </div>
+                            {/* ---------- PIE — todas las páginas ---------- */}
+                            {/* OBSERVACIONES */}
+                            <div className="border-[2px] border-black p-2 mt-1 bg-white min-h-[120px]">
+                                <p className="font-bold uppercase tracking-widest mb-1 text-[11px]">ENTREGA SOLICITADA - DIRECCION: <span className="font-normal">{odp.direccion_instalacion}</span></p>
+                                <p className="font-bold uppercase tracking-widest mt-1 mb-0.5 text-[10px]">OBSERVACIONES:</p>
+                                <p className="font-normal uppercase text-[10px] leading-tight whitespace-pre-line">{odp.observaciones}</p>
+                            </div>
 
-                                    {/* GRILLA CHECKBOXES */}
-                                    <div className="mt-1">
-                                        <table style={{ tableLayout: 'fixed', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '11px', width: '100%' }}>
-                                            <colgroup>
-                                                <col style={{ width: '11%' }} />
-                                                <col style={{ width: '6%' }} />
-                                                <col style={{ width: '11%' }} />
-                                                <col style={{ width: '6%' }} />
-                                                <col style={{ width: '14%' }} />
-                                                <col style={{ width: '8%' }} />
-                                                <col style={{ width: '8%' }} />
-                                                <col style={{ width: '8%' }} />
-                                                <col style={{ width: '8%' }} />
-                                                <col style={{ width: '8%' }} />
-                                                <col style={{ width: '12%' }} />
-                                            </colgroup>
-                                            <tbody>
-                                                <tr>
-                                                    {label('MATIZADO')}
-                                                    {td(odp.matizado ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
-                                                    {label('PELICULA')}
-                                                    {td(odp.pelicula ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
-                                                    <td rowSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', verticalAlign: 'top', textTransform: 'uppercase' }}>
-                                                        PEDIDO EXTERNO
-                                                        {numerosExterno && (
-                                                            <div style={{ fontWeight: 'bold', marginTop: '6px', fontSize: '13px', color: '#1a3ec9', lineHeight: '1.4' }}>
-                                                                {numerosExterno}
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                    {label('SAP')}
-                                                    {val(odp.saps?.[0]?.numero_sap?.split('-').pop() || '')}
-                                                    {label('ODC')}
-                                                    {val(odcs[0]?.numero_odc?.split('-').pop() || '')}
-                                                    {label('PROV')}
-                                                    {val(odcs[0]?.proveedor || '')}
-                                                </tr>
-                                                <tr>
-                                                    {label('ACARREO')}
-                                                    {td(odp.acarreo ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
-                                                    {label('HUACAL')}
-                                                    {td(odp.huacal ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
-                                                    {label('COT')}
-                                                    {val(odp.numero_cotizacion || odp.cotizaciones?.[0]?.numero_cot?.split('-').pop() || '')}
-                                                    {label('ODC')}
-                                                    {val(odcs[1]?.numero_odc?.split('-').pop() || '')}
-                                                    {label('PROV')}
-                                                    {val(odcs[1]?.proveedor || '')}
-                                                </tr>
-                                                <tr>
-                                                    {label('INSTALACIÓN')}
-                                                    {td(odp.instalacion ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
-                                                    {label('CARTÓN')}
-                                                    {td(odp.carton ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
-                                                    {td(odp.proveedor_vidrio || '', { fontWeight: 'bold', textAlign: 'center', color: '#1a3ec9' })}
-                                                    {label('TM')}
-                                                    {val(odp.tomas_medidas?.[0]?.numero_tm?.split('-').pop() || '')}
-                                                    {label('ODC')}
-                                                    {val(odcs[2]?.numero_odc?.split('-').pop() || '')}
-                                                    {label('PROV')}
-                                                    {val(odcs[2]?.proveedor || '')}
-                                                </tr>
-                                                {extraOdcs.map((odc: any, i: number) => (
-                                                    <tr key={odc.id || i}>
-                                                        <td colSpan={8} style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
-                                                        {label('ODC')}
-                                                        {val(odc.numero_odc?.split('-').pop())}
-                                                        {label('PROV')}
-                                                        {val(odc.proveedor)}
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </>
-                            )}
+                            {/* GRILLA CHECKBOXES */}
+                            <div className="mt-1">
+                                <table style={{ tableLayout: 'fixed', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '11px', width: '100%' }}>
+                                    <colgroup>
+                                        <col style={{ width: '11%' }} />
+                                        <col style={{ width: '6%' }} />
+                                        <col style={{ width: '11%' }} />
+                                        <col style={{ width: '6%' }} />
+                                        <col style={{ width: '14%' }} />
+                                        <col style={{ width: '8%' }} />
+                                        <col style={{ width: '8%' }} />
+                                        <col style={{ width: '8%' }} />
+                                        <col style={{ width: '8%' }} />
+                                        <col style={{ width: '8%' }} />
+                                        <col style={{ width: '12%' }} />
+                                    </colgroup>
+                                    <tbody>
+                                        <tr>
+                                            {label('MATIZADO')}
+                                            {td(odp.matizado ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                            {label('PELICULA')}
+                                            {td(odp.pelicula ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                            <td rowSpan={2} style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold', textAlign: 'center', verticalAlign: 'top', textTransform: 'uppercase' }}>
+                                                PEDIDO EXTERNO
+                                                {numerosExterno && (
+                                                    <div style={{ fontWeight: 'bold', marginTop: '6px', fontSize: '13px', color: '#1a3ec9', lineHeight: '1.4' }}>
+                                                        {numerosExterno}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            {label('SAP')}
+                                            {val(odp.saps?.[0]?.numero_sap?.split('-').pop() || '')}
+                                            {label('ODC')}
+                                            {val(odcs[0]?.numero_odc?.split('-').pop() || '')}
+                                            {label('PROV')}
+                                            {val(odcs[0]?.proveedor || '')}
+                                        </tr>
+                                        <tr>
+                                            {label('ACARREO')}
+                                            {td(odp.acarreo ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                            {label('HUACAL')}
+                                            {td(odp.huacal ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                            {label('COT')}
+                                            {val(odp.numero_cotizacion || odp.cotizaciones?.[0]?.numero_cot?.split('-').pop() || '')}
+                                            {label('ODC')}
+                                            {val(odcs[1]?.numero_odc?.split('-').pop() || '')}
+                                            {label('PROV')}
+                                            {val(odcs[1]?.proveedor || '')}
+                                        </tr>
+                                        <tr>
+                                            {label('INSTALACIÓN')}
+                                            {td(odp.instalacion ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                            {label('CARTÓN')}
+                                            {td(odp.carton ? 'X' : '', { textAlign: 'center', fontWeight: 'bold' })}
+                                            {td(odp.proveedor_vidrio || '', { fontWeight: 'bold', textAlign: 'center', color: '#1a3ec9' })}
+                                            {label('TM')}
+                                            {val(odp.tomas_medidas?.[0]?.numero_tm?.split('-').pop() || '')}
+                                            {label('ODC')}
+                                            {val(odcs[2]?.numero_odc?.split('-').pop() || '')}
+                                            {label('PROV')}
+                                            {val(odcs[2]?.proveedor || '')}
+                                        </tr>
+                                        {extraOdcs.map((odc: any, i: number) => (
+                                            <tr key={odc.id || i}>
+                                                <td colSpan={8} style={{ border: '1px solid #000', padding: '3px 4px' }}></td>
+                                                {label('ODC')}
+                                                {val(odc.numero_odc?.split('-').pop())}
+                                                {label('PROV')}
+                                                {val(odc.proveedor)}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
 
                             {/* PIE DE PÁGINA */}
                             <div className="flex justify-end mt-1">
