@@ -207,6 +207,12 @@ export const createODC = async (req: Request, res: Response) => {
       { transaction: t }
     );
 
+    const createdCount = await ODCItem.count({ where: { odc_id: odcId }, transaction: t });
+    if (createdCount !== items.length) {
+      await t.rollback();
+      return res.status(500).json({ error: `Error interno al crear ítems: se esperaban ${items.length} pero se guardaron ${createdCount}` });
+    }
+
     // Marcar todos los SAPItems incluidos como en_odc
     const sapItemIds = items.map((i: any) => i.sap_item_id).filter(Boolean);
     if (sapItemIds.length > 0) {

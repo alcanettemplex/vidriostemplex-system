@@ -447,9 +447,12 @@ export const updateODP = async (req: Request, res: Response) => {
     const esAdminOGerencia = rolUsuario === 'admin' || rolUsuario === 'gerencia';
     const esTaller = ['produccion', 'jefe_produccion'].includes(rolUsuario) && soloEditaChecks;
     const esCreador = Number(odp.getDataValue('asesor_id')) === Number(req.user?.id);
+    // produccion / jefe_produccion pueden marcar ENTREGADA (pedido en la mano)
+    const esMarcarEntregada = ['produccion', 'jefe_produccion'].includes(rolUsuario) &&
+      camposUpdate.length === 1 && camposUpdate[0] === 'estado_produccion' && data.estado_produccion === 'ENTREGADA';
 
     if (!esAdminOGerencia) {
-      if (!esTaller && !esCreador) {
+      if (!esTaller && !esCreador && !esMarcarEntregada) {
         await transaction.rollback();
         return res.status(403).json({ error: 'Solo el creador de la ODP puede editarla' });
       }
@@ -507,7 +510,7 @@ export const updateODP = async (req: Request, res: Response) => {
 
     // ─── Lógica de autocompletado LISTO_INSTALAR ───
     const updatedOdp = await ODP.findByPk(id, { transaction });
-    if (updatedOdp && updatedOdp.getDataValue('estado_produccion') !== 'LISTO_INSTALAR' && !updatedOdp.getDataValue('sin_items')) {
+    if (updatedOdp && !data.estado_produccion && updatedOdp.getDataValue('estado_produccion') !== 'LISTO_INSTALAR' && !updatedOdp.getDataValue('sin_items')) {
       const { SAP: SAPModel, TomaMedidas: TMModel } = await import('../models');
       const [tmCount, sapCount, itemCount] = await Promise.all([
         TMModel.count({ where: { odp_id: id }, transaction }),

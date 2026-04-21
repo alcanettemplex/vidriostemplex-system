@@ -550,6 +550,25 @@ export const ejecutarMantenimiento = async (req: Request, res: Response) => {
         break;
       }
 
+      case 'odc_huerfanas': {
+        const rows: any[] = await sequelize.query(
+          `SELECT oc.id, oc.numero_odc, oc.tipo, oc.proveedor, oc.estado,
+                  oc.fecha_creacion,
+                  u.nombre_completo AS creado_por
+           FROM ordenes_compra oc
+           LEFT JOIN usuarios u ON u.id = oc.creado_por
+           WHERE NOT EXISTS (SELECT 1 FROM odc_items oi WHERE oi.odc_id = oc.id)
+           ORDER BY oc.fecha_creacion DESC`,
+          { type: QueryTypes.SELECT }
+        );
+        resultado = {
+          descripcion: 'ODCs sin ítems asociados (posible pérdida de datos)',
+          cantidad: rows.length,
+          registros: rows,
+        };
+        break;
+      }
+
       case 'resumen_inconsistencias': {
         const [totalOdp]: any[] = await sequelize.query(`SELECT COUNT(*) AS c FROM odp`, { type: QueryTypes.SELECT });
         const [sinCliente]: any[] = await sequelize.query(

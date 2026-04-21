@@ -620,6 +620,7 @@ const TabBackup: React.FC = () => {
 // ─── Tab Mantenimiento ────────────────────────────────────────────────────────
 const TAREAS = [
   { id: 'resumen_inconsistencias', label: 'Resumen de inconsistencias', desc: 'Vista global de registros con referencias rotas', method: 'GET' },
+  { id: 'odc_huerfanas', label: 'ODCs huérfanas (sin ítems)', desc: 'Órdenes de compra sin ningún ítem asociado — posible pérdida de datos o creación manual incorrecta', method: 'GET', warning: true },
   { id: 'tm_inconsistencias', label: 'TMs con triángulo roto (TM↔ODP↔Prospecto)', desc: 'TMs vinculadas a ODP cuyo Prospecto no refleja la misma ODP — requiere corrección manual', method: 'GET', warning: true },
   { id: 'odps_inconsistentes', label: 'ODPs con estado inconsistente', desc: 'ODPs con combinaciones de estado inválidas', method: 'GET' },
   { id: 'pagos_huerfanos', label: 'Pagos huérfanos', desc: 'Pagos sin ODP asociada en el sistema', method: 'GET' },
@@ -663,7 +664,47 @@ const TabMantenimiento: React.FC = () => {
                 {running === tarea.id ? 'Ejecutando...' : 'Ejecutar'}
               </button>
             </div>
-            {resultado && tarea.id === 'tm_inconsistencias' ? (
+            {resultado && tarea.id === 'odc_huerfanas' ? (
+              <div className="mt-3">
+                {resultado.cantidad === 0 ? (
+                  <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2 text-xs font-bold">
+                    ✓ No hay ODCs huérfanas
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-xs font-bold mb-2">
+                      ⚠ {resultado.cantidad} ODC{resultado.cantidad !== 1 ? 's' : ''} sin ítems detectada{resultado.cantidad !== 1 ? 's' : ''}
+                    </div>
+                    <div className="overflow-auto max-h-64 rounded-lg border border-slate-200">
+                      <table className="w-full text-[11px]">
+                        <thead className="bg-slate-100 text-slate-600 uppercase tracking-wide">
+                          <tr>
+                            <th className="text-left px-3 py-2">ODC</th>
+                            <th className="text-left px-3 py-2">Tipo</th>
+                            <th className="text-left px-3 py-2">Proveedor</th>
+                            <th className="text-left px-3 py-2">Estado</th>
+                            <th className="text-left px-3 py-2">Creada por</th>
+                            <th className="text-left px-3 py-2">Fecha</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {resultado.registros.map((r: any) => (
+                            <tr key={r.id} className="border-t border-slate-100 hover:bg-amber-50">
+                              <td className="px-3 py-1.5 font-bold text-amber-700">{r.numero_odc}</td>
+                              <td className="px-3 py-1.5">{r.tipo}</td>
+                              <td className="px-3 py-1.5 font-medium text-slate-700">{r.proveedor || '—'}</td>
+                              <td className="px-3 py-1.5">{r.estado}</td>
+                              <td className="px-3 py-1.5 text-slate-500">{r.creado_por || '—'}</td>
+                              <td className="px-3 py-1.5 text-slate-400">{r.fecha_creacion ? new Date(r.fecha_creacion).toLocaleDateString('es-CO') : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : resultado && tarea.id === 'tm_inconsistencias' ? (
               <div className="mt-3">
                 {resultado.total === 0 ? (
                   <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2 text-xs font-bold">
