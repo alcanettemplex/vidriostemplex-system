@@ -227,8 +227,20 @@ export const getODP = async (req: Request, res: Response) => {
     if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
 
     // Enriquecer ordenes_compra de cada SAP a través de sus SAPItems (soporta ODC multi-SAP)
-    const { ODCItem } = await import('../models');
+    const { ODCItem, Prospecto: ProspectoModel } = await import('../models');
     const odpJson: any = odp.toJSON();
+
+    // Cargar TMs del prospecto vinculado que aún no tienen odp_id (datos previos a la corrección)
+    const prospecto = await ProspectoModel.findOne({ where: { odp_id: Number(id) }, attributes: ['id'] });
+    if (prospecto) {
+      const tmsFaltantes = await TomaMedidas.findAll({
+        where: { prospecto_id: prospecto.getDataValue('id'), odp_id: null } as any,
+        include: [{ model: Usuario, as: 'realizador', attributes: ['id', 'nombre_completo'] }],
+      });
+      if (tmsFaltantes.length > 0) {
+        odpJson.tomas_medidas = [...(odpJson.tomas_medidas || []), ...tmsFaltantes.map((t: any) => t.toJSON())];
+      }
+    }
 
     if (odpJson.saps && odpJson.saps.length > 0) {
       const { Op } = await import('sequelize');

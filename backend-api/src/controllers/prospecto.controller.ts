@@ -192,7 +192,7 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
       }
     }
 
-    const tm = (prospecto as any).tomas_medidas?.[0];
+    const tms: any[] = (prospecto as any).tomas_medidas || [];
 
     // ── Resolver cliente_id ────────────────────────────────────────────────────
     let cliente_id_final = prospecto.getDataValue('cliente_id');
@@ -271,11 +271,12 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
 
     const odp_id = odp.getDataValue('id');
 
-    // Vincular TM a la ODP si existe
-    if (tm) {
+    // Vincular todas las TMs del prospecto a la ODP
+    if (tms.length > 0) {
+      const { Op: OpTM } = require('sequelize');
       await TomaMedidas.update(
         { odp_id, estado: 'convertida' },
-        { where: { id: tm.id }, transaction: t }
+        { where: { id: { [OpTM.in]: tms.map((tmItem: any) => tmItem.id) } }, transaction: t }
       );
     }
 
