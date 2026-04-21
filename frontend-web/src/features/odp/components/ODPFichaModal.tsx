@@ -758,7 +758,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
                 </div>
               ) : (
                 <p className="text-xs text-slate-400 italic">
-                  {['realizada', 'convertida', 'archivada'].includes(tm.estado) ? 'Sin fotos registradas' : 'Pendiente de realizar la visita'}
+                  {tm.estado === 'realizada' ? 'Sin fotos registradas' : 'Pendiente de realizar la visita'}
                 </p>
               )}
 
