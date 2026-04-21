@@ -712,10 +712,10 @@ export const terminarRutaConductor = async (req: Request, res: Response) => {
 
     if (!ruta) return res.status(404).json({ error: 'Ruta no encontrada' });
 
-    // Si hay oficial asignado, solo él puede completar la ruta; si no, el conductor
-    const responsableId = ruta.oficial_id ?? ruta.conductor_id;
-    if (responsableId !== user.id) {
-      return res.status(403).json({ error: ruta.oficial_id ? 'Solo el oficial de ruta puede completarla' : 'No eres el conductor de esta ruta' });
+    // Solo el conductor puede finalizar la ruta (responsabilidad de transporte)
+    // El oficial es independiente: gestiona paradas de instalación, no el cierre de ruta
+    if (ruta.conductor_id !== user.id) {
+      return res.status(403).json({ error: 'Solo el conductor asignado puede finalizar la ruta' });
     }
 
     if (ruta.estado !== 'en_curso') return res.status(400).json({ error: 'La ruta no está en curso' });
