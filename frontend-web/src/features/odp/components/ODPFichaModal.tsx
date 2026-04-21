@@ -46,6 +46,16 @@ const cajaColor: Record<string, string> = {
   CREDITO_APROBADO: 'bg-indigo-100 text-indigo-700',
 };
 
+const TM_ESTADO: Record<string, { label: string; cls: string }> = {
+  solicitada:  { label: 'Solicitada',    cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+  programada:  { label: 'Programada',    cls: 'bg-blue-100 text-blue-700 border-blue-200' },
+  realizada:   { label: '✓ Realizada',   cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  convertida:  { label: '✓ Convertida',  cls: 'bg-violet-100 text-violet-700 border-violet-200' },
+  archivada:   { label: 'Archivada',     cls: 'bg-slate-100 text-slate-500 border-slate-200' },
+};
+const getTmEstado = (estado: string) =>
+  TM_ESTADO[estado] ?? { label: estado, cls: 'bg-amber-100 text-amber-700 border-amber-200' };
+
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n || 0);
 
@@ -720,12 +730,8 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge className={
-                    tm.estado === 'realizada' ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                    : tm.estado === 'programada' ? 'bg-blue-100 text-blue-700 border-blue-200'
-                    : 'bg-amber-100 text-amber-700 border-amber-200'
-                  }>
-                    {tm.estado === 'realizada' ? '✓ Realizada' : tm.estado === 'programada' ? 'Programada' : 'Solicitada'}
+                  <Badge className={getTmEstado(tm.estado).cls}>
+                    {getTmEstado(tm.estado).label}
                   </Badge>
                   <button
                     onClick={() => setTmModalOpen(true)}
@@ -752,7 +758,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
                 </div>
               ) : (
                 <p className="text-xs text-slate-400 italic">
-                  {tm.estado === 'realizada' ? 'Sin fotos registradas' : 'Pendiente de realizar la visita'}
+                  {['realizada', 'convertida', 'archivada'].includes(tm.estado) ? 'Sin fotos registradas' : 'Pendiente de realizar la visita'}
                 </p>
               )}
 
@@ -794,12 +800,8 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
                   <div className="flex justify-between items-start">
                     <div>
                       <span className="font-black text-amber-700">{tm.numero_tm}</span>
-                      <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${
-                        tm.estado === 'realizada' ? 'bg-emerald-100 text-emerald-700'
-                        : tm.estado === 'programada' ? 'bg-blue-100 text-blue-700'
-                        : 'bg-amber-100 text-amber-700'
-                      }`}>
-                        {tm.estado}
+                      <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${getTmEstado(tm.estado).cls}`}>
+                        {getTmEstado(tm.estado).label}
                       </span>
                       {tm.prospecto && (
                         <p className="text-xs text-sky-600 font-semibold mt-0.5">
