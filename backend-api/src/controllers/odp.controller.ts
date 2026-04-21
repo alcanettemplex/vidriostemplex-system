@@ -451,8 +451,12 @@ export const updateODP = async (req: Request, res: Response) => {
     const esMarcarEntregada = ['produccion', 'jefe_produccion'].includes(rolUsuario) &&
       camposUpdate.length === 1 && camposUpdate[0] === 'estado_produccion' && data.estado_produccion === 'ENTREGADA';
 
+    // produccion / jefe_produccion pueden marcar LISTO_INSTALAR desde el tab Control Taller
+    const esMarcarListoInstalar = ['produccion', 'jefe_produccion'].includes(rolUsuario) &&
+      camposUpdate.length === 1 && camposUpdate[0] === 'estado_produccion' && data.estado_produccion === 'LISTO_INSTALAR';
+
     if (!esAdminOGerencia) {
-      if (!esTaller && !esCreador && !esMarcarEntregada) {
+      if (!esTaller && !esCreador && !esMarcarEntregada && !esMarcarListoInstalar) {
         await transaction.rollback();
         return res.status(403).json({ error: 'Solo el creador de la ODP puede editarla' });
       }
