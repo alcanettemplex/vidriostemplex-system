@@ -47,11 +47,11 @@ const cajaColor: Record<string, string> = {
 };
 
 const TM_ESTADO: Record<string, { label: string; cls: string }> = {
-  solicitada:  { label: 'Solicitada',    cls: 'bg-amber-100 text-amber-700 border-amber-200' },
-  programada:  { label: 'Programada',    cls: 'bg-blue-100 text-blue-700 border-blue-200' },
-  realizada:   { label: '✓ Realizada',   cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  convertida:  { label: '✓ Convertida',  cls: 'bg-violet-100 text-violet-700 border-violet-200' },
-  archivada:   { label: 'Archivada',     cls: 'bg-slate-100 text-slate-500 border-slate-200' },
+  solicitada:  { label: 'Solicitada',   cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+  programada:  { label: 'Programada',   cls: 'bg-blue-100 text-blue-700 border-blue-200' },
+  realizada:   { label: '✓ Realizada',  cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  convertida:  { label: '✓ Realizada',  cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  archivada:   { label: 'Archivada',    cls: 'bg-slate-100 text-slate-500 border-slate-200' },
 };
 const getTmEstado = (estado: string) =>
   TM_ESTADO[estado] ?? { label: estado, cls: 'bg-amber-100 text-amber-700 border-amber-200' };
@@ -758,7 +758,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
                 </div>
               ) : (
                 <p className="text-xs text-slate-400 italic">
-                  {tm.estado === 'realizada' ? 'Sin fotos registradas' : 'Pendiente de realizar la visita'}
+                  {['realizada', 'convertida'].includes(tm.estado) ? 'Sin fotos registradas' : 'Pendiente de realizar la visita'}
                 </p>
               )}
 
