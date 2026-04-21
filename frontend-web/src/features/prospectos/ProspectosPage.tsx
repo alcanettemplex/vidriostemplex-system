@@ -14,6 +14,7 @@ import AsignarAsesorODPModal from '../odp/components/AsignarAsesorODPModal';
 import SeleccionarTipoODPModal from '../odp/components/SeleccionarTipoODPModal';
 import SolicitarTMModal from './components/SolicitarTMModal';
 import CotizacionCapturas from '../odp/components/CotizacionCapturas';
+import { getTmEstadoConfig, tmVisitaRealizada } from '../../utils/tmEstado';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -167,20 +168,12 @@ const DetalleModal: React.FC<{
                 </p>
                 <div className="space-y-3">
                   {p.tomas_medidas.map(tm => (
-                    <div key={tm.id} className={`rounded-xl border p-4 space-y-3 ${
-                      tm.estado === 'realizada' ? 'bg-emerald-50 border-emerald-200'
-                      : tm.estado === 'programada' ? 'bg-blue-50 border-blue-200'
-                      : 'bg-amber-50 border-amber-200'
-                    }`}>
+                    <div key={tm.id} className={`rounded-xl border p-4 space-y-3 ${getTmEstadoConfig(tm.estado).cardCls}`}>
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
                           <span className="font-black text-sm text-slate-700">{tm.numero_tm}</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                            tm.estado === 'realizada' ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                            : tm.estado === 'programada' ? 'bg-blue-100 text-blue-700 border-blue-200'
-                            : 'bg-amber-100 text-amber-700 border-amber-200'
-                          }`}>
-                            {tm.estado === 'realizada' ? '✓ Realizada' : tm.estado === 'programada' ? 'Programada' : 'Solicitada'}
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getTmEstadoConfig(tm.estado).badgeCls}`}>
+                            {getTmEstadoConfig(tm.estado).label}
                           </span>
                         </div>
                         {tm.fecha_visita && (
@@ -227,10 +220,10 @@ const DetalleModal: React.FC<{
                             ))}
                           </div>
                         </div>
-                      ) : tm.estado === 'solicitada' ? (
-                        <p className="text-xs text-amber-600 italic">Pendiente de programar por jefe de producción</p>
-                      ) : tm.estado === 'programada' ? (
-                        <p className="text-xs text-blue-600 italic">Visita programada — pendiente de realizar</p>
+                      ) : getTmEstadoConfig(tm.estado).mensajeSinFotos ? (
+                        <p className={`text-xs italic ${tmVisitaRealizada(tm.estado) ? 'text-emerald-600' : tm.estado === 'programada' ? 'text-blue-600' : 'text-amber-600'}`}>
+                          {getTmEstadoConfig(tm.estado).mensajeSinFotos}
+                        </p>
                       ) : null}
                     </div>
                   ))}
@@ -451,12 +444,14 @@ const ProspectosPage: React.FC = () => {
                     </span>
                     {tm && (
                       <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        tieneFotos ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                        : tm.estado === 'programada' ? 'bg-blue-100 text-blue-700 border-blue-200'
-                        : 'bg-amber-100 text-amber-700 border-amber-200'
+                        tieneFotos || tmVisitaRealizada(tm.estado)
+                          ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                          : getTmEstadoConfig(tm.estado).badgeCls
                       }`}>
                         <Ruler className="w-3 h-3" />
-                        {tieneFotos ? 'TM realizada' : tm.estado === 'programada' ? 'TM programada' : 'TM solicitada'}
+                        {tieneFotos || tmVisitaRealizada(tm.estado)
+                          ? 'TM realizada'
+                          : `TM ${getTmEstadoConfig(tm.estado).label.toLowerCase()}`}
                       </span>
                     )}
                     {p.odp && (
