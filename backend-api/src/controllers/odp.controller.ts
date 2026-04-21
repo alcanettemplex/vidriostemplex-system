@@ -561,6 +561,33 @@ export const updateODP = async (req: Request, res: Response) => {
 
     await transaction.commit();
 
+    // ─── Auto-crear PedidoPV si proveedor_vidrio se asigna por primera vez en edición ───
+    if (data.proveedor_vidrio && !odp.getDataValue('proveedor_vidrio')) {
+      try {
+        const existente = await PedidoPV.findOne({ where: { odp_id: odp.getDataValue('id') } });
+        if (!existente) {
+          await withUniqueRetry(async () => {
+            const ultimoPV = await PedidoPV.findOne({ order: [['numero_base', 'DESC']], attributes: ['numero_base'] });
+            const numero_base = ultimoPV ? (ultimoPV.getDataValue('numero_base') as number) + 1 : 6733;
+            const numero_pedido = String(numero_base);
+            await PedidoPV.create({
+              odp_id: odp.getDataValue('id'),
+              proveedor: data.proveedor_vidrio,
+              numero_pedido,
+              numero_base,
+              sufijo: null,
+              estado: 'PENDIENTE',
+              origen: 'SISTEMA',
+              creado_por: (req.user as any)?.id || null,
+            });
+            await ODP.update({ numero_pedido_proveedor: numero_pedido }, { where: { id: odp.getDataValue('id') } });
+          });
+        }
+      } catch (pvError: any) {
+        console.error('Error creando PedidoPV automático en update:', pvError.message);
+      }
+    }
+
     // ─── Regla automática: PedidoPV VERIFICADO → ENTREGADO cuando ODP es INSTALADA/ENTREGADA ───
     if (data.estado_produccion === 'INSTALADA' || data.estado_produccion === 'ENTREGADA') {
       try {
