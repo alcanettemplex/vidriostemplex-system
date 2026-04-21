@@ -375,7 +375,6 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
     const asignacion = await RutaODP.findAll({
       where: {
         ruta_id: { [Op.in]: ids },
-        estado: { [Op.ne]: 'cancelada' },
       },
       include: [
         {
