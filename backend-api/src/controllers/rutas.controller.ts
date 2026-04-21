@@ -362,9 +362,11 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
-    // Obtener rutas donde está asignado
+    // Obtener rutas donde está asignado: como ayudante (ruta_instaladores) o como oficial (oficial_id)
     const rutaIds: any[] = await sequelize.query(
-      `SELECT ruta_id FROM ruta_instaladores WHERE instalador_id = :uid`,
+      `SELECT ruta_id FROM ruta_instaladores WHERE instalador_id = :uid
+       UNION
+       SELECT id AS ruta_id FROM rutas_instalacion WHERE oficial_id = :uid`,
       { replacements: { uid: user.id }, type: QueryTypes.SELECT }
     );
     if (!rutaIds.length) return res.json([]);
