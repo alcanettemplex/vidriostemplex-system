@@ -50,7 +50,8 @@ const odpSchema = z.object({
     forma_pago: z.string().optional(),
     proveedor_vidrio: z.string().optional(),
     numero_pedido_proveedor: z.string().optional(),
-    items: z.array(itemSchema).optional()
+    items: z.array(itemSchema).optional(),
+    requiere_visita_tecnica: z.boolean().optional().default(false),
 });
 
 type ItemFormValues = {
