@@ -238,9 +238,10 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
     const numero_odp = `ODP-${String(nextODP).padStart(4, '0')}`;
 
     // Datos de contacto de instalación: prioridad → body → TM → prospecto
-    const nombre_recibe_final = nombre_recibe || tm?.contacto_obra || prospecto.getDataValue('nombre_contacto') || '';
-    const telefono_recibe_final = telefono_recibe || tm?.telefono_obra || prospecto.getDataValue('telefono_contacto') || '';
-    const direccion_final = direccion_instalacion || tm?.direccion || prospecto.getDataValue('direccion') || '';
+    const tmPrincipal = tms[0];
+    const nombre_recibe_final = nombre_recibe || tmPrincipal?.contacto_obra || prospecto.getDataValue('nombre_contacto') || '';
+    const telefono_recibe_final = telefono_recibe || tmPrincipal?.telefono_obra || prospecto.getDataValue('telefono_contacto') || '';
+    const direccion_final = direccion_instalacion || tmPrincipal?.direccion || prospecto.getDataValue('direccion') || '';
 
     const odp = await ODPModel.create({
       numero_odp,
