@@ -119,7 +119,7 @@ const ActionsMenu: React.FC<{
     const items: { label: string; icon: React.ReactNode; onClick: () => void; danger?: boolean; show: boolean }[] = [
         { label: 'Solicitud Accesorios (SAP)', icon: <Package className="w-4 h-4" />, onClick: onSap, show: isAsesor },
         { label: 'Cotización (COT)',            icon: <DollarSign className="w-4 h-4" />, onClick: onCot, show: isAsesor },
-        { label: 'Solicitar Visita Técnica',   icon: <Ruler className="w-4 h-4" />, onClick: onVisita, show: isAsesor && odp.estado_produccion === 'EN_ESPERA' },
+        { label: 'Solicitar Visita Técnica',   icon: <Ruler className="w-4 h-4" />, onClick: onVisita, show: isAsesor && !['INSTALADA', 'ENTREGADA', 'PAUSADA'].includes(odp.estado_produccion) },
         { label: 'Toma de Medidas (TM)',        icon: <Ruler className="w-4 h-4" />, onClick: onTm, show: isJefe },
         { label: 'Eliminar ODP',               icon: <Trash2 className="w-4 h-4" />, onClick: onDelete, danger: true, show: isAdmin && odp.estado_produccion !== 'ENTREGADA' },
     ].filter(i => i.show);
@@ -234,7 +234,11 @@ const ODPListPage: React.FC = () => {
     useDataChangedSocket('odp', () => { fetchODPs(); fetchGarantias(); });
 
     const handleSolicitarVisita = async (odp: ODP) => {
-        if (!window.confirm(`¿Solicitar visita técnica para ${odp.numero_odp}?`)) return;
+        const esRemedicion = odp.estado_produccion !== 'EN_ESPERA';
+        const msg = esRemedicion
+            ? `¿Solicitar visita técnica adicional para ${odp.numero_odp}? El estado volverá a Visita Técnica.`
+            : `¿Solicitar visita técnica para ${odp.numero_odp}?`;
+        if (!window.confirm(msg)) return;
         try {
             const tkn = sessionStorage.getItem('token');
             await axios.put(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/odp/${odp.id}`,

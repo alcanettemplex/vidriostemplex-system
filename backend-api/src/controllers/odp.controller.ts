@@ -333,11 +333,15 @@ export const createODP = async (req: Request, res: Response) => {
         }
         const generatedNumeroODP = `${prefijo}-${String(nextODPNum).padStart(4, '0')}`;
 
+        // Derivar estado inicial si no viene explícito desde el frontend
+        const estadoInicial = data.estado_produccion
+          ?? ((data.items && data.items.length > 0) ? 'MEDICION' : 'EN_ESPERA');
+
         const odpData = {
           numero_odp: data.numero_odp || generatedNumeroODP,
           cliente_id: data.cliente_id,
           asesor_id: data.asesor_id || userId,
-          estado_produccion: data.estado_produccion,
+          estado_produccion: estadoInicial,
           estado_facturacion: data.estado_facturacion,
           estado_caja: data.forma_pago === 'credito' ? 'CREDITO_APROBADO' : (data.estado_caja || 'PENDIENTE'),
           factura_electronica: data.factura_electronica,
@@ -562,16 +566,27 @@ export const updateODP = async (req: Request, res: Response) => {
 
     // Actualizar cristales si vienen en la data
     if (data.items && Array.isArray(data.items)) {
-      // Borrar iterativos antiguos
       await ODPItem.destroy({ where: { odp_id: id }, transaction });
 
-      // Crear los nuevos iterativos con el odp_id adecuado
       if (data.items.length > 0) {
         const nuevosItems = data.items.map(item => ({
           ...item,
           odp_id: id
         }));
         await ODPItem.bulkCreate(nuevosItems, { transaction });
+
+        // Si la ODP estaba en EN_ESPERA y ahora tiene ítems de vidrio, avanzar a MEDICION
+        const estadoActualOdp = odp.getDataValue('estado_produccion');
+        if (estadoActualOdp === 'EN_ESPERA' && !data.estado_produccion) {
+          await odp.update({ estado_produccion: 'MEDICION' }, { transaction });
+          await HistorialEstadoODP.create({
+            odp_id: id,
+            estado_anterior: 'EN_ESPERA',
+            estado_nuevo: 'MEDICION',
+            usuario_id: req.user?.id,
+            fecha: new Date(),
+          }, { transaction });
+        }
       }
     }
 
@@ -871,7 +886,7 @@ export const crearGarantia = async (req: Request, res: Response) => {
       tipo_servicio: tipo_servicio || odpPadre.getDataValue('tipo_servicio') || '',
       direccion_instalacion: direccion_instalacion || odpPadre.getDataValue('direccion_instalacion') || '',
       observaciones: observaciones || '',
-      estado_produccion: 'EN_ESPERA',
+      estado_produccion: 'MEDICION',
       estado_facturacion: 'PENDIENTE',
       estado_caja: 'PENDIENTE',
       fecha_creacion: new Date(),

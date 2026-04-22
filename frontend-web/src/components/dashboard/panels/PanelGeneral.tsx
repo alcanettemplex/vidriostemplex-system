@@ -105,9 +105,9 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
 
   const chartData    = data.estadisticas_mensuales || [];
   const cajaDist     = (data.estado_caja_distribucion || []).map((c: any) => ({ name: c.estado, pct: c.pct }));
-  const embudoKeys   = ['creadas', 'en_produccion', 'instaladas', 'entregadas', 'facturadas'];
-  const embudoLabels = ['Creadas', 'En producción', 'Instaladas', 'Entregadas', 'Facturadas'];
-  const embudoColors = ['#6d28d9','#4f46e5','#2563eb','#059669','#047857'];
+  const embudoKeys   = ['creadas', 'en_espera', 'en_produccion', 'instaladas', 'entregadas', 'facturadas'];
+  const embudoLabels = ['Creadas', 'En Espera', 'En producción', 'Instaladas', 'Entregadas', 'Facturadas'];
+  const embudoColors = ['#6d28d9','#f59e0b','#4f46e5','#2563eb','#059669','#047857'];
   const embudoVals   = embudoKeys.map(k => data.embudo_conversion?.[k] || 0);
   const maxEmbudo    = Math.max(...embudoVals, 1);
   const estadosData  = (data.odps_por_estado || []).filter((s: any) => s.cantidad > 0);

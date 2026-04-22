@@ -171,6 +171,7 @@ export const getGeneralData = async (req: Request, res: Response) => {
     const periodWhere = { fecha_creacion: { [Op.between]: [firstDay, lastDay] } };
     const embudo_conversion = {
       creadas:       await ODP.count({ where: { ...periodWhere } }),
+      en_espera:     await ODP.count({ where: { ...periodWhere, estado_produccion: 'EN_ESPERA' } }),
       en_produccion: await ODP.count({ where: { ...periodWhere, estado_produccion: { [Op.notIn]: ['EN_ESPERA', 'ENTREGADA', 'INSTALADA'] } } }),
       instaladas:    await ODP.count({ where: { ...periodWhere, estado_produccion: 'INSTALADA' } }),
       entregadas:    await ODP.count({ where: { ...periodWhere, estado_produccion: 'ENTREGADA' } }),

@@ -243,11 +243,16 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
     const telefono_recibe_final = telefono_recibe || tmPrincipal?.telefono_obra || prospecto.getDataValue('telefono_contacto') || '';
     const direccion_final = direccion_instalacion || tmPrincipal?.direccion || prospecto.getDataValue('direccion') || '';
 
+    // Derivar estado inicial según TMs del prospecto
+    const tmRealizada = tms.some((tm: any) => tm.estado === 'realizada');
+    const tmPendiente = tms.some((tm: any) => ['solicitada', 'programada'].includes(tm.estado));
+    const estadoInicialProspecto = tmRealizada ? 'MEDICION' : tmPendiente ? 'VISITA_TECNICA' : 'EN_ESPERA';
+
     const odp = await ODPModel.create({
       numero_odp,
       cliente_id: cliente_id_final,
       asesor_id: asesor_id_body || userId,
-      estado_produccion: 'EN_ESPERA',
+      estado_produccion: estadoInicialProspecto,
       tipo_servicio,
       descripcion_pedido,
       servicios_detalle: servicios.length > 0 ? servicios : null,

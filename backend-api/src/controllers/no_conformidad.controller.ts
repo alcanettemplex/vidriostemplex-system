@@ -72,7 +72,7 @@ export const createNoConformidad = async (req: Request, res: Response) => {
       numero_odp: nuevoNumeroOdp,
       cliente_id: odp.cliente_id,
       asesor_id: odp.asesor_id,
-      estado_produccion: 'EN_ESPERA',
+      estado_produccion: 'MEDICION',
       estado_facturacion: 'PENDIENTE',
       estado_caja: 'PENDIENTE',
       fecha_entrega: null,
@@ -151,10 +151,9 @@ export const createNoConformidad = async (req: Request, res: Response) => {
     await HistorialEstadoODP.create({
       odp_id: nuevaOdp.id,
       estado_anterior: null,
-      estado_nuevo: 'EN_ESPERA',
+      estado_nuevo: 'MEDICION',
       usuario_id: usuario.id,
       fecha: new Date(),
-      observacion: `ODP de reproceso generada por ${numero_reporte} (Ref: ${odp.numero_odp})`
     });
 
     res.status(201).json({

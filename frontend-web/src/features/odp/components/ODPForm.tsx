@@ -259,7 +259,13 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                 cantidad_total: data.servicios_detalle.reduce((acc, curr) => acc + curr.cantidad, 0),
                 tipo_servicio: data.servicios_detalle[0].tipo_servicio,
                 descripcion_pedido: data.servicios_detalle.map(s => `${s.cantidad}x ${s.tipo_servicio}: ${s.descripcion}`).join('\n'),
-                ...(!odpToEdit && requiere_visita_tecnica ? { estado_produccion: 'VISITA_TECNICA' } : {}),
+                ...(!odpToEdit ? {
+                    estado_produccion: requiere_visita_tecnica
+                        ? 'VISITA_TECNICA'
+                        : itemFields.length > 0
+                            ? 'MEDICION'
+                            : 'EN_ESPERA'
+                } : {}),
                 // Si se asignó a otro asesor desde el modal previo, incluir en el payload
                 ...(asesorId ? { asesor_id: asesorId } : {}),
                 // Tipo de orden (ODP normal o OA sin IVA)
