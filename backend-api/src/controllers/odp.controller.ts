@@ -447,6 +447,9 @@ export const updateODP = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'ODP no encontrada' });
     }
 
+    // Capturar valor ANTES del update — odp.update() muta el modelo en memoria
+    const proveedorAnterior = odp.getDataValue('proveedor_vidrio');
+
     // ─── Verificación de ownership ───────────────────────────────────────────
     // Identificar qué campos se están intentando actualizar realmente (evitando defaults de Zod)
     const camposRecibidos = Object.keys(req.body);
@@ -593,7 +596,8 @@ export const updateODP = async (req: Request, res: Response) => {
     await transaction.commit();
 
     // ─── Auto-crear PedidoPV si proveedor_vidrio se asigna por primera vez en edición ───
-    if (data.proveedor_vidrio && !odp.getDataValue('proveedor_vidrio')) {
+    // Usar proveedorAnterior (capturado antes del update) porque odp.update() muta el modelo en memoria
+    if (data.proveedor_vidrio && !proveedorAnterior) {
       try {
         const existente = await PedidoPV.findOne({ where: { odp_id: odp.getDataValue('id') } });
         if (!existente) {
