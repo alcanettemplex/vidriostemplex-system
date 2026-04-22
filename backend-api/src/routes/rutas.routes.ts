@@ -33,7 +33,7 @@ router.get('/personal', getInstaladores);
 // Instalador: mi asignación del día
 router.get('/mi-asignacion', requireRole('instalador'), getMiAsignacion);
 router.post('/ruta-odp/:id/iniciar', requireRole('instalador'), iniciarInstalacion);
-router.post('/ruta-odp/:id/finalizar', requireRole('instalador', 'produccion', 'jefe_produccion', 'admin'), uploadConfig.single('foto'), finalizarInstalacion);
+router.post('/ruta-odp/:id/finalizar', requireRole('instalador', 'produccion', 'jefe_produccion', 'admin', 'gerencia'), uploadConfig.single('foto'), finalizarInstalacion);
 router.post('/ruta-odp/:id/reportar-dano', requireRole('instalador'), uploadConfig.single('foto_dano'), reportarDano);
 
 // Conductor: su ruta

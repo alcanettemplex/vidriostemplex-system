@@ -9,9 +9,9 @@ const router = Router();
 router.get('/', authMiddleware, getInstalaciones);
 router.get('/:id', authMiddleware, getInstalacion);
 
-// Escritura: solo jefe_produccion (+ admin)
-router.post('/', authMiddleware, requireRole('admin', 'jefe_produccion'), createInstalacion);
-router.put('/:id', authMiddleware, requireRole('admin', 'jefe_produccion'), updateInstalacion);
-router.delete('/:id', authMiddleware, requireRole('admin', 'jefe_produccion'), deleteInstalacion);
+// Escritura: jefe_produccion, admin, gerencia
+router.post('/', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion'), createInstalacion);
+router.put('/:id', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion'), updateInstalacion);
+router.delete('/:id', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion'), deleteInstalacion);
 
 export default router;

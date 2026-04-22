@@ -18,7 +18,7 @@ router.get('/', authMiddleware, getCapturas);
 router.post(
   '/',
   authMiddleware,
-  requireRole('asesor_comercial', 'jefe_produccion', 'admin'),
+  requireRole('asesor_comercial', 'jefe_produccion', 'admin', 'gerencia'),
   uploadCotizacionConfig.single('imagen'),
   createCaptura,
 );

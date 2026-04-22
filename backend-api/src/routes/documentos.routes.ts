@@ -20,16 +20,16 @@ router.get('/cotizacion/odp/:odp_id', authMiddleware, getCotizacionesByODP);
 router.post('/cotizacion', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), createCotizacion);
 router.put('/cotizacion/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), updateCotizacion);
 
-// TM routes — Solo jefe_produccion y admin
-router.get('/tm/panel', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'), getTMPanel);
-router.get('/tm/sin-odp', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial'), getTMsSinODP);
+// TM routes
+router.get('/tm/panel', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'), getTMPanel);
+router.get('/tm/sin-odp', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial'), getTMsSinODP);
 router.get('/tm/odp/:odp_id', authMiddleware, getTMsByODP);
-router.post('/tm', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial'), createTM);
-router.patch('/tm/:id/programar', authMiddleware, requireRole('admin', 'jefe_produccion'), programarTM);
-router.patch('/tm/:id/retornar', authMiddleware, requireRole('admin', 'jefe_produccion'), retornarTM);
-router.patch('/tm/:id/vincular-odp', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial'), vincularTMaODP);
-router.put('/tm/:id', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial', 'gerencia', 'produccion'), updateTM);
-router.delete('/tm/:id', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial', 'gerencia', 'produccion'), deleteTM);
-router.post('/tm/:id/foto', authMiddleware, requireRole('admin', 'jefe_produccion'), uploadConfig.single('foto'), uploadFotoTM);
+router.post('/tm', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial'), createTM);
+router.patch('/tm/:id/programar', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion'), programarTM);
+router.patch('/tm/:id/retornar', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion'), retornarTM);
+router.patch('/tm/:id/vincular-odp', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial'), vincularTMaODP);
+router.put('/tm/:id', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'produccion'), updateTM);
+router.delete('/tm/:id', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'produccion'), deleteTM);
+router.post('/tm/:id/foto', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion'), uploadConfig.single('foto'), uploadFotoTM);
 
 export default router;

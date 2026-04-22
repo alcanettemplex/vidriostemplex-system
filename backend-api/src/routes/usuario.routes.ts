@@ -11,9 +11,9 @@ router.post('/setup', setupAdmin);
 // Listar usuarios: admin, gerencia y asistente pueden ver la lista (necesario para asignar leads en CRM)
 router.get('/', authMiddleware, requireRole('admin', 'gerencia', 'asistente_administrativo', 'root', 'asesor_comercial'), getUsuarios);
 
-// CRUD completo: solo admin
-router.post('/', authMiddleware, requireRole('admin'), createUsuario);
-router.put('/:id', authMiddleware, requireRole('admin'), updateUsuario);
-router.delete('/:id', authMiddleware, requireRole('admin'), deleteUsuario);
+// CRUD completo: admin y gerencia
+router.post('/', authMiddleware, requireRole('admin', 'gerencia'), createUsuario);
+router.put('/:id', authMiddleware, requireRole('admin', 'gerencia'), updateUsuario);
+router.delete('/:id', authMiddleware, requireRole('admin', 'gerencia'), deleteUsuario);
 
 export default router;

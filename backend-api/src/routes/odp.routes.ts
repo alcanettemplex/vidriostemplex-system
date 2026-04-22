@@ -10,17 +10,17 @@ const router = Router();
 router.get('/', authMiddleware, getODPs);
 router.get('/:id', authMiddleware, getODP);
 
-// Creación: asesores, admin, jefe_produccion
-router.post('/', authMiddleware, requireRole('admin', 'asesor_comercial', 'jefe_produccion'), createODP);
+// Creación: asesores, admin, gerencia, jefe_produccion
+router.post('/', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), createODP);
 
-// Actualización: asesores y admin para datos generales; produccion y jefe_produccion para checkboxes de taller
-router.put('/:id', authMiddleware, requireRole('admin', 'asesor_comercial', 'jefe_produccion', 'produccion'), updateODP);
+// Actualización: asesores, admin, gerencia, jefe_produccion, produccion
+router.put('/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion'), updateODP);
 
-// Eliminación: solo el creador (owner check en controller) + admin
-router.delete('/:id', authMiddleware, requireRole('admin', 'asesor_comercial', 'jefe_produccion'), deleteODP);
+// Eliminación: solo el creador (owner check en controller) + admin + gerencia
+router.delete('/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), deleteODP);
 
-// Finalizar instalación: instaladores, admin, producción
-router.post('/:id/instalacion', authMiddleware, requireRole('admin', 'jefe_produccion', 'instalador'), uploadConfig.single('foto'), finalizarInstalacionODP);
+// Finalizar instalación: instaladores, admin, gerencia, producción
+router.post('/:id/instalacion', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'instalador'), uploadConfig.single('foto'), finalizarInstalacionODP);
 
 // Subida de croquis: asesores, admin, gerencia, jefe_produccion
 router.post('/:id/croquis', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), uploadConfig.single('croquis'), uploadCroquisODP);

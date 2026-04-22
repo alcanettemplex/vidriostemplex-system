@@ -13,13 +13,13 @@ const router = Router();
 
 router.use(authMiddleware);
 
-// VER: compras, produccion
-router.get('/', requireRole('admin', 'compras', 'produccion'), getInventario);
-router.get('/stats', requireRole('admin', 'compras', 'produccion'), getInventarioStats);
+// VER: compras, produccion, admin, gerencia
+router.get('/', requireRole('admin', 'gerencia', 'compras', 'produccion'), getInventario);
+router.get('/stats', requireRole('admin', 'gerencia', 'compras', 'produccion'), getInventarioStats);
 
-// CRUD: solo compras (+ admin)
-router.post('/bulk', requireRole('admin', 'compras'), bulkInsertPerfileria);
-router.patch('/:id', requireRole('admin', 'compras'), updateInventarioItem);
-router.delete('/:id', requireRole('admin', 'compras'), deleteInventarioItem);
+// CRUD: compras, admin, gerencia
+router.post('/bulk', requireRole('admin', 'gerencia', 'compras'), bulkInsertPerfileria);
+router.patch('/:id', requireRole('admin', 'gerencia', 'compras'), updateInventarioItem);
+router.delete('/:id', requireRole('admin', 'gerencia', 'compras'), deleteInventarioItem);
 
 export default router;

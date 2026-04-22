@@ -10,9 +10,9 @@ const router = Router();
 router.get('/', authMiddleware, getEvidencias);
 router.get('/:id', authMiddleware, getEvidencia);
 
-// Subida de evidencia: instaladores, producción, admin
-router.post('/', authMiddleware, requireRole('admin', 'jefe_produccion', 'instalador'), uploadConfig.single('foto'), createEvidencia);
-router.put('/:id', authMiddleware, requireRole('admin', 'jefe_produccion', 'instalador'), updateEvidencia);
-router.delete('/:id', authMiddleware, requireRole('admin'), deleteEvidencia);
+// Subida de evidencia: instaladores, producción, admin, gerencia
+router.post('/', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'instalador'), uploadConfig.single('foto'), createEvidencia);
+router.put('/:id', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'instalador'), updateEvidencia);
+router.delete('/:id', authMiddleware, requireRole('admin', 'gerencia'), deleteEvidencia);
 
 export default router;
