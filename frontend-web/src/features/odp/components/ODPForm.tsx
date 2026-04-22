@@ -473,7 +473,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                             className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                                         >
                                             <option value="">Seleccionar...</option>
-                                            <option value="contado">Contado</option>
+                                            <option value="contado">Pago Anticipado</option>
                                             <option value="credito">Crédito</option>
                                             <option value="50_50">50% anticipo / 50% entrega</option>
                                         </select>

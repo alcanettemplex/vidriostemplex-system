@@ -562,7 +562,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                 <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pago</label>
                 <select {...register('forma_pago')} className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500 text-sm">
                   <option value="">Seleccionar...</option>
-                  <option value="contado">Contado</option>
+                  <option value="contado">Pago Anticipado</option>
                   <option value="credito">Crédito</option>
                   <option value="50_50">50% anticipo / 50% entrega</option>
                 </select>
