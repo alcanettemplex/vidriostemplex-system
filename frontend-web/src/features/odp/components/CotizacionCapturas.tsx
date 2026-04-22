@@ -22,7 +22,7 @@ interface Props {
 }
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-const PUEDE_SUBIR = ['asesor_comercial', 'jefe_produccion', 'admin'];
+const PUEDE_SUBIR = ['asesor_comercial', 'jefe_produccion', 'admin', 'gerencia'];
 
 const CotizacionCapturas: React.FC<Props> = ({ odp_id, prospecto_id, numeroCotizacion, onRefresh }) => {
   const user = useSelector((state: RootState) => state.auth.user) as any;
@@ -165,7 +165,7 @@ const CotizacionCapturas: React.FC<Props> = ({ odp_id, prospecto_id, numeroCotiz
     }
   };
 
-  const puedeEditar = (c: Captura) => c.subidor?.id === userId || rol === 'admin';
+  const puedeEditar = (c: Captura) => c.subidor?.id === userId || ['admin', 'gerencia'].includes(rol);
   const puedeEditarNumCot = PUEDE_SUBIR.includes(rol);
 
   return (

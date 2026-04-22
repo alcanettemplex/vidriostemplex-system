@@ -77,7 +77,7 @@ const MENU_ITEMS_CONFIG = [
     text: 'Toma de Medidas',
     icon: Ruler,
     path: '/toma-medidas',
-    allowedRoles: ['admin', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'],
+    allowedRoles: ['admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'],
     section: 'produccion'
   },
   {
@@ -98,7 +98,7 @@ const MENU_ITEMS_CONFIG = [
     text: 'Inventario Perfilería',
     icon: Package,
     path: '/inventario',
-    allowedRoles: ['admin', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras'],
+    allowedRoles: ['admin', 'gerencia', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras'],
     section: 'logistica'
   },
   {
@@ -126,7 +126,7 @@ const MENU_ITEMS_CONFIG = [
     text: 'Usuarios',
     icon: Settings,
     path: '/usuarios',
-    allowedRoles: ['admin'],
+    allowedRoles: ['admin', 'gerencia'],
     section: 'admin'
   },
   {

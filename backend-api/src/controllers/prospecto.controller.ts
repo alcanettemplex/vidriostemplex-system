@@ -140,8 +140,8 @@ export const noAprobarProspecto = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'No se puede archivar un prospecto ya aprobado' });
     }
 
-    // ─── Verificación de ownership (solo creador o admin) ───
-    if (req.user?.rol !== 'admin') {
+    // ─── Verificación de ownership (solo creador, admin o gerencia) ───
+    if (!['admin', 'gerencia'].includes(req.user?.rol ?? '')) {
       if (Number(prospecto.getDataValue('asesor_id')) !== Number(req.user?.id)) {
         return res.status(403).json({ error: 'Solo el creador del prospecto puede archivarlo' });
       }
@@ -184,8 +184,8 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Solo se pueden aprobar prospectos en gestión' });
     }
 
-    // ─── Verificación de ownership (solo creador o admin) ───
-    if (req.user?.rol !== 'admin') {
+    // ─── Verificación de ownership (solo creador, admin o gerencia) ───
+    if (!['admin', 'gerencia'].includes(req.user?.rol ?? '')) {
       if (Number(prospecto.getDataValue('asesor_id')) !== Number(req.user?.id)) {
         await t.rollback();
         return res.status(403).json({ error: 'Solo el creador del prospecto puede aprobarlo' });

@@ -71,7 +71,7 @@ export const updateNota = async (req: Request, res: Response) => {
     if (!captura) return res.status(404).json({ error: 'Captura no encontrada' });
 
     const esCreador = captura.getDataValue('subido_por') === user.id;
-    const esAdmin = user.rol === 'admin';
+    const esAdmin = ['admin', 'gerencia'].includes(user.rol);
     if (!esCreador && !esAdmin) {
       return res.status(403).json({ error: 'Solo el creador o admin puede editar la nota' });
     }
@@ -93,7 +93,7 @@ export const deleteCaptura = async (req: Request, res: Response) => {
     if (!captura) return res.status(404).json({ error: 'Captura no encontrada' });
 
     const esCreador = captura.getDataValue('subido_por') === user.id;
-    const esAdmin = user.rol === 'admin';
+    const esAdmin = ['admin', 'gerencia'].includes(user.rol);
     if (!esCreador && !esAdmin) {
       return res.status(403).json({ error: 'Solo el creador o admin puede eliminar esta captura' });
     }

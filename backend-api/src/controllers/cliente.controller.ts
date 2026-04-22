@@ -76,8 +76,8 @@ export const updateCliente = async (req: Request, res: Response) => {
     const cliente = await Cliente.findByPk(id);
     if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
 
-    // ─── Verificación de ownership (solo creador o admin) ───
-    if (req.user?.rol !== 'admin') {
+    // ─── Verificación de ownership (solo creador, admin o gerencia) ───
+    if (!['admin', 'gerencia'].includes(req.user?.rol ?? '')) {
       if (Number(cliente.getDataValue('creado_por')) !== Number(req.user?.id)) {
         return res.status(403).json({ error: 'Solo el creador del cliente puede editarlo' });
       }
@@ -101,8 +101,8 @@ export const deleteCliente = async (req: Request, res: Response) => {
     const cliente = await Cliente.findByPk(id);
     if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
 
-    // ─── Verificación de ownership (solo creador o admin) ───
-    if (req.user?.rol !== 'admin') {
+    // ─── Verificación de ownership (solo creador, admin o gerencia) ───
+    if (!['admin', 'gerencia'].includes(req.user?.rol ?? '')) {
       if (Number(cliente.getDataValue('creado_por')) !== Number(req.user?.id)) {
         return res.status(403).json({ error: 'Solo el creador del cliente puede eliminarlo' });
       }
