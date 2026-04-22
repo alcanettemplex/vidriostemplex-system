@@ -12,7 +12,7 @@ const ESTADO_LABEL: Record<string, string> = {
 const SERVICIO_COLORS = ['#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6','#64748b','#06b6d4'];
 
 // Renombres y fusiones para el dashboard (sin tocar la BD)
-const SERVICIO_LABEL: Record<string, string> = { 'venta/suministro': 'Venta a la mano' };
+const SERVICIO_LABEL: Record<string, string> = { 'venta/suministro': 'Venta en la mano' };
 const MERGE_INTO_MANTENIMIENTO = new Set(['otro', 'otros']);
 
 function processServicios(raw: any[]) {
