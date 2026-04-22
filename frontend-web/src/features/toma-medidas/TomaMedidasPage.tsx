@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Ruler, Clock, CalendarCheck, CheckCircle2, MapPin, User,
   RefreshCw, AlertTriangle, Phone, Package, FileText,
-  UserPlus, X, Calendar, Search, RotateCcw
+  UserPlus, X, Calendar, Search, RotateCcw, Pencil, Trash2
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import TMModal from '../odp/components/TMModal';
@@ -172,6 +172,155 @@ const ProgramarModal: React.FC<{
   );
 };
 
+// ─── Modal para editar datos de una TM ───────────────────────────────────────
+
+const EditarTMModal: React.FC<{
+  tm: TMItem;
+  onClose: () => void;
+  onGuardado: () => void;
+}> = ({ tm, onClose, onGuardado }) => {
+  const [form, setForm] = useState({
+    nombre_contacto: tm.nombre_contacto || '',
+    telefono_contacto: tm.telefono_contacto || '',
+    contacto_obra: tm.contacto_obra || '',
+    telefono_obra: tm.telefono_obra || '',
+    direccion: tm.direccion || '',
+    observaciones: tm.observaciones || '',
+    fecha_visita: tm.fecha_visita || '',
+  });
+  const [loading, setLoading] = useState(false);
+  const token = sessionStorage.getItem('token');
+
+  const set = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+
+  const handleGuardar = async () => {
+    setLoading(true);
+    try {
+      await axios.put(`${API}/api/documentos/tm/${tm.id}`, form, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success('TM actualizada correctamente');
+      onGuardado();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Error al actualizar TM');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 p-6 max-h-[90vh] overflow-y-auto"
+      >
+        <div className="flex justify-between items-center mb-5">
+          <div>
+            <h3 className="font-bold text-slate-800">Editar Toma de Medidas</h3>
+            <p className="text-xs text-slate-500 mt-0.5">{tm.numero_tm}</p>
+          </div>
+          <button onClick={onClose}><X className="w-5 h-5 text-slate-400" /></button>
+        </div>
+
+        <div className="space-y-4">
+          {tm.estado === 'programada' && (
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                Fecha de visita
+              </label>
+              <input
+                type="date"
+                value={form.fecha_visita}
+                onChange={e => set('fecha_visita', e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Contacto</label>
+              <input
+                type="text"
+                value={form.nombre_contacto}
+                onChange={e => set('nombre_contacto', e.target.value)}
+                placeholder="Nombre contacto"
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Tel. contacto</label>
+              <input
+                type="text"
+                value={form.telefono_contacto}
+                onChange={e => set('telefono_contacto', e.target.value)}
+                placeholder="Teléfono"
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Contacto obra</label>
+              <input
+                type="text"
+                value={form.contacto_obra}
+                onChange={e => set('contacto_obra', e.target.value)}
+                placeholder="Nombre en obra"
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Tel. obra</label>
+              <input
+                type="text"
+                value={form.telefono_obra}
+                onChange={e => set('telefono_obra', e.target.value)}
+                placeholder="Teléfono obra"
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Dirección</label>
+            <input
+              type="text"
+              value={form.direccion}
+              onChange={e => set('direccion', e.target.value)}
+              placeholder="Dirección de la visita"
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Observaciones</label>
+            <textarea
+              value={form.observaciones}
+              onChange={e => set('observaciones', e.target.value)}
+              rows={3}
+              placeholder="Observaciones adicionales"
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose} className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm">
+            Cancelar
+          </button>
+          <button onClick={handleGuardar} disabled={loading}
+            className="flex-1 py-2.5 font-bold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition disabled:opacity-40 text-sm">
+            {loading ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 // ─── Card TM (para solicitadas y programadas) ─────────────────────────────────
 
 const CardTM: React.FC<{
@@ -179,7 +328,9 @@ const CardTM: React.FC<{
   onProgramar?: (tm: TMItem) => void;
   onOpenTM?: (tm: TMItem) => void;
   onRetornar?: (tm: TMItem) => void;
-}> = ({ tm, onProgramar, onOpenTM, onRetornar }) => {
+  onEdit?: (tm: TMItem) => void;
+  onDelete?: (tm: TMItem) => void;
+}> = ({ tm, onProgramar, onOpenTM, onRetornar, onEdit, onDelete }) => {
   const esProspecto = !!tm.prospecto;
   const contacto = esProspecto
     ? tm.prospecto!.cliente?.nombre_razon_social || tm.prospecto!.nombre_contacto || '—'
@@ -315,6 +466,24 @@ const CardTM: React.FC<{
               <Ruler className="w-3.5 h-3.5" /> Abrir TM
             </button>
           )}
+          {(tm.estado === 'solicitada' || tm.estado === 'programada') && onEdit && (
+            <button
+              onClick={() => onEdit(tm)}
+              title="Editar TM"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200 transition shadow-sm whitespace-nowrap"
+            >
+              <Pencil className="w-3.5 h-3.5" /> Editar
+            </button>
+          )}
+          {(tm.estado === 'solicitada' || tm.estado === 'programada') && onDelete && (
+            <button
+              onClick={() => onDelete(tm)}
+              title="Eliminar TM"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-600 text-xs font-bold rounded-lg hover:bg-rose-100 transition shadow-sm whitespace-nowrap"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Eliminar
+            </button>
+          )}
         </div>
       </div>
     </motion.div>
@@ -418,6 +587,7 @@ const Panel: React.FC<{
 const TomaMedidasPage: React.FC = () => {
   const authUser = useSelector((state: any) => state.auth?.user);
   const isReadOnly = authUser?.rol === 'asistente_administrativo';
+  const canEditDelete = ['admin', 'asesor_comercial', 'gerencia', 'produccion', 'jefe_produccion'].includes(authUser?.rol);
 
   const [data, setData] = useState<PanelData>({
     solicitadas: [], odpsSinTM: [], programadas: [], realizadas: [],
@@ -425,6 +595,7 @@ const TomaMedidasPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [tmModal, setTmModal] = useState<any | null>(null); // ODP-shape para TMModal legacy
   const [programandoTM, setProgramandoTM] = useState<TMItem | null>(null);
+  const [editandoTM, setEditandoTM] = useState<TMItem | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [showNuevoProspecto, setShowNuevoProspecto] = useState(false);
   const [creandoTMParaProspecto, setCreandoTMParaProspecto] = useState(false);
@@ -462,6 +633,19 @@ const TomaMedidasPage: React.FC = () => {
       fetchPanel();
     } catch (e: any) {
       toast.error(e.response?.data?.error || 'Error al retornar la TM');
+    }
+  };
+
+  const handleEliminarTM = async (tm: TMItem) => {
+    if (!window.confirm(`¿Eliminar "${tm.numero_tm}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      await axios.delete(`${API}/api/documentos/tm/${tm.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success('TM eliminada correctamente');
+      fetchPanel();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Error al eliminar la TM');
     }
   };
 
@@ -663,6 +847,8 @@ const TomaMedidasPage: React.FC = () => {
               tm={tm}
               onProgramar={isReadOnly ? undefined : setProgramandoTM}
               onOpenTM={isReadOnly ? undefined : abrirTMModal}
+              onEdit={canEditDelete ? setEditandoTM : undefined}
+              onDelete={canEditDelete ? handleEliminarTM : undefined}
             />
           ))}
           {/* ODPs en VISITA_TECNICA sin TM registrada */}
@@ -689,6 +875,8 @@ const TomaMedidasPage: React.FC = () => {
               tm={tm}
               onOpenTM={isReadOnly ? undefined : abrirTMModal}
               onRetornar={isReadOnly ? undefined : handleRetornarTM}
+              onEdit={canEditDelete ? setEditandoTM : undefined}
+              onDelete={canEditDelete ? handleEliminarTM : undefined}
             />
           ))}
         </Panel>
@@ -721,6 +909,17 @@ const TomaMedidasPage: React.FC = () => {
             tm={programandoTM}
             onClose={() => setProgramandoTM(null)}
             onProgramado={() => { setProgramandoTM(null); fetchPanel(); }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Modal editar TM */}
+      <AnimatePresence>
+        {editandoTM && (
+          <EditarTMModal
+            tm={editandoTM}
+            onClose={() => setEditandoTM(null)}
+            onGuardado={() => { setEditandoTM(null); fetchPanel(); }}
           />
         )}
       </AnimatePresence>

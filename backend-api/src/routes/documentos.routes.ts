@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getSAPsByODP, createSAP, updateSAP, deleteSAP, buscarCatalogo } from '../controllers/sap.controller';
 import { getCotizacionesByODP, createCotizacion, updateCotizacion } from '../controllers/cotizacion.controller';
-import { getTMsByODP, getTMPanel, createTM, programarTM, updateTM, uploadFotoTM, retornarTM, getTMsSinODP, vincularTMaODP } from '../controllers/toma_medidas.controller';
+import { getTMsByODP, getTMPanel, createTM, programarTM, updateTM, deleteTM, uploadFotoTM, retornarTM, getTMsSinODP, vincularTMaODP } from '../controllers/toma_medidas.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { uploadConfig } from '../config/upload';
@@ -28,7 +28,8 @@ router.post('/tm', authMiddleware, requireRole('admin', 'jefe_produccion', 'ases
 router.patch('/tm/:id/programar', authMiddleware, requireRole('admin', 'jefe_produccion'), programarTM);
 router.patch('/tm/:id/retornar', authMiddleware, requireRole('admin', 'jefe_produccion'), retornarTM);
 router.patch('/tm/:id/vincular-odp', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial'), vincularTMaODP);
-router.put('/tm/:id', authMiddleware, requireRole('admin', 'jefe_produccion'), updateTM);
+router.put('/tm/:id', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial', 'gerencia', 'produccion'), updateTM);
+router.delete('/tm/:id', authMiddleware, requireRole('admin', 'jefe_produccion', 'asesor_comercial', 'gerencia', 'produccion'), deleteTM);
 router.post('/tm/:id/foto', authMiddleware, requireRole('admin', 'jefe_produccion'), uploadConfig.single('foto'), uploadFotoTM);
 
 export default router;

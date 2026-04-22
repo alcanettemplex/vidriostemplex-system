@@ -174,13 +174,47 @@ export const getTMPanel = async (_req: Request, res: Response) => {
 export const updateTM = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { observaciones, medidas_json, croquis_url } = req.body;
+    const {
+      observaciones, medidas_json, croquis_url,
+      nombre_contacto, telefono_contacto, contacto_obra, telefono_obra,
+      direccion, fecha_visita,
+    } = req.body;
     const tm = await TomaMedidas.findByPk(id);
     if (!tm) return res.status(404).json({ error: 'TM no encontrada' });
-    await tm.update({ observaciones, medidas_json, croquis_url });
+
+    const estado = tm.getDataValue('estado');
+    if (!['solicitada', 'programada'].includes(estado)) {
+      return res.status(400).json({ error: 'Solo se pueden editar TMs en estado solicitada o programada' });
+    }
+
+    const campos: Record<string, any> = {
+      observaciones, medidas_json, croquis_url,
+      nombre_contacto, telefono_contacto, contacto_obra, telefono_obra, direccion,
+    };
+    if (fecha_visita !== undefined) campos.fecha_visita = fecha_visita || null;
+
+    await tm.update(campos);
     res.json(tm);
   } catch {
     res.status(500).json({ error: 'Error al actualizar TM' });
+  }
+};
+
+export const deleteTM = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const tm = await TomaMedidas.findByPk(id);
+    if (!tm) return res.status(404).json({ error: 'TM no encontrada' });
+
+    const estado = tm.getDataValue('estado');
+    if (!['solicitada', 'programada'].includes(estado)) {
+      return res.status(400).json({ error: 'Solo se pueden eliminar TMs en estado solicitada o programada' });
+    }
+
+    await tm.destroy();
+    res.json({ message: 'TM eliminada correctamente' });
+  } catch {
+    res.status(500).json({ error: 'Error al eliminar TM' });
   }
 };
 
