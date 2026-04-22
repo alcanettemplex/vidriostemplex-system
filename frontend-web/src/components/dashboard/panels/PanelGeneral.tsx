@@ -105,11 +105,12 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
 
   const chartData    = data.estadisticas_mensuales || [];
   const cajaDist     = (data.estado_caja_distribucion || []).map((c: any) => ({ name: c.estado, pct: c.pct }));
-  const embudoKeys   = ['creadas', 'en_espera', 'en_produccion', 'listas_con_pago', 'listas_sin_pago', 'instaladas', 'entregadas'];
-  const embudoLabels = ['Creadas', 'En Espera', 'En producción', '↳ Listas (con pago)', '↳ Listas (falta pago)', 'Instaladas', 'Entregadas'];
-  const embudoColors = ['#6d28d9','#f59e0b','#4f46e5','#22c55e','#f97316','#2563eb','#059669'];
-  const embudoSub    = [false, false, false, true, true, false, false];
-  const embudoVals   = embudoKeys.map(k => data.embudo_conversion?.[k] || 0);
+  const embudoKeys   = ['creadas', 'en_espera', 'en_produccion', 'listas_con_pago', 'listas_sin_pago', 'completadas'];
+  const embudoLabels = ['Creadas', 'En Espera', 'En producción', '↳ Listas (con pago)', '↳ Listas (falta pago)', 'Completadas'];
+  const embudoColors = ['#6d28d9','#f59e0b','#4f46e5','#22c55e','#f97316','#059669'];
+  const embudoSub    = [false, false, false, true, true, false];
+  const completadas  = (data.embudo_conversion?.instaladas || 0) + (data.embudo_conversion?.entregadas || 0);
+  const embudoVals   = [...embudoKeys.slice(0, 5).map(k => data.embudo_conversion?.[k] || 0), completadas];
   const maxEmbudo    = Math.max(...embudoVals, 1);
   const estadosData  = (data.odps_por_estado || []).filter((s: any) => s.cantidad > 0);
   const totalEstados = estadosData.reduce((acc: number, s: any) => acc + s.cantidad, 0);
@@ -148,12 +149,12 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
           className="bg-white border border-slate-200 rounded-2xl p-5 relative overflow-hidden"
           whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(99,102,241,0.12)' }}>
           <div className="flex justify-between items-start">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Facturado Periodo</p>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Monto de Pedidos Ingresados</p>
             <Link to="/configuracion" className="text-slate-300 hover:text-indigo-500 transition-colors shrink-0">
               <Settings className="w-3.5 h-3.5" />
             </Link>
           </div>
-          <p className="text-[9px] text-slate-400 leading-tight mb-2">Valor total contratado en ODPs del período, incluye IVA</p>
+          <p className="text-[9px] text-slate-400 leading-tight mb-2">Suma del valor total de todas las ODPs ingresadas en el período, incluye IVA</p>
           <p className="text-[34px] font-semibold text-slate-800 leading-none tabular-nums">{fmtM(facturadoMes)}</p>
           <div className="mt-2.5 mb-2 border-t border-slate-100 pt-2 space-y-1">
             <div className="flex justify-between text-[11px]">
