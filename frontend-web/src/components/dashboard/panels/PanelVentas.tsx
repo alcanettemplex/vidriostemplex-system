@@ -116,6 +116,19 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
   const totalFacturado = data.total_facturado_mes || 0;
   const meta           = data.meta_facturacion_actual || 120_000_000;
   const asesores       = (data.meta_vs_real_asesores || []).slice().sort((a: any, b: any) => b.real - a.real);
+
+  const IVA_RATE = 0.19;
+  const ivaOf    = (n: number) => n - n / (1 + IVA_RATE);
+  const baseOf   = (n: number) => n / (1 + IVA_RATE);
+
+  // Helper: columna con desglose IVA apilado
+  const MontoCol = ({ n, colorCls = 'text-slate-700' }: { n: number; colorCls?: string }) => (
+    <div className="w-20 text-right shrink-0">
+      <p className={`text-[11px] font-semibold tabular-nums ${colorCls}`}>{fmtM(n)}</p>
+      <p className="text-[9px] text-slate-400 tabular-nums">{fmtM(baseOf(n))}</p>
+      <p className="text-[9px] text-indigo-400 tabular-nums">IVA {fmtM(ivaOf(n))}</p>
+    </div>
+  );
   const cartera        = data.cartera_vencida_detalle || [];
   const carteraCritica = data.cartera_por_antiguedad?.find((c: any) => c.rango === '>60 días')?.total || 0;
 
@@ -129,32 +142,52 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         <motion.div custom={0} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 flex flex-col items-center gap-3">
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest self-start">Meta mensual de facturación</p>
+          <p className="text-[9px] text-slate-400 leading-tight self-start">Avance del período sobre la meta total de todos los asesores</p>
           <GaugeMeta real={totalFacturado} meta={meta} />
           <div className="grid grid-cols-2 gap-2 w-full">
             {[
-              { label: 'Recaudado',    value: fmtM(data.total_abonado || 0),    color: 'text-emerald-600' },
-              { label: 'Pendiente',    value: fmtM(data.total_pendiente || 0),  color: 'text-rose-500' },
-              { label: 'Ticket prom.', value: fmtM(data.ticket_promedio || 0),  color: 'text-slate-800' },
-              { label: 'Sin facturar', value: `${data.odps_sin_facturar || 0} ODPs`, color: (data.odps_sin_facturar || 0) > 5 ? 'text-amber-500' : 'text-slate-800' },
+              { label: 'Recaudado',    desc: 'Abonos cobrados',       raw: data.total_abonado   || 0, color: 'text-emerald-600', ivaColor: 'text-emerald-400' },
+              { label: 'Pendiente',    desc: 'Por cobrar',            raw: data.total_pendiente || 0, color: 'text-rose-500',    ivaColor: 'text-rose-400' },
+              { label: 'Ticket prom.', desc: 'Valor promedio por ODP', raw: data.ticket_promedio || 0, color: 'text-slate-800',   ivaColor: 'text-indigo-400' },
             ].map((item, i) => (
               <div key={i} className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
-                <p className="text-[9px] text-slate-400 uppercase tracking-wider mb-1">{item.label}</p>
-                <p className={`text-[13px] font-semibold tabular-nums ${item.color}`}>{item.value}</p>
+                <p className="text-[9px] text-slate-400 uppercase tracking-wider">{item.label}</p>
+                <p className="text-[8px] text-slate-300 mb-1">{item.desc}</p>
+                <p className={`text-[13px] font-semibold tabular-nums ${item.color}`}>{fmtM(item.raw)}</p>
+                <p className="text-[9px] text-slate-400 tabular-nums mt-0.5">{fmtM(baseOf(item.raw))}</p>
+                <p className={`text-[9px] tabular-nums ${item.ivaColor}`}>IVA {fmtM(ivaOf(item.raw))}</p>
               </div>
             ))}
+            <div className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
+              <p className="text-[9px] text-slate-400 uppercase tracking-wider">Sin facturar</p>
+              <p className="text-[8px] text-slate-300 mb-1">ODPs sin número de factura</p>
+              <p className={`text-[13px] font-semibold tabular-nums ${(data.odps_sin_facturar || 0) > 5 ? 'text-amber-500' : 'text-slate-800'}`}>
+                {data.odps_sin_facturar || 0} ODPs
+              </p>
+            </div>
           </div>
         </motion.div>
 
         {/* Ranking asesores */}
         <motion.div custom={1} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 flex flex-col">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Ranking — meta vs real por asesor</p>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Ranking — meta vs real por asesor</p>
+          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-3">Facturado y recaudado del período vs la meta asignada a cada asesor</p>
           {/* Header cols */}
           <div className="flex items-center gap-2 mb-2 px-1">
             <div className="flex-1" />
-            <span className="text-[9px] text-slate-400 uppercase tracking-wider w-16 text-right">Meta</span>
-            <span className="text-[9px] text-slate-400 uppercase tracking-wider w-16 text-right">Facturado</span>
-            <span className="text-[9px] text-slate-400 uppercase tracking-wider w-16 text-right">Recaudado</span>
+            <div className="w-20 text-right">
+              <p className="text-[9px] text-slate-400 uppercase tracking-wider">Meta</p>
+              <p className="text-[8px] text-slate-300">Base / IVA</p>
+            </div>
+            <div className="w-20 text-right">
+              <p className="text-[9px] text-slate-400 uppercase tracking-wider">Facturado</p>
+              <p className="text-[8px] text-slate-300">Base / IVA</p>
+            </div>
+            <div className="w-20 text-right">
+              <p className="text-[9px] text-slate-400 uppercase tracking-wider">Recaudado</p>
+              <p className="text-[8px] text-slate-300">Base / IVA</p>
+            </div>
             <span className="text-[9px] text-slate-400 uppercase tracking-wider w-9 text-right">%</span>
           </div>
           {asesores.length === 0 ? (
@@ -184,9 +217,9 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${badge.cls}`}>{badge.label}</span>
                         </div>
                       </div>
-                      <span className="text-[11px] text-slate-500 tabular-nums w-16 text-right">{fmtM(as.meta)}</span>
-                      <span className="text-[11px] font-semibold text-slate-700 tabular-nums w-16 text-right">{fmtM(as.real)}</span>
-                      <span className="text-[11px] font-semibold text-emerald-600 tabular-nums w-16 text-right">{fmtM(as.recaudado)}</span>
+                      <MontoCol n={as.meta}      colorCls="text-slate-500" />
+                      <MontoCol n={as.real}      colorCls="text-slate-700" />
+                      <MontoCol n={as.recaudado} colorCls="text-emerald-600" />
                       <span className="text-[12px] font-bold tabular-nums w-9 text-right" style={{ color }}>{pctLabel}%</span>
                     </div>
                     {/* Barra facturado */}
@@ -224,9 +257,10 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <motion.div custom={2} variants={cardVar} initial="hidden" animate="visible"
           className={`rounded-2xl p-4 border ${carteraCritica > 0 ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'}`}>
-          <p className={`text-[10px] font-semibold uppercase tracking-widest mb-2 ${carteraCritica > 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+          <p className={`text-[10px] font-semibold uppercase tracking-widest ${carteraCritica > 0 ? 'text-rose-500' : 'text-slate-400'}`}>
             Cartera Crítica &gt;60 días
           </p>
+          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Saldo de créditos vencidos sin pago a más de 60 días</p>
           <p className={`text-[22px] font-semibold tabular-nums ${carteraCritica > 0 ? 'text-rose-500' : 'text-slate-400'}`}>
             {carteraCritica > 0 ? fmtM(carteraCritica) : 'Sin cartera crítica'}
           </p>
@@ -234,9 +268,10 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
 
         <motion.div custom={3} variants={cardVar} initial="hidden" animate="visible"
           className={`rounded-2xl p-4 border ${(data.odps_atrasadas || 0) > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
-          <p className={`text-[10px] font-semibold uppercase tracking-widest mb-2 ${(data.odps_atrasadas || 0) > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+          <p className={`text-[10px] font-semibold uppercase tracking-widest ${(data.odps_atrasadas || 0) > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
             ODPs Vencidas sin Entregar
           </p>
+          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Fecha de entrega pasada que aún no han llegado a Instalada</p>
           <p className={`text-[22px] font-semibold tabular-nums ${(data.odps_atrasadas || 0) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
             {(data.odps_atrasadas || 0) > 0 ? `${data.odps_atrasadas} ODPs` : 'Sin atrasos'}
           </p>
@@ -244,7 +279,8 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
 
         <motion.div custom={4} variants={cardVar} initial="hidden" animate="visible"
           className="bg-white border border-slate-200 rounded-2xl p-4">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Top Cliente</p>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Top Cliente</p>
+          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Cliente con mayor facturación acumulada en el período</p>
           {data.top_clientes?.[0] ? (
             <>
               <p className="text-[14px] font-semibold text-slate-800 truncate">{data.top_clientes[0].nombre}</p>
@@ -259,6 +295,7 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         className="bg-white border border-slate-200 rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Alertas de Cartera</p>
+          <p className="text-[9px] text-slate-400 leading-tight mt-0.5">Clientes con créditos vencidos, ordenados por antigüedad del saldo</p>
           <div className="flex gap-3">
             {(data.cartera_por_antiguedad || []).map((cpa: any, i: number) => (
               <div key={i} className="flex items-center gap-1.5 text-[10px]">

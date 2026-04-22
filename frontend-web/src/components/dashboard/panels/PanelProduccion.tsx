@@ -1,8 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-const fmtD = (n: number) => `${Number(n).toFixed(1)}d`;
-
 const ESTADO_LABEL: Record<string, string> = {
   EN_ESPERA: 'En Espera', VISITA_TECNICA: 'Visita', MEDICION: 'Medición',
   PEDIDO_PROVEEDOR: 'Pedido Prov.', ALUMINIO_CORTADO: 'Al. Cortado',
@@ -13,6 +11,27 @@ const ESTADO_LABEL: Record<string, string> = {
 
 const SERVICIO_COLORS = ['#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6','#64748b','#06b6d4'];
 
+// Renombres y fusiones para el dashboard (sin tocar la BD)
+const SERVICIO_LABEL: Record<string, string> = { 'venta/suministro': 'Venta a la mano' };
+const MERGE_INTO_MANTENIMIENTO = new Set(['otro', 'otros']);
+
+function processServicios(raw: any[]) {
+  const merged: Record<string, number> = {};
+  raw.forEach(s => {
+    const key    = (s.tipo_servicio || 'otros').toLowerCase().trim();
+    const target = MERGE_INTO_MANTENIMIENTO.has(key) ? 'mantenimiento' : key;
+    merged[target] = (merged[target] || 0) + Number(s.cantidad);
+  });
+  const total = Object.values(merged).reduce((a, b) => a + b, 0);
+  return Object.entries(merged)
+    .map(([key, cantidad]) => ({
+      label:    SERVICIO_LABEL[key] || (key.charAt(0).toUpperCase() + key.slice(1)),
+      cantidad,
+      pct:      total > 0 ? Math.round((cantidad / total) * 100) : 0,
+    }))
+    .sort((a, b) => b.cantidad - a.cantidad);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const cardVar: any = {
   hidden: { opacity: 0, y: 16 },
@@ -20,17 +39,18 @@ const cardVar: any = {
 };
 
 // ─── Chip KPI ─────────────────────────────────────────────────────────────────
-const Chip: React.FC<{ label: string; value: string | number; accent?: boolean; pulse?: boolean; index: number }> =
-  ({ label, value, accent, pulse, index }) => (
+const Chip: React.FC<{ label: string; value: string | number; desc: string; accent?: boolean; pulse?: boolean; index: number }> =
+  ({ label, value, desc, accent, pulse, index }) => (
     <motion.div custom={index} variants={cardVar} initial="hidden" animate="visible"
-      className={`rounded-2xl p-4 border ${accent
+      className={`rounded-2xl p-4 border flex flex-col justify-between ${accent
         ? 'bg-rose-50 border-rose-200'
         : 'bg-white border-slate-200'}`}>
-      <p className="text-[10px] font-semibold uppercase tracking-widest mb-1.5 text-slate-400">{label}</p>
-      <div className="flex items-center gap-2">
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{label}</p>
+      <div className="flex items-center gap-2 my-1">
         {pulse && <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" /></span>}
-        <p className={`text-[26px] font-semibold leading-none tabular-nums ${accent ? 'text-rose-600' : 'text-slate-800'}`}>{value}</p>
+        <p className={`text-[24px] font-semibold leading-none tabular-nums ${accent ? 'text-rose-600' : 'text-slate-800'}`}>{value}</p>
       </div>
+      <p className="text-[9px] text-slate-400 leading-tight">{desc}</p>
     </motion.div>
   );
 
@@ -41,7 +61,7 @@ export const PanelProduccion: React.FC<{ data: any; isLoading: boolean; onViewOd
       return (
         <div className="space-y-3 animate-pulse">
           <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
-            {[0,1,2,3,4,5].map(i => <div key={i} className="h-20 rounded-2xl bg-slate-200" />)}
+            {[0,1,2,3,4,5].map(i => <div key={i} className="h-24 rounded-2xl bg-slate-200" />)}
           </div>
           <div className="grid grid-cols-12 gap-3">
             <div className="col-span-12 lg:col-span-8 h-72 rounded-2xl bg-slate-200" />
@@ -54,13 +74,9 @@ export const PanelProduccion: React.FC<{ data: any; isLoading: boolean; onViewOd
 
     if (!data) return <div className="p-10 text-center text-slate-400 text-sm">Sin datos disponibles</div>;
 
-    const etapas    = (data.tiempo_por_etapa || []).filter((e: any) => Number(e.dias_promedio) > 0);
-    const maxDias   = Math.max(...etapas.map((e: any) => Number(e.dias_promedio)), 1);
-    const bottleneck = etapas.reduce(
-      (prev: any, curr: any) => Number(curr.dias_promedio) > Number(prev?.dias_promedio || 0) ? curr : prev,
-      null
-    );
-    const servicios = data.servicios_distribucion || [];
+    const checks   = (data.checks_progreso || []).slice().sort((a: any, b: any) => a.pct - b.pct);
+    const servicios = processServicios(data.servicios_distribucion || []);
+    const totalServicios = servicios.reduce((a: number, s: any) => a + s.cantidad, 0);
 
     const isAlert = (data.odps_vencen_esta_semana || 0) > 5;
 
@@ -69,70 +85,60 @@ export const PanelProduccion: React.FC<{ data: any; isLoading: boolean; onViewOd
 
         {/* ── ROW 1: 6 KPI chips ─────────────────────────────────────── */}
         <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
-          <Chip index={0} label="En Taller" value={data.odps_en_taller ?? 0} />
-          <Chip index={1} label="Vencen Semana" value={data.odps_vencen_esta_semana ?? 0} accent={isAlert} pulse={isAlert} />
-          <Chip index={2} label="Ciclo Promedio" value={fmtD(data.tiempo_ciclo_promedio_dias ?? 0)} />
-          <Chip index={3} label="Listas s/Prog." value={data.odps_listas_sin_programar ?? 0} />
-          <Chip index={4} label="Pausadas" value={data.odps_pausadas ?? 0} accent={(data.odps_pausadas || 0) > 0} />
-          <Chip index={5} label="NC Abiertas" value={data.no_conformidades_abiertas ?? 0} accent={(data.no_conformidades_abiertas || 0) > 0} />
+          <Chip index={0} label="En Taller" value={data.odps_en_taller ?? 0}
+            desc="ODPs en fabricación actualmente" />
+          <Chip index={1} label="Vencen esta semana" value={data.odps_vencen_esta_semana ?? 0}
+            desc="Fecha de entrega en los próximos 7 días" accent={isAlert} pulse={isAlert} />
+          <Chip index={2} label="Ciclo Promedio" value={`${Math.round(data.tiempo_ciclo_promedio_dias ?? 0)} días`}
+            desc="Promedio creación → entrega en el período" />
+          <Chip index={3} label="Listas s/Prog." value={data.odps_listas_sin_programar ?? 0}
+            desc="Listas para instalar sin ruta asignada" />
+          <Chip index={4} label="Pausadas" value={data.odps_pausadas ?? 0}
+            desc="Producción detenida temporalmente" accent={(data.odps_pausadas || 0) > 0} />
+          <Chip index={5} label="NC Abiertas" value={data.no_conformidades_abiertas ?? 0}
+            desc="No conformidades sin resolver" accent={(data.no_conformidades_abiertas || 0) > 0} />
         </div>
 
-        {/* ── ROW 2: Bottleneck chart + Servicios ─────────────────────── */}
+        {/* ── ROW 2: Avance checks + Servicios ───────────────────────── */}
         <div className="grid grid-cols-12 gap-3">
 
-          {/* Barras horizontales por etapa */}
+          {/* Avance de checks de producción */}
           <motion.div custom={6} variants={cardVar} initial="hidden" animate="visible"
             className="col-span-12 lg:col-span-8 bg-white border border-slate-200 rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Tiempo Promedio por Etapa</p>
-              {bottleneck && (
-                <div className="flex items-center gap-1.5 text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-full">
-                  <motion.span animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>⚠</motion.span>
-                  Cuello de botella: {String(bottleneck.etapa).replace(/_/g, ' ')} ({fmtD(bottleneck.dias_promedio)})
-                </div>
-              )}
+            <div className="mb-3">
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Avance de Checks de Producción</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Cuántas de las <span className="font-semibold text-slate-600">{checks[0]?.total ?? 0} ODPs activas</span> completaron cada etapa de taller — ordenadas de menor a mayor avance
+              </p>
             </div>
-            <div className="space-y-3">
-              {etapas
-                .slice()
-                .sort((a: any, b: any) => Number(b.dias_promedio) - Number(a.dias_promedio))
-                .map((e: any, i: number) => {
-                  const dias    = Number(e.dias_promedio);
-                  const wPct    = Math.max((dias / maxDias) * 100, 3);
-                  const isBot   = bottleneck && e.etapa === bottleneck.etapa;
-                  const barColor = isBot ? '#ef4444' : dias > (data.meta_ciclo_dias / 2) ? '#f59e0b' : '#4f46e5';
-                  return (
-                    <div key={e.etapa} className="flex items-center gap-3 text-[11px]">
-                      <span className="w-[130px] shrink-0 text-slate-500 truncate">{ESTADO_LABEL[e.etapa] || String(e.etapa).replace(/_/g, ' ')}</span>
-                      <div className="flex-1 relative h-7 bg-slate-50 rounded-lg overflow-hidden">
-                        <motion.div className="absolute inset-y-0 left-0 rounded-lg flex items-center px-2.5"
-                          style={{ background: barColor + '22', border: `1px solid ${barColor}33` }}
-                          initial={{ width: 0 }}
-                          animate={{ width: `${wPct}%` }}
-                          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.1 + i * 0.07 }}>
-                          <motion.div className="absolute inset-y-1 left-1 rounded"
-                            style={{ background: barColor, right: 'auto' }}
-                            initial={{ width: 0 }}
-                            animate={{ width: `${wPct * 0.6}%` }}
-                            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.15 + i * 0.07 }} />
-                        </motion.div>
-                        <div className="absolute inset-0 flex items-center">
-                          <motion.div
-                            className="h-5 rounded-md flex items-center px-3 text-white text-[11px] font-bold"
-                            style={{ background: barColor }}
-                            initial={{ width: 0, opacity: 0 }}
-                            animate={{ width: `${wPct}%`, opacity: 1 }}
-                            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.1 + i * 0.07 }}>
-                            {dias > 0.5 ? fmtD(dias) : ''}
-                          </motion.div>
-                        </div>
-                      </div>
-                      <span className="text-slate-400 font-semibold w-10 text-right shrink-0 tabular-nums">{fmtD(dias)}</span>
+            <div className="space-y-2.5">
+              {checks.map((c: any, i: number) => {
+                const color = c.pct >= 67 ? '#10b981' : c.pct >= 34 ? '#f59e0b' : '#ef4444';
+                const wPct  = Math.max(c.pct, c.total > 0 ? 1.5 : 0);
+                return (
+                  <div key={c.campo} className="flex items-center gap-3 text-[11px]">
+                    <span className="w-[118px] shrink-0 text-slate-600 truncate">{c.label}</span>
+                    <div className="flex-1 h-5 bg-slate-50 rounded-lg overflow-hidden relative">
+                      <motion.div className="absolute inset-y-0 left-0 rounded-lg"
+                        style={{ background: color + '33' }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${wPct}%` }}
+                        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.05 + i * 0.06 }} />
+                      <motion.div className="absolute inset-y-1 left-1 rounded"
+                        style={{ background: color }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.max(wPct - 3, 0)}%` }}
+                        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.1 + i * 0.06 }} />
                     </div>
-                  );
-                })}
-              {etapas.length === 0 && (
-                <p className="text-slate-400 text-[12px] text-center py-6">Sin datos de historial suficientes</p>
+                    <span className="shrink-0 tabular-nums text-slate-400 w-[80px] text-right text-[10px]">
+                      {c.completadas}/{c.total}&nbsp;
+                      <span style={{ color }} className="font-bold">({c.pct}%)</span>
+                    </span>
+                  </div>
+                );
+              })}
+              {checks.length === 0 && (
+                <p className="text-slate-400 text-[12px] text-center py-6">Sin ODPs activas en producción</p>
               )}
             </div>
           </motion.div>
@@ -140,32 +146,36 @@ export const PanelProduccion: React.FC<{ data: any; isLoading: boolean; onViewOd
           {/* ODPs por servicio */}
           <motion.div custom={7} variants={cardVar} initial="hidden" animate="visible"
             className="col-span-12 lg:col-span-4 bg-white border border-slate-200 rounded-2xl p-5 flex flex-col">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-4">ODPs por Servicio</p>
-            <div className="flex-1 space-y-2 overflow-y-auto">
-              {servicios
-                .slice()
-                .sort((a: any, b: any) => b.cantidad - a.cantidad)
-                .map((s: any, i: number) => {
-                  const maxServ = Math.max(...servicios.map((sv: any) => sv.cantidad), 1);
-                  const pct     = (s.cantidad / maxServ) * 100;
-                  return (
-                    <div key={i} className="flex items-center gap-2.5 text-[11px]">
-                      <span className="w-2.5 h-2.5 rounded-sm shrink-0"
-                        style={{ background: SERVICIO_COLORS[i % SERVICIO_COLORS.length] }} />
-                      <span className="text-slate-600 flex-1 truncate uppercase text-[10px] tracking-wide">{s.tipo_servicio || 'Otros'}</span>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <motion.div className="h-full rounded-full"
-                            style={{ background: SERVICIO_COLORS[i % SERVICIO_COLORS.length] }}
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pct}%` }}
-                            transition={{ duration: 0.7, delay: 0.1 + i * 0.05 }} />
-                        </div>
-                        <span className="text-slate-800 font-semibold w-5 text-right tabular-nums">{s.cantidad}</span>
+            <div className="mb-4">
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">ODPs por Servicio</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Distribución del período ({totalServicios} total)</p>
+            </div>
+            <div className="flex-1 space-y-2.5 overflow-y-auto">
+              {servicios.map((s: any, i: number) => {
+                const maxCant = servicios[0]?.cantidad || 1;
+                const barPct  = (s.cantidad / maxCant) * 100;
+                return (
+                  <div key={i} className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="w-2 h-2 rounded-sm shrink-0"
+                          style={{ background: SERVICIO_COLORS[i % SERVICIO_COLORS.length] }} />
+                        <span className="text-slate-600 truncate font-medium">{s.label}</span>
                       </div>
+                      <span className="shrink-0 ml-2 tabular-nums text-slate-700 font-semibold">
+                        {s.cantidad} <span className="text-slate-400 font-normal">({s.pct}%)</span>
+                      </span>
                     </div>
-                  );
-                })}
+                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <motion.div className="h-full rounded-full"
+                        style={{ background: SERVICIO_COLORS[i % SERVICIO_COLORS.length] }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${barPct}%` }}
+                        transition={{ duration: 0.7, delay: 0.1 + i * 0.06 }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </motion.div>
         </div>

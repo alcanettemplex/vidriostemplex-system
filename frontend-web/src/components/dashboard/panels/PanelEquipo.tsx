@@ -46,11 +46,14 @@ const MiniBar: React.FC<{ pct: number; color?: string }> = ({ pct, color = 'bg-i
   </div>
 );
 
-const SectionHeader: React.FC<{ icon: React.ReactNode; title: string; count: number; color: string }> = ({ icon, title, count, color }) => (
-  <div className={`flex items-center gap-2 px-4 py-3 border-b border-slate-100 ${color}`}>
-    <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/60">{icon}</span>
-    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex-1">{title}</span>
-    <span className="text-[10px] font-semibold text-slate-400 bg-white/70 px-2 py-0.5 rounded-full">{count}</span>
+const SectionHeader: React.FC<{ icon: React.ReactNode; title: string; desc: string; count: number; color: string }> = ({ icon, title, desc, count, color }) => (
+  <div className={`px-4 py-3 border-b border-slate-100 ${color}`}>
+    <div className="flex items-center gap-2">
+      <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/60">{icon}</span>
+      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex-1">{title}</span>
+      <span className="text-[10px] font-semibold text-slate-400 bg-white/70 px-2 py-0.5 rounded-full">{count}</span>
+    </div>
+    <p className="text-[9px] text-slate-400 leading-tight mt-1 ml-9">{desc}</p>
   </div>
 );
 
@@ -96,10 +99,10 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
       {/* ── KPI Header compacto ───────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         {[
-          { label: 'Asesores',        value: data.total_asesores ?? 0,              color: 'text-blue-600',    icon: <Users className="w-3.5 h-3.5 text-blue-400" /> },
-          { label: 'Instaladores',    value: data.total_instaladores ?? 0,          color: 'text-emerald-600', icon: <HardHat className="w-3.5 h-3.5 text-emerald-400" /> },
-          { label: 'ODPs / Asesor',   value: data.odps_por_asesor_promedio ?? 0,    color: 'text-slate-700',   icon: <FileText className="w-3.5 h-3.5 text-slate-400" /> },
-          { label: 'Efic. Taller',    value: `${data.eficiencia_taller_pct ?? 0}%`, color: (data.eficiencia_taller_pct ?? 0) >= 80 ? 'text-emerald-600' : 'text-amber-600', icon: <TrendingUp className="w-3.5 h-3.5 text-slate-400" /> },
+          { label: 'Asesores',        desc: 'Asesores comerciales activos',           value: data.total_asesores ?? 0,              color: 'text-blue-600',    icon: <Users className="w-3.5 h-3.5 text-blue-400" /> },
+          { label: 'Instaladores',    desc: 'Instaladores en el equipo',              value: data.total_instaladores ?? 0,          color: 'text-emerald-600', icon: <HardHat className="w-3.5 h-3.5 text-emerald-400" /> },
+          { label: 'ODPs / Asesor',   desc: 'Promedio de órdenes abiertas por asesor', value: data.odps_por_asesor_promedio ?? 0,    color: 'text-slate-700',   icon: <FileText className="w-3.5 h-3.5 text-slate-400" /> },
+          { label: 'Efic. Taller',    desc: 'Ítems de ODP con verificación completada', value: `${data.eficiencia_taller_pct ?? 0}%`, color: (data.eficiencia_taller_pct ?? 0) >= 80 ? 'text-emerald-600' : 'text-amber-600', icon: <TrendingUp className="w-3.5 h-3.5 text-slate-400" /> },
         ].map((item, i) => (
           <motion.div key={i} custom={i} variants={cardVar} initial="hidden" animate="visible"
             className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 flex items-center gap-3">
@@ -107,6 +110,7 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
             <div>
               <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">{item.label}</p>
               <p className={`text-[22px] font-bold leading-none tabular-nums ${item.color}`}>{item.value}</p>
+              <p className="text-[8px] text-slate-400 leading-tight mt-1">{item.desc}</p>
             </div>
           </motion.div>
         ))}
@@ -121,6 +125,7 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
           <SectionHeader
             icon={<Users className="w-4 h-4 text-blue-500" />}
             title="Comercial"
+            desc="Avance de facturación y cartera de prospectos por asesor"
             count={asesores.length}
             color="bg-blue-50/60"
           />
@@ -166,6 +171,7 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
           <SectionHeader
             icon={<HardHat className="w-4 h-4 text-emerald-500" />}
             title="Instalación"
+            desc="Instalaciones realizadas, tiempo promedio y cobertura de evidencia fotográfica"
             count={instaladores.length}
             color="bg-emerald-50/60"
           />
@@ -216,6 +222,7 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
           <SectionHeader
             icon={<Truck className="w-4 h-4 text-violet-500" />}
             title="Conductores"
+            desc="Rutas realizadas, tasa de completadas y tiempo promedio por ruta"
             count={conductores.length}
             color="bg-violet-50/60"
           />
@@ -264,7 +271,10 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         className="bg-white border border-slate-200 rounded-2xl px-5 py-4">
         <div className="flex items-center gap-2 mb-3">
           <Clock className="w-3.5 h-3.5 text-indigo-400" />
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Operaciones Hoy</p>
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Operaciones Hoy</p>
+            <p className="text-[9px] text-slate-400 leading-tight">Paradas de instalación programadas para hoy en todas las rutas activas</p>
+          </div>
         </div>
 
         <div className="flex items-center gap-4 flex-wrap">

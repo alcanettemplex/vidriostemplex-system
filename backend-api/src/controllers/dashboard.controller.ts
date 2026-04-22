@@ -170,12 +170,13 @@ export const getGeneralData = async (req: Request, res: Response) => {
     // Embudo de conversión (periodo seleccionado)
     const periodWhere = { fecha_creacion: { [Op.between]: [firstDay, lastDay] } };
     const embudo_conversion = {
-      creadas:       await ODP.count({ where: { ...periodWhere } }),
-      en_espera:     await ODP.count({ where: { ...periodWhere, estado_produccion: 'EN_ESPERA' } }),
-      en_produccion: await ODP.count({ where: { ...periodWhere, estado_produccion: { [Op.notIn]: ['EN_ESPERA', 'ENTREGADA', 'INSTALADA'] } } }),
-      instaladas:    await ODP.count({ where: { ...periodWhere, estado_produccion: 'INSTALADA' } }),
-      entregadas:    await ODP.count({ where: { ...periodWhere, estado_produccion: 'ENTREGADA' } }),
-      facturadas:    await ODP.count({ where: { ...periodWhere, factura_electronica: { [Op.ne]: null } } }),
+      creadas:         await ODP.count({ where: { ...periodWhere } }),
+      en_espera:       await ODP.count({ where: { ...periodWhere, estado_produccion: 'EN_ESPERA' } }),
+      en_produccion:   await ODP.count({ where: { ...periodWhere, estado_produccion: { [Op.notIn]: ['EN_ESPERA', 'ENTREGADA', 'INSTALADA'] } } }),
+      listas_con_pago: await ODP.count({ where: { ...periodWhere, estado_produccion: 'LISTO_INSTALAR', [Op.or]: [{ forma_pago: 'credito' }, { estado_caja: 'CANCELADO' }, { estado_caja: 'CREDITO_APROBADO' }] } }),
+      listas_sin_pago: await ODP.count({ where: { ...periodWhere, estado_produccion: 'LISTO_INSTALAR', forma_pago: { [Op.ne]: 'credito' }, estado_caja: { [Op.notIn]: ['CANCELADO', 'CREDITO_APROBADO'] } } }),
+      instaladas:      await ODP.count({ where: { ...periodWhere, estado_produccion: 'INSTALADA' } }),
+      entregadas:      await ODP.count({ where: { ...periodWhere, estado_produccion: 'ENTREGADA' } }),
     };
 
     // Distribución de caja (periodo)
@@ -402,21 +403,34 @@ export const getProduccionData = async (req: Request, res: Response) => {
     const programadas = await RutaODP.findAll({ where: { odp_id: { [Op.in]: listasIds.map(o => o.getDataValue('id')) }, estado: { [Op.ne]: 'completada' } }, attributes: ['odp_id'] });
     const odps_listas_sin_programar = listasIds.length - programadas.length;
 
-    const etapas = ['MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR'];
-    const [tiempoEtapasRows] = await sequelize.query(`
-      WITH ranked AS (
-        SELECT estado_nuevo, fecha,
-               LEAD(fecha) OVER (PARTITION BY odp_id ORDER BY fecha) AS fecha_siguiente
-        FROM historial_estados_odp
-      )
-      SELECT estado_nuevo AS etapa,
-             ROUND(AVG(EXTRACT(EPOCH FROM (fecha_siguiente - fecha)) / 86400)::numeric, 1) AS dias_promedio
-      FROM ranked
-      WHERE estado_nuevo IN (:etapas) AND fecha_siguiente IS NOT NULL
-      GROUP BY estado_nuevo
-    `, { replacements: { etapas } }) as [{ etapa: string; dias_promedio: string }[], unknown];
-    const tiempoEtapasMap  = new Map(tiempoEtapasRows.map(r => [r.etapa, Number(r.dias_promedio)]));
-    const tiempo_por_etapa = etapas.map(etapa => ({ etapa, dias_promedio: tiempoEtapasMap.get(etapa) ?? 0 }));
+    const [checksRows] = await sequelize.query(`
+      SELECT
+        SUM(CASE WHEN chk_medicion   THEN 1 ELSE 0 END)::int AS chk_medicion,
+        SUM(CASE WHEN chk_corte      THEN 1 ELSE 0 END)::int AS chk_corte,
+        SUM(CASE WHEN chk_vidrio     THEN 1 ELSE 0 END)::int AS chk_vidrio,
+        SUM(CASE WHEN chk_accesorios THEN 1 ELSE 0 END)::int AS chk_accesorios,
+        SUM(CASE WHEN chk_ensamble   THEN 1 ELSE 0 END)::int AS chk_ensamble,
+        SUM(CASE WHEN chk_matizado   THEN 1 ELSE 0 END)::int AS chk_matizado,
+        SUM(CASE WHEN chk_pelicula   THEN 1 ELSE 0 END)::int AS chk_pelicula,
+        SUM(CASE WHEN chk_huacal     THEN 1 ELSE 0 END)::int AS chk_huacal,
+        SUM(CASE WHEN chk_carton     THEN 1 ELSE 0 END)::int AS chk_carton,
+        COUNT(*)::int                                         AS total
+      FROM odp
+      WHERE estado_produccion NOT IN ('EN_ESPERA', 'ENTREGADA', 'PAUSADA')
+    `) as [Record<string, string>[], unknown];
+    const cr = checksRows[0] || {};
+    const totalActivas = Number(cr['total']) || 0;
+    const checks_progreso = [
+      { campo: 'chk_medicion',   label: 'Medición',        completadas: Number(cr['chk_medicion'])   || 0 },
+      { campo: 'chk_corte',      label: 'Corte aluminio',  completadas: Number(cr['chk_corte'])      || 0 },
+      { campo: 'chk_vidrio',     label: 'Vidrio recibido', completadas: Number(cr['chk_vidrio'])     || 0 },
+      { campo: 'chk_accesorios', label: 'Accesorios',      completadas: Number(cr['chk_accesorios']) || 0 },
+      { campo: 'chk_ensamble',   label: 'Ensamble',        completadas: Number(cr['chk_ensamble'])   || 0 },
+      { campo: 'chk_matizado',   label: 'Matizado',        completadas: Number(cr['chk_matizado'])   || 0 },
+      { campo: 'chk_pelicula',   label: 'Película',        completadas: Number(cr['chk_pelicula'])   || 0 },
+      { campo: 'chk_huacal',     label: 'Huacal',          completadas: Number(cr['chk_huacal'])     || 0 },
+      { campo: 'chk_carton',     label: 'Cartón',          completadas: Number(cr['chk_carton'])     || 0 },
+    ].map(c => ({ ...c, total: totalActivas, pct: totalActivas > 0 ? Math.round((c.completadas / totalActivas) * 100) : 0 }));
 
     const proximas_vencer_raw = await ODP.findAll({
       where: { fecha_entrega: { [Op.between]: [today, nextWeek] }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA'] } },
@@ -465,7 +479,7 @@ export const getProduccionData = async (req: Request, res: Response) => {
       };
     });
 
-    res.json({ odps_en_taller, odps_vencen_esta_semana, tiempo_ciclo_promedio_dias, meta_ciclo_dias: 8, odps_listas_sin_programar, tiempo_por_etapa, odps_proximas_vencer, servicios_distribucion, odps_pausadas, no_conformidades_abiertas, odps_mas_antiguas });
+    res.json({ odps_en_taller, odps_vencen_esta_semana, tiempo_ciclo_promedio_dias, meta_ciclo_dias: 8, odps_listas_sin_programar, checks_progreso, odps_proximas_vencer, servicios_distribucion, odps_pausadas, no_conformidades_abiertas, odps_mas_antiguas });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

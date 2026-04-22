@@ -39,7 +39,7 @@ const ESTADO_COLORS: Record<string, string> = {
   INSTALADA: '#22c55e', ENTREGADA: '#10b981', PAUSADA: '#e11d48',
 };
 const ESTADO_LABELS: Record<string, string> = {
-  EN_ESPERA: 'En Espera', VISITA_TECNICA: 'Visita Técnica', MEDICION: 'Medición',
+  EN_ESPERA: 'En Espera', VISITA_TECNICA: 'Visita Técnica', MEDICION: 'En producción',
   PEDIDO_PROVEEDOR: 'Ped. Proveedor', ALUMINIO_CORTADO: 'Al. Cortado', VIDRIO_RECIBIDO: 'Vidrio',
   ACCESORIOS_SEPARADOS: 'Accesorios', LISTO_INSTALAR: 'A Instalar', PROGRAMADA: 'Programada',
   INSTALADA: 'Instalada', ENTREGADA: 'Entregada', PAUSADA: 'Pausada',
@@ -105,15 +105,24 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
 
   const chartData    = data.estadisticas_mensuales || [];
   const cajaDist     = (data.estado_caja_distribucion || []).map((c: any) => ({ name: c.estado, pct: c.pct }));
-  const embudoKeys   = ['creadas', 'en_espera', 'en_produccion', 'instaladas', 'entregadas', 'facturadas'];
-  const embudoLabels = ['Creadas', 'En Espera', 'En producción', 'Instaladas', 'Entregadas', 'Facturadas'];
-  const embudoColors = ['#6d28d9','#f59e0b','#4f46e5','#2563eb','#059669','#047857'];
+  const embudoKeys   = ['creadas', 'en_espera', 'en_produccion', 'listas_con_pago', 'listas_sin_pago', 'instaladas', 'entregadas'];
+  const embudoLabels = ['Creadas', 'En Espera', 'En producción', '↳ Listas (con pago)', '↳ Listas (falta pago)', 'Instaladas', 'Entregadas'];
+  const embudoColors = ['#6d28d9','#f59e0b','#4f46e5','#22c55e','#f97316','#2563eb','#059669'];
+  const embudoSub    = [false, false, false, true, true, false, false];
   const embudoVals   = embudoKeys.map(k => data.embudo_conversion?.[k] || 0);
   const maxEmbudo    = Math.max(...embudoVals, 1);
   const estadosData  = (data.odps_por_estado || []).filter((s: any) => s.cantidad > 0);
   const totalEstados = estadosData.reduce((acc: number, s: any) => acc + s.cantidad, 0);
   const metaPct      = data.meta_facturacion_actual > 0
     ? Math.min((data.facturado_mes / data.meta_facturacion_actual) * 100, 100) : 0;
+
+  const IVA_RATE      = 0.19;
+  const rawFacturado  = data?.facturado_mes   || 0;
+  const rawRecaudado  = data?.total_abonado   || 0;
+  const facturadoBase = rawFacturado / (1 + IVA_RATE);
+  const facturadoIva  = rawFacturado - facturadoBase;
+  const recaudadoBase = rawRecaudado / (1 + IVA_RATE);
+  const recaudadoIva  = rawRecaudado - recaudadoBase;
 
   return (
     <div className="space-y-3">
@@ -124,7 +133,8 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
         <motion.div custom={0} variants={cardVar} initial="hidden" animate="visible"
           className="bg-white border border-slate-200 rounded-2xl p-5"
           whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(99,102,241,0.12)' }}>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">ODPs Activas</p>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">ODPs Activas</p>
+          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Órdenes del período actualmente en curso, sin incluir entregadas</p>
           <p className="text-[44px] font-semibold text-slate-800 leading-none tabular-nums">{odpsActivas}</p>
           {data.odps_activas_delta_pct !== undefined && (
             <div className={`flex items-center gap-1 mt-2 text-[11px] font-medium ${data.odps_activas_delta_pct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
@@ -137,15 +147,26 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
         <motion.div custom={1} variants={cardVar} initial="hidden" animate="visible"
           className="bg-white border border-slate-200 rounded-2xl p-5 relative overflow-hidden"
           whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(99,102,241,0.12)' }}>
-          <div className="flex justify-between items-start mb-3">
+          <div className="flex justify-between items-start">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Facturado Periodo</p>
-            <Link to="/configuracion" className="text-slate-300 hover:text-indigo-500 transition-colors">
+            <Link to="/configuracion" className="text-slate-300 hover:text-indigo-500 transition-colors shrink-0">
               <Settings className="w-3.5 h-3.5" />
             </Link>
           </div>
-          <p className="text-[38px] font-semibold text-slate-800 leading-none tabular-nums">{fmtM(facturadoMes)}</p>
+          <p className="text-[9px] text-slate-400 leading-tight mb-2">Valor total contratado en ODPs del período, incluye IVA</p>
+          <p className="text-[34px] font-semibold text-slate-800 leading-none tabular-nums">{fmtM(facturadoMes)}</p>
+          <div className="mt-2.5 mb-2 border-t border-slate-100 pt-2 space-y-1">
+            <div className="flex justify-between text-[11px]">
+              <span className="text-slate-400">Base sin IVA</span>
+              <span className="font-semibold text-slate-600 tabular-nums">{fmtM(facturadoBase)}</span>
+            </div>
+            <div className="flex justify-between text-[11px]">
+              <span className="text-slate-400">IVA (19%)</span>
+              <span className="font-semibold text-indigo-500 tabular-nums">{fmtM(facturadoIva)}</span>
+            </div>
+          </div>
           {data.meta_facturacion_actual > 0 && (
-            <p className="text-[10px] text-slate-400 mt-1.5">Meta: {fmtM(data.meta_facturacion_actual)}</p>
+            <p className="text-[10px] text-slate-400">Meta: {fmtM(data.meta_facturacion_actual)}</p>
           )}
           <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-100">
             <motion.div className="h-full bg-gradient-to-r from-indigo-500 to-purple-400 rounded-b-2xl"
@@ -158,7 +179,8 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
         <motion.div custom={2} variants={cardVar} initial="hidden" animate="visible"
           className="bg-white border border-slate-200 rounded-2xl p-5"
           whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(220,38,38,0.1)' }}>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Cartera Vencida</p>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Cartera Vencida</p>
+          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Créditos sin pago que superaron el umbral de días configurado</p>
           <p className="text-[38px] font-semibold text-rose-600 leading-none tabular-nums">{fmtM(carteraVenc)}</p>
           <p className="text-[11px] text-slate-400 mt-2">
             {data.cartera_vencida_clientes > 0
@@ -170,17 +192,28 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
         <motion.div custom={3} variants={cardVar} initial="hidden" animate="visible"
           className="bg-white border border-slate-200 rounded-2xl p-5 relative overflow-hidden"
           whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(16,185,129,0.1)' }}>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Total Recaudado</p>
-          <p className="text-[38px] font-semibold text-emerald-600 leading-none tabular-nums">{fmtM(totalRecaudado)}</p>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Total Recaudado</p>
+          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Abonos efectivamente cobrados en el período</p>
+          <p className="text-[34px] font-semibold text-emerald-600 leading-none tabular-nums">{fmtM(totalRecaudado)}</p>
+          <div className="mt-2.5 mb-2 border-t border-slate-100 pt-2 space-y-1">
+            <div className="flex justify-between text-[11px]">
+              <span className="text-slate-400">Base sin IVA</span>
+              <span className="font-semibold text-slate-600 tabular-nums">{fmtM(recaudadoBase)}</span>
+            </div>
+            <div className="flex justify-between text-[11px]">
+              <span className="text-slate-400">IVA (19%)</span>
+              <span className="font-semibold text-emerald-500 tabular-nums">{fmtM(recaudadoIva)}</span>
+            </div>
+          </div>
           {data.facturado_mes > 0 && (
-            <p className="text-[11px] text-slate-400 mt-2">
-              {Math.round((totalRecaudado / data.facturado_mes) * 100)}% del facturado
+            <p className="text-[10px] text-slate-400">
+              {Math.round((rawRecaudado / data.facturado_mes) * 100)}% del facturado
             </p>
           )}
           <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-100">
             <motion.div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-b-2xl"
               initial={{ width: 0 }}
-              animate={{ width: data.facturado_mes > 0 ? `${Math.min((totalRecaudado / data.facturado_mes) * 100, 100)}%` : '0%' }}
+              animate={{ width: data.facturado_mes > 0 ? `${Math.min((rawRecaudado / data.facturado_mes) * 100, 100)}%` : '0%' }}
               transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1], delay: 0.4 }} />
           </div>
         </motion.div>
@@ -190,7 +223,8 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
       <div className="grid grid-cols-12 gap-3">
         <motion.div custom={4} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-8 bg-white border border-slate-200 rounded-2xl p-5">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Estadísticas por mes</p>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Estadísticas por mes</p>
+          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Evolución mensual de abonos, pendientes, créditos y número de ODPs en el período</p>
 
           {/* Leyenda manual */}
           <div className="flex flex-wrap gap-3 mb-3">
@@ -235,7 +269,8 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
 
         <motion.div custom={5} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-4 bg-white border border-slate-200 rounded-2xl p-5 flex flex-col">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Estado de Caja</p>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Estado de Caja</p>
+          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-4">Distribución de las ODPs del período según su estado de pago</p>
           <div className="flex-1 flex flex-col items-center justify-center gap-4">
             <div className="w-[120px] h-[120px]">
               <DonutChart data={cajaDist} nameKey="name" dataKey="pct"
@@ -258,21 +293,23 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
       <div className="grid grid-cols-12 gap-3">
         <motion.div custom={6} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Embudo de conversión — periodo seleccionado</p>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Embudo de conversión — periodo seleccionado</p>
+          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-4">Ciclo de vida de las ODPs desde su creación hasta la entrega; el % es relativo al total de creadas</p>
           <div className="space-y-2.5">
             {embudoLabels.map((lbl, i) => {
               const val      = embudoVals[i];
+              const isSub    = embudoSub[i];
               const wPct     = Math.max((val / maxEmbudo) * 100, 3);
               const pctFirst = embudoVals[0] > 0 ? Math.round((val / embudoVals[0]) * 100) : 0;
               return (
-                <div key={lbl} className="flex items-center gap-3 text-[11px]">
-                  <span className="text-slate-400 w-[105px] shrink-0">{lbl}</span>
+                <div key={lbl} className={`flex items-center gap-3 text-[11px] ${isSub ? 'pl-4 opacity-90' : ''}`}>
+                  <span className={`shrink-0 w-[105px] ${isSub ? 'text-slate-400 italic' : 'text-slate-400'}`}>{lbl}</span>
                   <div className="flex-1 h-6 relative">
                     <motion.div
-                      className="h-full rounded-lg flex items-center px-2.5 text-white text-[11px] font-semibold absolute left-0 top-0"
-                      style={{ background: embudoColors[i], minWidth: 32 }}
+                      className={`h-full flex items-center px-2.5 text-white text-[11px] font-semibold absolute left-0 top-0 ${isSub ? 'rounded-md' : 'rounded-lg'}`}
+                      style={{ background: embudoColors[i], minWidth: 32, opacity: isSub ? 0.85 : 1 }}
                       initial={{ width: 0, opacity: 0 }}
-                      animate={{ width: `${wPct}%`, opacity: 1 }}
+                      animate={{ width: `${wPct}%`, opacity: isSub ? 0.85 : 1 }}
                       transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.15 + i * 0.09 }}>
                       {val}
                     </motion.div>
@@ -286,7 +323,8 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
 
         <motion.div custom={7} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">ODPs por estado actual</p>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">ODPs por estado actual</p>
+          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-4">Snapshot en tiempo real de todas las ODPs — sin filtro de período</p>
           <div className="space-y-2">
             {estadosData
               .sort((a: any, b: any) => b.cantidad - a.cantidad)
