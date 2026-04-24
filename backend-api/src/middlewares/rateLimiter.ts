@@ -1,12 +1,24 @@
 import rateLimit from 'express-rate-limit';
+import { Request } from 'express';
 
-/**
- * Limitador global: máximo 200 peticiones por IP cada 15 minutos.
- * Protege contra abuso general de la API.
- */
+function extractUserId(req: Request): string | null {
+  try {
+    const auth = req.headers.authorization;
+    if (!auth?.startsWith('Bearer ')) return null;
+    const token = auth.split(' ')[1];
+    const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+    return payload?.id ? String(payload.id) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Usuarios autenticados: cuota individual por userId (600 req / 15 min)
+// Usuarios no autenticados: cuota por IP (100 req / 15 min)
 export const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: (req: Request) => (extractUserId(req) ? 600 : 100),
+  keyGenerator: (req: Request) => extractUserId(req) ?? (req.ip || 'unknown'),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -15,10 +27,7 @@ export const globalLimiter = rateLimit({
   },
 });
 
-/**
- * Limitador estricto para autenticación: máximo 10 intentos por IP cada 15 minutos.
- * Protege contra ataques de fuerza bruta al login.
- */
+// Login: límite estricto por IP para prevenir fuerza bruta
 export const authLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 20,
