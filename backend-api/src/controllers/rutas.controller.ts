@@ -435,9 +435,9 @@ export const iniciarInstalacion = async (req: Request, res: Response) => {
 
     const rutaODP = await RutaODP.findByPk(id, { transaction: t }) as any;
     if (!rutaODP) { await t.rollback(); return res.status(404).json({ error: 'Entrada de ruta no encontrada' }); }
-    if (rutaODP.estado !== 'pendiente') {
+    if (!['pendiente', 'pausada'].includes(rutaODP.estado)) {
       await t.rollback();
-      return res.status(400).json({ error: `Estado actual: ${rutaODP.estado}. Solo se puede iniciar desde 'pendiente'` });
+      return res.status(400).json({ error: `Estado actual: ${rutaODP.estado}. Solo se puede iniciar desde 'pendiente' o 'pausada'` });
     }
 
     // Verificar que el instalador está asignado a esta ruta (ayudante o oficial)
@@ -449,19 +449,24 @@ export const iniciarInstalacion = async (req: Request, res: Response) => {
     );
     if (!asignado) { await t.rollback(); return res.status(403).json({ error: 'No estás asignado a esta ruta' }); }
 
-    await rutaODP.update({ estado: 'en_curso', inicio_instalacion: new Date() }, { transaction: t });
+    const esReanudacion = rutaODP.estado === 'pausada';
+    await rutaODP.update({
+      estado: 'en_curso',
+      inicio_instalacion: esReanudacion ? rutaODP.inicio_instalacion : new Date(),
+      fin_instalacion: null,
+    }, { transaction: t });
 
-    // ODP → INSTALADA
+    // ODP → INSTALADA (desde PROGRAMADA en inicio normal, desde LISTO_INSTALAR en reanudación)
     const odp = await ODP.findByPk(rutaODP.odp_id, { transaction: t }) as any;
     if (odp) {
+      const estadoAnteriorODP = odp.getDataValue('estado_produccion');
       await odp.update({ estado_produccion: 'INSTALADA' }, { transaction: t });
       await HistorialEstadoODP.create({
         odp_id: odp.id,
-        estado_anterior: 'PROGRAMADA',
+        estado_anterior: estadoAnteriorODP,
         estado_nuevo: 'INSTALADA',
         usuario_id: user.id,
         fecha: new Date(),
-        observacion: 'Instalación iniciada por instalador',
       }, { transaction: t });
     }
 
@@ -701,6 +706,63 @@ export const llegadaConductor = async (req: Request, res: Response) => {
   }
 };
 
+// ─── OFICIAL / JEFE: Pausar instalación en curso ─────────────────────────────
+// La ODP vuelve a LISTO_INSTALAR para poder ser reasignada a una nueva ruta
+
+export const pausarInstalacion = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const user = req.user!;
+
+    const rutaODP = await RutaODP.findByPk(id, {
+      include: [{ model: RutaInstalacion, as: 'ruta', attributes: ['id', 'oficial_id'] }],
+      transaction: t,
+    }) as any;
+    if (!rutaODP) { await t.rollback(); return res.status(404).json({ error: 'Entrada de ruta no encontrada' }); }
+    if (rutaODP.estado !== 'en_curso') {
+      await t.rollback();
+      return res.status(400).json({ error: 'Solo se puede pausar una instalación en curso' });
+    }
+
+    const rolesJefe = ['jefe_produccion', 'admin', 'gerencia', 'produccion'];
+    const esOficial = rutaODP.ruta?.oficial_id === user.id;
+    if (!esOficial && !rolesJefe.includes(user.rol)) {
+      await t.rollback();
+      return res.status(403).json({ error: 'Solo el oficial de la ruta o el jefe pueden pausar una instalación' });
+    }
+
+    const ahora = new Date();
+    await rutaODP.update({ estado: 'pausada', fin_instalacion: ahora }, { transaction: t });
+
+    const odp = await ODP.findByPk(rutaODP.odp_id, { transaction: t }) as any;
+    if (odp) {
+      await odp.update({ estado_produccion: 'LISTO_INSTALAR' }, { transaction: t });
+      await HistorialEstadoODP.create({
+        odp_id: odp.id,
+        estado_anterior: 'INSTALADA',
+        estado_nuevo: 'LISTO_INSTALAR',
+        usuario_id: user.id,
+        fecha: ahora,
+      }, { transaction: t });
+      notificarCambioEstadoODP({
+        numero_odp: odp.numero_odp,
+        odp_id: odp.id,
+        asesor_id: odp.asesor_id,
+        estado_nuevo: 'LISTO_INSTALAR',
+        mensaje: `Instalación de ${odp.numero_odp} pausada — pendiente continuar`,
+      }).catch(() => {});
+    }
+
+    await t.commit();
+    res.json({ ok: true });
+  } catch (e: any) {
+    await t.rollback();
+    console.error('pausarInstalacion:', e.message);
+    res.status(500).json({ error: 'Error al pausar instalación' });
+  }
+};
+
 export const terminarRutaConductor = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -734,6 +796,40 @@ export const terminarRutaConductor = async (req: Request, res: Response) => {
 
     const finRuta = new Date();
     await ruta.update({ estado: 'completada', fin_ruta: finRuta });
+
+    // Auto-cerrar ODPs de acarreo puro (acarreo=true, instalacion=false)
+    // El instalador cierra las demás; estas no tienen instalador que las cierre
+    const odpIds = ruta.ruta_odps.map((p: any) => p.odp_id).filter(Boolean);
+    if (odpIds.length > 0) {
+      const odpsAcarreo = await ODP.findAll({
+        where: {
+          id: { [Op.in]: odpIds },
+          acarreo: true,
+          instalacion: false,
+          estado_produccion: { [Op.in]: ['PROGRAMADA', 'INSTALADA'] },
+        },
+      }) as any[];
+
+      for (const odp of odpsAcarreo) {
+        const estadoAnterior = odp.getDataValue('estado_produccion');
+        await odp.update({ estado_produccion: 'ENTREGADA' });
+        await HistorialEstadoODP.create({
+          odp_id: odp.id,
+          estado_anterior: estadoAnterior,
+          estado_nuevo: 'ENTREGADA',
+          usuario_id: user.id,
+          fecha: finRuta,
+          observacion: `Acarreo completado automáticamente al cerrar ruta #${ruta.id}`,
+        });
+        notificarCambioEstadoODP({
+          numero_odp: odp.numero_odp,
+          odp_id: odp.id,
+          asesor_id: odp.asesor_id,
+          estado_nuevo: 'ENTREGADA',
+          mensaje: `Acarreo ${odp.numero_odp} completado`,
+        }).catch(() => {});
+      }
+    }
 
     // Notificar al equipo de la ruta (instaladores + conductor + roles de gestión)
     import('../server').then(({ io }) => {

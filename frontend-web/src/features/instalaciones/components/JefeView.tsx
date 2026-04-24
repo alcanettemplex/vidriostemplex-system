@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { CheckCircle2, Clock, AlertTriangle, MapPin, Truck, Users, Calendar, Pencil, Trash2, Plus, RefreshCw, PackageCheck } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, MapPin, Truck, Users, Calendar, Pencil, Trash2, Plus, RefreshCw, PackageCheck, PauseCircle } from 'lucide-react';
 import ProgramarRutaModal from './ProgramarRutaModal';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -16,7 +16,9 @@ const ESTADO_RUTA_STYLES: Record<string, string> = {
 const ESTADO_ODP_RUTA_STYLES: Record<string, string> = {
   pendiente:  'bg-slate-100 text-slate-600',
   en_curso:   'bg-amber-100 text-amber-700',
+  pausada:    'bg-violet-100 text-violet-700',
   completada: 'bg-emerald-100 text-emerald-700',
+  con_dano:   'bg-orange-100 text-orange-700',
 };
 
 const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
@@ -68,6 +70,17 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
       cargar();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Error al finalizar ODP');
+    }
+  };
+
+  const handlePausar = async (rutaOdpId: number, numeroOdp: string) => {
+    if (!window.confirm(`¿Pausar la instalación de ${numeroOdp}? La ODP volverá a "Listo para instalar".`)) return;
+    try {
+      await axios.post(`${API}/api/rutas/ruta-odp/${rutaOdpId}/pausar`, {}, { headers });
+      toast.success(`Instalación de ${numeroOdp} pausada`);
+      cargar();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Error al pausar');
     }
   };
 
@@ -249,7 +262,16 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${ESTADO_ODP_RUTA_STYLES[ro.estado] || ''}`}>
                           {ro.estado}
                         </span>
-                        {!readOnly && ro.estado !== 'completada' && (
+                        {!readOnly && ro.estado === 'en_curso' && (
+                          <button
+                            onClick={() => handlePausar(ro.id, ro.odp?.numero_odp)}
+                            className="p-1 rounded hover:bg-violet-50 text-violet-400 hover:text-violet-600"
+                            title="Pausar instalación"
+                          >
+                            <PauseCircle className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {!readOnly && ro.estado !== 'completada' && ro.estado !== 'pausada' && (
                           <button
                             onClick={() => handleFinalizarODP(ro.id, ro.odp?.numero_odp)}
                             className="p-1 rounded hover:bg-emerald-50 text-emerald-400 hover:text-emerald-600"

@@ -7,7 +7,7 @@ import {
   MapPin, FileText, Play, CheckCircle2, Clock, Phone,
   AlertCircle, AlertTriangle, RefreshCw, Printer, ExternalLink,
   LayoutDashboard, History, Calendar, TrendingUp,
-  Award, Target, Zap, ShieldCheck, Camera
+  Award, Target, Zap, ShieldCheck, Camera, PauseCircle
 } from 'lucide-react';
 import ReportarEntregaModal from './ReportarEntregaModal';
 import ReportarDanoModal from './ReportarDanoModal';
@@ -29,6 +29,7 @@ const InstaladorView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'hoy' | 'historial' | 'metricas'>('hoy');
   const [iniciando, setIniciando] = useState<number | null>(null);
+  const [pausando, setPausando] = useState<number | null>(null);
   const [finalizando, setFinalizando] = useState<{ rutaODPId: number; numeroODP: string } | null>(null);
   const [reportandoDano, setReportandoDano] = useState<{ rutaODPId: number; numeroODP: string } | null>(null);
 
@@ -100,6 +101,18 @@ const InstaladorView: React.FC = () => {
     win.document.close();
     win.focus();
     setTimeout(() => { win.print(); }, 600);
+  };
+
+  const handlePausar = async (rutaODPId: number) => {
+    if (!window.confirm('¿Pausar esta instalación? La ODP volverá a "Listo para instalar" para ser reasignada.')) return;
+    setPausando(rutaODPId);
+    try {
+      await axios.post(`${API}/api/rutas/ruta-odp/${rutaODPId}/pausar`, {}, { headers });
+      toast.success('Instalación pausada. La ODP quedó disponible para continuar mañana.');
+      cargar();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Error al pausar');
+    } finally { setPausando(null); }
   };
 
   const abrirMapa = (direccion: string) => window.open(`https://maps.google.com/maps?q=${encodeURIComponent(direccion)}`, '_blank');
@@ -190,9 +203,11 @@ const InstaladorView: React.FC = () => {
                     onIniciar={handleIniciar}
                     onFinalizar={() => setFinalizando({ rutaODPId: item.id, numeroODP: item.odp.numero_odp })}
                     onReportarDano={() => setReportandoDano({ rutaODPId: item.id, numeroODP: item.odp.numero_odp })}
+                    onPausar={handlePausar}
                     abrirDoc={abrirDocumento}
                     abrirMapa={abrirMapa}
                     iniciando={iniciando === item.id}
+                    pausando={pausando === item.id}
                     currentUserId={currentUser?.id}
                   />
                 ))
@@ -259,7 +274,7 @@ const InstaladorView: React.FC = () => {
 };
 
 // ––– SUBCOMPONENTE: TASK CARD –––
-const TaskCard = ({ item, onIniciar, onFinalizar, onReportarDano, abrirDoc, abrirMapa, iniciando, isHistory, currentUserId }: any) => {
+const TaskCard = ({ item, onIniciar, onFinalizar, onReportarDano, onPausar, abrirDoc, abrirMapa, iniciando, pausando, isHistory, currentUserId }: any) => {
   const odp = item.odp;
   const enCurso = item.estado === 'en_curso';
   const completada = item.estado === 'completada';
@@ -364,6 +379,10 @@ const TaskCard = ({ item, onIniciar, onFinalizar, onReportarDano, abrirDoc, abri
               <button onClick={onReportarDano}
                 className="w-full py-3 bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 font-black text-xs uppercase tracking-[0.15em] rounded-2xl transition-all flex items-center justify-center gap-2">
                 <AlertTriangle className="w-4 h-4" /> Instalación con Daño
+              </button>
+              <button onClick={() => onPausar(item.id)} disabled={pausando}
+                className="w-full py-3 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 font-black text-xs uppercase tracking-[0.15em] rounded-2xl transition-all flex items-center justify-center gap-2 disabled:opacity-40">
+                <PauseCircle className="w-4 h-4" /> {pausando ? 'Pausando...' : 'Pausar Instalación'}
               </button>
             </div>
           )}

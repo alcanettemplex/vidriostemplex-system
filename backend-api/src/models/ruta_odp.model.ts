@@ -13,7 +13,7 @@ RutaODP.init({
   inicio_instalacion:  { type: DataTypes.DATE, allowNull: true },
   fin_instalacion:     { type: DataTypes.DATE, allowNull: true },
   estado: {
-    type: DataTypes.ENUM('pendiente', 'en_curso', 'completada', 'con_dano'),
+    type: DataTypes.ENUM('pendiente', 'en_curso', 'pausada', 'completada', 'con_dano'),
     defaultValue: 'pendiente',
   },
   datos_receptor:     { type: DataTypes.STRING(300), allowNull: true },
