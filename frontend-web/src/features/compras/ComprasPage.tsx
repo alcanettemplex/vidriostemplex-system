@@ -22,6 +22,7 @@ interface ODCItemConContexto {
   descripcion: string;
   cantidad: number;
   recibido: boolean;
+  odp_directo?: { id: number; numero_odp: string; estado_produccion: string; cliente?: { nombre_razon_social: string } };
   sap_item?: {
     dimension?: string;
     und?: string;
@@ -53,20 +54,40 @@ interface ODC {
       asesor: { id: number; nombre_completo: string };
     };
   };
+  // ODC con odp_id directo en cabecera
+  odp?: {
+    id: number; numero_odp: string; estado_produccion: string;
+    cliente: { id: number; nombre_razon_social: string };
+  };
 }
 
-// Helper: extrae ODPs únicas de una ODC (multi-SAP o legacy)
+// Helper: extrae ODPs únicas de una ODC (multi-SAP, vidrio, legacy o directo)
 const getODPsDeODC = (odc: ODC): Array<{ numero_odp: string; cliente: string }> => {
   const map = new Map<string, string>();
   for (const it of odc.items) {
-    const odp = it.sap_item?.SAP?.ODP ?? (it as any).odp_item?.ODP;
+    const odp = it.sap_item?.SAP?.ODP ?? (it as any).odp_item?.ODP ?? it.odp_directo;
     if (odp?.numero_odp) map.set(odp.numero_odp, odp.cliente?.nombre_razon_social || '');
   }
-  // fallback a sap header (ODCs antiguas)
+  // fallback 1: sap header (ODCs antiguas con sap_id)
   if (map.size === 0 && odc.sap?.ODP) {
     map.set(odc.sap.ODP.numero_odp, odc.sap.ODP.cliente?.nombre_razon_social || '');
   }
+  // fallback 2: odp_id directo en cabecera
+  if (map.size === 0 && odc.odp?.numero_odp) {
+    map.set(odc.odp.numero_odp, odc.odp.cliente?.nombre_razon_social || '');
+  }
   return Array.from(map.entries()).map(([numero_odp, cliente]) => ({ numero_odp, cliente }));
+};
+
+// Helper: extrae números de SAP únicos de una ODC (items o header legacy)
+const getSAPsDeODC = (odc: ODC): string[] => {
+  const saps = new Set<string>();
+  for (const it of odc.items) {
+    const num = it.sap_item?.SAP?.numero_sap;
+    if (num) saps.add(num);
+  }
+  if (saps.size === 0 && odc.sap?.numero_sap) saps.add(odc.sap.numero_sap);
+  return Array.from(saps);
 };
 
 // ─── Constantes UI ──────────────────────────────────────────────────────────
@@ -117,10 +138,11 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
 
   const token = sessionStorage.getItem('token');
   const odpsInfo = getODPsDeODC(odc);
+  const sapsInfo = getSAPsDeODC(odc);
   const isMultiODP = odpsInfo.length > 1;
-  // legacy compat
-  const odp = odc.sap?.ODP;
-  const estadoProd = odp?.estado_produccion || '';
+  // legacy compat + fallback a odp directo
+  const odp = odc.sap?.ODP ?? odc.odp;
+  const estadoProd = odp?.estado_produccion || odpsInfo[0] && '' || '';
   const est = ODC_ESTADO_STYLE[odc.estado] || ODC_ESTADO_STYLE['pendiente'];
 
   const handleGuardarEdicion = async () => {
@@ -255,7 +277,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
               ) : (
                 <>
                   <span>ODP: <span className="font-bold text-slate-700">{odpsInfo[0]?.numero_odp || odp?.numero_odp}</span></span>
-                  {odc.sap?.numero_sap && <span>SAP: <span className="font-bold text-slate-700">{odc.sap.numero_sap}</span></span>}
+                  {sapsInfo.length > 0 && <span>SAP: <span className="font-bold text-slate-700">{sapsInfo.join(', ')}</span></span>}
                 </>
               )}
               <span>Proveedor: <span className="font-bold text-slate-700">{odc.proveedor}</span></span>
@@ -323,7 +345,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                     <td className="px-4 py-1.5 text-slate-500">{it.sap_item?.dimension || '—'}</td>
                     <td className="px-4 py-1.5 text-slate-400 text-[10px] max-w-[140px] truncate" title={it.sap_item?.observacion || ''}>{it.sap_item?.observacion || '—'}</td>
                     <td className="px-4 py-1.5 text-indigo-600 font-bold">{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
-                    <td className="px-4 py-1.5 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => { const id = it.sap_item?.SAP?.ODP?.id || (it as any).odp_item?.ODP?.id || odc.sap?.ODP?.id; if (id) onFichaOdp?.(id); }}>{it.sap_item?.SAP?.ODP?.numero_odp || (it as any).odp_item?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
+                    <td className="px-4 py-1.5 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => { const id = it.sap_item?.SAP?.ODP?.id || (it as any).odp_item?.ODP?.id || it.odp_directo?.id || odc.sap?.ODP?.id || odc.odp?.id; if (id) onFichaOdp?.(id); }}>{it.sap_item?.SAP?.ODP?.numero_odp || (it as any).odp_item?.ODP?.numero_odp || it.odp_directo?.numero_odp || odc.sap?.ODP?.numero_odp || odc.odp?.numero_odp || '—'}</td>
                   </tr>
                 );
               })}
@@ -393,7 +415,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                     <>
                       <div>
                         <span className="text-slate-400 font-bold uppercase tracking-wider">SAP</span>
-                        <p className="font-semibold text-slate-700 mt-0.5">{odc.sap?.numero_sap || '—'}</p>
+                        <p className="font-semibold text-slate-700 mt-0.5">{sapsInfo.join(', ') || '—'}</p>
                       </div>
                       <div>
                         <span className="text-slate-400 font-bold uppercase tracking-wider">ODP</span>

@@ -47,6 +47,11 @@ const includeItemsTrazabilidad = [
           },
         ],
       },
+      {
+        model: ODP, as: 'odp_directo',
+        required: false,
+        include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
+      },
     ],
   },
 ];
@@ -69,6 +74,12 @@ export const getODCsSeguimiento = async (req: Request, res: Response) => {
               { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
             ],
           }],
+        },
+        // ODCs con odp_id directo en cabecera (sin sap_id ni items vinculados)
+        {
+          model: ODP, as: 'odp',
+          required: false,
+          include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
         },
       ],
       order: [['fecha_creacion', 'ASC']],
@@ -97,6 +108,12 @@ export const getODCsRecibidas = async (req: Request, res: Response) => {
               { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
             ],
           }],
+        },
+        // ODCs con odp_id directo en cabecera (sin sap_id ni items vinculados)
+        {
+          model: ODP, as: 'odp',
+          required: false,
+          include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
         },
       ],
       order: [['fecha_recepcion', 'DESC']],
@@ -671,6 +688,7 @@ export const createODCVidrios = async (req: Request, res: Response) => {
       odc_id: odcId,
       sap_item_id: null,
       odp_item_id: it.getDataValue('id'),
+      odp_id: it.getDataValue('odp_id'),
       item: String(idx + 1),
       codigo: it.getDataValue('tipo_vidrio') || '',
       descripcion: [

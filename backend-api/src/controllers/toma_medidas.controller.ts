@@ -87,13 +87,13 @@ export const createTM = async (req: Request, res: Response) => {
 export const programarTM = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { fecha_visita } = req.body;
+    const { fecha_visita, hora_visita } = req.body;
     if (!fecha_visita) return res.status(400).json({ error: 'Se requiere fecha_visita' });
 
     const tm = await TomaMedidas.findByPk(id);
     if (!tm) return res.status(404).json({ error: 'TM no encontrada' });
 
-    await tm.update({ fecha_visita, estado: 'programada' });
+    await tm.update({ fecha_visita, hora_visita: hora_visita || null, estado: 'programada' });
     res.json(tm);
   } catch (error: any) {
     res.status(500).json({ error: 'Error al programar TM', detail: error.message });
@@ -145,11 +145,14 @@ export const getTMPanel = async (_req: Request, res: Response) => {
     });
     const odpsSinTMFiltradas = odpsSinTM.filter((o: any) => !o.tomas_medidas?.length);
 
-    // PROGRAMADAS: TMs en estado 'programada' (con fecha_visita pero sin croquis)
+    // PROGRAMADAS: TMs en estado 'programada' ordenadas por fecha y hora (hora null al final del día)
     const programadas = await TomaMedidas.findAll({
       where: { estado: 'programada' },
       include: includeBase,
-      order: [['fecha_visita', 'ASC']],
+      order: [
+        ['fecha_visita', 'ASC'],
+        require('sequelize').literal('hora_visita ASC NULLS LAST'),
+      ],
     });
 
     // REALIZADAS: TMs en estado 'realizada' o 'convertida' (últimas 50)
@@ -177,7 +180,7 @@ export const updateTM = async (req: Request, res: Response) => {
     const {
       observaciones, medidas_json, croquis_url,
       nombre_contacto, telefono_contacto, contacto_obra, telefono_obra,
-      direccion, fecha_visita,
+      direccion, fecha_visita, hora_visita,
     } = req.body;
     const tm = await TomaMedidas.findByPk(id);
     if (!tm) return res.status(404).json({ error: 'TM no encontrada' });
@@ -192,6 +195,7 @@ export const updateTM = async (req: Request, res: Response) => {
       nombre_contacto, telefono_contacto, contacto_obra, telefono_obra, direccion,
     };
     if (fecha_visita !== undefined) campos.fecha_visita = fecha_visita || null;
+    if (hora_visita !== undefined) campos.hora_visita = hora_visita || null;
 
     await tm.update(campos);
     res.json(tm);

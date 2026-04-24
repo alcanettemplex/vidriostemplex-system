@@ -187,6 +187,9 @@ ODCItem.belongsTo(SAPItem, { foreignKey: 'sap_item_id', as: 'sap_item' });
 ODPItem.hasMany(ODCItem, { foreignKey: 'odp_item_id', as: 'odc_items_vidrio' });
 ODCItem.belongsTo(ODPItem, { foreignKey: 'odp_item_id', as: 'odp_item' });
 
+ODP.hasMany(ODCItem, { foreignKey: 'odp_id', as: 'odc_items_directos' });
+ODCItem.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp_directo' });
+
 ODP.hasMany(Pago, { foreignKey: 'odp_id', as: 'pagos' });
 Pago.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
 

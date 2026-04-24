@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,6 +20,7 @@ interface TMItem {
   numero_tm: string;
   estado: string;
   fecha_visita: string | null;
+  hora_visita: string | null;
   fecha_creacion: string;
   direccion: string | null;
   nombre_contacto: string | null;
@@ -61,7 +62,6 @@ interface ProspectoInfo {
   cliente: { nombre_razon_social: string } | null;
 }
 
-// ODP en VISITA_TECNICA sin TM (estructura diferente — viene como ODP directa)
 interface ODPSinTM {
   id: number;
   numero_odp: string;
@@ -87,6 +87,9 @@ interface PanelData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const hoyEnBogota = (): string =>
+  new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Bogota' });
+
 const diasRestantes = (fecha: string | null): number | null => {
   if (!fecha) return null;
   const hoy = new Date();
@@ -105,7 +108,26 @@ const BadgeDias: React.FC<{ fecha: string | null }> = ({ fecha }) => {
   return <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{dias}d restantes</span>;
 };
 
-// ─── Modal para programar fecha de visita ─────────────────────────────────────
+const formatChipLabel = (fecha: string, hoy: string): string => {
+  if (fecha === hoy) return 'Hoy';
+  const d = new Date(hoy + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  if (fecha === d.toLocaleDateString('sv-SE')) return 'Mañana';
+  return new Date(fecha + 'T00:00:00').toLocaleDateString('es-CO', {
+    weekday: 'short', day: 'numeric', month: 'short',
+  });
+};
+
+const formatHora = (hora: string | null): string => {
+  if (!hora) return '';
+  // Convierte HH:MM a formato 12h con am/pm
+  const [h, m] = hora.split(':').map(Number);
+  const ampm = h >= 12 ? 'pm' : 'am';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+};
+
+// ─── Modal programar fecha + hora ─────────────────────────────────────────────
 
 const ProgramarModal: React.FC<{
   tm: TMItem;
@@ -113,6 +135,7 @@ const ProgramarModal: React.FC<{
   onProgramado: () => void;
 }> = ({ tm, onClose, onProgramado }) => {
   const [fecha, setFecha] = useState('');
+  const [hora, setHora] = useState('');
   const [loading, setLoading] = useState(false);
   const token = sessionStorage.getItem('token');
 
@@ -121,7 +144,7 @@ const ProgramarModal: React.FC<{
     setLoading(true);
     try {
       await axios.patch(`${API}/api/documentos/tm/${tm.id}/programar`,
-        { fecha_visita: fecha },
+        { fecha_visita: fecha, hora_visita: hora || null },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success('Visita programada');
@@ -149,15 +172,32 @@ const ProgramarModal: React.FC<{
           </div>
           <button onClick={onClose}><X className="w-5 h-5 text-slate-400" /></button>
         </div>
-        <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-          Fecha de visita <span className="text-red-400">*</span>
-        </label>
-        <input
-          type="date"
-          value={fecha}
-          onChange={e => setFecha(e.target.value)}
-          className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 mb-5"
-        />
+
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+              Fecha <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="date"
+              value={fecha}
+              onChange={e => setFecha(e.target.value)}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+              Hora <span className="text-slate-400 font-normal normal-case">(opcional)</span>
+            </label>
+            <input
+              type="time"
+              value={hora}
+              onChange={e => setHora(e.target.value)}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+          </div>
+        </div>
+
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm">
             Cancelar
@@ -172,7 +212,7 @@ const ProgramarModal: React.FC<{
   );
 };
 
-// ─── Modal para editar datos de una TM ───────────────────────────────────────
+// ─── Modal editar TM ──────────────────────────────────────────────────────────
 
 const EditarTMModal: React.FC<{
   tm: TMItem;
@@ -187,6 +227,7 @@ const EditarTMModal: React.FC<{
     direccion: tm.direccion || '',
     observaciones: tm.observaciones || '',
     fecha_visita: tm.fecha_visita || '',
+    hora_visita: tm.hora_visita || '',
   });
   const [loading, setLoading] = useState(false);
   const token = sessionStorage.getItem('token');
@@ -196,7 +237,10 @@ const EditarTMModal: React.FC<{
   const handleGuardar = async () => {
     setLoading(true);
     try {
-      await axios.put(`${API}/api/documentos/tm/${tm.id}`, form, {
+      await axios.put(`${API}/api/documentos/tm/${tm.id}`, {
+        ...form,
+        hora_visita: form.hora_visita || null,
+      }, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success('TM actualizada correctamente');
@@ -225,85 +269,74 @@ const EditarTMModal: React.FC<{
 
         <div className="space-y-4">
           {tm.estado === 'programada' && (
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                Fecha de visita
-              </label>
-              <input
-                type="date"
-                value={form.fecha_visita}
-                onChange={e => set('fecha_visita', e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Fecha de visita
+                </label>
+                <input
+                  type="date"
+                  value={form.fecha_visita}
+                  onChange={e => set('fecha_visita', e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Hora <span className="text-slate-400 font-normal normal-case">(opcional)</span>
+                </label>
+                <input
+                  type="time"
+                  value={form.hora_visita}
+                  onChange={e => set('hora_visita', e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Contacto</label>
-              <input
-                type="text"
-                value={form.nombre_contacto}
-                onChange={e => set('nombre_contacto', e.target.value)}
+              <input type="text" value={form.nombre_contacto} onChange={e => set('nombre_contacto', e.target.value)}
                 placeholder="Nombre contacto"
-                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Tel. contacto</label>
-              <input
-                type="text"
-                value={form.telefono_contacto}
-                onChange={e => set('telefono_contacto', e.target.value)}
+              <input type="text" value={form.telefono_contacto} onChange={e => set('telefono_contacto', e.target.value)}
                 placeholder="Teléfono"
-                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Contacto obra</label>
-              <input
-                type="text"
-                value={form.contacto_obra}
-                onChange={e => set('contacto_obra', e.target.value)}
+              <input type="text" value={form.contacto_obra} onChange={e => set('contacto_obra', e.target.value)}
                 placeholder="Nombre en obra"
-                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Tel. obra</label>
-              <input
-                type="text"
-                value={form.telefono_obra}
-                onChange={e => set('telefono_obra', e.target.value)}
+              <input type="text" value={form.telefono_obra} onChange={e => set('telefono_obra', e.target.value)}
                 placeholder="Teléfono obra"
-                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Dirección</label>
-            <input
-              type="text"
-              value={form.direccion}
-              onChange={e => set('direccion', e.target.value)}
+            <input type="text" value={form.direccion} onChange={e => set('direccion', e.target.value)}
               placeholder="Dirección de la visita"
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-            />
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Observaciones</label>
-            <textarea
-              value={form.observaciones}
-              onChange={e => set('observaciones', e.target.value)}
-              rows={3}
-              placeholder="Observaciones adicionales"
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
-            />
+            <textarea value={form.observaciones} onChange={e => set('observaciones', e.target.value)}
+              rows={3} placeholder="Observaciones adicionales"
+              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none" />
           </div>
         </div>
 
@@ -321,7 +354,7 @@ const EditarTMModal: React.FC<{
   );
 };
 
-// ─── Card TM (para solicitadas y programadas) ─────────────────────────────────
+// ─── Card TM ──────────────────────────────────────────────────────────────────
 
 const CardTM: React.FC<{
   tm: TMItem;
@@ -384,7 +417,14 @@ const CardTM: React.FC<{
           {tm.fecha_visita && (
             <p className="text-xs text-blue-700 flex items-center gap-1 mt-1 font-semibold">
               <Calendar className="w-3 h-3 flex-shrink-0" />
-              Visita: {new Date(tm.fecha_visita + 'T00:00:00').toLocaleDateString('es-CO')}
+              Visita: {new Date(tm.fecha_visita + 'T00:00:00').toLocaleDateString('es-CO', {
+                weekday: 'long', day: 'numeric', month: 'short',
+              })}
+              {tm.hora_visita && (
+                <span className="ml-1 bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full text-[10px] font-black">
+                  {formatHora(tm.hora_visita)}
+                </span>
+              )}
             </p>
           )}
 
@@ -434,53 +474,39 @@ const CardTM: React.FC<{
 
         <div className="flex flex-col gap-1.5 flex-shrink-0 mt-1">
           {tm.estado === 'solicitada' && onProgramar && (
-            <button
-              onClick={() => onProgramar(tm)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 transition shadow-sm whitespace-nowrap"
-            >
+            <button onClick={() => onProgramar(tm)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 transition shadow-sm whitespace-nowrap">
               <Calendar className="w-3.5 h-3.5" /> Programar
             </button>
           )}
           {tm.estado === 'programada' && onOpenTM && (
-            <button
-              onClick={() => onOpenTM(tm)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition shadow-sm whitespace-nowrap"
-            >
+            <button onClick={() => onOpenTM(tm)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition shadow-sm whitespace-nowrap">
               <Ruler className="w-3.5 h-3.5" /> Abrir TM
             </button>
           )}
           {tm.estado === 'programada' && onRetornar && (
-            <button
-              onClick={() => onRetornar(tm)}
+            <button onClick={() => onRetornar(tm)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200 transition shadow-sm whitespace-nowrap"
-              title="Retornar a Solicitadas"
-            >
+              title="Retornar a Solicitadas">
               <RotateCcw className="w-3.5 h-3.5" /> Retornar
             </button>
           )}
           {tm.estado === 'realizada' && onOpenTM && (
-            <button
-              onClick={() => onOpenTM(tm)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition shadow-sm whitespace-nowrap"
-            >
+            <button onClick={() => onOpenTM(tm)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition shadow-sm whitespace-nowrap">
               <Ruler className="w-3.5 h-3.5" /> Abrir TM
             </button>
           )}
           {(tm.estado === 'solicitada' || tm.estado === 'programada') && onEdit && (
-            <button
-              onClick={() => onEdit(tm)}
-              title="Editar TM"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200 transition shadow-sm whitespace-nowrap"
-            >
+            <button onClick={() => onEdit(tm)} title="Editar TM"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200 transition shadow-sm whitespace-nowrap">
               <Pencil className="w-3.5 h-3.5" /> Editar
             </button>
           )}
           {(tm.estado === 'solicitada' || tm.estado === 'programada') && onDelete && (
-            <button
-              onClick={() => onDelete(tm)}
-              title="Eliminar TM"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-600 text-xs font-bold rounded-lg hover:bg-rose-100 transition shadow-sm whitespace-nowrap"
-            >
+            <button onClick={() => onDelete(tm)} title="Eliminar TM"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-600 text-xs font-bold rounded-lg hover:bg-rose-100 transition shadow-sm whitespace-nowrap">
               <Trash2 className="w-3.5 h-3.5" /> Eliminar
             </button>
           )}
@@ -545,10 +571,8 @@ const CardODPSinTM: React.FC<{
         )}
       </div>
       <div className="flex-shrink-0 mt-1">
-        <button
-          onClick={() => onOpenTM(odp)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition shadow-sm whitespace-nowrap"
-        >
+        <button onClick={() => onOpenTM(odp)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition shadow-sm whitespace-nowrap">
           <Ruler className="w-3.5 h-3.5" /> Abrir TM
         </button>
       </div>
@@ -565,13 +589,15 @@ const Panel: React.FC<{
   count: number;
   children: React.ReactNode;
   emptyMsg: string;
-}> = ({ titulo, icono, color, count, children, emptyMsg }) => (
+  headerExtra?: React.ReactNode;
+}> = ({ titulo, icono, color, count, children, emptyMsg, headerExtra }) => (
   <div className="flex flex-col gap-3">
     <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border ${color}`}>
       {icono}
       <span className="font-extrabold text-sm uppercase tracking-wider">{titulo}</span>
       <span className="ml-auto font-black text-lg">{count}</span>
     </div>
+    {headerExtra}
     <div className="space-y-2 max-h-[calc(100vh-260px)] overflow-y-auto pr-1">
       {count === 0 ? (
         <div className="text-center py-10 text-slate-400">
@@ -582,6 +608,56 @@ const Panel: React.FC<{
   </div>
 );
 
+// ─── Chips de fechas para panel Programadas ───────────────────────────────────
+
+const ChipsFechas: React.FC<{
+  fechas: string[];
+  seleccionada: string;
+  hoy: string;
+  conteos: Record<string, number>;
+  onChange: (f: string) => void;
+}> = ({ fechas, seleccionada, hoy, conteos, onChange }) => (
+  <div className="flex flex-wrap gap-1.5 px-1">
+    {fechas.map(f => {
+      const activo = seleccionada === f;
+      const esHoy = f === hoy;
+      const count = conteos[f] || 0;
+      return (
+        <button
+          key={f}
+          onClick={() => onChange(f)}
+          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all border ${
+            activo
+              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+              : esHoy
+              ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+              : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600'
+          }`}
+        >
+          {formatChipLabel(f, hoy)}
+          {count > 0 && (
+            <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-black ${
+              activo ? 'bg-white/30 text-white' : 'bg-blue-100 text-blue-700'
+            }`}>
+              {count}
+            </span>
+          )}
+        </button>
+      );
+    })}
+    <button
+      onClick={() => onChange('todas')}
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold transition-all border ${
+        seleccionada === 'todas'
+          ? 'bg-slate-700 text-white border-slate-700'
+          : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
+      }`}
+    >
+      Todas
+    </button>
+  </div>
+);
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const TomaMedidasPage: React.FC = () => {
@@ -589,16 +665,20 @@ const TomaMedidasPage: React.FC = () => {
   const isReadOnly = authUser?.rol === 'asistente_administrativo';
   const canEditDelete = ['admin', 'asesor_comercial', 'gerencia', 'produccion', 'jefe_produccion'].includes(authUser?.rol);
 
+  const hoy = useMemo(() => hoyEnBogota(), []);
+
   const [data, setData] = useState<PanelData>({
     solicitadas: [], odpsSinTM: [], programadas: [], realizadas: [],
   });
   const [loading, setLoading] = useState(true);
-  const [tmModal, setTmModal] = useState<any | null>(null); // ODP-shape para TMModal legacy
+  const [tmModal, setTmModal] = useState<any | null>(null);
   const [programandoTM, setProgramandoTM] = useState<TMItem | null>(null);
   const [editandoTM, setEditandoTM] = useState<TMItem | null>(null);
   const [busqueda, setBusqueda] = useState('');
   const [showNuevoProspecto, setShowNuevoProspecto] = useState(false);
   const [creandoTMParaProspecto, setCreandoTMParaProspecto] = useState(false);
+  const [fechaSeleccionada, setFechaSeleccionada] = useState<string>(hoy);
+  const inicializadoRef = useRef(false);
 
   const token = sessionStorage.getItem('token');
 
@@ -617,6 +697,37 @@ const TomaMedidasPage: React.FC = () => {
   }, [token]);
 
   useEffect(() => { fetchPanel(); }, [fetchPanel]);
+
+  // Al cargar datos por primera vez: seleccionar hoy si tiene TMs, si no la próxima fecha disponible
+  useEffect(() => {
+    if (inicializadoRef.current || data.programadas.length === 0) return;
+    inicializadoRef.current = true;
+    const tieneHoy = data.programadas.some(tm => tm.fecha_visita === hoy);
+    if (!tieneHoy) {
+      const primera = data.programadas
+        .map(tm => tm.fecha_visita)
+        .filter(Boolean)
+        .sort()[0];
+      if (primera) setFechaSeleccionada(primera);
+    }
+  }, [data.programadas, hoy]);
+
+  // Fechas únicas con TMs (siempre incluye hoy)
+  const fechasConTMs = useMemo(() => {
+    const set = new Set<string>();
+    data.programadas.forEach(tm => { if (tm.fecha_visita) set.add(tm.fecha_visita); });
+    set.add(hoy);
+    return Array.from(set).sort();
+  }, [data.programadas, hoy]);
+
+  // Conteo por fecha para los chips
+  const conteosPorFecha = useMemo(() => {
+    const c: Record<string, number> = {};
+    data.programadas.forEach(tm => {
+      if (tm.fecha_visita) c[tm.fecha_visita] = (c[tm.fecha_visita] || 0) + 1;
+    });
+    return c;
+  }, [data.programadas]);
 
   const handleCloseTM = () => {
     setTmModal(null);
@@ -649,7 +760,6 @@ const TomaMedidasPage: React.FC = () => {
     }
   };
 
-  // Al crear un prospecto desde TM → auto-crear TM para ese prospecto
   const handleProspectoCreado = async (prospectoCreado?: any) => {
     setShowNuevoProspecto(false);
     if (!prospectoCreado?.id) { fetchPanel(); return; }
@@ -670,17 +780,10 @@ const TomaMedidasPage: React.FC = () => {
     }
   };
 
-  // Adaptar TMItem a formato ODP para el TMModal (solo para TMs con ODP vinculada)
   const abrirTMModal = (source: TMItem | ODPSinTM) => {
-    // Si es TMItem con ODP, adaptar
     if ('odp' in source && source.odp) {
-      const odpShape = {
-        ...source.odp,
-        tomas_medidas: [source],
-      };
-      setTmModal(odpShape);
+      setTmModal({ ...source.odp, tomas_medidas: [source] });
     } else if ('odp' in source && source.prospecto) {
-      // TM de prospecto — construir ODP-shape con datos del prospecto Y de la TM
       const prosp = source.prospecto;
       setTmModal({
         id: null,
@@ -695,14 +798,12 @@ const TomaMedidasPage: React.FC = () => {
         fecha_entrega: null,
         tomas_medidas: [{
           ...source,
-          // campos que TMModal espera en formato TM
           contacto_obra: source.nombre_contacto || prosp.nombre_contacto,
           telefono_obra: source.telefono_contacto || prosp.telefono_contacto,
         }],
         _prospecto_id: prosp.id,
       });
     } else {
-      // Es ODPSinTM directa
       setTmModal(source);
     }
   };
@@ -713,30 +814,18 @@ const TomaMedidasPage: React.FC = () => {
 
     const matchTM = (tm: TMItem) => {
       const campos = [
-        tm.numero_tm,
-        tm.nombre_contacto,
-        tm.telefono_contacto,
-        tm.contacto_obra,
-        tm.telefono_obra,
-        tm.prospecto?.nombre_contacto,
-        tm.prospecto?.telefono_contacto,
-        tm.prospecto?.cliente?.nombre_razon_social,
-        tm.prospecto?.numero_prospecto,
-        tm.odp?.cliente?.nombre_razon_social,
-        tm.odp?.nombre_recibe,
-        tm.odp?.telefono_recibe,
-        tm.odp?.numero_odp,
+        tm.numero_tm, tm.nombre_contacto, tm.telefono_contacto,
+        tm.contacto_obra, tm.telefono_obra,
+        tm.prospecto?.nombre_contacto, tm.prospecto?.telefono_contacto,
+        tm.prospecto?.cliente?.nombre_razon_social, tm.prospecto?.numero_prospecto,
+        tm.odp?.cliente?.nombre_razon_social, tm.odp?.nombre_recibe,
+        tm.odp?.telefono_recibe, tm.odp?.numero_odp,
       ];
       return campos.some(c => c && c.toLowerCase().includes(q));
     };
 
     const matchODP = (odp: ODPSinTM) => {
-      const campos = [
-        odp.numero_odp,
-        odp.cliente?.nombre_razon_social,
-        odp.nombre_recibe,
-        odp.telefono_recibe,
-      ];
+      const campos = [odp.numero_odp, odp.cliente?.nombre_razon_social, odp.nombre_recibe, odp.telefono_recibe];
       return campos.some(c => c && c.toLowerCase().includes(q));
     };
 
@@ -747,6 +836,12 @@ const TomaMedidasPage: React.FC = () => {
       realizadas: data.realizadas.filter(matchTM),
     };
   }, [busqueda, data]);
+
+  // Programadas filtradas por fecha seleccionada
+  const programadasVista = useMemo(() => {
+    if (fechaSeleccionada === 'todas') return datosFiltrados.programadas;
+    return datosFiltrados.programadas.filter(tm => tm.fecha_visita === fechaSeleccionada);
+  }, [fechaSeleccionada, datosFiltrados.programadas]);
 
   const totalSolicitadas = datosFiltrados.solicitadas.length + datosFiltrados.odpsSinTM.length;
 
@@ -789,23 +884,20 @@ const TomaMedidasPage: React.FC = () => {
               className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl w-72 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
             />
             {busqueda && (
-              <button
-                onClick={() => setBusqueda('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
+              <button onClick={() => setBusqueda('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
           {!isReadOnly && (
-          <button
-            onClick={() => setShowNuevoProspecto(true)}
-            disabled={creandoTMParaProspecto}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition shadow-sm disabled:opacity-50"
-          >
-            <UserPlus className="w-4 h-4" />
-            {creandoTMParaProspecto ? 'Creando TM...' : 'Nueva Solicitud TM'}
-          </button>
+            <button
+              onClick={() => setShowNuevoProspecto(true)}
+              disabled={creandoTMParaProspecto}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition shadow-sm disabled:opacity-50"
+            >
+              <UserPlus className="w-4 h-4" />
+              {creandoTMParaProspecto ? 'Creando TM...' : 'Nueva Solicitud TM'}
+            </button>
           )}
           <button
             onClick={fetchPanel}
@@ -840,7 +932,6 @@ const TomaMedidasPage: React.FC = () => {
           count={totalSolicitadas}
           emptyMsg="No hay visitas técnicas pendientes"
         >
-          {/* TMs de prospectos con estado 'solicitada' */}
           {datosFiltrados.solicitadas.map(tm => (
             <CardTM
               key={`tm-${tm.id}`}
@@ -851,13 +942,8 @@ const TomaMedidasPage: React.FC = () => {
               onDelete={canEditDelete ? handleEliminarTM : undefined}
             />
           ))}
-          {/* ODPs en VISITA_TECNICA sin TM registrada */}
           {datosFiltrados.odpsSinTM.map(odp => (
-            <CardODPSinTM
-              key={`odp-${odp.id}`}
-              odp={odp}
-              onOpenTM={abrirTMModal}
-            />
+            <CardODPSinTM key={`odp-${odp.id}`} odp={odp} onOpenTM={abrirTMModal} />
           ))}
         </Panel>
 
@@ -866,10 +952,25 @@ const TomaMedidasPage: React.FC = () => {
           titulo="Programadas"
           icono={<CalendarCheck className="w-4 h-4 text-blue-600" />}
           color="bg-blue-50 border-blue-200 text-blue-700"
-          count={datosFiltrados.programadas.length}
-          emptyMsg="No hay visitas programadas"
+          count={programadasVista.length}
+          emptyMsg={
+            fechaSeleccionada === 'todas'
+              ? 'No hay visitas programadas'
+              : fechaSeleccionada === hoy
+              ? 'Sin visitas programadas para hoy'
+              : `Sin visitas para ${formatChipLabel(fechaSeleccionada, hoy)}`
+          }
+          headerExtra={
+            <ChipsFechas
+              fechas={fechasConTMs}
+              seleccionada={fechaSeleccionada}
+              hoy={hoy}
+              conteos={conteosPorFecha}
+              onChange={setFechaSeleccionada}
+            />
+          }
         >
-          {datosFiltrados.programadas.map(tm => (
+          {programadasVista.map(tm => (
             <CardTM
               key={tm.id}
               tm={tm}
@@ -890,19 +991,15 @@ const TomaMedidasPage: React.FC = () => {
           emptyMsg="No hay tomas de medidas completadas"
         >
           {datosFiltrados.realizadas.map(tm => (
-            <CardTM
-              key={tm.id}
-              tm={tm}
-              onOpenTM={abrirTMModal}
-            />
+            <CardTM key={tm.id} tm={tm} onOpenTM={abrirTMModal} />
           ))}
         </Panel>
       </div>
 
-      {/* Modal TMModal reutilizado (para ODPs) */}
+      {/* Modal TMModal */}
       {tmModal && <TMModal odp={tmModal} onClose={handleCloseTM} />}
 
-      {/* Modal programar fecha */}
+      {/* Modal programar fecha + hora */}
       <AnimatePresence>
         {programandoTM && (
           <ProgramarModal
@@ -924,7 +1021,7 @@ const TomaMedidasPage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Modal Nuevo Prospecto en modo TM → auto-crea TM al guardar */}
+      {/* Modal Nuevo Prospecto */}
       {showNuevoProspecto && (
         <ProspectoModal
           onClose={() => setShowNuevoProspecto(false)}

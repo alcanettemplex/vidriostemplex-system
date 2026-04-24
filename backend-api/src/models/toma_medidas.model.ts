@@ -12,6 +12,7 @@ TomaMedidas.init({
   estado: { type: DataTypes.STRING(20), defaultValue: 'solicitada', allowNull: false },
   // estados: solicitada | programada | realizada | convertida | archivada
   fecha_visita: { type: DataTypes.DATEONLY },
+  hora_visita: { type: DataTypes.STRING(5), allowNull: true },
   direccion: { type: DataTypes.STRING(255) },
   nombre_contacto: { type: DataTypes.STRING(150) },
   telefono_contacto: { type: DataTypes.STRING(30) },

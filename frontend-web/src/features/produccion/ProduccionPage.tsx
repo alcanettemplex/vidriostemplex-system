@@ -118,6 +118,7 @@ interface ODP {
 }
 
 const activeStates = [
+    'EN_ESPERA', 'VISITA_TECNICA',
     'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO',
     'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'PAUSADA'
 ];
@@ -890,6 +891,11 @@ const ProduccionPage: React.FC = () => {
                                         )}
                                         {odp.es_garantia && (
                                             <span className="text-[8px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded-full">GAR</span>
+                                        )}
+                                        {(odp.estado_produccion === 'EN_ESPERA' || odp.estado_produccion === 'VISITA_TECNICA') && (
+                                            <span className="text-[8px] font-black bg-amber-400 text-white px-1.5 py-0.5 rounded-full">
+                                                {odp.estado_produccion === 'VISITA_TECNICA' ? 'VISITA' : 'EN ESPERA'}
+                                            </span>
                                         )}
                                     </div>
                                     <p className="text-sm font-bold text-slate-700 truncate max-w-[190px]">
