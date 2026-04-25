@@ -561,7 +561,11 @@ export const updateODP = async (req: Request, res: Response) => {
       const isHuacalDone = !needsHuacal || updatedOdp.getDataValue('chk_huacal');
       const isCartonDone = !needsCarton || updatedOdp.getDataValue('chk_carton');
 
-      if (isMedicionDone && isCorteDone && isVidrioDone && isAccesoriosDone && isEnsambleDone && isMatizadoDone && isPeliculaDone && isHuacalDone && isCartonDone) {
+      // Requiere al menos un trabajo registrado — evita que ODPs vacías (sin items, sin SAP,
+      // sin TM, sin aluminio) salten a LISTO_INSTALAR solo por editar un campo como el abono.
+      const tieneAlgunRequisito = needsMedicion || needsCorte || needsVidrio || needsAccesorios || needsEnsamble || needsMatizado || needsPelicula || needsHuacal || needsCarton;
+
+      if (tieneAlgunRequisito && isMedicionDone && isCorteDone && isVidrioDone && isAccesoriosDone && isEnsambleDone && isMatizadoDone && isPeliculaDone && isHuacalDone && isCartonDone) {
         await updatedOdp.update({ estado_produccion: 'LISTO_INSTALAR' }, { transaction });
         console.log(`✅ ODP ${updatedOdp.getDataValue('numero_odp')} marcada automáticamente como LISTO_INSTALAR.`);
       }

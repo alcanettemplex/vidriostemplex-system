@@ -69,7 +69,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
   const [loadingInventario, setLoadingInventario] = useState(false);
   const [codigosPerfileria, setCodigosPerfileria] = useState<Set<string>>(new Set());
   // Perfiles seleccionados localmente — se aplican en BD solo al confirmar la ODC
-  const [perfilesSeleccionados, setPerfilesSeleccionados] = useState<Record<number, InventarioPerfil>>({});
+  const [perfilesSeleccionados, setPerfilesSeleccionados] = useState<Record<number, InventarioPerfil[]>>({});
 
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
@@ -98,48 +98,72 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
   }, []);
 
   const handleSeleccionarPerfil = (itemId: number, codigo: string, perfil: InventarioPerfil) => {
-    // Solo guarda localmente — la eliminación del inventario ocurre al confirmar la ODC
-    setPerfilesSeleccionados(prev => ({ ...prev, [itemId]: perfil }));
-    // Ocultar el perfil de otros dropdowns para evitar selección doble
+    setPerfilesSeleccionados(prev => ({
+      ...prev,
+      [itemId]: [...(prev[itemId] || []), perfil],
+    }));
+    // Ocultar de todos los dropdowns para evitar selección doble
     setInventarioPorCodigo(prev => ({
       ...prev,
       [codigo]: (prev[codigo] || []).filter(p => p.consecutivo !== perfil.consecutivo),
     }));
   };
 
+  const handleQuitarPerfil = (itemId: number, codigo: string, perfil: InventarioPerfil) => {
+    setPerfilesSeleccionados(prev => ({
+      ...prev,
+      [itemId]: (prev[itemId] || []).filter(p => p.consecutivo !== perfil.consecutivo),
+    }));
+    // Devolver al pool de opciones disponibles
+    setInventarioPorCodigo(prev => ({
+      ...prev,
+      [codigo]: [...(prev[codigo] || []), perfil].sort((a, b) => a.consecutivo - b.consecutivo),
+    }));
+  };
+
   const renderExisPerf = (item: SAPItemConContexto) => {
-    const seleccionado = perfilesSeleccionados[item.id];
-    if (seleccionado) {
-      // mm primero para identificación rápida visual
-      return (
-        <span className="text-[10px] font-bold text-green-700">
-          {seleccionado.mm != null ? `${Math.round(seleccionado.mm)} mm` : '—'} · #{seleccionado.consecutivo} · {seleccionado.ubicacion || '—'}
-        </span>
-      );
-    }
     if (!item.codigo || !codigosPerfileria.has(item.codigo)) return <span className="text-slate-400">—</span>;
     const opciones = inventarioPorCodigo[item.codigo] ?? null;
-    if (loadingInventario || opciones === null) return <span className="text-slate-400 text-[10px]">…</span>;
-    if (opciones.length === 0) return <span className="text-slate-400">—</span>;
+    if (loadingInventario && opciones === null) return <span className="text-slate-400 text-[10px]">…</span>;
+
+    const seleccionados = perfilesSeleccionados[item.id] || [];
+    const opcionesDisponibles = opciones || [];
+
+    if (seleccionados.length === 0 && opcionesDisponibles.length === 0) return <span className="text-slate-400">—</span>;
+
     return (
-      <select
-        className="text-[10px] border border-slate-200 rounded px-1 py-0.5 w-full max-w-[150px] bg-white cursor-pointer"
-        defaultValue=""
-        onChange={e => {
-          if (!e.target.value) return;
-          const perfil = opciones.find(p => p.consecutivo === parseInt(e.target.value));
-          if (perfil) handleSeleccionarPerfil(item.id, item.codigo, perfil);
-        }}
-        onClick={e => e.stopPropagation()}
-      >
-        <option value="">Seleccionar…</option>
-        {opciones.map(p => (
-          // mm al inicio para identificar de vistazo la dimensión del perfil
-          <option key={p.consecutivo} value={p.consecutivo}>
-            {p.mm != null ? `${Math.round(p.mm)} mm` : '—'} — #{p.consecutivo} ({p.ubicacion || '—'})
-          </option>
+      <div className="flex flex-col gap-0.5" onClick={e => e.stopPropagation()}>
+        {seleccionados.map(p => (
+          <div key={p.consecutivo} className="flex items-center gap-1 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
+            <span className="text-[10px] font-bold text-green-700 flex-1 leading-tight">
+              {p.mm != null ? `${Math.round(p.mm)} mm` : '—'} · #{p.consecutivo}
+            </span>
+            <button
+              type="button"
+              onClick={() => handleQuitarPerfil(item.id, item.codigo, p)}
+              className="text-red-400 hover:text-red-600 font-bold text-[11px] leading-none shrink-0"
+            >×</button>
+          </div>
         ))}
-      </select>
+        {opcionesDisponibles.length > 0 && (
+          <select
+            className="text-[10px] border border-slate-200 rounded px-1 py-0.5 w-full max-w-[150px] bg-white cursor-pointer mt-0.5"
+            value=""
+            onChange={e => {
+              if (!e.target.value) return;
+              const perfil = opcionesDisponibles.find(p => p.consecutivo === parseInt(e.target.value));
+              if (perfil) handleSeleccionarPerfil(item.id, item.codigo, perfil);
+            }}
+          >
+            <option value="">{seleccionados.length > 0 ? '+ Agregar…' : 'Seleccionar…'}</option>
+            {opcionesDisponibles.map(p => (
+              <option key={p.consecutivo} value={p.consecutivo}>
+                {p.mm != null ? `${Math.round(p.mm)} mm` : '—'} — #{p.consecutivo} ({p.ubicacion || '—'})
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
     );
   };
 
@@ -174,18 +198,18 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
       }, { headers });
 
       // 2. Al confirmar la ODC: consumir del inventario y actualizar exist_perf en cada SAP item
-      //    Las llamadas se hacen aquí (no al seleccionar en el dropdown) para evitar efectos
-      //    secundarios si el usuario cancela el modal después de seleccionar un perfil.
-      const entradasPerfil = Object.entries(perfilesSeleccionados) as [string, InventarioPerfil][];
+      const entradasPerfil = Object.entries(perfilesSeleccionados) as [string, InventarioPerfil[]][];
       await Promise.allSettled(
-        entradasPerfil.flatMap(([itemIdStr, perfil]) => {
+        entradasPerfil.flatMap(([itemIdStr, perfiles]) => {
+          if (!perfiles || perfiles.length === 0) return [];
           const itemId = Number(itemIdStr);
-          const etiquetaMm = perfil.mm != null ? `${Math.round(perfil.mm)} mm` : 'sin mm';
-          const existPerfTexto = `${etiquetaMm} — #${perfil.consecutivo} (${perfil.ubicacion || '—'})`;
+          const existPerfTexto = perfiles
+            .map(p => `${p.mm != null ? `${Math.round(p.mm)} mm` : 'sin mm'} — #${p.consecutivo} (${p.ubicacion || '—'})`)
+            .join(' / ');
           return [
-            // Eliminar la pieza del inventario de perfilería
-            axios.delete(`${API}/api/compras/inventario-perfileria/${perfil.consecutivo}`, { headers }),
-            // Guardar el texto descriptivo del perfil en el SAP item (trazabilidad)
+            // Eliminar cada pieza seleccionada del inventario
+            ...perfiles.map(p => axios.delete(`${API}/api/compras/inventario-perfileria/${p.consecutivo}`, { headers })),
+            // Guardar texto descriptivo concatenado en el SAP item
             axios.patch(`${API}/api/compras/sap-item/${itemId}/exist-perf`, { exist_perf: existPerfTexto }, { headers }),
           ];
         })

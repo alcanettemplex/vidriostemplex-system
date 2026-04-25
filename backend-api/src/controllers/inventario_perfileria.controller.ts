@@ -10,10 +10,13 @@ export const getInventario = async (req: Request, res: Response) => {
     if (codigo) where.codigo = codigo;
     if (ubicacion) where.ubicacion = ubicacion;
     if (search) {
-      where[Op.or as any] = [
+      const conditions: any[] = [
         { codigo: { [Op.iLike]: `%${search}%` } },
         { ubicacion: { [Op.iLike]: `%${search}%` } },
       ];
+      const searchNum = parseInt(search, 10);
+      if (!isNaN(searchNum)) conditions.push({ consecutivo: searchNum });
+      where[Op.or as any] = conditions;
     }
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
