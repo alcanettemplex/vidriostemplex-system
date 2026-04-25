@@ -10,8 +10,8 @@ import { Plus, BarChart3, Kanban, TrendingUp, PhoneMissed, Search, X } from 'luc
 
 type Tab = 'pipeline' | 'metricas' | 'gerencial' | 'sin_respuesta';
 
-const ROLES_GLOBAL = ['admin', 'gerencia', 'asistente_administrativo', 'root', 'marketing'];
-const ROLES_GERENCIAL = ['admin', 'gerencia', 'asistente_administrativo', 'root', 'marketing'];
+const ROLES_GLOBAL = ['admin', 'gerencia', 'asistente_administrativo', 'root', 'marketing', 'jefe_produccion'];
+const ROLES_GERENCIAL = ['admin', 'gerencia', 'asistente_administrativo', 'root', 'marketing', 'jefe_produccion'];
 
 const CRMPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('pipeline');

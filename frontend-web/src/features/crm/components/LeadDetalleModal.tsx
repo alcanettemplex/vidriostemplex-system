@@ -183,7 +183,7 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
       apiGetAsesores()
         .then(res => setAsesores(
           Array.isArray(res.data)
-            ? res.data.filter((u: any) => ['asesor_comercial', 'gerencia'].includes(u.rol))
+            ? res.data.filter((u: any) => ['asesor_comercial', 'gerencia', 'jefe_produccion'].includes(u.rol))
             : []
         ))
         .catch(() => toast.error('No se pudo cargar la lista de asesores'))

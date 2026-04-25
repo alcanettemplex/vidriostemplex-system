@@ -45,7 +45,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
     apiGetAsesores()
       .then(res => {
         const soloAsesores = res.data.filter((u: any) =>
-          ['asesor_comercial', 'gerencia'].includes(u.rol)
+          ['asesor_comercial', 'gerencia', 'jefe_produccion'].includes(u.rol)
         );
         setAsesores(soloAsesores);
       })

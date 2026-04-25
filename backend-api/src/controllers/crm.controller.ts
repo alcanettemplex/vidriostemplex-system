@@ -143,8 +143,8 @@ export const assignLeadToMe = async (req: Request, res: Response) => {
     const lead = await Lead.findByPk(id);
     if (!lead) return res.status(404).json({ error: 'Lead no encontrado' });
 
-    // SOLO Administración o Gerencia pueden "tomar" o asignarse leads
-    const puedeTomar = ['admin', 'gerencia', 'root', 'asistente_administrativo'].includes(user.rol.toLowerCase());
+    // Administración, Gerencia y Jefe de Producción pueden auto-asignarse leads
+    const puedeTomar = ['admin', 'gerencia', 'root', 'asistente_administrativo', 'jefe_produccion'].includes(user.rol.toLowerCase());
     if (!puedeTomar) {
       return res.status(403).json({ error: 'No tienes permisos para auto-asignarte leads. Solicítalo a Gerencia.' });
     }
@@ -555,7 +555,7 @@ export const getCRMStats = async (req: Request, res: Response) => {
     const statsPorAsesor: any[] = [];
     if (esGlobal) {
       const asesores = await Usuario.findAll({
-        where: { rol: { [Op.or]: ['asesor_comercial', 'admin', 'gerencia'] } },
+        where: { rol: { [Op.or]: ['asesor_comercial', 'admin', 'gerencia', 'jefe_produccion'] } },
         attributes: ['id', 'nombre_completo']
       });
       

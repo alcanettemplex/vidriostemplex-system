@@ -63,7 +63,7 @@ const MENU_ITEMS_CONFIG = [
     text: 'CRM & Leads',
     icon: Target,
     path: '/crm',
-    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'asistente_administrativo', 'marketing'],
+    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'asistente_administrativo', 'marketing', 'jefe_produccion'],
     section: 'comercial'
   },
   {
