@@ -46,7 +46,7 @@ const AppRoutes: React.FC = () => {
             <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras', 'produccion', 'asistente_administrativo']} />}>
               <Route path="/odp" element={<ODPListPage />} />
             </Route>
-            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'asesor_comercial', 'asistente_administrativo']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'asesor_comercial', 'asistente_administrativo', 'jefe_produccion']} />}>
               <Route path="/crm" element={<CRMPage />} />
             </Route>
             <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion', 'asistente_administrativo']} />}>
