@@ -42,8 +42,8 @@ const KPIStitch: React.FC<KPIStitchProps> = ({ label, value, sub, icon, accentCo
 );
 
 // ─── KPI Secundario (mini) ─────────────────────────────────────────────────────
-interface MiniKPIProps { label: string; value: string; icon: React.ReactNode; bg: string; }
-const MiniKPI: React.FC<MiniKPIProps> = ({ label, value, icon, bg }) => (
+interface MiniKPIProps { label: string; value: string; icon: React.ReactNode; bg: string; desc?: string; }
+const MiniKPI: React.FC<MiniKPIProps> = ({ label, value, icon, bg, desc }) => (
   <div className={`${bg} rounded-xl p-4 flex items-center gap-3`}>
     <div className="w-8 h-8 rounded-lg bg-white/60 flex items-center justify-center flex-shrink-0 shadow-sm">
       {icon}
@@ -51,6 +51,7 @@ const MiniKPI: React.FC<MiniKPIProps> = ({ label, value, icon, bg }) => (
     <div>
       <p className="text-[10px] font-black text-slate-500 uppercase tracking-wide">{label}</p>
       <p className="text-lg font-black text-slate-800">{value}</p>
+      {desc && <p className="text-[10px] text-slate-400 font-medium mt-0.5 leading-snug">{desc}</p>}
     </div>
   </div>
 );
@@ -97,40 +98,91 @@ const AVATAR_COLORS = [
   'from-rose-400 to-pink-500',
   'from-blue-400 to-cyan-500',
 ];
+const ETAPA_COLORS: Record<string, string> = {
+  NUEVO: 'bg-slate-400', ASIGNADO: 'bg-blue-500', EN_CONTACTO: 'bg-violet-500',
+  COTIZANDO: 'bg-amber-500', VISITA_TECNICA: 'bg-indigo-500',
+  FRIO: 'bg-sky-400', APROBADO: 'bg-emerald-500', PERDIDO: 'bg-rose-500',
+};
+const ETAPA_LABELS: Record<string, string> = {
+  NUEVO: 'Nuevo', ASIGNADO: 'Asig.', EN_CONTACTO: 'Contacto',
+  COTIZANDO: 'Cotiz.', VISITA_TECNICA: 'V.Tec.', FRIO: 'Frío',
+  APROBADO: 'Apro.', PERDIDO: 'Perd.',
+};
+
 const AsesorCardStitch: React.FC<{
   idx: number; nombre: string; total: number;
   aprobados: number; perdidos: number; tasa: number; monto: number;
-}> = ({ idx, nombre, total, aprobados, perdidos, tasa, monto }) => {
+  porEstado?: Record<string, number>; etapaCuello?: string | null;
+}> = ({ idx, nombre, total, aprobados, perdidos, tasa, monto, porEstado, etapaCuello }) => {
   const initials = nombre.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
   const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null;
+
+  const etapasActivas = porEstado
+    ? Object.entries(porEstado).filter(([e, c]) => c > 0 && !['APROBADO','PERDIDO'].includes(e))
+    : [];
+  const totalActivos = etapasActivas.reduce((s, [, c]) => s + c, 0) || 1;
+
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-4 hover:shadow-md transition-all duration-200 flex items-center gap-4">
-      {/* Avatar */}
-      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} flex items-center justify-center font-black text-white text-sm flex-shrink-0 shadow-md`}>
-        {initials}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          {medal && <span className="text-sm">{medal}</span>}
-          <p className="font-black text-slate-800 text-sm truncate">{nombre}</p>
+    <div className="bg-white rounded-2xl border border-slate-100 p-4 hover:shadow-md transition-all duration-200">
+      <div className="flex items-center gap-4">
+        {/* Avatar */}
+        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} flex items-center justify-center font-black text-white text-sm flex-shrink-0 shadow-md`}>
+          {initials}
         </div>
-        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide mt-0.5">{total} leads gestionados</p>
-        {/* Mini barra de conversión */}
-        <div className="mt-2 flex items-center gap-2">
-          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full bg-indigo-500 rounded-full transition-all duration-700" style={{ width: `${tasa}%` }} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            {medal && <span className="text-sm">{medal}</span>}
+            <p className="font-black text-slate-800 text-sm truncate">{nombre}</p>
           </div>
-          <span className={`text-[10px] font-black ${tasa >= 30 ? 'text-emerald-600' : tasa >= 15 ? 'text-amber-500' : 'text-rose-500'}`}>{tasa}%</span>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide mt-0.5">{total} leads gestionados</p>
+          {/* Mini barra de conversión */}
+          <div className="mt-2 flex items-center gap-2">
+            <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-full bg-indigo-500 rounded-full transition-all duration-700" style={{ width: `${tasa}%` }} />
+            </div>
+            <span className={`text-[10px] font-black ${tasa >= 30 ? 'text-emerald-600' : tasa >= 15 ? 'text-amber-500' : 'text-rose-500'}`}>{tasa}%</span>
+          </div>
+        </div>
+        {/* Stats */}
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <p className="text-sm font-black text-slate-700">{fmtCOP(monto, true)}</p>
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600"><CheckCircle2 className="w-3 h-3" />{aprobados}</span>
+            <span className="flex items-center gap-0.5 text-[10px] font-bold text-rose-500"><XCircle className="w-3 h-3" />{perdidos}</span>
+          </div>
         </div>
       </div>
-      {/* Stats */}
-      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-        <p className="text-sm font-black text-slate-700">{fmtCOP(monto, true)}</p>
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600"><CheckCircle2 className="w-3 h-3" />{aprobados}</span>
-          <span className="flex items-center gap-0.5 text-[10px] font-bold text-rose-500"><XCircle className="w-3 h-3" />{perdidos}</span>
+
+      {/* Barra segmentada por etapa (cuello de botella) */}
+      {etapasActivas.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-slate-50">
+          <div className="flex items-center gap-1 h-2 rounded-full overflow-hidden bg-slate-100">
+            {etapasActivas.map(([etapa, count]) => (
+              <div
+                key={etapa}
+                className={`h-full ${ETAPA_COLORS[etapa] || 'bg-slate-400'} transition-all duration-700`}
+                style={{ width: `${(count / totalActivos) * 100}%` }}
+                title={`${ETAPA_LABELS[etapa] || etapa}: ${count}`}
+              />
+            ))}
+          </div>
+          <div className="flex items-center justify-between mt-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              {etapasActivas.slice(0, 4).map(([etapa, count]) => (
+                <span key={etapa} className="flex items-center gap-0.5 text-[9px] font-bold text-slate-500">
+                  <span className={`w-1.5 h-1.5 rounded-full inline-block ${ETAPA_COLORS[etapa] || 'bg-slate-400'}`} />
+                  {ETAPA_LABELS[etapa]}: {count}
+                </span>
+              ))}
+            </div>
+            {etapaCuello && (
+              <span className="text-[9px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-100 whitespace-nowrap">
+                ⚠ {ETAPA_LABELS[etapaCuello] || etapaCuello}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
@@ -174,7 +226,9 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
 
   const {
     total = 0, monto_total_proyectado = 0, tasa_conversion = 0,
-    convertidos_a_cliente = 0, monto_real_aprobados = 0,
+    convertidos_a_cliente = 0, nuevos_clientes = 0, clientes_recurrentes = 0,
+    leads_con_odp = 0, leads_aprobados_sin_odp = 0,
+    monto_real_aprobados = 0,
     ticket_promedio_proyectado = 0, tiempo_promedio_cierre_dias = 0,
     stats_por_asesor = [], por_estado = {}
   } = stats;
@@ -215,7 +269,7 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KPIStitch
           label="Venta Proyectada" value={fmtCOP(monto_total_proyectado, true)}
-          sub="→ Target Mensual"
+          sub="Suma de montos proyectados de todos los leads del periodo"
           icon={<IconDollar size={16} className="text-indigo-600" />}
           accentColor="bg-indigo-50" borderColor="border-l-indigo-500" />
         <KPIStitch
@@ -226,12 +280,12 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
           trend={tasa_conversion} trendLabel={`${tasa_conversion}% conversión`} />
         <KPIStitch
           label="Leads Ingresados" value={String(total)}
-          sub="Nuevos prospectos este mes"
+          sub="Total de leads registrados en el periodo seleccionado"
           icon={<IconLeads size={16} className="text-violet-600" />}
           accentColor="bg-violet-50" borderColor="border-l-violet-500" />
         <KPIStitch
-          label="Clientes Nuevos" value={String(convertidos_a_cliente)}
-          sub="Conversión pendiente"
+          label="Clientes Nuevos" value={String(nuevos_clientes)}
+          sub={clientes_recurrentes > 0 ? `${clientes_recurrentes} recurrentes` : 'Sin recurrentes'}
           icon={<IconUserCheck size={16} className="text-rose-600" />}
           accentColor="bg-rose-50" borderColor="border-l-rose-400" />
       </div>
@@ -239,13 +293,92 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
       {/* ── KPIs secundarios (mini, fila inferior) ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MiniKPI label="Venta Real Aprobados" value={fmtCOP(monto_real_aprobados, true)}
-          icon={<IconCheck size={16} className="text-emerald-600" />} bg="bg-emerald-50/60 border border-emerald-100" />
+          icon={<IconCheck size={16} className="text-emerald-600" />} bg="bg-emerald-50/60 border border-emerald-100"
+          desc="Suma del monto real de los leads cerrados como Aprobados" />
         <MiniKPI label="Ticket Promedio" value={fmtCOP(ticket_promedio_proyectado, true)}
-          icon={<IconDollar size={16} className="text-indigo-600" />} bg="bg-indigo-50/60 border border-indigo-100" />
+          icon={<IconDollar size={16} className="text-indigo-600" />} bg="bg-indigo-50/60 border border-indigo-100"
+          desc="Cotización proyectada promedio por lead en gestión" />
         <MiniKPI label="Leads Perdidos" value={String(perdidos)}
-          icon={<IconTarget size={16} className="text-rose-600" />} bg="bg-rose-50/60 border border-rose-100" />
+          icon={<IconTarget size={16} className="text-rose-600" />} bg="bg-rose-50/60 border border-rose-100"
+          desc="Oportunidades cerradas sin conversión en el periodo" />
         <MiniKPI label="Días Prom. Cierre" value={`${tiempo_promedio_cierre_dias}d`}
-          icon={<IconClock size={16} className="text-amber-600" />} bg="bg-amber-50/60 border border-amber-100" />
+          icon={<IconClock size={16} className="text-amber-600" />} bg="bg-amber-50/60 border border-amber-100"
+          desc="Tiempo promedio desde el registro hasta el cierre del lead" />
+      </div>
+
+      {/* ── Fila: Clientes nuevos vs recurrentes + Leads→ODP ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Nuevos vs Recurrentes */}
+        <div className="md:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <div className="mb-3">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Clientes Nuevos vs Recurrentes</p>
+            <p className="text-[10px] text-slate-400 font-medium mt-0.5">De los leads convertidos, cuántos eran clientes nuevos o ya existentes en el sistema</p>
+          </div>
+          {(nuevos_clientes + clientes_recurrentes) === 0 ? (
+            <p className="text-sm text-slate-300 text-center py-2">Sin conversiones en este periodo</p>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden flex">
+                  {nuevos_clientes > 0 && (
+                    <div
+                      className="h-full bg-emerald-500 rounded-l-full transition-all duration-700"
+                      style={{ width: `${((nuevos_clientes / (nuevos_clientes + clientes_recurrentes)) * 100)}%` }}
+                    />
+                  )}
+                  {clientes_recurrentes > 0 && (
+                    <div
+                      className="h-full bg-blue-400 rounded-r-full transition-all duration-700"
+                      style={{ width: `${((clientes_recurrentes / (nuevos_clientes + clientes_recurrentes)) * 100)}%` }}
+                    />
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-6 text-xs">
+                <span className="flex items-center gap-1.5 font-bold text-emerald-700">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                  Nuevos: <strong>{nuevos_clientes}</strong>
+                  <span className="text-slate-400 font-normal">
+                    ({nuevos_clientes + clientes_recurrentes > 0 ? Math.round((nuevos_clientes / (nuevos_clientes + clientes_recurrentes)) * 100) : 0}%)
+                  </span>
+                </span>
+                <span className="flex items-center gap-1.5 font-bold text-blue-600">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block" />
+                  Recurrentes: <strong>{clientes_recurrentes}</strong>
+                  <span className="text-slate-400 font-normal">
+                    ({nuevos_clientes + clientes_recurrentes > 0 ? Math.round((clientes_recurrentes / (nuevos_clientes + clientes_recurrentes)) * 100) : 0}%)
+                  </span>
+                </span>
+                <span className="text-slate-400 font-medium ml-auto">
+                  {convertidos_a_cliente - nuevos_clientes - clientes_recurrentes > 0 && (
+                    <span className="text-amber-500">{convertidos_a_cliente - nuevos_clientes - clientes_recurrentes} sin clasificar</span>
+                  )}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Leads → ODP */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col justify-between">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Leads → ODP</p>
+          <p className="text-[10px] text-slate-400 font-medium mt-0.5">Leads aprobados que ya tienen una Orden de Producción vinculada</p>
+          <div className="flex items-end gap-2 mt-2">
+            <p className="text-3xl font-black text-slate-800">{leads_con_odp}</p>
+            <p className="text-sm text-slate-400 font-semibold mb-1">vinculados</p>
+          </div>
+          {leads_aprobados_sin_odp > 0 ? (
+            <div className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-100 rounded-xl">
+              <span className="text-amber-500 text-sm font-black">⚠</span>
+              <p className="text-[11px] text-amber-700 font-bold">{leads_aprobados_sin_odp} aprobado{leads_aprobados_sin_odp > 1 ? 's' : ''} sin ODP</p>
+            </div>
+          ) : (
+            <div className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl">
+              <span className="text-emerald-500 text-sm font-black">✓</span>
+              <p className="text-[11px] text-emerald-700 font-bold">Todos vinculados</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Bloque central: Pipeline + Eficiencia ── */}
@@ -288,7 +421,10 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
         {/* Eficiencia Global - Donut */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col items-center justify-center gap-4">
           <div className="w-full flex items-center justify-between mb-2">
-            <h3 className="font-black text-slate-800 text-sm">Eficiencia Global</h3>
+            <div>
+              <h3 className="font-black text-slate-800 text-sm">Eficiencia Global</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Tasa de éxito del equipo comercial en el periodo</p>
+            </div>
             <span className={`text-[10px] font-black px-2 py-1 rounded-full ${tasa_conversion >= 20 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
               {tasa_conversion >= 20 ? '✓ En meta' : '⚠ Mejorable'}
             </span>
@@ -319,7 +455,7 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
               </div>
               <div>
                 <h3 className="font-black text-slate-800 text-sm">Líderes del Periodo</h3>
-                <p className="text-[10px] text-slate-400 font-medium">{periodoLabel}</p>
+                <p className="text-[10px] text-slate-400 font-medium">{periodoLabel} — Ranking por monto gestionado y conversión</p>
               </div>
             </div>
             <button className="flex items-center gap-1.5 text-[11px] font-black text-indigo-600 hover:text-indigo-700 transition-colors">
@@ -332,6 +468,7 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
                 key={a.id} idx={i} nombre={a.nombre} total={a.total}
                 aprobados={a.aprobados} perdidos={a.perdidos}
                 tasa={a.tasa_conversion} monto={a.monto_gestionado}
+                porEstado={a.por_estado} etapaCuello={a.etapa_cuello}
               />
             ))}
           </div>

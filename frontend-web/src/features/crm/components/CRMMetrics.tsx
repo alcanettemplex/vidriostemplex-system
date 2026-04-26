@@ -20,9 +20,9 @@ const fmtCOP = (v: number, compact = false) =>
 // ─── KPI Métrica (estilo Stitch Metrics tab) ───────────────────────────────────
 interface MetricKPIProps {
   label: string; value: string; delta?: string; positivo?: boolean;
-  icon: React.ReactNode; borderColor: string; accentBg: string;
+  icon: React.ReactNode; borderColor: string; accentBg: string; desc?: string;
 }
-const MetricKPI: React.FC<MetricKPIProps> = ({ label, value, delta, positivo, icon, borderColor, accentBg }) => (
+const MetricKPI: React.FC<MetricKPIProps> = ({ label, value, delta, positivo, icon, borderColor, accentBg, desc }) => (
   <div className={`bg-white rounded-2xl p-5 border border-slate-100 shadow-sm border-l-4 ${borderColor} flex flex-col gap-2 hover:shadow-md transition-all duration-200`}>
     <div className="flex items-center justify-between">
       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
@@ -37,6 +37,7 @@ const MetricKPI: React.FC<MetricKPIProps> = ({ label, value, delta, positivo, ic
         </span>
       )}
     </div>
+    {desc && <p className="text-[10px] text-slate-400 font-medium leading-snug">{desc}</p>}
   </div>
 );
 
@@ -205,11 +206,13 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
     tiempo_promedio_cierre_dias = 0,
     por_estado = {}, por_motivo_perdida = {}, por_producto = {},
     por_fuente = {}, por_segmento = {}, tiempos_promedio_horas = {},
-    stats_por_asesor = []
+    stats_por_asesor = [],
+    nuevos_clientes = 0, clientes_recurrentes = 0,
   } = stats;
 
   // Listas derivadas
   const fuentesList  = Object.entries(por_fuente).map(([f, c]) => ({ fuente: f, count: c as number })).sort((a,b) => b.count - a.count);
+  const motivosList  = Object.entries(por_motivo_perdida).map(([m, c]) => ({ motivo: m, count: c as number })).sort((a,b) => b.count - a.count);
   const productosList = Object.entries(por_producto).map(([p, d]: [string, any]) => ({
     producto: p, count: d.total,
     rate: d.total > 0 ? Math.round((d.aprobados / d.total) * 100) : 0, monto: d.monto
@@ -256,22 +259,26 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
           label="Tasa de Conversión" value={`${tasa_conversion}%`}
           delta={tasa_conversion >= 20 ? '+2.5%' : undefined} positivo={tasa_conversion >= 20}
           icon={<IconPercent size={16} className="text-emerald-600" />}
-          borderColor="border-l-emerald-500" accentBg="bg-emerald-50" />
+          borderColor="border-l-emerald-500" accentBg="bg-emerald-50"
+          desc="Porcentaje de leads que llegaron a estado Aprobado sobre el total del periodo." />
         <MetricKPI
           label="Lead Velocity" value={`${tasaVelocity}d`}
           delta={tasaVelocity > 0 ? '-0.8d' : undefined} positivo={false}
           icon={<IconTrending size={16} className="text-indigo-600" />}
-          borderColor="border-l-indigo-500" accentBg="bg-indigo-50" />
+          borderColor="border-l-indigo-500" accentBg="bg-indigo-50"
+          desc="Días promedio que tarda un lead desde que ingresa hasta que se cierra." />
         <MetricKPI
           label="Ticket Promedio" value={fmtCOP(ticket_promedio_proyectado, true)}
           delta={ticket_promedio_proyectado > 0 ? '+$150' : undefined} positivo
           icon={<IconDollar size={16} className="text-violet-600" />}
-          borderColor="border-l-violet-500" accentBg="bg-violet-50" />
+          borderColor="border-l-violet-500" accentBg="bg-violet-50"
+          desc="Valor promedio de cotización proyectada por cada lead en gestión." />
         <MetricKPI
           label="Costo por Lead" value={total > 0 ? fmtCOP(monto_total_proyectado / total, true) : '$0'}
           delta="-$2.1" positivo
           icon={<IconTarget size={16} className="text-amber-600" />}
-          borderColor="border-l-amber-500" accentBg="bg-amber-50" />
+          borderColor="border-l-amber-500" accentBg="bg-amber-50"
+          desc="Monto total proyectado dividido entre el número de leads registrados." />
       </div>
 
       {/* ── Gráfico de línea + Donut Categoría ── */}
@@ -282,6 +289,7 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-black text-slate-800 text-sm">Tendencia de Ventas vs Proyecciones</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Volumen de leads por etapa del funnel en el periodo actual</p>
             </div>
             <div className="flex items-center gap-3 text-[11px] font-bold text-slate-400">
               <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-indigo-500 inline-block rounded"/> Real</span>
@@ -309,7 +317,10 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
             <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
               <IconBarChart size={16} className="text-indigo-600" />
             </div>
-            <h3 className="font-black text-slate-800 text-sm">Conversión por Categoría</h3>
+            <div>
+              <h3 className="font-black text-slate-800 text-sm">Conversión por Categoría</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Participación de cada tipo de producto en el total de leads</p>
+            </div>
           </div>
           {donutItems.length > 0
             ? <DonutCategoria items={donutItems} />
@@ -329,6 +340,7 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
             </div>
             <div>
               <h3 className="font-black text-slate-800 text-sm">Embudo de Conversión</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Cuántos leads hay actualmente en cada etapa del proceso comercial</p>
             </div>
           </div>
           <div className="space-y-3">
@@ -357,7 +369,10 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
               <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center">
                 <IconGlobe size={16} className="text-blue-600" />
               </div>
-              <h3 className="font-black text-slate-800 text-sm">Distribución de Leads por Fuente</h3>
+              <div>
+                <h3 className="font-black text-slate-800 text-sm">Distribución de Leads por Fuente</h3>
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Canales de origen de los leads registrados en el periodo</p>
+              </div>
             </div>
             <span className="text-[10px] font-black text-slate-400">Total: {total} ↑</span>
           </div>
@@ -429,7 +444,10 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
             <div className="w-8 h-8 rounded-xl bg-teal-50 flex items-center justify-center">
               <IconPackage size={16} className="text-teal-600" />
             </div>
-            <h3 className="font-black text-slate-800 text-sm">Conversión por Producto</h3>
+            <div>
+              <h3 className="font-black text-slate-800 text-sm">Conversión por Producto</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Volumen, tasa de cierre y monto proyectado por tipo de producto</p>
+            </div>
           </div>
           <div className="space-y-2">
             {productosList.slice(0, 7).map((p, idx) => (
@@ -460,7 +478,10 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
             <div className="w-8 h-8 rounded-xl bg-violet-50 flex items-center justify-center">
               <IconBarChart size={16} className="text-violet-600" />
             </div>
-            <h3 className="font-black text-slate-800 text-sm">Distribución por Segmento</h3>
+            <div>
+              <h3 className="font-black text-slate-800 text-sm">Distribución por Segmento</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Leads y monto proyectado según el perfil del cliente (arquitecto, industrial, etc.)</p>
+            </div>
           </div>
           <div className="space-y-3">
             {segmentosList.map(s => {
@@ -488,6 +509,130 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
         </div>
       </div>
 
+      {/* ── Nuevos vs Recurrentes + Razones de Pérdida ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        {/* Nuevos vs Recurrentes */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center">
+              <IconActivity size={16} className="text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="font-black text-slate-800 text-sm">Clientes Nuevos vs Recurrentes</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Sobre leads convertidos en el periodo</p>
+            </div>
+          </div>
+          {(nuevos_clientes + clientes_recurrentes) === 0 ? (
+            <p className="text-center text-slate-300 text-sm py-8">Sin conversiones en este periodo</p>
+          ) : (
+            <div className="space-y-4">
+              {/* Barra proporcional */}
+              <div className="h-4 rounded-full overflow-hidden flex bg-slate-100">
+                {nuevos_clientes > 0 && (
+                  <div
+                    className="h-full bg-emerald-500 flex items-center justify-center transition-all duration-700"
+                    style={{ width: `${(nuevos_clientes / (nuevos_clientes + clientes_recurrentes)) * 100}%` }}
+                  >
+                    {nuevos_clientes / (nuevos_clientes + clientes_recurrentes) > 0.15 && (
+                      <span className="text-[9px] font-black text-white">{nuevos_clientes}</span>
+                    )}
+                  </div>
+                )}
+                {clientes_recurrentes > 0 && (
+                  <div
+                    className="h-full bg-blue-400 flex items-center justify-center transition-all duration-700"
+                    style={{ width: `${(clientes_recurrentes / (nuevos_clientes + clientes_recurrentes)) * 100}%` }}
+                  >
+                    {clientes_recurrentes / (nuevos_clientes + clientes_recurrentes) > 0.15 && (
+                      <span className="text-[9px] font-black text-white">{clientes_recurrentes}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* Leyenda */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100">
+                  <p className="text-[10px] font-black text-emerald-600 uppercase tracking-wide">Nuevos</p>
+                  <p className="text-2xl font-black text-slate-800 mt-1">{nuevos_clientes}</p>
+                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                    {Math.round((nuevos_clientes / (nuevos_clientes + clientes_recurrentes)) * 100)}% del total
+                  </p>
+                </div>
+                <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
+                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-wide">Recurrentes</p>
+                  <p className="text-2xl font-black text-slate-800 mt-1">{clientes_recurrentes}</p>
+                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                    {Math.round((clientes_recurrentes / (nuevos_clientes + clientes_recurrentes)) * 100)}% del total
+                  </p>
+                </div>
+              </div>
+              {/* Breakdown por fuente de clientes nuevos */}
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pt-1">Fuentes que generan clientes nuevos</p>
+              <div className="space-y-2">
+                {fuentesList.map((f, i) => {
+                  const colors = ['bg-emerald-500','bg-teal-500','bg-blue-500','bg-indigo-500','bg-violet-500','bg-slate-400'];
+                  const pct = total > 0 ? Math.round((f.count / total) * 100) : 0;
+                  return (
+                    <div key={f.fuente} className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-slate-500 w-24 truncate">{f.fuente}</span>
+                      <div className="flex-1 bg-slate-50 rounded-full h-2 overflow-hidden">
+                        <div className={`h-full rounded-full ${colors[i % colors.length]} transition-all duration-700`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-[10px] font-black text-slate-600 w-12 text-right">{f.count} ({pct}%)</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Razones de Pérdida */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center">
+              <IconTarget size={16} className="text-rose-500" />
+            </div>
+            <div>
+              <h3 className="font-black text-slate-800 text-sm">Razones de Pérdida</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                {(por_estado as any)['PERDIDO'] || 0} leads perdidos en el periodo
+              </p>
+            </div>
+          </div>
+          {motivosList.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-2">
+              <span className="text-3xl">🎯</span>
+              <p className="text-sm font-bold text-slate-400">Sin pérdidas registradas</p>
+              <p className="text-[11px] text-slate-300">¡Excelente periodo!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {motivosList.map((m, i) => {
+                const totalPerdidos = motivosList.reduce((s, x) => s + x.count, 0) || 1;
+                const pct = Math.round((m.count / totalPerdidos) * 100);
+                const colors = ['bg-rose-500','bg-orange-500','bg-amber-500','bg-slate-400','bg-violet-400'];
+                return (
+                  <div key={m.motivo} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-600 flex-1 mr-2">{m.motivo}</span>
+                      <span className="text-[10px] font-black text-slate-500">{m.count} ({pct}%)</span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${colors[i % colors.length]} transition-all duration-700`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* ── Ranking asesores (si vista global) ── */}
       {esVistaGlobal && stats_por_asesor.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
@@ -496,7 +641,10 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
               <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center">
                 <IconSparkles size={16} className="text-amber-500" />
               </div>
-              <h3 className="font-black text-slate-800 text-sm">Ranking Comercial</h3>
+              <div>
+                <h3 className="font-black text-slate-800 text-sm">Ranking Comercial</h3>
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Comparativo de desempeño, monto gestionado y conversión por asesor</p>
+              </div>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

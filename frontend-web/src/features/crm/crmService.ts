@@ -76,3 +76,17 @@ export const apiSearchODPs = (q?: string, cliente_id?: number) => {
 /** Vincular un lead aprobado a una ODP existente (odp_id=null desvincula) */
 export const apiVincularODP = (leadId: number, odp_id: number | null) =>
   axios.patch(`${API}/api/crm/${leadId}/vincular-odp`, { odp_id }, getHeaders());
+
+/** Reporte de actividad mensual por asesor */
+export const apiGetReporteAsesor = (mes?: number, anio?: number, asesor_id?: number) => {
+  const params = new URLSearchParams();
+  if (mes && anio) { params.append('mes', String(mes)); params.append('anio', String(anio)); }
+  if (asesor_id) params.append('asesor_id', String(asesor_id));
+  return axios.get(`${API}/api/crm/reporte-asesor?${params.toString()}`, getHeaders());
+};
+
+/** Estadísticas de prospectos para el módulo CRM */
+export const apiGetStatsProspectos = (mes?: number, anio?: number) => {
+  const params = (mes && anio) ? `?mes=${mes}&anio=${anio}` : '';
+  return axios.get(`${API}/api/crm/stats/prospectos${params}`, getHeaders());
+};

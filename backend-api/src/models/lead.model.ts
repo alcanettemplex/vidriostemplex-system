@@ -64,7 +64,11 @@ Lead.init({
   },
   odp_id: {
     type: DataTypes.INTEGER,
-    allowNull: true, // Se llena cuando el asesor vincula el lead a una ODP
+    allowNull: true,
+  },
+  cliente_es_nuevo: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true, // null = no convertido aún; true = cliente nuevo; false = cliente existente
   },
 }, {
   sequelize,

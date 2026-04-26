@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
-import { Lead, LeadEvento, Usuario, Cliente } from '../models';
+import sequelize from '../config/database';
+import { Lead, LeadEvento, Usuario, Cliente, Prospecto, TomaMedidas } from '../models';
 import ODP from '../models/odp.model';
 
 
@@ -328,9 +329,10 @@ export const convertLeadToCliente = async (req: Request, res: Response) => {
 
     const existente = await Cliente.findOne({ where: { numero_documento } });
     if (existente) {
-      await lead.update({ 
+      await lead.update({
         cliente_id: existente.getDataValue('id'),
-        fecha_cierre: new Date()
+        fecha_cierre: new Date(),
+        cliente_es_nuevo: false
       });
       await LeadEvento.create({
         tipo: 'CONVERSION',
@@ -356,7 +358,8 @@ export const convertLeadToCliente = async (req: Request, res: Response) => {
 
     await lead.update({
       cliente_id: nuevoCliente.getDataValue('id'),
-      fecha_cierre: new Date()
+      fecha_cierre: new Date(),
+      cliente_es_nuevo: true
     });
 
     await LeadEvento.create({
@@ -410,6 +413,11 @@ export const getLeads = async (req: Request, res: Response) => {
 
     const leads = await Lead.findAll({
       where: whereClause,
+      attributes: {
+        include: [
+          [sequelize.literal(`(SELECT MAX("createdAt") FROM "lead_eventos" WHERE "lead_eventos"."lead_id" = "Lead"."id")`), 'ultima_actividad']
+        ]
+      },
       include: [
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
         { model: Usuario, as: 'captador', attributes: ['id', 'nombre_completo'] },
@@ -477,8 +485,16 @@ export const getCRMStats = async (req: Request, res: Response) => {
     };
 
     let convertidos = 0;
+    let nuevosClientes = 0;
+    let clientesRecurrentes = 0;
+    let leadsConOdp = 0;
+    let leadsAprobadosSinOdp = 0;
     leads.forEach((l: any) => {
       if (l.getDataValue('cliente_id')) convertidos++;
+      if (l.getDataValue('cliente_es_nuevo') === true) nuevosClientes++;
+      if (l.getDataValue('cliente_es_nuevo') === false) clientesRecurrentes++;
+      if (l.getDataValue('odp_id')) leadsConOdp++;
+      if (l.getDataValue('estado_crm') === 'APROBADO' && !l.getDataValue('odp_id')) leadsAprobadosSinOdp++;
     });
 
     leads.forEach((l: any) => {
@@ -565,6 +581,15 @@ export const getCRMStats = async (req: Request, res: Response) => {
         const aprobadosAsesor = leadsAsesor.filter((l: any) => l.getDataValue('estado_crm') === 'APROBADO').length;
         
         if (leadsAsesor.length > 0) {
+          const porEstadoAsesor: Record<string, number> = {};
+          leadsAsesor.forEach((l: any) => {
+            const e = l.getDataValue('estado_crm');
+            porEstadoAsesor[e] = (porEstadoAsesor[e] || 0) + 1;
+          });
+          const etapaCuello = Object.entries(porEstadoAsesor)
+            .filter(([e]) => !['APROBADO','PERDIDO','FRIO'].includes(e))
+            .sort(([, a], [, b]) => b - a)[0]?.[0] || null;
+
           statsPorAsesor.push({
             id: asesorId,
             nombre: asesor.getDataValue('nombre_completo'),
@@ -573,6 +598,8 @@ export const getCRMStats = async (req: Request, res: Response) => {
             perdidos: leadsAsesor.filter((l: any) => l.getDataValue('estado_crm') === 'PERDIDO').length,
             tasa_conversion: leadsAsesor.length > 0 ? Math.round((aprobadosAsesor / leadsAsesor.length) * 100) : 0,
             monto_gestionado: leadsAsesor.reduce((s: number, l: any) => s + parseFloat(l.getDataValue('monto_proyectado_cotizacion') || '0'), 0),
+            por_estado: porEstadoAsesor,
+            etapa_cuello: etapaCuello,
           });
         }
       }
@@ -597,6 +624,10 @@ export const getCRMStats = async (req: Request, res: Response) => {
         visita: tiempos.cotizando_a_visita.conta > 0 ? msToHours(Math.max(0, tiempos.cotizando_a_visita.suma / tiempos.cotizando_a_visita.conta)) : 0
       },
       convertidos_a_cliente: convertidos,
+      nuevos_clientes: nuevosClientes,
+      clientes_recurrentes: clientesRecurrentes,
+      leads_con_odp: leadsConOdp,
+      leads_aprobados_sin_odp: leadsAprobadosSinOdp,
       tiempo_promedio_cierre_dias: cerradosConFecha > 0 ? Math.round(sumaDiasCierre / cerradosConFecha) : 0,
       stats_por_asesor: statsPorAsesor.sort((a,b) => b.tasa_conversion - a.tasa_conversion),
     });
@@ -708,6 +739,190 @@ export const searchODPsForLead = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error al buscar ODPs:', error);
     res.status(500).json({ error: 'Error del servidor al buscar ODPs' });
+  }
+};
+
+// Reporte mensual de actividad por asesor
+export const getReporteAsesor = async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const { mes, anio, asesor_id } = req.query;
+    const esAdmin = ['admin', 'gerencia', 'root', 'jefe_produccion', 'asistente_administrativo'].includes(user.rol?.toLowerCase());
+    const asesorIdTarget = esAdmin && asesor_id ? parseInt(asesor_id as string) : user.id;
+
+    const whereBase: any = { asesor_id: asesorIdTarget };
+    if (mes && anio && mes !== 'undefined' && anio !== 'undefined') {
+      const month = parseInt(mes as string);
+      const year  = parseInt(anio as string);
+      whereBase.createdAt = { [Op.between]: [new Date(year, month - 1, 1), new Date(year, month, 0, 23, 59, 59)] };
+    }
+
+    const leads = await Lead.findAll({ where: whereBase });
+    const leadIds = leads.map((l: any) => l.getDataValue('id'));
+    const eventos = leadIds.length > 0
+      ? await LeadEvento.findAll({ where: { lead_id: { [Op.in]: leadIds } } })
+      : [];
+
+    const total     = leads.length;
+    const aprobados = leads.filter((l: any) => l.getDataValue('estado_crm') === 'APROBADO').length;
+    const perdidos  = leads.filter((l: any) => l.getDataValue('estado_crm') === 'PERDIDO').length;
+    const frios     = leads.filter((l: any) => l.getDataValue('estado_crm') === 'FRIO').length;
+    const activos   = total - aprobados - perdidos - frios;
+
+    const contactos    = eventos.filter((e: any) => e.getDataValue('tipo') === 'COMUNICACION').length;
+    const seguimientos = eventos.filter((e: any) => e.getDataValue('tipo') === 'SEGUIMIENTO').length;
+    const cambiosEstado = eventos.filter((e: any) => e.getDataValue('tipo') === 'CAMBIO_ESTADO').length;
+
+    // Tiempo promedio primera respuesta (creación → primer evento del lead)
+    let sumaRespuesta = 0, countRespuesta = 0;
+    leads.forEach((l: any) => {
+      const creacion = new Date(l.getDataValue('createdAt')).getTime();
+      const eventosLead = eventos
+        .filter((e: any) => e.getDataValue('lead_id') === l.getDataValue('id'))
+        .sort((a: any, b: any) => new Date(a.getDataValue('createdAt')).getTime() - new Date(b.getDataValue('createdAt')).getTime());
+      if (eventosLead.length > 0) {
+        const diff = new Date(eventosLead[0].getDataValue('createdAt')).getTime() - creacion;
+        if (diff >= 0) { sumaRespuesta += diff; countRespuesta++; }
+      }
+    });
+    const tiempoRespuestaH = countRespuesta > 0
+      ? Math.round((sumaRespuesta / countRespuesta / (1000 * 60 * 60)) * 10) / 10
+      : 0;
+
+    const leadsPorEtapa: Record<string, number> = {};
+    const motivosPerdida: Record<string, number> = {};
+    leads.forEach((l: any) => {
+      const e = l.getDataValue('estado_crm');
+      leadsPorEtapa[e] = (leadsPorEtapa[e] || 0) + 1;
+      if (e === 'PERDIDO' && l.getDataValue('motivo_perdida')) {
+        const m = l.getDataValue('motivo_perdida');
+        motivosPerdida[m] = (motivosPerdida[m] || 0) + 1;
+      }
+    });
+    const etapaCuello = Object.entries(leadsPorEtapa)
+      .filter(([e]) => !['APROBADO', 'PERDIDO', 'FRIO'].includes(e))
+      .sort(([, a], [, b]) => b - a)[0]?.[0] || null;
+
+    const montoGestionado = leads.reduce((s: number, l: any) => s + parseFloat(l.getDataValue('monto_proyectado_cotizacion') || '0'), 0);
+    const asesor = await Usuario.findByPk(asesorIdTarget, { attributes: ['id', 'nombre_completo'] });
+
+    res.json({
+      asesor: asesor?.getDataValue('nombre_completo') || 'Desconocido',
+      asesor_id: asesorIdTarget,
+      leads_asignados: total,
+      contactos_realizados: contactos,
+      seguimientos,
+      cambios_estado: cambiosEstado,
+      tiempo_prom_primera_respuesta_h: tiempoRespuestaH,
+      leads_por_etapa: leadsPorEtapa,
+      etapa_cuello: etapaCuello,
+      leads_aprobados: aprobados,
+      leads_perdidos: perdidos,
+      leads_activos: activos,
+      tasa_conversion: total > 0 ? Math.round((aprobados / total) * 100) : 0,
+      motivos_perdida: motivosPerdida,
+      monto_gestionado: montoGestionado,
+    });
+  } catch (error: any) {
+    console.error('Error en reporte asesor:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+};
+
+// Estadísticas de Prospectos para el módulo CRM
+export const getStatsProspectos = async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const { mes, anio } = req.query;
+    const esGlobal = ['admin', 'gerencia', 'root', 'asistente_administrativo', 'marketing', 'jefe_produccion'].includes(user.rol?.toLowerCase());
+
+    const whereBase: any = esGlobal ? {} : { asesor_id: user.id };
+    if (mes && anio && mes !== 'undefined' && anio !== 'undefined') {
+      const month = parseInt(mes as string);
+      const year  = parseInt(anio as string);
+      whereBase.fecha_creacion = { [Op.between]: [new Date(year, month - 1, 1), new Date(year, month, 0, 23, 59, 59)] };
+    }
+
+    const prospectos = await Prospecto.findAll({
+      where: whereBase,
+      include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
+    });
+
+    const prospectosIds = prospectos.map((p: any) => p.getDataValue('id'));
+    const tomasMedidas = prospectosIds.length > 0
+      ? await TomaMedidas.findAll({ where: { prospecto_id: { [Op.in]: prospectosIds } } })
+      : [];
+
+    const total       = prospectos.length;
+    const activos     = prospectos.filter((p: any) => p.getDataValue('estado') === 'en_gestion').length;
+    const aprobados   = prospectos.filter((p: any) => p.getDataValue('estado') === 'aprobado').length;
+    const noAprobados = prospectos.filter((p: any) => p.getDataValue('estado') === 'no_aprobado').length;
+    const convertidosODP = prospectos.filter((p: any) => p.getDataValue('odp_id')).length;
+
+    const tmPorProspecto: Record<number, any[]> = {};
+    tomasMedidas.forEach((tm: any) => {
+      const pid = tm.getDataValue('prospecto_id');
+      if (pid) { if (!tmPorProspecto[pid]) tmPorProspecto[pid] = []; tmPorProspecto[pid].push(tm); }
+    });
+
+    const conTM = prospectos.filter((p: any) => (tmPorProspecto[p.getDataValue('id')] || []).length > 0).length;
+    const sinTM = prospectos.filter((p: any) =>
+      p.getDataValue('estado') === 'en_gestion' &&
+      (tmPorProspecto[p.getDataValue('id')] || []).length === 0
+    ).length;
+
+    const SIETE_DIAS = 7 * 24 * 60 * 60 * 1000;
+    const ahora = Date.now();
+    const sinActividad7d = prospectos.filter((p: any) => {
+      if (p.getDataValue('estado') !== 'en_gestion') return false;
+      const tms = tmPorProspecto[p.getDataValue('id')] || [];
+      if (tms.length > 0) {
+        const ultima = tms.sort((a: any, b: any) =>
+          new Date(b.getDataValue('updatedAt') || 0).getTime() - new Date(a.getDataValue('updatedAt') || 0).getTime()
+        )[0];
+        if ((ahora - new Date(ultima.getDataValue('updatedAt') || 0).getTime()) < SIETE_DIAS) return false;
+      }
+      const fc = p.getDataValue('fecha_creacion');
+      return fc && (ahora - new Date(fc).getTime()) >= SIETE_DIAS;
+    }).length;
+
+    let sumaAprobacion = 0, countAprobacion = 0;
+    prospectos.forEach((p: any) => {
+      if (p.getDataValue('estado') === 'aprobado' && p.getDataValue('fecha_gestion') && p.getDataValue('fecha_creacion')) {
+        const diff = new Date(p.getDataValue('fecha_gestion')).getTime() - new Date(p.getDataValue('fecha_creacion')).getTime();
+        if (diff >= 0) { sumaAprobacion += diff / (1000 * 60 * 60 * 24); countAprobacion++; }
+      }
+    });
+
+    const asesorMap: Record<number, { nombre: string; total: number; aprobados: number }> = {};
+    prospectos.forEach((p: any) => {
+      const aid = p.getDataValue('asesor_id');
+      if (!aid) return;
+      const nombre = p.getDataValue('asesor')?.nombre_completo || `Asesor ${aid}`;
+      if (!asesorMap[aid]) asesorMap[aid] = { nombre, total: 0, aprobados: 0 };
+      asesorMap[aid].total++;
+      if (p.getDataValue('estado') === 'aprobado') asesorMap[aid].aprobados++;
+    });
+
+    res.json({
+      total,
+      activos,
+      aprobados,
+      no_aprobados: noAprobados,
+      tasa_conversion: total > 0 ? Math.round((aprobados / total) * 100) : 0,
+      tiempo_prom_aprobacion_dias: countAprobacion > 0 ? Math.round(sumaAprobacion / countAprobacion) : 0,
+      con_tm: conTM,
+      sin_tm: sinTM,
+      sin_actividad_7d: sinActividad7d,
+      por_asesor: Object.entries(asesorMap).map(([id, d]) => ({
+        id: parseInt(id), nombre: d.nombre, total: d.total, aprobados: d.aprobados,
+        tasa: d.total > 0 ? Math.round((d.aprobados / d.total) * 100) : 0,
+      })).sort((a, b) => b.tasa - a.tasa),
+      embudo: { creados: total, con_tm: conTM, aprobados, convertidos_odp: convertidosODP },
+    });
+  } catch (error: any) {
+    console.error('Error en stats prospectos:', error);
+    res.status(500).json({ error: 'Error del servidor' });
   }
 };
 

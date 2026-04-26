@@ -14,6 +14,8 @@ import {
   searchODPsForLead,
   vincularODPAlLead,
   recuperarLead,
+  getReporteAsesor,
+  getStatsProspectos,
 } from '../controllers/crm.controller';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { authMiddleware } from '../middlewares/authMiddleware';
@@ -55,6 +57,8 @@ router.post('/:id/convertir', requireRole('asesor_comercial', 'admin', 'gerencia
 
 // Estadísticas gerenciales CRM
 router.get('/stats/resumen', requireRole(...ROLES_CRM_LECTURA), getCRMStats);
+router.get('/stats/prospectos', requireRole(...ROLES_CRM_LECTURA), getStatsProspectos);
+router.get('/reporte-asesor', requireRole(...ROLES_CRM_LECTURA), getReporteAsesor);
 
 // Recuperar lead desde "Sin Respuesta" a Bolsa Común
 router.put('/:id/recuperar', requireRole('asesor_comercial', 'asistente_administrativo', 'admin', 'gerencia', 'jefe_produccion'), recuperarLead);

@@ -79,6 +79,13 @@ const REQUIERE_MOTIVO = ['PERDIDO'];
 const SEGMENTOS = ['Arquitecto', 'Cliente final', 'Industrial', 'Institucional', 'Intervid'];
 const CARDS_POR_PAGINA = 7;
 
+// ─── Días sin actividad (última acción registrada en lead_eventos) ────────────
+function diasSinActividad(lead: any): number {
+  const fuente = lead.ultima_actividad || lead.updatedAt || lead.createdAt;
+  if (!fuente) return 0;
+  return Math.floor((Date.now() - new Date(fuente).getTime()) / (1000 * 60 * 60 * 24));
+}
+
 // ─── Prioridad automática ──────────────────────────────────────────────────────
 type Prioridad = 'urgente' | 'normal';
 
@@ -364,6 +371,13 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio, busqueda: busqueda
 
   const totalLeadsFiltrados = filtrarLeads(leads).length;
 
+  // ─── Alertas de abandono (leads activos sin actividad >= 3 días) ─────────────
+  const leadsAbandonados = leads.filter((l: any) => {
+    if (['APROBADO', 'PERDIDO', 'FRIO'].includes(l.estado_crm)) return false;
+    return diasSinActividad(l) >= 3;
+  });
+  const [bannerVisible, setBannerVisible] = useState(true);
+
   // Cuando hay búsqueda activa, si la columna activa queda vacía, saltar a la primera con resultados
   useEffect(() => {
     if (!busqueda) return;
@@ -576,7 +590,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio, busqueda: busqueda
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {lead.segmento && (
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${SEGMENTO_COLOR[lead.segmento] || 'bg-slate-100 text-slate-600'}`}>
                             {lead.segmento}
@@ -584,6 +598,11 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio, busqueda: busqueda
                         )}
                         {monto && (
                           <span className="text-[9px] font-bold text-emerald-700">💰 {monto}</span>
+                        )}
+                        {!['APROBADO','PERDIDO','FRIO'].includes(lead.estado_crm) && diasSinActividad(lead) >= 3 && (
+                          <span className="text-[9px] font-black text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full border border-orange-200">
+                            ⏱ {diasSinActividad(lead)}d sin actividad
+                          </span>
                         )}
                       </div>
                     </div>
@@ -894,6 +913,30 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio, busqueda: busqueda
   // ─── Render principal ─────────────────────────────────────────────────────────
   return (
     <>
+      {/* Banner de alertas de abandono */}
+      {bannerVisible && leadsAbandonados.length > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-50 border-b border-amber-200">
+          <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+          <p className="text-xs font-bold text-amber-800 flex-1">
+            <span className="font-black">{leadsAbandonados.length} lead{leadsAbandonados.length > 1 ? 's' : ''}</span>
+            {' '}sin actividad en +3 días:{' '}
+            {leadsAbandonados.slice(0, 3).map((l: any, i: number) => (
+              <span key={l.id}>
+                {i > 0 && ', '}
+                <span className="underline cursor-pointer hover:text-amber-600" onClick={() => setLeadSeleccionado(l)}>
+                  {l.nombre || `#${l.id}`}
+                </span>
+                <span className="text-amber-600 ml-0.5">({diasSinActividad(l)}d)</span>
+              </span>
+            ))}
+            {leadsAbandonados.length > 3 && <span className="text-amber-600"> y {leadsAbandonados.length - 3} más</span>}
+          </p>
+          <button onClick={() => setBannerVisible(false)} className="text-amber-400 hover:text-amber-600 flex-shrink-0">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Barra de herramientas */}
       <div className="flex flex-wrap items-center gap-3 px-4 pt-4 pb-3 border-b border-slate-200 bg-white">
         {/* Buscador: solo visible cuando NO viene controlado desde CRMPage */}

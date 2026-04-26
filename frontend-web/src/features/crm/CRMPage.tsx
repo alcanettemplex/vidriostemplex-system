@@ -5,10 +5,12 @@ import NewLeadModal from './components/NewLeadModal';
 import CRMMetrics from './components/CRMMetrics';
 import DashboardGerencial from './components/DashboardGerencial';
 import SinRespuestaTab from './components/SinRespuestaTab';
+import ReporteAsesor from './components/ReporteAsesor';
+import ProspectosStats from './components/ProspectosStats';
 import PeriodSelector from '../../components/common/PeriodSelector';
-import { Plus, BarChart3, Kanban, TrendingUp, PhoneMissed, Search, X } from 'lucide-react';
+import { Plus, BarChart3, Kanban, TrendingUp, PhoneMissed, Search, X, ClipboardList, Users } from 'lucide-react';
 
-type Tab = 'pipeline' | 'metricas' | 'gerencial' | 'sin_respuesta';
+type Tab = 'pipeline' | 'metricas' | 'gerencial' | 'sin_respuesta' | 'reportes' | 'prospectos';
 
 const ROLES_GLOBAL = ['admin', 'gerencia', 'asistente_administrativo', 'root', 'marketing', 'jefe_produccion'];
 const ROLES_GERENCIAL = ['admin', 'gerencia', 'asistente_administrativo', 'root', 'marketing', 'jefe_produccion'];
@@ -128,6 +130,28 @@ const CRMPage: React.FC = () => {
             Dashboard Gerencial
           </button>
         )}
+        <button
+          onClick={() => setActiveTab('prospectos')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+            activeTab === 'prospectos'
+              ? 'bg-white text-slate-800 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          Prospectos
+        </button>
+        <button
+          onClick={() => setActiveTab('reportes')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+            activeTab === 'reportes'
+              ? 'bg-white text-slate-800 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <ClipboardList className="w-4 h-4" />
+          Reportes
+        </button>
       </div>
 
       {/* Contenido de tabs */}
@@ -152,6 +176,22 @@ const CRMPage: React.FC = () => {
 
       {activeTab === 'gerencial' && puedeVerGerencial && (
         <DashboardGerencial
+          esVistaGlobal={esVistaGlobal}
+          mes={mes}
+          anio={anio}
+        />
+      )}
+
+      {activeTab === 'prospectos' && (
+        <ProspectosStats
+          esVistaGlobal={esVistaGlobal}
+          mes={mes}
+          anio={anio}
+        />
+      )}
+
+      {activeTab === 'reportes' && (
+        <ReporteAsesor
           esVistaGlobal={esVistaGlobal}
           mes={mes}
           anio={anio}
