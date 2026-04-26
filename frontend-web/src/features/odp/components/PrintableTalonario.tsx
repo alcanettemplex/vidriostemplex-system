@@ -288,6 +288,7 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
                                                                 const codigos: Record<string, string> = {
                                                                     'Suministro e Instalación': 'SUMINS01',
                                                                     'Venta / Suministro': 'VTAVID01',
+                                                'Venta': 'VTAVID01',
                                                                     'Mantenimiento': 'INS002',
                                                                 };
                                                                 const tipo = odp.tipo_servicio || odp.servicios_detalle?.[0]?.tipo_servicio || '';

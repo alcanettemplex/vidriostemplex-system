@@ -65,6 +65,7 @@ ODP.init({
   tiene_dano_instalacion: { type: DataTypes.BOOLEAN, defaultValue: false },
   tipo_odp: { type: DataTypes.STRING(10), allowNull: false, defaultValue: 'ODP' }, // 'ODP' | 'OA'
   sin_items: { type: DataTypes.BOOLEAN, defaultValue: false }, // ODP creada sin requerimientos (pago adelantado)
+  fecha_listo_instalar: { type: DataTypes.DATE, allowNull: true },
 }, {
   sequelize,
   modelName: 'ODP',

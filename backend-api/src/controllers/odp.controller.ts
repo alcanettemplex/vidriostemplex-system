@@ -528,6 +528,11 @@ export const updateODP = async (req: Request, res: Response) => {
       (data as any).fecha_chk_accesorios = new Date().toISOString().split('T')[0];
     }
 
+    // Registrar fecha cuando se marca manualmente como LISTO_INSTALAR
+    if (data.estado_produccion === 'LISTO_INSTALAR' && !odp.getDataValue('fecha_listo_instalar')) {
+      (data as any).fecha_listo_instalar = new Date();
+    }
+
     // Actualizar campos de la ODP (incluyendo los booleanos, JSONs, y observaciones nuevas)
     await odp.update(data as any, { transaction });
 
@@ -566,7 +571,9 @@ export const updateODP = async (req: Request, res: Response) => {
       const tieneAlgunRequisito = needsMedicion || needsCorte || needsVidrio || needsAccesorios || needsEnsamble || needsMatizado || needsPelicula || needsHuacal || needsCarton;
 
       if (tieneAlgunRequisito && isMedicionDone && isCorteDone && isVidrioDone && isAccesoriosDone && isEnsambleDone && isMatizadoDone && isPeliculaDone && isHuacalDone && isCartonDone) {
-        await updatedOdp.update({ estado_produccion: 'LISTO_INSTALAR' }, { transaction });
+        const updateData: Record<string, unknown> = { estado_produccion: 'LISTO_INSTALAR' };
+        if (!updatedOdp.getDataValue('fecha_listo_instalar')) updateData.fecha_listo_instalar = new Date();
+        await updatedOdp.update(updateData, { transaction });
         console.log(`✅ ODP ${updatedOdp.getDataValue('numero_odp')} marcada automáticamente como LISTO_INSTALAR.`);
       }
     }
@@ -1052,7 +1059,9 @@ export const aprobarSinItems = async (req: Request, res: Response) => {
     if (isMedicionDone && isCorteDone && isVidrioDone && isAccesoriosDone && isEnsambleDone && isMatizadoDone && isPeliculaDone && isHuacalDone && isCartonDone) {
       const estadoActual = odp.getDataValue('estado_produccion');
       if (estadoActual !== 'LISTO_INSTALAR') {
-        await odp.update({ estado_produccion: 'LISTO_INSTALAR' }, { transaction });
+        const updateFields: Record<string, unknown> = { estado_produccion: 'LISTO_INSTALAR' };
+        if (!odp.getDataValue('fecha_listo_instalar')) updateFields.fecha_listo_instalar = new Date();
+        await odp.update(updateFields, { transaction });
         await HistorialEstadoODP.create({
           odp_id: id, estado_anterior: estadoActual, estado_nuevo: 'LISTO_INSTALAR',
           usuario_id: req.user?.id || null, fecha: new Date(),

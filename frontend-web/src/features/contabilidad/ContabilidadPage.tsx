@@ -8,6 +8,7 @@ import {
   Calculator, DollarSign, FileCheck, AlertCircle,
   CreditCard, Plus, X, Receipt, Clock, Banknote, TrendingDown,
   Pencil, Trash2, Calendar, ChevronUp, ChevronDown, ChevronsUpDown,
+  CheckCircle2,
 } from 'lucide-react';
 import { useDataChangedSocket } from '../../store/useSocketNotifications';
 
@@ -38,7 +39,7 @@ const BANCOS_COLOMBIA = [
 
 const METODOS_PAGO = ['Efectivo', 'Tarjeta', 'Transferencia'];
 
-type Tab = 'estado_caja' | 'pagos' | 'cartera';
+type Tab = 'estado_caja' | 'pagos' | 'cartera' | 'completado';
 
 const emptyPagoForm = () => ({
   odp_id: '', monto: '', diferencia: '0', metodo_pago: 'Transferencia', banco: '', referencia_pago: '', observaciones: '',
@@ -98,6 +99,17 @@ const ContabilidadPage: React.FC = () => {
   // ─── Ordenamiento tabla Estado Caja ─────────────────────────────────────
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  // ─── Proceso Completado ──────────────────────────────────────────────────
+  const [filterBusquedaCompletado, setFilterBusquedaCompletado] = useState('');
+  const [sortColComp, setSortColComp] = useState<string | null>(null);
+  const [sortDirComp, setSortDirComp] = useState<'asc' | 'desc'>('asc');
+
+  const handleSortComp = (key: string | null) => {
+    if (!key) return;
+    if (sortColComp === key) setSortDirComp(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortColComp(key); setSortDirComp('asc'); }
+  };
 
   const handleSort = (key: string | null) => {
     if (!key) return;
@@ -340,7 +352,12 @@ const ContabilidadPage: React.FC = () => {
     return '';
   };
 
+  // ODPs con proceso 100% cerrado: tienen FE registrada y caja CANCELADO
+  const odpsCompletadas = odps.filter(o => o.factura_electronica && o.estado_caja === 'CANCELADO');
+
   const filtradas = odps.filter(o => {
+    // Las que ya están en Proceso Completado no aparecen en Estado Caja
+    if (o.factura_electronica && o.estado_caja === 'CANCELADO') return false;
     if (filterEstadoCaja !== 'todos' && o.estado_caja !== filterEstadoCaja) return false;
     if (filterBusqueda) {
       const q = filterBusqueda.toLowerCase();
@@ -379,6 +396,39 @@ const ContabilidadPage: React.FC = () => {
     });
   }, [filtradas, sortCol, sortDir]);
 
+  const sortedOdpsCompletadas = useMemo(() => {
+    const source = filterBusquedaCompletado
+      ? odpsCompletadas.filter(o => {
+          const q = filterBusquedaCompletado.toLowerCase();
+          return (
+            o.numero_odp?.toLowerCase().includes(q) ||
+            o.cliente?.nombre_razon_social?.toLowerCase().includes(q) ||
+            o.asesor?.nombre_completo?.toLowerCase().includes(q)
+          );
+        })
+      : odpsCompletadas;
+    if (!sortColComp) return source;
+    return [...source].sort((a, b) => {
+      let va: any, vb: any;
+      switch (sortColComp) {
+        case 'numero_odp':          va = a.numero_odp || ''; vb = b.numero_odp || ''; break;
+        case 'fecha_creacion':      va = a.fecha_creacion || ''; vb = b.fecha_creacion || ''; break;
+        case 'cliente':             va = a.cliente?.nombre_razon_social || ''; vb = b.cliente?.nombre_razon_social || ''; break;
+        case 'asesor':              va = a.asesor?.nombre_completo || ''; vb = b.asesor?.nombre_completo || ''; break;
+        case 'estado_produccion':   va = a.estado_produccion || ''; vb = b.estado_produccion || ''; break;
+        case 'factura_electronica': va = a.factura_electronica || ''; vb = b.factura_electronica || ''; break;
+        case 'monto_total':         va = Number(a.valor_total) || 0; vb = Number(b.valor_total) || 0; break;
+        case 'abono':               va = Number(a.abono) || 0; vb = Number(b.abono) || 0; break;
+        case 'pendiente':           va = calcPendiente(a); vb = calcPendiente(b); break;
+        default: return 0;
+      }
+      if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb as string).toLowerCase(); }
+      if (va < vb) return sortDirComp === 'asc' ? -1 : 1;
+      if (va > vb) return sortDirComp === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [odpsCompletadas, filterBusquedaCompletado, sortColComp, sortDirComp]);
+
   const odpsPendientes = odps.filter(o => calcPendiente(o) > 0 && o.estado_caja !== 'CANCELADO');
   const carteraDetalle: any[] = resumen?.cartera_detalle || [];
 
@@ -395,9 +445,10 @@ const ContabilidadPage: React.FC = () => {
   const requiereBancoEdit = editPagoForm.metodo_pago === 'Transferencia';
 
   const TABS = [
-    { key: 'estado_caja' as Tab, label: 'Estado Caja', icon: <Banknote className="w-4 h-4" />, badge: odps.length },
+    { key: 'estado_caja' as Tab, label: 'Estado Caja', icon: <Banknote className="w-4 h-4" />, badge: odps.length - odpsCompletadas.length },
     { key: 'pagos' as Tab, label: 'Pagos Recientes', icon: <Receipt className="w-4 h-4" />, badge: pagos.length },
     { key: 'cartera' as Tab, label: 'Cartera Vencida', icon: <TrendingDown className="w-4 h-4" />, badge: carteraDetalle.length, badgeColor: carteraDetalle.length > 0 ? 'bg-rose-100 text-rose-700' : undefined },
+    { key: 'completado' as Tab, label: 'Proceso Completado', icon: <CheckCircle2 className="w-4 h-4" />, badge: odpsCompletadas.length, badgeColor: 'bg-emerald-100 text-emerald-700' },
   ];
 
   return (
@@ -737,6 +788,152 @@ const ContabilidadPage: React.FC = () => {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── TAB 4: Proceso Completado ──────────────────────────────────────── */}
+        {tab === 'completado' && (
+          <div>
+            <div className="flex gap-2 flex-wrap items-center px-5 py-3 border-b border-slate-100 bg-slate-50/50">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">
+                <CheckCircle2 className="w-3.5 h-3.5 inline mr-1 text-emerald-600" />
+                ODPs con factura electrónica y caja cancelada
+              </span>
+              <div className="ml-auto">
+                <input
+                  type="text"
+                  value={filterBusquedaCompletado}
+                  onChange={e => setFilterBusquedaCompletado(e.target.value)}
+                  placeholder="Buscar ODP, cliente o asesor..."
+                  className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 w-56 focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white"
+                />
+              </div>
+            </div>
+            <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 390px)', minHeight: '300px' }}>
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
+                  <tr>
+                    {([
+                      { label: 'ODP',              key: 'numero_odp' },
+                      { label: 'Fecha Creación',   key: 'fecha_creacion' },
+                      { label: 'Cliente',          key: 'cliente' },
+                      { label: 'Asesor',           key: 'asesor' },
+                      { label: 'Est. Taller',      key: 'estado_produccion' },
+                      { label: 'FE No. / Fecha',   key: 'factura_electronica' },
+                      { label: 'Monto Total',      key: 'monto_total' },
+                      { label: 'Abonado',          key: 'abono' },
+                      { label: 'Pendiente',        key: 'pendiente' },
+                      { label: 'Estado Caja',      key: null },
+                      { label: 'Facturación',      key: null },
+                      { label: '',                 key: null },
+                    ] as { label: string; key: string | null }[]).map(col => (
+                      <th
+                        key={col.label || 'action'}
+                        onClick={() => handleSortComp(col.key)}
+                        className={`text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap select-none ${col.key ? 'cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition-colors' : ''}`}
+                      >
+                        <div className="flex items-center gap-1">
+                          {col.label}
+                          {col.key && (
+                            sortColComp === col.key
+                              ? sortDirComp === 'asc'
+                                ? <ChevronUp className="w-3 h-3 text-emerald-500" />
+                                : <ChevronDown className="w-3 h-3 text-emerald-500" />
+                              : <ChevronsUpDown className="w-3 h-3 text-slate-300" />
+                          )}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {loadingOdps ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i}><td colSpan={12} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td></tr>
+                    ))
+                  ) : sortedOdpsCompletadas.length === 0 ? (
+                    <tr>
+                      <td colSpan={12} className="text-center py-12 text-slate-400 font-bold">
+                        <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-slate-200" />
+                        {filterBusquedaCompletado ? 'Sin resultados para la búsqueda.' : 'No hay procesos completados aún.'}
+                      </td>
+                    </tr>
+                  ) : sortedOdpsCompletadas.map(odp => (
+                    <tr key={odp.id} className="hover:bg-emerald-50/40 transition-colors">
+                      <td className="px-4 py-4 font-bold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => setFichaOdpId(odp.id)}>{odp.numero_odp}</td>
+                      <td className="px-4 py-4 text-slate-500 text-xs whitespace-nowrap">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          {fmtFecha(odp.fecha_creacion)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 font-semibold text-slate-800 max-w-[320px] truncate" title={odp.cliente?.nombre_razon_social}>
+                        {odp.cliente?.nombre_razon_social || '—'}
+                      </td>
+                      <td className="px-4 py-4 text-slate-600 text-xs whitespace-nowrap">{odp.asesor?.nombre_completo || '—'}</td>
+                      <td className="px-4 py-4">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                          odp.estado_produccion === 'ENTREGADA' || odp.estado_produccion === 'INSTALADA' ? 'bg-green-100 text-green-700 border-green-200' :
+                          odp.estado_produccion === 'PAUSADA' ? 'bg-rose-100 text-rose-700 border-rose-200' :
+                          odp.estado_produccion === 'LISTO_INSTALAR' || odp.estado_produccion === 'PROGRAMADA' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                          'bg-slate-100 text-slate-600 border-slate-200'
+                        }`}>
+                          {(odp.estado_produccion || '—').replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-1.5">
+                          <div>
+                            <span className="font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 text-xs">
+                              FE-{odp.factura_electronica}
+                            </span>
+                            {odp.fecha_factura && (
+                              <p className="text-xs text-slate-400 mt-0.5">{fmtFecha(odp.fecha_factura)}</p>
+                            )}
+                          </div>
+                          <button onClick={() => abrirFeModal(odp)} title="Editar factura"
+                            className="ml-1 p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 font-bold text-slate-700 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          {Number(odp.valor_total) > 0 ? fmt(Number(odp.valor_total)) : <span className="text-slate-400 text-xs italic">—</span>}
+                          <button onClick={() => abrirEditTotal(odp)} title="Editar monto total"
+                            className="p-1 rounded text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 transition">
+                            <Pencil className="w-3" />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 font-bold text-emerald-700 whitespace-nowrap">{fmt(Number(odp.abono) || 0)}</td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        {(() => {
+                          const pend = calcPendiente(odp);
+                          return <span className={`font-bold text-sm ${pend > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{fmt(pend)}</span>;
+                        })()}
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          <CheckCircle2 className="w-3 h-3" /> Cancelado
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          <FileCheck className="w-3 h-3" /> Facturada
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <button onClick={() => setFichaOdpId(odp.id)} title="Ver ficha"
+                          className="p-1.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition">
+                          <FileCheck className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

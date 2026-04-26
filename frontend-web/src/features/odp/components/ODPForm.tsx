@@ -526,7 +526,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                 >
                                                     <option value="Suministro e Instalación">Suministro e Instalación</option>
                                                     <option value="Solo Instalación">Solo Instalación</option>
-                                                    <option value="Venta / Suministro">Venta / Suministro</option>
+                                                    <option value="Venta">Venta</option>
                                                     <option value="Mantenimiento">Mantenimiento</option>
                                                     <option value="Garantía / Reposición">Garantía / Reposición</option>
                                                     <option value="Otro">Otro</option>

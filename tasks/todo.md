@@ -1,6 +1,6 @@
 # tasks/todo.md — Vidrios Templex ERP
 
-## Sesión activa: 2026-04-14
+## Sesión activa: 2026-04-25
 
 > Formato de ítems:
 > - [ ] Pendiente

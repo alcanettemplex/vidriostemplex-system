@@ -299,6 +299,26 @@ CI=false
 
 Cuando el usuario dice "concretemos antes de ejecutar" o similar, eso significa: solo conversar, cero ediciones de archivos hasta nueva orden.
 
+### Verificación de impacto antes de commit — OBLIGATORIO
+
+Antes de hacer cualquier commit, generar explícitamente la lista de módulos afectados y verificar cada uno. Compilar TypeScript sin errores **no es suficiente**.
+
+**Reglas de trazabilidad:**
+- Cambió un **controlador** → revisar TODAS las vistas/componentes que consumen ese endpoint
+- Cambió un **modelo** → revisar todos los controladores que usan ese modelo
+- Cambió un **ENUM o valor de estado** → verificar que Sequelize ENUM, PG ENUM y CHECK CONSTRAINT sean consistentes
+- Cambió lógica de **estado de ODP** → revisar dashboard, producción, instalaciones, rutas, contabilidad
+- Cambió un **endpoint de permisos** → verificar que los roles en `requireRole()` coincidan con los controles de UI
+
+**Formato obligatorio al reportar avance:**
+```
+Módulos verificados:
+✅ backend: controlador X — lógica Y correcta
+✅ frontend: componente Z — consume endpoint con parámetros correctos
+✅ BD: constraint/enum actualizado y consistente con modelo
+⚠️ pendiente: [si algo no se pudo verificar, explicar por qué]
+```
+
 ---
 
 ## Convenciones de Código

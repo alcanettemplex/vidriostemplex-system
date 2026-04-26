@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { Request } from 'express';
 
 function extractUserId(req: Request): string | null {
@@ -18,7 +18,7 @@ function extractUserId(req: Request): string | null {
 export const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: (req: Request) => (extractUserId(req) ? 600 : 100),
-  keyGenerator: (req: Request) => extractUserId(req) ?? (req.ip || 'unknown'),
+  keyGenerator: (req: Request) => extractUserId(req) ?? ipKeyGenerator(req.ip ?? '127.0.0.1'),
   standardHeaders: true,
   legacyHeaders: false,
   message: {

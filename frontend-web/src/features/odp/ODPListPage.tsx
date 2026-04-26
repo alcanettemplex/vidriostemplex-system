@@ -27,6 +27,7 @@ interface ODP {
     estado_caja: string;
     fecha_creacion: string;
     fecha_entrega?: string;
+    fecha_listo_instalar?: string;
     items: any[];
     valor_total?: number;
     abono?: number;
@@ -550,6 +551,9 @@ const ODPListPage: React.FC = () => {
                                 <th className={thClass} onClick={() => handleSort('estado_produccion')}>
                                     <span className="flex items-center">Estado Taller <SortIcon field="estado_produccion" sortField={sortField} sortDir={sortDir} /></span>
                                 </th>
+                                {activeTab === 'listas' && (
+                                    <th className="px-4 py-3 font-medium whitespace-nowrap">Fecha Liberado</th>
+                                )}
                                 {isGarantiaTab ? (
                                     <>
                                         <th className="px-4 py-3 font-medium whitespace-nowrap">ODP Origen</th>
@@ -577,14 +581,14 @@ const ODPListPage: React.FC = () => {
                             {loading ? (
                                 Array.from({ length: 5 }).map((_, idx) => (
                                     <tr key={idx} className="animate-pulse">
-                                        {Array.from({ length: isGarantiaTab ? 7 : 10 }).map((__, i) => (
+                                        {Array.from({ length: isGarantiaTab ? 7 : (activeTab === 'listas' ? 11 : 10) }).map((__, i) => (
                                             <td key={i} className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-full"></div></td>
                                         ))}
                                     </tr>
                                 ))
                             ) : sorted.length === 0 ? (
                                 <tr>
-                                    <td colSpan={isGarantiaTab ? 7 : 10} className="px-6 py-12 text-center text-slate-500">
+                                    <td colSpan={isGarantiaTab ? 7 : (activeTab === 'listas' ? 11 : 10)} className="px-6 py-12 text-center text-slate-500">
                                         <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                                         No se encontraron órdenes de producción.
                                     </td>
@@ -642,6 +646,20 @@ const ODPListPage: React.FC = () => {
                                                 {odp.estado_produccion.replace(/_/g, ' ')}
                                             </span>
                                         </td>
+                                        {/* Fecha Liberado — solo tab Listas para instalar */}
+                                        {activeTab === 'listas' && (
+                                            <td className="px-4 py-3 text-xs font-mono">
+                                                {odp.fecha_listo_instalar
+                                                    ? <span className="text-indigo-700 font-semibold">
+                                                        {new Date(odp.fecha_listo_instalar).toLocaleString('es-CO', {
+                                                            timeZone: 'America/Bogota',
+                                                            day: '2-digit', month: '2-digit', year: 'numeric',
+                                                            hour: '2-digit', minute: '2-digit',
+                                                        })}
+                                                      </span>
+                                                    : <span className="text-slate-300">—</span>}
+                                            </td>
+                                        )}
                                         {/* Columnas variables según tab */}
                                         {isGarantiaTab ? (
                                             <>
