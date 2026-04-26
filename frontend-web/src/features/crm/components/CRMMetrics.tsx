@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Loader2, AlertCircle, TrendingUp, TrendingDown,
-  Zap, ArrowUpRight, Filter, Calendar
+  Zap, ArrowUpRight, Filter, Calendar, PhoneMissed
 } from 'lucide-react';
-import { apiGetCRMStats } from '../crmService';
+import { apiGetCRMStats, apiGetLeads } from '../crmService';
+import SinRespuestaModal from './SinRespuestaModal';
 import {
   IconLeads, IconDollar, IconTrending, IconTarget, IconCheck,
   IconGlobe, IconClock, IconBarChart, IconPackage,
@@ -20,10 +21,13 @@ const fmtCOP = (v: number, compact = false) =>
 // ─── KPI Métrica (estilo Stitch Metrics tab) ───────────────────────────────────
 interface MetricKPIProps {
   label: string; value: string; delta?: string; positivo?: boolean;
-  icon: React.ReactNode; borderColor: string; accentBg: string; desc?: string;
+  icon: React.ReactNode; borderColor: string; accentBg: string; desc?: string; onClick?: () => void;
 }
-const MetricKPI: React.FC<MetricKPIProps> = ({ label, value, delta, positivo, icon, borderColor, accentBg, desc }) => (
-  <div className={`bg-white rounded-2xl p-5 border border-slate-100 shadow-sm border-l-4 ${borderColor} flex flex-col gap-2 hover:shadow-md transition-all duration-200`}>
+const MetricKPI: React.FC<MetricKPIProps> = ({ label, value, delta, positivo, icon, borderColor, accentBg, desc, onClick }) => (
+  <div
+    onClick={onClick}
+    className={`bg-white rounded-2xl p-5 border border-slate-100 shadow-sm border-l-4 ${borderColor} flex flex-col gap-2 hover:shadow-md transition-all duration-200 ${onClick ? 'cursor-pointer active:scale-[0.98]' : ''}`}
+  >
     <div className="flex items-center justify-between">
       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
       <div className={`w-8 h-8 rounded-xl ${accentBg} flex items-center justify-center`}>{icon}</div>
@@ -172,6 +176,11 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Leads sin respuesta
+  const [srLeads, setSrLeads] = useState<any[]>([]);
+  const [srLoading, setSrLoading] = useState(false);
+  const [srModal, setSrModal] = useState(false);
+
   const cargar = async () => {
     setLoading(true); setError(null);
     try { const { data } = await apiGetCRMStats(mes, anio); setStats(data); }
@@ -179,7 +188,17 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
     finally { setLoading(false); }
   };
 
+  const cargarSR = useCallback(async () => {
+    setSrLoading(true);
+    try {
+      const { data } = await apiGetLeads(mes, anio, 'sin_respuesta');
+      setSrLeads(Array.isArray(data) ? data : []);
+    } catch { setSrLeads([]); }
+    finally { setSrLoading(false); }
+  }, [mes, anio]);
+
   useEffect(() => { cargar(); }, [mes, anio, esVistaGlobal]);
+  useEffect(() => { cargarSR(); }, [cargarSR]);
 
   if (loading) return (
     <div className="space-y-5">
@@ -262,11 +281,11 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
           borderColor="border-l-emerald-500" accentBg="bg-emerald-50"
           desc="Porcentaje de leads que llegaron a estado Aprobado sobre el total del periodo." />
         <MetricKPI
-          label="Lead Velocity" value={`${tasaVelocity}d`}
-          delta={tasaVelocity > 0 ? '-0.8d' : undefined} positivo={false}
-          icon={<IconTrending size={16} className="text-indigo-600" />}
-          borderColor="border-l-indigo-500" accentBg="bg-indigo-50"
-          desc="Días promedio que tarda un lead desde que ingresa hasta que se cierra." />
+          label="Leads sin Respuesta" value={srLoading ? '…' : String(srLeads.length)}
+          icon={<PhoneMissed size={16} className="text-rose-500" />}
+          borderColor="border-l-rose-400" accentBg="bg-rose-50"
+          desc="Leads activos sin actividad reciente. Haz clic para ver el detalle por asesor."
+          onClick={() => setSrModal(true)} />
         <MetricKPI
           label="Ticket Promedio" value={fmtCOP(ticket_promedio_proyectado, true)}
           delta={ticket_promedio_proyectado > 0 ? '+$150' : undefined} positivo
@@ -274,11 +293,10 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
           borderColor="border-l-violet-500" accentBg="bg-violet-50"
           desc="Valor promedio de cotización proyectada por cada lead en gestión." />
         <MetricKPI
-          label="Costo por Lead" value={total > 0 ? fmtCOP(monto_total_proyectado / total, true) : '$0'}
-          delta="-$2.1" positivo
-          icon={<IconTarget size={16} className="text-amber-600" />}
-          borderColor="border-l-amber-500" accentBg="bg-amber-50"
-          desc="Monto total proyectado dividido entre el número de leads registrados." />
+          label="Monto Real Aprobados" value={fmtCOP(monto_real_aprobados, true)}
+          icon={<IconCheck size={16} className="text-teal-600" />}
+          borderColor="border-l-teal-500" accentBg="bg-teal-50"
+          desc="Suma del monto real confirmado de todos los leads cerrados como Aprobados." />
       </div>
 
       {/* ── Gráfico de línea + Donut Categoría ── */}
@@ -632,6 +650,9 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
           )}
         </div>
       </div>
+
+      {/* ── Modal Leads sin Respuesta ── */}
+      {srModal && <SinRespuestaModal leads={srLeads} onClose={() => setSrModal(false)} />}
 
       {/* ── Ranking asesores (si vista global) ── */}
       {esVistaGlobal && stats_por_asesor.length > 0 && (
