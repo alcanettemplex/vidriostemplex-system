@@ -5,7 +5,7 @@ import {
   X, Clock, User, Phone, DollarSign,
   ChevronRight, Check, Loader2,
   Activity, Send, Flame, UserPlus, Zap, Tag,
-  Calendar, CheckCircle2, ShieldCheck, Link2, Search, ExternalLink
+  Calendar, CheckCircle2, ShieldCheck, Link2, Search, ExternalLink, MapPin
 } from 'lucide-react';
 import {
   apiGetLeadTimeline,
@@ -21,6 +21,7 @@ import {
 import { updateLead } from '../crmSlice';
 import ConvertirClienteModal from './ConvertirClienteModal';
 import CrearODPModal from './CrearODPModal';
+import SolicitarVisitaModal from './SolicitarVisitaModal';
 
 // ─── Mapa estado → etiqueta visual ───────────────────────────────────────────
 const ESTADO_INFO: Record<string, { label: string; color: string; bg: string }> = {
@@ -146,6 +147,12 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
 
   // Modal crear ODP
   const [showCrearODP, setShowCrearODP] = useState(false);
+
+  // Modal solicitar visita técnica
+  const [showSolicitarVisita, setShowSolicitarVisita] = useState(false);
+  const [prospectoCRM, setProspectoCRM] = useState<{ id: number; numero: string; tm: string } | null>(
+    lead.prospecto_id ? { id: lead.prospecto_id, numero: '', tm: '' } : null
+  );
 
   // Estado movimiento de etapa
   const [moviendoEstado, setMoviendoEstado]           = useState(false);
@@ -785,6 +792,34 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
             </div>
           )}
 
+          {/* ── PANEL VISITA TÉCNICA (solo VISITA_TECNICA) ──────────────── */}
+          {lead.estado_crm === 'VISITA_TECNICA' && puedeMovarEstado && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-5 space-y-3 shadow-sm">
+              <h3 className="text-xs font-black text-indigo-800 uppercase flex items-center gap-2">
+                <MapPin className="w-3.5 h-3.5" /> Visita Técnica
+              </h3>
+              {prospectoCRM ? (
+                <div className="flex items-center gap-3 px-3 py-2.5 bg-white border border-indigo-200 rounded-xl">
+                  <CheckCircle2 className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black text-indigo-800">Visita técnica solicitada</p>
+                    <p className="text-[10px] text-indigo-500 font-bold">
+                      {prospectoCRM.tm ? `TM: ${prospectoCRM.tm} · ` : ''}
+                      Prospecto {prospectoCRM.numero || `#${prospectoCRM.id}`} — gestionar desde módulo Prospectos
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowSolicitarVisita(true)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-3 bg-indigo-600 text-white text-xs font-black rounded-xl hover:bg-indigo-700 transition-all active:scale-95 shadow-sm"
+                >
+                  <MapPin className="w-3.5 h-3.5" /> Solicitar visita técnica
+                </button>
+              )}
+            </div>
+          )}
+
           {/* SEGUIMIENTO */}
           {puedeSeguir && (
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3 shadow-md">
@@ -850,6 +885,17 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
       </div>
 
       {showConvertir && <ConvertirClienteModal lead={lead} onClose={() => setShowConvertir(false)} />}
+
+      {showSolicitarVisita && (
+        <SolicitarVisitaModal
+          lead={lead}
+          onClose={() => setShowSolicitarVisita(false)}
+          onSuccess={(prospecto_id, numero_prospecto, tm_numero) => {
+            setProspectoCRM({ id: prospecto_id, numero: numero_prospecto, tm: tm_numero });
+            setShowSolicitarVisita(false);
+          }}
+        />
+      )}
 
       {showCrearODP && (
         <CrearODPModal

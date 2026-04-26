@@ -98,3 +98,12 @@ export const apiCrearODPDesdeLead = (leadId: number, data: { cliente_id?: number
 /** Buscar clientes por nombre o teléfono */
 export const apiSearchClientes = (buscar: string) =>
   axios.get(`${API}/api/clientes?buscar=${encodeURIComponent(buscar)}`, getHeaders());
+
+/** Solicitar visita técnica desde un lead en VISITA_TECNICA — crea Prospecto + TM */
+export const apiSolicitarVisitaTecnica = (leadId: number, data: {
+  direccion: string;
+  fecha_visita?: string;
+  nombre_contacto?: string;
+  telefono_contacto?: string;
+  observaciones?: string;
+}) => axios.post(`${API}/api/crm/${leadId}/solicitar-visita`, data, getHeaders());

@@ -17,6 +17,7 @@ import {
   recuperarLead,
   getReporteAsesor,
   getStatsProspectos,
+  solicitarVisitaTecnica,
 } from '../controllers/crm.controller';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { authMiddleware } from '../middlewares/authMiddleware';
@@ -68,5 +69,8 @@ router.put('/:id/recuperar', requireRole('asesor_comercial', 'asistente_administ
 router.get('/odps/buscar', requireRole(...ROLES_CRM_LECTURA), searchODPsForLead);
 router.patch('/:id/vincular-odp', requireRole('asesor_comercial', 'admin', 'gerencia', 'jefe_produccion'), vincularODPAlLead);
 router.post('/:id/crear-odp', requireRole('asesor_comercial', 'admin', 'gerencia', 'jefe_produccion'), crearODPDesdeLead);
+
+// Solicitar visita técnica desde lead VISITA_TECNICA → crea Prospecto + TM
+router.post('/:id/solicitar-visita', requireRole('asesor_comercial', 'admin', 'gerencia', 'jefe_produccion'), solicitarVisitaTecnica);
 
 export default router;

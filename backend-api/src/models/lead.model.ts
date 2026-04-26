@@ -70,6 +70,10 @@ Lead.init({
     type: DataTypes.BOOLEAN,
     allowNull: true, // null = no convertido aún; true = cliente nuevo; false = cliente existente
   },
+  prospecto_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true, // Se llena cuando se solicita visita técnica desde CRM
+  },
 }, {
   sequelize,
   modelName: 'Lead',

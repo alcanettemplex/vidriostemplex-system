@@ -1044,6 +1044,99 @@ export const crearODPDesdeLead = async (req: Request, res: Response) => {
   }
 };
 
+// Solicitar visita técnica desde un lead en estado VISITA_TECNICA
+export const solicitarVisitaTecnica = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = req.user!;
+    const { direccion, fecha_visita, nombre_contacto, telefono_contacto, observaciones } = req.body;
+
+    if (!direccion?.trim()) {
+      return res.status(400).json({ error: 'La dirección de visita es requerida' });
+    }
+
+    const lead = await Lead.findByPk(id);
+    if (!lead) return res.status(404).json({ error: 'Lead no encontrado' });
+    if (lead.getDataValue('estado_crm') !== 'VISITA_TECNICA') {
+      return res.status(400).json({ error: 'Solo se puede solicitar visita para leads en estado VISITA_TECNICA' });
+    }
+    if (lead.getDataValue('prospecto_id')) {
+      return res.status(409).json({ error: 'Este lead ya tiene una visita técnica solicitada', prospecto_id: lead.getDataValue('prospecto_id') });
+    }
+
+    // Generar numero_prospecto
+    const lastProspecto = await Prospecto.findOne({
+      where: { numero_prospecto: { [Op.like]: 'PR-%' } },
+      order: [['numero_prospecto', 'DESC']],
+      attributes: ['numero_prospecto'],
+    });
+    let nextPR = 1;
+    if (lastProspecto) {
+      const parts = lastProspecto.getDataValue('numero_prospecto').split('-');
+      nextPR = parseInt(parts[parts.length - 1]) + 1;
+    }
+    const numero_prospecto = `PR-${String(nextPR).padStart(4, '0')}`;
+
+    const prospecto = await Prospecto.create({
+      numero_prospecto,
+      asesor_id: lead.getDataValue('asesor_id') || user.id,
+      cliente_id: lead.getDataValue('cliente_id') || null,
+      nombre_contacto: nombre_contacto || lead.getDataValue('nombre'),
+      telefono_contacto: telefono_contacto || lead.getDataValue('telefono'),
+      direccion: direccion.trim(),
+      descripcion: lead.getDataValue('descripcion_contexto') || lead.getDataValue('producto_interes') || `Lead CRM #${id}`,
+      estado: 'en_gestion',
+      fecha_creacion: new Date(),
+    } as any);
+
+    // Generar numero_tm
+    const lastTM = await TomaMedidas.findOne({
+      where: { numero_tm: { [Op.like]: 'TM-%' } },
+      order: [['numero_tm', 'DESC']],
+      attributes: ['numero_tm'],
+    });
+    let nextTM = 1;
+    if (lastTM) {
+      const parts = lastTM.getDataValue('numero_tm').split('-');
+      nextTM = parseInt(parts[parts.length - 1]) + 1;
+    }
+    const numero_tm = `TM-${String(nextTM).padStart(4, '0')}`;
+    const estadoTM = fecha_visita ? 'programada' : 'solicitada';
+
+    const tm = await TomaMedidas.create({
+      numero_tm,
+      prospecto_id: prospecto.getDataValue('id'),
+      realizado_por: user.id,
+      estado: estadoTM,
+      fecha_visita: fecha_visita || null,
+      direccion: direccion.trim(),
+      nombre_contacto: nombre_contacto || lead.getDataValue('nombre'),
+      telefono_contacto: telefono_contacto || lead.getDataValue('telefono'),
+      observaciones: observaciones || null,
+    } as any);
+
+    await lead.update({ prospecto_id: prospecto.getDataValue('id') });
+
+    await LeadEvento.create({
+      tipo: 'SEGUIMIENTO',
+      detalle_texto: `Visita técnica solicitada (${numero_tm}) — Prospecto ${numero_prospecto} creado. Dirección: ${direccion.trim()}`,
+      lead_id: lead.getDataValue('id'),
+      creado_por: user.id,
+    });
+
+    import('../server').then(({ emitirCambio }) => emitirCambio('crm')).catch(() => {});
+    res.status(201).json({
+      prospecto_id: prospecto.getDataValue('id'),
+      numero_prospecto,
+      tm_numero: numero_tm,
+      estado_tm: estadoTM,
+    });
+  } catch (error: any) {
+    console.error('Error al solicitar visita técnica:', error);
+    res.status(500).json({ error: 'Error del servidor al solicitar visita técnica' });
+  }
+};
+
 // Vincular un lead aprobado a una ODP existente
 export const vincularODPAlLead = async (req: Request, res: Response) => {
   try {
