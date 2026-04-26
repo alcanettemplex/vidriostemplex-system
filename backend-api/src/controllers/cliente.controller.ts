@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import Cliente from '../models/cliente.model';
 import { z } from 'zod';
-import { UniqueConstraintError } from 'sequelize';
+import { Op, UniqueConstraintError } from 'sequelize';
 
 const CAMPO_LABELS: Record<string, string> = {
   numero_documento: 'número de documento',
@@ -24,7 +24,18 @@ const clienteSchema = z.object({
 
 export const getClientes = async (req: Request, res: Response) => {
   try {
-    const clientes = await Cliente.findAll();
+    const { buscar } = req.query;
+    const where: any = {};
+    if (buscar && typeof buscar === 'string' && buscar.trim()) {
+      const q = buscar.trim();
+      where[Op.or] = [
+        { nombre_razon_social: { [Op.iLike]: `%${q}%` } },
+        { telefono: { [Op.iLike]: `%${q}%` } },
+        { celular: { [Op.iLike]: `%${q}%` } },
+        { numero_documento: { [Op.iLike]: `%${q}%` } },
+      ];
+    }
+    const clientes = await Cliente.findAll({ where, order: [['nombre_razon_social', 'ASC']], limit: buscar ? 15 : undefined });
     res.json(clientes);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener clientes' });

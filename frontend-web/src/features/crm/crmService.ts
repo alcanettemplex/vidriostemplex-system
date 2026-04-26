@@ -90,3 +90,11 @@ export const apiGetStatsProspectos = (mes?: number, anio?: number) => {
   const params = (mes && anio) ? `?mes=${mes}&anio=${anio}` : '';
   return axios.get(`${API}/api/crm/stats/prospectos${params}`, getHeaders());
 };
+
+/** Crear ODP mínima desde un lead APROBADO y vincularla automáticamente */
+export const apiCrearODPDesdeLead = (leadId: number, data: { cliente_id?: number; nombre?: string; telefono?: string }) =>
+  axios.post(`${API}/api/crm/${leadId}/crear-odp`, data, getHeaders());
+
+/** Buscar clientes por nombre o teléfono */
+export const apiSearchClientes = (buscar: string) =>
+  axios.get(`${API}/api/clientes?buscar=${encodeURIComponent(buscar)}`, getHeaders());

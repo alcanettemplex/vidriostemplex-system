@@ -449,16 +449,18 @@ export const getCRMStats = async (req: Request, res: Response) => {
     
     const whereBase: any = esGlobal ? {} : { asesor_id: user.id };
 
-    // Filtro por mes y año
+    // Extraer rango de fechas para reutilizar en queries de leads y ODP
+    let periodStart: Date | null = null;
+    let periodEnd: Date | null = null;
     if (mes && anio && mes !== 'undefined' && anio !== 'undefined') {
       const month = parseInt(mes as string);
       const year = parseInt(anio as string);
-      const startDate = new Date(year, month - 1, 1);
-      const endDate = new Date(year, month, 0, 23, 59, 59);
-      whereBase.createdAt = { [Op.between]: [startDate, endDate] };
+      periodStart = new Date(year, month - 1, 1);
+      periodEnd = new Date(year, month, 0, 23, 59, 59);
+      whereBase.createdAt = { [Op.between]: [periodStart, periodEnd] };
     }
 
-    const leads = await Lead.findAll({ 
+    const leads = await Lead.findAll({
       where: whereBase,
       include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }]
     });
@@ -469,7 +471,7 @@ export const getCRMStats = async (req: Request, res: Response) => {
     const porFuente: Record<string, number> = {};
     const porSegmento: Record<string, { total: number, aprobados: number, monto: number }> = {};
     const porProducto: Record<string, { total: number, aprobados: number, monto: number }> = {};
-    
+
     let montoTotalProyectado = 0;
     let montoTotalReal = 0;
     let montoRealAprobados = 0;
@@ -485,17 +487,33 @@ export const getCRMStats = async (req: Request, res: Response) => {
     };
 
     let convertidos = 0;
-    let nuevosClientes = 0;
-    let clientesRecurrentes = 0;
     let leadsConOdp = 0;
     let leadsAprobadosSinOdp = 0;
     leads.forEach((l: any) => {
       if (l.getDataValue('cliente_id')) convertidos++;
-      if (l.getDataValue('cliente_es_nuevo') === true) nuevosClientes++;
-      if (l.getDataValue('cliente_es_nuevo') === false) clientesRecurrentes++;
       if (l.getDataValue('odp_id')) leadsConOdp++;
       if (l.getDataValue('estado_crm') === 'APROBADO' && !l.getDataValue('odp_id')) leadsAprobadosSinOdp++;
     });
+
+    // Nuevos vía CRM = leads APROBADO en el período
+    const nuevosClientes = leads.filter((l: any) => l.getDataValue('estado_crm') === 'APROBADO').length;
+
+    // Nuevos vía Prospectos = ODPs del período que tienen un Prospecto vinculado
+    // Recurrentes = ODPs del período sin Prospecto (creación directa, clientes existentes)
+    let nuevosProspectos = 0;
+    let clientesRecurrentes = 0;
+    if (periodStart && periodEnd) {
+      const whereODP = { fecha_creacion: { [Op.between]: [periodStart, periodEnd] } };
+      const [odpsConProspecto, totalOdps] = await Promise.all([
+        ODP.count({
+          where: whereODP,
+          include: [{ model: Prospecto, as: 'prospecto', required: true }],
+        }),
+        ODP.count({ where: whereODP }),
+      ]);
+      nuevosProspectos = odpsConProspecto;
+      clientesRecurrentes = Math.max(0, totalOdps - odpsConProspecto);
+    }
 
     leads.forEach((l: any) => {
       const estado = l.getDataValue('estado_crm');
@@ -625,6 +643,7 @@ export const getCRMStats = async (req: Request, res: Response) => {
       },
       convertidos_a_cliente: convertidos,
       nuevos_clientes: nuevosClientes,
+      nuevos_prospectos: nuevosProspectos,
       clientes_recurrentes: clientesRecurrentes,
       leads_con_odp: leadsConOdp,
       leads_aprobados_sin_odp: leadsAprobadosSinOdp,
@@ -928,6 +947,100 @@ export const getStatsProspectos = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error en stats prospectos:', error);
     res.status(500).json({ error: 'Error del servidor' });
+  }
+};
+
+// Crear una ODP mínima desde un lead APROBADO y vincularla automáticamente
+export const crearODPDesdeLead = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = req.user!;
+    const { cliente_id, nombre, telefono } = req.body;
+
+    const lead = await Lead.findByPk(id);
+    if (!lead) return res.status(404).json({ error: 'Lead no encontrado' });
+    if (lead.getDataValue('estado_crm') !== 'APROBADO') {
+      return res.status(400).json({ error: 'Solo se puede crear ODP para leads en estado APROBADO' });
+    }
+    if (lead.getDataValue('odp_id')) {
+      return res.status(409).json({ error: 'Este lead ya tiene una ODP vinculada' });
+    }
+
+    // Resolver cliente_id
+    let clienteIdFinal: number;
+    if (cliente_id) {
+      const clienteExist = await Cliente.findByPk(cliente_id);
+      if (!clienteExist) return res.status(404).json({ error: 'Cliente no encontrado' });
+      clienteIdFinal = cliente_id;
+    } else if (telefono) {
+      // Buscar por teléfono para evitar duplicados
+      const porTelefono = await Cliente.findOne({ where: { [Op.or]: [{ telefono }, { celular: telefono }] } });
+      if (porTelefono) {
+        clienteIdFinal = porTelefono.getDataValue('id');
+      } else {
+        const nuevo = await Cliente.create({
+          nombre_razon_social: nombre || lead.getDataValue('nombre') || 'Sin nombre',
+          tipo_documento: 'C.C',
+          numero_documento: `LEAD-${id}`,
+          telefono: telefono || null,
+          celular: telefono || null,
+          condicion_pago: 'CONTADO',
+          creado_por: user.id,
+        });
+        clienteIdFinal = nuevo.getDataValue('id');
+      }
+    } else {
+      return res.status(400).json({ error: 'Se requiere cliente_id o teléfono para crear la ODP' });
+    }
+
+    // Generar número ODP consecutivo
+    const lastODP = await ODP.findOne({
+      where: { numero_odp: { [Op.like]: 'ODP-%' } },
+      order: [['numero_odp', 'DESC']],
+      attributes: ['numero_odp'],
+    });
+    let next = 1;
+    if (lastODP) {
+      const parts = lastODP.getDataValue('numero_odp').split('-');
+      next = parseInt(parts[parts.length - 1]) + 1;
+    }
+    const numero_odp = `ODP-${String(next).padStart(4, '0')}`;
+
+    const odp = await ODP.create({
+      numero_odp,
+      cliente_id: clienteIdFinal,
+      asesor_id: lead.getDataValue('asesor_id') || user.id,
+      estado_produccion: 'EN_ESPERA',
+      estado_facturacion: 'PENDIENTE',
+      estado_caja: 'PENDIENTE',
+      fecha_creacion: new Date().toISOString().split('T')[0],
+      descripcion_pedido: lead.getDataValue('descripcion_contexto') || lead.getDataValue('producto_interes') || `Lead CRM #${id}`,
+      tipo_servicio: lead.getDataValue('producto_interes') || null,
+      valor_total: parseFloat(lead.getDataValue('monto_real_venta') || lead.getDataValue('monto_proyectado_cotizacion') || '0'),
+      forma_pago: 'CONTADO',
+    } as any);
+
+    await lead.update({ odp_id: odp.getDataValue('id') });
+
+    await LeadEvento.create({
+      tipo: 'SEGUIMIENTO',
+      detalle_texto: `ODP ${numero_odp} creada y vinculada automáticamente desde Lead CRM.`,
+      lead_id: lead.getDataValue('id'),
+      creado_por: user.id,
+    });
+
+    const leadActualizado = await Lead.findByPk(id, {
+      include: [
+        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+        { model: ODP, as: 'odp', attributes: ['id', 'numero_odp', 'estado_produccion'] },
+      ],
+    });
+
+    import('../server').then(({ emitirCambio }) => emitirCambio('crm')).catch(() => {});
+    res.status(201).json({ lead: leadActualizado, odp_id: odp.getDataValue('id'), numero_odp });
+  } catch (error: any) {
+    console.error('Error al crear ODP desde lead:', error);
+    res.status(500).json({ error: 'Error del servidor al crear ODP' });
   }
 };
 

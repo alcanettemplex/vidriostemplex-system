@@ -226,7 +226,8 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
 
   const {
     total = 0, monto_total_proyectado = 0, tasa_conversion = 0,
-    convertidos_a_cliente = 0, nuevos_clientes = 0, clientes_recurrentes = 0,
+    convertidos_a_cliente = 0,
+    nuevos_clientes = 0, nuevos_prospectos = 0, clientes_recurrentes = 0,
     leads_con_odp = 0, leads_aprobados_sin_odp = 0,
     monto_real_aprobados = 0,
     ticket_promedio_proyectado = 0, tiempo_promedio_cierre_dias = 0,
@@ -284,8 +285,8 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
           icon={<IconLeads size={16} className="text-violet-600" />}
           accentColor="bg-violet-50" borderColor="border-l-violet-500" />
         <KPIStitch
-          label="Clientes Nuevos" value={String(nuevos_clientes)}
-          sub={clientes_recurrentes > 0 ? `${clientes_recurrentes} recurrentes` : 'Sin recurrentes'}
+          label="Clientes Nuevos" value={String(nuevos_clientes + nuevos_prospectos)}
+          sub={`CRM: ${nuevos_clientes} · Prospectos: ${nuevos_prospectos} · Recurrentes: ${clientes_recurrentes}`}
           icon={<IconUserCheck size={16} className="text-rose-600" />}
           accentColor="bg-rose-50" borderColor="border-l-rose-400" />
       </div>
@@ -308,55 +309,53 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
 
       {/* ── Fila: Clientes nuevos vs recurrentes + Leads→ODP ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Nuevos vs Recurrentes */}
+        {/* Nuevos vs Recurrentes — 3 segmentos */}
         <div className="md:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <div className="mb-3">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Clientes Nuevos vs Recurrentes</p>
-            <p className="text-[10px] text-slate-400 font-medium mt-0.5">De los leads convertidos, cuántos eran clientes nuevos o ya existentes en el sistema</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Origen de Negocio del Período</p>
+            <p className="text-[10px] text-slate-400 font-medium mt-0.5">Leads aprobados vía CRM, prospectos convertidos a ODP y ODPs de clientes recurrentes (directas)</p>
           </div>
-          {(nuevos_clientes + clientes_recurrentes) === 0 ? (
-            <p className="text-sm text-slate-300 text-center py-2">Sin conversiones en este periodo</p>
-          ) : (
-            <>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden flex">
+          {(() => {
+            const total3 = nuevos_clientes + nuevos_prospectos + clientes_recurrentes;
+            if (total3 === 0) return (
+              <p className="text-sm text-slate-300 text-center py-2">Sin actividad registrada en este periodo</p>
+            );
+            const pCRM  = Math.round((nuevos_clientes   / total3) * 100);
+            const pPros = Math.round((nuevos_prospectos  / total3) * 100);
+            const pRec  = Math.round((clientes_recurrentes / total3) * 100);
+            return (
+              <>
+                <div className="flex items-center gap-0 h-3 rounded-full overflow-hidden mb-3 bg-slate-100">
                   {nuevos_clientes > 0 && (
-                    <div
-                      className="h-full bg-emerald-500 rounded-l-full transition-all duration-700"
-                      style={{ width: `${((nuevos_clientes / (nuevos_clientes + clientes_recurrentes)) * 100)}%` }}
-                    />
+                    <div className="h-full bg-emerald-500 transition-all duration-700" style={{ width: `${pCRM}%` }} title={`CRM: ${nuevos_clientes}`} />
+                  )}
+                  {nuevos_prospectos > 0 && (
+                    <div className="h-full bg-violet-500 transition-all duration-700" style={{ width: `${pPros}%` }} title={`Prospectos: ${nuevos_prospectos}`} />
                   )}
                   {clientes_recurrentes > 0 && (
-                    <div
-                      className="h-full bg-blue-400 rounded-r-full transition-all duration-700"
-                      style={{ width: `${((clientes_recurrentes / (nuevos_clientes + clientes_recurrentes)) * 100)}%` }}
-                    />
+                    <div className="h-full bg-blue-400 transition-all duration-700" style={{ width: `${pRec}%` }} title={`Recurrentes: ${clientes_recurrentes}`} />
                   )}
                 </div>
-              </div>
-              <div className="flex items-center gap-6 text-xs">
-                <span className="flex items-center gap-1.5 font-bold text-emerald-700">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-                  Nuevos: <strong>{nuevos_clientes}</strong>
-                  <span className="text-slate-400 font-normal">
-                    ({nuevos_clientes + clientes_recurrentes > 0 ? Math.round((nuevos_clientes / (nuevos_clientes + clientes_recurrentes)) * 100) : 0}%)
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs">
+                  <span className="flex items-center gap-1.5 font-bold text-emerald-700">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block flex-shrink-0" />
+                    Nuevos vía CRM: <strong>{nuevos_clientes}</strong>
+                    <span className="text-slate-400 font-normal">({pCRM}%)</span>
                   </span>
-                </span>
-                <span className="flex items-center gap-1.5 font-bold text-blue-600">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block" />
-                  Recurrentes: <strong>{clientes_recurrentes}</strong>
-                  <span className="text-slate-400 font-normal">
-                    ({nuevos_clientes + clientes_recurrentes > 0 ? Math.round((clientes_recurrentes / (nuevos_clientes + clientes_recurrentes)) * 100) : 0}%)
+                  <span className="flex items-center gap-1.5 font-bold text-violet-700">
+                    <span className="w-2.5 h-2.5 rounded-full bg-violet-500 inline-block flex-shrink-0" />
+                    Nuevos vía Prospectos: <strong>{nuevos_prospectos}</strong>
+                    <span className="text-slate-400 font-normal">({pPros}%)</span>
                   </span>
-                </span>
-                <span className="text-slate-400 font-medium ml-auto">
-                  {convertidos_a_cliente - nuevos_clientes - clientes_recurrentes > 0 && (
-                    <span className="text-amber-500">{convertidos_a_cliente - nuevos_clientes - clientes_recurrentes} sin clasificar</span>
-                  )}
-                </span>
-              </div>
-            </>
-          )}
+                  <span className="flex items-center gap-1.5 font-bold text-blue-600">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block flex-shrink-0" />
+                    Recurrentes (directos): <strong>{clientes_recurrentes}</strong>
+                    <span className="text-slate-400 font-normal">({pRec}%)</span>
+                  </span>
+                </div>
+              </>
+            );
+          })()}
         </div>
 
         {/* Leads → ODP */}

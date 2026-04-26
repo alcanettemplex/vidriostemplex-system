@@ -20,6 +20,7 @@ import {
 } from '../crmService';
 import { updateLead } from '../crmSlice';
 import ConvertirClienteModal from './ConvertirClienteModal';
+import CrearODPModal from './CrearODPModal';
 
 // ─── Mapa estado → etiqueta visual ───────────────────────────────────────────
 const ESTADO_INFO: Record<string, { label: string; color: string; bg: string }> = {
@@ -142,6 +143,9 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
 
   // Modal conversión
   const [showConvertir, setShowConvertir] = useState(false);
+
+  // Modal crear ODP
+  const [showCrearODP, setShowCrearODP] = useState(false);
 
   // Estado movimiento de etapa
   const [moviendoEstado, setMoviendoEstado]           = useState(false);
@@ -713,47 +717,70 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
                   </div>
                 )}
 
-                {/* Buscador de ODP */}
-                {!lead.odp_id && lead.cliente_id && puedeMovarEstado && (
+                {/* Acciones de ODP cuando el lead no tiene una aún */}
+                {!lead.odp_id && lead.estado_crm === 'APROBADO' && puedeMovarEstado && (
                   <div className="space-y-2">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                      <input
-                        type="text"
-                        value={busquedaODP}
-                        onChange={e => handleBuscarODP(e.target.value)}
-                        placeholder="Buscar por número de ODP..."
-                        className="w-full text-xs pl-8 pr-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition-all"
-                      />
-                      {buscandoODP && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 animate-spin" />}
-                    </div>
+                    {/* Botón Crear ODP */}
+                    <button
+                      onClick={() => setShowCrearODP(true)}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 px-3 bg-emerald-600 text-white text-xs font-black rounded-xl hover:bg-emerald-700 transition-all active:scale-95 shadow-sm"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Crear ODP nueva
+                    </button>
 
-                    {resultadosODP.length > 0 && (
-                      <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
-                        {resultadosODP.map((odp: any) => (
-                          <button
-                            key={odp.id}
-                            disabled={vinculando}
-                            onClick={() => handleVincularODP(odp.id)}
-                            className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 transition-colors border-b border-slate-100 last:border-0 flex items-center justify-between gap-2"
-                          >
-                            <div className="min-w-0">
-                              <p className="text-xs font-black text-slate-800">{odp.numero_odp}</p>
-                              <p className="text-[9px] text-slate-400 truncate">{odp.cliente?.nombre_razon_social}</p>
-                            </div>
-                            <span className="text-[8px] font-bold px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-full flex-shrink-0 capitalize">
-                              {odp.estado_produccion?.replace(/_/g, ' ').toLowerCase()}
-                            </span>
-                          </button>
-                        ))}
+                    {/* Separador */}
+                    {lead.cliente_id && (
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-px bg-slate-200" />
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">o vincular existente</span>
+                        <div className="flex-1 h-px bg-slate-200" />
                       </div>
                     )}
 
-                    {busquedaODP.length >= 2 && !buscandoODP && resultadosODP.length === 0 && (
-                      <p className="text-[10px] text-slate-400 text-center py-1">Sin resultados para "{busquedaODP}"</p>
+                    {/* Buscador de ODP existente */}
+                    {lead.cliente_id && (
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                          <input
+                            type="text"
+                            value={busquedaODP}
+                            onChange={e => handleBuscarODP(e.target.value)}
+                            placeholder="Buscar por número de ODP..."
+                            className="w-full text-xs pl-8 pr-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition-all"
+                          />
+                          {buscandoODP && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 animate-spin" />}
+                        </div>
+
+                        {resultadosODP.length > 0 && (
+                          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                            {resultadosODP.map((odp: any) => (
+                              <button
+                                key={odp.id}
+                                disabled={vinculando}
+                                onClick={() => handleVincularODP(odp.id)}
+                                className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 transition-colors border-b border-slate-100 last:border-0 flex items-center justify-between gap-2"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-xs font-black text-slate-800">{odp.numero_odp}</p>
+                                  <p className="text-[9px] text-slate-400 truncate">{odp.cliente?.nombre_razon_social}</p>
+                                </div>
+                                <span className="text-[8px] font-bold px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-full flex-shrink-0 capitalize">
+                                  {odp.estado_produccion?.replace(/_/g, ' ').toLowerCase()}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {busquedaODP.length >= 2 && !buscandoODP && resultadosODP.length === 0 && (
+                          <p className="text-[10px] text-slate-400 text-center py-1">Sin resultados para "{busquedaODP}"</p>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
+
               </div>
             </div>
           )}
@@ -823,6 +850,17 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
       </div>
 
       {showConvertir && <ConvertirClienteModal lead={lead} onClose={() => setShowConvertir(false)} />}
+
+      {showCrearODP && (
+        <CrearODPModal
+          lead={lead}
+          onClose={() => setShowCrearODP(false)}
+          onSuccess={(leadActualizado, numeroOdp) => {
+            dispatch(updateLead(leadActualizado));
+            setShowCrearODP(false);
+          }}
+        />
+      )}
     </>
   );
 };

@@ -13,6 +13,7 @@ import {
   updateLeadDetails,
   searchODPsForLead,
   vincularODPAlLead,
+  crearODPDesdeLead,
   recuperarLead,
   getReporteAsesor,
   getStatsProspectos,
@@ -66,5 +67,6 @@ router.put('/:id/recuperar', requireRole('asesor_comercial', 'asistente_administ
 // Vínculo Lead APROBADO → ODP
 router.get('/odps/buscar', requireRole(...ROLES_CRM_LECTURA), searchODPsForLead);
 router.patch('/:id/vincular-odp', requireRole('asesor_comercial', 'admin', 'gerencia', 'jefe_produccion'), vincularODPAlLead);
+router.post('/:id/crear-odp', requireRole('asesor_comercial', 'admin', 'gerencia', 'jefe_produccion'), crearODPDesdeLead);
 
 export default router;
