@@ -748,9 +748,12 @@ export const getReporteAsesor = async (req: Request, res: Response) => {
     const user = req.user!;
     const { mes, anio, asesor_id } = req.query;
     const esAdmin = ['admin', 'gerencia', 'root', 'jefe_produccion', 'asistente_administrativo'].includes(user.rol?.toLowerCase());
-    const asesorIdTarget = esAdmin && asesor_id ? parseInt(asesor_id as string) : user.id;
+    // null = vista global (solo para admins sin asesor específico seleccionado)
+    const asesorIdTarget: number | null = asesor_id
+      ? parseInt(asesor_id as string)
+      : esAdmin ? null : user.id;
 
-    const whereBase: any = { asesor_id: asesorIdTarget };
+    const whereBase: any = asesorIdTarget ? { asesor_id: asesorIdTarget } : {};
     if (mes && anio && mes !== 'undefined' && anio !== 'undefined') {
       const month = parseInt(mes as string);
       const year  = parseInt(anio as string);
@@ -804,10 +807,12 @@ export const getReporteAsesor = async (req: Request, res: Response) => {
       .sort(([, a], [, b]) => b - a)[0]?.[0] || null;
 
     const montoGestionado = leads.reduce((s: number, l: any) => s + parseFloat(l.getDataValue('monto_proyectado_cotizacion') || '0'), 0);
-    const asesor = await Usuario.findByPk(asesorIdTarget, { attributes: ['id', 'nombre_completo'] });
+    const asesor = asesorIdTarget
+      ? await Usuario.findByPk(asesorIdTarget, { attributes: ['id', 'nombre_completo'] })
+      : null;
 
     res.json({
-      asesor: asesor?.getDataValue('nombre_completo') || 'Desconocido',
+      asesor: asesor?.getDataValue('nombre_completo') || (esAdmin && !asesorIdTarget ? 'Todos los asesores' : 'Desconocido'),
       asesor_id: asesorIdTarget,
       leads_asignados: total,
       contactos_realizados: contactos,

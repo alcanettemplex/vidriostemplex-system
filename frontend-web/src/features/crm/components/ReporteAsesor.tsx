@@ -134,7 +134,7 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
                 <span className="truncate">
                   {asesorSeleccionado
                     ? asesores.find(a => a.id === asesorSeleccionado)?.nombre_completo || 'Asesor'
-                    : 'Mi reporte'}
+                    : 'Vista Global'}
                 </span>
                 <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" />
               </button>
@@ -144,7 +144,7 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
                     onClick={() => { setAsesorSeleccionado(undefined); setDropdownOpen(false); }}
                     className="w-full text-left px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
                   >
-                    Mi reporte
+                    Vista Global (todos)
                   </button>
                   {asesores.map((a: any) => (
                     <button
