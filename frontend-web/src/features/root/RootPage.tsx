@@ -1074,14 +1074,16 @@ const DiagSeccion: React.FC<{
 const TabDiagnostico: React.FC<{ onAlertas: (n: number) => void }> = ({ onAlertas }) => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const onAlertasRef = React.useRef(onAlertas);
+  onAlertasRef.current = onAlertas;
 
   const cargar = useCallback(() => {
     setLoading(true);
     fetch(`${API}/api/root/diagnostico/odp`, { headers: headers() })
       .then(r => r.json())
-      .then(d => { setData(d); onAlertas(d?.resumen?.criticos ?? 0); })
+      .then(d => { setData(d); onAlertasRef.current(d?.resumen?.criticos ?? 0); })
       .finally(() => setLoading(false));
-  }, [onAlertas]);
+  }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -1200,14 +1202,16 @@ const TabDiagnostico: React.FC<{ onAlertas: (n: number) => void }> = ({ onAlerta
 const TabOperativo: React.FC<{ onAlertas: (n: number) => void }> = ({ onAlertas }) => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const onAlertasRef = React.useRef(onAlertas);
+  onAlertasRef.current = onAlertas;
 
   const cargar = useCallback(() => {
     setLoading(true);
     fetch(`${API}/api/root/operativo/resumen`, { headers: headers() })
       .then(r => r.json())
-      .then(d => { setData(d); onAlertas(d?.resumen?.total_issues ?? 0); })
+      .then(d => { setData(d); onAlertasRef.current(d?.resumen?.total_issues ?? 0); })
       .finally(() => setLoading(false));
-  }, [onAlertas]);
+  }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
 
