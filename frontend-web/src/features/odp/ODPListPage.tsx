@@ -254,17 +254,17 @@ const ODPListPage: React.FC = () => {
     };
 
     const handleAprobarSinItems = async (odp: ODP) => {
-        if (!window.confirm(`¿Aprobar ODP ${odp.numero_odp} para instalación? (sin requerimientos de vidrio)`)) return;
+        if (!window.confirm(`¿Liberar ${odp.numero_odp} para producción? La ODP pasará a estado En Espera.`)) return;
         try {
             const tkn = sessionStorage.getItem('token');
             await axios.patch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/odp/${odp.id}/aprobar-sin-items`,
                 {},
                 { headers: { Authorization: `Bearer ${tkn}` } }
             );
-            toast.success(`${odp.numero_odp} — Aprobada para instalación`);
+            toast.success(`${odp.numero_odp} — Liberada para producción`);
             fetchODPs();
         } catch (err: any) {
-            toast.error(err.response?.data?.error || 'Error al aprobar ODP');
+            toast.error(err.response?.data?.error || 'Error al liberar ODP');
         }
     };
 
@@ -727,7 +727,7 @@ const ODPListPage: React.FC = () => {
                                                 <button
                                                     onClick={() => handleAprobarSinItems(odp)}
                                                     className="text-orange-400 hover:text-orange-600 transition p-1.5 hover:bg-orange-50 rounded"
-                                                    title="Aprobar para instalación (sin requerimientos)"
+                                                    title="Liberar para producción (pago adelantado)"
                                                 >
                                                     <CheckCircle2 className="w-4 h-4" />
                                                 </button>
