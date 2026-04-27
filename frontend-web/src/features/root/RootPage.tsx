@@ -1368,21 +1368,32 @@ const TabSeguridad: React.FC = () => {
             <thead className="bg-slate-50 text-slate-500">
               <tr>
                 <th className="text-left px-3 py-2 font-semibold">Usuario</th>
-                <th className="text-right px-3 py-2 font-semibold">Ops</th>
-                <th className="text-right px-3 py-2 font-semibold">Tablas</th>
-                <th className="text-left px-3 py-2 font-semibold">IPs</th>
+                <th className="text-left px-3 py-2 font-semibold">Rol</th>
+                <th className="text-right px-3 py-2 font-semibold">Total</th>
+                <th className="text-right px-3 py-2 font-semibold">I / U / D</th>
+                <th className="text-left px-3 py-2 font-semibold">IP(s)</th>
                 <th className="text-left px-3 py-2 font-semibold">Última actividad</th>
               </tr>
             </thead>
             <tbody>
               {data.actividad_usuarios_24h?.length === 0 && (
-                <tr><td colSpan={5} className="text-center py-6 text-slate-400">Sin actividad en las últimas 24h</td></tr>
+                <tr><td colSpan={6} className="text-center py-6 text-slate-400">Sin actividad en las últimas 24h</td></tr>
               )}
               {data.actividad_usuarios_24h?.map((u: any, i: number) => (
                 <tr key={i} className="border-t border-slate-50 hover:bg-slate-50">
-                  <td className="px-3 py-2 font-semibold text-slate-700">{u.usuario_nombre}</td>
+                  <td className="px-3 py-2 font-semibold text-slate-700">
+                    {u.usuario_nombre}
+                    <span className="ml-1 text-[10px] text-slate-400 font-normal">#{u.usuario_id}</span>
+                  </td>
+                  <td className="px-3 py-2 text-slate-500">{u.rol}</td>
                   <td className="px-3 py-2 text-right font-bold text-indigo-700">{u.cant_operaciones}</td>
-                  <td className="px-3 py-2 text-right text-slate-500">{u.tablas_distintas}</td>
+                  <td className="px-3 py-2 text-right text-[11px]">
+                    <span className="text-emerald-600">{u.inserts}</span>
+                    {' / '}
+                    <span className="text-amber-600">{u.updates}</span>
+                    {' / '}
+                    <span className={Number(u.deletes) > 0 ? 'text-red-600 font-bold' : 'text-slate-400'}>{u.deletes}</span>
+                  </td>
                   <td className="px-3 py-2 text-slate-400 text-[11px]">{Array.isArray(u.ips) ? u.ips.filter(Boolean).join(', ') : '—'}</td>
                   <td className="px-3 py-2 text-slate-400">{u.ultima_actividad ? new Date(u.ultima_actividad).toLocaleString('es-CO') : '—'}</td>
                 </tr>
@@ -1404,7 +1415,7 @@ const TabSeguridad: React.FC = () => {
                 <th className="text-left px-3 py-2 font-semibold">IP</th>
                 <th className="text-right px-3 py-2 font-semibold">Requests</th>
                 <th className="text-right px-3 py-2 font-semibold">Usuarios</th>
-                <th className="text-left px-3 py-2 font-semibold">Usuarios asociados</th>
+                <th className="text-left px-3 py-2 font-semibold">Quiénes operaron</th>
                 <th className="text-left px-3 py-2 font-semibold">Última actividad</th>
               </tr>
             </thead>
@@ -1417,7 +1428,7 @@ const TabSeguridad: React.FC = () => {
                   <td className="px-3 py-2 font-mono text-slate-700">{ip.ip_address || '—'}</td>
                   <td className="px-3 py-2 text-right font-bold text-indigo-700">{ip.cant_requests}</td>
                   <td className="px-3 py-2 text-right text-slate-500">{ip.cant_usuarios}</td>
-                  <td className="px-3 py-2 text-slate-400 text-[11px]">{Array.isArray(ip.usuarios) ? ip.usuarios.filter(Boolean).join(', ') : '—'}</td>
+                  <td className="px-3 py-2 text-slate-600 text-[11px]">{Array.isArray(ip.usuarios) ? ip.usuarios.filter(Boolean).join(', ') : '—'}</td>
                   <td className="px-3 py-2 text-slate-400">{ip.ultima_actividad ? new Date(ip.ultima_actividad).toLocaleString('es-CO') : '—'}</td>
                 </tr>
               ))}
@@ -1442,8 +1453,8 @@ const TabSeguridad: React.FC = () => {
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
                   <th className="text-left px-3 py-2 font-semibold">Tabla</th>
-                  <th className="text-left px-3 py-2 font-semibold">ID</th>
-                  <th className="text-left px-3 py-2 font-semibold">Usuario</th>
+                  <th className="text-left px-3 py-2 font-semibold">ID reg.</th>
+                  <th className="text-left px-3 py-2 font-semibold">Quién eliminó</th>
                   <th className="text-left px-3 py-2 font-semibold">IP</th>
                   <th className="text-left px-3 py-2 font-semibold">Fecha</th>
                   <th className="px-3 py-2"></th>
@@ -1458,8 +1469,12 @@ const TabSeguridad: React.FC = () => {
                     >
                       <td className="px-3 py-2 font-mono text-red-700">{d.tabla}</td>
                       <td className="px-3 py-2 text-slate-500">{d.registro_id}</td>
-                      <td className="px-3 py-2 font-semibold text-slate-700">{d.usuario_nombre || '—'}</td>
-                      <td className="px-3 py-2 text-slate-400">{d.ip_address || '—'}</td>
+                      <td className="px-3 py-2">
+                        <span className="font-semibold text-slate-700">{d.usuario_nombre}</span>
+                        <span className="ml-1 text-[10px] text-slate-400">#{d.usuario_id}</span>
+                        {d.usuario_rol && <span className="ml-1 text-[10px] text-slate-400">· {d.usuario_rol}</span>}
+                      </td>
+                      <td className="px-3 py-2 text-slate-400 font-mono">{d.ip_address || '—'}</td>
                       <td className="px-3 py-2 text-slate-400">{d.fecha ? new Date(d.fecha).toLocaleString('es-CO') : '—'}</td>
                       <td className="px-3 py-2">
                         <ChevronRight className={`w-3.5 h-3.5 text-slate-300 transition ${expandedDelete === d.id ? 'rotate-90' : ''}`} />

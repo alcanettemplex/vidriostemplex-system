@@ -702,7 +702,7 @@ export const getDiagnosticoODP = async (_req: Request, res: Response) => {
           AND COALESCE(
             (SELECT MAX(h.fecha) FROM historial_estados_odp h WHERE h.odp_id = o.id),
             o.fecha_creacion
-          ) < NOW() - INTERVAL '30 days'
+          ) < NOW() - INTERVAL '7 days'
         ORDER BY dias_sin_cambio DESC LIMIT 100
       `, { type: QueryTypes.SELECT }),
 
@@ -835,41 +835,54 @@ export const getSeguridadActividad = async (_req: Request, res: Response) => {
       deletesRecientes,
       usuariosInactivos,
     ] = await Promise.all([
-      // Q1 — Actividad usuarios 24h
+      // Q1 — Actividad usuarios 24h (agrupa por usuario_id + JOIN para obtener nombre)
       sequelize.query<any>(`
-        SELECT usuario_nombre, usuario_id,
+        SELECT al.usuario_id,
+               u.nombre_completo AS usuario_nombre,
+               u.rol,
                COUNT(*) AS cant_operaciones,
-               COUNT(DISTINCT tabla) AS tablas_distintas,
-               array_agg(DISTINCT tabla ORDER BY tabla) AS tablas_tocadas,
-               COUNT(DISTINCT ip_address) AS ips_distintas,
-               array_agg(DISTINCT ip_address) AS ips,
-               MAX(fecha) AS ultima_actividad
-        FROM auditoria_log
-        WHERE fecha >= NOW() - INTERVAL '24 hours' AND usuario_nombre IS NOT NULL
-        GROUP BY usuario_nombre, usuario_id
+               COUNT(DISTINCT al.tabla) AS tablas_distintas,
+               array_agg(DISTINCT al.tabla ORDER BY al.tabla) AS tablas_tocadas,
+               COUNT(CASE WHEN al.operacion='INSERT' THEN 1 END) AS inserts,
+               COUNT(CASE WHEN al.operacion='UPDATE' THEN 1 END) AS updates,
+               COUNT(CASE WHEN al.operacion='DELETE' THEN 1 END) AS deletes,
+               COUNT(DISTINCT al.ip_address) AS ips_distintas,
+               array_agg(DISTINCT al.ip_address) AS ips,
+               MAX(al.fecha) AS ultima_actividad
+        FROM auditoria_log al
+        JOIN usuarios u ON u.id = al.usuario_id
+        WHERE al.fecha >= NOW() - INTERVAL '24 hours'
+          AND al.usuario_id IS NOT NULL
+        GROUP BY al.usuario_id, u.nombre_completo, u.rol
         ORDER BY cant_operaciones DESC LIMIT 50
       `, { type: QueryTypes.SELECT }),
 
-      // Q2 — IPs únicas 24h
+      // Q2 — IPs únicas 24h con nombres de usuario via JOIN
       sequelize.query<any>(`
-        SELECT ip_address,
+        SELECT al.ip_address,
                COUNT(*) AS cant_requests,
-               COUNT(DISTINCT usuario_id) AS cant_usuarios,
-               array_agg(DISTINCT usuario_nombre ORDER BY usuario_nombre) AS usuarios,
-               MIN(fecha) AS primera_actividad,
-               MAX(fecha) AS ultima_actividad
-        FROM auditoria_log
-        WHERE fecha >= NOW() - INTERVAL '24 hours' AND ip_address IS NOT NULL
-        GROUP BY ip_address
+               COUNT(DISTINCT al.usuario_id) AS cant_usuarios,
+               array_agg(DISTINCT u.nombre_completo ORDER BY u.nombre_completo) AS usuarios,
+               MIN(al.fecha) AS primera_actividad,
+               MAX(al.fecha) AS ultima_actividad
+        FROM auditoria_log al
+        LEFT JOIN usuarios u ON u.id = al.usuario_id
+        WHERE al.fecha >= NOW() - INTERVAL '24 hours' AND al.ip_address IS NOT NULL
+        GROUP BY al.ip_address
         ORDER BY cant_requests DESC LIMIT 30
       `, { type: QueryTypes.SELECT }),
 
-      // Q3 — DELETEs últimas 48h
+      // Q3 — DELETEs últimas 48h con nombre de usuario via JOIN
       sequelize.query<any>(`
-        SELECT id, tabla, registro_id, usuario_nombre, usuario_id, ip_address, fecha, datos_anteriores
-        FROM auditoria_log
-        WHERE operacion = 'DELETE' AND fecha >= NOW() - INTERVAL '48 hours'
-        ORDER BY fecha DESC LIMIT 100
+        SELECT al.id, al.tabla, al.registro_id,
+               al.usuario_id,
+               COALESCE(u.nombre_completo, 'Usuario ' || al.usuario_id::text) AS usuario_nombre,
+               u.rol AS usuario_rol,
+               al.ip_address, al.fecha, al.datos_anteriores
+        FROM auditoria_log al
+        LEFT JOIN usuarios u ON u.id = al.usuario_id
+        WHERE al.operacion = 'DELETE' AND al.fecha >= NOW() - INTERVAL '48 hours'
+        ORDER BY al.fecha DESC LIMIT 100
       `, { type: QueryTypes.SELECT }),
 
       // Q4 — Usuarios inactivos > 90 días (sin campo activo en la tabla)
