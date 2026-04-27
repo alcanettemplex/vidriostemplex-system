@@ -576,7 +576,7 @@ export const ejecutarMantenimiento = async (req: Request, res: Response) => {
           { type: QueryTypes.SELECT }
         );
         const [sapSinOdp]: any[] = await sequelize.query(
-          `SELECT COUNT(*) AS c FROM saps WHERE odp_id NOT IN (SELECT id FROM odp)`,
+          `SELECT COUNT(*) AS c FROM sap WHERE odp_id NOT IN (SELECT id FROM odp)`,
           { type: QueryTypes.SELECT }
         );
         const [itemsSinOdp]: any[] = await sequelize.query(
@@ -616,5 +616,286 @@ export const ejecutarMantenimiento = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error mantenimiento:', error);
     res.status(500).json({ error: error.message || 'Error al ejecutar mantenimiento' });
+  }
+};
+
+// ─── DIAGNÓSTICO ODP ─────────────────────────────────────────────────────────
+export const getDiagnosticoODP = async (_req: Request, res: Response) => {
+  try {
+    const [
+      listoSinRequisitos,
+      listoChkPendiente,
+      visitaTmRealizada,
+      enEsperaStale,
+      sinItemsPendiente,
+    ] = await Promise.all([
+      // Q1 — LISTO_INSTALAR sin ningún requisito (CRÍTICO)
+      sequelize.query<any>(`
+        SELECT o.id, o.numero_odp, c.nombre_razon_social AS cliente,
+               u.nombre_completo AS asesor,
+               o.fecha_listo_instalar, o.fecha_creacion
+        FROM odp o
+        JOIN clientes c ON c.id = o.cliente_id
+        JOIN usuarios u ON u.id = o.asesor_id
+        WHERE o.estado_produccion = 'LISTO_INSTALAR'
+          AND o.sin_items = false
+          AND NOT EXISTS (SELECT 1 FROM toma_medidas WHERE odp_id = o.id)
+          AND NOT EXISTS (SELECT 1 FROM odp_items WHERE odp_id = o.id)
+          AND NOT EXISTS (SELECT 1 FROM sap WHERE odp_id = o.id)
+          AND o.tiene_aluminio = false AND o.matizado = false AND o.pelicula = false
+          AND o.huacal = false AND o.carton = false
+        ORDER BY o.fecha_listo_instalar DESC NULLS LAST LIMIT 100
+      `, { type: QueryTypes.SELECT }),
+
+      // Q2 — LISTO_INSTALAR con chk requerido en false (CRÍTICO)
+      sequelize.query<any>(`
+        SELECT o.id, o.numero_odp, c.nombre_razon_social AS cliente,
+               u.nombre_completo AS asesor,
+               o.tiene_aluminio, o.matizado, o.pelicula, o.huacal, o.carton,
+               o.chk_medicion, o.chk_corte, o.chk_vidrio, o.chk_accesorios, o.chk_ensamble,
+               o.chk_matizado, o.chk_pelicula, o.chk_huacal, o.chk_carton,
+               (SELECT COUNT(*) FROM toma_medidas WHERE odp_id = o.id) AS tiene_tm,
+               (SELECT COUNT(*) FROM odp_items WHERE odp_id = o.id) AS tiene_items,
+               (SELECT COUNT(*) FROM sap WHERE odp_id = o.id) AS tiene_sap
+        FROM odp o
+        JOIN clientes c ON c.id = o.cliente_id
+        JOIN usuarios u ON u.id = o.asesor_id
+        WHERE o.estado_produccion = 'LISTO_INSTALAR' AND o.sin_items = false
+          AND (
+            (EXISTS (SELECT 1 FROM toma_medidas WHERE odp_id = o.id) AND o.chk_medicion = false)
+            OR (EXISTS (SELECT 1 FROM odp_items WHERE odp_id = o.id) AND o.chk_vidrio = false)
+            OR (EXISTS (SELECT 1 FROM sap WHERE odp_id = o.id) AND o.chk_accesorios = false)
+            OR (o.tiene_aluminio = true AND (o.chk_corte = false OR o.chk_ensamble = false))
+            OR (o.matizado = true AND o.chk_matizado = false)
+            OR (o.pelicula = true AND o.chk_pelicula = false)
+            OR (o.huacal = true AND o.chk_huacal = false)
+            OR (o.carton = true AND o.chk_carton = false)
+          )
+        ORDER BY o.fecha_listo_instalar DESC NULLS LAST LIMIT 100
+      `, { type: QueryTypes.SELECT }),
+
+      // Q3 — VISITA_TECNICA con TM realizada (ADVERTENCIA)
+      sequelize.query<any>(`
+        SELECT o.id, o.numero_odp, c.nombre_razon_social AS cliente,
+               u.nombre_completo AS asesor,
+               tm.estado AS estado_tm, tm.numero_tm, tm.fecha_visita
+        FROM odp o
+        JOIN clientes c ON c.id = o.cliente_id
+        JOIN usuarios u ON u.id = o.asesor_id
+        JOIN toma_medidas tm ON tm.odp_id = o.id
+        WHERE o.estado_produccion = 'VISITA_TECNICA' AND tm.estado = 'realizada'
+        ORDER BY tm.fecha_visita ASC NULLS LAST LIMIT 100
+      `, { type: QueryTypes.SELECT }),
+
+      // Q4 — EN_ESPERA > 30 días sin cambio (ADVERTENCIA)
+      sequelize.query<any>(`
+        SELECT o.id, o.numero_odp, c.nombre_razon_social AS cliente,
+               u.nombre_completo AS asesor, o.fecha_creacion,
+               EXTRACT(DAY FROM NOW() - COALESCE(
+                 (SELECT MAX(h.fecha) FROM historial_estados_odp h WHERE h.odp_id = o.id),
+                 o.fecha_creacion
+               ))::int AS dias_sin_cambio,
+               (SELECT MAX(h.fecha) FROM historial_estados_odp h WHERE h.odp_id = o.id) AS ultimo_cambio
+        FROM odp o
+        JOIN clientes c ON c.id = o.cliente_id
+        JOIN usuarios u ON u.id = o.asesor_id
+        WHERE o.estado_produccion = 'EN_ESPERA'
+          AND COALESCE(
+            (SELECT MAX(h.fecha) FROM historial_estados_odp h WHERE h.odp_id = o.id),
+            o.fecha_creacion
+          ) < NOW() - INTERVAL '30 days'
+        ORDER BY dias_sin_cambio DESC LIMIT 100
+      `, { type: QueryTypes.SELECT }),
+
+      // Q5 — ODPs sin_items pendientes (INFO)
+      sequelize.query<any>(`
+        SELECT o.id, o.numero_odp, c.nombre_razon_social AS cliente,
+               u.nombre_completo AS asesor, o.fecha_creacion,
+               EXTRACT(DAY FROM NOW() - o.fecha_creacion)::int AS dias_esperando
+        FROM odp o
+        JOIN clientes c ON c.id = o.cliente_id
+        JOIN usuarios u ON u.id = o.asesor_id
+        WHERE o.sin_items = true
+        ORDER BY o.fecha_creacion ASC LIMIT 100
+      `, { type: QueryTypes.SELECT }),
+    ]);
+
+    const criticos = listoSinRequisitos.length + listoChkPendiente.length;
+    const advertencias = visitaTmRealizada.length + enEsperaStale.length;
+    const info = sinItemsPendiente.length;
+
+    res.json({
+      listo_sin_requisitos: listoSinRequisitos,
+      listo_chk_pendiente: listoChkPendiente,
+      visita_tm_realizada: visitaTmRealizada,
+      en_espera_stale: enEsperaStale,
+      sin_items_pendiente: sinItemsPendiente,
+      resumen: { criticos, advertencias, info, total: criticos + advertencias + info },
+    });
+  } catch (error: any) {
+    console.error('Error diagnóstico ODP:', error);
+    res.status(500).json({ error: error.message || 'Error al ejecutar diagnóstico' });
+  }
+};
+
+// ─── RESUMEN OPERATIVO ───────────────────────────────────────────────────────
+export const getOperativoResumen = async (_req: Request, res: Response) => {
+  try {
+    const [
+      noConformidades,
+      pedidosProblema,
+      entregadasSinFacturar,
+      creditosVencidos,
+      rutasEnCurso,
+    ] = await Promise.all([
+      // Q1 — No Conformidades abiertas
+      sequelize.query<any>(`
+        SELECT nc.id, nc.numero_reporte, nc.tipo_error, nc.estado,
+               o.numero_odp, c.nombre_razon_social AS cliente,
+               nc.costo_total, nc.creado_en
+        FROM no_conformidades nc
+        JOIN odp o ON o.id = nc.odp_id
+        JOIN clientes c ON c.id = o.cliente_id
+        WHERE nc.estado IN ('ABIERTO', 'EN_PROCESO')
+        ORDER BY nc.creado_en DESC LIMIT 50
+      `, { type: QueryTypes.SELECT }),
+
+      // Q2 — Pedidos PV en PROBLEMA
+      sequelize.query<any>(`
+        SELECT pv.id, pv.numero_pedido, pv.proveedor, pv.tipo_problema, pv.estado_reposicion,
+               o.numero_odp, c.nombre_razon_social AS cliente, pv.creado_en
+        FROM pedido_pv pv
+        LEFT JOIN odp o ON o.id = pv.odp_id
+        LEFT JOIN clientes c ON c.id = o.cliente_id
+        WHERE pv.estado = 'PROBLEMA'
+        ORDER BY pv.creado_en DESC LIMIT 50
+      `, { type: QueryTypes.SELECT }),
+
+      // Q3 — ODPs ENTREGADA sin facturar
+      sequelize.query<any>(`
+        SELECT o.id, o.numero_odp, c.nombre_razon_social AS cliente,
+               u.nombre_completo AS asesor, o.valor_total, o.fecha_entrega
+        FROM odp o
+        JOIN clientes c ON c.id = o.cliente_id
+        JOIN usuarios u ON u.id = o.asesor_id
+        WHERE o.estado_produccion = 'ENTREGADA' AND o.estado_facturacion = 'PENDIENTE'
+        ORDER BY o.fecha_entrega ASC NULLS LAST LIMIT 50
+      `, { type: QueryTypes.SELECT }),
+
+      // Q4 — Créditos vencidos
+      sequelize.query<any>(`
+        SELECT o.id, o.numero_odp, c.nombre_razon_social AS cliente,
+               u.nombre_completo AS asesor,
+               o.fecha_vencimiento_credito, o.valor_total, o.pendiente,
+               CURRENT_DATE - o.fecha_vencimiento_credito AS dias_vencido
+        FROM odp o
+        JOIN clientes c ON c.id = o.cliente_id
+        JOIN usuarios u ON u.id = o.asesor_id
+        WHERE o.fecha_vencimiento_credito IS NOT NULL
+          AND o.fecha_vencimiento_credito < CURRENT_DATE
+          AND o.estado_facturacion = 'PENDIENTE'
+        ORDER BY dias_vencido DESC LIMIT 50
+      `, { type: QueryTypes.SELECT }),
+
+      // Q5 — Rutas en_curso sin cerrar
+      sequelize.query<any>(`
+        SELECT r.id, r.estado, r.inicio_ruta, r.creado_en,
+               EXTRACT(HOUR FROM NOW() - r.inicio_ruta)::int AS horas_abiertas,
+               uc.nombre_completo AS creado_por, ux.nombre_completo AS conductor
+        FROM rutas_instalacion r
+        LEFT JOIN usuarios uc ON uc.id = r.creado_por
+        LEFT JOIN usuarios ux ON ux.id = r.conductor_id
+        WHERE r.estado = 'en_curso' AND r.fin_ruta IS NULL
+        ORDER BY r.inicio_ruta ASC NULLS LAST LIMIT 50
+      `, { type: QueryTypes.SELECT }),
+    ]);
+
+    const criticos = noConformidades.length + pedidosProblema.length + creditosVencidos.length;
+    const advertencias = entregadasSinFacturar.length + rutasEnCurso.length;
+
+    res.json({
+      no_conformidades_abiertas: { count: noConformidades.length, registros: noConformidades },
+      pedidos_problema:          { count: pedidosProblema.length, registros: pedidosProblema },
+      entregadas_sin_facturar:   { count: entregadasSinFacturar.length, registros: entregadasSinFacturar },
+      creditos_vencidos:         { count: creditosVencidos.length, registros: creditosVencidos },
+      rutas_en_curso:            { count: rutasEnCurso.length, registros: rutasEnCurso },
+      resumen: { criticos, advertencias, total_issues: criticos + advertencias },
+    });
+  } catch (error: any) {
+    console.error('Error resumen operativo:', error);
+    res.status(500).json({ error: error.message || 'Error al obtener resumen operativo' });
+  }
+};
+
+// ─── SEGURIDAD / ACTIVIDAD ───────────────────────────────────────────────────
+export const getSeguridadActividad = async (_req: Request, res: Response) => {
+  try {
+    const [
+      actividadUsuarios,
+      ipsUnicas,
+      deletesRecientes,
+      usuariosInactivos,
+    ] = await Promise.all([
+      // Q1 — Actividad usuarios 24h
+      sequelize.query<any>(`
+        SELECT usuario_nombre, usuario_id,
+               COUNT(*) AS cant_operaciones,
+               COUNT(DISTINCT tabla) AS tablas_distintas,
+               array_agg(DISTINCT tabla ORDER BY tabla) AS tablas_tocadas,
+               COUNT(DISTINCT ip_address) AS ips_distintas,
+               array_agg(DISTINCT ip_address) AS ips,
+               MAX(fecha) AS ultima_actividad
+        FROM auditoria_log
+        WHERE fecha >= NOW() - INTERVAL '24 hours' AND usuario_nombre IS NOT NULL
+        GROUP BY usuario_nombre, usuario_id
+        ORDER BY cant_operaciones DESC LIMIT 50
+      `, { type: QueryTypes.SELECT }),
+
+      // Q2 — IPs únicas 24h
+      sequelize.query<any>(`
+        SELECT ip_address,
+               COUNT(*) AS cant_requests,
+               COUNT(DISTINCT usuario_id) AS cant_usuarios,
+               array_agg(DISTINCT usuario_nombre ORDER BY usuario_nombre) AS usuarios,
+               MIN(fecha) AS primera_actividad,
+               MAX(fecha) AS ultima_actividad
+        FROM auditoria_log
+        WHERE fecha >= NOW() - INTERVAL '24 hours' AND ip_address IS NOT NULL
+        GROUP BY ip_address
+        ORDER BY cant_requests DESC LIMIT 30
+      `, { type: QueryTypes.SELECT }),
+
+      // Q3 — DELETEs últimas 48h
+      sequelize.query<any>(`
+        SELECT id, tabla, registro_id, usuario_nombre, usuario_id, ip_address, fecha, datos_anteriores
+        FROM auditoria_log
+        WHERE operacion = 'DELETE' AND fecha >= NOW() - INTERVAL '48 hours'
+        ORDER BY fecha DESC LIMIT 100
+      `, { type: QueryTypes.SELECT }),
+
+      // Q4 — Usuarios inactivos > 90 días
+      sequelize.query<any>(`
+        SELECT id, nombre_completo, username, rol, activo, creado_en
+        FROM usuarios
+        WHERE activo = true
+          AND id NOT IN (
+            SELECT DISTINCT (datos_nuevos->>'id')::int
+            FROM auditoria_log
+            WHERE tabla = 'usuarios' AND fecha > NOW() - INTERVAL '90 days'
+          )
+        ORDER BY nombre_completo
+      `, { type: QueryTypes.SELECT }),
+    ]);
+
+    res.json({
+      actividad_usuarios_24h: actividadUsuarios,
+      ips_unicas_24h: ipsUnicas,
+      deletes_recientes_48h: deletesRecientes,
+      usuarios_inactivos_90d: usuariosInactivos,
+      generado_en: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error('Error seguridad actividad:', error);
+    res.status(500).json({ error: error.message || 'Error al obtener actividad de seguridad' });
   }
 };

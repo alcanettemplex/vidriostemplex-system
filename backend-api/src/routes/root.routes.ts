@@ -11,6 +11,9 @@ import {
   descargarBackup,
   restaurarBackup,
   ejecutarMantenimiento,
+  getDiagnosticoODP,
+  getOperativoResumen,
+  getSeguridadActividad,
 } from '../controllers/root.controller';
 
 const router = Router();
@@ -48,5 +51,10 @@ router.post('/backup/restaurar', restaurarBackup);
 // Mantenimiento
 router.get('/mantenimiento/:tarea', ejecutarMantenimiento);
 router.post('/mantenimiento/:tarea', ejecutarMantenimiento);
+
+// Diagnóstico, Operativo, Seguridad
+router.get('/diagnostico/odp',     getDiagnosticoODP);
+router.get('/operativo/resumen',   getOperativoResumen);
+router.get('/seguridad/actividad', getSeguridadActividad);
 
 export default router;

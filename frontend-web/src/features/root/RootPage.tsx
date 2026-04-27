@@ -4,7 +4,7 @@ import {
   HardDrive, Wrench, Bell, BookOpen, RefreshCw,
   CheckCircle, XCircle, AlertTriangle, Download,
   Upload, RotateCcw, Trash2, ChevronRight, Cpu,
-  Wifi, WifiOff, Clock
+  Wifi, WifiOff, Clock, BarChart2, Lock
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -47,20 +47,36 @@ const StatusBadge: React.FC<{ status: 'online' | 'offline' | 'slow' }> = ({ stat
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 const TABS = [
-  { id: 'resumen', label: 'Resumen', icon: Shield },
-  { id: 'supabase', label: 'Base de Datos', icon: Database },
-  { id: 'cloudinary', label: 'Almacenamiento', icon: Cloud },
-  { id: 'servicios', label: 'Servicios', icon: Activity },
-  { id: 'auditoria', label: 'Auditoría', icon: ClipboardList },
-  { id: 'backup', label: 'Backup', icon: HardDrive },
-  { id: 'mantenimiento', label: 'Mantenimiento', icon: Wrench },
-  { id: 'alertas', label: 'Alertas', icon: Bell },
-  { id: 'catalogo', label: 'Catálogo', icon: BookOpen },
+  { id: 'resumen',       label: 'Resumen',        icon: Shield },
+  { id: 'diagnostico',   label: 'Diagnóstico',     icon: AlertTriangle },
+  { id: 'operativo',     label: 'Operativo',       icon: BarChart2 },
+  { id: 'seguridad',     label: 'Seguridad',       icon: Lock },
+  { id: 'supabase',      label: 'Base de Datos',   icon: Database },
+  { id: 'cloudinary',    label: 'Almacenamiento',  icon: Cloud },
+  { id: 'servicios',     label: 'Servicios',       icon: Activity },
+  { id: 'auditoria',     label: 'Auditoría',       icon: ClipboardList },
+  { id: 'backup',        label: 'Backup',          icon: HardDrive },
+  { id: 'mantenimiento', label: 'Mantenimiento',   icon: Wrench },
+  { id: 'alertas',       label: 'Alertas',         icon: Bell },
+  { id: 'catalogo',      label: 'Catálogo',        icon: BookOpen },
 ];
 
 // ─── RootPage ─────────────────────────────────────────────────────────────────
 const RootPage: React.FC = () => {
   const [tab, setTab] = useState('resumen');
+  const [alertCounts, setAlertCounts] = useState({ diagnostico_criticos: 0, operativo_issues: 0 });
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${API}/api/root/diagnostico/odp`,  { headers: headers() }).then(r => r.json()),
+      fetch(`${API}/api/root/operativo/resumen`, { headers: headers() }).then(r => r.json()),
+    ]).then(([diag, op]) => {
+      setAlertCounts({
+        diagnostico_criticos: diag?.resumen?.criticos ?? 0,
+        operativo_issues:     op?.resumen?.total_issues ?? 0,
+      });
+    }).catch(() => {});
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6">
@@ -79,13 +95,22 @@ const RootPage: React.FC = () => {
       <div className="flex flex-wrap gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200 mb-6">
         {TABS.map(t => {
           const Icon = t.icon;
+          const badge =
+            t.id === 'diagnostico' && alertCounts.diagnostico_criticos > 0 ? alertCounts.diagnostico_criticos :
+            t.id === 'operativo'   && alertCounts.operativo_issues > 0     ? alertCounts.operativo_issues :
+            null;
           return (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg transition ${tab === t.id ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`relative flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg transition ${
+                tab === t.id ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'
+              }`}
             >
               <Icon className="w-3.5 h-3.5" /> {t.label}
+              {badge !== null && (
+                <span className={`absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center text-[9px] font-extrabold rounded-full text-white ${
+                  t.id === 'diagnostico' ? 'bg-red-500' : 'bg-amber-500'
+                }`}>{badge > 9 ? '9+' : badge}</span>
+              )}
             </button>
           );
         })}
@@ -93,22 +118,25 @@ const RootPage: React.FC = () => {
 
       {/* Contenido */}
       <div>
-        {tab === 'resumen' && <TabResumen setTab={setTab} />}
-        {tab === 'supabase' && <TabSupabase />}
-        {tab === 'cloudinary' && <TabCloudinary />}
-        {tab === 'servicios' && <TabServicios />}
-        {tab === 'auditoria' && <TabAuditoria />}
-        {tab === 'backup' && <TabBackup />}
+        {tab === 'resumen'       && <TabResumen setTab={setTab} alertCounts={alertCounts} />}
+        {tab === 'diagnostico'   && <TabDiagnostico onAlertas={(n) => setAlertCounts(a => ({ ...a, diagnostico_criticos: n }))} />}
+        {tab === 'operativo'     && <TabOperativo   onAlertas={(n) => setAlertCounts(a => ({ ...a, operativo_issues: n }))} />}
+        {tab === 'seguridad'     && <TabSeguridad />}
+        {tab === 'supabase'      && <TabSupabase />}
+        {tab === 'cloudinary'    && <TabCloudinary />}
+        {tab === 'servicios'     && <TabServicios />}
+        {tab === 'auditoria'     && <TabAuditoria />}
+        {tab === 'backup'        && <TabBackup />}
         {tab === 'mantenimiento' && <TabMantenimiento />}
-        {tab === 'alertas' && <TabAlertas />}
-        {tab === 'catalogo' && <TabCatalogo />}
+        {tab === 'alertas'       && <TabAlertas />}
+        {tab === 'catalogo'      && <TabCatalogo />}
       </div>
     </div>
   );
 };
 
 // ─── Tab Resumen ──────────────────────────────────────────────────────────────
-const TabResumen: React.FC<{ setTab: (t: string) => void }> = ({ setTab }) => {
+const TabResumen: React.FC<{ setTab: (t: string) => void; alertCounts: { diagnostico_criticos: number; operativo_issues: number } }> = ({ setTab, alertCounts }) => {
   const [sbData, setSbData] = useState<any>(null);
   const [cdData, setCdData] = useState<any>(null);
   const [svData, setSvData] = useState<any>(null);
@@ -129,10 +157,11 @@ const TabResumen: React.FC<{ setTab: (t: string) => void }> = ({ setTab }) => {
   if (loading) return <div className="text-center py-16 text-slate-400 font-semibold animate-pulse">Cargando resumen del sistema...</div>;
 
   const serviciosOffline = svData?.servicios?.filter((s: any) => s.status !== 'online') || [];
+  const totalAlertas = alertCounts.diagnostico_criticos + alertCounts.operativo_issues;
 
   return (
     <div className="space-y-6">
-      {/* Alertas activas */}
+      {/* Alertas activas de servicios */}
       {serviciosOffline.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4">
           <p className="text-sm font-bold text-red-700 mb-2 flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> {serviciosOffline.length} servicio(s) con problemas</p>
@@ -173,6 +202,44 @@ const TabResumen: React.FC<{ setTab: (t: string) => void }> = ({ setTab }) => {
         {cdData && <GaugeBar pct={cdData.storage?.pct} label="Almacenamiento (Cloudinary)" detail={`${cdData.storage?.usado_gb} GB / ${cdData.storage?.limite_gb} GB`} />}
         {cdData && <GaugeBar pct={cdData.bandwidth?.pct} label="Ancho de banda (Cloudinary)" detail={`${cdData.bandwidth?.usado_gb} GB / ${cdData.bandwidth?.limite_gb} GB`} />}
         {sbData && <GaugeBar pct={sbData.conexiones?.pct} label="Conexiones BD" detail={`${sbData.conexiones?.total} / ${sbData.conexiones?.limite}`} />}
+      </div>
+
+      {/* Alertas del Sistema (operativo) */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <h3 className="text-sm font-bold text-slate-700 mb-3">Alertas del Sistema</h3>
+        {totalAlertas === 0 ? (
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+            <CheckCircle className="w-4 h-4 text-emerald-600" />
+            <span className="text-sm font-bold text-emerald-700">Todo en orden — sin alertas operativas activas</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div
+              onClick={() => setTab('diagnostico')}
+              className={`cursor-pointer rounded-xl border p-4 transition hover:shadow-md ${alertCounts.diagnostico_criticos > 0 ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'}`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" /> Diagnóstico ODP</span>
+                {alertCounts.diagnostico_criticos > 0 && (
+                  <span className="text-xs font-extrabold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">{alertCounts.diagnostico_criticos} críticos</span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500">ODPs en LISTO_INSTALAR con inconsistencias de flujo</p>
+            </div>
+            <div
+              onClick={() => setTab('operativo')}
+              className={`cursor-pointer rounded-xl border p-4 transition hover:shadow-md ${alertCounts.operativo_issues > 0 ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5"><BarChart2 className="w-3.5 h-3.5" /> Resumen Operativo</span>
+                {alertCounts.operativo_issues > 0 && (
+                  <span className="text-xs font-extrabold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">{alertCounts.operativo_issues} issues</span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500">NC abiertas, PV en problema, créditos vencidos, rutas</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -944,6 +1011,509 @@ const TabCatalogo: React.FC = () => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// ─── DiagSeccion (reutilizable) ───────────────────────────────────────────────
+type Severidad = 'critico' | 'advertencia' | 'info';
+const DiagSeccion: React.FC<{
+  titulo: string;
+  severidad: Severidad;
+  registros: any[];
+  columnas: { key: string; label: string; render?: (v: any, row: any) => React.ReactNode }[];
+}> = ({ titulo, severidad, registros, columnas }) => {
+  const [abierto, setAbierto] = useState(true);
+  if (registros.length === 0) return null;
+
+  const colores: Record<Severidad, { badge: string; header: string; border: string }> = {
+    critico:     { badge: 'bg-red-100 text-red-700',    header: 'bg-red-50',    border: 'border-red-200' },
+    advertencia: { badge: 'bg-amber-100 text-amber-700', header: 'bg-amber-50',  border: 'border-amber-200' },
+    info:        { badge: 'bg-blue-100 text-blue-700',   header: 'bg-blue-50',   border: 'border-blue-200' },
+  };
+  const c = colores[severidad];
+
+  return (
+    <div className={`rounded-xl border ${c.border} overflow-hidden`}>
+      <button
+        className={`w-full flex items-center justify-between px-4 py-3 ${c.header} text-left`}
+        onClick={() => setAbierto(a => !a)}
+      >
+        <span className="text-sm font-bold text-slate-800">{titulo}</span>
+        <span className={`text-xs font-extrabold px-2 py-0.5 rounded-full ${c.badge}`}>{registros.length}</span>
+      </button>
+      {abierto && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                {columnas.map(col => (
+                  <th key={col.key} className="text-left px-3 py-2 font-semibold">{col.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {registros.map((row, i) => (
+                <tr key={i} className="border-t border-slate-100 hover:bg-slate-50">
+                  {columnas.map(col => (
+                    <td key={col.key} className="px-3 py-2 text-slate-700">
+                      {col.render ? col.render(row[col.key], row) : (row[col.key] ?? '—')}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Tab Diagnóstico ──────────────────────────────────────────────────────────
+const TabDiagnostico: React.FC<{ onAlertas: (n: number) => void }> = ({ onAlertas }) => {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const cargar = useCallback(() => {
+    setLoading(true);
+    fetch(`${API}/api/root/diagnostico/odp`, { headers: headers() })
+      .then(r => r.json())
+      .then(d => { setData(d); onAlertas(d?.resumen?.criticos ?? 0); })
+      .finally(() => setLoading(false));
+  }, [onAlertas]);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString('es-CO') : '—';
+  const bool = (v: any) => v ? 'Sí' : 'No';
+
+  if (loading) return <div className="text-center py-16 text-slate-400 animate-pulse">Analizando ODPs...</div>;
+  if (!data) return <div className="text-red-500 p-4">Error al cargar diagnóstico</div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-bold text-slate-700">Diagnóstico de Flujo ODP</h2>
+          <p className="text-xs text-slate-400">Inconsistencias en el pipeline de producción</p>
+        </div>
+        <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+          <RefreshCw className="w-3.5 h-3.5" /> Actualizar
+        </button>
+      </div>
+
+      {data.resumen?.total === 0 ? (
+        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-4">
+          <CheckCircle className="w-5 h-5 text-emerald-600" />
+          <span className="text-sm font-bold text-emerald-700">Sin inconsistencias detectadas — el flujo de producción está limpio</span>
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3 mb-2">
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
+            <p className="text-2xl font-black text-red-700">{data.resumen?.criticos}</p>
+            <p className="text-[11px] font-bold text-red-500">Críticos</p>
+          </div>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+            <p className="text-2xl font-black text-amber-700">{data.resumen?.advertencias}</p>
+            <p className="text-[11px] font-bold text-amber-500">Advertencias</p>
+          </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
+            <p className="text-2xl font-black text-blue-700">{data.resumen?.info}</p>
+            <p className="text-[11px] font-bold text-blue-500">Info</p>
+          </div>
+        </div>
+      )}
+
+      <DiagSeccion
+        titulo="LISTO_INSTALAR sin ningún requisito"
+        severidad="critico"
+        registros={data.listo_sin_requisitos || []}
+        columnas={[
+          { key: 'numero_odp', label: 'ODP' },
+          { key: 'cliente', label: 'Cliente' },
+          { key: 'asesor', label: 'Asesor' },
+          { key: 'fecha_listo_instalar', label: 'Fecha listo', render: (v) => fmt(v) },
+        ]}
+      />
+
+      <DiagSeccion
+        titulo="LISTO_INSTALAR con chk_* pendientes"
+        severidad="critico"
+        registros={data.listo_chk_pendiente || []}
+        columnas={[
+          { key: 'numero_odp', label: 'ODP' },
+          { key: 'cliente', label: 'Cliente' },
+          { key: 'tiene_tm', label: 'TMs', render: (v) => Number(v) },
+          { key: 'tiene_items', label: 'Items', render: (v) => Number(v) },
+          { key: 'tiene_sap', label: 'SAPs', render: (v) => Number(v) },
+          { key: 'chk_medicion', label: 'Med.', render: (v) => bool(v) },
+          { key: 'chk_vidrio', label: 'Vid.', render: (v) => bool(v) },
+          { key: 'chk_corte', label: 'Corte', render: (v) => bool(v) },
+          { key: 'chk_ensamble', label: 'Ens.', render: (v) => bool(v) },
+        ]}
+      />
+
+      <DiagSeccion
+        titulo="VISITA_TECNICA con TM ya realizada"
+        severidad="advertencia"
+        registros={data.visita_tm_realizada || []}
+        columnas={[
+          { key: 'numero_odp', label: 'ODP' },
+          { key: 'cliente', label: 'Cliente' },
+          { key: 'numero_tm', label: 'TM' },
+          { key: 'estado_tm', label: 'Estado TM' },
+          { key: 'fecha_visita', label: 'Fecha visita', render: (v) => fmt(v) },
+        ]}
+      />
+
+      <DiagSeccion
+        titulo="EN_ESPERA sin cambio > 30 días"
+        severidad="advertencia"
+        registros={data.en_espera_stale || []}
+        columnas={[
+          { key: 'numero_odp', label: 'ODP' },
+          { key: 'cliente', label: 'Cliente' },
+          { key: 'asesor', label: 'Asesor' },
+          { key: 'dias_sin_cambio', label: 'Días sin cambio' },
+          { key: 'ultimo_cambio', label: 'Último cambio', render: (v) => fmt(v) },
+        ]}
+      />
+
+      <DiagSeccion
+        titulo="ODPs sin_items pendientes de liberar"
+        severidad="info"
+        registros={data.sin_items_pendiente || []}
+        columnas={[
+          { key: 'numero_odp', label: 'ODP' },
+          { key: 'cliente', label: 'Cliente' },
+          { key: 'asesor', label: 'Asesor' },
+          { key: 'dias_esperando', label: 'Días esperando' },
+          { key: 'fecha_creacion', label: 'Creada', render: (v) => fmt(v) },
+        ]}
+      />
+    </div>
+  );
+};
+
+// ─── Tab Operativo ────────────────────────────────────────────────────────────
+const TabOperativo: React.FC<{ onAlertas: (n: number) => void }> = ({ onAlertas }) => {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const cargar = useCallback(() => {
+    setLoading(true);
+    fetch(`${API}/api/root/operativo/resumen`, { headers: headers() })
+      .then(r => r.json())
+      .then(d => { setData(d); onAlertas(d?.resumen?.total_issues ?? 0); })
+      .finally(() => setLoading(false));
+  }, [onAlertas]);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString('es-CO') : '—';
+  const cop = (v: any) => v != null ? Number(v).toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }) : '—';
+
+  if (loading) return <div className="text-center py-16 text-slate-400 animate-pulse">Cargando KPIs operativos...</div>;
+  if (!data) return <div className="text-red-500 p-4">Error al cargar resumen operativo</div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-bold text-slate-700">Resumen Operativo</h2>
+          <p className="text-xs text-slate-400">KPIs de negocio críticos en tiempo real</p>
+        </div>
+        <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+          <RefreshCw className="w-3.5 h-3.5" /> Actualizar
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
+          <p className="text-2xl font-black text-red-700">{data.resumen?.criticos}</p>
+          <p className="text-[11px] font-bold text-red-500">Críticos</p>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+          <p className="text-2xl font-black text-amber-700">{data.resumen?.advertencias}</p>
+          <p className="text-[11px] font-bold text-amber-500">Advertencias</p>
+        </div>
+        <div className={`rounded-xl p-3 text-center border ${data.resumen?.total_issues === 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+          <p className={`text-2xl font-black ${data.resumen?.total_issues === 0 ? 'text-emerald-700' : 'text-slate-800'}`}>{data.resumen?.total_issues}</p>
+          <p className="text-[11px] font-bold text-slate-500">Total issues</p>
+        </div>
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center flex items-center justify-center">
+          {data.resumen?.total_issues === 0
+            ? <span className="text-xs font-bold text-emerald-600 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Todo OK</span>
+            : <span className="text-xs font-bold text-amber-600 flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Revisar</span>
+          }
+        </div>
+      </div>
+
+      <DiagSeccion
+        titulo={`No Conformidades abiertas (${data.no_conformidades_abiertas?.count ?? 0})`}
+        severidad="critico"
+        registros={data.no_conformidades_abiertas?.registros || []}
+        columnas={[
+          { key: 'numero_reporte', label: 'Reporte' },
+          { key: 'numero_odp', label: 'ODP' },
+          { key: 'cliente', label: 'Cliente' },
+          { key: 'tipo_error', label: 'Tipo' },
+          { key: 'estado', label: 'Estado' },
+          { key: 'costo_total', label: 'Costo', render: (v) => cop(v) },
+        ]}
+      />
+
+      <DiagSeccion
+        titulo={`Pedidos PV en PROBLEMA (${data.pedidos_problema?.count ?? 0})`}
+        severidad="critico"
+        registros={data.pedidos_problema?.registros || []}
+        columnas={[
+          { key: 'numero_pedido', label: 'Pedido' },
+          { key: 'numero_odp', label: 'ODP' },
+          { key: 'cliente', label: 'Cliente' },
+          { key: 'tipo_problema', label: 'Problema' },
+          { key: 'estado_reposicion', label: 'Reposición' },
+        ]}
+      />
+
+      <DiagSeccion
+        titulo={`Créditos vencidos (${data.creditos_vencidos?.count ?? 0})`}
+        severidad="critico"
+        registros={data.creditos_vencidos?.registros || []}
+        columnas={[
+          { key: 'numero_odp', label: 'ODP' },
+          { key: 'cliente', label: 'Cliente' },
+          { key: 'fecha_vencimiento_credito', label: 'Venció', render: (v) => fmt(v) },
+          { key: 'dias_vencido', label: 'Días vencido' },
+          { key: 'pendiente', label: 'Pendiente', render: (v) => cop(v) },
+        ]}
+      />
+
+      <DiagSeccion
+        titulo={`Entregadas sin facturar (${data.entregadas_sin_facturar?.count ?? 0})`}
+        severidad="advertencia"
+        registros={data.entregadas_sin_facturar?.registros || []}
+        columnas={[
+          { key: 'numero_odp', label: 'ODP' },
+          { key: 'cliente', label: 'Cliente' },
+          { key: 'asesor', label: 'Asesor' },
+          { key: 'valor_total', label: 'Valor', render: (v) => cop(v) },
+          { key: 'fecha_entrega', label: 'Entregada', render: (v) => fmt(v) },
+        ]}
+      />
+
+      <DiagSeccion
+        titulo={`Rutas en curso sin cerrar (${data.rutas_en_curso?.count ?? 0})`}
+        severidad="advertencia"
+        registros={data.rutas_en_curso?.registros || []}
+        columnas={[
+          { key: 'id', label: 'ID Ruta' },
+          { key: 'conductor', label: 'Conductor' },
+          { key: 'creado_por', label: 'Creada por' },
+          { key: 'horas_abiertas', label: 'Horas abiertas' },
+          { key: 'inicio_ruta', label: 'Inicio', render: (v) => v ? new Date(v).toLocaleString('es-CO') : '—' },
+        ]}
+      />
+    </div>
+  );
+};
+
+// ─── Tab Seguridad ────────────────────────────────────────────────────────────
+const TabSeguridad: React.FC = () => {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [expandedDelete, setExpandedDelete] = useState<number | null>(null);
+
+  const cargar = useCallback(() => {
+    setLoading(true);
+    fetch(`${API}/api/root/seguridad/actividad`, { headers: headers() })
+      .then(r => r.json()).then(setData).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  if (loading) return <div className="text-center py-16 text-slate-400 animate-pulse">Cargando actividad de seguridad...</div>;
+  if (!data) return <div className="text-red-500 p-4">Error al cargar datos de seguridad</div>;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-bold text-slate-700">Monitoreo de Seguridad</h2>
+          <p className="text-xs text-slate-400">Actividad del sistema en tiempo real</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-slate-400">
+            {data.generado_en ? new Date(data.generado_en).toLocaleString('es-CO') : ''}
+          </span>
+          <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+            <RefreshCw className="w-3.5 h-3.5" /> Actualizar
+          </button>
+        </div>
+      </div>
+
+      {/* Actividad usuarios 24h */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+          <h3 className="text-xs font-bold text-slate-700">Actividad de usuarios — últimas 24h</h3>
+          <span className="text-[11px] text-slate-400">{data.actividad_usuarios_24h?.length ?? 0} usuarios activos</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="text-left px-3 py-2 font-semibold">Usuario</th>
+                <th className="text-right px-3 py-2 font-semibold">Ops</th>
+                <th className="text-right px-3 py-2 font-semibold">Tablas</th>
+                <th className="text-left px-3 py-2 font-semibold">IPs</th>
+                <th className="text-left px-3 py-2 font-semibold">Última actividad</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.actividad_usuarios_24h?.length === 0 && (
+                <tr><td colSpan={5} className="text-center py-6 text-slate-400">Sin actividad en las últimas 24h</td></tr>
+              )}
+              {data.actividad_usuarios_24h?.map((u: any, i: number) => (
+                <tr key={i} className="border-t border-slate-50 hover:bg-slate-50">
+                  <td className="px-3 py-2 font-semibold text-slate-700">{u.usuario_nombre}</td>
+                  <td className="px-3 py-2 text-right font-bold text-indigo-700">{u.cant_operaciones}</td>
+                  <td className="px-3 py-2 text-right text-slate-500">{u.tablas_distintas}</td>
+                  <td className="px-3 py-2 text-slate-400 text-[11px]">{Array.isArray(u.ips) ? u.ips.filter(Boolean).join(', ') : '—'}</td>
+                  <td className="px-3 py-2 text-slate-400">{u.ultima_actividad ? new Date(u.ultima_actividad).toLocaleString('es-CO') : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* IPs únicas 24h */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-100">
+          <h3 className="text-xs font-bold text-slate-700">IPs únicas — últimas 24h</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="text-left px-3 py-2 font-semibold">IP</th>
+                <th className="text-right px-3 py-2 font-semibold">Requests</th>
+                <th className="text-right px-3 py-2 font-semibold">Usuarios</th>
+                <th className="text-left px-3 py-2 font-semibold">Usuarios asociados</th>
+                <th className="text-left px-3 py-2 font-semibold">Última actividad</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.ips_unicas_24h?.length === 0 && (
+                <tr><td colSpan={5} className="text-center py-6 text-slate-400">Sin IPs registradas</td></tr>
+              )}
+              {data.ips_unicas_24h?.map((ip: any, i: number) => (
+                <tr key={i} className="border-t border-slate-50 hover:bg-slate-50">
+                  <td className="px-3 py-2 font-mono text-slate-700">{ip.ip_address || '—'}</td>
+                  <td className="px-3 py-2 text-right font-bold text-indigo-700">{ip.cant_requests}</td>
+                  <td className="px-3 py-2 text-right text-slate-500">{ip.cant_usuarios}</td>
+                  <td className="px-3 py-2 text-slate-400 text-[11px]">{Array.isArray(ip.usuarios) ? ip.usuarios.filter(Boolean).join(', ') : '—'}</td>
+                  <td className="px-3 py-2 text-slate-400">{ip.ultima_actividad ? new Date(ip.ultima_actividad).toLocaleString('es-CO') : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* DELETEs recientes 48h */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+          <h3 className="text-xs font-bold text-slate-700">DELETEs — últimas 48h</h3>
+          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${data.deletes_recientes_48h?.length > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}>
+            {data.deletes_recientes_48h?.length ?? 0}
+          </span>
+        </div>
+        {data.deletes_recientes_48h?.length === 0 ? (
+          <div className="px-4 py-6 text-center text-slate-400 text-xs">Sin DELETEs en las últimas 48h</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="text-left px-3 py-2 font-semibold">Tabla</th>
+                  <th className="text-left px-3 py-2 font-semibold">ID</th>
+                  <th className="text-left px-3 py-2 font-semibold">Usuario</th>
+                  <th className="text-left px-3 py-2 font-semibold">IP</th>
+                  <th className="text-left px-3 py-2 font-semibold">Fecha</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.deletes_recientes_48h?.map((d: any, i: number) => (
+                  <React.Fragment key={i}>
+                    <tr
+                      className="border-t border-slate-50 hover:bg-red-50 cursor-pointer"
+                      onClick={() => setExpandedDelete(expandedDelete === d.id ? null : d.id)}
+                    >
+                      <td className="px-3 py-2 font-mono text-red-700">{d.tabla}</td>
+                      <td className="px-3 py-2 text-slate-500">{d.registro_id}</td>
+                      <td className="px-3 py-2 font-semibold text-slate-700">{d.usuario_nombre || '—'}</td>
+                      <td className="px-3 py-2 text-slate-400">{d.ip_address || '—'}</td>
+                      <td className="px-3 py-2 text-slate-400">{d.fecha ? new Date(d.fecha).toLocaleString('es-CO') : '—'}</td>
+                      <td className="px-3 py-2">
+                        <ChevronRight className={`w-3.5 h-3.5 text-slate-300 transition ${expandedDelete === d.id ? 'rotate-90' : ''}`} />
+                      </td>
+                    </tr>
+                    {expandedDelete === d.id && d.datos_anteriores && (
+                      <tr className="bg-red-50">
+                        <td colSpan={6} className="px-4 py-3">
+                          <p className="text-[11px] font-bold text-slate-500 mb-1">Datos eliminados</p>
+                          <pre className="text-[10px] bg-white border border-red-200 rounded-lg p-2 overflow-auto max-h-40 text-slate-600">
+                            {JSON.stringify(d.datos_anteriores, null, 2)}
+                          </pre>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Usuarios inactivos > 90 días */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+          <h3 className="text-xs font-bold text-slate-700">Usuarios activos sin actividad {'>'} 90 días</h3>
+          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${data.usuarios_inactivos_90d?.length > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
+            {data.usuarios_inactivos_90d?.length ?? 0}
+          </span>
+        </div>
+        {data.usuarios_inactivos_90d?.length === 0 ? (
+          <div className="px-4 py-6 text-center text-slate-400 text-xs">Todos los usuarios tienen actividad reciente</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="text-left px-3 py-2 font-semibold">Nombre</th>
+                  <th className="text-left px-3 py-2 font-semibold">Username</th>
+                  <th className="text-left px-3 py-2 font-semibold">Rol</th>
+                  <th className="text-left px-3 py-2 font-semibold">Creado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.usuarios_inactivos_90d?.map((u: any) => (
+                  <tr key={u.id} className="border-t border-slate-50 hover:bg-amber-50">
+                    <td className="px-3 py-2 font-semibold text-slate-700">{u.nombre_completo}</td>
+                    <td className="px-3 py-2 text-slate-500">{u.username}</td>
+                    <td className="px-3 py-2 text-slate-400">{u.rol}</td>
+                    <td className="px-3 py-2 text-slate-400">{u.creado_en ? new Date(u.creado_en).toLocaleDateString('es-CO') : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
