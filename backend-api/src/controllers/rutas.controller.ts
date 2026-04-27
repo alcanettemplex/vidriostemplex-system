@@ -86,7 +86,11 @@ export const getODPsParaGestion = async (_req: Request, res: Response) => {
     const [listos, esperaPago, esperaProduccion] = await Promise.all([
       // Pestaña 1: producción lista + pago OK → puede programarse
       ODP.findAll({
-        where: { estado_produccion: 'LISTO_INSTALAR', ...PAGO_OK, ...excluirEnRuta, ...REQUIERE_SERVICIO },
+        where: {
+          estado_produccion: 'LISTO_INSTALAR',
+          ...excluirEnRuta,
+          [Op.and as any]: [PAGO_OK, REQUIERE_SERVICIO],
+        },
         include: INCLUDE_ODP_BASICO,
         order: [['fecha_entrega', 'ASC']],
       }),
@@ -106,11 +110,10 @@ export const getODPsParaGestion = async (_req: Request, res: Response) => {
       // Pestaña 3: pago OK pero producción aún no lista
       ODP.findAll({
         where: {
-          ...PAGO_OK,
-          ...REQUIERE_SERVICIO,
           estado_produccion: {
             [Op.notIn]: ['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA'],
           },
+          [Op.and as any]: [PAGO_OK, REQUIERE_SERVICIO],
         },
         include: INCLUDE_ODP_BASICO,
         order: [['fecha_entrega', 'ASC']],
