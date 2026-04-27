@@ -43,9 +43,11 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
   const [targetPage, setTargetPage] = useState(1);
   const [iframeKey, setIframeKey] = useState(0);
   const blobUrlRef = useRef<string | null>(null);
+  const loadedRef = useRef(false);
 
   const loadPdf = useCallback(async () => {
-    if (pdfUrl) return;
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -58,19 +60,19 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
       blobUrlRef.current = url;
       setPdfUrl(url);
     } catch (err: any) {
+      loadedRef.current = false;
       setError('No se pudo cargar el manual. Verifica tu conexión o permisos.');
     } finally {
       setLoading(false);
     }
-  }, [tipo, pdfUrl]);
+  }, [tipo]);
 
   useEffect(() => {
     if (open) loadPdf();
     return () => {
-      if (!open && blobUrlRef.current) {
+      if (blobUrlRef.current) {
         URL.revokeObjectURL(blobUrlRef.current);
         blobUrlRef.current = null;
-        setPdfUrl(null);
       }
     };
   }, [open, loadPdf]);
@@ -272,6 +274,7 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
               <button
                 onClick={() => {
                   setPdfUrl(null);
+                  loadedRef.current = false;
                   loadPdf();
                 }}
                 className="text-indigo-400 text-xs underline hover:text-indigo-300"
