@@ -495,10 +495,9 @@ export const ejecutarMantenimiento = async (req: Request, res: Response) => {
 
       case 'usuarios_inactivos': {
         const rows: any[] = await sequelize.query(
-          `SELECT id, nombre_completo, username, rol, activo
+          `SELECT id, nombre_completo, username, rol, creado_en
            FROM usuarios
-           WHERE activo = true
-             AND id NOT IN (
+           WHERE id NOT IN (
                SELECT DISTINCT (datos_nuevos->>'id')::int
                FROM auditoria_log
                WHERE tabla = 'usuarios' AND fecha > NOW() - INTERVAL '90 days'
@@ -506,7 +505,7 @@ export const ejecutarMantenimiento = async (req: Request, res: Response) => {
            ORDER BY nombre_completo`,
           { type: QueryTypes.SELECT }
         );
-        resultado = { descripcion: 'Usuarios activos sin actividad reciente (>90 días)', cantidad: rows.length, registros: rows };
+        resultado = { descripcion: 'Usuarios sin actividad reciente (>90 días)', cantidad: rows.length, registros: rows };
         break;
       }
 
@@ -873,12 +872,11 @@ export const getSeguridadActividad = async (_req: Request, res: Response) => {
         ORDER BY fecha DESC LIMIT 100
       `, { type: QueryTypes.SELECT }),
 
-      // Q4 — Usuarios inactivos > 90 días
+      // Q4 — Usuarios inactivos > 90 días (sin campo activo en la tabla)
       sequelize.query<any>(`
-        SELECT id, nombre_completo, username, rol, activo, creado_en
+        SELECT id, nombre_completo, username, rol, creado_en
         FROM usuarios
-        WHERE activo = true
-          AND id NOT IN (
+        WHERE id NOT IN (
             SELECT DISTINCT (datos_nuevos->>'id')::int
             FROM auditoria_log
             WHERE tabla = 'usuarios' AND fecha > NOW() - INTERVAL '90 days'

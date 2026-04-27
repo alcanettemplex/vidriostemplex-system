@@ -1497,12 +1497,12 @@ const TabSeguridad: React.FC = () => {
                   <th className="text-left px-3 py-2 font-semibold">Nombre</th>
                   <th className="text-left px-3 py-2 font-semibold">Username</th>
                   <th className="text-left px-3 py-2 font-semibold">Rol</th>
-                  <th className="text-left px-3 py-2 font-semibold">Creado</th>
+                  <th className="text-left px-3 py-2 font-semibold">Creado en</th>
                 </tr>
               </thead>
               <tbody>
-                {data.usuarios_inactivos_90d?.map((u: any) => (
-                  <tr key={u.id} className="border-t border-slate-50 hover:bg-amber-50">
+                {data.usuarios_inactivos_90d?.map((u: any, i: number) => (
+                  <tr key={u.id ?? i} className="border-t border-slate-50 hover:bg-amber-50">
                     <td className="px-3 py-2 font-semibold text-slate-700">{u.nombre_completo}</td>
                     <td className="px-3 py-2 text-slate-500">{u.username}</td>
                     <td className="px-3 py-2 text-slate-400">{u.rol}</td>
