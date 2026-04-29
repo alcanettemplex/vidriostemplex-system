@@ -533,10 +533,47 @@ export const updateODP = async (req: Request, res: Response) => {
       (data as any).fecha_listo_instalar = new Date();
     }
 
+    // No permitir que el form sobreescriba numero_pedido_proveedor con cadena vacía
+    // si ya existe un valor (asignado por auto-create de PedidoPV).
+    if (!data.numero_pedido_proveedor) {
+      delete (data as any).numero_pedido_proveedor;
+    }
+
     // Actualizar campos de la ODP (incluyendo los booleanos, JSONs, y observaciones nuevas)
     await odp.update(data as any, { transaction });
 
+    // Actualizar cristales si vienen en la data
+    // IMPORTANTE: este bloque debe correr ANTES de la auto-transición a LISTO_INSTALAR
+    // para que ODPItem.count() refleje el conteo final real y no un estado intermedio
+    // (destroy sin bulkCreate) que daría itemCount=0 e induciría un disparo incorrecto.
+    if (data.items && Array.isArray(data.items)) {
+      await ODPItem.destroy({ where: { odp_id: id }, transaction });
+
+      if (data.items.length > 0) {
+        const nuevosItems = data.items.map(item => ({
+          ...item,
+          odp_id: id
+        }));
+        await ODPItem.bulkCreate(nuevosItems, { transaction });
+
+        // Si la ODP estaba en EN_ESPERA y ahora tiene ítems de vidrio, avanzar a MEDICION
+        const estadoActualOdp = odp.getDataValue('estado_produccion');
+        if (estadoActualOdp === 'EN_ESPERA' && !data.estado_produccion) {
+          await odp.update({ estado_produccion: 'MEDICION' }, { transaction });
+          await HistorialEstadoODP.create({
+            odp_id: id,
+            estado_anterior: 'EN_ESPERA',
+            estado_nuevo: 'MEDICION',
+            usuario_id: req.user?.id,
+            fecha: new Date(),
+          }, { transaction });
+        }
+      }
+    }
+
     // ─── Lógica de autocompletado LISTO_INSTALAR ───
+    // Corre DESPUÉS del bloque de ítems para que ODPItem.count() devuelva el total
+    // definitivo (post destroy+bulkCreate) y no un valor transitorio incorrecto.
     // Solo corre si la ODP está en un estado productivo activo: impide saltos desde
     // EN_ESPERA o VISITA_TECNICA donde la producción aún no ha empezado.
     const ESTADOS_PRODUCTIVOS = ['MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS'];
@@ -578,32 +615,6 @@ export const updateODP = async (req: Request, res: Response) => {
         if (!updatedOdp.getDataValue('fecha_listo_instalar')) updateData.fecha_listo_instalar = new Date();
         await updatedOdp.update(updateData, { transaction });
         console.log(`✅ ODP ${updatedOdp.getDataValue('numero_odp')} marcada automáticamente como LISTO_INSTALAR.`);
-      }
-    }
-
-    // Actualizar cristales si vienen en la data
-    if (data.items && Array.isArray(data.items)) {
-      await ODPItem.destroy({ where: { odp_id: id }, transaction });
-
-      if (data.items.length > 0) {
-        const nuevosItems = data.items.map(item => ({
-          ...item,
-          odp_id: id
-        }));
-        await ODPItem.bulkCreate(nuevosItems, { transaction });
-
-        // Si la ODP estaba en EN_ESPERA y ahora tiene ítems de vidrio, avanzar a MEDICION
-        const estadoActualOdp = odp.getDataValue('estado_produccion');
-        if (estadoActualOdp === 'EN_ESPERA' && !data.estado_produccion) {
-          await odp.update({ estado_produccion: 'MEDICION' }, { transaction });
-          await HistorialEstadoODP.create({
-            odp_id: id,
-            estado_anterior: 'EN_ESPERA',
-            estado_nuevo: 'MEDICION',
-            usuario_id: req.user?.id,
-            fecha: new Date(),
-          }, { transaction });
-        }
       }
     }
 

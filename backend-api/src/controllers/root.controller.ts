@@ -851,7 +851,7 @@ export const getSeguridadActividad = async (_req: Request, res: Response) => {
                MAX(al.fecha) AS ultima_actividad
         FROM auditoria_log al
         JOIN usuarios u ON u.id = al.usuario_id
-        WHERE al.fecha >= NOW() - INTERVAL '24 hours'
+        WHERE al.fecha >= NOW() - INTERVAL '7 days'
           AND al.usuario_id IS NOT NULL
         GROUP BY al.usuario_id, u.nombre_completo, u.rol
         ORDER BY cant_operaciones DESC LIMIT 50
@@ -867,7 +867,7 @@ export const getSeguridadActividad = async (_req: Request, res: Response) => {
                MAX(al.fecha) AS ultima_actividad
         FROM auditoria_log al
         LEFT JOIN usuarios u ON u.id = al.usuario_id
-        WHERE al.fecha >= NOW() - INTERVAL '24 hours' AND al.ip_address IS NOT NULL
+        WHERE al.fecha >= NOW() - INTERVAL '7 days' AND al.ip_address IS NOT NULL
         GROUP BY al.ip_address
         ORDER BY cant_requests DESC LIMIT 30
       `, { type: QueryTypes.SELECT }),
@@ -881,7 +881,7 @@ export const getSeguridadActividad = async (_req: Request, res: Response) => {
                al.ip_address, al.fecha, al.datos_anteriores
         FROM auditoria_log al
         LEFT JOIN usuarios u ON u.id = al.usuario_id
-        WHERE al.operacion = 'DELETE' AND al.fecha >= NOW() - INTERVAL '48 hours'
+        WHERE al.operacion = 'DELETE' AND al.fecha >= NOW() - INTERVAL '7 days'
         ORDER BY al.fecha DESC LIMIT 100
       `, { type: QueryTypes.SELECT }),
 
@@ -899,14 +899,58 @@ export const getSeguridadActividad = async (_req: Request, res: Response) => {
     ]);
 
     res.json({
-      actividad_usuarios_24h: actividadUsuarios,
-      ips_unicas_24h: ipsUnicas,
-      deletes_recientes_48h: deletesRecientes,
+      actividad_usuarios_7d: actividadUsuarios,
+      ips_unicas_7d: ipsUnicas,
+      deletes_recientes_7d: deletesRecientes,
       usuarios_inactivos_90d: usuariosInactivos,
       generado_en: new Date().toISOString(),
     });
   } catch (error: any) {
     console.error('Error seguridad actividad:', error);
     res.status(500).json({ error: error.message || 'Error al obtener actividad de seguridad' });
+  }
+};
+
+// ─── SEGURIDAD / DETALLE POR USUARIO ────────────────────────────────────────
+export const getDetalleUsuario = async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.userId, 10);
+    if (isNaN(userId)) return res.status(400).json({ error: 'userId inválido' });
+
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const LIMIT = 50;
+    const offset = (page - 1) * LIMIT;
+    const operacion = req.query.operacion as string | undefined;
+    const opValidas = ['INSERT', 'UPDATE', 'DELETE'];
+    const opClause = operacion && opValidas.includes(operacion) ? 'AND al.operacion = :operacion' : '';
+    const replacements: Record<string, unknown> = { userId, limit: LIMIT, offset };
+    if (operacion && opValidas.includes(operacion)) replacements.operacion = operacion;
+
+    const [countRows, rows] = await Promise.all([
+      sequelize.query<{ total: string }>(`
+        SELECT COUNT(*)::int AS total
+        FROM auditoria_log al
+        WHERE al.usuario_id = :userId
+          AND al.fecha >= NOW() - INTERVAL '7 days'
+          ${opClause}
+      `, { type: QueryTypes.SELECT, replacements }),
+
+      sequelize.query<any>(`
+        SELECT al.id, al.fecha, al.tabla, al.operacion, al.registro_id,
+               al.datos_anteriores, al.datos_nuevos, al.ip_address
+        FROM auditoria_log al
+        WHERE al.usuario_id = :userId
+          AND al.fecha >= NOW() - INTERVAL '7 days'
+          ${opClause}
+        ORDER BY al.fecha DESC
+        LIMIT :limit OFFSET :offset
+      `, { type: QueryTypes.SELECT, replacements }),
+    ]);
+
+    const total = Number(countRows[0]?.total ?? 0);
+    res.json({ data: rows, total, page, pages: Math.ceil(total / LIMIT) });
+  } catch (error: any) {
+    console.error('Error detalle usuario:', error);
+    res.status(500).json({ error: error.message || 'Error al obtener detalle de usuario' });
   }
 };

@@ -39,7 +39,7 @@ const BANCOS_COLOMBIA = [
 
 const METODOS_PAGO = ['Efectivo', 'Tarjeta', 'Transferencia'];
 
-type Tab = 'estado_caja' | 'pagos' | 'cartera' | 'completado';
+type Tab = 'estado_caja' | 'pagos' | 'cartera' | 'completado' | 'oa';
 
 const emptyPagoForm = () => ({
   odp_id: '', monto: '', diferencia: '0', metodo_pago: 'Transferencia', banco: '', referencia_pago: '', observaciones: '',
@@ -49,11 +49,15 @@ const emptyPagoForm = () => ({
 const ContabilidadPage: React.FC = () => {
   const authUser = useSelector((state: any) => state.auth?.user);
   const isReadOnly = authUser?.rol === 'asistente_administrativo';
+  const canSeeOA = ['admin', 'gerencia', 'jefe_produccion', 'asistente_administrativo'].includes(authUser?.rol);
+  const isAsistenteAdmin = authUser?.rol === 'asistente_administrativo';
+  const canPayOA = ['admin', 'gerencia', 'asistente_administrativo'].includes(authUser?.rol);
 
-  const [tab, setTab] = useState<Tab>('estado_caja');
+  const [tab, setTab] = useState<Tab>(isAsistenteAdmin ? 'oa' : 'estado_caja');
 
   // ─── ODPs ────────────────────────────────────────────────────────────────
   const [odps, setOdps] = useState<any[]>([]);
+  const [odpsOA, setOdpsOA] = useState<any[]>([]);
   const [loadingOdps, setLoadingOdps] = useState(true);
   const [filterEstadoCaja, setFilterEstadoCaja] = useState('todos');
   const [filterBusqueda, setFilterBusqueda] = useState('');
@@ -127,8 +131,8 @@ const ContabilidadPage: React.FC = () => {
       setLoadingOdps(true);
       const res = await axios.get(`${API}/api/odp`, { headers: headers() });
       if (Array.isArray(res.data)) {
-        // Las OA (sin IVA) no aparecen en contabilidad
         setOdps(res.data.filter((o: any) => o.tipo_odp !== 'OA'));
+        if (canSeeOA) setOdpsOA(res.data.filter((o: any) => o.tipo_odp === 'OA'));
       } else {
         console.error('Respuesta de ODPs no es un array:', res.data);
         setOdps([]);
@@ -430,6 +434,7 @@ const ContabilidadPage: React.FC = () => {
   }, [odpsCompletadas, filterBusquedaCompletado, sortColComp, sortDirComp]);
 
   const odpsPendientes = odps.filter(o => calcPendiente(o) > 0 && o.estado_caja !== 'CANCELADO');
+  const odpsOAPendientes = odpsOA.filter(o => calcPendiente(o) > 0 && o.estado_caja !== 'CANCELADO');
   const carteraDetalle: any[] = resumen?.cartera_detalle || [];
 
   const totalAbonado = resumen?.total_abonado || fmt(odps.reduce((s, o) => s + (Number(o.abono) || 0), 0));
@@ -445,10 +450,15 @@ const ContabilidadPage: React.FC = () => {
   const requiereBancoEdit = editPagoForm.metodo_pago === 'Transferencia';
 
   const TABS = [
-    { key: 'estado_caja' as Tab, label: 'Estado Caja', icon: <Banknote className="w-4 h-4" />, badge: odps.length - odpsCompletadas.length },
-    { key: 'pagos' as Tab, label: 'Pagos Recientes', icon: <Receipt className="w-4 h-4" />, badge: pagos.length },
-    { key: 'cartera' as Tab, label: 'Cartera Vencida', icon: <TrendingDown className="w-4 h-4" />, badge: carteraDetalle.length, badgeColor: carteraDetalle.length > 0 ? 'bg-rose-100 text-rose-700' : undefined },
-    { key: 'completado' as Tab, label: 'Proceso Completado', icon: <CheckCircle2 className="w-4 h-4" />, badge: odpsCompletadas.length, badgeColor: 'bg-emerald-100 text-emerald-700' },
+    ...(!isAsistenteAdmin ? [
+      { key: 'estado_caja' as Tab, label: 'Estado Caja', icon: <Banknote className="w-4 h-4" />, badge: odps.length - odpsCompletadas.length },
+      { key: 'pagos' as Tab, label: 'Pagos Recientes', icon: <Receipt className="w-4 h-4" />, badge: pagos.length },
+      { key: 'cartera' as Tab, label: 'Cartera Vencida', icon: <TrendingDown className="w-4 h-4" />, badge: carteraDetalle.length, badgeColor: carteraDetalle.length > 0 ? 'bg-rose-100 text-rose-700' : undefined },
+      { key: 'completado' as Tab, label: 'Proceso Completado', icon: <CheckCircle2 className="w-4 h-4" />, badge: odpsCompletadas.length, badgeColor: 'bg-emerald-100 text-emerald-700' },
+    ] : []),
+    ...(canSeeOA ? [
+      { key: 'oa' as Tab, label: 'Órdenes Azules', icon: <FileCheck className="w-4 h-4" />, badge: odpsOA.length, badgeColor: 'bg-blue-100 text-blue-700' },
+    ] : []),
   ];
 
   return (
@@ -462,7 +472,7 @@ const ContabilidadPage: React.FC = () => {
           </h1>
           <p className="text-slate-500 font-medium mt-1">Control de facturación, caja, pagos y cuentas por cobrar</p>
         </div>
-        {!isReadOnly && (
+        {(!isReadOnly || canPayOA) && (
         <button
           onClick={() => { setOdpFija(false); setPagoForm(p => ({ ...p, odp_id: '' })); setShowPagoModal(true); }}
           className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-md shadow-emerald-200 hover:bg-emerald-700 transition-all hover:-translate-y-0.5"
@@ -472,8 +482,8 @@ const ContabilidadPage: React.FC = () => {
         )}
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* KPIs — solo para roles con acceso al resumen financiero */}
+      {!isAsistenteAdmin && <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           { label: 'Recaudado',     value: totalAbonado,   icon: <DollarSign className="w-6 h-6" />,   color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
           { label: 'Por Cobrar',    value: totalPorCobrar,  icon: <CreditCard className="w-6 h-6" />,   color: 'text-rose-700 bg-rose-50 border-rose-200' },
@@ -490,7 +500,7 @@ const ContabilidadPage: React.FC = () => {
             </div>
           </motion.div>
         ))}
-      </div>
+      </div>}
 
       {/* TABS */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -988,6 +998,99 @@ const ContabilidadPage: React.FC = () => {
             )}
           </div>
         )}
+
+        {/* ── TAB OA: Órdenes Azules ─────────────────────────────────────────── */}
+        {tab === 'oa' && canSeeOA && (
+          <div>
+            <div className="flex gap-2 flex-wrap items-center px-5 py-3 border-b border-slate-100 bg-slate-50/50">
+              <span className="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5">
+                <FileCheck className="w-3.5 h-3.5" /> Órdenes Azules (OA) — sin facturación
+              </span>
+            </div>
+            <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 390px)', minHeight: '300px' }}>
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
+                  <tr>
+                    {['ODP', 'Fecha Creación', 'Cliente', 'Asesor', 'Est. Taller', 'Facturación', 'Monto Total', 'Abonado', 'Pendiente', 'Estado Caja', ''].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {loadingOdps ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <tr key={i}><td colSpan={11} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td></tr>
+                    ))
+                  ) : odpsOA.length === 0 ? (
+                    <tr><td colSpan={11} className="text-center py-12 text-slate-400 font-bold">No hay Órdenes Azules registradas.</td></tr>
+                  ) : odpsOA.map((odp: any) => (
+                    <tr key={odp.id} className="hover:bg-blue-50/30 transition-colors">
+                      <td className="px-4 py-4 font-bold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => setFichaOdpId(odp.id)}>
+                        {odp.numero_odp}
+                      </td>
+                      <td className="px-4 py-4 text-slate-500 text-xs whitespace-nowrap">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          {fmtFecha(odp.fecha_creacion)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 font-semibold text-slate-800 max-w-[280px] truncate" title={odp.cliente?.nombre_razon_social}>
+                        {odp.cliente?.nombre_razon_social || '—'}
+                      </td>
+                      <td className="px-4 py-4 text-slate-600 text-xs whitespace-nowrap">{odp.asesor?.nombre_completo || '—'}</td>
+                      <td className="px-4 py-4">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                          odp.estado_produccion === 'ENTREGADA' || odp.estado_produccion === 'INSTALADA' ? 'bg-green-100 text-green-700 border-green-200' :
+                          odp.estado_produccion === 'PAUSADA' ? 'bg-rose-100 text-rose-700 border-rose-200' :
+                          'bg-slate-100 text-slate-600 border-slate-200'
+                        }`}>
+                          {(odp.estado_produccion || '—').replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                          <FileCheck className="w-3 h-3" /> NO APLICA
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 font-bold text-slate-700 whitespace-nowrap">
+                        {Number(odp.valor_total) > 0 ? fmt(Number(odp.valor_total)) : <span className="text-slate-400 text-xs italic">—</span>}
+                      </td>
+                      <td className="px-4 py-4 font-bold text-emerald-700 whitespace-nowrap">{fmt(Number(odp.abono) || 0)}</td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        {(() => {
+                          const pend = calcPendiente(odp);
+                          return <span className={`font-bold text-sm ${pend > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{fmt(pend)}</span>;
+                        })()}
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-bold border ${
+                          odp.estado_caja === 'CANCELADO'        ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                          odp.estado_caja === 'ABONADO'          ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                          odp.estado_caja === 'CREDITO_APROBADO' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
+                          'bg-amber-100 text-amber-800 border-amber-300'
+                        }`}>
+                          {odp.estado_caja === 'CANCELADO' ? 'Cancelado' :
+                           odp.estado_caja === 'ABONADO' ? 'Abonado' :
+                           odp.estado_caja === 'CREDITO_APROBADO' ? 'Crédito Aprobado' : 'Pendiente'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        {canPayOA && odp.estado_caja !== 'CANCELADO' && (
+                          <button
+                            onClick={() => { setOdpFija(true); setPagoForm(p => ({ ...p, odp_id: String(odp.id), monto: '' })); setShowPagoModal(true); }}
+                            className="text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-all flex items-center gap-1 whitespace-nowrap"
+                          >
+                            <Banknote className="w-3.5 h-3.5" /> Registrar Abono
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ═══ MODAL FE ════════════════════════════════════════════════════════ */}
@@ -1051,7 +1154,8 @@ const ContabilidadPage: React.FC = () => {
                 {odpFija ? (
                   <div className="w-full border border-indigo-100 bg-indigo-50/30 rounded-xl px-4 py-3.5 text-[13px] font-bold text-indigo-900 shadow-sm leading-relaxed">
                     {(() => {
-                      const o = odps.find(x => String(x.id) === pagoForm.odp_id);
+                      const pool = isAsistenteAdmin ? odpsOA : odps;
+                      const o = pool.find((x: any) => String(x.id) === pagoForm.odp_id);
                       return o ? `${o.numero_odp} — ${o.cliente?.nombre_razon_social} — Pendiente: ${fmt(calcPendiente(o))}` : pagoForm.odp_id;
                     })()}
                   </div>
@@ -1059,7 +1163,7 @@ const ContabilidadPage: React.FC = () => {
                   <select value={pagoForm.odp_id} onChange={e => setPagoForm(p => ({ ...p, odp_id: e.target.value }))} required
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm">
                     <option value="">-- Seleccionar ODP con pendiente --</option>
-                    {odpsPendientes.map(o => (
+                    {(isAsistenteAdmin ? odpsOAPendientes : odpsPendientes).map((o: any) => (
                       <option key={o.id} value={o.id}>
                         {o.numero_odp} — {o.cliente?.nombre_razon_social} — Pendiente: {fmt(calcPendiente(o))}
                       </option>

@@ -15,6 +15,7 @@ import {
   HourglassEmpty, Cancel, TableChart, Tune, Print,
 } from '@mui/icons-material';
 import PrintablePedidoVitelsa from './components/PrintablePedidoVitelsa';
+import * as XLSX from 'xlsx';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -172,8 +173,10 @@ const AccionesMenu: React.FC<{
   onRegistrarReposicion: () => void;
   onDetalle: () => void;
   onImprimir: () => void;
+  onDescargarExcel: () => void;
   printLoading: boolean;
-}> = ({ pedido, puedeEnviar, puedeGestionar, onEnviar, onConfirmar, onLlegada, onVerificar, onProblema, onGestionarReposicion, onRegistrarReposicion, onDetalle, onImprimir, printLoading }) => {
+  excelLoading: boolean;
+}> = ({ pedido, puedeEnviar, puedeGestionar, onEnviar, onConfirmar, onLlegada, onVerificar, onProblema, onGestionarReposicion, onRegistrarReposicion, onDetalle, onImprimir, onDescargarExcel, printLoading, excelLoading }) => {
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const open = Boolean(anchor);
 
@@ -196,7 +199,10 @@ const AccionesMenu: React.FC<{
       items.push({ label: 'Vidrio repuesto / llegó', action: onRegistrarReposicion, color: '#2e7d32' });
   }
   items.push({ label: 'Ver detalle', action: onDetalle });
-  if (pedido.odp_id) items.push({ label: printLoading ? 'Cargando...' : 'Imprimir pedido', action: onImprimir, icon: <Print sx={{ fontSize: 16 }} /> });
+  if (pedido.odp_id) {
+    items.push({ label: printLoading ? 'Cargando...' : 'Imprimir pedido', action: onImprimir, icon: <Print sx={{ fontSize: 16 }} /> });
+    items.push({ label: excelLoading ? 'Generando...' : 'Descargar Excel', action: onDescargarExcel, icon: <TableChart sx={{ fontSize: 16 }} /> });
+  }
 
   return (
     <>
@@ -273,6 +279,7 @@ const PedidosPVPage: React.FC = () => {
   // ─── Impresión ────────────────────────────────────────────────────────────
   const [printData, setPrintData] = useState<{ pedido: PedidoPV; odp: any } | null>(null);
   const [printLoadingId, setPrintLoadingId] = useState<number | null>(null);
+  const [excelLoadingId, setExcelLoadingId] = useState<number | null>(null);
   const shouldPrintRef = useRef(false);
 
   // ─── Edición inline ──────────────────────────────────────────────────────
@@ -510,6 +517,348 @@ const PedidosPVPage: React.FC = () => {
     } finally {
       setPrintLoadingId(null);
     }
+  };
+
+  const descargarExcelPedido = async (pedido: PedidoPV) => {
+    if (!pedido.odp_id) return;
+    setExcelLoadingId(pedido.id);
+    try {
+      const { data: odp } = await axios.get(`${API}/api/odp/${pedido.odp_id}`, { headers });
+      generarExcelVitelsa(pedido, odp);
+    } catch {
+      setError('Error al generar el Excel del pedido');
+    } finally {
+      setExcelLoadingId(null);
+    }
+  };
+
+  // Generación completa del Excel con formato idéntico al imprimible VITELSA
+  // Columnas A-Q (17 cols, índices 0-16), 0-based rows
+  const generarExcelVitelsa = (pedido: PedidoPV, odp: any) => {
+    const rawItems: any[] = (pedido as any).items_asignados?.length
+      ? (pedido as any).items_asignados
+      : odp?.items || odp?.odp_items || [];
+    const items12 = Array.from({ length: 12 }, (_: unknown, i: number) => rawItems[i] || null);
+
+    const fmtD = (ts: string | null) => {
+      if (!ts) return '';
+      try { return new Date(ts).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+      catch { return ''; }
+    };
+    const obra = [odp?.cliente?.nombre_razon_social, odp?.numero_odp, odp?.asesor?.nombre_completo].filter(Boolean).join(' — ');
+
+    // ── Paleta de estilos ─────────────────────────────────────────────────
+    const thin   = { style: 'thin',   color: { rgb: 'FF000000' } };
+    const medium = { style: 'medium', color: { rgb: 'FF000000' } };
+    const bThin  = { top: thin, bottom: thin, left: thin, right: thin };
+    const bMed   = { top: medium, bottom: medium, left: medium, right: medium };
+    const bMedL  = { top: medium, bottom: medium, left: medium, right: thin };
+    const bMedR  = { top: medium, bottom: medium, left: thin, right: medium };
+
+    const BASE = 'Arial';
+    const f = (sz: number, bold = false, color = 'FF000000') =>
+      ({ name: BASE, sz, bold, color: { rgb: color } });
+
+    const sTitle: any = {
+      font: f(15, true), fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+      alignment: { horizontal: 'center', vertical: 'center' }, border: bMed,
+    };
+    const sOrderNum: any = {
+      font: f(10, true), fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: bMed,
+    };
+    const sLogo: any = {
+      font: f(11, true), fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: bMed,
+    };
+    const sSmall: any = {
+      font: f(7), fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+      alignment: { horizontal: 'left', vertical: 'center', wrapText: true }, border: bThin,
+    };
+    const sVR03: any = {
+      font: f(8, true), fill: { patternType: 'solid', fgColor: { rgb: 'FFE8E8E8' } },
+      alignment: { horizontal: 'center', vertical: 'center' }, border: bThin,
+    };
+    const sLabel: any = {
+      font: f(8, true), fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+      alignment: { horizontal: 'left', vertical: 'center', wrapText: true }, border: bThin,
+    };
+    const sValue: any = {
+      font: f(8), fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+      alignment: { horizontal: 'left', vertical: 'center', wrapText: true }, border: bThin,
+    };
+    const sCenter: any = {
+      font: f(8), fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+      alignment: { horizontal: 'center', vertical: 'center' }, border: bThin,
+    };
+    const sNumBig: any = {
+      font: f(13, true), fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+      alignment: { horizontal: 'center', vertical: 'center' }, border: bThin,
+    };
+    const sColHeader: any = {
+      font: f(7, true), fill: { patternType: 'solid', fgColor: { rgb: 'FFE8E8E8' } },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: bThin,
+    };
+    const sData: any = {
+      font: f(8), fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+      alignment: { horizontal: 'center', vertical: 'center' }, border: bThin,
+    };
+    const sDataL: any = {
+      font: f(8), fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+      alignment: { horizontal: 'left', vertical: 'center', wrapText: true }, border: bThin,
+    };
+    const sObs: any = {
+      font: f(6.5), fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+      alignment: { horizontal: 'left', vertical: 'center', wrapText: true }, border: bThin,
+    };
+    const sFooter: any = {
+      font: f(7), fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+      alignment: { horizontal: 'center', vertical: 'center' }, border: { top: thin },
+    };
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    const ws: any = {};
+    const merges: any[] = [];
+
+    // Convierte índice de columna a letra (0→A, 1→B, ..., 16→Q)
+    const colLetter = (c: number) => {
+      let s = '';
+      let n = c + 1;
+      while (n > 0) { s = String.fromCharCode(64 + (n % 26 || 26)) + s; n = Math.floor((n - 1) / 26); }
+      return s;
+    };
+    const ref = (col: number, row: number) => `${colLetter(col)}${row + 1}`;
+
+    const sc = (col: number, row: number, val: any, style: any) => {
+      const t = typeof val === 'number' ? 'n' : 's';
+      ws[ref(col, row)] = { v: val, t, s: style };
+    };
+    // Celda vacía con borde (para celdas interiores de rangos fusionados)
+    const se = (col: number, row: number, style: any) => {
+      ws[ref(col, row)] = { v: '', t: 's', s: style };
+    };
+    const merge = (c1: number, r1: number, c2: number, r2: number) => {
+      merges.push({ s: { r: r1, c: c1 }, e: { r: r2, c: c2 } });
+    };
+
+    // ── LAYOUT: 17 columnas (A=0 … Q=16) ─────────────────────────────────
+    // Secciones superiores: Logo A:C(0-2) | Título D:L(3-11) | No. M:Q(12-16)
+
+    // ── FILA 0-2: ENCABEZADO ─────────────────────────────────────────────
+    // Logo / emisor (A1:C3)
+    sc(0, 0, 'VIDRIOS\nTEMPLEX S.A.S', sLogo); merge(0, 0, 2, 2);
+    [1,2].forEach(c => [0,1,2].forEach(r => { if (c !== 0 || r !== 0) se(c, r, sLogo); }));
+
+    // Título central
+    sc(3, 0, 'ORDEN DE PEDIDO', sTitle); merge(3, 0, 11, 0);
+    for (let c = 4; c <= 11; c++) se(c, 0, sTitle);
+
+    // VR03 (D2:E2)
+    sc(3, 1, 'VR03', sVR03); merge(3, 1, 4, 1);
+    se(4, 1, sVR03);
+    // Fecha vigencia (F2:L2)
+    sc(5, 1, 'FECHA DE VIGENCIA: 8 De Mayo Del 2023   VERSION: 03', sSmall);
+    merge(5, 1, 11, 1);
+    for (let c = 6; c <= 11; c++) se(c, 1, sSmall);
+
+    // Formulario (D3:L3)
+    sc(3, 2, 'Formulario de pedido de vidrio templado — VITELSA S.A.', sSmall);
+    merge(3, 2, 11, 2);
+    for (let c = 4; c <= 11; c++) se(c, 2, sSmall);
+
+    // No. pedido (M1:Q3)
+    sc(12, 0, `ORDEN DE PEDIDO No.`, sOrderNum); merge(12, 0, 16, 0);
+    for (let c = 13; c <= 16; c++) se(c, 0, sOrderNum);
+    sc(12, 1, pedido.numero_pedido || '', { ...sOrderNum, font: f(20, true) }); merge(12, 1, 16, 2);
+    for (let c = 13; c <= 16; c++) { se(c, 1, sOrderNum); se(c, 2, sOrderNum); }
+    se(12, 2, sOrderNum);
+
+    // ── FILA 3: FECHA / NÚMERO ───────────────────────────────────────────
+    sc(0, 3, 'FECHA:', sLabel); merge(0, 3, 1, 3); se(1, 3, sLabel);
+    sc(2, 3, fmtD(pedido.creado_en), sValue); merge(2, 3, 5, 3);
+    for (let c = 3; c <= 5; c++) se(c, 3, sValue);
+    sc(6, 3, 'ORDEN DE PEDIDO No.', sLabel); merge(6, 3, 9, 3);
+    for (let c = 7; c <= 9; c++) se(c, 3, sLabel);
+    sc(10, 3, pedido.numero_pedido || '', sNumBig); merge(10, 3, 16, 3);
+    for (let c = 11; c <= 16; c++) se(c, 3, sNumBig);
+
+    // ── FILA 4: PEDIDO ───────────────────────────────────────────────────
+    sc(0, 4, 'PEDIDO', sLabel);
+    sc(1, 4, '☑', sCenter);
+    sc(2, 4, 'SERVICIO DE TEMPLE', sValue); merge(2, 4, 7, 4);
+    for (let c = 3; c <= 7; c++) se(c, 4, sValue);
+    sc(8, 4, 'SERVIFLASH (+20%)', sValue); merge(8, 4, 16, 4);
+    for (let c = 9; c <= 16; c++) se(c, 4, sValue);
+
+    // ── FILAS 5-6: SERVICIOS ADICIONALES ────────────────────────────────
+    sc(0, 5, '', sValue); merge(0, 5, 1, 5); se(1, 5, sValue);
+    sc(2, 5, 'Servicios Adicionales', sValue); merge(2, 5, 16, 5);
+    for (let c = 3; c <= 16; c++) se(c, 5, sValue);
+    sc(0, 6, '', sValue); merge(0, 6, 1, 6); se(1, 6, sValue);
+    sc(2, 6, 'CUALES:', sLabel); merge(2, 6, 16, 6);
+    for (let c = 3; c <= 16; c++) se(c, 6, sLabel);
+
+    // ── FILAS 7-9: DATOS SOLICITANTE ─────────────────────────────────────
+    const solRows: [string, string | null, string, string][] = [
+      ['NOMBRE O RAZÓN SOCIAL:', 'VIDRIOS TEMPLEX S.A.S', 'CC / NIT:', '900.192.869-0'],
+      ['DIRECCIÓN:', 'CR 44 No. 41 43', 'CIUDAD:', 'MEDELLÍN'],
+      ['RÉGIMEN: ☑ COMÚN  ☐ GRANDES CONTRIB.  ☐ SIMPLIFICADO', null, 'TELÉFONO:', '448 86 56'],
+    ];
+    solRows.forEach(([l1, v1, l2, v2], i) => {
+      const r = 7 + i;
+      if (i === 2) {
+        sc(0, r, l1, sLabel); merge(0, r, 7, r);
+        for (let c = 1; c <= 7; c++) se(c, r, sLabel);
+      } else {
+        sc(0, r, l1, sLabel); merge(0, r, 2, r);
+        for (let c = 1; c <= 2; c++) se(c, r, sLabel);
+        sc(3, r, v1 || '', sValue); merge(3, r, 7, r);
+        for (let c = 4; c <= 7; c++) se(c, r, sValue);
+      }
+      sc(8, r, l2, sLabel); merge(8, r, 9, r); se(9, r, sLabel);
+      sc(10, r, v2, sValue); merge(10, r, 16, r);
+      for (let c = 11; c <= 16; c++) se(c, r, sValue);
+    });
+
+    // ── FILA 10: DIRECCIÓN ENVÍO / OBRA ──────────────────────────────────
+    sc(0, 10, 'DIRECCIÓN DE ENVÍO', sLabel); merge(0, 10, 2, 10);
+    for (let c = 1; c <= 2; c++) se(c, 10, sLabel);
+    sc(3, 10, 'CR 44 No. 41 43', sValue); merge(3, 10, 7, 10);
+    for (let c = 4; c <= 7; c++) se(c, 10, sValue);
+    sc(8, 10, 'OBRA', sLabel); merge(8, 10, 9, 10); se(9, 10, sLabel);
+    sc(10, 10, obra, sValue); merge(10, 10, 16, 10);
+    for (let c = 11; c <= 16; c++) se(c, 10, sValue);
+
+    // ── FILA 11: blank ───────────────────────────────────────────────────
+    for (let c = 0; c <= 16; c++) se(c, 11, { fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } } });
+
+    // ── FILAS 12-13: CABECERA ÍTEMS ──────────────────────────────────────
+    const H1 = 12; const H2 = 13;
+    // Columnas que hacen rowspan=2
+    [[0,'ÍTEM'],[1,'COLOR'],[2,'ESP\n(mm)'],[3,'CANT.'],[6,'DT'],[7,'PER'],[8,'BOQ'],[9,'DES'],[16,'ESPECIFICACIONES\nESPECIALES']]
+      .forEach(([col, label]) => {
+        sc(col as number, H1, label, sColHeader);
+        merge(col as number, H1, col as number, H2);
+        se(col as number, H2, sColHeader);
+      });
+    // MEDIDAS (colspan=2)
+    sc(4, H1, 'MEDIDAS', sColHeader); merge(4, H1, 5, H1); se(5, H1, sColHeader);
+    sc(4, H2, 'ANCHO (A)', sColHeader); sc(5, H2, 'ALTO (H)', sColHeader);
+    // BPB (colspan=2)
+    sc(10, H1, 'BPB', sColHeader); merge(10, H1, 11, H1); se(11, H1, sColHeader);
+    sc(10, H2, 'ANCHO', sColHeader); sc(11, H2, 'ALTO', sColHeader);
+    // BP MATE (colspan=2)
+    sc(12, H1, 'BP MATE', sColHeader); merge(12, H1, 13, H1); se(13, H1, sColHeader);
+    sc(12, H2, 'ANCHO', sColHeader); sc(13, H2, 'ALTO', sColHeader);
+    // CHAFLÁN (colspan=2)
+    sc(14, H1, 'CHAFLÁN', sColHeader); merge(14, H1, 15, H1); se(15, H1, sColHeader);
+    sc(14, H2, 'ANCHO', sColHeader); sc(15, H2, 'ALTO', sColHeader);
+
+    // ── FILAS 14-25: DATOS ÍTEMS ─────────────────────────────────────────
+    items12.forEach((item: any, i: number) => {
+      const r = 14 + i;
+      const v = (x: any) => (x !== undefined && x !== null && x !== '') ? x : '';
+      sc(0,  r, i + 1,                                                     sData);
+      sc(1,  r, v(item?.color),                                             sDataL);
+      sc(2,  r, v(item?.espesor),                                           sData);
+      sc(3,  r, item?.cantidad !== undefined ? Number(item.cantidad) : '',   sData);
+      sc(4,  r, item?.ancho_mm !== undefined ? Number(item.ancho_mm) : '',   sData);
+      sc(5,  r, item?.alto_mm  !== undefined ? Number(item.alto_mm)  : '',   sData);
+      sc(6,  r, v(item?.dt),                                                sData);
+      sc(7,  r, v(item?.perforaciones),                                     sData);
+      sc(8,  r, v(item?.boquetes),                                          sData);
+      sc(9,  r, v(item?.descuentos),                                        sData);
+      sc(10, r, v(item?.pulidos),                                           sData);
+      sc(11, r, v(item?.pulidos_h),                                         sData);
+      sc(12, r, '',                                                          sData);
+      sc(13, r, '',                                                          sData);
+      sc(14, r, '',                                                          sData);
+      sc(15, r, '',                                                          sData);
+      sc(16, r, v(item?.observaciones_pv || item?.otros || item?.accesorios), sDataL);
+    });
+
+    // ── OBSERVACIONES (texto legal) ───────────────────────────────────────
+    const R_OBS = 27;
+    sc(0, R_OBS, 'OBSERVACIONES:', { ...sLabel, font: f(8, true) });
+    merge(0, R_OBS, 16, R_OBS);
+    for (let c = 1; c <= 16; c++) se(c, R_OBS, sLabel);
+
+    const legalLines = [
+      '* EXPRESAMENTE AUTORIZO A VITELSA S.A., PARA QUE OBTENGA LAS INFORMACIONES Y REFERENCIAS RELATIVAS A MI PERSONA, MIS NOMBRES, APELLIDOS Y DOCUMENTO DE IDENTIFICACIÓN, A MI COMPORTAMIENTO Y CRÉDITO COMERCIAL, HÁBITOS DE PAGO, MANEJO DE MI(S) CUENTA(S) CORRIENTE(S) BANCARIA Y EN GENERAL, CUMPLIMIENTO DE OBLIGACIONES. ADEMÁS AUTORIZAMOS IRREVOCABLEMENTE PARA QUE EN EL EVENTO QUE INCUMPLAMOS UNA O CUALQUIERA DE LAS OBLIGACIONES CONTRAIDAS O QUE SE LLEGAREN A CONTRAER, NUESTROS NOMBRES, APELLIDOS Y DOCUMENTO DE IDENTIFICACIÓN, SE INCORPOREN A LOS ARCHIVOS DE DEUDORES MOROSOS DE LA ASOCIACIÓN BANCARIA O CUALQUIER OTRA ENTIDAD SIMILAR.',
+      '* PARA LOS PEDIDOS ENVIADOS A PRODUCCIÓN DESPUÉS DE LAS 11:00 M, SE CONSIDERA COMO DÍA INICIAL EL SIGUIENTE DÍA HÁBIL.',
+      '* EL PLAZO DE ENTREGA PARA EL SERVIFLASH ES DE 24 HORAS HÁBILES DE LUNES A VIERNES.',
+      '* LA FORMA DE PAGO DEL SERVIFLASH ES 100% ANTICIPADO, CONSIGNAR EN LAS SIGUIENTES CUENTAS A NOMBRE DE VITELSA S.A.: BOGOTÁ CC CONVENIO 8830 N° 349-283-465 · BANCOLOMBIA AHORROS N° 102-025445-95 CONVENIO 18853 · BANCOLOMBIA CC N° 625-118-251-07 CONVENIO 18771.',
+    ];
+    legalLines.forEach((line, i) => {
+      const r = R_OBS + 1 + i;
+      sc(0, r, line, sObs);
+      merge(0, r, 16, r);
+      for (let c = 1; c <= 16; c++) se(c, r, sObs);
+    });
+    let nextRow = R_OBS + 1 + legalLines.length;
+    if (pedido.observaciones) {
+      sc(0, nextRow, `OBSERVACIONES DEL PEDIDO: ${pedido.observaciones}`, { ...sLabel, font: f(8, true) });
+      merge(0, nextRow, 16, nextRow);
+      for (let c = 1; c <= 16; c++) se(c, nextRow, sLabel);
+      nextRow++;
+    }
+
+    // ── FOOTER ────────────────────────────────────────────────────────────
+    sc(0, nextRow, 'VITELSA S.A — GIRARDOTA PARQUE INDUSTRIAL DEL NORTE: 444-92-69 — WEB www.vitelsa.com.co', sFooter);
+    merge(0, nextRow, 16, nextRow);
+    for (let c = 1; c <= 16; c++) se(c, nextRow, sFooter);
+
+    // ── DIMENSIONES ───────────────────────────────────────────────────────
+    ws['!ref'] = `A1:Q${nextRow + 1}`;
+    ws['!merges'] = merges;
+    ws['!cols'] = [
+      { wch: 5  }, // A ÍTEM
+      { wch: 11 }, // B COLOR
+      { wch: 8  }, // C ESP
+      { wch: 6  }, // D CANT
+      { wch: 9  }, // E ANCHO(A)
+      { wch: 9  }, // F ALTO(H)
+      { wch: 5  }, // G DT
+      { wch: 5  }, // H PER
+      { wch: 5  }, // I BOQ
+      { wch: 5  }, // J DES
+      { wch: 9  }, // K BPB ANCHO
+      { wch: 9  }, // L BPB ALTO
+      { wch: 11 }, // M BP MATE ANCHO
+      { wch: 11 }, // N BP MATE ALTO
+      { wch: 9  }, // O CHAFLÁN ANCHO
+      { wch: 9  }, // P CHAFLÁN ALTO
+      { wch: 30 }, // Q ESPECIFICACIONES
+    ];
+    ws['!rows'] = [
+      { hpx: 45 }, // 0 header logo/título
+      { hpx: 18 }, // 1 VR03 / fecha vigencia
+      { hpx: 14 }, // 2 formulario
+      { hpx: 20 }, // 3 FECHA
+      { hpx: 18 }, // 4 PEDIDO
+      { hpx: 14 }, // 5 servicios adicionales
+      { hpx: 14 }, // 6 cuales
+      { hpx: 18 }, // 7 nombre
+      { hpx: 18 }, // 8 dirección
+      { hpx: 18 }, // 9 régimen
+      { hpx: 20 }, // 10 dirección envío
+      { hpx: 6  }, // 11 blank
+      { hpx: 24 }, // 12 header ítems row 1
+      { hpx: 18 }, // 13 header ítems row 2
+      ...Array(12).fill({ hpx: 18 }), // 14-25 ítems
+      { hpx: 6  }, // 26 blank
+      { hpx: 16 }, // 27 "OBSERVACIONES:"
+      { hpx: 36 }, // 28 legal 1
+      { hpx: 16 }, // 29 legal 2
+      { hpx: 16 }, // 30 legal 3
+      { hpx: 16 }, // 31 legal 4
+      { hpx: 16 }, // 32 obs pedido (si existe)
+      { hpx: 14 }, // 33 footer
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Pedido VITELSA');
+    XLSX.writeFile(wb, `VITELSA-${pedido.numero_pedido}.xlsx`);
   };
 
   useEffect(() => {
@@ -856,7 +1205,9 @@ const PedidosPVPage: React.FC = () => {
                                 onRegistrarReposicion={() => setModalReposicion({ pedido: p, tipo: 'registrar' })}
                                 onDetalle={() => setModalDetalle(p)}
                                 onImprimir={() => imprimirPedido(p)}
+                                onDescargarExcel={() => descargarExcelPedido(p)}
                                 printLoading={printLoadingId === p.id}
+                                excelLoading={excelLoadingId === p.id}
                               />
                             </TableCell>
                           </TableRow>

@@ -226,6 +226,12 @@ export const registrarPago = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'ODP no encontrada' });
     }
 
+    // Asistente administrativo solo puede registrar pagos en Órdenes Azules
+    if (req.user?.rol === 'asistente_administrativo' && odp.getDataValue('tipo_odp') !== 'OA') {
+      await t.rollback();
+      return res.status(403).json({ error: 'El rol asistente_administrativo solo puede registrar pagos en Órdenes Azules (OA)' });
+    }
+
     // Crear pago — usar T12:00:00Z para evitar offset de zona horaria al mostrar en Bogotá
     const fechaPago = data.fecha ? new Date(data.fecha + 'T12:00:00.000Z') : new Date();
     const pago = await Pago.create(

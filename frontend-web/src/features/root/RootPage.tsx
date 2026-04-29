@@ -4,7 +4,7 @@ import {
   HardDrive, Wrench, Bell, BookOpen, RefreshCw,
   CheckCircle, XCircle, AlertTriangle, Download,
   Upload, RotateCcw, Trash2, ChevronRight, Cpu,
-  Wifi, WifiOff, Clock, BarChart2, Lock
+  Wifi, WifiOff, Clock, BarChart2, Lock, X
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -1324,10 +1324,59 @@ const TabOperativo: React.FC<{ onAlertas: (n: number) => void }> = ({ onAlertas 
 };
 
 // ─── Tab Seguridad ────────────────────────────────────────────────────────────
+type FiltroOp = 'all' | 'INSERT' | 'UPDATE' | 'DELETE';
+
+const FILTRO_LABEL: Record<FiltroOp, string> = { all: 'Todos', INSERT: 'Inserts', UPDATE: 'Updates', DELETE: 'Deletes' };
+const FILTRO_ACTIVO: Record<FiltroOp, string> = {
+  all: 'bg-slate-200 text-slate-700',
+  INSERT: 'bg-emerald-100 text-emerald-700',
+  UPDATE: 'bg-amber-100 text-amber-700',
+  DELETE: 'bg-red-100 text-red-700',
+};
+const OP_CHIP: Record<string, string> = {
+  INSERT: 'bg-emerald-100 text-emerald-700',
+  UPDATE: 'bg-amber-100 text-amber-700',
+  DELETE: 'bg-red-100 text-red-700',
+};
+const CAMPOS_OMITIR = new Set(['createdAt', 'updatedAt', 'password', '_auditAntes', '__v']);
+
+function calcDiff(ant: any, nuevo: any, op: string): { campo: string; ant: unknown; nuevo: unknown }[] {
+  if (op === 'INSERT') {
+    if (!nuevo) return [];
+    return Object.entries(nuevo).filter(([k]) => !CAMPOS_OMITIR.has(k)).slice(0, 12)
+      .map(([k, v]) => ({ campo: k, ant: undefined, nuevo: v }));
+  }
+  if (op === 'DELETE') {
+    if (!ant) return [];
+    return Object.entries(ant).filter(([k]) => !CAMPOS_OMITIR.has(k)).slice(0, 12)
+      .map(([k, v]) => ({ campo: k, ant: v, nuevo: undefined }));
+  }
+  const a = ant || {};
+  const n = nuevo || {};
+  const keys = new Set([...Object.keys(a), ...Object.keys(n)].filter(k => !CAMPOS_OMITIR.has(k)));
+  return Array.from(keys).filter(k => JSON.stringify(a[k]) !== JSON.stringify(n[k]))
+    .map(k => ({ campo: k, ant: a[k], nuevo: n[k] }));
+}
+
+function fmtVal(v: unknown): string {
+  if (v === null || v === undefined) return '—';
+  if (typeof v === 'boolean') return v ? 'sí' : 'no';
+  if (typeof v === 'object') return JSON.stringify(v).slice(0, 60);
+  return String(v).slice(0, 80);
+}
+
 const TabSeguridad: React.FC = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [expandedDelete, setExpandedDelete] = useState<number | null>(null);
+
+  const [drawerUsuario, setDrawerUsuario] = useState<any | null>(null);
+  const [drawerOps, setDrawerOps] = useState<any[]>([]);
+  const [drawerLoading, setDrawerLoading] = useState(false);
+  const [drawerPage, setDrawerPage] = useState(1);
+  const [drawerTotal, setDrawerTotal] = useState(0);
+  const [drawerPages, setDrawerPages] = useState(1);
+  const [drawerFiltro, setDrawerFiltro] = useState<FiltroOp>('all');
 
   const cargar = useCallback(() => {
     setLoading(true);
@@ -1337,203 +1386,358 @@ const TabSeguridad: React.FC = () => {
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  const cargarDetalle = useCallback((userId: number, page: number, filtro: FiltroOp) => {
+    setDrawerLoading(true);
+    const params = new URLSearchParams({ page: String(page) });
+    if (filtro !== 'all') params.set('operacion', filtro);
+    fetch(`${API}/api/root/seguridad/detalle-usuario/${userId}?${params}`, { headers: headers() })
+      .then(r => r.json())
+      .then(d => { setDrawerOps(d.data ?? []); setDrawerTotal(d.total ?? 0); setDrawerPages(d.pages ?? 1); })
+      .finally(() => setDrawerLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (drawerUsuario) cargarDetalle(drawerUsuario.usuario_id, drawerPage, drawerFiltro);
+  }, [drawerUsuario, drawerPage, drawerFiltro, cargarDetalle]);
+
+  const abrirDrawer = (u: any) => { setDrawerFiltro('all'); setDrawerPage(1); setDrawerUsuario(u); };
+
   if (loading) return <div className="text-center py-16 text-slate-400 animate-pulse">Cargando actividad de seguridad...</div>;
   if (!data) return <div className="text-red-500 p-4">Error al cargar datos de seguridad</div>;
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-bold text-slate-700">Monitoreo de Seguridad</h2>
-          <p className="text-xs text-slate-400">Actividad del sistema en tiempo real</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-[11px] text-slate-400">
-            {data.generado_en ? new Date(data.generado_en).toLocaleString('es-CO') : ''}
-          </span>
-          <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
-            <RefreshCw className="w-3.5 h-3.5" /> Actualizar
-          </button>
-        </div>
-      </div>
+    <>
+      {/* ── DRAWER DETALLE USUARIO ── */}
+      {drawerUsuario && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerUsuario(null)} />
+          <div className="relative w-full max-w-2xl bg-white shadow-2xl flex flex-col h-full">
+            {/* Cabecera */}
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">{drawerUsuario.usuario_nombre}</h2>
+                <p className="text-[11px] text-slate-400">
+                  {drawerUsuario.rol} · #{drawerUsuario.usuario_id} · {drawerTotal} operaciones en 7 días
+                </p>
+              </div>
+              <button onClick={() => setDrawerUsuario(null)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-      {/* Actividad usuarios 24h */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-700">Actividad de usuarios — últimas 24h</h3>
-          <span className="text-[11px] text-slate-400">{data.actividad_usuarios_24h?.length ?? 0} usuarios activos</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-slate-50 text-slate-500">
-              <tr>
-                <th className="text-left px-3 py-2 font-semibold">Usuario</th>
-                <th className="text-left px-3 py-2 font-semibold">Rol</th>
-                <th className="text-right px-3 py-2 font-semibold">Total</th>
-                <th className="text-right px-3 py-2 font-semibold">I / U / D</th>
-                <th className="text-left px-3 py-2 font-semibold">IP(s)</th>
-                <th className="text-left px-3 py-2 font-semibold">Última actividad</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.actividad_usuarios_24h?.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-6 text-slate-400">Sin actividad en las últimas 24h</td></tr>
-              )}
-              {data.actividad_usuarios_24h?.map((u: any, i: number) => (
-                <tr key={i} className="border-t border-slate-50 hover:bg-slate-50">
-                  <td className="px-3 py-2 font-semibold text-slate-700">
-                    {u.usuario_nombre}
-                    <span className="ml-1 text-[10px] text-slate-400 font-normal">#{u.usuario_id}</span>
-                  </td>
-                  <td className="px-3 py-2 text-slate-500">{u.rol}</td>
-                  <td className="px-3 py-2 text-right font-bold text-indigo-700">{u.cant_operaciones}</td>
-                  <td className="px-3 py-2 text-right text-[11px]">
-                    <span className="text-emerald-600">{u.inserts}</span>
-                    {' / '}
-                    <span className="text-amber-600">{u.updates}</span>
-                    {' / '}
-                    <span className={Number(u.deletes) > 0 ? 'text-red-600 font-bold' : 'text-slate-400'}>{u.deletes}</span>
-                  </td>
-                  <td className="px-3 py-2 text-slate-400 text-[11px]">{Array.isArray(u.ips) ? u.ips.filter(Boolean).join(', ') : '—'}</td>
-                  <td className="px-3 py-2 text-slate-400">{u.ultima_actividad ? new Date(u.ultima_actividad).toLocaleString('es-CO') : '—'}</td>
-                </tr>
+            {/* Filtros */}
+            <div className="px-5 py-3 border-b border-slate-100 flex gap-2 shrink-0 flex-wrap">
+              {(['all', 'INSERT', 'UPDATE', 'DELETE'] as FiltroOp[]).map(f => (
+                <button
+                  key={f}
+                  onClick={() => { setDrawerFiltro(f); setDrawerPage(1); }}
+                  className={`text-[11px] font-semibold px-3 py-1 rounded-full transition border ${
+                    drawerFiltro === f ? FILTRO_ACTIVO[f] + ' border-current' : 'bg-slate-50 text-slate-500 border-transparent hover:bg-slate-100'
+                  }`}
+                >
+                  {FILTRO_LABEL[f]}
+                </button>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </div>
 
-      {/* IPs únicas 24h */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100">
-          <h3 className="text-xs font-bold text-slate-700">IPs únicas — últimas 24h</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-slate-50 text-slate-500">
-              <tr>
-                <th className="text-left px-3 py-2 font-semibold">IP</th>
-                <th className="text-right px-3 py-2 font-semibold">Requests</th>
-                <th className="text-right px-3 py-2 font-semibold">Usuarios</th>
-                <th className="text-left px-3 py-2 font-semibold">Quiénes operaron</th>
-                <th className="text-left px-3 py-2 font-semibold">Última actividad</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.ips_unicas_24h?.length === 0 && (
-                <tr><td colSpan={5} className="text-center py-6 text-slate-400">Sin IPs registradas</td></tr>
+            {/* Tabla de operaciones */}
+            <div className="flex-1 overflow-y-auto">
+              {drawerLoading ? (
+                <div className="text-center py-12 text-slate-400 animate-pulse text-xs">Cargando operaciones...</div>
+              ) : drawerOps.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 text-xs">Sin operaciones con este filtro</div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50 text-slate-500 sticky top-0">
+                    <tr>
+                      <th className="text-left px-4 py-2 font-semibold whitespace-nowrap">Fecha</th>
+                      <th className="text-left px-4 py-2 font-semibold">Tabla</th>
+                      <th className="text-left px-4 py-2 font-semibold">Op.</th>
+                      <th className="text-left px-4 py-2 font-semibold">ID</th>
+                      <th className="text-left px-4 py-2 font-semibold">¿Qué cambió?</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drawerOps.map((op: any, i: number) => {
+                      const diffs = calcDiff(op.datos_anteriores, op.datos_nuevos, op.operacion);
+                      return (
+                        <tr key={op.id ?? i} className="border-t border-slate-50 hover:bg-slate-50 align-top">
+                          <td className="px-4 py-2.5 text-slate-400 whitespace-nowrap">
+                            {op.fecha ? new Date(op.fecha).toLocaleString('es-CO') : '—'}
+                          </td>
+                          <td className="px-4 py-2.5 font-mono text-slate-600">{op.tabla}</td>
+                          <td className="px-4 py-2.5">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${OP_CHIP[op.operacion] ?? 'bg-slate-100 text-slate-500'}`}>
+                              {op.operacion}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-slate-400">{op.registro_id ?? '—'}</td>
+                          <td className="px-4 py-2.5 max-w-xs">
+                            {diffs.length === 0 ? (
+                              <span className="text-slate-300 italic">sin datos</span>
+                            ) : (
+                              <div className="space-y-0.5">
+                                {diffs.map((d, di) => (
+                                  <div key={di} className="flex flex-wrap items-center gap-1">
+                                    <span className="font-mono text-slate-500">{d.campo}:</span>
+                                    {op.operacion === 'UPDATE' ? (
+                                      <>
+                                        <span className="text-red-400 line-through">{fmtVal(d.ant)}</span>
+                                        <span className="text-slate-300">→</span>
+                                        <span className="text-emerald-600 font-semibold">{fmtVal(d.nuevo)}</span>
+                                      </>
+                                    ) : op.operacion === 'INSERT' ? (
+                                      <span className="text-emerald-600">{fmtVal(d.nuevo)}</span>
+                                    ) : (
+                                      <span className="text-red-500">{fmtVal(d.ant)}</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               )}
-              {data.ips_unicas_24h?.map((ip: any, i: number) => (
-                <tr key={i} className="border-t border-slate-50 hover:bg-slate-50">
-                  <td className="px-3 py-2 font-mono text-slate-700">{ip.ip_address || '—'}</td>
-                  <td className="px-3 py-2 text-right font-bold text-indigo-700">{ip.cant_requests}</td>
-                  <td className="px-3 py-2 text-right text-slate-500">{ip.cant_usuarios}</td>
-                  <td className="px-3 py-2 text-slate-600 text-[11px]">{Array.isArray(ip.usuarios) ? ip.usuarios.filter(Boolean).join(', ') : '—'}</td>
-                  <td className="px-3 py-2 text-slate-400">{ip.ultima_actividad ? new Date(ip.ultima_actividad).toLocaleString('es-CO') : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </div>
 
-      {/* DELETEs recientes 48h */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-700">DELETEs — últimas 48h</h3>
-          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${data.deletes_recientes_48h?.length > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}>
-            {data.deletes_recientes_48h?.length ?? 0}
-          </span>
+            {/* Paginación */}
+            {drawerPages > 1 && (
+              <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between text-xs shrink-0">
+                <span className="text-slate-400">Página {drawerPage} de {drawerPages} · {drawerTotal} total</span>
+                <div className="flex gap-2">
+                  <button disabled={drawerPage <= 1} onClick={() => setDrawerPage(p => p - 1)}
+                    className="px-3 py-1 rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 font-semibold">
+                    ← Anterior
+                  </button>
+                  <button disabled={drawerPage >= drawerPages} onClick={() => setDrawerPage(p => p + 1)}
+                    className="px-3 py-1 rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 font-semibold">
+                    Siguiente →
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-        {data.deletes_recientes_48h?.length === 0 ? (
-          <div className="px-4 py-6 text-center text-slate-400 text-xs">Sin DELETEs en las últimas 48h</div>
-        ) : (
+      )}
+
+      {/* ── CONTENIDO PRINCIPAL ── */}
+      <div className="space-y-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-bold text-slate-700">Monitoreo de Seguridad</h2>
+            <p className="text-xs text-slate-400">Actividad del sistema — últimos 7 días</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-slate-400">
+              {data.generado_en ? new Date(data.generado_en).toLocaleString('es-CO') : ''}
+            </span>
+            <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+              <RefreshCw className="w-3.5 h-3.5" /> Actualizar
+            </button>
+          </div>
+        </div>
+
+        {/* Actividad usuarios 7 días */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-700">Actividad de usuarios — últimos 7 días</h3>
+            <span className="text-[11px] text-slate-400">{data.actividad_usuarios_7d?.length ?? 0} usuarios activos</span>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="text-left px-3 py-2 font-semibold">Tabla</th>
-                  <th className="text-left px-3 py-2 font-semibold">ID reg.</th>
-                  <th className="text-left px-3 py-2 font-semibold">Quién eliminó</th>
-                  <th className="text-left px-3 py-2 font-semibold">IP</th>
-                  <th className="text-left px-3 py-2 font-semibold">Fecha</th>
+                  <th className="text-left px-3 py-2 font-semibold">Usuario</th>
+                  <th className="text-left px-3 py-2 font-semibold">Rol</th>
+                  <th className="text-right px-3 py-2 font-semibold">Total</th>
+                  <th className="text-left px-3 py-2 font-semibold">Acciones</th>
+                  <th className="text-left px-3 py-2 font-semibold">Tablas</th>
+                  <th className="text-left px-3 py-2 font-semibold">IP(s)</th>
+                  <th className="text-left px-3 py-2 font-semibold">Última actividad</th>
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody>
-                {data.deletes_recientes_48h?.map((d: any, i: number) => (
-                  <React.Fragment key={i}>
-                    <tr
-                      className="border-t border-slate-50 hover:bg-red-50 cursor-pointer"
-                      onClick={() => setExpandedDelete(expandedDelete === d.id ? null : d.id)}
-                    >
-                      <td className="px-3 py-2 font-mono text-red-700">{d.tabla}</td>
-                      <td className="px-3 py-2 text-slate-500">{d.registro_id}</td>
-                      <td className="px-3 py-2">
-                        <span className="font-semibold text-slate-700">{d.usuario_nombre}</span>
-                        <span className="ml-1 text-[10px] text-slate-400">#{d.usuario_id}</span>
-                        {d.usuario_rol && <span className="ml-1 text-[10px] text-slate-400">· {d.usuario_rol}</span>}
-                      </td>
-                      <td className="px-3 py-2 text-slate-400 font-mono">{d.ip_address || '—'}</td>
-                      <td className="px-3 py-2 text-slate-400">{d.fecha ? new Date(d.fecha).toLocaleString('es-CO') : '—'}</td>
-                      <td className="px-3 py-2">
-                        <ChevronRight className={`w-3.5 h-3.5 text-slate-300 transition ${expandedDelete === d.id ? 'rotate-90' : ''}`} />
-                      </td>
-                    </tr>
-                    {expandedDelete === d.id && d.datos_anteriores && (
-                      <tr className="bg-red-50">
-                        <td colSpan={6} className="px-4 py-3">
-                          <p className="text-[11px] font-bold text-slate-500 mb-1">Datos eliminados</p>
-                          <pre className="text-[10px] bg-white border border-red-200 rounded-lg p-2 overflow-auto max-h-40 text-slate-600">
-                            {JSON.stringify(d.datos_anteriores, null, 2)}
-                          </pre>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Usuarios inactivos > 90 días */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-700">Usuarios activos sin actividad {'>'} 90 días</h3>
-          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${data.usuarios_inactivos_90d?.length > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
-            {data.usuarios_inactivos_90d?.length ?? 0}
-          </span>
-        </div>
-        {data.usuarios_inactivos_90d?.length === 0 ? (
-          <div className="px-4 py-6 text-center text-slate-400 text-xs">Todos los usuarios tienen actividad reciente</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead className="bg-slate-50 text-slate-500">
-                <tr>
-                  <th className="text-left px-3 py-2 font-semibold">Nombre</th>
-                  <th className="text-left px-3 py-2 font-semibold">Username</th>
-                  <th className="text-left px-3 py-2 font-semibold">Rol</th>
-                  <th className="text-left px-3 py-2 font-semibold">Creado en</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.usuarios_inactivos_90d?.map((u: any, i: number) => (
-                  <tr key={u.id ?? i} className="border-t border-slate-50 hover:bg-amber-50">
-                    <td className="px-3 py-2 font-semibold text-slate-700">{u.nombre_completo}</td>
-                    <td className="px-3 py-2 text-slate-500">{u.username}</td>
-                    <td className="px-3 py-2 text-slate-400">{u.rol}</td>
-                    <td className="px-3 py-2 text-slate-400">{u.creado_en ? new Date(u.creado_en).toLocaleDateString('es-CO') : '—'}</td>
+                {data.actividad_usuarios_7d?.length === 0 && (
+                  <tr><td colSpan={8} className="text-center py-6 text-slate-400">Sin actividad en los últimos 7 días</td></tr>
+                )}
+                {data.actividad_usuarios_7d?.map((u: any, i: number) => (
+                  <tr key={i} className="border-t border-slate-50 hover:bg-slate-50">
+                    <td className="px-3 py-2 font-semibold text-slate-700">
+                      {u.usuario_nombre}
+                      <span className="ml-1 text-[10px] text-slate-400 font-normal">#{u.usuario_id}</span>
+                    </td>
+                    <td className="px-3 py-2 text-slate-500">{u.rol}</td>
+                    <td className="px-3 py-2 text-right font-bold text-indigo-700">{u.cant_operaciones}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">{u.inserts} ins</span>
+                        <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">{u.updates} upd</span>
+                        {Number(u.deletes) > 0
+                          ? <span className="text-[10px] font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded">{u.deletes} del</span>
+                          : <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded">0 del</span>
+                        }
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap gap-1">
+                        {Array.isArray(u.tablas_tocadas) && u.tablas_tocadas.filter(Boolean).slice(0, 4).map((t: string) => (
+                          <span key={t} className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">{t}</span>
+                        ))}
+                        {Array.isArray(u.tablas_tocadas) && u.tablas_tocadas.filter(Boolean).length > 4 && (
+                          <span className="text-[10px] text-slate-400">+{u.tablas_tocadas.filter(Boolean).length - 4}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-slate-400 text-[11px]">{Array.isArray(u.ips) ? u.ips.filter(Boolean).join(', ') : '—'}</td>
+                    <td className="px-3 py-2 text-slate-400">{u.ultima_actividad ? new Date(u.ultima_actividad).toLocaleString('es-CO') : '—'}</td>
+                    <td className="px-3 py-2">
+                      <button onClick={() => abrirDrawer(u)}
+                        className="flex items-center gap-0.5 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 whitespace-nowrap">
+                        Ver detalle <ChevronRight className="w-3 h-3" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )}
+        </div>
+
+        {/* IPs únicas 7 días */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100">
+            <h3 className="text-xs font-bold text-slate-700">IPs únicas — últimos 7 días</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="text-left px-3 py-2 font-semibold">IP</th>
+                  <th className="text-right px-3 py-2 font-semibold">Requests</th>
+                  <th className="text-right px-3 py-2 font-semibold">Usuarios</th>
+                  <th className="text-left px-3 py-2 font-semibold">Quiénes operaron</th>
+                  <th className="text-left px-3 py-2 font-semibold">Última actividad</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.ips_unicas_7d?.length === 0 && (
+                  <tr><td colSpan={5} className="text-center py-6 text-slate-400">Sin IPs registradas</td></tr>
+                )}
+                {data.ips_unicas_7d?.map((ip: any, i: number) => (
+                  <tr key={i} className="border-t border-slate-50 hover:bg-slate-50">
+                    <td className="px-3 py-2 font-mono text-slate-700">{ip.ip_address || '—'}</td>
+                    <td className="px-3 py-2 text-right font-bold text-indigo-700">{ip.cant_requests}</td>
+                    <td className="px-3 py-2 text-right text-slate-500">{ip.cant_usuarios}</td>
+                    <td className="px-3 py-2 text-slate-600 text-[11px]">{Array.isArray(ip.usuarios) ? ip.usuarios.filter(Boolean).join(', ') : '—'}</td>
+                    <td className="px-3 py-2 text-slate-400">{ip.ultima_actividad ? new Date(ip.ultima_actividad).toLocaleString('es-CO') : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* DELETEs últimos 7 días */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-700">DELETEs — últimos 7 días</h3>
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${data.deletes_recientes_7d?.length > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}>
+              {data.deletes_recientes_7d?.length ?? 0}
+            </span>
+          </div>
+          {data.deletes_recientes_7d?.length === 0 ? (
+            <div className="px-4 py-6 text-center text-slate-400 text-xs">Sin DELETEs en los últimos 7 días</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50 text-slate-500">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-semibold">Tabla</th>
+                    <th className="text-left px-3 py-2 font-semibold">ID reg.</th>
+                    <th className="text-left px-3 py-2 font-semibold">Quién eliminó</th>
+                    <th className="text-left px-3 py-2 font-semibold">IP</th>
+                    <th className="text-left px-3 py-2 font-semibold">Fecha</th>
+                    <th className="px-3 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.deletes_recientes_7d?.map((d: any, i: number) => (
+                    <React.Fragment key={i}>
+                      <tr className="border-t border-slate-50 hover:bg-red-50 cursor-pointer"
+                        onClick={() => setExpandedDelete(expandedDelete === d.id ? null : d.id)}>
+                        <td className="px-3 py-2 font-mono text-red-700">{d.tabla}</td>
+                        <td className="px-3 py-2 text-slate-500">{d.registro_id}</td>
+                        <td className="px-3 py-2">
+                          <span className="font-semibold text-slate-700">{d.usuario_nombre}</span>
+                          <span className="ml-1 text-[10px] text-slate-400">#{d.usuario_id}</span>
+                          {d.usuario_rol && <span className="ml-1 text-[10px] text-slate-400">· {d.usuario_rol}</span>}
+                        </td>
+                        <td className="px-3 py-2 text-slate-400 font-mono">{d.ip_address || '—'}</td>
+                        <td className="px-3 py-2 text-slate-400">{d.fecha ? new Date(d.fecha).toLocaleString('es-CO') : '—'}</td>
+                        <td className="px-3 py-2">
+                          <ChevronRight className={`w-3.5 h-3.5 text-slate-300 transition ${expandedDelete === d.id ? 'rotate-90' : ''}`} />
+                        </td>
+                      </tr>
+                      {expandedDelete === d.id && d.datos_anteriores && (
+                        <tr className="bg-red-50">
+                          <td colSpan={6} className="px-4 py-3">
+                            <p className="text-[11px] font-bold text-slate-500 mb-1">Datos eliminados</p>
+                            <pre className="text-[10px] bg-white border border-red-200 rounded-lg p-2 overflow-auto max-h-40 text-slate-600">
+                              {JSON.stringify(d.datos_anteriores, null, 2)}
+                            </pre>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Usuarios inactivos > 90 días */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-700">Usuarios activos sin actividad {'>'} 90 días</h3>
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${data.usuarios_inactivos_90d?.length > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
+              {data.usuarios_inactivos_90d?.length ?? 0}
+            </span>
+          </div>
+          {data.usuarios_inactivos_90d?.length === 0 ? (
+            <div className="px-4 py-6 text-center text-slate-400 text-xs">Todos los usuarios tienen actividad reciente</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50 text-slate-500">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-semibold">Nombre</th>
+                    <th className="text-left px-3 py-2 font-semibold">Username</th>
+                    <th className="text-left px-3 py-2 font-semibold">Rol</th>
+                    <th className="text-left px-3 py-2 font-semibold">Creado en</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.usuarios_inactivos_90d?.map((u: any, i: number) => (
+                    <tr key={u.id ?? i} className="border-t border-slate-50 hover:bg-amber-50">
+                      <td className="px-3 py-2 font-semibold text-slate-700">{u.nombre_completo}</td>
+                      <td className="px-3 py-2 text-slate-500">{u.username}</td>
+                      <td className="px-3 py-2 text-slate-400">{u.rol}</td>
+                      <td className="px-3 py-2 text-slate-400">{u.creado_en ? new Date(u.creado_en).toLocaleDateString('es-CO') : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
