@@ -12,7 +12,7 @@ const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Bronce Oscuro', 'Gris', 'Gris Osc
 const itemSchema = z.object({
     tipo_vidrio: z.string().optional(),
     color: z.string().optional(),
-    espesor: z.coerce.number().positive(),
+    espesor: z.string().min(1),
     ancho_mm: z.coerce.number().positive(),
     alto_mm: z.coerce.number().positive(),
     cantidad: z.coerce.number().int().positive(),
@@ -57,7 +57,7 @@ const odpSchema = z.object({
 type ItemFormValues = {
     tipo_vidrio?: string;
     color?: string;
-    espesor: number;
+    espesor: string;
     ancho_mm: number;
     alto_mm: number;
     cantidad: number;
@@ -749,7 +749,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                     </h3>
                                     <button
                                         type="button"
-                                        onClick={() => appendItem({ tipo_vidrio: '', color: 'Incoloro', espesor: 6, ancho_mm: 0, alto_mm: 0, cantidad: 1, pulidos: '', pulidos_h: '', perforaciones: 0, boquetes: 0, descuentos: '', otros: '', prod: '' })}
+                                        onClick={() => appendItem({ tipo_vidrio: '', color: 'Incoloro', espesor: '6', ancho_mm: 0, alto_mm: 0, cantidad: 1, pulidos: '', pulidos_h: '', perforaciones: 0, boquetes: 0, descuentos: '', otros: '', prod: '' })}
                                         className="px-3 py-1.5 bg-slate-900 text-white text-sm rounded-md hover:bg-slate-800 transition flex items-center gap-1"
                                     >
                                         <Plus className="w-4 h-4" /> Agregar Cristal
@@ -785,7 +785,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                 <div className="w-1/2 lg:w-1/12">
                                                     <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Esp. (mm)</label>
                                                     <input
-                                                        type="number"
+                                                        type="text"
                                                         {...register(`items.${index}.espesor`)}
                                                         className="w-full p-2 text-sm border border-slate-200 rounded focus:ring-2 focus:ring-blue-500"
                                                     />

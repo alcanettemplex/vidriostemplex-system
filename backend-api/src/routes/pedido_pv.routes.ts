@@ -16,6 +16,7 @@ import {
   getSiguienteNumero,
   getPorGestionar,
   asignarItems,
+  generarExcelPedidoPV,
 } from '../controllers/pedido_pv.controller';
 
 const router = Router();
@@ -44,5 +45,8 @@ router.patch('/:id/registrar-reposicion', requireRole('produccion', 'compras', '
 
 // Asignación de ítems — quien tiene puede_gestionar_pv (verificado en controller)
 router.patch('/:id/asignar-items', asignarItems);
+
+// Generación de Excel desde plantilla vitelsa.xlsx
+router.get('/:id/excel', generarExcelPedidoPV);
 
 export default router;

@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
 import { z } from 'zod';
+import path from 'path';
+import ExcelJS from 'exceljs';
 import { PedidoPV, ODP, ODPItem, Usuario, HistorialEstadoODP, sequelize } from '../models';
 import Cliente from '../models/cliente.model';
 import { emitirNotificacion } from '../server';
@@ -486,6 +488,77 @@ export const getPorGestionar = async (_req: Request, res: Response) => {
   } catch (error) {
     console.error('Error getPorGestionar:', error);
     res.status(500).json({ error: 'Error al obtener pedidos por gestionar' });
+  }
+};
+
+// POST /api/pedidos-pv/:id/excel — genera Excel desde plantilla vitelsa.xlsx (ExcelJS)
+export const generarExcelPedidoPV = async (req: Request, res: Response) => {
+  try {
+    const pedido = await PedidoPV.findByPk(req.params.id, { include: INCLUDE_COMPLETO });
+    if (!pedido) return res.status(404).json({ error: 'Pedido PV no encontrado' });
+
+    const odp = pedido.getDataValue('odp') as any;
+    const items: any[] = pedido.getDataValue('items_asignados') || [];
+    const numeroPedido = pedido.getDataValue('numero_pedido') || '';
+    const creadoEn: Date | null = pedido.getDataValue('creado_en') || null;
+
+    const clienteNombre = odp?.cliente?.nombre_razon_social || '';
+    const numeroOdp = odp?.numero_odp || '';
+    const asesorNombre = odp?.asesor?.nombre_completo || '';
+    const obra = [clienteNombre, numeroOdp, asesorNombre].filter(Boolean).join(' — ');
+
+    const fmtDate = (d: Date | string | null): string => {
+      if (!d) return '';
+      const dt = typeof d === 'string' ? new Date(d) : d;
+      const dd = String(dt.getUTCDate()).padStart(2, '0');
+      const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+      const yyyy = dt.getUTCFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    };
+
+    const templatePath = path.join(__dirname, '../../templates/vitelsa.xlsx');
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.readFile(templatePath);
+
+    const ws = wb.getWorksheet('VR03 Orden de Pedido');
+    if (!ws) return res.status(500).json({ error: 'Hoja "VR03 Orden de Pedido" no encontrada en plantilla' });
+
+    const sc = (addr: string, value: ExcelJS.CellValue) => {
+      ws.getCell(addr).value = value;
+    };
+
+    sc('R2', numeroPedido);
+    sc('D10', fmtDate(creadoEn));
+    sc('N10', numeroPedido);
+    sc('L24', obra);
+
+    const v = (val: unknown): string => (val !== null && val !== undefined ? String(val) : '');
+
+    for (let i = 0; i < 12; i++) {
+      const item = items[i] || null;
+      const row = 28 + i;
+      sc(`C${row}`, item ? v(item.color) : '');
+      sc(`D${row}`, item ? v(item.espesor) : '');
+      sc(`E${row}`, item && item.cantidad !== null ? Number(item.cantidad) : '');
+      sc(`F${row}`, item && item.ancho_mm !== null ? Number(item.ancho_mm) : '');
+      sc(`G${row}`, item && item.alto_mm  !== null ? Number(item.alto_mm)  : '');
+      sc(`H${row}`, item ? v(item.dt) : '');
+      sc(`I${row}`, item ? v(item.perforaciones) : '');
+      sc(`J${row}`, item ? v(item.boquetes) : '');
+      sc(`K${row}`, item ? v(item.descuentos) : '');
+      sc(`L${row}`, item ? v(item.pulidos) : '');
+      sc(`M${row}`, item ? v(item.pulidos_h) : '');
+      sc(`R${row}`, item ? v(item.observaciones_pv || item.otros || item.accesorios) : '');
+    }
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const filename = `VITELSA-${numeroPedido}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    console.error('Error generarExcelPedidoPV:', error);
+    res.status(500).json({ error: 'Error al generar Excel del pedido PV' });
   }
 };
 

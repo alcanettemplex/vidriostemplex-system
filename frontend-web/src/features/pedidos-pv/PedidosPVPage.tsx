@@ -15,13 +15,12 @@ import {
   HourglassEmpty, Cancel, TableChart, Tune, Print,
 } from '@mui/icons-material';
 import PrintablePedidoVitelsa from './components/PrintablePedidoVitelsa';
-import * as XLSX from 'xlsx';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-// â”€â”€â”€ Tipos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface PedidoPV {
   id: number;
@@ -58,14 +57,14 @@ interface PedidoPV {
   verificador?: { id: number; nombre_completo: string } | null;
 }
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const fmtFecha = (fecha: string | null) => {
-  if (!fecha) return 'â€”';
+  if (!fecha) return '—';
   try { return format(parseISO(fecha), 'dd/MM/yyyy', { locale: es }); } catch { return fecha; }
 };
 
-const fmtHora = (hora: string | null) => hora ? hora.substring(0, 5) : 'â€”';
+const fmtHora = (hora: string | null) => hora ? hora.substring(0, 5) : '—';
 
 const toFloat = (v: unknown) => parseFloat(String(v ?? 0)) || 0;
 
@@ -89,7 +88,7 @@ const getBarColor = (p: PedidoPV): string => {
   return ESTADO_CONFIG[p.estado]?.barColor ?? '#9e9e9e';
 };
 
-// â”€â”€â”€ Paleta de colores de fila â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Paleta de colores de fila ────────────────────────────────────────────────
 
 const COLOR_PALETTE = [
   { value: '#ef5350', label: 'Rojo' },
@@ -102,7 +101,7 @@ const COLOR_PALETTE = [
   { value: '#90a4ae', label: 'Gris' },
 ];
 
-// â”€â”€â”€ Calcular dÃ­as de trÃ¡nsito (llegada - envÃ­o) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Calcular días de tránsito (llegada - envío) ──────────────────────────────
 
 const calcDiasTransito = (p: PedidoPV): number | null => {
   if (!p.fecha_llegada_real || !p.fecha_envio) return null;
@@ -113,7 +112,7 @@ const calcDiasTransito = (p: PedidoPV): number | null => {
   } catch { return null; }
 };
 
-// â”€â”€â”€ Calcular espesor resumido â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Calcular espesor resumido ────────────────────────────────────────────────
 
 const calcEspesorResumen = (p: PedidoPV): string => {
   const items = p.items_asignados || [];
@@ -126,12 +125,12 @@ const calcEspesorResumen = (p: PedidoPV): string => {
       }
     }
     const partes = Object.entries(conteo).map(([esp, cnt]) => `${esp}(${cnt})`);
-    return partes.join(', ') || 'â€”';
+    return partes.join(', ') || '—';
   }
-  return p.espesor_vidrio || 'â€”';
+  return p.espesor_vidrio || '—';
 };
 
-// â”€â”€â”€ KPI Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── KPI Card ─────────────────────────────────────────────────────────────────
 
 const KPICard: React.FC<{
   label: string; value: string | number; sub: string;
@@ -158,7 +157,7 @@ const KPICard: React.FC<{
   </Card>
 );
 
-// â”€â”€â”€ MenÃº de acciones (...) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Menú de acciones (...) ───────────────────────────────────────────────────
 
 const AccionesMenu: React.FC<{
   pedido: PedidoPV;
@@ -194,9 +193,9 @@ const AccionesMenu: React.FC<{
   }
   if (pedido.estado === 'PROBLEMA' && puedeGestionar) {
     if (!pedido.estado_reposicion)
-      items.push({ label: 'Gestionar reposiciÃ³n', action: onGestionarReposicion, color: '#e65100' });
+      items.push({ label: 'Gestionar reposición', action: onGestionarReposicion, color: '#e65100' });
     if (pedido.estado_reposicion === 'EN_GESTION')
-      items.push({ label: 'Vidrio repuesto / llegÃ³', action: onRegistrarReposicion, color: '#2e7d32' });
+      items.push({ label: 'Vidrio repuesto / llegó', action: onRegistrarReposicion, color: '#2e7d32' });
   }
   items.push({ label: 'Ver detalle', action: onDetalle });
   if (pedido.odp_id) {
@@ -224,7 +223,7 @@ const AccionesMenu: React.FC<{
   );
 };
 
-// â”€â”€â”€ Componente principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Componente principal ─────────────────────────────────────────────────────
 
 const PedidosPVPage: React.FC = () => {
   const token = useSelector((s: any) => s.auth.token);
@@ -239,7 +238,7 @@ const PedidosPVPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filtros GestiÃ³n PV
+  // Filtros Gestión PV
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroProveedor, setFiltroProveedor] = useState('');
@@ -247,7 +246,7 @@ const PedidosPVPage: React.FC = () => {
   const [soloRetrasos, setSoloRetrasos] = useState(false);
   const [filtrosAplicados, setFiltrosAplicados] = useState({ estado: '', proveedor: '', asesor: '' });
 
-  // PaginaciÃ³n GestiÃ³n PV
+  // Paginación Gestión PV
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -276,17 +275,17 @@ const PedidosPVPage: React.FC = () => {
   const [modalDetalle, setModalDetalle] = useState<PedidoPV | null>(null);
   const [fichaOdpId, setFichaOdpId] = useState<number | null>(null);
 
-  // â”€â”€â”€ ImpresiÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Impresión ────────────────────────────────────────────────────────────
   const [printData, setPrintData] = useState<{ pedido: PedidoPV; odp: any } | null>(null);
   const [printLoadingId, setPrintLoadingId] = useState<number | null>(null);
   const [excelLoadingId, setExcelLoadingId] = useState<number | null>(null);
   const shouldPrintRef = useRef(false);
 
-  // â”€â”€â”€ EdiciÃ³n inline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Edición inline ──────────────────────────────────────────────────────
   const [editingObs, setEditingObs] = useState<{ id: number; value: string } | null>(null);
   const [savingField, setSavingField] = useState<{ id: number; field: string } | null>(null);
 
-  // â”€â”€â”€ Por Gestionar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Por Gestionar ────────────────────────────────────────────────────────
   const [pedidosPorGestionar, setPedidosPorGestionar] = useState<any[]>([]);
   const [modalGestionar, setModalGestionar] = useState<any | null>(null);
   const [itemsSeleccionados, setItemsSeleccionados] = useState<number[]>([]);
@@ -297,7 +296,7 @@ const PedidosPVPage: React.FC = () => {
   const puedeGestionar = ['produccion', 'auxiliar_produccion', 'compras', 'admin', 'jefe_produccion'].includes(user?.rol);
   const puedeEnviar = ['asesor_comercial', 'admin', 'gerencia'].includes(user?.rol);
 
-  // â”€â”€â”€ Carga de datos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Carga de datos ───────────────────────────────────────────────────────
 
   const cargarDatos = useCallback(async () => {
     setLoading(true);
@@ -327,12 +326,12 @@ const PedidosPVPage: React.FC = () => {
   useEffect(() => { cargarDatos(); cargarPorGestionar(); }, [cargarDatos, cargarPorGestionar]);
   useDataChangedSocket('pedidos_pv', cargarDatos);
 
-  // â”€â”€â”€ Proveedores y asesores Ãºnicos (para filtros) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Proveedores y asesores únicos (para filtros) ─────────────────────────
 
   const proveedoresUnicos = Array.from(new Set(pedidosSistema.map(p => p.proveedor).filter(Boolean)));
   const asesoresUnicos = Array.from(new Set(pedidosSistema.map(p => p.asesor_iniciales || p.creador?.nombre_completo || '').filter(Boolean)));
 
-  // â”€â”€â”€ Filtrado GestiÃ³n PV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Filtrado Gestión PV ──────────────────────────────────────────────────
 
   const pedidosFiltrados = pedidosSistema.filter(p => {
     const q = busqueda.toLowerCase();
@@ -352,7 +351,7 @@ const PedidosPVPage: React.FC = () => {
 
   const pedidosPaginados = pedidosFiltrados.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  // â”€â”€â”€ Filtrado Vista Excel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Filtrado Vista Excel ─────────────────────────────────────────────────
 
   const pedidosExcelFiltrados = pedidosExcel.filter(p => {
     if (!busquedaExcel) return true;
@@ -369,7 +368,7 @@ const PedidosPVPage: React.FC = () => {
 
   const pedidosExcelPaginados = pedidosExcelFiltrados.slice(pageExcel * 10, pageExcel * 10 + 10);
 
-  // â”€â”€â”€ KPIs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── KPIs ─────────────────────────────────────────────────────────────────
 
   const total = pedidosSistema.length;
   const kpis = {
@@ -382,7 +381,7 @@ const PedidosPVPage: React.FC = () => {
 
   const pct = (n: number) => total > 0 ? `${Math.round(n / total * 100)}% del total` : '0%';
 
-  // â”€â”€â”€ Acciones â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Acciones ─────────────────────────────────────────────────────────────
 
   const abrirModalCrear = async () => {
     const [{ data: odpsData }, { data: numData }] = await Promise.all([
@@ -454,7 +453,7 @@ const PedidosPVPage: React.FC = () => {
       setObsVerificacion('');
       setTipoProblema('');
       cargarDatos();
-    } catch { setError('Error al procesar acciÃ³n'); }
+    } catch { setError('Error al procesar acción'); }
   };
 
   const accionReposicion = async () => {
@@ -468,7 +467,7 @@ const PedidosPVPage: React.FC = () => {
       setModalReposicion(null);
       setFechaReposicion('');
       cargarDatos();
-    } catch { setError('Error al procesar reposiciÃ³n'); }
+    } catch { setError('Error al procesar reposición'); }
   };
 
   const asignarItemsPV = async () => {
@@ -491,8 +490,8 @@ const PedidosPVPage: React.FC = () => {
       setItemsExtras({});
       await cargarDatos();
       await cargarPorGestionar();
-      setTab(0); // Redirigir a GestiÃ³n PV
-    } catch { setError('Error al asignar Ã­tems al pedido PV'); }
+      setTab(0); // Redirigir a Gestión PV
+    } catch { setError('Error al asignar ítems al pedido PV'); }
     finally { setSavingGestionar(false); }
   };
 
@@ -523,88 +522,23 @@ const PedidosPVPage: React.FC = () => {
     if (!pedido.odp_id) return;
     setExcelLoadingId(pedido.id);
     try {
-      const { data: odp } = await axios.get(`${API}/api/odp/${pedido.odp_id}`, { headers });
-      await generarExcelDesdePlantilla(pedido, odp);
+      const resp = await axios.get(`${API}/api/pedidos-pv/${pedido.id}/excel`, {
+        headers,
+        responseType: 'blob',
+      });
+      const url = URL.createObjectURL(new Blob([resp.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `VITELSA-${pedido.numero_pedido}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch {
       setError('Error al generar el Excel del pedido');
     } finally {
       setExcelLoadingId(null);
     }
-  };
-
-  // Carga la plantilla vitelsa.xlsx y rellena solo los valores dinÃ¡micos,
-  // preservando todos los estilos, merges y formato del archivo original.
-  const generarExcelDesdePlantilla = async (pedido: PedidoPV, odp: any) => {
-    const resp = await fetch('/templates/vitelsa.xlsx');
-    const buffer = await resp.arrayBuffer();
-    const wb = XLSX.read(new Uint8Array(buffer), { type: 'array', cellStyles: true });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-
-    // Escribe un valor en una celda preservando su estilo original.
-    const sc = (addr: string, value: any) => {
-      const existing = ws[addr];
-      const hasValue = value !== '' && value !== null && value !== undefined;
-      const t = typeof value === 'number' ? 'n' : 's';
-      ws[addr] = {
-        ...(existing || {}),
-        v: hasValue ? value : '',
-        w: String(value ?? ''),
-        t: hasValue ? t : 's',
-      };
-    };
-
-    const rawItems: any[] = (pedido as any).items_asignados?.length
-      ? (pedido as any).items_asignados
-      : odp?.items || odp?.odp_items || [];
-    const items12 = Array.from({ length: 12 }, (_: any, i: number) => rawItems[i] || null);
-
-    const fmtDate = (ts: string | null) => {
-      if (!ts) return '';
-      try {
-        return new Date(ts).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      } catch { return ''; }
-    };
-
-    const obra = [
-      odp?.cliente?.nombre_razon_social,
-      odp?.numero_odp,
-      odp?.asesor?.nombre_completo,
-    ].filter(Boolean).join(' â€” ');
-
-    // â”€â”€ Encabezado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    sc('R2', pedido.numero_pedido || '');  // No. pedido (esquina sup. derecha, merge R2:S7)
-    sc('D10', fmtDate(pedido.creado_en)); // Fecha del pedido
-    sc('N10', pedido.numero_pedido || ''); // No. pedido en la fila de informaciÃ³n
-    sc('L24', obra);                       // Obra: cliente â€” numero_odp â€” asesor
-
-    // â”€â”€ Ãtems (filas 28-39, mÃ¡x 12) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    const v = (x: any) => (x !== undefined && x !== null && x !== '') ? x : '';
-    for (let i = 0; i < 12; i++) {
-      const item = items12[i];
-      const r = 28 + i;
-      sc(`C${r}`, v(item?.color));
-      sc(`D${r}`, v(item?.espesor));
-      sc(`E${r}`, item?.cantidad !== undefined ? Number(item.cantidad) : '');
-      sc(`F${r}`, item?.ancho_mm !== undefined ? Number(item.ancho_mm) : '');
-      sc(`G${r}`, item?.alto_mm  !== undefined ? Number(item.alto_mm)  : '');
-      sc(`H${r}`, v(item?.dt));
-      sc(`I${r}`, v(item?.perforaciones));
-      sc(`J${r}`, v(item?.boquetes));
-      sc(`K${r}`, v(item?.descuentos));
-      sc(`L${r}`, v(item?.pulidos));
-      sc(`M${r}`, v(item?.pulidos_h));
-      sc(`R${r}`, v(item?.observaciones_pv || item?.otros || item?.accesorios));
-    }
-
-    // â”€â”€ Descarga â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array', cellStyles: true });
-    const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `VITELSA-${pedido.numero_pedido}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   useEffect(() => {
@@ -617,7 +551,7 @@ const PedidosPVPage: React.FC = () => {
       if (!win) return;
       win.document.write(`<!DOCTYPE html><html><head>
         <meta charset="utf-8"/>
-        <title>Pedido PV ${printData.pedido.numero_pedido} â€” ${printData.pedido.proveedor}</title>
+        <title>Pedido PV ${printData.pedido.numero_pedido} — ${printData.pedido.proveedor}</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
           @page { size: A4 portrait; margin: 5mm; }
@@ -637,7 +571,7 @@ const PedidosPVPage: React.FC = () => {
     }, 150);
   }, [printData]);
 
-  // â”€â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <Box sx={{ p: 3 }}>
@@ -665,7 +599,7 @@ const PedidosPVPage: React.FC = () => {
       {/* Tabs */}
       <Tabs value={tab} onChange={(_, v) => setTab(v)}
         sx={{ mb: 2.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Tab icon={<Tune fontSize="small" />} iconPosition="start" label="GestiÃ³n PV" />
+        <Tab icon={<Tune fontSize="small" />} iconPosition="start" label="Gestión PV" />
         <Tab icon={<TableChart fontSize="small" />} iconPosition="start" label="Vista Excel" />
         {puedeCrear && (
           <Tab
@@ -681,7 +615,7 @@ const PedidosPVPage: React.FC = () => {
         <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>
       ) : (
         <>
-          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• TAB 0 â€” GESTIÃ“N PV â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+          {/* ═══════════════════════════ TAB 0 — GESTIÓN PV ═══════════════════════════ */}
           {tab === 0 && (
             <Box>
 
@@ -691,17 +625,17 @@ const PedidosPVPage: React.FC = () => {
                   icon={<TableChart />} color="#1565c0" bgColor="#e3f2fd" />
                 <KPICard label="Verificados" value={kpis.verificados} sub={pct(kpis.verificados)}
                   icon={<CheckCircleOutline />} color="#2e7d32" bgColor="#e8f5e9" />
-                <KPICard label="En TrÃ¡nsito" value={kpis.enTransito} sub={pct(kpis.enTransito)}
+                <KPICard label="En Tránsito" value={kpis.enTransito} sub={pct(kpis.enTransito)}
                   icon={<LocalShipping />} color="#e65100" bgColor="#fff3e0" />
                 <KPICard label="Con Retraso" value={kpis.conRetraso} sub={pct(kpis.conRetraso)}
                   icon={<Cancel />} color="#c62828" bgColor="#ffebee" />
-                <KPICard label="mÂ² Vendidos" value={kpis.metraje} sub="Total acumulado"
-                  icon={<Typography fontWeight={800} fontSize={14}>mÂ²</Typography>} color="#00695c" bgColor="#e0f2f1" />
+                <KPICard label="m² Vendidos" value={kpis.metraje} sub="Total acumulado"
+                  icon={<Typography fontWeight={800} fontSize={14}>m²</Typography>} color="#00695c" bgColor="#e0f2f1" />
               </Stack>
 
               <Divider sx={{ mb: 2.5 }} />
 
-              {/* BÃºsqueda + toggle */}
+              {/* Búsqueda + toggle */}
               <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5} flexWrap="wrap" gap={1.5}>
                 <TextField size="small" placeholder="Buscar pedido, cliente o referencia..."
                   value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPage(0); }}
@@ -761,12 +695,12 @@ const PedidosPVPage: React.FC = () => {
                         <TableCell>Asesor</TableCell>
                         <TableCell>Proveedor</TableCell>
                         <TableCell>Estado</TableCell>
-                        <TableCell>EnvÃ­o</TableCell>
+                        <TableCell>Envío</TableCell>
                         <TableCell>Entrega Prometida</TableCell>
                         <TableCell>Llegada</TableCell>
-                        <TableCell align="center">DÃ­as trÃ¡nsito</TableCell>
+                        <TableCell align="center">Días tránsito</TableCell>
                         <TableCell>Espesor</TableCell>
-                        <TableCell align="right">mÂ²</TableCell>
+                        <TableCell align="right">m²</TableCell>
                         <TableCell sx={{ minWidth: 140 }}>Observaciones</TableCell>
                         <TableCell align="right">Acciones</TableCell>
                       </TableRow>
@@ -783,7 +717,7 @@ const PedidosPVPage: React.FC = () => {
                         const cfg = ESTADO_CONFIG[p.estado] ?? ESTADO_CONFIG['PENDIENTE'];
                         const retrasado = p.dias_diferencia !== null && p.dias_diferencia < 0;
                         const barColor = getBarColor(p);
-                        const clienteNombre = p.odp?.cliente?.nombre_razon_social || p.nombre_cliente_excel || 'â€”';
+                        const clienteNombre = p.odp?.cliente?.nombre_razon_social || p.nombre_cliente_excel || '—';
 
                         const diasTransito = calcDiasTransito(p);
                         const espesorResumen = calcEspesorResumen(p);
@@ -826,17 +760,17 @@ const PedidosPVPage: React.FC = () => {
                                     <Chip label={p.tipo_problema} size="small" color="error" sx={{ fontSize: 10, height: 16 }} />
                                   )}
                                   {!p.estado_reposicion && (
-                                    <Chip label="Sin gestiÃ³n" size="small" sx={{ fontSize: 10, height: 16, bgcolor: '#ffebee', color: '#c62828' }} />
+                                    <Chip label="Sin gestión" size="small" sx={{ fontSize: 10, height: 16, bgcolor: '#ffebee', color: '#c62828' }} />
                                   )}
                                   {p.estado_reposicion === 'EN_GESTION' && (
-                                    <Chip label="En gestiÃ³n" size="small" sx={{ fontSize: 10, height: 16, bgcolor: '#fff3e0', color: '#e65100' }} />
+                                    <Chip label="En gestión" size="small" sx={{ fontSize: 10, height: 16, bgcolor: '#fff3e0', color: '#e65100' }} />
                                   )}
                                   {p.estado_reposicion === 'REPUESTO' && (
                                     <Chip label="Repuesto âœ“" size="small" sx={{ fontSize: 10, height: 16, bgcolor: '#e8f5e9', color: '#2e7d32' }} />
                                   )}
                                   {p.fecha_reposicion_prometida && p.estado_reposicion === 'EN_GESTION' && (
                                     <Typography variant="caption" color="text.secondary" fontSize={10}>
-                                      ReposiciÃ³n: {fmtFecha(p.fecha_reposicion_prometida)}
+                                      Reposición: {fmtFecha(p.fecha_reposicion_prometida)}
                                     </Typography>
                                   )}
                                 </Stack>
@@ -845,11 +779,11 @@ const PedidosPVPage: React.FC = () => {
                             {/* ODP */}
                             <TableCell sx={{ fontSize: 13, fontWeight: 600, color: 'primary.main', cursor: p.odp_id ? 'pointer' : 'default', textDecoration: p.odp_id ? 'underline' : 'none' }}
                               onClick={() => p.odp_id && setFichaOdpId(p.odp_id)}>
-                              {p.odp?.numero_odp || 'â€”'}
+                              {p.odp?.numero_odp || '—'}
                             </TableCell>
                             {/* Fecha ODP */}
                             <TableCell sx={{ fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                              {p.odp?.fecha_creacion ? fmtFecha(p.odp.fecha_creacion) : 'â€”'}
+                              {p.odp?.fecha_creacion ? fmtFecha(p.odp.fecha_creacion) : '—'}
                             </TableCell>
                             {/* Cliente */}
                             <TableCell sx={{ maxWidth: 180 }}>
@@ -859,7 +793,7 @@ const PedidosPVPage: React.FC = () => {
                             </TableCell>
                             {/* Asesor */}
                             <TableCell sx={{ fontSize: 12, color: 'text.secondary' }}>
-                              {p.odp?.asesor?.nombre_completo || 'â€”'}
+                              {p.odp?.asesor?.nombre_completo || '—'}
                             </TableCell>
                             {/* Proveedor */}
                             <TableCell sx={{ fontSize: 13 }}>{p.proveedor}</TableCell>
@@ -873,25 +807,25 @@ const PedidosPVPage: React.FC = () => {
                                 sx={{ fontWeight: 600, fontSize: 11 }}
                               />
                             </TableCell>
-                            {/* EnvÃ­o */}
+                            {/* Envío */}
                             <TableCell sx={{ fontSize: 12 }}>{fmtFecha(p.fecha_envio)}</TableCell>
                             {/* Entrega prometida */}
                             <TableCell sx={{ fontSize: 12 }}>{fmtFecha(p.fecha_entrega_prometida)}</TableCell>
                             {/* Llegada */}
                             <TableCell sx={{ fontSize: 12 }}>{fmtFecha(p.fecha_llegada_real)}</TableCell>
-                            {/* DÃ­as trÃ¡nsito (llegada - envÃ­o) */}
+                            {/* Días tránsito (llegada - envío) */}
                             <TableCell align="center">
                               {diasTransito !== null ? (
                                 <Typography fontWeight={700} fontSize={13} color="text.primary">
                                   {diasTransito}
                                 </Typography>
-                              ) : 'â€”'}
+                              ) : '—'}
                             </TableCell>
                             {/* Espesor */}
                             <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>
                               <Typography fontSize={12} fontWeight={600}>{espesorResumen}</Typography>
                             </TableCell>
-                            {/* mÂ² */}
+                            {/* m² */}
                             <TableCell align="right" sx={{ fontSize: 12 }}>
                               {(() => {
                                 const items = p.items_asignados || [];
@@ -904,7 +838,7 @@ const PedidosPVPage: React.FC = () => {
                                   }, 0);
                                   return <Typography fontWeight={600} fontSize={12} color="primary.main">{total.toFixed(3)}</Typography>;
                                 }
-                                return p.metraje_venta ? toFloat(p.metraje_venta).toFixed(2) : 'â€”';
+                                return p.metraje_venta ? toFloat(p.metraje_venta).toFixed(2) : '—';
                               })()}
                             </TableCell>
                             {/* Observaciones (inline editable) */}
@@ -972,22 +906,22 @@ const PedidosPVPage: React.FC = () => {
                     rowsPerPage={rowsPerPage}
                     onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value)); setPage(0); }}
                     rowsPerPageOptions={[10, 25, 50]}
-                    labelRowsPerPage="por pÃ¡gina"
-                    labelDisplayedRows={({ from, to, count }) => `${from}â€“${to} de ${count} pedidos`}
+                    labelRowsPerPage="por página"
+                    labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count} pedidos`}
                   />
                 </Box>
               </Paper>
             </Box>
           )}
 
-          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• TAB 2 â€” POR GESTIONAR â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+          {/* ═══════════════════════════ TAB 2 — POR GESTIONAR ═══════════════════════════ */}
           {tab === 2 && puedeCrear && (
             <Box>
               {pedidosPorGestionar.length === 0 ? (
                 <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 6, textAlign: 'center' }}>
                   <CheckCircleOutline sx={{ fontSize: 48, color: 'success.light', mb: 1 }} />
                   <Typography variant="h6" color="text.secondary">Todo gestionado</Typography>
-                  <Typography variant="body2" color="text.disabled">No hay pedidos PV pendientes de asignaciÃ³n de Ã­tems.</Typography>
+                  <Typography variant="body2" color="text.disabled">No hay pedidos PV pendientes de asignación de ítems.</Typography>
                 </Paper>
               ) : (
                 <Stack gap={2}>
@@ -1002,14 +936,14 @@ const PedidosPVPage: React.FC = () => {
                             <Stack direction="row" gap={1} alignItems="center" mb={0.5}>
                               <Typography fontWeight={700} fontSize={15} sx={{ cursor: pv.odp_id ? 'pointer' : 'default', color: 'primary.main', '&:hover': { textDecoration: pv.odp_id ? 'underline' : 'none' } }}
                                 onClick={() => pv.odp_id && setFichaOdpId(pv.odp_id)}>
-                                {odp?.numero_odp || 'â€”'}
+                                {odp?.numero_odp || '—'}
                               </Typography>
                               <Chip label={`PV ${pv.numero_pedido}`} size="small" color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
                               <Chip label={pv.proveedor} size="small" variant="outlined" />
                             </Stack>
                             <Typography variant="body2" color="text.secondary">
-                              {odp?.cliente?.nombre_razon_social || 'â€”'} &nbsp;Â·&nbsp; {items.length} Ã­tem{items.length !== 1 ? 's' : ''} en la ODP
-                              {asignados > 0 && <>&nbsp;Â·&nbsp; <strong>{asignados} ya asignado{asignados !== 1 ? 's' : ''}</strong></>}
+                              {odp?.cliente?.nombre_razon_social || '—'} &nbsp;·&nbsp; {items.length} ítem{items.length !== 1 ? 's' : ''} en la ODP
+                              {asignados > 0 && <>&nbsp;·&nbsp; <strong>{asignados} ya asignado{asignados !== 1 ? 's' : ''}</strong></>}
                             </Typography>
                           </Box>
                           <Button
@@ -1023,7 +957,7 @@ const PedidosPVPage: React.FC = () => {
                             }}
                             sx={{ borderRadius: 2, whiteSpace: 'nowrap' }}
                           >
-                            Asignar Ã­tems
+                            Asignar ítems
                           </Button>
                         </Stack>
                       </Paper>
@@ -1034,7 +968,7 @@ const PedidosPVPage: React.FC = () => {
             </Box>
           )}
 
-          {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• TAB 1 â€” VISTA EXCEL â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+          {/* ═══════════════════════════ TAB 1 — VISTA EXCEL ═══════════════════════════ */}
           {tab === 1 && (
             <Box>
               <Stack direction="row" gap={2} mb={2} alignItems="center">
@@ -1045,7 +979,7 @@ const PedidosPVPage: React.FC = () => {
                   sx={{ minWidth: 380 }}
                   InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18, color: 'text.secondary' }} /></InputAdornment> }} />
                 <Typography variant="caption" color="text.secondary">
-                  {pedidosExcelFiltrados.length} de {pedidosExcel.length} registros â€” datos histÃ³ricos del Excel
+                  {pedidosExcelFiltrados.length} de {pedidosExcel.length} registros — datos históricos del Excel
                 </Typography>
               </Stack>
 
@@ -1119,7 +1053,7 @@ const PedidosPVPage: React.FC = () => {
                     onPageChange={(_, p) => setPageExcel(p)}
                     rowsPerPage={10}
                     rowsPerPageOptions={[10]}
-                    labelDisplayedRows={({ from, to, count }) => `${from}â€“${to} de ${count} registros`}
+                    labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count} registros`}
                   />
                 </Box>
               </Paper>
@@ -1128,9 +1062,9 @@ const PedidosPVPage: React.FC = () => {
         </>
       )}
 
-      {/* â”€â”€â”€ Modal: Crear â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ─── Modal: Crear ──────────────────────────────────────────────────────── */}
       <Dialog open={modalCrear} onClose={() => setModalCrear(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Nuevo Pedido PV â€” #{siguienteNumero}{formCrear.sufijo ? '-' + formCrear.sufijo.toUpperCase() : ''}</DialogTitle>
+        <DialogTitle>Nuevo Pedido PV — #{siguienteNumero}{formCrear.sufijo ? '-' + formCrear.sufijo.toUpperCase() : ''}</DialogTitle>
         <DialogContent>
           <Stack gap={2} mt={1}>
             <FormControl fullWidth size="small">
@@ -1139,7 +1073,7 @@ const PedidosPVPage: React.FC = () => {
                 onChange={(e) => setFormCrear(f => ({ ...f, odp_id: String(e.target.value) }))}>
                 {odps.map((o: any) => (
                   <MenuItem key={o.id} value={o.id}>
-                    {o.numero_odp} â€” {o.cliente?.nombre_razon_social ?? ''}
+                    {o.numero_odp} — {o.cliente?.nombre_razon_social ?? ''}
                   </MenuItem>
                 ))}
               </Select>
@@ -1149,14 +1083,14 @@ const PedidosPVPage: React.FC = () => {
               placeholder="VITELSA S.A, VIDPLEX S.A, TEMPLACOL..." />
             <TextField label="Sufijo (A, B, C...)" size="small" fullWidth value={formCrear.sufijo}
               onChange={(e) => setFormCrear(f => ({ ...f, sufijo: e.target.value.toUpperCase() }))}
-              helperText="Dejar vacÃ­o si es Ãºnico. Usar A, B, C cuando hay varios del mismo nÃºmero base." />
+              helperText="Dejar vacío si es único. Usar A, B, C cuando hay varios del mismo número base." />
             <TextField label="Espesor / Tipo de vidrio" size="small" fullWidth value={formCrear.espesor_vidrio}
               onChange={(e) => setFormCrear(f => ({ ...f, espesor_vidrio: e.target.value }))}
               placeholder="6MM, 8MM, 10MM, 6+6, GRIS HUMO..." />
             <TextField label="Fecha entrega prometida" type="date" size="small" fullWidth
               InputLabelProps={{ shrink: true }} value={formCrear.fecha_entrega_prometida}
               onChange={(e) => setFormCrear(f => ({ ...f, fecha_entrega_prometida: e.target.value }))} />
-            <TextField label="Metraje venta (mÂ²)" type="number" size="small" fullWidth
+            <TextField label="Metraje venta (m²)" type="number" size="small" fullWidth
               value={formCrear.metraje_venta}
               onChange={(e) => setFormCrear(f => ({ ...f, metraje_venta: e.target.value }))} />
             <TextField label="Observaciones" size="small" fullWidth multiline rows={2}
@@ -1172,44 +1106,44 @@ const PedidosPVPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* â”€â”€â”€ Modal: Enviar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ─── Modal: Enviar ─────────────────────────────────────────────────────── */}
       <Dialog open={!!modalEnviar} onClose={() => setModalEnviar(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Marcar enviado â€” PV {modalEnviar?.numero_pedido}</DialogTitle>
+        <DialogTitle>Marcar enviado — PV {modalEnviar?.numero_pedido}</DialogTitle>
         <DialogContent>
           <Stack gap={2} mt={1}>
             <TextField label="Fecha entrega prometida" type="date" size="small" fullWidth
               InputLabelProps={{ shrink: true }} value={formEnviar.fecha_entrega_prometida}
               onChange={(e) => setFormEnviar(f => ({ ...f, fecha_entrega_prometida: e.target.value }))} />
             <FormControl size="small" fullWidth>
-              <InputLabel>Â¿Proveedor confirmÃ³?</InputLabel>
-              <Select value={formEnviar.confirmado_proveedor ? 'si' : 'no'} label="Â¿Proveedor confirmÃ³?"
+              <InputLabel>¿Proveedor confirmó?</InputLabel>
+              <Select value={formEnviar.confirmado_proveedor ? 'si' : 'no'} label="¿Proveedor confirmó?"
                 onChange={(e) => setFormEnviar(f => ({ ...f, confirmado_proveedor: e.target.value === 'si' }))}>
-                <MenuItem value="no">No todavÃ­a</MenuItem>
-                <MenuItem value="si">SÃ­, confirmÃ³</MenuItem>
+                <MenuItem value="no">No todavía</MenuItem>
+                <MenuItem value="si">Sí, confirmó</MenuItem>
               </Select>
             </FormControl>
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setModalEnviar(null)}>Cancelar</Button>
-          <Button variant="contained" onClick={enviarPedido}>Confirmar envÃ­o</Button>
+          <Button variant="contained" onClick={enviarPedido}>Confirmar envío</Button>
         </DialogActions>
       </Dialog>
 
-      {/* â”€â”€â”€ Modal: Llegada â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ─── Modal: Llegada ────────────────────────────────────────────────────── */}
       <Dialog open={!!modalLlegada} onClose={() => setModalLlegada(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Registrar llegada â€” PV {modalLlegada?.numero_pedido}</DialogTitle>
+        <DialogTitle>Registrar llegada — PV {modalLlegada?.numero_pedido}</DialogTitle>
         <DialogContent>
           <Stack gap={2} mt={1}>
             <Typography variant="body2" color="text.secondary">
-              ODP: <strong>{modalLlegada?.odp?.numero_odp || modalLlegada?.odp_numero_excel || 'â€”'}</strong><br />
+              ODP: <strong>{modalLlegada?.odp?.numero_odp || modalLlegada?.odp_numero_excel || '—'}</strong><br />
               Proveedor: <strong>{modalLlegada?.proveedor}</strong><br />
               Entrega prometida: <strong>{fmtFecha(modalLlegada?.fecha_entrega_prometida ?? null)}</strong>
             </Typography>
             <TextField label="Fecha llegada real" type="date" size="small" fullWidth
               InputLabelProps={{ shrink: true }} value={fechaLlegada}
               onChange={(e) => setFechaLlegada(e.target.value)}
-              helperText="Dejar vacÃ­o para usar la fecha de hoy" />
+              helperText="Dejar vacío para usar la fecha de hoy" />
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -1218,32 +1152,32 @@ const PedidosPVPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* â”€â”€â”€ Modal: Verificar / Problema â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ─── Modal: Verificar / Problema ──────────────────────────────────────── */}
       <Dialog open={!!modalVerificar} onClose={() => setModalVerificar(null)} maxWidth="xs" fullWidth>
         <DialogTitle>
-          {modalVerificar?.tipo === 'verificar' ? 'âœ… Verificar vidrios' : 'âš ï¸ Marcar problema'}
-          {' â€” PV '}{modalVerificar?.pedido.numero_pedido}
+          {modalVerificar?.tipo === 'verificar' ? '✅ Verificar vidrios' : 'âš ï¸ Marcar problema'}
+          {' — PV '}{modalVerificar?.pedido.numero_pedido}
         </DialogTitle>
         <DialogContent>
           <Stack gap={2} mt={1}>
             {modalVerificar?.tipo === 'problema' && (
               <>
                 <Alert severity="warning">
-                  QuedarÃ¡ en estado <strong>Problema</strong> hasta que se gestione la reposiciÃ³n.
+                  Quedará en estado <strong>Problema</strong> hasta que se gestione la reposición.
                 </Alert>
                 <FormControl size="small" fullWidth>
                   <InputLabel>Tipo de problema *</InputLabel>
                   <Select value={tipoProblema} label="Tipo de problema *"
                     onChange={(e) => setTipoProblema(e.target.value)}>
                     <MenuItem value="INCOMPLETO">Incompleto (faltan piezas)</MenuItem>
-                    <MenuItem value="DAÃ‘ADO">DaÃ±ado / Rayado</MenuItem>
+                    <MenuItem value="DAÑADO">Dañado / Rayado</MenuItem>
                     <MenuItem value="OTRO">Otro</MenuItem>
                   </Select>
                 </FormControl>
               </>
             )}
             <TextField
-              label={modalVerificar?.tipo === 'verificar' ? 'ObservaciÃ³n (opcional)' : 'DescripciÃ³n del problema *'}
+              label={modalVerificar?.tipo === 'verificar' ? 'Observación (opcional)' : 'Descripción del problema *'}
               size="small" fullWidth multiline rows={3}
               value={obsVerificacion} onChange={(e) => setObsVerificacion(e.target.value)} />
           </Stack>
@@ -1259,31 +1193,31 @@ const PedidosPVPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* â”€â”€â”€ Modal: Gestionar reposiciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ─── Modal: Gestionar reposición ──────────────────────────────────────── */}
       <Dialog open={!!modalReposicion} onClose={() => setModalReposicion(null)} maxWidth="xs" fullWidth>
         <DialogTitle>
-          {modalReposicion?.tipo === 'gestionar' ? 'ðŸ”„ Gestionar reposiciÃ³n' : 'âœ… Registrar llegada del vidrio repuesto'}
-          {' â€” PV '}{modalReposicion?.pedido.numero_pedido}
+          {modalReposicion?.tipo === 'gestionar' ? '🔄 Gestionar reposición' : '✅ Registrar llegada del vidrio repuesto'}
+          {' — PV '}{modalReposicion?.pedido.numero_pedido}
         </DialogTitle>
         <DialogContent>
           <Stack gap={2} mt={1}>
             {modalReposicion?.tipo === 'gestionar' && (
               <>
                 <Alert severity="info">
-                  Marca que se estÃ¡ gestionando la reposiciÃ³n con el proveedor.
+                  Marca que se está gestionando la reposición con el proveedor.
                 </Alert>
                 <TextField
-                  label="Fecha prometida de reposiciÃ³n"
+                  label="Fecha prometida de reposición"
                   type="date" size="small" fullWidth
                   InputLabelProps={{ shrink: true }}
                   value={fechaReposicion}
                   onChange={(e) => setFechaReposicion(e.target.value)}
-                  helperText="Opcional â€” cuÃ¡ndo promete el proveedor entregar" />
+                  helperText="Opcional — cuándo promete el proveedor entregar" />
               </>
             )}
             {modalReposicion?.tipo === 'registrar' && (
               <Alert severity="success">
-                El vidrio llegÃ³. El pedido volverÃ¡ a <strong>LLEGADO</strong> para ser verificado.
+                El vidrio llegó. El pedido volverá a <strong>LLEGADO</strong> para ser verificado.
               </Alert>
             )}
           </Stack>
@@ -1293,15 +1227,15 @@ const PedidosPVPage: React.FC = () => {
           <Button variant="contained"
             color={modalReposicion?.tipo === 'gestionar' ? 'warning' : 'success'}
             onClick={accionReposicion}>
-            {modalReposicion?.tipo === 'gestionar' ? 'Confirmar gestiÃ³n' : 'Confirmar llegada'}
+            {modalReposicion?.tipo === 'gestionar' ? 'Confirmar gestión' : 'Confirmar llegada'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* â”€â”€â”€ Modal: Asignar Ã­tems al PV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ─── Modal: Asignar ítems al PV ───────────────────────────────────────── */}
       <Dialog open={!!modalGestionar} onClose={() => { setModalGestionar(null); setItemsSeleccionados([]); setItemsExtras({}); }} maxWidth="lg" fullWidth>
         <DialogTitle>
-          Asignar Ã­tems â€” PV {modalGestionar?.numero_pedido} &nbsp;Â·&nbsp; {modalGestionar?.odp?.numero_odp}
+          Asignar ítems — PV {modalGestionar?.numero_pedido} &nbsp;·&nbsp; {modalGestionar?.odp?.numero_odp}
         </DialogTitle>
         <DialogContent>
           {modalGestionar && (() => {
@@ -1311,19 +1245,19 @@ const PedidosPVPage: React.FC = () => {
             return (
               <Stack gap={2} mt={1}>
                 <Box display="flex" gap={2} flexWrap="wrap">
-                  <Typography variant="body2"><strong>Cliente:</strong> {odp?.cliente?.nombre_razon_social || 'â€”'}</Typography>
+                  <Typography variant="body2"><strong>Cliente:</strong> {odp?.cliente?.nombre_razon_social || '—'}</Typography>
                   <Typography variant="body2"><strong>Proveedor:</strong> {modalGestionar.proveedor}</Typography>
-                  <Typography variant="body2"><strong>Ãtems totales ODP:</strong> {items.length}</Typography>
+                  <Typography variant="body2"><strong>Ítems totales ODP:</strong> {items.length}</Typography>
                 </Box>
 
                 {itemsSeleccionados.length > 12 && (
                   <Alert severity="info">
-                    {itemsSeleccionados.length} Ã­tems seleccionados â€” se generarÃ¡n <strong>{bloques} formularios</strong>: {modalGestionar.numero_pedido}{Array.from({ length: bloques - 1 }, (_, i) => `, ${modalGestionar.numero_pedido}-${i + 1}`).join('')}
+                    {itemsSeleccionados.length} ítems seleccionados — se generarán <strong>{bloques} formularios</strong>: {modalGestionar.numero_pedido}{Array.from({ length: bloques - 1 }, (_, i) => `, ${modalGestionar.numero_pedido}-${i + 1}`).join('')}
                   </Alert>
                 )}
 
                 {items.length === 0 ? (
-                  <Alert severity="warning">Esta ODP no tiene Ã­tems de vidrio registrados.</Alert>
+                  <Alert severity="warning">Esta ODP no tiene ítems de vidrio registrados.</Alert>
                 ) : (
                   <Paper variant="outlined" sx={{ overflow: 'hidden', borderRadius: 2 }}>
                     <Table size="small">
@@ -1343,7 +1277,7 @@ const PedidosPVPage: React.FC = () => {
                           <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>An x Al</TableCell>
                           <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Cant.</TableCell>
                           <TableCell sx={{ fontWeight: 700, fontSize: 12, minWidth: 60 }}>DT</TableCell>
-                          <TableCell sx={{ fontWeight: 700, fontSize: 12, minWidth: 160 }}>ObservaciÃ³n PV</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12, minWidth: 160 }}>Observación PV</TableCell>
                           <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Obs. Orig.</TableCell>
                         </TableRow>
                       </TableHead>
@@ -1360,9 +1294,9 @@ const PedidosPVPage: React.FC = () => {
                                 <input type="checkbox" checked={seleccionado} readOnly />
                               </TableCell>
                               <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{idx + 1}</TableCell>
-                              <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.prod || 'â€”'}</TableCell>
-                              <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.color || 'â€”'}</TableCell>
-                              <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.espesor || 'â€”'}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.prod || '—'}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.color || '—'}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.espesor || '—'}</TableCell>
                               <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.ancho_mm} x {it.alto_mm}</TableCell>
                               <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.cantidad || 1}</TableCell>
                               <TableCell>
@@ -1400,7 +1334,7 @@ const PedidosPVPage: React.FC = () => {
                               </TableCell>
                               <TableCell sx={{ fontSize: 12, maxWidth: 100 }} onClick={toggleRow}>
                                 <Tooltip title={it.otros || it.accesorios || ''}>
-                                  <Typography fontSize={12} noWrap>{it.otros || it.accesorios || 'â€”'}</Typography>
+                                  <Typography fontSize={12} noWrap>{it.otros || it.accesorios || '—'}</Typography>
                                 </Tooltip>
                               </TableCell>
                             </TableRow>
@@ -1412,7 +1346,7 @@ const PedidosPVPage: React.FC = () => {
                 )}
 
                 <Typography variant="caption" color="text.secondary">
-                  {itemsSeleccionados.length} de {items.length} Ã­tems seleccionados
+                  {itemsSeleccionados.length} de {items.length} ítems seleccionados
                 </Typography>
               </Stack>
             );
@@ -1425,19 +1359,19 @@ const PedidosPVPage: React.FC = () => {
             onClick={asignarItemsPV}
             disabled={itemsSeleccionados.length === 0 || savingGestionar}
           >
-            {savingGestionar ? 'Guardando...' : `Registrar asignaciÃ³n (${itemsSeleccionados.length} Ã­tems)`}
+            {savingGestionar ? 'Guardando...' : `Registrar asignación (${itemsSeleccionados.length} ítems)`}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* â”€â”€â”€ Ãrea de impresiÃ³n (oculta) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ─── Área de impresión (oculta) ───────────────────────────────────────── */}
       <div id="printable-pedido-pv" style={{ display: 'none' }}>
         {printData && (
           <PrintablePedidoVitelsa pedido={printData.pedido} odp={printData.odp} />
         )}
       </div>
 
-      {/* â”€â”€â”€ Modal: Detalle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ─── Modal: Detalle ────────────────────────────────────────────────────── */}
       <Dialog open={!!modalDetalle} onClose={() => setModalDetalle(null)} maxWidth="sm" fullWidth>
         <DialogTitle>Pedido PV {modalDetalle?.numero_pedido}</DialogTitle>
         <DialogContent>
@@ -1446,21 +1380,21 @@ const PedidosPVPage: React.FC = () => {
               <Box display="grid" gridTemplateColumns="1fr 1fr" gap={1.5}>
                 {([
                   ['Proveedor', modalDetalle.proveedor],
-                  ['ODP', modalDetalle.odp?.numero_odp || modalDetalle.odp_numero_excel || 'â€”'],
-                  ['Cliente', modalDetalle.odp?.cliente?.nombre_razon_social || modalDetalle.nombre_cliente_excel || 'â€”'],
-                  ['Asesor', modalDetalle.asesor_iniciales || modalDetalle.creador?.nombre_completo || 'â€”'],
+                  ['ODP', modalDetalle.odp?.numero_odp || modalDetalle.odp_numero_excel || '—'],
+                  ['Cliente', modalDetalle.odp?.cliente?.nombre_razon_social || modalDetalle.nombre_cliente_excel || '—'],
+                  ['Asesor', modalDetalle.asesor_iniciales || modalDetalle.creador?.nombre_completo || '—'],
                   ['Estado', <Chip key="e" label={ESTADO_CONFIG[modalDetalle.estado]?.label ?? modalDetalle.estado} color={ESTADO_CONFIG[modalDetalle.estado]?.color ?? 'default'} size="small" />],
-                  ['Espesor/Tipo', modalDetalle.espesor_vidrio || 'â€”'],
-                  ['Metraje venta', modalDetalle.metraje_venta ? `${toFloat(modalDetalle.metraje_venta).toFixed(2)} mÂ²` : 'â€”'],
-                  ['Fecha envÃ­o', fmtFecha(modalDetalle.fecha_envio)],
-                  ['Hora envÃ­o', fmtHora(modalDetalle.hora_envio)],
-                  ['Proveedor confirmÃ³', modalDetalle.confirmado_proveedor ? 'SÃ­' : 'No'],
+                  ['Espesor/Tipo', modalDetalle.espesor_vidrio || '—'],
+                  ['Metraje venta', modalDetalle.metraje_venta ? `${toFloat(modalDetalle.metraje_venta).toFixed(2)} m²` : '—'],
+                  ['Fecha envío', fmtFecha(modalDetalle.fecha_envio)],
+                  ['Hora envío', fmtHora(modalDetalle.hora_envio)],
+                  ['Proveedor confirmó', modalDetalle.confirmado_proveedor ? 'Sí' : 'No'],
                   ['Entrega prometida', fmtFecha(modalDetalle.fecha_entrega_prometida)],
                   ['Llegada real', fmtFecha(modalDetalle.fecha_llegada_real)],
-                  ['DÃ­as diferencia', modalDetalle.dias_diferencia !== null ? (modalDetalle.dias_diferencia >= 0 ? `+${modalDetalle.dias_diferencia}d (a tiempo)` : `${modalDetalle.dias_diferencia}d (tarde)`) : 'â€”'],
-                  ['Factura PV', modalDetalle.factura_pv || 'â€”'],
-                  ['Tuvo problema', modalDetalle.tuvo_problema ? 'âš ï¸ SÃ­' : 'No'],
-                  ['Verificado por', modalDetalle.verificador?.nombre_completo || 'â€”'],
+                  ['Días diferencia', modalDetalle.dias_diferencia !== null ? (modalDetalle.dias_diferencia >= 0 ? `+${modalDetalle.dias_diferencia}d (a tiempo)` : `${modalDetalle.dias_diferencia}d (tarde)`) : '—'],
+                  ['Factura PV', modalDetalle.factura_pv || '—'],
+                  ['Tuvo problema', modalDetalle.tuvo_problema ? 'âš ï¸ Sí' : 'No'],
+                  ['Verificado por', modalDetalle.verificador?.nombre_completo || '—'],
                 ] as [string, React.ReactNode][]).map(([lbl, val]) => (
                   <Box key={lbl}>
                     <Typography variant="caption" color="text.secondary">{lbl}</Typography>
@@ -1473,7 +1407,7 @@ const PedidosPVPage: React.FC = () => {
                   <Typography variant="body2">{modalDetalle.observaciones}</Typography></Box>
               )}
               {modalDetalle.observacion_verificacion && (
-                <Box><Typography variant="caption" color="text.secondary">Obs. verificaciÃ³n / problema</Typography>
+                <Box><Typography variant="caption" color="text.secondary">Obs. verificación / problema</Typography>
                   <Typography variant="body2" color={modalDetalle.tuvo_problema ? 'error' : 'inherit'}>
                     {modalDetalle.observacion_verificacion}
                   </Typography></Box>
