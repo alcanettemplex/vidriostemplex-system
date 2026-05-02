@@ -6,6 +6,7 @@ import {
   getODPsParaGestion,
   getRutas,
   getRuta,
+  getRutasProgramacion,
   createRuta,
   updateRuta,
   cancelarRuta,
@@ -28,6 +29,7 @@ router.use(authMiddleware);
 // ─── Rutas estáticas antes de /:id ──────────────────────────────────────────
 // Jefe: datos para gestión
 router.get('/odps-para-gestion', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'), getODPsParaGestion);
+router.get('/programacion', requireRole('admin', 'gerencia', 'jefe_produccion', 'compras', 'produccion', 'asistente_administrativo'), getRutasProgramacion);
 router.get('/vehiculos', getVehiculos);
 router.get('/personal', getInstaladores);
 

@@ -144,6 +144,48 @@ export const getRutas = async (_req: Request, res: Response) => {
   }
 };
 
+export const getRutasProgramacion = async (req: Request, res: Response) => {
+  try {
+    const { fecha } = req.query;
+    const fechaBusqueda = fecha ? String(fecha) : new Date().toISOString().split('T')[0];
+
+    const rutas = await RutaInstalacion.findAll({
+      where: { estado: { [Op.ne]: 'cancelada' } },
+      include: [
+        { model: Vehiculo, as: 'vehiculo', attributes: ['id', 'placa', 'tipo'] },
+        { model: Usuario, as: 'conductor', attributes: ['id', 'nombre_completo'] },
+        { model: Usuario, as: 'oficial', attributes: ['id', 'nombre_completo'] },
+        {
+          model: Usuario, as: 'instaladores',
+          attributes: ['id', 'nombre_completo'],
+          through: { attributes: [] },
+        },
+        {
+          model: RutaODP, as: 'ruta_odps',
+          where: { fecha_programada: fechaBusqueda },
+          required: true,
+          include: [
+            {
+              model: ODP, as: 'odp',
+              attributes: ['id', 'numero_odp', 'tipo_servicio', 'descripcion_pedido', 'direccion_instalacion'],
+              include: [
+                { model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] },
+                { model: ODPItem, as: 'items', attributes: ['item', 'tipo_vidrio', 'color', 'espesor', 'ancho_mm', 'alto_mm', 'cantidad', 'prod'] },
+              ],
+            },
+          ],
+        },
+      ],
+      order: [['creado_en', 'ASC']],
+    });
+
+    res.json(rutas);
+  } catch (e: any) {
+    console.error('getRutasProgramacion:', e.message);
+    res.status(500).json({ error: 'Error al obtener programación del día' });
+  }
+};
+
 export const getRuta = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

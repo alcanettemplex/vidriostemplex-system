@@ -33,10 +33,12 @@ import {
     PackageCheck,
     ShieldCheck,
     TriangleAlert,
+    MessageCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPMatrixModal from './components/ODPMatrixModal';
 import PrintableSAP from '../odp/components/PrintableSAP';
+import ProgramacionWhatsAppModal from './components/ProgramacionWhatsAppModal';
 
 interface Nota {
     id: number;
@@ -201,6 +203,7 @@ const ProduccionPage: React.FC = () => {
     const [pvObsAccion, setPvObsAccion]             = useState('');
     const [pvLoadingAccion, setPvLoadingAccion]     = useState(false);
     const [marcandoListo, setMarcandoListo]         = useState(false);
+    const [showProgramacion, setShowProgramacion]   = useState(false);
 
     // Role check
     const authUser = useSelector((state: any) => state.auth.user);
@@ -957,6 +960,14 @@ const ProduccionPage: React.FC = () => {
                     </h1>
                     <p className="text-slate-500 text-sm font-medium">Gestión dinámica de producción y bitácora</p>
                 </div>
+                <div className="flex items-center gap-3">
+                <button
+                    onClick={() => setShowProgramacion(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md shadow-green-100 transition-all active:scale-95"
+                >
+                    <MessageCircle className="w-4 h-4" />
+                    Compartir programación
+                </button>
                 <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200">
                     <div className="px-4 py-2 text-center border-r border-slate-100">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Activas</p>
@@ -976,6 +987,7 @@ const ProduccionPage: React.FC = () => {
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">En la mano</p>
                         <p className="text-xl font-black text-amber-600 leading-none">{manoOdps.length}</p>
                     </div>
+                </div>
                 </div>
             </div>
 
@@ -1345,6 +1357,7 @@ const ProduccionPage: React.FC = () => {
         </div>
 
         {fichaOdpId && <ODPFichaModal odpId={fichaOdpId} onClose={() => setFichaOdpId(null)} />}
+        {showProgramacion && <ProgramacionWhatsAppModal onClose={() => setShowProgramacion(false)} />}
 
         {/* Modal: Registrar llegada PV */}
         <AnimatePresence>
