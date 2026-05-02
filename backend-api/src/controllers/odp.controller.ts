@@ -1036,6 +1036,57 @@ export const facturarODP = async (req: Request, res: Response) => {
   }
 };
 
+// POST /odp/:id/items — agrega nuevos ítems a una ODP existente (desde módulo PedidosPV)
+export const agregarItems = async (req: Request, res: Response) => {
+  try {
+    const odpId = parseInt(req.params.id);
+    const { items } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Debe enviar al menos un ítem' });
+    }
+
+    const odp = await ODP.findByPk(odpId);
+    if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
+
+    const estadoActual = odp.getDataValue('estado_produccion') as string;
+    if (['INSTALADA', 'ENTREGADA', 'PAUSADA'].includes(estadoActual)) {
+      return res.status(400).json({ error: `No se pueden agregar ítems a una ODP en estado ${estadoActual}` });
+    }
+
+    const nuevosItems = items.map((item: any) => ({
+      odp_id: odpId,
+      item: item.item || '',
+      color: item.color || '',
+      espesor: item.espesor || '',
+      cantidad: item.cantidad || 1,
+      ancho_mm: item.ancho_mm || null,
+      alto_mm: item.alto_mm || null,
+      tipo_vidrio: item.tipo_vidrio || '',
+      pelicula: item.pelicula || false,
+      matizado: item.matizado || false,
+      carton: item.carton || false,
+      huacal: item.huacal || false,
+      accesorios: item.accesorios || '',
+      pulidos: item.pulidos || '',
+      pulidos_h: item.pulidos_h || '',
+      perforaciones: item.perforaciones || 0,
+      boquetes: item.boquetes || 0,
+      descuentos: item.descuentos || '',
+      otros: item.otros || '',
+      mts_pt_a: item.mts_pt_a || '',
+      mts_pt_h: item.mts_pt_h || '',
+      prod: item.prod || '',
+    }));
+
+    const creados = await ODPItem.bulkCreate(nuevosItems as any);
+    return res.status(201).json(creados);
+  } catch (error: any) {
+    console.error('Error agregarItems ODP:', error);
+    return res.status(500).json({ error: 'Error al agregar ítems', details: error?.message });
+  }
+};
+
 // PUT /odp/:id/aprobar-sin-items
 // El asesor creador libera una ODP de pago adelantado (sin_items=true).
 // Solo quita el bloqueo y regresa a EN_ESPERA — producción decide cuándo avanza.

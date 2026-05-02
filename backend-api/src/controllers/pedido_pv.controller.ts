@@ -587,6 +587,13 @@ export const asignarItems = async (req: Request, res: Response) => {
     const proveedor = pedido.getDataValue('proveedor') as string;
     const creado_por = pedido.getDataValue('creado_por') as number;
 
+    // Validar que todos los ítems pertenecen a la ODP de este PedidoPV
+    const itemsValidos = await ODPItem.count({ where: { id: odp_item_ids, odp_id }, transaction: t });
+    if (itemsValidos !== odp_item_ids.length) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Uno o más ítems no pertenecen a la ODP de este pedido' });
+    }
+
     // Desasignar todos los ítems previos de este pedido y sus extensiones
     const extensiones = await PedidoPV.findAll({
       where: { numero_base, odp_id },

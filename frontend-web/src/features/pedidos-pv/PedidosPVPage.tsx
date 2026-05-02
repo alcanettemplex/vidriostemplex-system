@@ -197,6 +197,8 @@ const AccionesMenu: React.FC<{
     if (pedido.estado_reposicion === 'EN_GESTION')
       items.push({ label: 'Vidrio repuesto / llegó', action: onRegistrarReposicion, color: '#2e7d32' });
   }
+  if (pedido.estado === 'ENTREGADO')
+    items.push({ label: '✓ Pedido entregado', action: () => {}, color: '#1b5e20' });
   items.push({ label: 'Ver detalle', action: onDetalle });
   if (pedido.odp_id) {
     items.push({ label: printLoading ? 'Cargando...' : 'Imprimir pedido', action: onImprimir, icon: <Print sx={{ fontSize: 16 }} /> });
@@ -259,6 +261,9 @@ const PedidosPVPage: React.FC = () => {
   const [odps, setOdps] = useState<any[]>([]);
   const [siguienteNumero, setSiguienteNumero] = useState<number | null>(null);
   const [formCrear, setFormCrear] = useState({ odp_id: '', proveedor: '', sufijo: '', fecha_entrega_prometida: '', metraje_venta: '', espesor_vidrio: '', observaciones: '' });
+  const [pasoCrear, setPasoCrear] = useState(1);
+  const [itemsNuevos, setItemsNuevos] = useState<any[]>([]);
+  const [busquedaOdp, setBusquedaOdp] = useState('');
 
   const [modalEnviar, setModalEnviar] = useState<PedidoPV | null>(null);
   const [formEnviar, setFormEnviar] = useState({ fecha_entrega_prometida: '', confirmado_proveedor: false });
@@ -390,11 +395,30 @@ const PedidosPVPage: React.FC = () => {
     ]);
     setOdps(odpsData);
     setSiguienteNumero(numData.siguiente);
+    setPasoCrear(1);
+    setItemsNuevos([]);
     setModalCrear(true);
+  };
+
+  const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Bronce Oscuro', 'Gris', 'Gris Oscuro', 'Azul', 'Verde', 'Mate', 'Otro'];
+  const PROVEEDORES_PV = ['Vitelsa', 'Templacol', 'Vidplex', 'Otros'];
+  const PROD_OPCIONES = ['', 'PV', 'CAMARA', 'CR', 'CR-LAM', 'ESP', 'LAM', 'S/T', 'TE', 'TEM-MULTILAMINADO', 'TEM-LAM', 'N.A.'];
+
+  const itemVacio = () => ({ tipo_vidrio: '', color: 'Incoloro', espesor: '6', ancho_mm: '', alto_mm: '', cantidad: 1, pulidos: '', pulidos_h: '', perforaciones: 0, boquetes: 0, descuentos: '', otros: '', prod: 'PV' });
+
+  const cerrarModalCrear = () => {
+    setModalCrear(false);
+    setPasoCrear(1);
+    setItemsNuevos([]);
+    setBusquedaOdp('');
+    setFormCrear({ odp_id: '', proveedor: '', sufijo: '', fecha_entrega_prometida: '', metraje_venta: '', espesor_vidrio: '', observaciones: '' });
   };
 
   const crearPedido = async () => {
     try {
+      if (itemsNuevos.length > 0) {
+        await axios.post(`${API}/api/odp/${formCrear.odp_id}/items`, { items: itemsNuevos }, { headers });
+      }
       await axios.post(`${API}/api/pedidos-pv`, {
         odp_id: parseInt(formCrear.odp_id),
         proveedor: formCrear.proveedor,
@@ -404,9 +428,9 @@ const PedidosPVPage: React.FC = () => {
         espesor_vidrio: formCrear.espesor_vidrio || null,
         observaciones: formCrear.observaciones || null,
       }, { headers });
-      setModalCrear(false);
-      setFormCrear({ odp_id: '', proveedor: '', sufijo: '', fecha_entrega_prometida: '', metraje_venta: '', espesor_vidrio: '', observaciones: '' });
+      cerrarModalCrear();
       cargarDatos();
+      cargarPorGestionar();
     } catch { setError('Error al crear pedido PV'); }
   };
 
@@ -751,7 +775,10 @@ const PedidosPVPage: React.FC = () => {
                             {/* Pedido */}
                             <TableCell>
                               <Typography fontWeight={700} fontSize={13}>{p.numero_pedido}</Typography>
-                              {p.tuvo_problema && p.estado !== 'PROBLEMA' && (
+                              {p.estado === 'LLEGADO' && p.estado_reposicion === 'REPUESTO' && (
+                                <Chip label="Reposición · pendiente verificar" size="small" sx={{ fontSize: 10, height: 16, bgcolor: '#fff8e1', color: '#f57f17', mt: 0.3 }} />
+                              )}
+                              {p.tuvo_problema && p.estado !== 'PROBLEMA' && p.estado_reposicion !== 'REPUESTO' && (
                                 <Typography variant="caption" color="error.main">Con problema previo</Typography>
                               )}
                               {p.estado === 'PROBLEMA' && (
@@ -1063,46 +1090,193 @@ const PedidosPVPage: React.FC = () => {
       )}
 
       {/* ─── Modal: Crear ──────────────────────────────────────────────────────── */}
-      <Dialog open={modalCrear} onClose={() => setModalCrear(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Nuevo Pedido PV — #{siguienteNumero}{formCrear.sufijo ? '-' + formCrear.sufijo.toUpperCase() : ''}</DialogTitle>
-        <DialogContent>
-          <Stack gap={2} mt={1}>
-            <FormControl fullWidth size="small">
-              <InputLabel>ODP *</InputLabel>
-              <Select value={formCrear.odp_id} label="ODP *"
-                onChange={(e) => setFormCrear(f => ({ ...f, odp_id: String(e.target.value) }))}>
-                {odps.map((o: any) => (
-                  <MenuItem key={o.id} value={o.id}>
-                    {o.numero_odp} — {o.cliente?.nombre_razon_social ?? ''}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField label="Proveedor *" size="small" fullWidth value={formCrear.proveedor}
-              onChange={(e) => setFormCrear(f => ({ ...f, proveedor: e.target.value }))}
-              placeholder="VITELSA S.A, VIDPLEX S.A, TEMPLACOL..." />
-            <TextField label="Sufijo (A, B, C...)" size="small" fullWidth value={formCrear.sufijo}
-              onChange={(e) => setFormCrear(f => ({ ...f, sufijo: e.target.value.toUpperCase() }))}
-              helperText="Dejar vacío si es único. Usar A, B, C cuando hay varios del mismo número base." />
-            <TextField label="Espesor / Tipo de vidrio" size="small" fullWidth value={formCrear.espesor_vidrio}
-              onChange={(e) => setFormCrear(f => ({ ...f, espesor_vidrio: e.target.value }))}
-              placeholder="6MM, 8MM, 10MM, 6+6, GRIS HUMO..." />
-            <TextField label="Fecha entrega prometida" type="date" size="small" fullWidth
-              InputLabelProps={{ shrink: true }} value={formCrear.fecha_entrega_prometida}
-              onChange={(e) => setFormCrear(f => ({ ...f, fecha_entrega_prometida: e.target.value }))} />
-            <TextField label="Metraje venta (m²)" type="number" size="small" fullWidth
-              value={formCrear.metraje_venta}
-              onChange={(e) => setFormCrear(f => ({ ...f, metraje_venta: e.target.value }))} />
-            <TextField label="Observaciones" size="small" fullWidth multiline rows={2}
-              value={formCrear.observaciones}
-              onChange={(e) => setFormCrear(f => ({ ...f, observaciones: e.target.value }))} />
+      <Dialog open={modalCrear} onClose={cerrarModalCrear} maxWidth={pasoCrear === 2 ? 'md' : 'xs'} fullWidth>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography fontWeight={700} fontSize={16}>
+              Nuevo Pedido PV — #{siguienteNumero}
+            </Typography>
+            <Stack direction="row" gap={0.5}>
+              {[1, 2].map(n => (
+                <Box key={n} sx={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, bgcolor: pasoCrear === n ? 'primary.main' : 'action.disabledBackground', color: pasoCrear === n ? 'white' : 'text.disabled' }}>{n}</Box>
+              ))}
+            </Stack>
           </Stack>
+        </DialogTitle>
+        <DialogContent>
+
+          {/* ── Paso 1: ODP + Proveedor ── */}
+          {pasoCrear === 1 && (
+            <Stack gap={2} mt={1}>
+              <TextField
+                size="small" fullWidth placeholder="Buscar ODP por número o cliente..."
+                value={busquedaOdp}
+                onChange={(e) => setBusquedaOdp(e.target.value)}
+                InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 16, color: 'text.secondary' }} /></InputAdornment> }}
+              />
+              <FormControl fullWidth size="small">
+                <InputLabel>ODP *</InputLabel>
+                <Select value={formCrear.odp_id} label="ODP *"
+                  onChange={(e) => setFormCrear(f => ({ ...f, odp_id: String(e.target.value) }))}>
+                  {odps
+                    .filter((o: any) => {
+                      const q = busquedaOdp.toLowerCase();
+                      return !q || o.numero_odp?.toLowerCase().includes(q) || o.cliente?.nombre_razon_social?.toLowerCase().includes(q);
+                    })
+                    .map((o: any) => (
+                      <MenuItem key={o.id} value={o.id}>
+                        <Stack>
+                          <Typography fontSize={13} fontWeight={700}>{o.numero_odp}</Typography>
+                          <Typography fontSize={11} color="text.secondary">{o.cliente?.nombre_razon_social ?? ''}</Typography>
+                        </Stack>
+                      </MenuItem>
+                    ))}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel>Proveedor *</InputLabel>
+                <Select value={formCrear.proveedor} label="Proveedor *"
+                  onChange={(e) => setFormCrear(f => ({ ...f, proveedor: e.target.value }))}>
+                  <MenuItem value=""><em>Seleccionar...</em></MenuItem>
+                  {PROVEEDORES_PV.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Stack>
+          )}
+
+          {/* ── Paso 2: Ítems con formato ODPForm ── */}
+          {pasoCrear === 2 && (
+            <Box mt={1}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} pb={1} sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Typography fontWeight={700} fontSize={14} color="text.primary">
+                  Ítems o Cristales
+                </Typography>
+                <Button size="small" variant="contained" color="inherit"
+                  sx={{ bgcolor: 'grey.900', color: 'white', '&:hover': { bgcolor: 'grey.800' }, fontSize: 12 }}
+                  startIcon={<Add sx={{ fontSize: 14 }} />}
+                  onClick={() => setItemsNuevos(prev => [...prev, itemVacio()])}>
+                  Agregar Cristal
+                </Button>
+              </Stack>
+
+              {itemsNuevos.length === 0 && (
+                <Box sx={{ py: 4, textAlign: 'center', color: 'text.disabled', fontSize: 13 }}>
+                  Sin ítems. Haz clic en "+ Agregar Cristal" para comenzar.
+                </Box>
+              )}
+
+              <Stack gap={2}>
+                {itemsNuevos.map((it, idx) => {
+                  const upd = (field: string, val: any) => setItemsNuevos(prev => prev.map((r, i) => i === idx ? { ...r, [field]: val } : r));
+                  const mts = (parseFloat(it.ancho_mm) > 0 && parseFloat(it.alto_mm) > 0)
+                    ? ((parseFloat(it.ancho_mm) / 1000) * (parseFloat(it.alto_mm) / 1000)).toFixed(3) : '';
+                  return (
+                    <Paper key={idx} variant="outlined" sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
+                      <Stack direction="row" flexWrap="wrap" gap={1.5} alignItems="flex-start">
+                        {/* COLOR */}
+                        <Box sx={{ minWidth: 120 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>Color</Typography>
+                          <Select size="small" fullWidth value={it.color} onChange={(e) => upd('color', e.target.value)} sx={{ mt: 0.5, fontSize: 13 }}>
+                            {COLORES_VIDRIO.map(c => <MenuItem key={c} value={c} sx={{ fontSize: 13 }}>{c}</MenuItem>)}
+                          </Select>
+                          {it.color === 'Otro' && (
+                            <TextField size="small" fullWidth placeholder="Especificar..." sx={{ mt: 0.5 }} value={it.tipo_vidrio} onChange={(e) => upd('tipo_vidrio', e.target.value)} inputProps={{ style: { fontSize: 12 } }} />
+                          )}
+                        </Box>
+                        {/* ESP */}
+                        <Box sx={{ width: 70 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>Esp. (mm)</Typography>
+                          <TextField size="small" fullWidth value={it.espesor} onChange={(e) => upd('espesor', e.target.value)} sx={{ mt: 0.5 }} inputProps={{ style: { fontSize: 13 } }} />
+                        </Box>
+                        {/* MEDIDAS */}
+                        <Box sx={{ minWidth: 140, borderLeft: '1px solid', borderColor: 'divider', pl: 1.5 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>Medidas (mm)</Typography>
+                          <Stack direction="row" gap={0.5} alignItems="center" mt={0.5}>
+                            <TextField size="small" type="number" placeholder="Ancho" value={it.ancho_mm}
+                              onChange={(e) => upd('ancho_mm', e.target.value)}
+                              sx={{ width: 65 }} inputProps={{ style: { fontSize: 13 }, min: 0 }} />
+                            <Typography color="text.secondary" fontSize={13}>×</Typography>
+                            <TextField size="small" type="number" placeholder="Alto" value={it.alto_mm}
+                              onChange={(e) => upd('alto_mm', e.target.value)}
+                              sx={{ width: 65 }} inputProps={{ style: { fontSize: 13 }, min: 0 }} />
+                          </Stack>
+                        </Box>
+                        {/* CANT */}
+                        <Box sx={{ width: 60, borderLeft: '1px solid', borderColor: 'divider', pl: 1.5 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>Cant.</Typography>
+                          <TextField size="small" type="number" fullWidth value={it.cantidad}
+                            onChange={(e) => upd('cantidad', Math.max(1, parseInt(e.target.value) || 1))}
+                            sx={{ mt: 0.5 }} inputProps={{ style: { fontSize: 13 }, min: 1 }} />
+                        </Box>
+                        {/* ACABADOS */}
+                        <Box sx={{ flex: 1, minWidth: 260, borderLeft: '1px solid', borderColor: 'divider', pl: 1.5 }}>
+                          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
+                            {[
+                              { label: 'PUL A*', field: 'pulidos', type: 'number' },
+                              { label: 'PUL H*', field: 'pulidos_h', type: 'number' },
+                              { label: 'Perf.', field: 'perforaciones', type: 'number' },
+                              { label: 'Boq.', field: 'boquetes', type: 'number' },
+                              { label: 'Des.', field: 'descuentos', type: 'text' },
+                              { label: 'Otros**', field: 'otros', type: 'text' },
+                            ].map(({ label, field, type }) => (
+                              <Box key={field}>
+                                <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>{label}</Typography>
+                                <TextField size="small" fullWidth type={type} value={(it as any)[field]}
+                                  onChange={(e) => upd(field, type === 'number' ? (parseInt(e.target.value) || 0) : e.target.value)}
+                                  sx={{ mt: 0.5 }} inputProps={{ style: { fontSize: 12, textAlign: type === 'number' ? 'center' : 'left' }, min: 0 }} />
+                              </Box>
+                            ))}
+                            {/* MTS PT */}
+                            <Box>
+                              <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>MTS PT</Typography>
+                              <TextField size="small" fullWidth value={mts} placeholder="m²" disabled
+                                sx={{ mt: 0.5, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#94a3b8', textAlign: 'center', fontSize: 12 } }} />
+                            </Box>
+                            {/* PROD */}
+                            <Box>
+                              <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>PROD</Typography>
+                              <Select size="small" fullWidth value={it.prod} onChange={(e) => upd('prod', e.target.value)} sx={{ mt: 0.5, fontSize: 12 }}>
+                                {PROD_OPCIONES.map(p => <MenuItem key={p} value={p} sx={{ fontSize: 12 }}>{p || '—'}</MenuItem>)}
+                              </Select>
+                            </Box>
+                          </Box>
+                        </Box>
+                        {/* DELETE */}
+                        <Box sx={{ pt: 2.5 }}>
+                          <IconButton size="small" onClick={() => setItemsNuevos(prev => prev.filter((_, i) => i !== idx))}
+                            sx={{ color: 'error.light', '&:hover': { color: 'error.main', bgcolor: 'error.50' } }}>
+                            <Cancel />
+                          </IconButton>
+                        </Box>
+                      </Stack>
+                    </Paper>
+                  );
+                })}
+              </Stack>
+            </Box>
+          )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setModalCrear(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={crearPedido} disabled={!formCrear.odp_id || !formCrear.proveedor}>
-            Crear pedido
-          </Button>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          {pasoCrear === 1 && (
+            <>
+              <Button onClick={cerrarModalCrear}>Cancelar</Button>
+              <Button variant="outlined" onClick={() => { setPasoCrear(2); setItemsNuevos([itemVacio()]); }}
+                disabled={!formCrear.odp_id || !formCrear.proveedor}>
+                Agregar ítems nuevos →
+              </Button>
+              <Button variant="contained" onClick={crearPedido} disabled={!formCrear.odp_id || !formCrear.proveedor}>
+                Crear sin ítems nuevos
+              </Button>
+            </>
+          )}
+          {pasoCrear === 2 && (
+            <>
+              <Button onClick={() => setPasoCrear(1)}>← Atrás</Button>
+              <Button variant="contained" onClick={crearPedido} disabled={itemsNuevos.length === 0}>
+                Crear pedido ({itemsNuevos.length} ítem{itemsNuevos.length !== 1 ? 's' : ''})
+              </Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
 
@@ -1241,6 +1415,7 @@ const PedidosPVPage: React.FC = () => {
           {modalGestionar && (() => {
             const odp = modalGestionar.odp;
             const items: any[] = odp?.items || [];
+            const itemsLibres = items.filter((it: any) => !it.pedido_pv_id || it.pedido_pv_id === modalGestionar.id);
             const bloques = Math.ceil(itemsSeleccionados.length / 12);
             return (
               <Stack gap={2} mt={1}>
@@ -1266,8 +1441,8 @@ const PedidosPVPage: React.FC = () => {
                           <TableCell padding="checkbox">
                             <input
                               type="checkbox"
-                              checked={itemsSeleccionados.length === items.length && items.length > 0}
-                              onChange={(e) => setItemsSeleccionados(e.target.checked ? items.map((it: any) => it.id) : [])}
+                              checked={itemsLibres.length > 0 && itemsSeleccionados.length === itemsLibres.length}
+                              onChange={(e) => setItemsSeleccionados(e.target.checked ? itemsLibres.map((it: any) => it.id) : [])}
                             />
                           </TableCell>
                           <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>#</TableCell>
@@ -1283,30 +1458,49 @@ const PedidosPVPage: React.FC = () => {
                       </TableHead>
                       <TableBody>
                         {items.map((it: any, idx: number) => {
-                          const seleccionado = itemsSeleccionados.includes(it.id);
+                          const enOtroPV = it.pedido_pv_id !== null && it.pedido_pv_id !== modalGestionar.id;
+                          const seleccionado = !enOtroPV && itemsSeleccionados.includes(it.id);
                           const extras = itemsExtras[it.id] || { dt: '', obsType: '', customObs: '' };
-                          
-                          const toggleRow = () => setItemsSeleccionados(prev => prev.includes(it.id) ? prev.filter(id => id !== it.id) : [...prev, it.id]);
-                          
+
+                          const toggleRow = () => {
+                            if (enOtroPV) return;
+                            setItemsSeleccionados(prev => prev.includes(it.id) ? prev.filter(id => id !== it.id) : [...prev, it.id]);
+                          };
+
                           return (
-                            <TableRow key={it.id} selected={seleccionado} sx={{ '&:hover': { bgcolor: 'action.hover' } }}>
-                              <TableCell padding="checkbox" onClick={toggleRow} sx={{ cursor: 'pointer' }}>
-                                <input type="checkbox" checked={seleccionado} readOnly />
+                            <TableRow
+                              key={it.id}
+                              selected={seleccionado}
+                              sx={{
+                                opacity: enOtroPV ? 0.5 : 1,
+                                bgcolor: enOtroPV ? 'grey.50' : undefined,
+                                '&:hover': { bgcolor: enOtroPV ? 'grey.50' : 'action.hover' },
+                              }}
+                            >
+                              <TableCell padding="checkbox" onClick={toggleRow} sx={{ cursor: enOtroPV ? 'default' : 'pointer' }}>
+                                <input type="checkbox" checked={seleccionado} disabled={enOtroPV} readOnly={!enOtroPV} />
                               </TableCell>
                               <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{idx + 1}</TableCell>
-                              <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.prod || '—'}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>
+                                <Stack direction="row" gap={0.5} alignItems="center">
+                                  <span>{it.prod || '—'}</span>
+                                  {enOtroPV && (
+                                    <Chip label="En otro PV" size="small" sx={{ fontSize: 9, height: 16, bgcolor: '#eeeeee', color: '#757575' }} />
+                                  )}
+                                </Stack>
+                              </TableCell>
                               <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.color || '—'}</TableCell>
                               <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.espesor || '—'}</TableCell>
                               <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.ancho_mm} x {it.alto_mm}</TableCell>
                               <TableCell sx={{ fontSize: 12 }} onClick={toggleRow}>{it.cantidad || 1}</TableCell>
                               <TableCell>
-                                <input 
-                                  type="text" 
+                                <input
+                                  type="text"
                                   placeholder="DT..."
                                   disabled={!seleccionado}
                                   value={extras.dt}
                                   style={{ fontSize: 12, padding: 4, borderRadius: 4, border: '1px solid #ccc', width: '60px' }}
-                                  onChange={(e) => setItemsExtras(prev => ({ ...prev, [it.id]: { ...extras, dt: e.target.value } }))} 
+                                  onChange={(e) => setItemsExtras(prev => ({ ...prev, [it.id]: { ...extras, dt: e.target.value } }))}
                                 />
                               </TableCell>
                               <TableCell>
@@ -1322,9 +1516,9 @@ const PedidosPVPage: React.FC = () => {
                                     <option value="Otros">Otros...</option>
                                   </select>
                                   {extras.obsType === 'Otros' && (
-                                    <input 
-                                      type="text" 
-                                      placeholder="Especifique..." 
+                                    <input
+                                      type="text"
+                                      placeholder="Especifique..."
                                       style={{ fontSize: 12, padding: 4, borderRadius: 4, border: '1px solid #ccc' }}
                                       value={extras.customObs}
                                       onChange={(e) => setItemsExtras(prev => ({ ...prev, [it.id]: { ...extras, customObs: e.target.value } }))}
@@ -1346,7 +1540,10 @@ const PedidosPVPage: React.FC = () => {
                 )}
 
                 <Typography variant="caption" color="text.secondary">
-                  {itemsSeleccionados.length} de {items.length} ítems seleccionados
+                  {itemsSeleccionados.length} de {itemsLibres.length} ítems disponibles seleccionados
+                  {items.length !== itemsLibres.length && (
+                    <span style={{ color: '#9e9e9e' }}> · {items.length - itemsLibres.length} ya asignados a otro pedido</span>
+                  )}
                 </Typography>
               </Stack>
             );

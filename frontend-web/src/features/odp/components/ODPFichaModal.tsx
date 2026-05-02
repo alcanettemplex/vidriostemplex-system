@@ -1322,7 +1322,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
   // Obtener usuario actual para validar permisos
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('user');
+      const stored = sessionStorage.getItem('user');
       if (stored) setCurrentUser(JSON.parse(stored));
     } catch { /* ignorar */ }
   }, []);
@@ -1455,8 +1455,8 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                   if (!currentUser) return null;
                   const role = currentUser.rol;
                   const isOwner = role === 'asesor_comercial' && currentUser.id === odp.asesor_id;
-                  const canReport = ['admin', 'gerencia'].includes(role) || isOwner;
-                  if (!canReport || odp.estado_produccion === 'PAUSADA') return null;
+                  const canReport = ['admin', 'gerencia', 'produccion'].includes(role) || isOwner;
+                  if (!canReport) return null;
                   // Para garantías y reprocesos: solo NC, sin opción de crear otra garantía
                   const esDerivada = odp.es_garantia || odp.es_no_conformidad;
                   if (esDerivada) {
