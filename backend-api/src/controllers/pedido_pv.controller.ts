@@ -502,10 +502,10 @@ export const generarExcelPedidoPV = async (req: Request, res: Response) => {
     const numeroPedido = pedido.getDataValue('numero_pedido') || '';
     const creadoEn: Date | null = pedido.getDataValue('creado_en') || null;
 
-    const clienteNombre = odp?.cliente?.nombre_razon_social || '';
     const numeroOdp = odp?.numero_odp || '';
     const asesorNombre = odp?.asesor?.nombre_completo || '';
-    const obra = [clienteNombre, numeroOdp, asesorNombre].filter(Boolean).join(' — ');
+    const iniciales = (n: string) => n.trim().split(/\s+/).map((p: string) => p[0] || '').join('').toUpperCase();
+    const obra = [numeroOdp, asesorNombre ? iniciales(asesorNombre) : ''].filter(Boolean).join(' — ');
 
     const fmtDate = (d: Date | string | null): string => {
       if (!d) return '';
@@ -527,10 +527,18 @@ export const generarExcelPedidoPV = async (req: Request, res: Response) => {
       ws.getCell(addr).value = value;
     };
 
-    sc('R2', numeroPedido);
     sc('D10', fmtDate(creadoEn));
     sc('N10', numeroPedido);
     sc('L24', obra);
+
+    // Anchos columnas L:P → 7.29
+    ['L', 'M', 'N', 'O', 'P'].forEach(col => { ws.getColumn(col).width = 7.29; });
+
+    // Font 9pt en cabeceras F27 y G27
+    (['F27', 'G27'] as const).forEach(addr => {
+      const cell = ws.getCell(addr);
+      cell.font = { ...(cell.font as ExcelJS.Font), size: 9 };
+    });
 
     const v = (val: unknown): string => (val !== null && val !== undefined ? String(val) : '');
 
