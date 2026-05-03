@@ -9,6 +9,7 @@ FROM node:20-alpine
 WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src/assets ./dist/assets
+COPY --from=builder /app/templates ./templates
 COPY package*.json ./
 RUN npm install --production
 EXPOSE 3001
