@@ -33,6 +33,8 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const [rutaEditar, setRutaEditar] = useState<any>(null);
   const [odpsParaModal, setOdpsParaModal] = useState<any[]>([]);
   const [verCompletadas, setVerCompletadas] = useState(false);
+  const [pauseModal, setPauseModal] = useState<{ rutaOdpId: number; numeroOdp: string } | null>(null);
+  const [pauseMotivo, setPauseMotivo] = useState('');
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -73,11 +75,21 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     }
   };
 
-  const handlePausar = async (rutaOdpId: number, numeroOdp: string) => {
-    if (!window.confirm(`¿Pausar la instalación de ${numeroOdp}? La ODP volverá a "Listo para instalar".`)) return;
+  const handlePausar = (rutaOdpId: number, numeroOdp: string) => {
+    setPauseMotivo('');
+    setPauseModal({ rutaOdpId, numeroOdp });
+  };
+
+  const handleConfirmarPausa = async () => {
+    if (!pauseModal) return;
+    if (!pauseMotivo.trim()) { toast.error('Ingresa el motivo de la pausa'); return; }
     try {
-      await axios.post(`${API}/api/rutas/ruta-odp/${rutaOdpId}/pausar`, {}, { headers });
-      toast.success(`Instalación de ${numeroOdp} pausada`);
+      await axios.post(`${API}/api/rutas/ruta-odp/${pauseModal.rutaOdpId}/pausar`,
+        { motivo_pausa: pauseMotivo.trim() },
+        { headers }
+      );
+      toast.success(`Instalación de ${pauseModal.numeroOdp} pausada`);
+      setPauseModal(null);
       cargar();
     } catch (e: any) {
       toast.error(e.response?.data?.error || 'Error al pausar');
@@ -305,6 +317,43 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
           onClose={() => { setShowModal(false); setRutaEditar(null); }}
           onSaved={() => { setShowModal(false); setRutaEditar(null); cargar(); }}
         />
+      )}
+
+      {/* MODAL MOTIVO PAUSA */}
+      {pauseModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-violet-100 rounded-xl flex items-center justify-center">
+                <PauseCircle className="w-5 h-5 text-violet-600" />
+              </div>
+              <div>
+                <p className="font-bold text-slate-800 text-sm">Pausar instalación</p>
+                <p className="text-xs text-slate-400">{pauseModal.numeroOdp} — La ODP volverá a "Listo para instalar"</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Motivo *</label>
+              <textarea
+                rows={3}
+                value={pauseMotivo}
+                onChange={e => setPauseMotivo(e.target.value)}
+                placeholder="Ej. El cliente no estaba en el sitio, faltó material..."
+                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 resize-none"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setPauseModal(null)}
+                className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-semibold text-sm rounded-xl hover:bg-slate-200 transition">
+                Cancelar
+              </button>
+              <button onClick={handleConfirmarPausa}
+                className="flex-1 py-2.5 bg-violet-600 text-white font-semibold text-sm rounded-xl hover:bg-violet-700 transition shadow-sm">
+                Confirmar pausa
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -834,6 +834,8 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
 const ESTADO_RUTA_ODP: Record<string, { label: string; cls: string }> = {
   pendiente:   { label: 'Pendiente',  cls: 'bg-slate-100 text-slate-600 border-slate-200' },
   en_curso:    { label: 'En curso',   cls: 'bg-orange-100 text-orange-700 border-orange-200' },
+  pausada:     { label: 'Pausada',    cls: 'bg-violet-100 text-violet-700 border-violet-200' },
+  con_dano:    { label: 'Con daño',   cls: 'bg-orange-100 text-orange-700 border-orange-200' },
   completada:  { label: 'Completada', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
 };
 
@@ -969,6 +971,9 @@ const TabInstalacion: React.FC<{ odp: any; onOpenLightbox: (src: string) => void
               )}
               {prog.datos_receptor && (
                 <p className="text-xs text-slate-500 mt-2">Recibió: <strong>{prog.datos_receptor}</strong></p>
+              )}
+              {prog.motivo_pausa && (
+                <p className="text-xs text-violet-600 mt-1.5 font-medium">Motivo de pausa: <strong>{prog.motivo_pausa}</strong></p>
               )}
             </div>
           );

@@ -22,6 +22,7 @@ RutaODP.init({
   gps_finalizacion:   { type: DataTypes.STRING(100), allowNull: true },
   descripcion_dano:   { type: DataTypes.TEXT, allowNull: true },
   foto_dano_url:      { type: DataTypes.STRING(500), allowNull: true },
+  motivo_pausa:       { type: DataTypes.TEXT, allowNull: true },
 }, {
   sequelize,
   modelName: 'RutaODP',

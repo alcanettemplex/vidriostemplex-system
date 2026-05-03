@@ -759,6 +759,12 @@ export const pausarInstalacion = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const user = req.user!;
+    const { motivo_pausa } = req.body;
+
+    if (!motivo_pausa?.trim()) {
+      await t.rollback();
+      return res.status(400).json({ error: 'El motivo de la pausa es obligatorio' });
+    }
 
     const rutaODP = await RutaODP.findByPk(id, {
       include: [{ model: RutaInstalacion, as: 'ruta', attributes: ['id', 'oficial_id'] }],
@@ -778,7 +784,7 @@ export const pausarInstalacion = async (req: Request, res: Response) => {
     }
 
     const ahora = new Date();
-    await rutaODP.update({ estado: 'pausada', fin_instalacion: ahora }, { transaction: t });
+    await rutaODP.update({ estado: 'pausada', fin_instalacion: ahora, motivo_pausa: motivo_pausa.trim() }, { transaction: t });
 
     const odp = await ODP.findByPk(rutaODP.odp_id, { transaction: t }) as any;
     if (odp) {
@@ -789,6 +795,7 @@ export const pausarInstalacion = async (req: Request, res: Response) => {
         estado_nuevo: 'LISTO_INSTALAR',
         usuario_id: user.id,
         fecha: ahora,
+        observacion: `Pausa: ${motivo_pausa.trim()}`,
       }, { transaction: t });
       notificarCambioEstadoODP({
         numero_odp: odp.numero_odp,
