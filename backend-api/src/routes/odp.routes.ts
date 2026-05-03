@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems } from '../controllers/odp.controller';
+import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha } from '../controllers/odp.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { uploadConfig } from '../config/upload';
@@ -8,6 +8,11 @@ const router = Router();
 
 // Lectura: todos los autenticados
 router.get('/', authMiddleware, getODPs);
+
+// Carga por fecha — deben ir ANTES de /:id para no ser capturados por ese patrón
+router.get('/carga-por-fecha', authMiddleware, getCargaPorMes);
+router.get('/carga-por-fecha/:fecha', authMiddleware, getCargaPorFecha);
+
 router.get('/:id', authMiddleware, getODP);
 
 // Creación: asesores, admin, gerencia, jefe_produccion

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { Op, QueryTypes } from 'sequelize';
 import {
   ODP,
   ODPItem,
@@ -1084,6 +1085,63 @@ export const agregarItems = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error agregarItems ODP:', error);
     return res.status(500).json({ error: 'Error al agregar ítems', details: error?.message });
+  }
+};
+
+// GET /odp/carga-por-fecha?mes=YYYY-MM — conteo de ODPs por día del mes
+export const getCargaPorMes = async (req: Request, res: Response) => {
+  try {
+    const { mes } = req.query as { mes?: string };
+    if (!mes || !/^\d{4}-\d{2}$/.test(mes)) {
+      return res.status(400).json({ error: 'Parámetro mes inválido (formato YYYY-MM)' });
+    }
+    const [year, month] = mes.split('-').map(Number);
+    const ultimoDia = new Date(year, month, 0).getDate();
+    const inicio = `${mes}-01`;
+    const fin = `${mes}-${String(ultimoDia).padStart(2, '0')}`;
+
+    const rows = await sequelize.query<{ dia: string }>(
+      `SELECT fecha_entrega::date::text AS dia FROM odp
+       WHERE fecha_entrega::date >= :inicio AND fecha_entrega::date <= :fin`,
+      { replacements: { inicio, fin }, type: QueryTypes.SELECT }
+    );
+
+    const conteo: Record<string, number> = {};
+    for (const row of rows) {
+      conteo[row.dia] = (conteo[row.dia] || 0) + 1;
+    }
+    return res.json(conteo);
+  } catch (error: any) {
+    console.error('Error getCargaPorMes:', error);
+    return res.status(500).json({ error: 'Error al obtener carga por mes', details: error?.message });
+  }
+};
+
+// GET /odp/carga-por-fecha/:fecha — detalle de ODPs en una fecha YYYY-MM-DD
+export const getCargaPorFecha = async (req: Request, res: Response) => {
+  try {
+    const { fecha } = req.params;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+      return res.status(400).json({ error: 'Fecha inválida (formato YYYY-MM-DD)' });
+    }
+    const rows = await sequelize.query<{ id: number; numero_odp: string; servicios_detalle: any; nombre_razon_social: string }>(
+      `SELECT o.id, o.numero_odp, o.servicios_detalle, c.nombre_razon_social
+       FROM odp o
+       JOIN clientes c ON o.cliente_id = c.id
+       WHERE o.fecha_entrega::date = :fecha
+       ORDER BY o.numero_odp`,
+      { replacements: { fecha }, type: QueryTypes.SELECT }
+    );
+    const resultado = rows.map(row => ({
+      id: row.id,
+      numero_odp: row.numero_odp,
+      servicios_detalle: row.servicios_detalle,
+      cliente: { nombre_razon_social: row.nombre_razon_social },
+    }));
+    return res.json(resultado);
+  } catch (error: any) {
+    console.error('Error getCargaPorFecha:', error);
+    return res.status(500).json({ error: 'Error al obtener carga por fecha', details: error?.message });
   }
 };
 

@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { Plus, Trash2, X, FileCheck, DollarSign, Package, AlertCircle, ChevronRight, ChevronLeft, Briefcase } from 'lucide-react';
+import { Plus, Trash2, X, FileCheck, DollarSign, Package, AlertCircle, ChevronRight, ChevronLeft, Briefcase, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Bronce Oscuro', 'Gris', 'Gris Oscuro', 'Azul', 'Verde', 'Mate', 'Otro'];
@@ -142,6 +142,16 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     const [clienteBusqueda, setClienteBusqueda] = useState('');
     const [dropdownClienteAbierto, setDropdownClienteAbierto] = useState(false);
     const [prospectosBanner, setProspectosBanner] = useState<{ id: number; numero_prospecto: string; descripcion: string }[]>([]);
+    const [calendarOpen, setCalendarOpen] = useState(false);
+    const [calendarMes, setCalendarMes] = useState(() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    });
+    const [cargaDias, setCargaDias] = useState<Record<string, number>>({});
+    const [modalDia, setModalDia] = useState<string | null>(null);
+    const [detalleDia, setDetalleDia] = useState<any[]>([]);
+    const [loadingDetalle, setLoadingDetalle] = useState(false);
+    const calendarRef = useRef<HTMLDivElement>(null);
 
     const { register, control, handleSubmit, trigger, reset, setValue, formState: { errors, isSubmitting } } = useForm<ODPFormValues>({
         resolver: zodResolver(odpSchema as any),
@@ -173,6 +183,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     const valorTotalRaw = useWatch({ control, name: 'valor_total' }) || 0;
     const proveedorVidrio = useWatch({ control, name: 'proveedor_vidrio' });
     const clienteIdWatch = useWatch({ control, name: 'cliente_id' });
+    const fechaEntregaWatch = useWatch({ control, name: 'fecha_entrega' });
     const clienteSeleccionadoODP = clientes.find(c => c.id === Number(clienteIdWatch));
 
     // Verificar prospectos en gestión al seleccionar cliente (solo en creación)
@@ -184,6 +195,26 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
             headers: { Authorization: `Bearer ${token}` },
         }).then(r => setProspectosBanner(r.data)).catch(() => setProspectosBanner([]));
     }, [clienteIdWatch, odpToEdit]);
+
+    useEffect(() => {
+        if (!calendarOpen) return;
+        const token = sessionStorage.getItem('token');
+        const base = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+        axios.get(`${base}/api/odp/carga-por-fecha?mes=${calendarMes}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => setCargaDias(r.data)).catch(() => setCargaDias({}));
+    }, [calendarOpen, calendarMes]);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (calendarRef.current && !calendarRef.current.contains(e.target as Node)) {
+                setCalendarOpen(false);
+            }
+        };
+        if (calendarOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [calendarOpen]);
+
     const IVA_RATE = 0.19;
     const subtotal = Number(valorTotalRaw) / (1 + IVA_RATE);
     const ivaValor = Number(valorTotalRaw) - subtotal;
@@ -221,6 +252,9 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
 
     useEffect(() => {
         if (odpToEdit) {
+            if (odpToEdit.fecha_entrega) {
+                setCalendarMes(odpToEdit.fecha_entrega.split('T')[0].substring(0, 7));
+            }
             reset({
                 cliente_id: odpToEdit.cliente_id,
                 fecha_entrega: odpToEdit.fecha_entrega ? odpToEdit.fecha_entrega.split('T')[0] : '',
@@ -291,7 +325,49 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
         }
     };
 
+    const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    const navegarMes = (delta: number) => {
+        const [y, m] = calendarMes.split('-').map(Number);
+        const d = new Date(y, m - 1 + delta, 1);
+        setCalendarMes(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    };
+
+    const abrirDetalleDia = async (dia: string) => {
+        setModalDia(dia);
+        setLoadingDetalle(true);
+        setDetalleDia([]);
+        const token = sessionStorage.getItem('token');
+        const base = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+        try {
+            const r = await axios.get(`${base}/api/odp/carga-por-fecha/${dia}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setDetalleDia(r.data);
+        } catch {
+            setDetalleDia([]);
+        } finally {
+            setLoadingDetalle(false);
+        }
+    };
+
+    const fmtFechaBtn = (iso: string) => {
+        const [y, m, d] = iso.split('-');
+        return `${d}/${m}/${y}`;
+    };
+
+    const fmtFechaModal = (iso: string) => {
+        const [y, m, d] = iso.split('-').map(Number);
+        return `${d} de ${MESES_ES[m - 1]} de ${y}`;
+    };
+
+    const [calY, calM] = calendarMes.split('-').map(Number);
+    const calPrimerDia = new Date(calY, calM - 1, 1).getDay();
+    const calTotalDias = new Date(calY, calM, 0).getDate();
+    const hoy = new Date().toISOString().split('T')[0];
+
     return (
+        <>
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -423,13 +499,63 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                     </div>
 
                                     {/* Fecha Entrega */}
-                                    <div>
+                                    <div ref={calendarRef} className="relative">
                                         <label className="block text-sm font-medium text-slate-700 mb-1">Fecha ODP Listo Material</label>
-                                        <input
-                                            type="date"
-                                            {...register('fecha_entrega')}
-                                            className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                        />
+                                        <input type="hidden" {...register('fecha_entrega')} />
+                                        <button
+                                            type="button"
+                                            onClick={() => setCalendarOpen(v => !v)}
+                                            className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-left text-sm flex items-center gap-2 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                                        >
+                                            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                                            <span className={fechaEntregaWatch ? 'text-slate-800' : 'text-slate-400'}>
+                                                {fechaEntregaWatch ? fmtFechaBtn(fechaEntregaWatch) : 'Ver disponibilidad...'}
+                                            </span>
+                                        </button>
+                                        {calendarOpen && (
+                                            <div className="mt-1 border border-slate-200 rounded-xl bg-white p-4 shadow-lg z-30 relative">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <button type="button" onClick={() => navegarMes(-1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition">
+                                                        <ChevronLeft className="w-4 h-4 text-slate-600" />
+                                                    </button>
+                                                    <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+                                                        {MESES_ES[calM - 1]} {calY}
+                                                    </span>
+                                                    <button type="button" onClick={() => navegarMes(1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition">
+                                                        <ChevronRight className="w-4 h-4 text-slate-600" />
+                                                    </button>
+                                                </div>
+                                                <div className="grid grid-cols-7 mb-1">
+                                                    {['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'].map(d => (
+                                                        <div key={d} className="text-center text-xs font-semibold text-slate-400 py-1">{d}</div>
+                                                    ))}
+                                                </div>
+                                                <div className="grid grid-cols-7 gap-y-0.5">
+                                                    {Array.from({ length: calPrimerDia }, (_, i) => <div key={`e${i}`} />)}
+                                                    {Array.from({ length: calTotalDias }, (_, i) => {
+                                                        const dia = i + 1;
+                                                        const diaStr = `${calendarMes}-${String(dia).padStart(2, '0')}`;
+                                                        const count = cargaDias[diaStr] || 0;
+                                                        const isSelected = fechaEntregaWatch === diaStr;
+                                                        const isToday = diaStr === hoy;
+                                                        return (
+                                                            <button
+                                                                key={dia}
+                                                                type="button"
+                                                                onClick={() => abrirDetalleDia(diaStr)}
+                                                                className={`flex flex-col items-center justify-center py-1.5 rounded-lg text-sm transition ${isSelected ? 'bg-blue-600 text-white hover:bg-blue-700' : isToday ? 'ring-1 ring-blue-400 text-blue-600 hover:bg-blue-50' : 'hover:bg-slate-100 text-slate-700'}`}
+                                                            >
+                                                                <span className="leading-none font-medium">{dia}</span>
+                                                                {count > 0 && (
+                                                                    <span className={`text-[10px] leading-none mt-0.5 font-bold ${isSelected ? 'text-blue-100' : 'text-amber-500'}`}>{count}</span>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                                <p className="text-[10px] text-slate-400 mt-3 text-center">Número en naranja = ODPs programadas ese día · Click para ver detalle</p>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Valor Total de la Obra */}
@@ -921,6 +1047,82 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                 </form>
             </motion.div>
         </div>
+
+        {/* Modal detalle de carga por día */}
+        {modalDia && (
+            <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4">
+                <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[70vh] flex flex-col">
+                    <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+                        <div>
+                            <h3 className="font-bold text-slate-800">Carga — {fmtFechaModal(modalDia)}</h3>
+                            {!loadingDetalle && (
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    {detalleDia.length === 0
+                                        ? 'Sin ODPs programadas para este día'
+                                        : `${detalleDia.length} ODP${detalleDia.length !== 1 ? 's' : ''} programada${detalleDia.length !== 1 ? 's' : ''}`}
+                                </p>
+                            )}
+                        </div>
+                        <button type="button" onClick={() => setModalDia(null)} className="p-2 hover:bg-slate-100 rounded-full transition">
+                            <X className="w-4 h-4 text-slate-500" />
+                        </button>
+                    </div>
+
+                    <div className="overflow-y-auto flex-1 p-5 space-y-4">
+                        {loadingDetalle ? (
+                            <div className="text-center text-slate-400 py-8 text-sm">Cargando...</div>
+                        ) : detalleDia.length === 0 ? (
+                            <div className="text-center text-slate-400 py-8 text-sm">No hay ODPs programadas para este día</div>
+                        ) : (
+                            detalleDia.map((odp: any) => (
+                                <div key={odp.id} className="border border-slate-200 rounded-lg overflow-hidden">
+                                    <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
+                                        <span className="font-bold text-slate-800 text-sm">ODP {odp.numero_odp}</span>
+                                        <span className="text-slate-500 text-xs">— {odp.cliente?.nombre_razon_social}</span>
+                                    </div>
+                                    <table className="w-full text-xs">
+                                        <thead>
+                                            <tr className="bg-slate-50/80 border-b border-slate-100">
+                                                <th className="px-3 py-1.5 text-left text-slate-500 font-semibold w-10">Cant.</th>
+                                                <th className="px-3 py-1.5 text-left text-slate-500 font-semibold w-36">Servicio/Gestión</th>
+                                                <th className="px-3 py-1.5 text-left text-slate-500 font-semibold">Descripción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {(odp.servicios_detalle || []).map((s: any, idx: number) => (
+                                                <tr key={idx} className={idx % 2 === 1 ? 'bg-slate-50/50' : ''}>
+                                                    <td className="px-3 py-1.5 text-center font-medium text-slate-700">{s.cantidad}</td>
+                                                    <td className="px-3 py-1.5 text-slate-700">{s.tipo_servicio}</td>
+                                                    <td className="px-3 py-1.5 text-slate-600">{s.descripcion}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setModalDia(null)}
+                            className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                        >
+                            Volver al Calendario
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { setValue('fecha_entrega', modalDia!); setModalDia(null); setCalendarOpen(false); }}
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition"
+                        >
+                            Seleccionar esta fecha
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        </>
     );
 };
 
