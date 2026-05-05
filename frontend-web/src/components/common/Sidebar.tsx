@@ -21,6 +21,7 @@ import {
   Target,
   X,
   BookOpen,
+  BarChart2,
 } from 'lucide-react';
 import { TemplexLogo } from '../ui/TemplexLogo';
 
@@ -140,6 +141,13 @@ const MENU_ITEMS_CONFIG = [
     text: 'ROOT',
     icon: Shield,
     path: '/root',
+    allowedRoles: ['root'],
+    section: 'sistema'
+  },
+  {
+    text: 'Informe Ejecutivo',
+    icon: BarChart2,
+    path: '/informe-ejecutivo',
     allowedRoles: ['root'],
     section: 'sistema'
   },
