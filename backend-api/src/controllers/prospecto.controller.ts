@@ -226,7 +226,7 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
     const { Op } = require('sequelize');
     const lastODP = await ODPModel.findOne({
       where: { numero_odp: { [Op.like]: 'ODP-%' } },
-      order: [['numero_odp', 'DESC']],
+      order: [[seq.literal("CAST(SPLIT_PART(numero_odp, '-', 2) AS INTEGER)"), 'DESC']],
       attributes: ['numero_odp'],
       transaction: t,
     });
@@ -235,7 +235,7 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
       const parts = lastODP.getDataValue('numero_odp').split('-');
       nextODP = parseInt(parts[parts.length - 1]) + 1;
     }
-    const numero_odp = `ODP-${String(nextODP).padStart(4, '0')}`;
+    const numero_odp = `ODP-${nextODP.toString()}`;
 
     // Datos de contacto de instalación: prioridad → body → TM → prospecto
     const tmPrincipal = tms[0];

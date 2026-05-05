@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
+import { Op } from 'sequelize';
 import { z } from 'zod';
-import { NoConformidad, ODP, ODPItem, Usuario, Cliente, HistorialEstadoODP } from '../models';
+import { NoConformidad, ODP, ODPItem, Usuario, Cliente, HistorialEstadoODP, sequelize } from '../models';
 
 const updateNCSchema = z.object({
   estado: z.enum(['ABIERTO', 'EN_PROCESO', 'CERRADO']).optional(),
@@ -59,13 +60,17 @@ export const createNoConformidad = async (req: Request, res: Response) => {
     const numero_reporte = `NC-${(count + 1).toString().padStart(4, '0')}`;
 
     // 4. Generar número de la nueva ODP de reproceso
-    const lastOdp: any = await ODP.findOne({ order: [['id', 'DESC']] });
+    const lastOdp: any = await ODP.findOne({
+      where: { numero_odp: { [Op.like]: 'ODP-%' } },
+      order: [[sequelize.literal("CAST(SPLIT_PART(numero_odp, '-', 2) AS INTEGER)"), 'DESC']],
+      attributes: ['numero_odp'],
+    });
     let nextNum = 1;
     if (lastOdp) {
-      const match = lastOdp.numero_odp?.match(/\d+/);
-      if (match) nextNum = parseInt(match[0]) + 1;
+      const parts = lastOdp.numero_odp.split('-');
+      nextNum = parseInt(parts[parts.length - 1]) + 1;
     }
-    const nuevoNumeroOdp = `ODP-${nextNum.toString().padStart(4, '0')}`;
+    const nuevoNumeroOdp = `ODP-${nextNum.toString()}`;
 
     // 5. Crear la nueva ODP de reproceso (hereda datos del cliente original)
     const nuevaOdp: any = await ODP.create({

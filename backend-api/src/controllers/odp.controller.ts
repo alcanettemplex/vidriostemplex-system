@@ -323,7 +323,7 @@ export const createODP = async (req: Request, res: Response) => {
         const prefijo = data.tipo_odp === 'OA' ? 'OA' : 'ODP';
         const lastODP = await ODP.findOne({
           where: { numero_odp: { [require('sequelize').Op.like]: `${prefijo}-%` } },
-          order: [['numero_odp', 'DESC']],
+          order: [[sequelize.literal("CAST(SPLIT_PART(numero_odp, '-', 2) AS INTEGER)"), 'DESC']],
           attributes: ['numero_odp'],
           transaction: t,
         });
@@ -890,7 +890,7 @@ export const crearGarantia = async (req: Request, res: Response) => {
     // Generar numero_odp para la garantía (continúa el consecutivo general)
     const lastODP = await ODP.findOne({
       where: { numero_odp: { [Op.like]: 'ODP-%' } },
-      order: [['numero_odp', 'DESC']],
+      order: [[sequelize.literal("CAST(SPLIT_PART(numero_odp, '-', 2) AS INTEGER)"), 'DESC']],
       attributes: ['numero_odp'],
       lock: true,
       transaction: t,

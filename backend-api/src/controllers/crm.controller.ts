@@ -996,7 +996,7 @@ export const crearODPDesdeLead = async (req: Request, res: Response) => {
     // Generar número ODP consecutivo
     const lastODP = await ODP.findOne({
       where: { numero_odp: { [Op.like]: 'ODP-%' } },
-      order: [['numero_odp', 'DESC']],
+      order: [[sequelize.literal("CAST(SPLIT_PART(numero_odp, '-', 2) AS INTEGER)"), 'DESC']],
       attributes: ['numero_odp'],
     });
     let next = 1;
@@ -1004,7 +1004,7 @@ export const crearODPDesdeLead = async (req: Request, res: Response) => {
       const parts = lastODP.getDataValue('numero_odp').split('-');
       next = parseInt(parts[parts.length - 1]) + 1;
     }
-    const numero_odp = `ODP-${String(next).padStart(4, '0')}`;
+    const numero_odp = `ODP-${next.toString()}`;
 
     const odp = await ODP.create({
       numero_odp,

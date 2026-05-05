@@ -61,7 +61,7 @@ const generarNumeroCOT = async (): Promise<string> => {
 const generarNumeroODP = async (t?: any): Promise<string> => {
   const lastODP = await ODP.findOne({
     where: { numero_odp: { [Op.like]: 'ODP-%' } },
-    order: [['numero_odp', 'DESC']],
+    order: [[sequelize.literal("CAST(SPLIT_PART(numero_odp, '-', 2) AS INTEGER)"), 'DESC']],
     attributes: ['numero_odp'],
     ...(t ? { transaction: t } : {}),
   });
@@ -70,7 +70,7 @@ const generarNumeroODP = async (t?: any): Promise<string> => {
     const parts = lastODP.getDataValue('numero_odp').split('-');
     next = parseInt(parts[parts.length - 1]) + 1;
   }
-  return `ODP-${String(next).padStart(4, '0')}`;
+  return `ODP-${next.toString()}`;
 };
 
 interface ItemInput {
