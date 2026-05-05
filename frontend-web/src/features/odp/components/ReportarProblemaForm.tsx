@@ -66,14 +66,14 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
     }
   }, [selectedItemIndex]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (incluirItems: boolean = true) => {
     try {
       setLoading(true);
       const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
       const token = sessionStorage.getItem('token');
       const selectedItem = selectedItemIndex !== null ? items[selectedItemIndex] : null;
 
-      const payload = {
+      const payload: any = {
         odp_id: odp.id,
         tipo_error: tipoError,
         area_error: areaError,
@@ -82,9 +82,9 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
         efecto,
         producto_error_descripcion: selectedItem ? `${selectedItem.tipo_vidrio || selectedItem.item} ${selectedItem.ancho_mm}x${selectedItem.alto_mm}mm` : '',
         producto_error_cantidad: selectedItem?.cantidad || 1,
-        items_solucion: [itemSolucion],
         observaciones
       };
+      if (incluirItems) payload.items_solucion = [itemSolucion];
 
       const res = await axios.post(`${API}/api/no-conformidad`, payload, {
         headers: { Authorization: `Bearer ${token}` }
@@ -217,10 +217,11 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
       {/* ─── PASO 2: Seleccionar Ítem Dañado ─── */}
       {step === 2 && (
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-          <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-3">
+          <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-1">
             <span className="w-5 h-5 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-[10px] font-black">2</span>
-            ¿Qué elemento falló? Selecciona el ítem de la ODP
+            Si aplica, selecciona el ítem afectado
           </h3>
+          <p className="text-[11px] text-slate-400 mb-3">Opcional — si el problema es de SAP o no hay ítem de vidrio involucrado, puedes omitir este paso.</p>
           {items.length === 0 ? (
             <div className="text-center py-8 text-slate-400">
               <Package className="w-10 h-10 mx-auto mb-2 text-slate-200" />
@@ -252,16 +253,16 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
             <button type="button" onClick={() => setStep(1)} className="px-6 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition text-sm">
               Atrás
             </button>
-            <button type="button" onClick={() => {
-              if (selectedItemIndex === null) {
-                alert('Selecciona el ítem afectado.');
-                return;
-              }
-              setStep(3);
-            }}
-              className="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition flex items-center gap-2 text-sm">
-              Siguiente <ChevronDown className="w-4 h-4 -rotate-90" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => handleSubmit(false)} disabled={loading}
+                className="px-4 py-2.5 bg-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-300 transition text-sm disabled:opacity-50">
+                {loading ? 'PROCESANDO...' : 'Enviar sin ítems'}
+              </button>
+              <button type="button" onClick={() => setStep(3)}
+                className="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition flex items-center gap-2 text-sm">
+                Siguiente <ChevronDown className="w-4 h-4 -rotate-90" />
+              </button>
+            </div>
           </div>
         </motion.div>
       )}
@@ -273,7 +274,7 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
             <span className="w-5 h-5 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-[10px] font-black">3</span>
             Define el ítem de solución / repuesto
           </h3>
-          <p className="text-[11px] text-slate-400 mb-3">Los datos se pre-llenaron con el ítem dañado. Modifica las medidas o especificaciones según corresponda.</p>
+          <p className="text-[11px] text-slate-400 mb-3">Opcional — si el problema es de SAP, puedes omitir este ítem y generar el reporte sin ítems de solución.</p>
 
           <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 space-y-3">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -345,10 +346,16 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
             <button type="button" onClick={() => setStep(2)} className="px-6 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition text-sm">
               Atrás
             </button>
-            <button type="button" onClick={handleSubmit} disabled={loading}
-              className="px-8 py-2.5 bg-indigo-600 text-white font-black rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/20 flex items-center gap-2 text-sm disabled:opacity-50">
-              {loading ? 'PROCESANDO...' : <><Send className="w-4 h-4" /> GENERAR REPORTE Y ODP</>}
-            </button>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => handleSubmit(false)} disabled={loading}
+                className="px-4 py-2.5 bg-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-300 transition text-sm disabled:opacity-50">
+                {loading ? 'PROCESANDO...' : 'Omitir y enviar'}
+              </button>
+              <button type="button" onClick={() => handleSubmit(true)} disabled={loading}
+                className="px-8 py-2.5 bg-indigo-600 text-white font-black rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/20 flex items-center gap-2 text-sm disabled:opacity-50">
+                {loading ? 'PROCESANDO...' : <><Send className="w-4 h-4" /> GENERAR REPORTE Y ODP</>}
+              </button>
+            </div>
           </div>
         </motion.div>
       )}

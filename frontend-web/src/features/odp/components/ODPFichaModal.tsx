@@ -1169,12 +1169,14 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
   const tieneNC = (odp?.no_conformidades?.length || 0) > 0;
   const tieneGarantias = (odp?.garantias?.length || 0) > 0;
   const esGarantia = !!odp?.es_garantia;
+  const esNC = !!odp?.es_no_conformidad;
 
   type FormatId = 'compra' | 'op' | 'tecnico' | 'det_sap' | 'garantia' | 'noconformidad' | 'sap';
-  const [selectedFormat, setSelectedFormat] = useState<FormatId>('op');
+  const [selectedFormat, setSelectedFormat] = useState<FormatId>(esNC ? 'noconformidad' : 'op');
   const [ncIndex, setNcIndex] = useState(0);
   const [garantiaIndex, setGarantiaIndex] = useState(0);
   const [detSapImagenes, setDetSapImagenes] = useState<any[]>([]);
+  const [ncOrigenData, setNcOrigenData] = useState<any>(null);
 
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const token = sessionStorage.getItem('token');
@@ -1185,6 +1187,17 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
       headers: { Authorization: `Bearer ${token}` }
     }).then(r => setDetSapImagenes(r.data)).catch(() => setDetSapImagenes([]));
   }, [selectedFormat, odp.id]);
+
+  // Cuando la ODP es una NC hija, carga el registro NC del padre para el printable
+  useEffect(() => {
+    if (!esNC || !odp?.odp_padre_id) return;
+    axios.get(`${API}/api/no-conformidad/odp/${odp.odp_padre_id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(r => {
+      const nc = (r.data as any[]).find((n: any) => n.nueva_odp_id === odp.id);
+      if (nc) setNcOrigenData(nc);
+    }).catch(() => {});
+  }, [esNC, odp?.odp_padre_id, odp?.id]);
 
   const handlePrint = () => {
     const area = document.getElementById('printable-area');
@@ -1248,11 +1261,11 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
               {tieneGarantias && <span className="text-[10px] bg-blue-500 text-white px-1.5 rounded-full">{odp.garantias.length}</span>}
             </button>
           )}
-          {/* NC: visible solo si la ODP tiene no conformidades */}
-          {tieneNC && (
+          {/* NC: visible si la ODP tiene NCs hijas O si esta ODP ES una NC */}
+          {(tieneNC || esNC) && (
             <button onClick={() => setSelectedFormat('noconformidad')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'noconformidad' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
               <AlertCircle className="w-3 h-3" /> No Conform.
-              <span className="text-[10px] bg-rose-500 text-white px-1.5 rounded-full">{odp.no_conformidades.length}</span>
+              {tieneNC && <span className="text-[10px] bg-rose-500 text-white px-1.5 rounded-full">{odp.no_conformidades.length}</span>}
             </button>
           )}
           {/* SAP: visible solo si la ODP tiene al menos un SAP gestionado */}
@@ -1300,7 +1313,11 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
             ? <PrintableGarantia garantia={odp} odp={odp.odp_padre} />
             : <PrintableGarantia garantia={odp.garantias?.[garantiaIndex]} odp={odp} />
         )}
-        {selectedFormat === 'noconformidad' && <PrintableNoConformidad odp={odp} data={odp?.no_conformidades?.[ncIndex]} />}
+        {selectedFormat === 'noconformidad' && (
+          esNC && !tieneNC
+            ? <PrintableNoConformidad odp={odp.odp_padre || odp} data={ncOrigenData} />
+            : <PrintableNoConformidad odp={odp} data={odp?.no_conformidades?.[ncIndex]} />
+        )}
         {selectedFormat === 'sap' && <PrintableSAP odp={odp} sap={odp?.saps?.[0]} />}
       </div>
     </div>
