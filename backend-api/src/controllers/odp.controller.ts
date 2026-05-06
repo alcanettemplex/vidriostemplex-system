@@ -97,6 +97,7 @@ const odpSchema = z.object({
   es_no_conformidad: z.boolean().optional(),
   odp_padre_id: z.number().optional().nullable(),
   tipo_odp: z.enum(['ODP', 'OA']).optional(),
+  color_taller: z.string().max(20).nullable().optional(),
   items: z.array(odpItemSchema).optional()
 });
 
@@ -456,7 +457,8 @@ export const updateODP = async (req: Request, res: Response) => {
     const camposRecibidos = Object.keys(req.body);
     const camposPermitidosTaller = [
       'chk_medicion', 'chk_corte', 'chk_vidrio', 'chk_accesorios',
-      'chk_ensamble', 'chk_matizado', 'chk_pelicula', 'chk_huacal', 'chk_carton'
+      'chk_ensamble', 'chk_matizado', 'chk_pelicula', 'chk_huacal', 'chk_carton',
+      'color_taller'
     ];
     
     // Solo consideramos campos técnicos que están en el esquema

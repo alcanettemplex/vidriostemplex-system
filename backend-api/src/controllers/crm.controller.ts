@@ -381,7 +381,7 @@ export const getLeads = async (req: Request, res: Response) => {
     const user = req.user!;
     const { mes, anio, vista } = req.query;
     const esSinRespuesta = vista === 'sin_respuesta';
-    const esAdminOGerencia = ['admin', 'gerencia', 'root', 'asistente_administrativo', 'marketing'].includes(user.rol?.toLowerCase());
+    const esAdminOGerencia = ['admin', 'gerencia', 'root', 'asistente_administrativo', 'marketing', 'jefe_produccion'].includes(user.rol?.toLowerCase());
 
     const whereClause: any = esAdminOGerencia
       ? {}
@@ -445,7 +445,7 @@ export const getCRMStats = async (req: Request, res: Response) => {
   try {
     const user = req.user!;
     const { mes, anio } = req.query;
-    const esGlobal = ['admin', 'gerencia', 'root', 'asistente_administrativo', 'marketing'].includes(user.rol?.toLowerCase());
+    const esGlobal = ['admin', 'gerencia', 'root', 'asistente_administrativo', 'marketing', 'jefe_produccion'].includes(user.rol?.toLowerCase());
     
     const whereBase: any = esGlobal ? {} : { asesor_id: user.id };
 

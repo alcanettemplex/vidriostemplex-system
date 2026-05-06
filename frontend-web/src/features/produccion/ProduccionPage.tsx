@@ -117,12 +117,27 @@ interface ODP {
     forma_pago?: string;
     estado_caja?: string;
     tipo_odp?: string;
+    color_taller?: string | null;
 }
 
 const activeStates = [
     'EN_ESPERA', 'VISITA_TECNICA',
     'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO',
     'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'PAUSADA'
+];
+
+const ESTADO_ORDEN: Record<string, number> = {
+    EN_ESPERA: 0, VISITA_TECNICA: 1, MEDICION: 2, PEDIDO_PROVEEDOR: 3,
+    ALUMINIO_CORTADO: 4, VIDRIO_RECIBIDO: 5, ACCESORIOS_SEPARADOS: 6, PAUSADA: 7,
+};
+
+const TALLER_COLORS = [
+    { hex: '#FEF9C3', label: 'Amarillo' },
+    { hex: '#DCFCE7', label: 'Verde' },
+    { hex: '#DBEAFE', label: 'Azul' },
+    { hex: '#FFEDD5', label: 'Naranja' },
+    { hex: '#FFE4E6', label: 'Rojo' },
+    { hex: '#F3E8FF', label: 'Violeta' },
 ];
 
 const COLUMNS = [
@@ -187,6 +202,9 @@ const ProduccionPage: React.FC = () => {
     const [selectedQR, setSelectedQR]     = useState<string | null>(null);
     const [selectedODPDetail, setSelectedODPDetail] = useState<ODP | null>(null);
     const [filterType, setFilterType]     = useState<string>('TODAS');
+    const [sortBy, setSortBy]             = useState<'fecha' | 'numero' | 'estado'>('fecha');
+    const [sortDir, setSortDir]           = useState<'asc' | 'desc'>('asc');
+    const [colorPicker, setColorPicker]   = useState<{ odpId: number; top: number; left: number } | null>(null);
     const [notes, setNotes]               = useState<{ [key: number]: Nota[] }>({});
     const [newNotes, setNewNotes]         = useState<{ [key: number]: string }>({});
     const [panelOdp, setPanelOdp]         = useState<ODP | null>(null);
@@ -286,6 +304,21 @@ const ProduccionPage: React.FC = () => {
             toast.success('Nota agregada');
         } catch (error) {
             toast.error('Error al agregar nota');
+        }
+    };
+
+    const handleSetColor = async (odpId: number, color: string | null) => {
+        setColorPicker(null);
+        try {
+            const token = sessionStorage.getItem('token');
+            await axios.put(
+                `${API}/api/odp/${odpId}`,
+                { color_taller: color },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            fetchData(true);
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || 'Error al guardar color');
         }
     };
 
@@ -440,7 +473,13 @@ const ProduccionPage: React.FC = () => {
             case 'NC':       return odp.es_no_conformidad;
             default:         return true;
         }
-    }).sort((a, b) => new Date(a.fecha_entrega).getTime() - new Date(b.fecha_entrega).getTime());
+    }).sort((a, b) => {
+        let cmp = 0;
+        if (sortBy === 'numero') cmp = a.numero_odp.localeCompare(b.numero_odp, undefined, { numeric: true });
+        else if (sortBy === 'estado') cmp = (ESTADO_ORDEN[a.estado_produccion] ?? 99) - (ESTADO_ORDEN[b.estado_produccion] ?? 99);
+        else cmp = new Date(a.fecha_entrega).getTime() - new Date(b.fecha_entrega).getTime();
+        return sortDir === 'asc' ? cmp : -cmp;
+    });
 
     const ncOdps = activeOdps
         .filter(o => o.es_no_conformidad || o.es_garantia)
@@ -865,6 +904,7 @@ const ProduccionPage: React.FC = () => {
                             : 0;
                         const borderColor = urgency.color === 'rose' ? 'border-rose-400'
                             : urgency.color === 'orange' ? 'border-orange-400' : 'border-emerald-400';
+                        const hasColor = !!odp.color_taller;
                         const rowBg = isSelected ? 'bg-indigo-50/60'
                             : urgency.color === 'rose' ? 'hover:bg-rose-50/20'
                             : urgency.color === 'orange' ? 'hover:bg-orange-50/20' : 'hover:bg-slate-50';
@@ -873,10 +913,25 @@ const ProduccionPage: React.FC = () => {
                             <tr
                                 key={odp.id}
                                 onClick={() => handleSelectOdp(odp)}
-                                className={`cursor-pointer transition-colors border-l-4 ${borderColor} ${rowBg}`}
+                                className={`cursor-pointer transition-colors border-l-4 ${borderColor} ${hasColor ? '' : rowBg}`}
+                                style={hasColor ? { backgroundColor: odp.color_taller! } : undefined}
                             >
-                                <td className={`px-4 py-3 sticky left-0 z-10 border-r border-slate-100 ${isSelected ? 'bg-indigo-50/60' : 'bg-white'}`}>
+                                <td
+                                    className={`px-4 py-3 sticky left-0 z-10 border-r border-slate-100 ${isSelected ? 'bg-indigo-50/60' : ''}`}
+                                    style={!isSelected ? { backgroundColor: odp.color_taller || 'white' } : undefined}
+                                >
                                     <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                        {/* Círculo de color / selector */}
+                                        <button
+                                            title="Resaltar ODP"
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                                setColorPicker({ odpId: odp.id, top: rect.bottom + 6, left: rect.left });
+                                            }}
+                                            className="w-4 h-4 rounded-full border-2 border-slate-300 flex-shrink-0 transition-transform hover:scale-125 focus:outline-none"
+                                            style={{ backgroundColor: odp.color_taller || '#f1f5f9' }}
+                                        />
                                         <span
                                             className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors cursor-pointer"
                                             onClick={e => { e.stopPropagation(); setFichaOdpId(odp.id); }}
@@ -1052,6 +1107,33 @@ const ProduccionPage: React.FC = () => {
                                     {f.label}
                                 </button>
                             ))}
+                        </div>
+                        {/* Ordenamiento */}
+                        <div className="flex items-center gap-1.5 flex-shrink-0 border-l border-slate-200 pl-3">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Orden:</span>
+                            {[
+                                { id: 'fecha',  label: 'Fecha' },
+                                { id: 'numero', label: '# ODP' },
+                                { id: 'estado', label: 'Etapa' },
+                            ].map(s => {
+                                const isActive = sortBy === s.id;
+                                return (
+                                    <button
+                                        key={s.id}
+                                        onClick={() => {
+                                            if (isActive) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+                                            else { setSortBy(s.id as any); setSortDir('asc'); }
+                                        }}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1
+                                            ${isActive ? 'bg-slate-700 text-white' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                                    >
+                                        {s.label}
+                                        {isActive && (
+                                            <span className="text-[11px] leading-none">{sortDir === 'asc' ? '↑' : '↓'}</span>
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
@@ -1444,6 +1526,36 @@ const ProduccionPage: React.FC = () => {
                 </motion.div>
             )}
         </AnimatePresence>
+
+        {/* Paleta de color flotante */}
+        {colorPicker && (
+            <>
+                <div className="fixed inset-0 z-[200]" onClick={() => setColorPicker(null)} />
+                <div
+                    className="fixed z-[201] bg-white rounded-2xl shadow-2xl border border-slate-200 p-3"
+                    style={{ top: colorPicker.top, left: colorPicker.left }}
+                >
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Resaltar ODP</p>
+                    <div className="flex gap-1.5 mb-2">
+                        {TALLER_COLORS.map(c => (
+                            <button
+                                key={c.hex}
+                                title={c.label}
+                                onClick={() => handleSetColor(colorPicker.odpId, c.hex)}
+                                className="w-7 h-7 rounded-full border-2 border-white shadow-md hover:scale-110 transition-transform focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-slate-400"
+                                style={{ backgroundColor: c.hex }}
+                            />
+                        ))}
+                    </div>
+                    <button
+                        onClick={() => handleSetColor(colorPicker.odpId, null)}
+                        className="w-full text-[10px] font-black text-slate-400 hover:text-rose-500 uppercase tracking-wider py-1 rounded-xl hover:bg-rose-50 transition-colors"
+                    >
+                        ✕ Quitar color
+                    </button>
+                </div>
+            </>
+        )}
         </>
     );
 };
