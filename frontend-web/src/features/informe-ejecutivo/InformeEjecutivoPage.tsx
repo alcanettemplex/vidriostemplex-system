@@ -280,13 +280,13 @@ const TabResumen: React.FC<{ asesores: { id: number; nombre: string }[] }> = ({ 
             <KPICard label="ODPs Facturadas" value={d.odps_facturadas} color="green"
               desc="ODPs cuya fecha de factura cae dentro del período y tienen estado de facturación FACTURADA." />
             <KPICard label="ODPs Atrasadas"  value={d.odps_atrasadas}  color={d.odps_atrasadas > 0 ? 'red' : 'green'}
-              desc="ODPs cuya fecha de entrega comprometida ya venció y no han sido entregadas ni instaladas. No incluye pausadas ni canceladas." />
-            <KPICard label="Valor Facturado"  value={COP(d.valor_facturado || 0)} color="green"
-              desc="Suma del valor total (valor_total) de las ODPs facturadas cuya fecha de factura cae en el período." />
+              desc="ODPs cuya fecha de entrega comprometida ya venció y aún están en producción. No incluye pausadas, canceladas ni listas sin programar (esas aparecen en su propia sección)." />
+            <KPICard label="Valor Vendido"  value={COP(d.valor_vendido || 0)} color="green"
+              desc="Suma del valor_total de ODPs creadas en el período con valor asignado y no canceladas. Representa el negocio nuevo comprometido." />
             <KPICard label="Cobros Recibidos" value={COP(d.cobros_recibidos || 0)} color="blue"
-              desc="Suma de todos los pagos y abonos registrados en el módulo de Contabilidad durante el período seleccionado." />
+              desc="Total abonado sobre las ODPs creadas en el período. Junto con Por Recoger suma exactamente el Valor Vendido." />
             <KPICard label="Por Recoger"      value={COP(d.total_pendiente || 0)} color="amber"
-              desc="Suma del campo 'pendiente' de todas las ODPs activas no canceladas, sin importar el período. Representa el dinero comprometido que aún no ha ingresado." />
+              desc="Saldo pendiente de cobro de las ODPs creadas en el período con valor asignado y no canceladas." />
             <KPICard label="Tasa Conversión"  value={`${d.tasa_conversion || 0}%`}
               sub={`${d.prospectos_convertidos}/${d.prospectos_nuevos} prospectos`} color="purple"
               desc="Porcentaje de prospectos creados en el período que fueron convertidos en ODP. Un prospecto se convierte cuando se le asigna una ODP." />

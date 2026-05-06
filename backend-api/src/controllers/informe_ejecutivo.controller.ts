@@ -87,22 +87,25 @@ export const getResumen = async (req: Request, res: Response) => {
     `, { replacements: { desde, hasta, asesorId }, type: QueryTypes.SELECT });
     const odps_entregadas = Number((entRows as unknown as { total: string }).total) || 0;
 
-    const valor_facturado = Number(await ODP.sum('valor_total', {
-      where: { fecha_factura: { [Op.between]: [desde, hasta] }, estado_facturacion: 'FACTURADA', ...asesorFiltro }
-    }) || 0);
+    const [ventasRow] = await sequelize.query<{ vv: string; cr: string; pr: string }>(`
+      SELECT
+        COALESCE(SUM(valor_total), 0)                        AS vv,
+        COALESCE(SUM(LEAST(valor_total, abono)), 0)          AS cr,
+        COALESCE(SUM(GREATEST(0, valor_total - abono)), 0)   AS pr
+      FROM odp
+      WHERE fecha_creacion BETWEEN :desde AND :hasta
+        AND valor_total > 0
+        ${asesorId ? 'AND asesor_id = :asesorId' : ''}
+    `, { replacements: { desde, hasta, asesorId }, type: QueryTypes.SELECT });
 
-    const cobros_recibidos = Number(await Pago.sum('monto', {
-      where: { fecha: { [Op.between]: [desde, hasta] } }
-    }) || 0);
-
-    const total_pendiente = Number(await ODP.sum('pendiente', {
-      where: { estado_produccion: { [Op.notIn]: ['ENTREGADA'] }, estado_caja: { [Op.ne]: 'CANCELADO' }, ...asesorFiltro }
-    }) || 0);
+    const valor_vendido      = Number((ventasRow as any).vv || 0);
+    const cobros_recibidos   = Number((ventasRow as any).cr || 0);
+    const total_pendiente    = Number((ventasRow as any).pr || 0);
 
     const odps_atrasadas = await ODP.count({
       where: {
         fecha_entrega: { [Op.lt]: today },
-        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'PAUSADA'] },
+        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
         ...asesorFiltro
       }
@@ -117,13 +120,13 @@ export const getResumen = async (req: Request, res: Response) => {
     const semaforo = {
       comercial:  tasa_conversion >= 40 ? 'verde' : tasa_conversion >= 20 ? 'amarillo' : 'rojo',
       produccion: odps_atrasadas === 0 ? 'verde' : odps_atrasadas <= 3 ? 'amarillo' : 'rojo',
-      finanzas:   valor_facturado > 0 && (total_pendiente / valor_facturado) < 0.3 ? 'verde'
-                : valor_facturado > 0 && (total_pendiente / valor_facturado) < 0.6 ? 'amarillo' : 'rojo',
+      finanzas:   valor_vendido > 0 && (total_pendiente / valor_vendido) < 0.3 ? 'verde'
+                : valor_vendido > 0 && (total_pendiente / valor_vendido) < 0.6 ? 'amarillo' : 'rojo',
       calidad:    nc_abiertas === 0 ? 'verde' : nc_abiertas <= 3 ? 'amarillo' : 'rojo',
     };
 
     // KPIs por día (ODPs creadas por día en el período)
-    const [porDia] = await sequelize.query<Record<string, unknown>[]>(`
+    const porDia = await sequelize.query<Record<string, unknown>>(`
       SELECT DATE(fecha_creacion)::text AS dia, COUNT(*)::int AS total
       FROM odp
       WHERE fecha_creacion BETWEEN :desde AND :hasta
@@ -135,7 +138,7 @@ export const getResumen = async (req: Request, res: Response) => {
     res.json({
       odps_creadas, odps_entregadas, odps_facturadas, odps_pausadas, odps_atrasadas,
       odps_listas_sin_programar,
-      valor_facturado, cobros_recibidos, total_pendiente,
+      valor_vendido, cobros_recibidos, total_pendiente,
       prospectos_nuevos, prospectos_convertidos, tasa_conversion,
       nc_abiertas,
       delta_odps_creadas: deltaP(odps_creadas, prev_odps_creadas),
@@ -350,7 +353,7 @@ export const getProduccionCritica = async (req: Request, res: Response) => {
     const atrasadas_raw = await ODP.findAll({
       where: {
         fecha_entrega: { [Op.lt]: today },
-        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'PAUSADA'] },
+        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
         ...asesorFiltro, ...buscadorFiltro,
       },
@@ -480,7 +483,7 @@ export const getFinanciero = async (req: Request, res: Response) => {
     }));
 
     // Cartera por cliente (top 15)
-    const [carteraRows] = await sequelize.query<Record<string, unknown>[]>(`
+    const carteraRows = await sequelize.query<Record<string, unknown>>(`
       SELECT c.nombre_razon_social AS cliente, SUM(o.pendiente)::numeric AS total
       FROM odp o
       JOIN clientes c ON c.id = o.cliente_id
@@ -649,7 +652,7 @@ export const getRecomendaciones = async (req: Request, res: Response) => {
     const atrasadas_count = await ODP.count({
       where: {
         fecha_entrega: { [Op.lt]: today },
-        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'PAUSADA'] },
+        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
       },
     });
