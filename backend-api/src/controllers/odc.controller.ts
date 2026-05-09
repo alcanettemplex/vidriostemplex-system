@@ -783,3 +783,70 @@ export const updateEstadoItemVidrio = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Error al actualizar estado del ítem', detail: error.message });
   }
 };
+
+// POST /compras/odc-sin-sap — Crear ODC libre sin SAP (consumibles: tornillos, silicona, etc.)
+// Body: { numero_odc, proveedor, notas?, items: [{ descripcion, codigo?, cantidad, und? }] }
+export const createODCSinSAP = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const { proveedor, notas, items, numero_odc } = req.body;
+    const userId = req.user?.id;
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Debes agregar al menos un ítem' });
+    }
+    if (!proveedor?.trim()) {
+      await t.rollback();
+      return res.status(400).json({ error: 'El proveedor es requerido' });
+    }
+    if (!numero_odc || !/^\d+$/.test(String(numero_odc).trim())) {
+      await t.rollback();
+      return res.status(400).json({ error: 'El número de ODC es requerido y debe contener solo dígitos' });
+    }
+    try { await validarNumeroODC(String(numero_odc).trim()); } catch (e: any) {
+      await t.rollback();
+      return res.status(409).json({ error: e.message });
+    }
+
+    const odc = await OrdenCompra.create({
+      numero_odc: String(numero_odc).trim(),
+      sap_id: null,
+      odp_id: null,
+      tipo: 'consumible',
+      proveedor,
+      notas: notas || null,
+      estado: 'pendiente',
+      creado_por: userId,
+    }, { transaction: t });
+
+    const odcId = odc.getDataValue('id');
+
+    await ODCItem.bulkCreate(
+      items.map((i: any) => ({
+        odc_id: odcId,
+        sap_item_id: null,
+        odp_item_id: null,
+        item: i.item || null,
+        codigo: i.codigo || null,
+        descripcion: i.descripcion,
+        cantidad: Number(i.cantidad) || 1,
+        recibido: false,
+      })),
+      { transaction: t },
+    );
+
+    await t.commit();
+    import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+    const odcCompleta = await OrdenCompra.findByPk(odcId, {
+      include: [
+        { model: ODCItem, as: 'items' },
+        { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
+      ],
+    });
+    res.status(201).json(odcCompleta);
+  } catch (error: any) {
+    await t.rollback();
+    res.status(500).json({ error: 'Error al crear ODC sin SAP', detail: error.message });
+  }
+};

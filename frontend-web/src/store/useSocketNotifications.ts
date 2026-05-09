@@ -26,7 +26,8 @@ export const useSocketNotifications = () => {
 
     socket.on('notification', (data: any) => {
       dispatch({ type: 'notifications/received', payload: data });
-      toast.info(`🔔 ${data.mensaje || data.message}`, {
+      const prefijo = data.numero_odp ? `ODP ${data.numero_odp.split('-').pop()} — ` : '';
+      toast.info(`🔔 ${prefijo}${data.mensaje || data.message}`, {
         position: 'bottom-left',
         autoClose: 6000,
       });

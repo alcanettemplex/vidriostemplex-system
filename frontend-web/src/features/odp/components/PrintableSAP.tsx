@@ -159,13 +159,14 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                             CELULAR: <span className="font-normal uppercase ml-1">{odp.cliente?.celular}</span>
                         </td>
                         <td className="font-bold">
-                            FECHA: <span className="font-normal ml-1">
-                                {sapData?.fecha_creacion
-                                    ? format(new Date(sapData.fecha_creacion), 'dd/MM/yyyy')
-                                    : odp.fecha_creacion
-                                        ? format(new Date(odp.fecha_creacion), 'dd/MM/yyyy')
-                                        : ''}
-                            </span>
+                            FECHA LISTO:{' '}
+                            {odp.fecha_entrega ? (
+                                <span className="font-bold text-red-600 ml-1">
+                                    {format(new Date(odp.fecha_entrega), 'dd/MM/yyyy')}
+                                </span>
+                            ) : (
+                                <span className="font-normal ml-1 text-slate-400">—</span>
+                            )}
                         </td>
                     </tr>
                 </tbody>
@@ -294,11 +295,13 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                                             <td className="text-[11px]">{item?.codigo || ''}</td>
                                             <td className="text-left text-[11px] px-1">
                                                 <span>{item?.descripcion || ''}</span>
-                                                {(item?.estado_compra === 'en_existencia' || item?.exist_perf) && (
+                                                {enODC ? (
                                                     <span className="inline-flex items-center justify-center w-[13px] h-[13px] rounded-full bg-blue-600 ml-1 align-middle">
-                                                        <span className="text-red-400 text-[9px] font-black leading-none">E</span>
+                                                        <span className="text-white text-[9px] font-black leading-none">E</span>
                                                     </span>
-                                                )}
+                                                ) : (item?.exist_perf || item?.estado_compra === 'en_existencia') ? (
+                                                    <span className="font-black text-red-600 text-[12px] ml-1 align-middle">S</span>
+                                                ) : null}
                                             </td>
                                             <td className="text-[11px]">{item?.dimension || ''}</td>
                                             <td className="text-[11px]">{item?.exist_perf || ''}</td>

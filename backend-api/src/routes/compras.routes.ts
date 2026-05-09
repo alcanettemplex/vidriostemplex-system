@@ -18,6 +18,7 @@ import {
   getVidriosExistencia,
   createODCVidrios,
   updateEstadoItemVidrio,
+  createODCSinSAP,
 } from '../controllers/odc.controller';
 
 import authMiddleware from '../middlewares/authMiddleware';
@@ -37,6 +38,7 @@ router.get('/inventario-perfileria/:codigo', authMiddleware, getInventarioPorCod
 
 // CRUD: solo admin + compras
 router.post('/odc', authMiddleware, rc('admin', 'compras'), createODC);
+router.post('/odc-sin-sap', authMiddleware, rc('admin', 'compras'), createODCSinSAP);
 router.put('/odc/:id', authMiddleware, rc('admin', 'compras'), updateODC);
 router.put('/odc/:id/recibir-items', authMiddleware, rc('admin', 'compras', 'jefe_produccion', 'produccion'), recibirItems);
 router.delete('/odc/:id', authMiddleware, rc('admin', 'compras'), deleteODC);

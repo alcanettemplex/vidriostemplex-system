@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, Trash2, AlertCircle, X, Layers, Plus, Printer } from 'lucide-react';
 import ODCModal, { SAPItemConContexto } from './components/ODCModal';
 import ODCVidriosModal, { ODPItemConContexto } from './components/ODCVidriosModal';
+import ODCSinSAPModal from './components/ODCSinSAPModal';
 import PrintableODC from './components/PrintableODC';
 import ODPFichaModal from '../odp/components/ODPFichaModal';
 
@@ -747,6 +748,7 @@ const ComprasPage: React.FC = () => {
   const [itemsPendientes, setItemsPendientes] = useState<SAPItemConContexto[]>([]);
   const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
   const [mostrarModal, setMostrarModal] = useState(false);
+  const [mostrarModalSinSAP, setMostrarModalSinSAP] = useState(false);
   const [odcsSeguimiento, setOdcsSeguimiento] = useState<ODC[]>([]);
   const [odcsRecibidas, setOdcsRecibidas] = useState<ODC[]>([]);
   const [vidriosFlat, setVidriosFlat] = useState<ODPItemConContexto[]>([]);
@@ -755,7 +757,9 @@ const ComprasPage: React.FC = () => {
   const [vidriosExistencia, setVidriosExistencia] = useState<ODPItemConContexto[]>([]);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState('');
-
+  const [codigosConStock, setCodigosConStock] = useState<Set<string>>(new Set());
+  const [stockPorCodigo, setStockPorCodigo] = useState<Record<string, any[]>>({});
+  const [stockExpandidoItemId, setStockExpandidoItemId] = useState<number | null>(null);
 
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
@@ -792,6 +796,7 @@ const ComprasPage: React.FC = () => {
     axios.get(`${API}/api/compras/recibidas`, { headers: h }).then(r => setOdcsRecibidas(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
     axios.get(`${API}/api/compras/vidrios/panel`, { headers: h }).then(r => setVidriosFlat(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
     axios.get(`${API}/api/compras/vidrios/existencia`, { headers: h }).then(r => setVidriosExistencia(r.data)).catch(err => console.error('Error cargando existencia:', err));
+    axios.get(`${API}/api/compras/codigos-perfileria`, { headers: h }).then(r => setCodigosConStock(new Set(r.data as string[]))).catch(err => console.error('Error cargando códigos perfilería:', err));
   }, []);
 
   useEffect(() => { fetchTab(tab); setBusqueda(''); }, [tab, fetchTab]);
@@ -830,6 +835,17 @@ const ComprasPage: React.FC = () => {
         p.cliente.toLowerCase().includes(q)
       );
     });
+  };
+
+  const toggleStockItem = async (itemId: number, codigo: string) => {
+    if (stockExpandidoItemId === itemId) { setStockExpandidoItemId(null); return; }
+    setStockExpandidoItemId(itemId);
+    if (!stockPorCodigo[codigo]) {
+      try {
+        const res = await axios.get(`${API}/api/compras/inventario-perfileria/${encodeURIComponent(codigo)}`, { headers });
+        setStockPorCodigo(prev => ({ ...prev, [codigo]: res.data }));
+      } catch { setStockPorCodigo(prev => ({ ...prev, [codigo]: [] })); }
+    }
   };
 
   const toggleSeleccion = (id: number) => {
@@ -993,13 +1009,21 @@ const ComprasPage: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <button
-                      onClick={() => setMostrarModal(true)}
-                      disabled={seleccionados.size === 0}
-                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      <Plus className="w-4 h-4" /> Crear ODC ({seleccionados.size})
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setMostrarModalSinSAP(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition shadow-sm"
+                      >
+                        <Plus className="w-4 h-4" /> Nueva ODC sin SAP
+                      </button>
+                      <button
+                        onClick={() => setMostrarModal(true)}
+                        disabled={seleccionados.size === 0}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Plus className="w-4 h-4" /> Crear ODC ({seleccionados.size})
+                      </button>
+                    </div>
                   </div>
 
                   {/* Tabla de items agrupada por código */}
@@ -1054,6 +1078,7 @@ const ComprasPage: React.FC = () => {
                                 <th className="px-3 py-1.5 text-left w-28">SAP</th>
                                 <th className="px-3 py-1.5 text-left w-28">ODP</th>
                                 <th className="px-3 py-1.5 text-left">Cliente</th>
+                                <th className="px-3 py-1.5 text-center w-20">Exis. Perf.</th>
                                 <th className="px-3 py-1.5 text-left w-40">Asesor</th>
                                 <th className="px-3 py-1.5 text-center w-16">Exist.</th>
                               </tr>
@@ -1084,6 +1109,47 @@ const ComprasPage: React.FC = () => {
                                   </td>
                                   <td className="px-3 py-2 text-slate-500 truncate max-w-[200px]">
                                     {item.SAP?.ODP?.cliente?.nombre_razon_social || '—'}
+                                  </td>
+                                  <td className="px-3 py-2 w-20" onClick={e => e.stopPropagation()}>
+                                    {item.codigo && codigosConStock.has(item.codigo) ? (
+                                      <div className="relative">
+                                        <button
+                                          onClick={() => toggleStockItem(item.id, item.codigo)}
+                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition"
+                                        >
+                                          <Package className="w-3 h-3" />
+                                          {stockExpandidoItemId === item.id ? '▲' : '▼'}
+                                        </button>
+                                        {stockExpandidoItemId === item.id && (
+                                          <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-lg min-w-[200px] max-h-48 overflow-y-auto">
+                                            {!stockPorCodigo[item.codigo] ? (
+                                              <p className="text-[10px] text-slate-400 px-3 py-2">Cargando…</p>
+                                            ) : stockPorCodigo[item.codigo].length === 0 ? (
+                                              <p className="text-[10px] text-slate-400 px-3 py-2">Sin stock disponible</p>
+                                            ) : (
+                                              <>
+                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-3 pt-2 pb-1">
+                                                  {stockPorCodigo[item.codigo].length} pieza(s) disponible(s)
+                                                </p>
+                                                {stockPorCodigo[item.codigo].map((p: any) => (
+                                                  <div key={p.consecutivo} className="flex items-center gap-2 px-3 py-1.5 border-t border-slate-50 hover:bg-slate-50">
+                                                    <span className="text-[10px] font-bold text-emerald-700 flex-1">
+                                                      {p.mm != null ? `${Math.round(p.mm)} mm` : '—'}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-500">#{p.consecutivo}</span>
+                                                    {p.ubicacion && (
+                                                      <span className="text-[9px] text-slate-400">({p.ubicacion})</span>
+                                                    )}
+                                                  </div>
+                                                ))}
+                                              </>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-slate-300 text-[10px]">—</span>
+                                    )}
                                   </td>
                                   <td className="px-3 py-2 text-slate-400 text-[10px] truncate max-w-[160px]">
                                     {item.SAP?.ODP?.asesor?.nombre_completo || '—'}
@@ -1438,6 +1504,14 @@ const ComprasPage: React.FC = () => {
 
           </motion.div>
         </AnimatePresence>
+      )}
+
+      {/* Modal crear ODC sin SAP (consumibles) */}
+      {mostrarModalSinSAP && (
+        <ODCSinSAPModal
+          onClose={() => setMostrarModalSinSAP(false)}
+          onRefresh={refresh}
+        />
       )}
 
       {/* Modal crear ODC consolidada */}

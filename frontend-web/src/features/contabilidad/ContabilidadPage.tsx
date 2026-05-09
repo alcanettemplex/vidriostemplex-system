@@ -8,7 +8,7 @@ import {
   Calculator, DollarSign, FileCheck, AlertCircle,
   CreditCard, Plus, X, Receipt, Clock, Banknote, TrendingDown,
   Pencil, Trash2, Calendar, ChevronUp, ChevronDown, ChevronsUpDown,
-  CheckCircle2,
+  CheckCircle2, Search,
 } from 'lucide-react';
 import { useDataChangedSocket } from '../../store/useSocketNotifications';
 
@@ -61,6 +61,7 @@ const ContabilidadPage: React.FC = () => {
   const [loadingOdps, setLoadingOdps] = useState(true);
   const [filterEstadoCaja, setFilterEstadoCaja] = useState('todos');
   const [filterBusqueda, setFilterBusqueda] = useState('');
+  const [busquedaOA, setBusquedaOA] = useState('');
 
   // ─── Resumen / pagos ─────────────────────────────────────────────────────
   const [resumen, setResumen] = useState<any>(null);
@@ -1002,10 +1003,20 @@ const ContabilidadPage: React.FC = () => {
         {/* ── TAB OA: Órdenes Azules ─────────────────────────────────────────── */}
         {tab === 'oa' && canSeeOA && (
           <div>
-            <div className="flex gap-2 flex-wrap items-center px-5 py-3 border-b border-slate-100 bg-slate-50/50">
+            <div className="flex gap-3 flex-wrap items-center px-5 py-3 border-b border-slate-100 bg-slate-50/50">
               <span className="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5">
                 <FileCheck className="w-3.5 h-3.5" /> Órdenes Azules (OA) — sin facturación
               </span>
+              <div className="relative ml-auto">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Buscar ODP, cliente, asesor..."
+                  value={busquedaOA}
+                  onChange={e => setBusquedaOA(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 w-64"
+                />
+              </div>
             </div>
             <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 390px)', minHeight: '300px' }}>
               <table className="w-full text-sm">
@@ -1021,9 +1032,21 @@ const ContabilidadPage: React.FC = () => {
                     Array.from({ length: 4 }).map((_, i) => (
                       <tr key={i}><td colSpan={11} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td></tr>
                     ))
-                  ) : odpsOA.length === 0 ? (
-                    <tr><td colSpan={11} className="text-center py-12 text-slate-400 font-bold">No hay Órdenes Azules registradas.</td></tr>
-                  ) : odpsOA.map((odp: any) => (
+                  ) : (() => {
+                    const q = busquedaOA.toLowerCase().trim();
+                    const lista = q
+                      ? odpsOA.filter((o: any) =>
+                          (o.numero_odp || '').toLowerCase().includes(q) ||
+                          (o.cliente?.nombre_razon_social || '').toLowerCase().includes(q) ||
+                          (o.asesor?.nombre_completo || '').toLowerCase().includes(q)
+                        )
+                      : odpsOA;
+                    if (lista.length === 0) return (
+                      <tr><td colSpan={11} className="text-center py-12 text-slate-400 font-bold">
+                        {q ? 'Sin resultados.' : 'No hay Órdenes Azules registradas.'}
+                      </td></tr>
+                    );
+                    return lista.map((odp: any) => (
                     <tr key={odp.id} className="hover:bg-blue-50/30 transition-colors">
                       <td className="px-4 py-4 font-bold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => setFichaOdpId(odp.id)}>
                         {odp.numero_odp}
@@ -1085,7 +1108,8 @@ const ContabilidadPage: React.FC = () => {
                         )}
                       </td>
                     </tr>
-                  ))}
+                    ));
+                  })()}
                 </tbody>
               </table>
             </div>
