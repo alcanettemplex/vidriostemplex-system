@@ -501,12 +501,15 @@ export const generarExcelPedidoPV = async (req: Request, res: Response) => {
     const items: any[] = pedido.getDataValue('items_asignados') || [];
     const numeroPedido = pedido.getDataValue('numero_pedido') || '';
     const creadoEn: Date | null = pedido.getDataValue('creado_en') || null;
+    const fechaEnvio: Date | null = pedido.getDataValue('fecha_envio') || null;
+    const fechaEntregaPrometida: Date | null = pedido.getDataValue('fecha_entrega_prometida') || null;
 
     const numeroOdp = odp?.numero_odp || '';
     const asesorNombre = odp?.asesor?.nombre_completo || '';
     const iniciales = (n: string) => n.trim().split(/\s+/).map((p: string) => p[0] || '').join('').toUpperCase();
     const obra = [numeroOdp, asesorNombre ? iniciales(asesorNombre) : ''].filter(Boolean).join(' — ');
 
+    const MESES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
     const fmtDate = (d: Date | string | null): string => {
       if (!d) return '';
       const dt = typeof d === 'string' ? new Date(d) : d;
@@ -514,6 +517,14 @@ export const generarExcelPedidoPV = async (req: Request, res: Response) => {
       const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
       const yyyy = dt.getUTCFullYear();
       return `${dd}/${mm}/${yyyy}`;
+    };
+    const fmtDateRed = (d: Date | string | null): string => {
+      if (!d) return '';
+      const dt = typeof d === 'string' ? new Date(d) : d;
+      const dd = String(dt.getUTCDate()).padStart(2, '0');
+      const mes = MESES[dt.getUTCMonth()];
+      const yyyy = dt.getUTCFullYear();
+      return `${dd}/${mes}/${yyyy}`;
     };
 
     const templatePath = path.join(__dirname, '../../templates/vitelsa.xlsx');
@@ -558,6 +569,18 @@ export const generarExcelPedidoPV = async (req: Request, res: Response) => {
       sc(`M${row}`, item ? v(item.pulidos_h) : '');
       sc(`R${row}`, item ? v(item.observaciones_pv || item.otros || item.accesorios) : '');
     }
+
+    // Fechas en fila 40 — formato 25/ABR/2026 en rojo
+    const fontRed = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFF0000' } } as ExcelJS.Font;
+    const alignCenter: Partial<ExcelJS.Alignment> = { horizontal: 'center', vertical: 'middle' };
+    const cellEnvio = ws.getCell('G40');
+    cellEnvio.value = fmtDateRed(fechaEnvio);
+    cellEnvio.font = fontRed;
+    cellEnvio.alignment = alignCenter;
+    const cellEntrega = ws.getCell('P40');
+    cellEntrega.value = fmtDateRed(fechaEntregaPrometida);
+    cellEntrega.font = fontRed;
+    cellEntrega.alignment = alignCenter;
 
     const buffer = await wb.xlsx.writeBuffer();
     const filename = `VITELSA-${numeroPedido}.xlsx`;

@@ -218,8 +218,20 @@ export const getODP = async (req: Request, res: Response) => {
         },
         {
           model: ODP, as: 'garantias',
-          attributes: ['id', 'numero_odp', 'numero_garantia', 'estado_produccion', 'fecha_creacion', 'descripcion_pedido'],
-          include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
+          attributes: ['id', 'numero_odp', 'numero_garantia', 'estado_produccion', 'fecha_creacion', 'descripcion_pedido', 'nombre_recibe', 'telefono_recibe', 'direccion_instalacion', 'tipo_servicio', 'observaciones'],
+          include: [
+            { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+            { model: Cliente, as: 'cliente' },
+            {
+              model: RutaODP, as: 'ruta_odps',
+              attributes: ['id', 'estado'],
+              include: [{
+                model: RutaInstalacion, as: 'ruta',
+                attributes: ['id'],
+                include: [{ model: Usuario, as: 'instaladores', attributes: ['id', 'nombre_completo'], through: { attributes: [] } }],
+              }],
+            },
+          ],
           separate: true,
           order: [['fecha_creacion', 'ASC']],
         },
