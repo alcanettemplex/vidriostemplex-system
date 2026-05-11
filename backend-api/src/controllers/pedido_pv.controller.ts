@@ -556,7 +556,7 @@ export const generarExcelPedidoPV = async (req: Request, res: Response) => {
     for (let i = 0; i < 12; i++) {
       const item = items[i] || null;
       const row = 28 + i;
-      sc(`C${row}`, item ? v(item.color) : '');
+      sc(`C${row}`, item ? (v(item.color).toLowerCase() === 'incoloro' ? 'INC' : v(item.color)) : '');
       sc(`D${row}`, item ? v(item.espesor) : '');
       sc(`E${row}`, item && item.cantidad !== null ? Number(item.cantidad) : '');
       sc(`F${row}`, item && item.ancho_mm !== null ? Number(item.ancho_mm) : '');
