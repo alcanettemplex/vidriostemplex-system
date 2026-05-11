@@ -50,7 +50,7 @@ router.post('/ruta-odp/:id/llegada', requireRole('conductor'), llegadaConductor)
 router.get('/', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'), getRutas);
 router.get('/:id', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'), getRuta);
 router.post('/', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), createRuta);
-router.put('/:id', requireRole('admin', 'gerencia', 'jefe_produccion'), updateRuta);
+router.put('/:id', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), updateRuta);
 router.delete('/:id', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), cancelarRuta);
 
 export default router;
