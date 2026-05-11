@@ -979,16 +979,9 @@ const ComprasPage: React.FC = () => {
                 return map;
               })();
 
-              return listaFiltrada.length === 0 ? (
-                <div className="text-center py-20">
-                  <CheckCircle2 className="w-16 h-16 text-green-300 mx-auto mb-3" />
-                  <p className="text-lg font-bold text-slate-500">
-                    {busqueda ? 'Sin resultados' : 'No hay items pendientes de gestionar'}
-                  </p>
-                </div>
-              ) : (
+              return (
                 <div className="space-y-4">
-                  {/* Barra de acciones */}
+                  {/* Barra de acciones — siempre visible */}
                   <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
                     <div className="flex items-center gap-3">
                       <input
@@ -1027,6 +1020,14 @@ const ComprasPage: React.FC = () => {
                   </div>
 
                   {/* Tabla de items agrupada por código */}
+                  {listaFiltrada.length === 0 ? (
+                    <div className="text-center py-20">
+                      <CheckCircle2 className="w-16 h-16 text-green-300 mx-auto mb-3" />
+                      <p className="text-lg font-bold text-slate-500">
+                        {busqueda ? 'Sin resultados' : 'No hay items pendientes de gestionar'}
+                      </p>
+                    </div>
+                  ) : (
                   <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                     {Array.from(gruposPorCodigo.entries()).map(([codigo, grupo], gi) => {
                       const todosDelGrupoSeleccionados = grupo.every(i => seleccionados.has(i.id));
@@ -1179,6 +1180,7 @@ const ComprasPage: React.FC = () => {
                       );
                     })}
                   </div>
+                  )}
 
                 </div>
               );
