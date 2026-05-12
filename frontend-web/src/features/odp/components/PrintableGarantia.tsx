@@ -1,6 +1,5 @@
 import React from 'react';
 import { format, addMonths, isValid } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { TemplexLogo } from '../../../components/ui/TemplexLogo';
 
 interface PrintableGarantiaProps {

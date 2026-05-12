@@ -126,6 +126,8 @@ const activeStates = [
     'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'PAUSADA'
 ];
 
+const ESTADOS_NC_ACTIVOS = [...activeStates];
+
 const ESTADO_ORDEN: Record<string, number> = {
     EN_ESPERA: 0, VISITA_TECNICA: 1, MEDICION: 2, PEDIDO_PROVEEDOR: 3,
     ALUMINIO_CORTADO: 4, VIDRIO_RECIBIDO: 5, ACCESORIOS_SEPARADOS: 6, PAUSADA: 7,
@@ -484,7 +486,6 @@ const ProduccionPage: React.FC = () => {
         return sortDir === 'asc' ? cmp : -cmp;
     });
 
-    const ESTADOS_NC_ACTIVOS = ['EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'PAUSADA'];
     const ncOdps = ncGarantiasOdps
         .filter(o => ESTADOS_NC_ACTIVOS.includes(o.estado_produccion))
         .sort((a, b) => new Date(a.fecha_creacion || 0).getTime() - new Date(b.fecha_creacion || 0).getTime());
