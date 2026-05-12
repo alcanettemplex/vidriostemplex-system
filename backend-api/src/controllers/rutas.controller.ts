@@ -52,12 +52,13 @@ const INCLUDE_RUTA_COMPLETA = async (): Promise<any[]> => [
   },
 ];
 
-// Condición de pago aprobado para instalar
+// Condición de pago aprobado para instalar (garantías bypass pago siempre)
 const PAGO_OK = {
   [Op.or as any]: [
     { estado_caja: { [Op.in]: ['CANCELADO', 'CREDITO_APROBADO'] } },
     { autorizacion_especial_despacho: true },
     { forma_pago: 'credito' },
+    { es_garantia: true },
   ],
 };
 
@@ -68,6 +69,7 @@ const REQUIERE_SERVICIO = {
 
 const INCLUDE_ODP_BASICO = [
   { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'telefono'] },
+  { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
 ];
 
 // ─── JEFE: ODPs para gestión (3 pestañas) ────────────────────────────────────

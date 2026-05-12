@@ -122,6 +122,30 @@ export const getODPs = async (req: Request, res: Response) => {
   }
 };
 
+export const getNcGarantias = async (req: Request, res: Response) => {
+  try {
+    const { SAP, TomaMedidas, Op } = await import('../models').then(m => ({ ...m, Op: require('sequelize').Op }));
+    const odps = await ODP.findAll({
+      where: {
+        [Op.or]: [{ es_no_conformidad: true }, { es_garantia: true }],
+      } as any,
+      include: [
+        { model: Cliente, as: 'cliente' },
+        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
+        { model: ODPItem, as: 'items' },
+        { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp', 'fecha_entrega'] },
+        { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
+        { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
+        { model: SAP, as: 'saps', attributes: ['id'], separate: true },
+      ],
+      order: [['fecha_creacion', 'DESC']],
+    });
+    res.json(odps);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener NC y garantías' });
+  }
+};
+
 export const getGarantias = async (req: Request, res: Response) => {
   try {
     const { SAP, TomaMedidas } = await import('../models');
@@ -131,7 +155,7 @@ export const getGarantias = async (req: Request, res: Response) => {
         { model: Cliente, as: 'cliente' },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
         { model: ODPItem, as: 'items' },
-        { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp'] },
+        { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp', 'fecha_entrega'] },
         { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
         { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
         { model: SAP, as: 'saps', attributes: ['id'], separate: true },
@@ -157,7 +181,22 @@ export const getODP = async (req: Request, res: Response) => {
         { model: Cliente, as: 'cliente' },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username', 'email'] },
         { model: ODPItem, as: 'items' },
-        { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp'] },
+        {
+          model: ODP, as: 'odp_padre',
+          attributes: ['id', 'numero_odp', 'fecha_entrega'],
+          include: [{
+            model: RutaODP, as: 'ruta_odps',
+            attributes: ['id', 'estado'],
+            include: [{
+              model: RutaInstalacion, as: 'ruta',
+              attributes: ['id'],
+              include: [
+                { model: Usuario, as: 'instaladores', attributes: ['id', 'nombre_completo'], through: { attributes: [] } },
+                { model: Usuario, as: 'oficial', attributes: ['id', 'nombre_completo'] },
+              ],
+            }],
+          }],
+        },
         {
           model: NoConformidad, as: 'no_conformidades',
           include: [
@@ -195,6 +234,7 @@ export const getODP = async (req: Request, res: Response) => {
               include: [
                 { model: (await import('../models')).Vehiculo, as: 'vehiculo', attributes: ['placa', 'tipo'] },
                 { model: Usuario, as: 'instaladores', attributes: ['id', 'nombre_completo'], through: { attributes: [] } },
+                { model: Usuario, as: 'oficial', attributes: ['id', 'nombre_completo'] },
               ],
             },
           ],
@@ -228,7 +268,10 @@ export const getODP = async (req: Request, res: Response) => {
               include: [{
                 model: RutaInstalacion, as: 'ruta',
                 attributes: ['id'],
-                include: [{ model: Usuario, as: 'instaladores', attributes: ['id', 'nombre_completo'], through: { attributes: [] } }],
+                include: [
+                  { model: Usuario, as: 'instaladores', attributes: ['id', 'nombre_completo'], through: { attributes: [] } },
+                  { model: Usuario, as: 'oficial', attributes: ['id', 'nombre_completo'] },
+                ],
               }],
             },
           ],
@@ -886,7 +929,7 @@ export const crearGarantia = async (req: Request, res: Response) => {
     const { descripcion_problema, nombre_recibe, telefono_recibe, cargo_recibe, tipo_servicio, direccion_instalacion, observaciones, items } = req.body;
     if (!descripcion_problema?.trim()) { await t.rollback(); return res.status(400).json({ error: 'La descripción del problema es obligatoria' }); }
 
-    // Generar numero_garantia G-XXXX
+    // Generar numero_garantia G-XXXX (usado también como numero_odp)
     const lastGarantia = await ODP.findOne({
       where: { numero_garantia: { [Op.like]: 'G-%' } },
       order: [['numero_garantia', 'DESC']],
@@ -900,21 +943,7 @@ export const crearGarantia = async (req: Request, res: Response) => {
       nextG = parseInt(partsG[partsG.length - 1]) + 1;
     }
     const numero_garantia = `G-${String(nextG).padStart(4, '0')}`;
-
-    // Generar numero_odp para la garantía (continúa el consecutivo general)
-    const lastODP = await ODP.findOne({
-      where: { numero_odp: { [Op.like]: 'ODP-%' } },
-      order: [[sequelize.literal("CAST(SPLIT_PART(numero_odp, '-', 2) AS INTEGER)"), 'DESC']],
-      attributes: ['numero_odp'],
-      lock: true,
-      transaction: t,
-    });
-    let nextODPNum = 1;
-    if (lastODP) {
-      const partsODP = lastODP.getDataValue('numero_odp').split('-');
-      nextODPNum = parseInt(partsODP[partsODP.length - 1]) + 1;
-    }
-    const numero_odp = `ODP-${String(nextODPNum).padStart(4, '0')}`;
+    const numero_odp = numero_garantia; // Las garantías no consumen consecutivo de ODPs
 
     const garantia = await ODP.create({
       numero_odp,
@@ -930,9 +959,10 @@ export const crearGarantia = async (req: Request, res: Response) => {
       tipo_servicio: tipo_servicio || odpPadre.getDataValue('tipo_servicio') || '',
       direccion_instalacion: direccion_instalacion || odpPadre.getDataValue('direccion_instalacion') || '',
       observaciones: observaciones || '',
-      estado_produccion: 'MEDICION',
+      estado_produccion: 'EN_ESPERA',
       estado_facturacion: 'PENDIENTE',
       estado_caja: 'PENDIENTE',
+      instalacion: true,
       fecha_creacion: new Date(),
     } as any, { transaction: t });
 

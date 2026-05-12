@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha } from '../controllers/odp.controller';
+import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, getNcGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha } from '../controllers/odp.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { uploadConfig } from '../config/upload';
@@ -9,9 +9,11 @@ const router = Router();
 // Lectura: todos los autenticados
 router.get('/', authMiddleware, getODPs);
 
-// Carga por fecha — deben ir ANTES de /:id para no ser capturados por ese patrón
+// Rutas con segmento fijo — deben ir ANTES de /:id para no ser capturadas por ese patrón
 router.get('/carga-por-fecha', authMiddleware, getCargaPorMes);
 router.get('/carga-por-fecha/:fecha', authMiddleware, getCargaPorFecha);
+router.get('/garantias/all', authMiddleware, getGarantias);
+router.get('/nc-garantias', authMiddleware, getNcGarantias);
 
 router.get('/:id', authMiddleware, getODP);
 
@@ -45,8 +47,7 @@ router.patch('/:id/aprobar-sin-items', authMiddleware, requireRole('admin', 'ger
 // Agregar ítems a ODP existente (desde módulo PedidosPV — puede_gestionar_pv)
 router.post('/:id/items', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion', 'compras'), agregarItems);
 
-// Garantías: listado global y creación desde una ODP padre
-router.get('/garantias/all', authMiddleware, getGarantias);
+// Creación de garantía desde una ODP padre
 router.post('/:id/garantia', authMiddleware, requireRole('admin', 'asesor_comercial', 'gerencia', 'jefe_produccion'), crearGarantia);
 
 export default router;

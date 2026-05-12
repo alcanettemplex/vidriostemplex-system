@@ -941,7 +941,10 @@ const TabInstalacion: React.FC<{ odp: any; onOpenLightbox: (src: string) => void
           </div>
         ) : rutaOdps.map((prog: any) => {
           const estadoBadge = ESTADO_RUTA_ODP[prog.estado] || ESTADO_RUTA_ODP['pendiente'];
-          const instaladores = prog.ruta?.instaladores?.map((i: any) => i.nombre_completo).join(', ') || '—';
+          const oficial = prog.ruta?.oficial;
+          const ayudantes = (prog.ruta?.instaladores || []).filter((i: any) => i.id !== oficial?.id);
+          const todoInstaladores = [oficial, ...ayudantes].filter(Boolean);
+          const instaladores = todoInstaladores.length > 0 ? todoInstaladores.map((i: any) => i.nombre_completo).join(', ') : '—';
           const vehiculo = prog.ruta?.vehiculo ? `${prog.ruta.vehiculo.tipo.toUpperCase()} — ${prog.ruta.vehiculo.placa}` : '—';
           return (
             <div key={prog.id} className="bg-white border border-slate-200 rounded-2xl p-5 mb-3 shadow-sm">

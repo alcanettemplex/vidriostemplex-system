@@ -37,11 +37,15 @@ const PrintableGarantia: React.FC<PrintableGarantiaProps> = ({ odp, garantia }) 
         const rutas = odpObj?.ruta_odps;
         if (!rutas?.length) return null;
         const last = rutas[rutas.length - 1];
-        return last?.ruta?.instaladores;
+        const oficial = last?.ruta?.oficial;
+        const ayudantes = (last?.ruta?.instaladores || []).filter((i: any) => i.id !== oficial?.id);
+        const todos = [oficial, ...ayudantes].filter(Boolean);
+        return todos.length > 0 ? todos : null;
     };
-    const instaladores = getInstaladorFromODP(src) || getInstaladorFromODP(odp);
-    const instaladorNombre = instaladores?.length > 0
-        ? instaladores.map((i: any) => i.nombre_completo).join(', ')
+    // Para garantías: intentar rutas propias primero; si no, usar rutas del padre
+    const instSrc = getInstaladorFromODP(src) || getInstaladorFromODP(garantia?.odp_padre) || getInstaladorFromODP(odp);
+    const instaladorNombre = instSrc && instSrc.length > 0
+        ? instSrc.map((i: any) => i.nombre_completo).join(', ')
         : '—';
 
     // Cliente: de la garantía o del padre
@@ -91,7 +95,7 @@ const PrintableGarantia: React.FC<PrintableGarantiaProps> = ({ odp, garantia }) 
                         {/* ROW FECHA - ODP */}
                         <tr>
                             <td className="celda-title bg-slate-50 py-3">FECHA DE SOLICITUD</td>
-                            <td className="celda-value text-slate-800">{formatDate(src?.fecha_creacion)}</td>
+                            <td className="celda-value text-slate-800">{formatDate(garantia?.fecha_creacion)}</td>
                             <td className="p-0 border-none">
                                 <table className="w-full h-full border-collapse">
                                     <tbody>
@@ -140,7 +144,7 @@ const PrintableGarantia: React.FC<PrintableGarantiaProps> = ({ odp, garantia }) 
                         {/* TIPO PRODUCTO */}
                         <tr>
                             <td className="celda-title bg-slate-50 py-3">TIPO DE<br />PRODUCTO:</td>
-                            <td colSpan={3} className="celda-value uppercase">{odp?.tipo_servicio || '—'}</td>
+                            <td colSpan={3} className="celda-value uppercase">{src?.tipo_servicio || odp?.tipo_servicio || '—'}</td>
                         </tr>
 
                         {/* FECHAS INSTALACION Y VENCIMIENTO */}

@@ -195,6 +195,7 @@ const ProduccionPage: React.FC = () => {
     const [despachoOdps, setDespachoOdps] = useState<ODP[]>([]);
     const [manoOdps, setManoOdps]         = useState<ODP[]>([]);
     const [entregadasOdps, setEntregadasOdps] = useState<ODP[]>([]);
+    const [ncGarantiasOdps, setNcGarantiasOdps] = useState<ODP[]>([]);
 
     const [loading, setLoading]           = useState(true);
     const [searchTerm, setSearchTerm]     = useState('');
@@ -234,10 +235,11 @@ const ProduccionPage: React.FC = () => {
         try {
             if (!silent) setLoading(true);
             const token = sessionStorage.getItem('token');
-            const res = await axios.get(
-                `${API}/api/odp`,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const headers = { Authorization: `Bearer ${token}` };
+            const [res, resNcG] = await Promise.all([
+                axios.get(`${API}/api/odp`, { headers }),
+                axios.get(`${API}/api/odp/nc-garantias`, { headers }),
+            ]);
             const data: ODP[] = res.data;
             const allActive = data.filter(o => activeStates.includes(o.estado_produccion));
             const allReady  = data.filter(o => o.estado_produccion === 'LISTO_INSTALAR');
@@ -249,6 +251,7 @@ const ProduccionPage: React.FC = () => {
             setDespachoOdps(allReady.filter(o => o.instalacion || o.acarreo));
             setManoOdps(allReady.filter(o => !o.instalacion && !o.acarreo));
             setEntregadasOdps(allEntregadas);
+            setNcGarantiasOdps(resNcG.data);
         } catch (error) {
             console.error(error);
             toast.error('Error al cargar pedidos de producción');
@@ -269,12 +272,12 @@ const ProduccionPage: React.FC = () => {
     // Sync panelOdp when data refreshes
     useEffect(() => {
         if (!panelOdp) return;
-        const all = [...activeOdps, ...despachoOdps, ...manoOdps, ...entregadasOdps];
+        const all = [...activeOdps, ...despachoOdps, ...manoOdps, ...entregadasOdps, ...ncGarantiasOdps];
         const updated = all.find(o => o.id === panelOdp.id);
         if (updated) setPanelOdp(updated);
         else setPanelOdp(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeOdps, despachoOdps, manoOdps, entregadasOdps]);
+    }, [activeOdps, despachoOdps, manoOdps, entregadasOdps, ncGarantiasOdps]);
 
     const fetchNotes = async (odpId: number) => {
         try {
@@ -481,9 +484,10 @@ const ProduccionPage: React.FC = () => {
         return sortDir === 'asc' ? cmp : -cmp;
     });
 
-    const ncOdps = activeOdps
-        .filter(o => o.es_no_conformidad || o.es_garantia)
-        .sort((a, b) => new Date(a.fecha_entrega).getTime() - new Date(b.fecha_entrega).getTime());
+    const ESTADOS_NC_ACTIVOS = ['EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'PAUSADA'];
+    const ncOdps = ncGarantiasOdps
+        .filter(o => ESTADOS_NC_ACTIVOS.includes(o.estado_produccion))
+        .sort((a, b) => new Date(a.fecha_creacion || 0).getTime() - new Date(b.fecha_creacion || 0).getTime());
 
     const pagoOkOdps     = manoOdps.filter(o => isPagoOk(o));
     const esperaPagoOdps = manoOdps.filter(o => !isPagoOk(o));
