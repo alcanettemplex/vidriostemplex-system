@@ -637,17 +637,26 @@ export const updateODP = async (req: Request, res: Response) => {
     const ESTADOS_PRODUCTIVOS = ['MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS'];
     const updatedOdp = await ODP.findByPk(id, { transaction });
     if (updatedOdp && !data.estado_produccion && ESTADOS_PRODUCTIVOS.includes(updatedOdp.getDataValue('estado_produccion')) && !updatedOdp.getDataValue('sin_items')) {
-      const { SAP: SAPModel, TomaMedidas: TMModel } = await import('../models');
-      const [tmCount, sapCount, itemCount] = await Promise.all([
+      const { SAP: SAPModel, TomaMedidas: TMModel, PedidoPV: PedidoPVModel } = await import('../models');
+      const [tmCount, sapCount, itemCount, pvPendienteCount] = await Promise.all([
         TMModel.count({ where: { odp_id: id }, transaction }),
         SAPModel.count({ where: { odp_id: id }, transaction }),
         ODPItem.count({ where: { odp_id: id }, transaction }),
+        PedidoPVModel.count({ where: { odp_id: id, estado: ['PENDIENTE', 'ENVIADO', 'CONFIRMADO_PROVEEDOR'] }, transaction }),
       ]);
 
       const needsMedicion = tmCount > 0;
       const needsCorte = !!updatedOdp.getDataValue('tiene_aluminio');
-      const needsVidrio = itemCount > 0;
+      // needsVidrio se activa si hay items registrados O si hay proveedor_vidrio declarado
+      // (el PV puede existir aunque los items aún no estén en odp_items)
+      const needsVidrio = itemCount > 0 || !!updatedOdp.getDataValue('proveedor_vidrio');
       const needsAccesorios = sapCount > 0;
+
+      // Si el PedidoPV del vidrio aún no ha llegado, no puede transicionar a LISTO_INSTALAR
+      if (pvPendienteCount > 0) {
+        await transaction.commit();
+        return res.status(200).json(await ODP.findByPk(id));
+      }
       const needsEnsamble = !!updatedOdp.getDataValue('tiene_aluminio');
       const needsMatizado = updatedOdp.getDataValue('matizado');
       const needsPelicula = updatedOdp.getDataValue('pelicula');
