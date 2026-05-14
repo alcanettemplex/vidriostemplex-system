@@ -34,6 +34,7 @@ import {
     ShieldCheck,
     TriangleAlert,
     MessageCircle,
+    PauseCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPMatrixModal from './components/ODPMatrixModal';
@@ -118,19 +119,20 @@ interface ODP {
     estado_caja?: string;
     tipo_odp?: string;
     color_taller?: string | null;
+    odp_padre_id?: number | null;
 }
 
 const activeStates = [
     'EN_ESPERA', 'VISITA_TECNICA',
     'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO',
-    'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'PAUSADA'
+    'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS'
 ];
 
 const ESTADOS_NC_ACTIVOS = [...activeStates];
 
 const ESTADO_ORDEN: Record<string, number> = {
     EN_ESPERA: 0, VISITA_TECNICA: 1, MEDICION: 2, PEDIDO_PROVEEDOR: 3,
-    ALUMINIO_CORTADO: 4, VIDRIO_RECIBIDO: 5, ACCESORIOS_SEPARADOS: 6, PAUSADA: 7,
+    ALUMINIO_CORTADO: 4, VIDRIO_RECIBIDO: 5, ACCESORIOS_SEPARADOS: 6,
 };
 
 const TALLER_COLORS = [
@@ -189,7 +191,7 @@ const getPaymentInfo = (odp: ODP): { label: string; cls: string } => {
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 const ProduccionPage: React.FC = () => {
-    const [mainTab, setMainTab]           = useState<'activas' | 'pedido_mano' | 'nc_garantias'>('activas');
+    const [mainTab, setMainTab]           = useState<'activas' | 'pedido_mano' | 'nc_garantias' | 'pausadas'>('activas');
     const [manoSubTab, setManoSubTab]     = useState<'listos' | 'espera_pago' | 'entregadas'>('listos');
 
     const [activeOdps, setActiveOdps]     = useState<ODP[]>([]);
@@ -198,6 +200,7 @@ const ProduccionPage: React.FC = () => {
     const [manoOdps, setManoOdps]         = useState<ODP[]>([]);
     const [entregadasOdps, setEntregadasOdps] = useState<ODP[]>([]);
     const [ncGarantiasOdps, setNcGarantiasOdps] = useState<ODP[]>([]);
+    const [pausadasOdps, setPausadasOdps]       = useState<ODP[]>([]);
 
     const [loading, setLoading]           = useState(true);
     const [searchTerm, setSearchTerm]     = useState('');
@@ -243,12 +246,14 @@ const ProduccionPage: React.FC = () => {
                 axios.get(`${API}/api/odp/nc-garantias`, { headers }),
             ]);
             const data: ODP[] = res.data;
+            const allPausadas = data.filter(o => o.estado_produccion === 'PAUSADA');
             const allActive = data.filter(o => activeStates.includes(o.estado_produccion));
             const allReady  = data.filter(o => o.estado_produccion === 'LISTO_INSTALAR');
             const allEntregadas = data.filter(o =>
                 o.estado_produccion === 'ENTREGADA' && !o.instalacion && !o.acarreo
             );
             setActiveOdps(allActive);
+            setPausadasOdps(allPausadas);
             setReadyOdps(allReady);
             setDespachoOdps(allReady.filter(o => o.instalacion || o.acarreo));
             setManoOdps(allReady.filter(o => !o.instalacion && !o.acarreo));
@@ -274,12 +279,12 @@ const ProduccionPage: React.FC = () => {
     // Sync panelOdp when data refreshes
     useEffect(() => {
         if (!panelOdp) return;
-        const all = [...activeOdps, ...despachoOdps, ...manoOdps, ...entregadasOdps, ...ncGarantiasOdps];
+        const all = [...activeOdps, ...pausadasOdps, ...despachoOdps, ...manoOdps, ...entregadasOdps, ...ncGarantiasOdps];
         const updated = all.find(o => o.id === panelOdp.id);
         if (updated) setPanelOdp(updated);
         else setPanelOdp(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeOdps, despachoOdps, manoOdps, entregadasOdps, ncGarantiasOdps]);
+    }, [activeOdps, pausadasOdps, despachoOdps, manoOdps, entregadasOdps, ncGarantiasOdps]);
 
     const fetchNotes = async (odpId: number) => {
         try {
@@ -1057,6 +1062,7 @@ const ProduccionPage: React.FC = () => {
                     { id: 'activas',      label: 'Control Taller',     icon: Wrench },
                     { id: 'pedido_mano',  label: 'Pedido en la mano',  icon: Inbox },
                     { id: 'nc_garantias', label: 'NC / Garantías',     icon: AlertTriangle },
+                    { id: 'pausadas',     label: 'ODP Pausadas',       icon: PauseCircle },
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -1069,6 +1075,11 @@ const ProduccionPage: React.FC = () => {
                         {tab.id === 'nc_garantias' && ncOdps.length > 0 && (
                             <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${mainTab === tab.id ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-600'}`}>
                                 {ncOdps.length}
+                            </span>
+                        )}
+                        {tab.id === 'pausadas' && pausadasOdps.length > 0 && (
+                            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${mainTab === tab.id ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-600'}`}>
+                                {pausadasOdps.length}
                             </span>
                         )}
                     </button>
@@ -1350,6 +1361,115 @@ const ProduccionPage: React.FC = () => {
                             </span>
                         </div>
                         {renderMatrix(ncOdps, 'No hay NC ni garantías activas.')}
+                    </div>
+
+                    {/* Panel Detalle */}
+                    <div
+                        className={`w-[340px] flex-shrink-0 rounded-2xl border shadow-sm overflow-hidden transition-all sticky top-4
+                            ${panelOdp ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-200'}`}
+                        style={{ maxHeight: 'calc(100vh - 200px)' }}
+                    >
+                        {renderPanel()}
+                    </div>
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════════════
+                TAB: ODP PAUSADAS
+            ══════════════════════════════════════════════ */}
+            {mainTab === 'pausadas' && (
+                <div className="flex gap-4 items-start">
+                    {/* Tabla de pausadas */}
+                    <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="px-4 py-3 bg-amber-50 border-b border-amber-100 flex justify-between items-center">
+                            <h2 className="text-xs font-black text-amber-800 uppercase tracking-widest flex items-center gap-2">
+                                <PauseCircle className="w-4 h-4 text-amber-500" />
+                                ODPs Pausadas por No Conformidad ({pausadasOdps.length})
+                            </h2>
+                            <span className="text-[10px] text-slate-400 font-medium hidden md:block">
+                                Click en fila para ver detalle y bitácora
+                            </span>
+                        </div>
+                        <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+                            <table className="w-full border-collapse">
+                                <thead className="sticky top-0 z-10">
+                                    <tr className="bg-slate-50 border-b border-slate-200">
+                                        <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[180px]">ODP Madre</th>
+                                        <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</th>
+                                        <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[120px]">Fecha creación</th>
+                                        <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[180px]">ODP Hija (Reproceso)</th>
+                                        <th className="text-center px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {pausadasOdps.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} className="p-12 text-center">
+                                                <CheckCircle2 className="w-12 h-12 text-slate-100 mx-auto mb-3" />
+                                                <p className="text-slate-400 text-sm font-medium">No hay ODPs pausadas por No Conformidad.</p>
+                                            </td>
+                                        </tr>
+                                    ) : pausadasOdps.map(odp => {
+                                        const isSelected = panelOdp?.id === odp.id;
+                                        const hija = ncGarantiasOdps.find(nc => nc.odp_padre_id === odp.id);
+                                        return (
+                                            <tr
+                                                key={odp.id}
+                                                onClick={() => handleSelectOdp(odp)}
+                                                className={`cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50' : 'hover:bg-amber-50/40'}`}
+                                            >
+                                                {/* ODP Madre */}
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-black text-slate-800 text-sm">{odp.numero_odp}</span>
+                                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-100 text-amber-700 uppercase tracking-wider">Pausada</span>
+                                                    </div>
+                                                </td>
+                                                {/* Cliente */}
+                                                <td className="px-4 py-3">
+                                                    <p className="text-sm font-semibold text-slate-700 truncate max-w-[220px]">{odp.cliente.nombre_razon_social}</p>
+                                                </td>
+                                                {/* Fecha creación */}
+                                                <td className="px-4 py-3">
+                                                    <p className="text-xs text-slate-500 font-medium">
+                                                        {odp.fecha_creacion ? new Date(odp.fecha_creacion).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                                                    </p>
+                                                </td>
+                                                {/* ODP Hija */}
+                                                <td className="px-4 py-3">
+                                                    {hija ? (
+                                                        <button
+                                                            onClick={e => { e.stopPropagation(); setFichaOdpId(hija.id); }}
+                                                            className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 font-black text-xs underline underline-offset-2 transition-colors"
+                                                        >
+                                                            {hija.numero_odp}
+                                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black no-underline ${
+                                                                hija.estado_produccion === 'LISTO_INSTALAR' ? 'bg-emerald-100 text-emerald-700'
+                                                                : hija.estado_produccion === 'ACCESORIOS_SEPARADOS' ? 'bg-blue-100 text-blue-700'
+                                                                : 'bg-slate-100 text-slate-600'
+                                                            }`}>
+                                                                {hija.estado_produccion.replace(/_/g, ' ')}
+                                                            </span>
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-400 italic">Sin hija registrada</span>
+                                                    )}
+                                                </td>
+                                                {/* Acción */}
+                                                <td className="px-4 py-3 text-center">
+                                                    <button
+                                                        onClick={e => { e.stopPropagation(); setFichaOdpId(odp.id); }}
+                                                        className="px-3 py-1.5 bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors"
+                                                    >
+                                                        Ver detalle
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     {/* Panel Detalle */}
