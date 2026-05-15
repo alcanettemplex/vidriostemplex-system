@@ -28,7 +28,7 @@ export const getFacturadas = async (_req: Request, res: Response) => {
     const odps = await ODP.findAll({
       where,
       include: INCLUDE_ODP,
-      attributes: ['id', 'numero_odp', 'fecha_factura', 'factura_electronica', 'valor_total'],
+      attributes: ['id', 'numero_odp', 'fecha_factura', 'factura_electronica', 'valor_total', 'estado_caja'],
       order: [['fecha_factura', 'DESC']],
     });
 

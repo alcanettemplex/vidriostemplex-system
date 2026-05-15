@@ -5,7 +5,7 @@ import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import ODPFichaModal from '../odp/components/ODPFichaModal';
 import {
-  FileCheck, Warehouse, Plus, Pencil, Trash2, X, RefreshCw,
+  FileCheck, Warehouse, Plus, Pencil, Trash2, X, RefreshCw, Search,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -28,6 +28,7 @@ interface ODPFacturada {
   fecha_factura: string | null;
   factura_electronica: string | null;
   valor_total: number | null;
+  estado_caja: string | null;
   cliente: { id: number; nombre_razon_social: string };
 }
 
@@ -54,6 +55,11 @@ const FacturasSalidasPage: React.FC = () => {
   const [filtroMes, setFiltroMes] = useState(hoy.getMonth() + 1);
   const [filtroAnio, setFiltroAnio] = useState(hoy.getFullYear());
   const [loading, setLoading] = useState(true);
+
+  // Filtros de búsqueda por tab
+  const [busquedaFacturadas, setBusquedaFacturadas] = useState('');
+  const [busquedaConSalida, setBusquedaConSalida]   = useState('');
+  const [filtroCajaFacturadas, setFiltroCajaFacturadas] = useState('');
 
   // Modal crear/editar SA
   const [modalSA, setModalSA] = useState<{ odp?: ODPFacturada; salida?: SalidaAlmacen } | null>(null);
@@ -118,7 +124,7 @@ const FacturasSalidasPage: React.FC = () => {
     } catch { toast.error('Error al eliminar'); }
   };
 
-  const filtrarPorMes = (fecha: string | null) => {
+  const mesCorrecto = (fecha: string | null) => {
     if (!fecha) return true;
     try {
       const d = parseISO(fecha);
@@ -126,8 +132,34 @@ const FacturasSalidasPage: React.FC = () => {
     } catch { return true; }
   };
 
-  const facturadasFiltradas = facturadas.filter(o => filtrarPorMes(o.fecha_factura));
-  const conSalidaFiltradas  = conSalida.filter(s => filtrarPorMes(s.fecha_sa));
+  const facturadasFiltradas = facturadas.filter(o => {
+    if (!mesCorrecto(o.fecha_factura)) return false;
+    if (filtroCajaFacturadas && o.estado_caja !== filtroCajaFacturadas) return false;
+    if (busquedaFacturadas) {
+      const q = busquedaFacturadas.toLowerCase();
+      return (
+        o.numero_odp.toLowerCase().includes(q) ||
+        (o.cliente?.nombre_razon_social || '').toLowerCase().includes(q) ||
+        (o.factura_electronica || '').toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  const conSalidaFiltradas = conSalida.filter(s => {
+    if (!mesCorrecto(s.fecha_sa)) return false;
+    if (busquedaConSalida) {
+      const q = busquedaConSalida.toLowerCase();
+      return (
+        (s.odp?.numero_odp || '').toLowerCase().includes(q) ||
+        (s.odp?.cliente?.nombre_razon_social || '').toLowerCase().includes(q) ||
+        (s.odp?.factura_electronica || '').toLowerCase().includes(q) ||
+        (s.numero_sa || '').toLowerCase().includes(q) ||
+        (s.creador?.nombre_completo || '').toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
 
   const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const anios = Array.from({ length: 4 }, (_, i) => hoy.getFullYear() - i);
@@ -226,6 +258,38 @@ const FacturasSalidasPage: React.FC = () => {
           {/* ── TAB FACTURADAS ── */}
           {tab === 'facturadas' && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              {/* Barra de filtros */}
+              <div className="p-4 border-b border-slate-100 flex flex-wrap gap-3 items-center bg-slate-50/50">
+                <div className="relative flex-1 min-w-48">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    value={busquedaFacturadas}
+                    onChange={e => setBusquedaFacturadas(e.target.value)}
+                    placeholder="Buscar ODP, cliente, factura..."
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white"
+                  />
+                </div>
+                <select
+                  value={filtroCajaFacturadas}
+                  onChange={e => setFiltroCajaFacturadas(e.target.value)}
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white"
+                >
+                  <option value="">Estado caja: Todos</option>
+                  <option value="PENDIENTE">Pendiente</option>
+                  <option value="ABONADO">Abonado</option>
+                  <option value="CANCELADO">Cancelado</option>
+                  <option value="CREDITO_APROBADO">Crédito aprobado</option>
+                </select>
+                {(busquedaFacturadas || filtroCajaFacturadas) && (
+                  <button
+                    onClick={() => { setBusquedaFacturadas(''); setFiltroCajaFacturadas(''); }}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-100 transition bg-white"
+                  >
+                    <X className="w-3.5 h-3.5" /> Limpiar
+                  </button>
+                )}
+              </div>
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
@@ -264,12 +328,34 @@ const FacturasSalidasPage: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
           {/* ── TAB CON SALIDAS ── */}
           {tab === 'con_salida' && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              {/* Barra de filtros */}
+              <div className="p-4 border-b border-slate-100 flex flex-wrap gap-3 items-center bg-slate-50/50">
+                <div className="relative flex-1 min-w-48">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    value={busquedaConSalida}
+                    onChange={e => setBusquedaConSalida(e.target.value)}
+                    placeholder="Buscar ODP, cliente, factura, SA, registrado por..."
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white"
+                  />
+                </div>
+                {busquedaConSalida && (
+                  <button
+                    onClick={() => setBusquedaConSalida('')}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-100 transition bg-white"
+                  >
+                    <X className="w-3.5 h-3.5" /> Limpiar
+                  </button>
+                )}
+              </div>
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
@@ -319,6 +405,7 @@ const FacturasSalidasPage: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </>
