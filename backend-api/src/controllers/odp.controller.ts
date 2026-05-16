@@ -19,8 +19,11 @@ import {
   RutaODP,
   Prospecto,
   PedidoPV,
+  SalidaAlmacen,
 } from '../models';
 import Pago from '../models/pago.model';
+import Produccion from '../models/produccion.model';
+import ProgramacionInstalacion from '../models/programacion_instalacion.model';
 import { z } from 'zod';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 
@@ -813,6 +816,12 @@ export const deleteODP = async (req: Request, res: Response) => {
       }
     }
 
+    // No se puede eliminar una ODP ya facturada
+    if (odp.getDataValue('estado_facturacion') === 'FACTURADA') {
+      await t.rollback();
+      return res.status(409).json({ error: 'No se puede eliminar una ODP que ya fue facturada' });
+    }
+
     // Desvincula ODPs derivadas (auto-referencia) para no eliminarlas en cascada
     await ODP.update({ odp_padre_id: null } as any, { where: { odp_padre_id: odpId }, transaction: t });
 
@@ -840,11 +849,17 @@ export const deleteODP = async (req: Request, res: Response) => {
     await EvidenciaInstalacion.destroy({ where: { odp_id: odpId }, transaction: t });
     await HistorialEstadoODP.destroy({ where: { odp_id: odpId }, transaction: t });
     await NotaProduccion.destroy({ where: { odp_id: odpId }, transaction: t });
+    // Desvincula NCs donde esta ODP era la ODP hija generada (nueva_odp_id)
+    await NoConformidad.update({ nueva_odp_id: null } as any, { where: { nueva_odp_id: odpId }, transaction: t });
     await NoConformidad.destroy({ where: { odp_id: odpId }, transaction: t });
     await Cotizacion.destroy({ where: { odp_id: odpId }, transaction: t });
     await TomaMedidas.destroy({ where: { odp_id: odpId }, transaction: t });
     await Pago.destroy({ where: { odp_id: odpId }, transaction: t });
     await RutaODP.destroy({ where: { odp_id: odpId }, transaction: t });
+    await PedidoPV.destroy({ where: { odp_id: odpId }, transaction: t });
+    await SalidaAlmacen.destroy({ where: { odp_id: odpId }, transaction: t });
+    await ProgramacionInstalacion.destroy({ where: { odp_id: odpId }, transaction: t });
+    await Produccion.destroy({ where: { odp_id: odpId }, transaction: t });
 
     await odp.destroy({ transaction: t });
     await t.commit();
