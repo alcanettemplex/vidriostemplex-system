@@ -22,11 +22,18 @@ interface StatItem {
   ubicaciones: string;
 }
 
+interface CatalogoItem {
+  id: number;
+  codigo: string;
+  nombre: string;
+}
+
 type ViewMode = 'lista' | 'resumen';
 
 const InventarioPage: React.FC = () => {
   const [items, setItems] = useState<PerfilItem[]>([]);
   const [stats, setStats] = useState<StatItem[]>([]);
+  const [catalogoMap, setCatalogoMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('lista');
   const [search, setSearch] = useState('');
@@ -44,6 +51,16 @@ const InventarioPage: React.FC = () => {
 
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
+
+  useEffect(() => {
+    axios.get<CatalogoItem[]>(`${API}/api/catalogo`, { headers })
+      .then(({ data }) => {
+        const map: Record<string, string> = {};
+        data.forEach(c => { map[c.codigo] = c.nombre; });
+        setCatalogoMap(map);
+      })
+      .catch(() => {});
+  }, []);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -211,6 +228,7 @@ const InventarioPage: React.FC = () => {
                   <tr className="bg-slate-50 border-b border-slate-200">
                     <th className="px-4 py-3 text-left font-semibold text-slate-600 w-20">#</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-600">Código</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-600">Descripción</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-600">Longitud</th>
                     <th className="px-4 py-3 text-left font-semibold text-slate-600">Ubicación</th>
                     <th className="px-4 py-3 text-center font-semibold text-slate-600 w-24">Acciones</th>
@@ -221,6 +239,7 @@ const InventarioPage: React.FC = () => {
                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-2.5 text-slate-400 font-mono text-xs">{item.consecutivo}</td>
                       <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">{item.codigo || '—'}</td>
+                      <td className="px-4 py-2.5 text-slate-500 text-sm">{catalogoMap[item.codigo] || '—'}</td>
                       <td className="px-4 py-2.5">
                         {editingId === item.id ? (
                           <div className="flex items-center gap-1">
@@ -311,6 +330,7 @@ const InventarioPage: React.FC = () => {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="px-4 py-3 text-left font-semibold text-slate-600">Código</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-600">Descripción</th>
                   <th className="px-4 py-3 text-right font-semibold text-slate-600">Piezas</th>
                   <th className="px-4 py-3 text-right font-semibold text-slate-600">Total mm</th>
                   <th className="px-4 py-3 text-right font-semibold text-slate-600">Total metros</th>
@@ -321,6 +341,7 @@ const InventarioPage: React.FC = () => {
                 {stats.map(s => (
                   <tr key={s.codigo} className="hover:bg-slate-50">
                     <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">{s.codigo}</td>
+                    <td className="px-4 py-2.5 text-slate-500 text-sm">{catalogoMap[s.codigo] || '—'}</td>
                     <td className="px-4 py-2.5 text-right text-slate-700">{s.total_piezas}</td>
                     <td className="px-4 py-2.5 text-right text-slate-700">{s.total_mm.toLocaleString()}</td>
                     <td className="px-4 py-2.5 text-right font-semibold text-indigo-700">
@@ -333,6 +354,7 @@ const InventarioPage: React.FC = () => {
               <tfoot>
                 <tr className="bg-slate-50 border-t-2 border-slate-200 font-semibold">
                   <td className="px-4 py-3 text-slate-700">TOTAL</td>
+                  <td />
                   <td className="px-4 py-3 text-right text-slate-700">
                     {stats.reduce((a, s) => a + s.total_piezas, 0).toLocaleString()}
                   </td>
