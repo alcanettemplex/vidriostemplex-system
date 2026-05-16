@@ -25,9 +25,14 @@ interface ODCItemConContexto {
   recibido: boolean;
   odp_directo?: { id: number; numero_odp: string; estado_produccion: string; cliente?: { nombre_razon_social: string } };
   sap_item?: {
+    codigo?: string;
+    descripcion?: string;
+    cantidad?: number;
     dimension?: string;
     und?: string;
     observacion?: string;
+    modificado?: boolean;
+    datos_anteriores?: { codigo?: string; descripcion?: string; dimension?: string; cantidad?: number; und?: string; observacion?: string } | null;
     SAP?: {
       numero_sap: string;
       ODP?: {
@@ -121,6 +126,21 @@ const ESTADO_COMPRA_STYLE: Record<string, { label: string; className: string }> 
   pendiente:      { label: 'Pendiente',      className: 'bg-amber-50 text-amber-700 border-amber-200' },
   en_odc:         { label: 'En ODC',         className: 'bg-blue-50 text-blue-700 border-blue-200' },
   en_existencia:  { label: 'En existencia',  className: 'bg-green-50 text-green-700 border-green-200' },
+};
+
+// Helper: construye texto de tooltip comparando datos del ODCItem (viejos) vs SAPItem actual
+const buildTooltipModificado = (it: ODCItemConContexto): string => {
+  const lines: string[] = ['⚠ ÍTEM MODIFICADO — valores al crear la ODC vs actuales:'];
+  const comparar = (campo: string, viejo: string | number | undefined, nuevo: string | number | undefined) => {
+    const v = String(viejo ?? '—'), n = String(nuevo ?? '—');
+    if (v !== n) lines.push(`  ${campo}: "${v}" → "${n}"`);
+  };
+  comparar('Código', it.codigo, it.sap_item?.codigo);
+  comparar('Descripción', it.descripcion, it.sap_item?.descripcion);
+  comparar('Cantidad', it.cantidad, it.sap_item?.cantidad);
+  comparar('Dimensión', it.sap_item?.datos_anteriores?.dimension, it.sap_item?.dimension);
+  comparar('Und.', it.sap_item?.datos_anteriores?.und, it.sap_item?.und);
+  return lines.join('\n');
 };
 
 // ─── Componente tarjeta ODC (Seguimiento / Recibidas) ───────────────────────
@@ -338,9 +358,20 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
             <tbody className="divide-y divide-slate-50">
               {odc.items.map((it, i) => {
                 const pendiente = !it.recibido && odc.estado === 'pendiente';
+                const esModificado = it.sap_item?.modificado === true;
+                const rowClass = esModificado
+                  ? 'bg-red-50 border-l-4 border-red-400'
+                  : it.recibido ? 'bg-green-50/40'
+                  : hayItemsParciales && pendiente ? 'bg-amber-50'
+                  : i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30';
                 return (
-                  <tr key={i} className={it.recibido ? 'bg-green-50/40' : hayItemsParciales && pendiente ? 'bg-amber-50' : i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
-                    <td className="px-4 py-1.5 font-mono text-blue-700 font-bold">{it.codigo || '—'}</td>
+                  <tr key={i} className={rowClass} title={esModificado ? buildTooltipModificado(it) : undefined}>
+                    <td className="px-4 py-1.5 font-mono text-blue-700 font-bold">
+                      {it.codigo || '—'}
+                      {esModificado && (
+                        <span className="ml-1.5 text-[9px] font-black px-1.5 py-0.5 rounded bg-red-500 text-white align-middle">MOD</span>
+                      )}
+                    </td>
                     <td className="px-4 py-1.5 text-slate-700">{it.descripcion || '—'}</td>
                     <td className="px-4 py-1.5 text-center font-bold text-slate-600">{Number(it.cantidad) % 1 === 0 ? Math.round(Number(it.cantidad)) : it.cantidad}</td>
                     <td className="px-4 py-1.5 text-slate-500">{it.sap_item?.dimension || '—'}</td>
@@ -465,9 +496,20 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                       <tbody className="divide-y divide-slate-100">
                         {odc.items.map((it, i) => {
                           const pendiente = !it.recibido && odc.estado === 'pendiente';
+                          const esModificado = it.sap_item?.modificado === true;
+                          const rowClass = esModificado
+                            ? 'bg-red-50 border-l-4 border-red-400'
+                            : it.recibido ? 'bg-green-50/60'
+                            : hayItemsParciales && pendiente ? 'bg-amber-50'
+                            : i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50';
                           return (
-                            <tr key={i} className={it.recibido ? 'bg-green-50/60' : hayItemsParciales && pendiente ? 'bg-amber-50' : i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                              <td className="px-3 py-2 font-mono text-blue-700 font-bold">{it.codigo || '—'}</td>
+                            <tr key={i} className={rowClass} title={esModificado ? buildTooltipModificado(it) : undefined}>
+                              <td className="px-3 py-2 font-mono text-blue-700 font-bold">
+                                {it.codigo || '—'}
+                                {esModificado && (
+                                  <span className="ml-1.5 text-[9px] font-black px-1.5 py-0.5 rounded bg-red-500 text-white align-middle">MOD</span>
+                                )}
+                              </td>
                               <td className="px-3 py-2 text-slate-700">{it.descripcion || '—'}</td>
                               <td className="px-3 py-2 text-center font-bold text-slate-600">{Number(it.cantidad) % 1 === 0 ? Math.round(Number(it.cantidad)) : it.cantidad}</td>
                               <td className="px-3 py-2 text-slate-500">{it.sap_item?.dimension || '—'}</td>
@@ -1085,11 +1127,18 @@ const ComprasPage: React.FC = () => {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                              {grupo.map((item, i) => (
+                              {grupo.map((item, i) => {
+                                const esModificado = item.modificado === true;
+                                return (
                                 <tr
                                   key={item.id}
                                   onClick={() => toggleSeleccion(item.id)}
-                                  className={`cursor-pointer transition ${seleccionados.has(item.id) ? 'bg-indigo-50' : i % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/30 hover:bg-slate-100'}`}
+                                  className={`cursor-pointer transition ${
+                                    esModificado
+                                      ? 'bg-amber-50 border-l-4 border-amber-400 hover:bg-amber-100'
+                                      : seleccionados.has(item.id) ? 'bg-indigo-50'
+                                      : i % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/30 hover:bg-slate-100'
+                                  }`}
                                 >
                                   <td className="px-4 py-2 w-10" onClick={e => e.stopPropagation()}>
                                     <input
@@ -1099,7 +1148,12 @@ const ComprasPage: React.FC = () => {
                                       onChange={() => toggleSeleccion(item.id)}
                                     />
                                   </td>
-                                  <td className="px-3 py-2 w-24 text-slate-500">{item.dimension || '—'}</td>
+                                  <td className="px-3 py-2 w-24 text-slate-500">
+                                    {esModificado && (
+                                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-white mr-1 align-middle">MOD</span>
+                                    )}
+                                    {item.dimension || '—'}
+                                  </td>
                                   <td className="px-3 py-2 w-16 text-center font-bold text-slate-700">{Number(item.cantidad) % 1 === 0 ? Math.round(Number(item.cantidad)) : item.cantidad}</td>
                                   <td className="px-3 py-2 text-slate-400 text-xs max-w-[140px] truncate" title={(item as any).observacion || ''}>{(item as any).observacion || '—'}</td>
                                   <td className="px-3 py-2 w-28">
@@ -1173,7 +1227,8 @@ const ComprasPage: React.FC = () => {
                                     </button>
                                   </td>
                                 </tr>
-                              ))}
+                              );
+                              })}
                             </tbody>
                           </table>
                         </div>

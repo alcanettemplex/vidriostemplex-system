@@ -19,6 +19,8 @@ SAPItem.init({
     defaultValue: 'pendiente',
     allowNull: false,
   },
+  modificado: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false },
+  datos_anteriores: { type: DataTypes.JSONB, allowNull: true },
 }, {
   sequelize, modelName: 'SAPItem', tableName: 'sap_items', timestamps: false,
 });

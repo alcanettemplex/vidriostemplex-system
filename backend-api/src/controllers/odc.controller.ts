@@ -124,11 +124,11 @@ export const getODCsRecibidas = async (req: Request, res: Response) => {
   }
 };
 
-// GET /odc/panel — Lista plana de todos los SAPItems pendientes, ordenados por código
+// GET /odc/panel — Lista plana de SAPItems pendientes + modificados (ya en ODC pero con datos cambiados)
 export const getODPsConSAPPendiente = async (req: Request, res: Response) => {
   try {
     const items = await SAPItem.findAll({
-      where: { estado_compra: 'pendiente' },
+      where: { [Op.or]: [{ estado_compra: 'pendiente' }, { modificado: true }] },
       include: [
         {
           model: SAP,
@@ -230,11 +230,11 @@ export const createODC = async (req: Request, res: Response) => {
       return res.status(500).json({ error: `Error interno al crear ítems: se esperaban ${items.length} pero se guardaron ${createdCount}` });
     }
 
-    // Marcar todos los SAPItems incluidos como en_odc
+    // Marcar todos los SAPItems incluidos como en_odc y limpiar flag de modificado
     const sapItemIds = items.map((i: any) => i.sap_item_id).filter(Boolean);
     if (sapItemIds.length > 0) {
       await SAPItem.update(
-        { estado_compra: 'en_odc' },
+        { estado_compra: 'en_odc', modificado: false, datos_anteriores: null },
         { where: { id: { [Op.in]: sapItemIds } }, transaction: t }
       );
     }
@@ -280,13 +280,13 @@ export const updateODC = async (req: Request, res: Response) => {
 
     await odc.update({ estado, proveedor, notas, ...(fechaRecepcion ? { fecha_recepcion: fechaRecepcion } : {}) });
 
-    // Al marcar como recibida: pasar SAPItems de esta ODC a en_existencia
+    // Al marcar como recibida: pasar SAPItems de esta ODC a en_existencia y limpiar modificado
     if (estado === 'recibido' && estadoAnterior !== 'recibido') {
       const odcItems = await ODCItem.findAll({ where: { odc_id: id } });
       const sapItemIds = odcItems.map((i: any) => i.getDataValue('sap_item_id'));
       if (sapItemIds.length > 0) {
         await SAPItem.update(
-          { estado_compra: 'en_existencia' },
+          { estado_compra: 'en_existencia', modificado: false, datos_anteriores: null },
           { where: { id: { [Op.in]: sapItemIds } } }
         );
       }
@@ -353,7 +353,7 @@ export const deleteODC = async (req: Request, res: Response) => {
       const enOtraODC = await ODCItem.count({ where: { sap_item_id: sapItemId }, transaction: t });
       if (enOtraODC === 0) {
         await SAPItem.update(
-          { estado_compra: 'pendiente' },
+          { estado_compra: 'pendiente', modificado: false, datos_anteriores: null },
           { where: { id: sapItemId }, transaction: t }
         );
       }
@@ -420,7 +420,7 @@ export const recibirItems = async (req: Request, res: Response) => {
         .filter(Boolean);
       if (sapItemIds.length > 0) {
         await SAPItem.update(
-          { estado_compra: 'en_existencia' },
+          { estado_compra: 'en_existencia', modificado: false, datos_anteriores: null },
           { where: { id: { [Op.in]: sapItemIds } }, transaction: t },
         );
 

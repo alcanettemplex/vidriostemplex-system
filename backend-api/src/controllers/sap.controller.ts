@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { SAP, SAPItem, ODP, Usuario, CatalogoProducto } from '../models';
+import { SAP, SAPItem, ODP, Usuario, CatalogoProducto, ODCItem } from '../models';
 import sequelize from '../config/database';
 import { Op } from 'sequelize';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
@@ -106,9 +106,90 @@ export const updateSAP = async (req: Request, res: Response) => {
     await sap.update({ notas, estado }, { transaction: t });
 
     if (items && Array.isArray(items)) {
-      await SAPItem.destroy({ where: { sap_id: id }, transaction: t });
-      if (items.length > 0) {
-        await SAPItem.bulkCreate(items.map((i: any) => ({ ...i, sap_id: id })), { transaction: t });
+      // Cargar items existentes con sus ODCItems para detectar cuáles ya están en una ODC
+      const existingItems = await SAPItem.findAll({
+        where: { sap_id: id },
+        include: [{ model: ODCItem, as: 'odc_items', attributes: ['id'] }],
+        transaction: t,
+      });
+
+      const existingMap = new Map<number, any>(
+        existingItems.map((ei: any) => [ei.getDataValue('id'), ei])
+      );
+      const incomingIds = new Set<number>(
+        items.filter((i: any) => i.id).map((i: any) => Number(i.id))
+      );
+
+      // Procesar cada ítem entrante
+      for (const item of items) {
+        const itemId = item.id ? Number(item.id) : null;
+
+        if (itemId && existingMap.has(itemId)) {
+          const existing = existingMap.get(itemId);
+          const tieneODC = Array.isArray(existing.odc_items) && existing.odc_items.length > 0;
+
+          if (tieneODC) {
+            // Ítem ya en ODC: guardar snapshot y marcar como modificado si hubo cambio real
+            const datosAnteriores = {
+              codigo: existing.getDataValue('codigo'),
+              descripcion: existing.getDataValue('descripcion'),
+              dimension: existing.getDataValue('dimension'),
+              cantidad: existing.getDataValue('cantidad'),
+              und: existing.getDataValue('und'),
+              observacion: existing.getDataValue('observacion'),
+            };
+            const hubo_cambio =
+              datosAnteriores.codigo !== item.codigo ||
+              datosAnteriores.descripcion !== item.descripcion ||
+              datosAnteriores.dimension !== item.dimension ||
+              String(datosAnteriores.cantidad) !== String(item.cantidad) ||
+              datosAnteriores.und !== item.und ||
+              datosAnteriores.observacion !== item.observacion;
+
+            await existing.update({
+              codigo: item.codigo,
+              descripcion: item.descripcion,
+              dimension: item.dimension,
+              cantidad: item.cantidad,
+              und: item.und,
+              observacion: item.observacion,
+              exist_perf: item.exist_perf,
+              // estado_compra se preserva: sigue 'en_odc'
+              modificado: hubo_cambio ? true : existing.getDataValue('modificado'),
+              datos_anteriores: hubo_cambio
+                ? datosAnteriores
+                : existing.getDataValue('datos_anteriores'),
+            }, { transaction: t });
+          } else {
+            // Ítem no vinculado a ODC: actualizar normalmente y limpiar flags
+            await existing.update({
+              ...item,
+              sap_id: Number(id),
+              modificado: false,
+              datos_anteriores: null,
+            }, { transaction: t });
+          }
+        } else {
+          // Ítem nuevo: crear
+          const { id: _ignore, ...itemSinId } = item;
+          await SAPItem.create({
+            ...itemSinId,
+            sap_id: Number(id),
+            modificado: false,
+            datos_anteriores: null,
+          }, { transaction: t });
+        }
+      }
+
+      // Eliminar items que el asesor quitó del formulario (solo si no tienen ODC activa)
+      for (const [existingId, existing] of existingMap) {
+        if (!incomingIds.has(existingId)) {
+          const tieneODC = Array.isArray(existing.odc_items) && existing.odc_items.length > 0;
+          if (!tieneODC) {
+            await existing.destroy({ transaction: t });
+          }
+          // Si tiene ODC activa: no se puede eliminar, se deja intacto
+        }
       }
     }
 

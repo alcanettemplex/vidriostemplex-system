@@ -17,6 +17,8 @@ export interface SAPItemConContexto {
   exist_perf?: string;
   observacion?: string;
   estado_compra: 'pendiente' | 'en_odc' | 'en_existencia';
+  modificado?: boolean;
+  datos_anteriores?: { codigo?: string; descripcion?: string; dimension?: string; cantidad?: number; und?: string; observacion?: string } | null;
   SAP: {
     id: number;
     numero_sap: string;
