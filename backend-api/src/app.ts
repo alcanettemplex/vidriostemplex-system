@@ -39,6 +39,7 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
+  'https://vidriostemplex-system.pages.dev',
   process.env.FRONTEND_URL,
 ].filter(Boolean) as string[];
 
@@ -46,10 +47,7 @@ app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
     const cleanOrigin = origin.replace(/\/$/, "");
-    const isAllowed = allowedOrigins.some(allowed => allowed.replace(/\/$/, "") === cleanOrigin) || 
-                      cleanOrigin.endsWith('.netlify.app') || 
-                      cleanOrigin.endsWith('.vercel.app') ||
-                      cleanOrigin.endsWith('.pages.dev');
+    const isAllowed = allowedOrigins.some(allowed => allowed.replace(/\/$/, "") === cleanOrigin);
     if (isAllowed) return callback(null, true);
     return callback(new Error(`Origen no autorizado por CORS: ${origin}`));
   },
@@ -70,12 +68,12 @@ app.use((req, res, next) => {
   let userId: number | null = null;
   let userName: string | null = null;
   try {
-    if (jwt) {
-      const decoded: any = require('jsonwebtoken').decode(jwt);
+    if (jwt && process.env.JWT_SECRET) {
+      const decoded: any = require('jsonwebtoken').verify(jwt, process.env.JWT_SECRET);
       if (decoded?.id) userId = decoded.id;
       if (decoded?.nombre_completo) userName = decoded.nombre_completo;
     }
-  } catch { /* silencioso */ }
+  } catch { /* token inválido o expirado — contexto de auditoría queda vacío */ }
   const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || null;
   requestContext.run({ userId, userName, ip }, next);
 });

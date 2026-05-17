@@ -283,6 +283,15 @@ export const getAuditoria = async (req: Request, res: Response) => {
   }
 };
 
+const TABLAS_AUDITABLES = new Set([
+  'odp', 'odp_items', 'clientes', 'usuarios', 'cotizaciones', 'cotizacion_items',
+  'toma_medidas', 'saps', 'sap_items', 'ordenes_compra', 'odc_items', 'pagos',
+  'evidencias_instalacion', 'no_conformidades', 'notas_produccion',
+  'historial_estados_odp', 'vehiculos', 'rutas_instalacion', 'ruta_odps',
+  'prospectos', 'catalogo_productos', 'inventario_perfileria', 'metas_mensuales',
+  'configuracion_global', 'pedido_pv', 'salidas_almacen',
+]);
+
 export const revertirAuditoria = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -290,6 +299,10 @@ export const revertirAuditoria = async (req: Request, res: Response) => {
     if (!entry) return res.status(404).json({ error: 'Registro de auditoría no encontrado' });
 
     const tabla = entry.getDataValue('tabla');
+
+    if (!TABLAS_AUDITABLES.has(tabla)) {
+      return res.status(400).json({ error: 'Tabla no permitida para revertir' });
+    }
     const operacion = entry.getDataValue('operacion');
     const registroId = entry.getDataValue('registro_id');
     const datosAnteriores = entry.getDataValue('datos_anteriores');

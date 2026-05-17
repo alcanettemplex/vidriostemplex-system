@@ -37,8 +37,6 @@ export const errorHandler = (err: Error | AppError, _req: Request, res: Response
 
   res.status(statusCode).json({
     error: isAppError ? err.message : 'Error interno del servidor',
-    ...((!isProduction && !isAppError) && { detalle: err.message }),
-    ...((!isProduction) && { stack: err.stack }),
   });
 };
 

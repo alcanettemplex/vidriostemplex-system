@@ -29,8 +29,8 @@ export const globalLimiter = rateLimit({
 
 // Login: límite estricto por IP para prevenir fuerza bruta
 export const authLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000,
-  max: 20,
+  windowMs: 15 * 60 * 1000,
+  max: 8,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

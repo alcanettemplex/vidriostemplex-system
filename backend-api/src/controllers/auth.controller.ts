@@ -12,7 +12,6 @@ if (!JWT_SECRET) {
 export const login = async (req: Request, res: Response) => {
   try {
     const { username, password } = req.body;
-    console.log(`[LOGIN] Intento para usuario: "${username}" con password de largo: ${password?.length || 0}`);
 
     if (!username || !password) {
       return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
@@ -20,12 +19,10 @@ export const login = async (req: Request, res: Response) => {
 
     const user = await Usuario.findOne({ where: { username } });
     if (!user) {
-       console.warn(`[LOGIN] Usuario "${username}" NO encontrado en la base de datos.`);
        return res.status(401).json({ error: 'Credenciales inválidas' });
     }
 
     const valid = await bcrypt.compare(password, user.getDataValue('password_hash'));
-    console.log(`[LOGIN] Resultado bcrypt para "${username}": ${valid ? 'EXITOSO' : 'FALLIDO'}`);
     
     if (!valid) return res.status(401).json({ error: 'Credenciales inválidas' });
 
