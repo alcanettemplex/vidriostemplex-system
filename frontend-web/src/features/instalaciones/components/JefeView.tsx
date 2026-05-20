@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { CheckCircle2, Clock, AlertTriangle, MapPin, Truck, Users, Calendar, Pencil, Trash2, Plus, RefreshCw, PackageCheck, PauseCircle } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, MapPin, Truck, Users, Calendar, Pencil, Trash2, Plus, RefreshCw, PackageCheck, PauseCircle, Search } from 'lucide-react';
 import ProgramarRutaModal from './ProgramarRutaModal';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -35,6 +35,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const [verCompletadas, setVerCompletadas] = useState(false);
   const [pauseModal, setPauseModal] = useState<{ rutaOdpId: number; numeroOdp: string } | null>(null);
   const [pauseMotivo, setPauseMotivo] = useState('');
+  const [busqueda, setBusqueda] = useState('');
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -111,7 +112,22 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     { key: 'produccion', label: 'En espera de producción', count: odps.espera_produccion.length, icon: AlertTriangle, color: 'text-red-500' },
   ] as const;
 
-  const currentOdps = tab === 'listos' ? odps.listos : tab === 'pago' ? odps.espera_pago : odps.espera_produccion;
+  const q = busqueda.toLowerCase().trim();
+  const currentOdpsBase = tab === 'listos' ? odps.listos : tab === 'pago' ? odps.espera_pago : odps.espera_produccion;
+  const currentOdps = q
+    ? currentOdpsBase.filter((odp: any) =>
+        odp.numero_odp?.toLowerCase().includes(q) ||
+        odp.cliente?.nombre_razon_social?.toLowerCase().includes(q)
+      )
+    : currentOdpsBase;
+  const rutasFiltradas = q
+    ? rutas.filter((r: any) =>
+        r.ruta_odps?.some((ro: any) =>
+          ro.odp?.numero_odp?.toLowerCase().includes(q) ||
+          ro.odp?.cliente?.nombre_razon_social?.toLowerCase().includes(q)
+        )
+      )
+    : rutas;
 
   return (
     <div className="p-5 max-w-7xl mx-auto space-y-6">
@@ -132,6 +148,18 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Buscador */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Buscar por N° ODP o nombre de cliente..."
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+          className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder-slate-400"
+        />
       </div>
 
       {/* Tabs */}
@@ -207,8 +235,8 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
       {/* Rutas activas */}
       <div>
         {(() => {
-          const rutasActivas = rutas.filter((r: any) => r.estado !== 'completada');
-          const rutasCompletadas = rutas.filter((r: any) => r.estado === 'completada');
+          const rutasActivas = rutasFiltradas.filter((r: any) => r.estado !== 'completada');
+          const rutasCompletadas = rutasFiltradas.filter((r: any) => r.estado === 'completada');
           return (
             <>
               <div className="flex items-center justify-between mb-3">
@@ -222,11 +250,11 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
               </div>
               {rutasActivas.length === 0 ? (
                 <div className="bg-white rounded-xl border border-slate-200 py-10 text-center text-slate-400 text-sm">
-                  No hay rutas activas. Crea una desde "Nueva Ruta".
+                  {q ? 'Sin resultados para la búsqueda.' : 'No hay rutas activas. Crea una desde "Nueva Ruta".'}
                 </div>
               ) : null}
               <div className="space-y-3">
-                {(verCompletadas ? rutas : rutasActivas).map((ruta: any) => (
+                {(verCompletadas ? rutasFiltradas : rutasActivas).map((ruta: any) => (
               <div key={ruta.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 {/* Ruta header */}
                 <div className="flex items-center gap-3 p-4 border-b border-slate-100">

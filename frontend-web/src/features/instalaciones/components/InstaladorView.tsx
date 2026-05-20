@@ -7,7 +7,7 @@ import {
   MapPin, FileText, Play, CheckCircle2, Clock, Phone,
   AlertCircle, AlertTriangle, RefreshCw, Printer, ExternalLink,
   LayoutDashboard, History, Calendar, TrendingUp,
-  Award, Target, Zap, ShieldCheck, Camera, PauseCircle
+  Award, Target, Zap, ShieldCheck, Camera, PauseCircle, Search
 } from 'lucide-react';
 import ReportarEntregaModal from './ReportarEntregaModal';
 import ReportarDanoModal from './ReportarDanoModal';
@@ -34,6 +34,7 @@ const InstaladorView: React.FC = () => {
   const [reportandoDano, setReportandoDano] = useState<{ rutaODPId: number; numeroODP: string } | null>(null);
   const [pauseModal, setPauseModal] = useState<{ rutaODPId: number } | null>(null);
   const [pauseMotivo, setPauseMotivo] = useState('');
+  const [busqueda, setBusqueda] = useState('');
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -174,6 +175,20 @@ const InstaladorView: React.FC = () => {
         <MetricCard icon={Award} label="Rango" value={metrics.insignia} color="bg-rose-50 text-rose-600" />
       </div>
 
+      {/* Buscador (visible en tabs de trabajo) */}
+      {activeTab !== 'metricas' && (
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Buscar por N° ODP o nombre de cliente..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            className="w-full pl-11 pr-4 py-3 text-sm border border-slate-200 rounded-2xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder-slate-400 shadow-sm"
+          />
+        </div>
+      )}
+
       {/* TABS */}
       <div className="flex bg-white p-1.5 rounded-3xl border border-slate-200 shadow-sm w-full md:w-fit overflow-hidden">
         {[
@@ -205,10 +220,18 @@ const InstaladorView: React.FC = () => {
         >
           {activeTab === 'hoy' && (
             <div className="grid grid-cols-1 gap-6">
-              {asignacion.filter(a => a.estado !== 'completada').length === 0 ? (
-                <EmptyState icon={ShieldCheck} title="Misión Cumplida" desc="No tienes tareas pendientes por instalar ahora." />
+              {(() => {
+                const q = busqueda.toLowerCase().trim();
+                const items = asignacion
+                  .filter(a => a.estado !== 'completada')
+                  .filter(a => !q ||
+                    a.odp?.numero_odp?.toLowerCase().includes(q) ||
+                    a.odp?.cliente?.nombre_razon_social?.toLowerCase().includes(q)
+                  );
+                return items.length === 0 ? (
+                <EmptyState icon={ShieldCheck} title={q ? 'Sin resultados' : 'Misión Cumplida'} desc={q ? 'Ninguna tarea coincide con la búsqueda.' : 'No tienes tareas pendientes por instalar ahora.'} />
               ) : (
-                asignacion.filter(a => a.estado !== 'completada').map(item => (
+                items.map(item => (
                   <TaskCard
                     key={item.id}
                     item={item}
@@ -223,19 +246,29 @@ const InstaladorView: React.FC = () => {
                     currentUserId={currentUser?.id}
                   />
                 ))
-              )}
+              );
+              })()}
             </div>
           )}
 
           {activeTab === 'historial' && (
             <div className="grid grid-cols-1 gap-6">
-               {asignacion.filter(a => a.estado === 'completada').length === 0 ? (
-                <EmptyState icon={History} title="Sin registro" desc="Aún no hay instalaciones completadas en tu historial reciente." />
-              ) : (
-                asignacion.filter(a => a.estado === 'completada').map(item => (
-                   <TaskCard key={item.id} item={item} isHistory currentUserId={currentUser?.id} />
-                ))
-              )}
+              {(() => {
+                const q = busqueda.toLowerCase().trim();
+                const items = asignacion
+                  .filter(a => a.estado === 'completada')
+                  .filter(a => !q ||
+                    a.odp?.numero_odp?.toLowerCase().includes(q) ||
+                    a.odp?.cliente?.nombre_razon_social?.toLowerCase().includes(q)
+                  );
+                return items.length === 0 ? (
+                  <EmptyState icon={History} title={q ? 'Sin resultados' : 'Sin registro'} desc={q ? 'Ninguna instalación coincide con la búsqueda.' : 'Aún no hay instalaciones completadas en tu historial reciente.'} />
+                ) : (
+                  items.map(item => (
+                    <TaskCard key={item.id} item={item} isHistory currentUserId={currentUser?.id} />
+                  ))
+                );
+              })()}
             </div>
           )}
 

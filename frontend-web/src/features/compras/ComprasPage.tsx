@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, Trash2, AlertCircle, X, Layers, Plus, Printer } from 'lucide-react';
@@ -802,6 +803,7 @@ const ComprasPage: React.FC = () => {
   const [codigosConStock, setCodigosConStock] = useState<Set<string>>(new Set());
   const [stockPorCodigo, setStockPorCodigo] = useState<Record<string, any[]>>({});
   const [stockExpandidoItemId, setStockExpandidoItemId] = useState<number | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number } | null>(null);
 
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
@@ -879,8 +881,10 @@ const ComprasPage: React.FC = () => {
     });
   };
 
-  const toggleStockItem = async (itemId: number, codigo: string) => {
-    if (stockExpandidoItemId === itemId) { setStockExpandidoItemId(null); return; }
+  const toggleStockItem = async (e: React.MouseEvent<HTMLButtonElement>, itemId: number, codigo: string) => {
+    if (stockExpandidoItemId === itemId) { setStockExpandidoItemId(null); setDropdownPos(null); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDropdownPos({ top: rect.bottom + 4, left: rect.left });
     setStockExpandidoItemId(itemId);
     if (!stockPorCodigo[codigo]) {
       try {
@@ -889,6 +893,13 @@ const ComprasPage: React.FC = () => {
       } catch { setStockPorCodigo(prev => ({ ...prev, [codigo]: [] })); }
     }
   };
+
+  useEffect(() => {
+    if (!stockExpandidoItemId) return;
+    const close = () => { setStockExpandidoItemId(null); setDropdownPos(null); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [stockExpandidoItemId]);
 
   const toggleSeleccion = (id: number) => {
     setSeleccionados(prev => {
@@ -1167,16 +1178,21 @@ const ComprasPage: React.FC = () => {
                                   </td>
                                   <td className="px-3 py-2 w-20" onClick={e => e.stopPropagation()}>
                                     {item.codigo && codigosConStock.has(item.codigo) ? (
-                                      <div className="relative">
+                                      <>
                                         <button
-                                          onClick={() => toggleStockItem(item.id, item.codigo)}
+                                          onClick={e => toggleStockItem(e, item.id, item.codigo)}
+                                          onMouseDown={e => e.stopPropagation()}
                                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition"
                                         >
                                           <Package className="w-3 h-3" />
                                           {stockExpandidoItemId === item.id ? '▲' : '▼'}
                                         </button>
-                                        {stockExpandidoItemId === item.id && (
-                                          <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-lg min-w-[200px] max-h-48 overflow-y-auto">
+                                        {stockExpandidoItemId === item.id && dropdownPos && ReactDOM.createPortal(
+                                          <div
+                                            onMouseDown={e => e.stopPropagation()}
+                                            style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left }}
+                                            className="z-[9999] bg-white border border-slate-200 rounded-xl shadow-lg min-w-[200px] max-h-48 overflow-y-auto"
+                                          >
                                             {!stockPorCodigo[item.codigo] ? (
                                               <p className="text-[10px] text-slate-400 px-3 py-2">Cargando…</p>
                                             ) : stockPorCodigo[item.codigo].length === 0 ? (
@@ -1199,9 +1215,10 @@ const ComprasPage: React.FC = () => {
                                                 ))}
                                               </>
                                             )}
-                                          </div>
+                                          </div>,
+                                          document.body
                                         )}
-                                      </div>
+                                      </>
                                     ) : (
                                       <span className="text-slate-300 text-[10px]">—</span>
                                     )}
