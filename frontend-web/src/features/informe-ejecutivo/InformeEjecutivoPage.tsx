@@ -392,7 +392,7 @@ const TabAsesores: React.FC<{ asesores: { id: number; nombre: string }[] }> = ({
                     <span className="flex items-center justify-end gap-1">Meta <InfoTooltip text="Meta individual del asesor para el período (suma de meses). Configurada en Configuración → Metas." /></span>
                   </th>
                   <th className="text-right px-3 py-2 whitespace-nowrap">
-                    <span className="flex items-center justify-end gap-1">Facturado <InfoTooltip text="Suma del valor_total (abono + pendiente) de ODPs del asesor en el período." /></span>
+                    <span className="flex items-center justify-end gap-1">Vendido <InfoTooltip text="Suma del valor_total (abono + pendiente) de ODPs del asesor en el período." /></span>
                   </th>
                   <th className="text-right px-3 py-2 whitespace-nowrap">
                     <span className="flex items-center justify-end gap-1">% Meta <InfoTooltip text="Qué porcentaje de la meta individual ha alcanzado el asesor en el período." /></span>
@@ -448,7 +448,7 @@ const TabAsesores: React.FC<{ asesores: { id: number; nombre: string }[] }> = ({
           </div>
           <KPICard label="Meta del período"  value={asesorDetalle.meta > 0 ? COP(asesorDetalle.meta) : '—'} color="blue"
             desc="Meta de facturación individual configurada para este asesor en el período (suma de meses seleccionados). Se configura en Configuración → Metas." />
-          <KPICard label="Facturado" value={COP(asesorDetalle.real)} color="green"
+          <KPICard label="Vendido" value={COP(asesorDetalle.real)} color="green"
             sub={asesorDetalle.pct_meta !== null ? `${asesorDetalle.pct_meta}% de la meta` : undefined}
             desc="Suma del valor total (abono + pendiente) de todas las ODPs creadas por este asesor en el período. Representa el monto total contratado, no necesariamente cobrado." />
           <KPICard label="Recaudado" value={COP(asesorDetalle.recaudado)} color="green"
@@ -509,6 +509,7 @@ const TabProduccion: React.FC<{ asesores: { id: number; nombre: string }[] }> = 
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
   const [seccion, setSeccion] = useState<'material' | 'listas' | 'atrasadas' | 'pausadas' | 'embudo'>('material');
+  const [listasFilter, setListasFilter] = useState<'todos' | 'instalacion' | 'acarreo' | 'mano'>('todos');
 
   const fetch_ = useCallback(async () => {
     setLoading(true);
@@ -601,32 +602,70 @@ const TabProduccion: React.FC<{ asesores: { id: number; nombre: string }[] }> = 
               <em> Días lista</em> = cuántos días lleva en ese estado sin programar.
             </p>
           </div>
-          {d.listas_sin_programar?.length === 0 ? <TablaVacia msg="Todas las ODPs listas están programadas ✓" /> : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-100 text-xs font-bold text-slate-600 uppercase">
-                  <th className="text-left px-3 py-2">ODP</th>
-                  <th className="text-left px-3 py-2">Cliente</th>
-                  <th className="text-left px-3 py-2">Asesor</th>
-                  <th className="text-right px-3 py-2">Días lista</th>
-                  <th className="text-right px-3 py-2">F. Entrega</th>
-                  <th className="text-right px-3 py-2">Pendiente</th>
-                </tr>
-              </thead>
-              <tbody>
-                {d.listas_sin_programar.map((o: any) => (
-                  <tr key={o.id} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="px-3 py-2 font-bold text-slate-800">{o.numero_odp}</td>
-                    <td className="px-3 py-2 text-slate-700">{o.cliente}</td>
-                    <td className="px-3 py-2 text-slate-500 text-xs">{o.asesor}</td>
-                    <td className="px-3 py-2 text-right font-bold text-amber-600">{o.dias_lista ?? '—'}d</td>
-                    <td className="px-3 py-2 text-right text-slate-500">{o.fecha_entrega ? o.fecha_entrega.slice(0, 10) : '—'}</td>
-                    <td className="px-3 py-2 text-right text-amber-700 font-bold">{COP(o.pendiente)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          {d.listas_sin_programar?.length === 0 ? <TablaVacia msg="Todas las ODPs listas están programadas ✓" /> : (() => {
+            const tipoODP = (o: any) => o.instalacion ? 'instalacion' : o.acarreo ? 'acarreo' : 'mano';
+            const listaFiltrada = d.listas_sin_programar.filter((o: any) => listasFilter === 'todos' || tipoODP(o) === listasFilter);
+            const conteos = {
+              todos:      d.listas_sin_programar.length,
+              instalacion: d.listas_sin_programar.filter((o: any) => o.instalacion).length,
+              acarreo:    d.listas_sin_programar.filter((o: any) => !o.instalacion && o.acarreo).length,
+              mano:       d.listas_sin_programar.filter((o: any) => !o.instalacion && !o.acarreo).length,
+            };
+            const chips: { key: typeof listasFilter; label: string; color: string }[] = [
+              { key: 'todos',       label: `Todas (${conteos.todos})`,              color: listasFilter === 'todos'       ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' },
+              { key: 'instalacion', label: `Instalación (${conteos.instalacion})`,  color: listasFilter === 'instalacion' ? 'bg-blue-600 text-white'  : 'bg-blue-50 text-blue-700 hover:bg-blue-100' },
+              { key: 'acarreo',     label: `Solo acarreo (${conteos.acarreo})`,     color: listasFilter === 'acarreo'     ? 'bg-violet-600 text-white': 'bg-violet-50 text-violet-700 hover:bg-violet-100' },
+              { key: 'mano',        label: `Entrega en mano (${conteos.mano})`,     color: listasFilter === 'mano'        ? 'bg-emerald-600 text-white': 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' },
+            ];
+            const badgeStyle = (o: any) => {
+              if (o.instalacion)           return 'bg-blue-100 text-blue-700';
+              if (o.acarreo)               return 'bg-violet-100 text-violet-700';
+              return 'bg-emerald-100 text-emerald-700';
+            };
+            const badgeLabel = (o: any) => o.instalacion ? 'Instalación' : o.acarreo ? 'Acarreo' : 'En mano';
+            return (
+              <>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {chips.map(c => (
+                    <button key={c.key} onClick={() => setListasFilter(c.key)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${c.color}`}>
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+                {listaFiltrada.length === 0 ? <TablaVacia msg="Sin ODPs en esta categoría" /> : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-100 text-xs font-bold text-slate-600 uppercase">
+                        <th className="text-left px-3 py-2">ODP</th>
+                        <th className="text-left px-3 py-2">Cliente</th>
+                        <th className="text-left px-3 py-2">Asesor</th>
+                        <th className="text-left px-3 py-2">Tipo</th>
+                        <th className="text-right px-3 py-2">Días lista</th>
+                        <th className="text-right px-3 py-2">F. Entrega</th>
+                        <th className="text-right px-3 py-2">Pendiente</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {listaFiltrada.map((o: any) => (
+                        <tr key={o.id} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="px-3 py-2 font-bold text-slate-800">{o.numero_odp}</td>
+                          <td className="px-3 py-2 text-slate-700">{o.cliente}</td>
+                          <td className="px-3 py-2 text-slate-500 text-xs">{o.asesor}</td>
+                          <td className="px-3 py-2">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${badgeStyle(o)}`}>{badgeLabel(o)}</span>
+                          </td>
+                          <td className="px-3 py-2 text-right font-bold text-amber-600">{o.dias_lista ?? '—'}d</td>
+                          <td className="px-3 py-2 text-right text-slate-500">{o.fecha_entrega ? o.fecha_entrega.slice(0, 10) : '—'}</td>
+                          <td className="px-3 py-2 text-right text-amber-700 font-bold">{COP(o.pendiente)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
 
@@ -753,6 +792,7 @@ const TabFinanciero: React.FC<{ asesores: { id: number; nombre: string }[] }> = 
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
   const [seccion, setSeccion] = useState<'resumen' | 'matpago' | 'cartera' | 'credito'>('resumen');
+  const [matpagoAsesor, setMatpagoAsesor] = useState<string>('todos');
 
   const fetch_ = useCallback(async () => {
     setLoading(true);
@@ -790,16 +830,32 @@ const TabFinanciero: React.FC<{ asesores: { id: number; nombre: string }[] }> = 
 
       {d && seccion === 'resumen' && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-            <KPICard label="Valor Facturado"      value={COP(d.valor_facturado || 0)}        color="green"
-              desc="Suma del valor_total de ODPs cuya fecha de factura cae dentro del período. Representa el dinero que la empresa facturó formalmente al cliente." />
-            <KPICard label="Cobros Recibidos"     value={COP(d.cobros_recibidos || 0)}       color="blue"
-              desc="Suma de todos los pagos y abonos registrados en Contabilidad durante el período. Dinero que efectivamente ingresó a caja." />
-            <KPICard label="Por Recoger (activo)" value={COP(d.total_pendiente_activo || 0)} color="amber"
-              desc="Suma del campo 'pendiente' de TODAS las ODPs activas no canceladas. No está filtrada por período — muestra la cartera total vigente por cobrar." />
-            <KPICard label="Proyección Ingresos"  value={COP(d.proyeccion_valor || 0)}
-              sub="ODPs listas + programadas" color="purple"
-              desc="Valor total de ODPs en estado LISTO_INSTALAR o PROGRAMADA. Son trabajos terminados o casi terminados cuyo cobro debería ocurrir próximamente." />
+          <div className="flex flex-col gap-3 mb-4">
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                <span className="inline-block w-2 h-2 rounded-full bg-slate-400"></span>
+                Período seleccionado
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <KPICard label="Valor Vendido"    value={COP(d.valor_facturado || 0)}  color="green"
+                  desc="Suma del valor_total de ODPs cuya fecha de factura cae dentro del período. Representa el dinero que la empresa facturó formalmente al cliente." />
+                <KPICard label="Cobros Recibidos" value={COP(d.cobros_recibidos || 0)} color="blue"
+                  desc="Suma de todos los pagos y abonos registrados en Contabilidad durante el período. Dinero que efectivamente ingresó a caja." />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2 flex items-center gap-1">
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                Cartera vigente (sin filtro de fecha)
+              </p>
+              <div className="grid grid-cols-2 gap-3 border border-emerald-100 bg-emerald-50/40 rounded-xl p-3">
+                <KPICard label="Por Recoger (activo)" value={COP(d.total_pendiente_activo || 0)} color="amber"
+                  desc="Suma del campo 'pendiente' de TODAS las ODPs activas no canceladas. No está filtrada por período — muestra la cartera total vigente por cobrar." />
+                <KPICard label="Proyección Ingresos"  value={COP(d.proyeccion_valor || 0)}
+                  sub="ODPs listas + programadas" color="purple"
+                  desc="Valor total de ODPs en estado LISTO_INSTALAR o PROGRAMADA. Son trabajos terminados o casi terminados cuyo cobro debería ocurrir próximamente." />
+              </div>
+            </div>
           </div>
           {d.meta_empresa > 0 && (
             <div className="mb-4">
@@ -849,34 +905,56 @@ const TabFinanciero: React.FC<{ asesores: { id: number; nombre: string }[] }> = 
               El campo <em>Pendiente</em> muestra exactamente cuánto falta por cobrar a cada cliente.
             </p>
           </div>
-          {d.mat_listo_sin_pagar?.length === 0 ? <TablaVacia msg="Sin ODPs en esta condición ✓" /> : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-100 text-xs font-bold text-slate-600 uppercase">
-                  <th className="text-left px-3 py-2">ODP</th>
-                  <th className="text-left px-3 py-2">Cliente</th>
-                  <th className="text-left px-3 py-2">Asesor</th>
-                  <th className="text-left px-3 py-2">Forma Pago</th>
-                  <th className="text-right px-3 py-2">Total</th>
-                  <th className="text-right px-3 py-2">Abonado</th>
-                  <th className="text-right px-3 py-2">Pendiente</th>
-                </tr>
-              </thead>
-              <tbody>
-                {d.mat_listo_sin_pagar.map((o: any) => (
-                  <tr key={o.id} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="px-3 py-2 font-bold text-slate-800">{o.numero_odp}</td>
-                    <td className="px-3 py-2 text-slate-700">{o.cliente}</td>
-                    <td className="px-3 py-2 text-slate-500 text-xs">{o.asesor}</td>
-                    <td className="px-3 py-2 text-xs capitalize">{o.forma_pago || '—'}</td>
-                    <td className="px-3 py-2 text-right">{COP(o.valor_total)}</td>
-                    <td className="px-3 py-2 text-right text-emerald-700">{COP(o.abono)}</td>
-                    <td className="px-3 py-2 text-right font-bold text-red-600">{COP(o.pendiente)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          {d.mat_listo_sin_pagar?.length === 0 ? <TablaVacia msg="Sin ODPs en esta condición ✓" /> : (() => {
+            const asesoresUnicos: string[] = ['todos', ...Array.from(new Set<string>(d.mat_listo_sin_pagar.map((o: any) => o.asesor).filter(Boolean)))];
+            const listaFiltrada = matpagoAsesor === 'todos' ? d.mat_listo_sin_pagar : d.mat_listo_sin_pagar.filter((o: any) => o.asesor === matpagoAsesor);
+            return (
+              <>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {asesoresUnicos.map(a => (
+                    <button key={a} onClick={() => setMatpagoAsesor(a)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer ${matpagoAsesor === a ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                      {a === 'todos' ? `Todos (${d.mat_listo_sin_pagar.length})` : `${a} (${d.mat_listo_sin_pagar.filter((o: any) => o.asesor === a).length})`}
+                    </button>
+                  ))}
+                </div>
+                <div className="mb-3">
+                  <KPICard label="Pendiente por cobrar"
+                    value={COP(listaFiltrada.reduce((s: number, o: any) => s + o.pendiente, 0))}
+                    color="amber"
+                    desc="Suma del saldo pendiente de las ODPs mostradas (según período y asesor seleccionado)." />
+                </div>
+                {listaFiltrada.length === 0 ? <TablaVacia msg="Sin ODPs para este asesor" /> : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-100 text-xs font-bold text-slate-600 uppercase">
+                        <th className="text-left px-3 py-2">ODP</th>
+                        <th className="text-left px-3 py-2">Cliente</th>
+                        <th className="text-left px-3 py-2">Asesor</th>
+                        <th className="text-left px-3 py-2">Forma Pago</th>
+                        <th className="text-right px-3 py-2">Total</th>
+                        <th className="text-right px-3 py-2">Abonado</th>
+                        <th className="text-right px-3 py-2">Pendiente</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {listaFiltrada.map((o: any) => (
+                        <tr key={o.id} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="px-3 py-2 font-bold text-slate-800">{o.numero_odp}</td>
+                          <td className="px-3 py-2 text-slate-700">{o.cliente}</td>
+                          <td className="px-3 py-2 text-slate-500 text-xs">{o.asesor}</td>
+                          <td className="px-3 py-2 text-xs capitalize">{o.forma_pago || '—'}</td>
+                          <td className="px-3 py-2 text-right">{COP(o.valor_total)}</td>
+                          <td className="px-3 py-2 text-right text-emerald-700">{COP(o.abono)}</td>
+                          <td className="px-3 py-2 text-right font-bold text-red-600">{COP(o.pendiente)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
 
@@ -891,6 +969,14 @@ const TabFinanciero: React.FC<{ asesores: { id: number; nombre: string }[] }> = 
               Priorizar la gestión de cobro comenzando por los de mayor monto.
             </p>
           </div>
+          {d.cartera_por_cliente?.length > 0 && (
+            <div className="mb-4">
+              <KPICard label="Total cartera pendiente"
+                value={COP(d.cartera_por_cliente.reduce((s: number, c: any) => s + Number(c.total), 0))}
+                color="amber"
+                desc="Suma del saldo pendiente de los clientes mostrados (top 15 por monto). Sin filtro de período — refleja la cartera activa vigente." />
+            </div>
+          )}
           {d.cartera_por_cliente?.length === 0 ? <TablaVacia msg="Sin cartera pendiente ✓" /> : (
             <div className="space-y-2">
               {d.cartera_por_cliente.map((c: any, i: number) => {
@@ -923,7 +1009,15 @@ const TabFinanciero: React.FC<{ asesores: { id: number; nombre: string }[] }> = 
               financiero controlado que requieren seguimiento de cobro.
             </p>
           </div>
-          {d.credito_aprobado?.length === 0 ? <TablaVacia msg="Sin ODPs con crédito aprobado ✓" /> : (
+          {d.credito_aprobado?.length > 0 && (
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <KPICard label="Valor total vendido" value={COP(d.credito_aprobado.reduce((s: number, o: any) => s + o.valor_total, 0))}
+                color="blue" desc="Suma del valor_total de las ODPs con crédito aprobado en el período seleccionado." />
+              <KPICard label="Pendiente por cobrar" value={COP(d.credito_aprobado.reduce((s: number, o: any) => s + o.pendiente, 0))}
+                color="amber" desc="Suma del saldo pendiente de las ODPs con crédito aprobado en el período seleccionado." />
+            </div>
+          )}
+          {d.credito_aprobado?.length === 0 ? <TablaVacia msg="Sin ODPs con crédito aprobado en el período ✓" /> : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-100 text-xs font-bold text-slate-600 uppercase">

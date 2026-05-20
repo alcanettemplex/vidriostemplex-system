@@ -328,7 +328,7 @@ export const getProduccionCritica = async (req: Request, res: Response) => {
       ? await ODP.findAll({
           where: { id: { [Op.in]: noProgramadasIds } },
           include: includeBase,
-          attributes: ['id', 'numero_odp', 'estado_produccion', 'fecha_entrega', 'valor_total', 'pendiente', 'fecha_listo_instalar'],
+          attributes: ['id', 'numero_odp', 'estado_produccion', 'fecha_entrega', 'valor_total', 'pendiente', 'fecha_listo_instalar', 'acarreo', 'instalacion'],
           order: [['fecha_listo_instalar', 'ASC']],
         })
       : [];
@@ -346,6 +346,8 @@ export const getProduccionCritica = async (req: Request, res: Response) => {
         valor_total:      Number(o.getDataValue('valor_total')),
         pendiente:        Number(o.getDataValue('pendiente')),
         dias_lista:       diasLista,
+        acarreo:          o.getDataValue('acarreo') as boolean,
+        instalacion:      o.getDataValue('instalacion') as boolean,
       };
     });
 
@@ -453,10 +455,10 @@ export const getFinanciero = async (req: Request, res: Response) => {
         }) || 0)
       : 0;
 
-    // ODPs con material listo sin haber pagado
+    // ODPs con material listo sin haber pagado (filtrado por fecha_listo_instalar del período)
     const mat_listo_sin_pagar = await ODP.findAll({
       where: {
-        fecha_listo_instalar: { [Op.ne]: null },
+        fecha_listo_instalar: { [Op.between]: [desde, hasta] },
         pendiente: { [Op.gt]: 0 },
         estado_produccion: { [Op.notIn]: ['ENTREGADA'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
@@ -504,9 +506,9 @@ export const getFinanciero = async (req: Request, res: Response) => {
       raw: true,
     }) as unknown as { forma_pago: string; total: string; valor: string }[];
 
-    // ODPs crédito aprobado pendientes
+    // ODPs crédito aprobado pendientes (filtrado por fecha_creacion del período)
     const credito_aprobado_raw = await ODP.findAll({
-      where: { estado_caja: 'CREDITO_APROBADO', estado_produccion: { [Op.notIn]: ['ENTREGADA'] }, ...asesorFiltro, ...buscadorFiltro },
+      where: { estado_caja: 'CREDITO_APROBADO', estado_produccion: { [Op.notIn]: ['ENTREGADA'] }, fecha_creacion: { [Op.between]: [desde, hasta] }, ...asesorFiltro, ...buscadorFiltro },
       include: [
         { model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] },
         { model: Usuario, as: 'asesor',  attributes: ['nombre_completo'] },
