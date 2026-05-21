@@ -37,6 +37,9 @@ ODPItem.init({
   modelName: 'ODPItem',
   tableName: 'odp_items',
   timestamps: false,
+  defaultScope: {
+    order: [['id', 'ASC']],
+  },
 });
 
 export default ODPItem;
