@@ -28,28 +28,28 @@ import { z } from 'zod';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 
 const odpItemSchema = z.object({
-  item: z.string().optional(),
-  color: z.string().optional(),
-  espesor: z.coerce.string().optional(),
+  item: z.string().nullable().optional(),
+  color: z.string().nullable().optional(),
+  espesor: z.coerce.string().nullable().optional(),
   cantidad: z.number().int().positive().nullable().optional().default(1),
   ancho_mm: z.number().int().positive().nullable().optional(),
   alto_mm: z.number().int().positive().nullable().optional(),
-  tipo_vidrio: z.string().optional(),
-  pelicula: z.boolean().optional(),
-  matizado: z.boolean().optional(),
-  carton: z.boolean().optional(),
-  huacal: z.boolean().optional(),
-  accesorios: z.string().optional(),
-  pulidos: z.string().optional(),
-  pulidos_h: z.string().optional(),
+  tipo_vidrio: z.string().nullable().optional(),
+  pelicula: z.boolean().nullable().optional(),
+  matizado: z.boolean().nullable().optional(),
+  carton: z.boolean().nullable().optional(),
+  huacal: z.boolean().nullable().optional(),
+  accesorios: z.string().nullable().optional(),
+  pulidos: z.string().nullable().optional(),
+  pulidos_h: z.string().nullable().optional(),
   perforaciones: z.number().int().nonnegative().nullable().optional().default(0),
   boquetes: z.number().int().nonnegative().nullable().optional().default(0),
-  descuentos: z.string().optional(),
-  otros: z.string().optional(),
-  mts_pt_a: z.string().optional(),
-  mts_pt_h: z.string().optional(),
-  prod: z.string().optional(),
-  verificacion_prod: z.boolean().optional().default(false)
+  descuentos: z.string().nullable().optional(),
+  otros: z.string().nullable().optional(),
+  mts_pt_a: z.string().nullable().optional(),
+  mts_pt_h: z.string().nullable().optional(),
+  prod: z.string().nullable().optional(),
+  verificacion_prod: z.boolean().nullable().optional().default(false)
 });
 
 const odpSchema = z.object({
