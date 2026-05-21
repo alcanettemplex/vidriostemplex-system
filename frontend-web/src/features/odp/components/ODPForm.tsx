@@ -10,19 +10,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Bronce Oscuro', 'Gris', 'Gris Oscuro', 'Azul', 'Verde', 'Mate', 'Otro'];
 
 const itemSchema = z.object({
-    tipo_vidrio: z.string().optional(),
-    color: z.string().optional(),
+    tipo_vidrio: z.string().nullable().optional(),
+    color: z.string().nullable().optional(),
     espesor: z.string().min(1),
     ancho_mm: z.coerce.number().positive(),
     alto_mm: z.coerce.number().positive(),
     cantidad: z.coerce.number().int().positive(),
-    pulidos: z.string().optional(),
-    pulidos_h: z.string().optional(),
+    pulidos: z.string().nullable().optional(),
+    pulidos_h: z.string().nullable().optional(),
     perforaciones: z.coerce.number().int().nonnegative().optional(),
     boquetes: z.coerce.number().int().nonnegative().optional(),
-    descuentos: z.string().optional(),
-    otros: z.string().optional(),
-    prod: z.string().optional()
+    descuentos: z.string().nullable().optional(),
+    otros: z.string().nullable().optional(),
+    prod: z.string().nullable().optional()
 });
 
 const servicioSchema = z.object({
