@@ -112,7 +112,7 @@ export const getODPs = async (req: Request, res: Response) => {
       include: [
         { model: Cliente, as: 'cliente' },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
-        { model: ODPItem, as: 'items' },
+        { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
         { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
         { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
         { model: SAP, as: 'saps', attributes: ['id'], separate: true },
@@ -135,7 +135,7 @@ export const getNcGarantias = async (req: Request, res: Response) => {
       include: [
         { model: Cliente, as: 'cliente' },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
-        { model: ODPItem, as: 'items' },
+        { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
         { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp', 'fecha_entrega'] },
         { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
         { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
@@ -157,7 +157,7 @@ export const getGarantias = async (req: Request, res: Response) => {
       include: [
         { model: Cliente, as: 'cliente' },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
-        { model: ODPItem, as: 'items' },
+        { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
         { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp', 'fecha_entrega'] },
         { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
         { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
@@ -183,7 +183,7 @@ export const getODP = async (req: Request, res: Response) => {
       include: [
         { model: Cliente, as: 'cliente' },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username', 'email'] },
-        { model: ODPItem, as: 'items' },
+        { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
         {
           model: ODP, as: 'odp_padre',
           attributes: ['id', 'numero_odp', 'fecha_entrega'],

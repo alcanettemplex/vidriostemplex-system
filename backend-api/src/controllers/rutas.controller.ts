@@ -32,11 +32,11 @@ const INCLUDE_RUTA_COMPLETA = async (): Promise<any[]> => [
         include: [
           { model: Cliente, as: 'cliente' },
           { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
-          { model: ODPItem, as: 'items' },
+          { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
           { model: Pago, as: 'pagos' },
           { model: Cotizacion, as: 'cotizaciones' },
           { model: TomaMedidas, as: 'tomas_medidas' },
-          { 
+          {
             model: SAP, as: 'saps',
             include: [
               { model: SAPItem, as: 'items' },
@@ -172,7 +172,7 @@ export const getRutasProgramacion = async (req: Request, res: Response) => {
               attributes: ['id', 'numero_odp', 'tipo_servicio', 'descripcion_pedido', 'direccion_instalacion'],
               include: [
                 { model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] },
-                { model: ODPItem, as: 'items', attributes: ['item', 'tipo_vidrio', 'color', 'espesor', 'ancho_mm', 'alto_mm', 'cantidad', 'prod'] },
+                { model: ODPItem, as: 'items', attributes: ['item', 'tipo_vidrio', 'color', 'espesor', 'ancho_mm', 'alto_mm', 'cantidad', 'prod'], separate: true, order: [['id', 'ASC']] },
               ],
             },
           ],
@@ -441,7 +441,7 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
           include: [
             { model: Cliente, as: 'cliente' },
             { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
-            { model: ODPItem, as: 'items' },
+            { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
             { model: Pago, as: 'pagos' },
             { model: Cotizacion, as: 'cotizaciones' },
             { model: TomaMedidas, as: 'tomas_medidas' },

@@ -334,7 +334,7 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
       include: [
         { model: Cliente, as: 'cliente' },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
-        { model: ODPItem, as: 'items' },
+        { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
       ],
     });
 

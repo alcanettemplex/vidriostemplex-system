@@ -462,6 +462,8 @@ export const getPorGestionar = async (_req: Request, res: Response) => {
               attributes: ['id', 'item', 'color', 'espesor', 'cantidad', 'ancho_mm', 'alto_mm',
                 'tipo_vidrio', 'pulidos', 'pulidos_h', 'perforaciones', 'boquetes',
                 'descuentos', 'otros', 'mts_pt_a', 'mts_pt_h', 'accesorios', 'pedido_pv_id', 'prod', 'dt', 'observaciones_pv'],
+              separate: true,
+              order: [['id', 'ASC']],
             },
           ],
         },
