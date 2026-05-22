@@ -400,7 +400,7 @@ const PedidosPVPage: React.FC = () => {
     setModalCrear(true);
   };
 
-  const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Bronce Oscuro', 'Gris', 'Gris Oscuro', 'Azul', 'Verde', 'Mate', 'Otro'];
+  const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Gris', 'Azul', 'Verde', 'Mate', 'Otro'];
   const PROVEEDORES_PV = ['Vitelsa', 'Templacol', 'Vidplex', 'Otros'];
   const PROD_OPCIONES = ['', 'PV', 'CAMARA', 'CR', 'CR-LAM', 'ESP', 'LAM', 'S/T', 'TE', 'TEM-MULTILAMINADO', 'TEM-LAM', 'N.A.'];
 
