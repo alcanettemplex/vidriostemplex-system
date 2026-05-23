@@ -110,7 +110,7 @@ export const getODPs = async (req: Request, res: Response) => {
     const odps = await ODP.findAll({
       where: { es_garantia: false } as any,
       include: [
-        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'nit_cedula', 'telefono', 'correo', 'direccion', 'ciudad'] },
+        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento', 'telefono', 'celular', 'email', 'direccion'] },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
         { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
         { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
@@ -133,7 +133,7 @@ export const getNcGarantias = async (req: Request, res: Response) => {
         [Op.or]: [{ es_no_conformidad: true }, { es_garantia: true }],
       } as any,
       include: [
-        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'nit_cedula', 'telefono', 'correo', 'direccion', 'ciudad'] },
+        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento', 'telefono', 'celular', 'email', 'direccion'] },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
         { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
         { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp', 'fecha_entrega'] },
