@@ -15,6 +15,7 @@ import {
   getOperativoResumen,
   getSeguridadActividad,
   getDetalleUsuario,
+  getMonitoreo,
 } from '../controllers/root.controller';
 
 const router = Router();
@@ -53,10 +54,11 @@ router.post('/backup/restaurar', restaurarBackup);
 router.get('/mantenimiento/:tarea', ejecutarMantenimiento);
 router.post('/mantenimiento/:tarea', ejecutarMantenimiento);
 
-// Diagnóstico, Operativo, Seguridad
+// Diagnóstico, Operativo, Seguridad, Monitoreo
 router.get('/diagnostico/odp',     getDiagnosticoODP);
 router.get('/operativo/resumen',   getOperativoResumen);
 router.get('/seguridad/actividad', getSeguridadActividad);
 router.get('/seguridad/detalle-usuario/:userId', getDetalleUsuario);
+router.get('/monitoreo',           getMonitoreo);
 
 export default router;

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import Usuario from '../models/usuario.model';
+import AuditoriaLog from '../models/auditoria_log.model';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
@@ -19,12 +20,32 @@ export const login = async (req: Request, res: Response) => {
 
     const user = await Usuario.findOne({ where: { username } });
     if (!user) {
-       return res.status(401).json({ error: 'Credenciales inválidas' });
+      AuditoriaLog.create({
+        tabla: 'auth',
+        operacion: 'LOGIN_FAIL',
+        registro_id: null,
+        datos_anteriores: null,
+        datos_nuevos: { username, razon: 'usuario_no_encontrado' },
+        usuario_id: null,
+        ip_address: req.ip || null,
+      }).catch(() => {});
+      return res.status(401).json({ error: 'Credenciales inválidas' });
     }
 
     const valid = await bcrypt.compare(password, user.getDataValue('password_hash'));
-    
-    if (!valid) return res.status(401).json({ error: 'Credenciales inválidas' });
+
+    if (!valid) {
+      AuditoriaLog.create({
+        tabla: 'auth',
+        operacion: 'LOGIN_FAIL',
+        registro_id: String(user.getDataValue('id')),
+        datos_anteriores: null,
+        datos_nuevos: { username, razon: 'password_invalido' },
+        usuario_id: null,
+        ip_address: req.ip || null,
+      }).catch(() => {});
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
 
     const token = jwt.sign(
       { id: user.getDataValue('id'), rol: user.getDataValue('rol') },
@@ -32,7 +53,6 @@ export const login = async (req: Request, res: Response) => {
       { expiresIn: '8h' }
     );
 
-    // No exponer password_hash en la respuesta
     const userData = user.toJSON();
     delete userData.password_hash;
 

@@ -7,6 +7,8 @@ import AuditoriaLog from '../models/auditoria_log.model';
 import AlertasUmbral from '../models/alertas_umbral.model';
 import { Op } from 'sequelize';
 import jwt from 'jsonwebtoken';
+import { cronPVStatus, getWSCount } from '../server';
+import { getRateLimitStats } from '../middlewares/rateLimiter';
 
 const SUPABASE_PROJECT_REF = process.env.SUPABASE_PROJECT_REF || '';
 const SUPABASE_MANAGEMENT_TOKEN = process.env.SUPABASE_MANAGEMENT_TOKEN || '';
@@ -965,5 +967,230 @@ export const getDetalleUsuario = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error detalle usuario:', error);
     res.status(500).json({ error: error.message || 'Error al obtener detalle de usuario' });
+  }
+};
+
+// ─── MONITOREO INTEGRAL ───────────────────────────────────────────────────────
+export const getMonitoreo = async (_req: Request, res: Response) => {
+  try {
+    const [
+      odpsAtascadas,
+      sapsSinOdc,
+      pedidoPvEstados,
+      inventarioBajo,
+      cotizacionesPendientes,
+      odpsSinEvidencias,
+      tablasGrandes,
+      auditoriaStatsRows,
+      actividad24h,
+      carteraVencida,
+      prospectosSinGestion,
+      loginFallidos24h,
+    ] = await Promise.all([
+
+      // 1. ODPs con > 7 días sin cambio de estado (estados activos)
+      sequelize.query<any>(`
+        SELECT o.id, o.numero_odp, o.estado_produccion,
+               c.nombre_razon_social AS cliente,
+               u.nombre_completo AS asesor,
+               EXTRACT(DAY FROM NOW() - COALESCE(
+                 (SELECT MAX(h.fecha) FROM historial_estados_odp h WHERE h.odp_id = o.id),
+                 o.fecha_creacion
+               ))::int AS dias_sin_cambio,
+               COALESCE(
+                 (SELECT MAX(h.fecha) FROM historial_estados_odp h WHERE h.odp_id = o.id),
+                 o.fecha_creacion
+               ) AS ultimo_cambio
+        FROM odp o
+        JOIN clientes c ON c.id = o.cliente_id
+        JOIN usuarios u ON u.id = o.asesor_id
+        WHERE o.estado_produccion NOT IN ('ENTREGADA','EN_ESPERA','PAUSADA')
+          AND EXTRACT(DAY FROM NOW() - COALESCE(
+            (SELECT MAX(h.fecha) FROM historial_estados_odp h WHERE h.odp_id = o.id),
+            o.fecha_creacion
+          )) > 7
+        ORDER BY dias_sin_cambio DESC
+        LIMIT 30
+      `, { type: QueryTypes.SELECT }),
+
+      // 2. SAPs sin ODC generada (> 3 días)
+      sequelize.query<any>(`
+        SELECT s.id, s.numero_sap, s.creado_en,
+               o.numero_odp, c.nombre_razon_social AS cliente,
+               EXTRACT(DAY FROM NOW() - s.creado_en)::int AS dias_sin_odc
+        FROM sap s
+        JOIN odp o ON o.id = s.odp_id
+        JOIN clientes c ON c.id = o.cliente_id
+        WHERE NOT EXISTS (SELECT 1 FROM ordenes_compra oc WHERE oc.sap_id = s.id)
+          AND s.creado_en < NOW() - INTERVAL '3 days'
+        ORDER BY dias_sin_odc DESC
+        LIMIT 30
+      `, { type: QueryTypes.SELECT }),
+
+      // 3. PedidoPV activos agrupados por estado
+      sequelize.query<any>(`
+        SELECT estado, COUNT(*) AS total,
+               EXTRACT(DAY FROM NOW() - MIN(creado_en))::int AS dias_mas_antiguo
+        FROM pedido_pv
+        WHERE estado NOT IN ('VERIFICADO','ENTREGADO')
+        GROUP BY estado
+        ORDER BY total DESC
+      `, { type: QueryTypes.SELECT }),
+
+      // 4. Códigos de perfilería con pocas piezas en inventario (< 5)
+      sequelize.query<any>(`
+        SELECT codigo, COUNT(*) AS piezas
+        FROM inventario_perfileria
+        WHERE codigo IS NOT NULL
+        GROUP BY codigo
+        HAVING COUNT(*) < 5
+        ORDER BY piezas ASC
+        LIMIT 20
+      `, { type: QueryTypes.SELECT }),
+
+      // 5. Cotizaciones sin respuesta > 30 días (borrador o enviada)
+      sequelize.query<any>(`
+        SELECT ct.id, ct.numero_cot, ct.estado, ct.valor_total, ct.fecha_creacion,
+               COALESCE(cl.nombre_razon_social, p.nombre_contacto, '—') AS cliente,
+               u.nombre_completo AS creado_por_nombre,
+               EXTRACT(DAY FROM NOW() - ct.fecha_creacion)::int AS dias_pendiente
+        FROM cotizaciones ct
+        LEFT JOIN clientes cl ON cl.id = ct.cliente_id
+        LEFT JOIN prospectos p ON p.id = ct.prospecto_id
+        LEFT JOIN usuarios u ON u.id = ct.creado_por
+        WHERE ct.estado IN ('borrador','enviada')
+          AND ct.fecha_creacion < NOW() - INTERVAL '30 days'
+        ORDER BY dias_pendiente DESC
+        LIMIT 30
+      `, { type: QueryTypes.SELECT }),
+
+      // 6. ODPs INSTALADA/ENTREGADA sin ninguna evidencia fotográfica
+      sequelize.query<any>(`
+        SELECT o.id, o.numero_odp, o.estado_produccion,
+               c.nombre_razon_social AS cliente,
+               u.nombre_completo AS asesor,
+               o.fecha_listo_instalar
+        FROM odp o
+        JOIN clientes c ON c.id = o.cliente_id
+        JOIN usuarios u ON u.id = o.asesor_id
+        WHERE o.estado_produccion IN ('INSTALADA','ENTREGADA')
+          AND NOT EXISTS (SELECT 1 FROM evidencias_instalacion ei WHERE ei.odp_id = o.id)
+        ORDER BY o.fecha_listo_instalar ASC NULLS LAST
+        LIMIT 30
+      `, { type: QueryTypes.SELECT }),
+
+      // 7. Top 10 tablas más grandes
+      sequelize.query<any>(`
+        SELECT t.tablename,
+               COALESCE(c.reltuples::bigint, 0) AS filas_estimadas,
+               pg_size_pretty(pg_total_relation_size('public.' || t.tablename)) AS size_pretty,
+               pg_total_relation_size('public.' || t.tablename) AS size_bytes
+        FROM pg_tables t
+        LEFT JOIN pg_class c ON c.relname = t.tablename
+                             AND c.relnamespace = 'public'::regnamespace
+        WHERE t.schemaname = 'public'
+        ORDER BY size_bytes DESC
+        LIMIT 10
+      `, { type: QueryTypes.SELECT }),
+
+      // 8. Estadísticas de crecimiento de auditoria_log
+      sequelize.query<any>(`
+        SELECT
+          COUNT(*) AS total,
+          COUNT(*) FILTER (WHERE fecha >= NOW() - INTERVAL '24 hours') AS ultimas_24h,
+          COUNT(*) FILTER (WHERE fecha >= NOW() - INTERVAL '7 days')   AS ultimos_7d,
+          COUNT(*) FILTER (WHERE operacion = 'INSERT')    AS inserts,
+          COUNT(*) FILTER (WHERE operacion = 'UPDATE')    AS updates,
+          COUNT(*) FILTER (WHERE operacion = 'DELETE')    AS deletes,
+          COUNT(*) FILTER (WHERE operacion = 'LOGIN_FAIL') AS login_fallidos_total,
+          MAX(fecha) AS ultima_entrada
+        FROM auditoria_log
+      `, { type: QueryTypes.SELECT }),
+
+      // 9. Usuarios más activos en las últimas 24h
+      sequelize.query<any>(`
+        SELECT al.usuario_id, u.nombre_completo, u.rol,
+               COUNT(*) AS operaciones,
+               MAX(al.fecha) AS ultima_actividad
+        FROM auditoria_log al
+        JOIN usuarios u ON u.id = al.usuario_id
+        WHERE al.fecha >= NOW() - INTERVAL '24 hours'
+          AND al.usuario_id IS NOT NULL
+        GROUP BY al.usuario_id, u.nombre_completo, u.rol
+        ORDER BY operaciones DESC
+        LIMIT 15
+      `, { type: QueryTypes.SELECT }),
+
+      // 10. Cartera vencida (ENTREGADA con caja PENDIENTE/ABONADO > 30 días)
+      sequelize.query<any>(`
+        SELECT o.id, o.numero_odp, c.nombre_razon_social AS cliente,
+               u.nombre_completo AS asesor,
+               o.valor_total, o.pendiente, o.estado_caja,
+               o.fecha_entrega,
+               EXTRACT(DAY FROM NOW() - o.fecha_entrega)::int AS dias_sin_cobrar
+        FROM odp o
+        JOIN clientes c ON c.id = o.cliente_id
+        JOIN usuarios u ON u.id = o.asesor_id
+        WHERE o.estado_produccion = 'ENTREGADA'
+          AND o.estado_caja IN ('PENDIENTE','ABONADO')
+          AND o.fecha_entrega IS NOT NULL
+          AND o.fecha_entrega < NOW() - INTERVAL '30 days'
+        ORDER BY dias_sin_cobrar DESC
+        LIMIT 30
+      `, { type: QueryTypes.SELECT }),
+
+      // 11. Prospectos en gestión sin actividad > 15 días
+      sequelize.query<any>(`
+        SELECT p.id, p.numero_prospecto, p.nombre_contacto, p.estado,
+               u.nombre_completo AS asesor,
+               p.fecha_creacion, p.fecha_gestion,
+               EXTRACT(DAY FROM NOW() - COALESCE(p.fecha_gestion, p.fecha_creacion))::int AS dias_sin_actividad
+        FROM prospectos p
+        JOIN usuarios u ON u.id = p.asesor_id
+        WHERE p.estado = 'en_gestion'
+          AND p.odp_id IS NULL
+          AND COALESCE(p.fecha_gestion, p.fecha_creacion) < NOW() - INTERVAL '15 days'
+        ORDER BY dias_sin_actividad DESC
+        LIMIT 30
+      `, { type: QueryTypes.SELECT }),
+
+      // 12. Login fallidos en las últimas 24h
+      sequelize.query<any>(`
+        SELECT
+          COALESCE(ip_address, 'desconocida') AS ip,
+          datos_nuevos->>'username'            AS username_intentado,
+          datos_nuevos->>'razon'               AS razon,
+          COUNT(*)                             AS intentos,
+          MAX(fecha)                           AS ultimo_intento
+        FROM auditoria_log
+        WHERE operacion = 'LOGIN_FAIL'
+          AND fecha >= NOW() - INTERVAL '24 hours'
+        GROUP BY ip_address, datos_nuevos->>'username', datos_nuevos->>'razon'
+        ORDER BY intentos DESC
+        LIMIT 20
+      `, { type: QueryTypes.SELECT }),
+    ]);
+
+    res.json({
+      odps_atascadas:          { count: odpsAtascadas.length,          registros: odpsAtascadas },
+      saps_sin_odc:            { count: sapsSinOdc.length,             registros: sapsSinOdc },
+      pedido_pv_estados:       pedidoPvEstados,
+      inventario_bajo:         { count: inventarioBajo.length,         registros: inventarioBajo },
+      cotizaciones_pendientes: { count: cotizacionesPendientes.length, registros: cotizacionesPendientes },
+      odps_sin_evidencias:     { count: odpsSinEvidencias.length,      registros: odpsSinEvidencias },
+      tablas_grandes:          tablasGrandes,
+      auditoria_stats:         auditoriaStatsRows[0] ?? null,
+      actividad_24h:           actividad24h,
+      cartera_vencida:         { count: carteraVencida.length,         registros: carteraVencida },
+      prospectos_sin_gestion:  { count: prospectosSinGestion.length,   registros: prospectosSinGestion },
+      login_fallidos_24h:      { count: loginFallidos24h.length,       registros: loginFallidos24h },
+      cron_pv:                 cronPVStatus,
+      ws_activos:              getWSCount(),
+      rate_limit:              getRateLimitStats(),
+      generado_en:             new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error('Error monitoreo:', error);
+    res.status(500).json({ error: error.message || 'Error al obtener datos de monitoreo' });
   }
 };

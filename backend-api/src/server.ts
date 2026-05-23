@@ -75,8 +75,20 @@ export const emitirNotificacion = (
   }
 };
 
+// ─── Estado del cron PV (en memoria, visible desde root.controller) ──────────
+export const cronPVStatus = {
+  ultima_ejecucion: null as Date | null,
+  resultado: 'sin_ejecutar' as 'ok' | 'error' | 'sin_ejecutar',
+  alertas_enviadas: 0,
+  error_mensaje: null as string | null,
+};
+
+export const getWSCount = () => io.sockets.sockets.size;
+
 // ─── Cron: alertas de tardanza de pedidos PV (diario a las 8am) ─────────────
 cron.schedule('0 8 * * *', async () => {
+  cronPVStatus.ultima_ejecucion = new Date();
+  cronPVStatus.error_mensaje = null;
   try {
     const manana = new Date();
     manana.setDate(manana.getDate() + 1);
@@ -106,10 +118,14 @@ cron.schedule('0 8 * * *', async () => {
       await pedido.update({ alerta_enviada: true });
     }
 
+    cronPVStatus.resultado = 'ok';
+    cronPVStatus.alertas_enviadas = pedidosPorVencer.length;
     if (pedidosPorVencer.length > 0) {
       console.warn(`[Cron PV] ${pedidosPorVencer.length} alerta(s) de tardanza enviadas`);
     }
-  } catch (err) {
+  } catch (err: any) {
+    cronPVStatus.resultado = 'error';
+    cronPVStatus.error_mensaje = err?.message || 'Error desconocido';
     console.error('[Cron PV] Error en alerta de tardanza:', err);
   }
 });

@@ -4,7 +4,8 @@ import {
   HardDrive, Wrench, Bell, BookOpen, RefreshCw,
   CheckCircle, XCircle, AlertTriangle, Download,
   Upload, RotateCcw, Trash2, ChevronRight, Cpu,
-  Wifi, WifiOff, Clock, BarChart2, Lock, X
+  Wifi, WifiOff, Clock, BarChart2, Lock, X, ExternalLink,
+  TrendingUp, Users, Package, FileText, Eye, DollarSign
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -50,6 +51,7 @@ const TABS = [
   { id: 'resumen',       label: 'Resumen',        icon: Shield },
   { id: 'diagnostico',   label: 'Diagnóstico',     icon: AlertTriangle },
   { id: 'operativo',     label: 'Operativo',       icon: BarChart2 },
+  { id: 'monitoreo',     label: 'Monitoreo',       icon: TrendingUp },
   { id: 'seguridad',     label: 'Seguridad',       icon: Lock },
   { id: 'supabase',      label: 'Base de Datos',   icon: Database },
   { id: 'cloudinary',    label: 'Almacenamiento',  icon: Cloud },
@@ -125,11 +127,356 @@ const RootPage: React.FC = () => {
         {tab === 'supabase'      && <TabSupabase />}
         {tab === 'cloudinary'    && <TabCloudinary />}
         {tab === 'servicios'     && <TabServicios />}
+        {tab === 'monitoreo'     && <TabMonitoreo />}
         {tab === 'auditoria'     && <TabAuditoria />}
         {tab === 'backup'        && <TabBackup />}
         {tab === 'mantenimiento' && <TabMantenimiento />}
         {tab === 'alertas'       && <TabAlertas />}
         {tab === 'catalogo'      && <TabCatalogo />}
+      </div>
+    </div>
+  );
+};
+
+// ─── Tab Monitoreo ────────────────────────────────────────────────────────────
+const CRON_COLORS = { ok: 'text-emerald-700 bg-emerald-50 border-emerald-200', error: 'text-red-700 bg-red-50 border-red-200', sin_ejecutar: 'text-slate-600 bg-slate-50 border-slate-200' } as const;
+const CRON_LABELS = { ok: 'OK', error: 'ERROR', sin_ejecutar: 'Sin ejecutar' } as const;
+
+const MonBadge: React.FC<{ n: number; warn?: number; crit?: number }> = ({ n, warn = 1, crit = 5 }) => {
+  const color = n === 0 ? 'bg-emerald-100 text-emerald-700' : n >= crit ? 'bg-red-100 text-red-700' : n >= warn ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700';
+  return <span className={`text-xs font-extrabold px-2 py-0.5 rounded-full ${color}`}>{n}</span>;
+};
+
+const SectionHeader: React.FC<{ icon: React.ReactNode; title: string }> = ({ icon, title }) => (
+  <div className="flex items-center gap-2 mb-3">
+    <span className="text-slate-500">{icon}</span>
+    <h3 className="text-sm font-bold text-slate-700">{title}</h3>
+  </div>
+);
+
+const EmptyState: React.FC<{ msg: string }> = ({ msg }) => (
+  <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+    <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
+    <span className="text-xs font-semibold">{msg}</span>
+  </div>
+);
+
+const TabMonitoreo: React.FC = () => {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const cargar = useCallback(() => {
+    setLoading(true);
+    fetch(`${API}/api/root/monitoreo`, { headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` } })
+      .then(r => r.json())
+      .then(d => { setData(d); setError(''); })
+      .catch(() => setError('Error al cargar datos de monitoreo'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  if (loading) return <div className="text-center py-16 text-slate-400 animate-pulse font-semibold">Cargando monitoreo...</div>;
+  if (error || !data) return <div className="text-red-500 p-4">{error || 'Sin datos'}</div>;
+
+  const fmt = (iso: string | null) => iso ? new Date(iso).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+  const fmtCur = (v: any) => v != null ? `$${Number(v).toLocaleString('es-CO', { minimumFractionDigits: 0 })}` : '—';
+
+  return (
+    <div className="space-y-6">
+      {/* Botón refrescar */}
+      <div className="flex justify-end">
+        <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:underline">
+          <RefreshCw className="w-3.5 h-3.5" /> Actualizar · {fmt(data.generado_en)}
+        </button>
+      </div>
+
+      {/* ── SISTEMA EN TIEMPO REAL ─────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <SectionHeader icon={<Cpu className="w-4 h-4" />} title="Sistema en tiempo real" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Cron PV */}
+          <div className={`rounded-lg border p-4 ${CRON_COLORS[data.cron_pv?.resultado as keyof typeof CRON_COLORS]}`}>
+            <p className="text-xs font-bold mb-1 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Cron PV (8am diario)</p>
+            <p className="text-xl font-black">{CRON_LABELS[data.cron_pv?.resultado as keyof typeof CRON_LABELS]}</p>
+            <p className="text-[11px] mt-1">Última: {fmt(data.cron_pv?.ultima_ejecucion)}</p>
+            {data.cron_pv?.resultado === 'ok' && <p className="text-[11px]">{data.cron_pv?.alertas_enviadas} alerta(s) enviadas</p>}
+            {data.cron_pv?.error_mensaje && <p className="text-[11px] font-semibold mt-1">{data.cron_pv.error_mensaje}</p>}
+          </div>
+          {/* WebSocket */}
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-bold text-slate-600 mb-1 flex items-center gap-1.5"><Wifi className="w-3.5 h-3.5" /> Clientes WebSocket</p>
+            <p className="text-3xl font-black text-slate-800">{data.ws_activos ?? '—'}</p>
+            <p className="text-[11px] text-slate-400 mt-1">conexiones activas ahora</p>
+          </div>
+          {/* Rate Limit */}
+          <div className={`rounded-lg border p-4 ${data.rate_limit?.total_24h > 0 ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
+            <p className="text-xs font-bold text-slate-600 mb-1 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Rate limit hits (24h)</p>
+            <p className={`text-3xl font-black ${data.rate_limit?.total_24h > 0 ? 'text-amber-700' : 'text-slate-800'}`}>{data.rate_limit?.total_24h ?? 0}</p>
+            <p className="text-[11px] text-slate-500 mt-1">login: {data.rate_limit?.auth_hits ?? 0} · IPs distintas: {data.rate_limit?.top_ips?.length ?? 0}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── BASE DE DATOS ──────────────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <SectionHeader icon={<Database className="w-4 h-4" />} title="Base de datos" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Auditoria stats */}
+          {data.auditoria_stats && (
+            <div>
+              <p className="text-xs font-bold text-slate-600 mb-2">Auditoría — crecimiento</p>
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                {[
+                  { label: 'Total', val: Number(data.auditoria_stats.total).toLocaleString() },
+                  { label: 'Últimas 24h', val: data.auditoria_stats.ultimas_24h },
+                  { label: 'Últimos 7d', val: data.auditoria_stats.ultimos_7d },
+                ].map(({ label, val }) => (
+                  <div key={label} className="bg-slate-50 rounded-lg p-2 text-center">
+                    <p className="text-base font-black text-slate-800">{val}</p>
+                    <p className="text-[10px] text-slate-400">{label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: 'INSERT', val: data.auditoria_stats.inserts, color: 'text-emerald-700' },
+                  { label: 'UPDATE', val: data.auditoria_stats.updates, color: 'text-blue-700' },
+                  { label: 'DELETE', val: data.auditoria_stats.deletes, color: 'text-red-700' },
+                ].map(({ label, val, color }) => (
+                  <div key={label} className="bg-slate-50 rounded-lg p-2 text-center">
+                    <p className={`text-base font-black ${color}`}>{val}</p>
+                    <p className="text-[10px] text-slate-400">{label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Tablas grandes */}
+          <div>
+            <p className="text-xs font-bold text-slate-600 mb-2">Tablas más pesadas</p>
+            <div className="space-y-1">
+              {data.tablas_grandes?.slice(0, 8).map((t: any) => (
+                <div key={t.tablename} className="flex items-center justify-between text-xs">
+                  <span className="text-slate-700 font-medium truncate max-w-[140px]">{t.tablename}</span>
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <span>{Number(t.filas_estimadas).toLocaleString()} filas</span>
+                    <span className="font-semibold text-slate-600">{t.size_pretty}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── OPERATIVO ─────────────────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <SectionHeader icon={<Activity className="w-4 h-4" />} title="Operativo" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* ODPs atascadas */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-xs font-bold text-slate-600">ODPs atascadas (&gt;7 días sin cambio)</p>
+              <MonBadge n={data.odps_atascadas?.count ?? 0} warn={1} crit={5} />
+            </div>
+            {data.odps_atascadas?.count === 0 ? <EmptyState msg="Ninguna ODP atascada" /> : (
+              <div className="space-y-1">
+                {data.odps_atascadas?.registros?.slice(0, 6).map((o: any) => (
+                  <div key={o.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
+                    <span className="font-semibold text-slate-700">{o.numero_odp}</span>
+                    <span className="text-slate-500 truncate max-w-[100px]">{o.estado_produccion}</span>
+                    <span className="text-amber-700 font-bold">{o.dias_sin_cambio}d</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* SAPs sin ODC */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-xs font-bold text-slate-600">SAPs sin ODC generada</p>
+              <MonBadge n={data.saps_sin_odc?.count ?? 0} warn={1} crit={3} />
+            </div>
+            {data.saps_sin_odc?.count === 0 ? <EmptyState msg="Todos los SAPs tienen ODC" /> : (
+              <div className="space-y-1">
+                {data.saps_sin_odc?.registros?.slice(0, 6).map((s: any) => (
+                  <div key={s.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
+                    <span className="font-semibold text-slate-700">{s.numero_sap}</span>
+                    <span className="text-slate-500 truncate max-w-[110px]">{s.cliente}</span>
+                    <span className="text-amber-700 font-bold">{s.dias_sin_odc}d</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* PedidoPV por estado */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-xs font-bold text-slate-600">PedidoPV activos por estado</p>
+            </div>
+            {!data.pedido_pv_estados?.length ? <EmptyState msg="Sin pedidos PV activos" /> : (
+              <div className="flex flex-wrap gap-2">
+                {data.pedido_pv_estados.map((pv: any) => (
+                  <div key={pv.estado} className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-center">
+                    <p className="text-base font-black text-indigo-700">{pv.total}</p>
+                    <p className="text-[10px] text-slate-500 font-semibold">{pv.estado}</p>
+                    <p className="text-[10px] text-slate-400">más antiguo: {pv.dias_mas_antiguo}d</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ODPs sin evidencias */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-xs font-bold text-slate-600">ODPs sin evidencias fotográficas</p>
+              <MonBadge n={data.odps_sin_evidencias?.count ?? 0} warn={1} crit={5} />
+            </div>
+            {data.odps_sin_evidencias?.count === 0 ? <EmptyState msg="Todas las ODPs tienen evidencias" /> : (
+              <div className="space-y-1">
+                {data.odps_sin_evidencias?.registros?.slice(0, 5).map((o: any) => (
+                  <div key={o.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
+                    <span className="font-semibold text-slate-700">{o.numero_odp}</span>
+                    <span className="text-slate-500 truncate max-w-[110px]">{o.cliente}</span>
+                    <span className={`font-bold ${o.estado_produccion === 'ENTREGADA' ? 'text-red-600' : 'text-amber-600'}`}>{o.estado_produccion}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── COMERCIAL ─────────────────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <SectionHeader icon={<FileText className="w-4 h-4" />} title="Comercial" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Cotizaciones pendientes */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-xs font-bold text-slate-600">Cotizaciones sin respuesta (&gt;30d)</p>
+              <MonBadge n={data.cotizaciones_pendientes?.count ?? 0} warn={1} crit={5} />
+            </div>
+            {data.cotizaciones_pendientes?.count === 0 ? <EmptyState msg="Sin cotizaciones pendientes" /> : (
+              <div className="space-y-1">
+                {data.cotizaciones_pendientes?.registros?.slice(0, 5).map((c: any) => (
+                  <div key={c.id} className="text-xs bg-slate-50 rounded px-2 py-1">
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-slate-700">{c.numero_cot}</span>
+                      <span className="text-amber-700 font-bold">{c.dias_pendiente}d</span>
+                    </div>
+                    <p className="text-slate-400 truncate">{c.cliente} · {fmtCur(c.valor_total)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Prospectos sin gestión */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-xs font-bold text-slate-600">Prospectos sin gestión (&gt;15d)</p>
+              <MonBadge n={data.prospectos_sin_gestion?.count ?? 0} warn={1} crit={5} />
+            </div>
+            {data.prospectos_sin_gestion?.count === 0 ? <EmptyState msg="Todos los prospectos activos" /> : (
+              <div className="space-y-1">
+                {data.prospectos_sin_gestion?.registros?.slice(0, 5).map((p: any) => (
+                  <div key={p.id} className="text-xs bg-slate-50 rounded px-2 py-1">
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-slate-700 truncate max-w-[120px]">{p.nombre_contacto || p.numero_prospecto}</span>
+                      <span className="text-amber-700 font-bold">{p.dias_sin_actividad}d</span>
+                    </div>
+                    <p className="text-slate-400">{p.asesor}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Cartera vencida */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-xs font-bold text-slate-600">Cartera vencida ENTREGADA (&gt;30d)</p>
+              <MonBadge n={data.cartera_vencida?.count ?? 0} warn={1} crit={3} />
+            </div>
+            {data.cartera_vencida?.count === 0 ? <EmptyState msg="Sin cartera vencida" /> : (
+              <div className="space-y-1">
+                {data.cartera_vencida?.registros?.slice(0, 5).map((o: any) => (
+                  <div key={o.id} className="text-xs bg-slate-50 rounded px-2 py-1">
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-slate-700">{o.numero_odp}</span>
+                      <span className="text-red-700 font-bold">{o.dias_sin_cobrar}d</span>
+                    </div>
+                    <p className="text-slate-400 truncate">{o.cliente} · {fmtCur(o.pendiente ?? o.valor_total)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── INVENTARIO PERFILERÍA ─────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <SectionHeader icon={<Package className="w-4 h-4" />} title="Inventario perfilería — códigos con pocas piezas (&lt;5)" />
+        {!data.inventario_bajo?.count ? <EmptyState msg="Todos los códigos tienen 5 o más piezas" /> : (
+          <div className="flex flex-wrap gap-2">
+            {data.inventario_bajo?.registros?.map((inv: any) => (
+              <div key={inv.codigo} className={`rounded-lg border px-3 py-2 text-center ${Number(inv.piezas) === 0 ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+                <p className={`text-base font-black ${Number(inv.piezas) === 0 ? 'text-red-700' : 'text-amber-700'}`}>{inv.piezas}</p>
+                <p className="text-[10px] text-slate-600 font-semibold">{inv.codigo}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── SEGURIDAD ─────────────────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <SectionHeader icon={<Lock className="w-4 h-4" />} title="Seguridad" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Login fallidos */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-xs font-bold text-slate-600">Login fallidos (últimas 24h)</p>
+              <MonBadge n={data.login_fallidos_24h?.count ?? 0} warn={1} crit={10} />
+            </div>
+            {data.login_fallidos_24h?.count === 0 ? <EmptyState msg="Sin intentos fallidos en 24h" /> : (
+              <div className="space-y-1">
+                {data.login_fallidos_24h?.registros?.map((f: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between text-xs bg-red-50 rounded px-2 py-1">
+                    <span className="font-semibold text-slate-700">{f.ip}</span>
+                    <span className="text-slate-500">{f.username_intentado || '—'}</span>
+                    <span className="text-red-700 font-bold">{f.intentos}x</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Actividad usuarios 24h */}
+          <div>
+            <p className="text-xs font-bold text-slate-600 mb-2">Actividad usuarios (24h)</p>
+            {!data.actividad_24h?.length ? (
+              <div className="text-xs text-slate-400 italic">Sin actividad en las últimas 24h</div>
+            ) : (
+              <div className="space-y-1">
+                {data.actividad_24h?.map((u: any) => (
+                  <div key={u.usuario_id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
+                    <span className="font-semibold text-slate-700 truncate max-w-[130px]">{u.nombre_completo}</span>
+                    <span className="text-slate-400">{u.rol}</span>
+                    <span className="text-indigo-700 font-bold">{u.operaciones} ops</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -240,6 +587,49 @@ const TabResumen: React.FC<{ setTab: (t: string) => void; alertCounts: { diagnos
             </div>
           </div>
         )}
+      </div>
+
+      {/* Egress Supabase — Referencia Manual */}
+      <div className="bg-white rounded-xl border border-amber-200 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+            <Upload className="w-4 h-4 text-amber-500" />
+            Egress Supabase
+            <span className="text-[10px] font-normal text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">referencia manual</span>
+          </h3>
+          <a
+            href="https://supabase.com/dashboard"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-indigo-600 hover:underline flex items-center gap-1 font-semibold"
+          >
+            Ver en Supabase <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-center">
+            <p className="text-xl font-black text-red-600">7.45 GB</p>
+            <p className="text-[11px] text-slate-500 font-medium">Registrado 23/05</p>
+          </div>
+          <div className="bg-slate-50 rounded-lg p-3 text-center">
+            <p className="text-xl font-black text-slate-700">5 GB</p>
+            <p className="text-[11px] text-slate-500 font-medium">Límite mensual</p>
+          </div>
+          <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-center">
+            <p className="text-xl font-black text-emerald-700">~4.5 GB</p>
+            <p className="text-[11px] text-slate-500 font-medium">Proyectado Niv. 1+2</p>
+          </div>
+        </div>
+
+        <div className="bg-amber-50 border border-amber-100 rounded-lg px-4 py-3 space-y-1.5">
+          <p className="text-xs text-amber-800 font-semibold flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5" />
+            Ciclo: 06 May – 06 Jun 2026 &nbsp;·&nbsp; Período de gracia hasta 20 Jun 2026
+          </p>
+          <p className="text-[11px] text-slate-600">✅ Optimizaciones Nivel 1+2 aplicadas el 23/05/2026 — ~150 MB/día estimado</p>
+          <p className="text-[11px] text-slate-500">⚪ Nivel 3 pendiente: excluir ODPs ENTREGADA del GET /odp (~100 MB/día adicional)</p>
+        </div>
       </div>
     </div>
   );
