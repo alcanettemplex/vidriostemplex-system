@@ -11,6 +11,38 @@ import { uploadConfig } from '../config/upload';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+// Lista: sin SAP/ODC — se usa en getRutas (listado). El detalle por ID usa INCLUDE_RUTA_COMPLETA.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const INCLUDE_RUTA_LISTA = async (): Promise<any[]> => [
+  { model: Vehiculo, as: 'vehiculo', attributes: ['id', 'placa', 'tipo'] },
+  { model: Usuario, as: 'conductor', attributes: ['id', 'nombre_completo', 'rol'] },
+  { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
+  { model: Usuario, as: 'oficial', attributes: ['id', 'nombre_completo', 'rol'] },
+  {
+    model: Usuario, as: 'instaladores',
+    attributes: ['id', 'nombre_completo', 'rol'],
+    through: { attributes: [] },
+  },
+  {
+    model: RutaODP, as: 'ruta_odps',
+    separate: true,
+    order: [['orden', 'ASC']],
+    include: [
+      {
+        model: ODP, as: 'odp',
+        include: [
+          { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'telefono'] },
+          { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+          { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
+          { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'fecha', 'observaciones'] },
+          { model: Cotizacion, as: 'cotizaciones', attributes: ['id', 'numero_cot', 'valor_total', 'estado', 'fecha_creacion'] },
+          { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'] },
+        ],
+      },
+    ],
+  },
+];
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const INCLUDE_RUTA_COMPLETA = async (): Promise<any[]> => [
   { model: Vehiculo, as: 'vehiculo', attributes: ['id', 'placa', 'tipo'] },
@@ -133,7 +165,7 @@ export const getODPsParaGestion = async (_req: Request, res: Response) => {
 
 export const getRutas = async (_req: Request, res: Response) => {
   try {
-    const includes = await INCLUDE_RUTA_COMPLETA();
+    const includes = await INCLUDE_RUTA_LISTA();
     const rutas = await RutaInstalacion.findAll({
       where: { estado: { [Op.ne]: 'cancelada' } },
       include: includes,

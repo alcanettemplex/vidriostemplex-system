@@ -3,6 +3,7 @@ import {
   getODPsConSAPPendiente,
   getODCsSeguimiento,
   getODCsRecibidas,
+  getODCItems,
   getSAPParaCompras,
   createODC,
   updateODC,
@@ -32,6 +33,7 @@ const rc = (...r: RolUsuario[]) => requireRole(...r);
 router.get('/panel', authMiddleware, getODPsConSAPPendiente);
 router.get('/seguimiento', authMiddleware, getODCsSeguimiento);
 router.get('/recibidas', authMiddleware, getODCsRecibidas);
+router.get('/odc/:id/items', authMiddleware, getODCItems);
 router.get('/sap/:sap_id', authMiddleware, getSAPParaCompras);
 router.get('/codigos-perfileria', authMiddleware, getCodigosPerfileria);
 router.get('/inventario-perfileria/:codigo', authMiddleware, getInventarioPorCodigo);

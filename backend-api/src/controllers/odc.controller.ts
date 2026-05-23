@@ -11,7 +11,7 @@ const validarNumeroODC = async (numero_odc: string, excludeId?: number): Promise
   if (existente) throw new Error(`Ya existe una ODC con el número ${numero_odc}`);
 };
 
-// Inclusión profunda de trazabilidad SAP/ODP por item (reutilizable en seguimiento y recibidas)
+// Inclusión completa para detalle expandido y actualización tras recepción
 const includeItemsTrazabilidad = [
   {
     model: ODCItem,
@@ -58,13 +58,48 @@ const includeItemsTrazabilidad = [
   },
 ];
 
+// Inclusión para listados: campos de display + trazabilidad mínima (sin campos pesados de SAPItem/ODCItem)
+const includeItemsLista = [
+  {
+    model: ODCItem,
+    as: 'items',
+    attributes: ['id', 'codigo', 'descripcion', 'cantidad', 'recibido'],
+    include: [
+      {
+        model: SAPItem, as: 'sap_item',
+        attributes: ['id', 'dimension', 'observacion', 'modificado'],
+        include: [{
+          model: SAP,
+          attributes: ['id', 'numero_sap'],
+          include: [{
+            model: ODP,
+            attributes: ['id', 'numero_odp'],
+            include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
+          }],
+        }],
+      },
+      {
+        model: ODPItem, as: 'odp_item',
+        attributes: ['id'],
+        include: [{ model: ODP, attributes: ['id', 'numero_odp'] }],
+      },
+      {
+        model: ODP, as: 'odp_directo',
+        required: false,
+        attributes: ['id', 'numero_odp'],
+        include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
+      },
+    ],
+  },
+];
+
 // GET /odc/seguimiento — ODCs en estado pendiente o en_transito
 export const getODCsSeguimiento = async (req: Request, res: Response) => {
   try {
     const odcs = await OrdenCompra.findAll({
       where: { estado: { [Op.in]: ['pendiente', 'en_transito'] } },
       include: [
-        ...includeItemsTrazabilidad,
+        ...includeItemsLista,
         { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
         // Backward compat: ODCs antiguas con sap_id
         {
@@ -99,7 +134,7 @@ export const getODCsRecibidas = async (req: Request, res: Response) => {
     const odcs = await OrdenCompra.findAll({
       where: { estado: 'recibido' },
       include: [
-        ...includeItemsTrazabilidad,
+        ...includeItemsLista,
         { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
         // Backward compat: ODCs antiguas con sap_id
         {
@@ -536,6 +571,20 @@ export const getCodigosPerfileria = async (req: Request, res: Response) => {
     res.json(rows.map((r: any) => r.getDataValue('codigo')));
   } catch (error: any) {
     res.status(500).json({ error: 'Error al obtener códigos de perfilería', detail: error.message });
+  }
+};
+
+// GET /odc/:id/items — ítems completos con trazabilidad (lazy-load al expandir tarjeta)
+export const getODCItems = async (req: Request, res: Response) => {
+  try {
+    const odc = await OrdenCompra.findByPk(req.params.id, {
+      include: includeItemsTrazabilidad,
+      attributes: ['id'],
+    });
+    if (!odc) return res.status(404).json({ error: 'ODC no encontrada' });
+    res.json((odc as any).items ?? []);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al obtener ítems', detail: error.message });
   }
 };
 

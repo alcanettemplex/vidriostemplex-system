@@ -149,6 +149,8 @@ const buildTooltipModificado = (it: ODCItemConContexto): string => {
 const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?: (nuevoEstado: string) => void; onFichaOdp?: (id: number) => void }> = ({ odc, onActualizar, onEstadoCambiado, onFichaOdp }) => {
   const [loading, setLoading] = useState(false);
   const [verDetalle, setVerDetalle] = useState(false);
+  const [itemsDetalle, setItemsDetalle] = useState<any[] | null>(null);
+  const [loadingItemsDetalle, setLoadingItemsDetalle] = useState(false);
   const [editando, setEditando] = useState(false);
   const [editProveedor, setEditProveedor] = useState(odc.proveedor);
   const [editNotas, setEditNotas] = useState(odc.notas || '');
@@ -159,6 +161,23 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
   const [recibiendoItems, setRecibiendoItems] = useState(false);
 
   const token = sessionStorage.getItem('token');
+
+  const cargarItemsDetalle = async (): Promise<any[]> => {
+    if (itemsDetalle !== null) return itemsDetalle;
+    setLoadingItemsDetalle(true);
+    try {
+      const res = await axios.get(`${API}/api/compras/odc/${odc.id}/items`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setItemsDetalle(res.data);
+      return res.data;
+    } catch (e) {
+      console.error('Error cargando ítems ODC:', e);
+      return odc.items;
+    } finally {
+      setLoadingItemsDetalle(false);
+    }
+  };
   const odpsInfo = getODPsDeODC(odc);
   const sapsInfo = getSAPsDeODC(odc);
   const isMultiODP = odpsInfo.length > 1;
@@ -184,7 +203,6 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
         } finally { setLoading(false); }
       }
       setEditando(false);
-      // Pre-seleccionar items no recibidos
       const noRecibidos = new Set(odc.items.filter(it => !it.recibido).map(it => it.id));
       setItemsSeleccionados(noRecibidos);
       setShowRecibirModal(true);
@@ -216,7 +234,8 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
       );
       setShowRecibirModal(false);
       // Si se marcaron todos → mover a recibidas
-      const todosRecibidos = odc.items.every(it => it.recibido || itemsSeleccionados.has(it.id));
+      const listaItems = itemsDetalle ?? odc.items;
+      const todosRecibidos = listaItems.every((it: any) => it.recibido || itemsSeleccionados.has(it.id));
       if (todosRecibidos && onEstadoCambiado) {
         onEstadoCambiado('recibido');
       } else {

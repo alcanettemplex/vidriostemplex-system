@@ -66,6 +66,9 @@ const ContabilidadPage: React.FC = () => {
   // ─── Resumen / pagos ─────────────────────────────────────────────────────
   const [resumen, setResumen] = useState<any>(null);
   const [pagos, setPagos] = useState<any[]>([]);
+  const [totalPagos, setTotalPagos] = useState(0);
+  const [paginaPagos, setPaginaPagos] = useState(1);
+  const [totalPaginasPagos, setTotalPaginasPagos] = useState(1);
   const [loadingResumen, setLoadingResumen] = useState(true);
 
   // ─── Modal nuevo pago ────────────────────────────────────────────────────
@@ -152,19 +155,23 @@ const ContabilidadPage: React.FC = () => {
           console.error('Error resumen dashboard:', err);
           return null;
         }),
-        axios.get(`${API}/api/contabilidad/pagos`, { headers: headers() }).catch((err) => {
+        axios.get(`${API}/api/contabilidad/pagos?page=${paginaPagos}&limit=100`, { headers: headers() }).catch((err) => {
           console.error('Error listado pagos:', err);
-          return { data: [] };
+          return { data: { pagos: [], total: 0, pagina: 1, totalPaginas: 1 } };
         }),
       ]);
       if (resumenRes) setResumen(resumenRes.data);
-      setPagos(pagosRes?.data || []);
+      const pagosData = pagosRes?.data;
+      setPagos(pagosData?.pagos || []);
+      setTotalPagos(pagosData?.total || 0);
+      setTotalPaginasPagos(pagosData?.totalPaginas || 1);
     } catch (err) {
       console.error('Error en Promise.all de contabilidad:', err);
     } finally { setLoadingResumen(false); }
-  }, []);
+  }, [paginaPagos]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { fetchOdps(); fetchResumen(); }, [fetchOdps, fetchResumen]);
+  useEffect(() => { fetchOdps(); }, [fetchOdps]);
+  useEffect(() => { fetchResumen(); }, [fetchResumen]);
   useDataChangedSocket('contabilidad', () => { fetchOdps(); fetchResumen(); });
   useDataChangedSocket('odp', fetchOdps);
 
@@ -453,7 +460,7 @@ const ContabilidadPage: React.FC = () => {
   const TABS = [
     ...(!isAsistenteAdmin ? [
       { key: 'estado_caja' as Tab, label: 'Estado Caja', icon: <Banknote className="w-4 h-4" />, badge: odps.length - odpsCompletadas.length },
-      { key: 'pagos' as Tab, label: 'Pagos Recientes', icon: <Receipt className="w-4 h-4" />, badge: pagos.length },
+      { key: 'pagos' as Tab, label: 'Pagos Recientes', icon: <Receipt className="w-4 h-4" />, badge: totalPagos },
       { key: 'cartera' as Tab, label: 'Cartera Vencida', icon: <TrendingDown className="w-4 h-4" />, badge: carteraDetalle.length, badgeColor: carteraDetalle.length > 0 ? 'bg-rose-100 text-rose-700' : undefined },
       { key: 'completado' as Tab, label: 'Proceso Completado', icon: <CheckCircle2 className="w-4 h-4" />, badge: odpsCompletadas.length, badgeColor: 'bg-emerald-100 text-emerald-700' },
     ] : []),
@@ -797,6 +804,24 @@ const ContabilidadPage: React.FC = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+            {totalPaginasPagos > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/50">
+                <span className="text-xs text-slate-500">{totalPagos} pagos en total</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={paginaPagos <= 1}
+                    onClick={() => setPaginaPagos(p => p - 1)}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >‹ Anterior</button>
+                  <span className="text-xs text-slate-600 font-medium">Página {paginaPagos} de {totalPaginasPagos}</span>
+                  <button
+                    disabled={paginaPagos >= totalPaginasPagos}
+                    onClick={() => setPaginaPagos(p => p + 1)}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >Siguiente ›</button>
+                </div>
               </div>
             )}
           </div>

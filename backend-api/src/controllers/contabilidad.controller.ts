@@ -163,9 +163,13 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
 /**
  * Lista todos los pagos registrados con información detallada.
  */
-export const getPagos = async (_req: Request, res: Response) => {
+export const getPagos = async (req: Request, res: Response) => {
   try {
-    const pagos = await Pago.findAll({
+    const limit = Math.min(parseInt(String(req.query.limit || '100')), 500);
+    const pagina = Math.max(parseInt(String(req.query.page || '1')), 1);
+    const offset = (pagina - 1) * limit;
+
+    const { count, rows: pagos } = await Pago.findAndCountAll({
       include: [
         {
           model: ODP,
@@ -179,8 +183,11 @@ export const getPagos = async (_req: Request, res: Response) => {
         { model: Usuario, as: 'registrador', attributes: ['id', 'nombre_completo'] },
       ],
       order: [['fecha', 'DESC']],
+      limit,
+      offset,
     });
-    res.json(pagos);
+
+    res.json({ pagos, total: count, pagina, totalPaginas: Math.ceil(count / limit) });
   } catch (error) {
     console.error('Error al obtener pagos:', error);
     res.status(500).json({ error: 'Error al obtener pagos' });
