@@ -1119,7 +1119,9 @@ export const agregarItems = async (req: Request, res: Response) => {
     if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
 
     const estadoActual = odp.getDataValue('estado_produccion') as string;
-    if (['INSTALADA', 'ENTREGADA', 'PAUSADA'].includes(estadoActual)) {
+    const rolUsuario = req.user?.rol;
+    const esAdminOGerencia = rolUsuario === 'admin' || rolUsuario === 'gerencia';
+    if (['INSTALADA', 'ENTREGADA', 'PAUSADA'].includes(estadoActual) && !esAdminOGerencia) {
       return res.status(400).json({ error: `No se pueden agregar ítems a una ODP en estado ${estadoActual}` });
     }
 
