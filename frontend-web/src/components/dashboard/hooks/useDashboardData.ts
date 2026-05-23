@@ -71,7 +71,7 @@ export const useDashboardData = (period: PeriodParams): DashboardData => {
 
   useEffect(() => {
     fetchAll();
-    const interval = setInterval(fetchAll, 5 * 60 * 1000);
+    const interval = setInterval(fetchAll, 60 * 60 * 1000);
     return () => clearInterval(interval);
   }, [fetchAll]);
 

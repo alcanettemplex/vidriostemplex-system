@@ -26,6 +26,7 @@ const includeItemsTrazabilidad = [
             include: [
               {
                 model: ODP,
+                attributes: ['id', 'numero_odp', 'estado_produccion', 'fecha_creacion'],
                 include: [
                   { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
                   { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
@@ -41,6 +42,7 @@ const includeItemsTrazabilidad = [
         include: [
           {
             model: ODP,
+            attributes: ['id', 'numero_odp', 'estado_produccion'],
             include: [
               { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
             ],
@@ -69,6 +71,7 @@ export const getODCsSeguimiento = async (req: Request, res: Response) => {
           model: SAP, as: 'sap',
           include: [{
             model: ODP,
+            attributes: ['id', 'numero_odp', 'estado_produccion', 'fecha_creacion'],
             include: [
               { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
               { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
@@ -103,6 +106,7 @@ export const getODCsRecibidas = async (req: Request, res: Response) => {
           model: SAP, as: 'sap',
           include: [{
             model: ODP,
+            attributes: ['id', 'numero_odp', 'estado_produccion', 'fecha_creacion'],
             include: [
               { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
               { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },

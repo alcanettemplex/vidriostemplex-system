@@ -30,12 +30,12 @@ const INCLUDE_RUTA_COMPLETA = async (): Promise<any[]> => [
       {
         model: ODP, as: 'odp',
         include: [
-          { model: Cliente, as: 'cliente' },
+          { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'telefono'] },
           { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
           { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
-          { model: Pago, as: 'pagos' },
-          { model: Cotizacion, as: 'cotizaciones' },
-          { model: TomaMedidas, as: 'tomas_medidas' },
+          { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'fecha', 'observaciones'] },
+          { model: Cotizacion, as: 'cotizaciones', attributes: ['id', 'numero_cot', 'valor_total', 'estado', 'fecha_creacion'] },
+          { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'] },
           {
             model: SAP, as: 'saps',
             include: [
