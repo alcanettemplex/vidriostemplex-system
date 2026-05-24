@@ -1015,14 +1015,14 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
 
       // 2. SAPs sin ODC generada (> 3 días)
       sequelize.query<any>(`
-        SELECT s.id, s.numero_sap, s.creado_en,
+        SELECT s.id, s.numero_sap, s.fecha_creacion,
                o.numero_odp, c.nombre_razon_social AS cliente,
-               EXTRACT(DAY FROM NOW() - s.creado_en)::int AS dias_sin_odc
+               EXTRACT(DAY FROM NOW() - s.fecha_creacion)::int AS dias_sin_odc
         FROM sap s
         JOIN odp o ON o.id = s.odp_id
         JOIN clientes c ON c.id = o.cliente_id
         WHERE NOT EXISTS (SELECT 1 FROM ordenes_compra oc WHERE oc.sap_id = s.id)
-          AND s.creado_en < NOW() - INTERVAL '3 days'
+          AND s.fecha_creacion < NOW() - INTERVAL '3 days'
         ORDER BY dias_sin_odc DESC
         LIMIT 30
       `, { type: QueryTypes.SELECT }),
@@ -1054,7 +1054,7 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
                COALESCE(cl.nombre_razon_social, p.nombre_contacto, '—') AS cliente,
                u.nombre_completo AS creado_por_nombre,
                EXTRACT(DAY FROM NOW() - ct.fecha_creacion)::int AS dias_pendiente
-        FROM cotizaciones ct
+        FROM cotizacion ct
         LEFT JOIN clientes cl ON cl.id = ct.cliente_id
         LEFT JOIN prospectos p ON p.id = ct.prospecto_id
         LEFT JOIN usuarios u ON u.id = ct.creado_por
