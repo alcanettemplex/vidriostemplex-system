@@ -165,12 +165,27 @@ const TabMonitoreo: React.FC = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [exp, setExp] = useState<Record<string, boolean>>({});
+
+  const toggle = (k: string) => setExp(prev => ({ ...prev, [k]: !prev[k] }));
+  const vis = (arr: any[] | undefined, k: string, n = 6) => (arr && exp[k]) ? arr : (arr?.slice(0, n) ?? []);
+
+  const ExpandBtn = ({ k, total, n = 6 }: { k: string; total: number; n?: number }) => {
+    if (!total || total <= n) return null;
+    return (
+      <button onClick={() => toggle(k)} className="mt-2 flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+        {exp[k]
+          ? <><ChevronRight className="w-3 h-3 rotate-90 transition-transform" /> Colapsar</>
+          : <><ChevronRight className="w-3 h-3 transition-transform" /> Ver todos ({total})</>}
+      </button>
+    );
+  };
 
   const cargar = useCallback(() => {
     setLoading(true);
     fetch(`${API}/api/root/monitoreo`, { headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` } })
       .then(r => r.json())
-      .then(d => { setData(d); setError(''); })
+      .then(d => { setData(d); setError(''); setExp({}); })
       .catch(() => setError('Error al cargar datos de monitoreo'))
       .finally(() => setLoading(false));
   }, []);
@@ -196,7 +211,6 @@ const TabMonitoreo: React.FC = () => {
       <div className="bg-white rounded-xl border border-slate-200 p-5">
         <SectionHeader icon={<Cpu className="w-4 h-4" />} title="Sistema en tiempo real" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Cron PV */}
           <div className={`rounded-lg border p-4 ${CRON_COLORS[data.cron_pv?.resultado as keyof typeof CRON_COLORS]}`}>
             <p className="text-xs font-bold mb-1 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Cron PV (8am diario)</p>
             <p className="text-xl font-black">{CRON_LABELS[data.cron_pv?.resultado as keyof typeof CRON_LABELS]}</p>
@@ -204,17 +218,15 @@ const TabMonitoreo: React.FC = () => {
             {data.cron_pv?.resultado === 'ok' && <p className="text-[11px]">{data.cron_pv?.alertas_enviadas} alerta(s) enviadas</p>}
             {data.cron_pv?.error_mensaje && <p className="text-[11px] font-semibold mt-1">{data.cron_pv.error_mensaje}</p>}
           </div>
-          {/* WebSocket */}
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-bold text-slate-600 mb-1 flex items-center gap-1.5"><Wifi className="w-3.5 h-3.5" /> Clientes WebSocket</p>
             <p className="text-3xl font-black text-slate-800">{data.ws_activos ?? '—'}</p>
             <p className="text-[11px] text-slate-400 mt-1">conexiones activas ahora</p>
           </div>
-          {/* Rate Limit */}
           <div className={`rounded-lg border p-4 ${data.rate_limit?.total_24h > 0 ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
             <p className="text-xs font-bold text-slate-600 mb-1 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Rate limit hits (24h)</p>
             <p className={`text-3xl font-black ${data.rate_limit?.total_24h > 0 ? 'text-amber-700' : 'text-slate-800'}`}>{data.rate_limit?.total_24h ?? 0}</p>
-            <p className="text-[11px] text-slate-500 mt-1">login: {data.rate_limit?.auth_hits ?? 0} · IPs distintas: {data.rate_limit?.top_ips?.length ?? 0}</p>
+            <p className="text-[11px] text-slate-500 mt-1">login: {data.rate_limit?.auth_hits ?? 0} · IPs bloqueadas: {data.rate_limit?.top_ips?.length ?? 0}</p>
           </div>
         </div>
       </div>
@@ -223,7 +235,6 @@ const TabMonitoreo: React.FC = () => {
       <div className="bg-white rounded-xl border border-slate-200 p-5">
         <SectionHeader icon={<Database className="w-4 h-4" />} title="Base de datos" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Auditoria stats */}
           {data.auditoria_stats && (
             <div>
               <p className="text-xs font-bold text-slate-600 mb-2">Auditoría — crecimiento</p>
@@ -253,11 +264,10 @@ const TabMonitoreo: React.FC = () => {
               </div>
             </div>
           )}
-          {/* Tablas grandes */}
           <div>
             <p className="text-xs font-bold text-slate-600 mb-2">Tablas más pesadas</p>
             <div className="space-y-1">
-              {data.tablas_grandes?.slice(0, 8).map((t: any) => (
+              {data.tablas_grandes?.map((t: any) => (
                 <div key={t.tablename} className="flex items-center justify-between text-xs">
                   <span className="text-slate-700 font-medium truncate max-w-[140px]">{t.tablename}</span>
                   <div className="flex items-center gap-2 text-slate-400">
@@ -275,23 +285,25 @@ const TabMonitoreo: React.FC = () => {
       <div className="bg-white rounded-xl border border-slate-200 p-5">
         <SectionHeader icon={<Activity className="w-4 h-4" />} title="Operativo" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
           {/* ODPs atascadas */}
           <div>
             <div className="flex items-center gap-2 mb-2">
               <p className="text-xs font-bold text-slate-600">ODPs atascadas (&gt;7 días sin cambio)</p>
               <MonBadge n={data.odps_atascadas?.count ?? 0} warn={1} crit={5} />
             </div>
-            {data.odps_atascadas?.count === 0 ? <EmptyState msg="Ninguna ODP atascada" /> : (
+            {data.odps_atascadas?.count === 0 ? <EmptyState msg="Ninguna ODP atascada" /> : (<>
               <div className="space-y-1">
-                {data.odps_atascadas?.registros?.slice(0, 6).map((o: any) => (
+                {vis(data.odps_atascadas?.registros, 'odps_atascadas').map((o: any) => (
                   <div key={o.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
-                    <span className="font-semibold text-slate-700">{o.numero_odp}</span>
-                    <span className="text-slate-500 truncate max-w-[100px]">{o.estado_produccion}</span>
-                    <span className="text-amber-700 font-bold">{o.dias_sin_cambio}d</span>
+                    <span className="font-semibold text-slate-700 w-24 shrink-0">{o.numero_odp}</span>
+                    <span className="text-slate-500 truncate flex-1 mx-1">{o.estado_produccion}</span>
+                    <span className="text-amber-700 font-bold shrink-0">{o.dias_sin_cambio}d</span>
                   </div>
                 ))}
               </div>
-            )}
+              <ExpandBtn k="odps_atascadas" total={data.odps_atascadas?.count ?? 0} />
+            </>)}
           </div>
 
           {/* SAPs sin ODC */}
@@ -300,24 +312,23 @@ const TabMonitoreo: React.FC = () => {
               <p className="text-xs font-bold text-slate-600">SAPs sin ODC generada</p>
               <MonBadge n={data.saps_sin_odc?.count ?? 0} warn={1} crit={3} />
             </div>
-            {data.saps_sin_odc?.count === 0 ? <EmptyState msg="Todos los SAPs tienen ODC" /> : (
+            {data.saps_sin_odc?.count === 0 ? <EmptyState msg="Todos los SAPs tienen ODC" /> : (<>
               <div className="space-y-1">
-                {data.saps_sin_odc?.registros?.slice(0, 6).map((s: any) => (
+                {vis(data.saps_sin_odc?.registros, 'saps_sin_odc').map((s: any) => (
                   <div key={s.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
-                    <span className="font-semibold text-slate-700">{s.numero_sap}</span>
-                    <span className="text-slate-500 truncate max-w-[110px]">{s.cliente}</span>
-                    <span className="text-amber-700 font-bold">{s.dias_sin_odc}d</span>
+                    <span className="font-semibold text-slate-700 w-24 shrink-0">{s.numero_sap}</span>
+                    <span className="text-slate-500 truncate flex-1 mx-1">{s.cliente}</span>
+                    <span className="text-amber-700 font-bold shrink-0">{s.dias_sin_odc}d</span>
                   </div>
                 ))}
               </div>
-            )}
+              <ExpandBtn k="saps_sin_odc" total={data.saps_sin_odc?.count ?? 0} />
+            </>)}
           </div>
 
           {/* PedidoPV por estado */}
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs font-bold text-slate-600">PedidoPV activos por estado</p>
-            </div>
+            <p className="text-xs font-bold text-slate-600 mb-2">PedidoPV activos por estado</p>
             {!data.pedido_pv_estados?.length ? <EmptyState msg="Sin pedidos PV activos" /> : (
               <div className="flex flex-wrap gap-2">
                 {data.pedido_pv_estados.map((pv: any) => (
@@ -337,17 +348,18 @@ const TabMonitoreo: React.FC = () => {
               <p className="text-xs font-bold text-slate-600">ODPs sin evidencias fotográficas</p>
               <MonBadge n={data.odps_sin_evidencias?.count ?? 0} warn={1} crit={5} />
             </div>
-            {data.odps_sin_evidencias?.count === 0 ? <EmptyState msg="Todas las ODPs tienen evidencias" /> : (
+            {data.odps_sin_evidencias?.count === 0 ? <EmptyState msg="Todas las ODPs tienen evidencias" /> : (<>
               <div className="space-y-1">
-                {data.odps_sin_evidencias?.registros?.slice(0, 5).map((o: any) => (
+                {vis(data.odps_sin_evidencias?.registros, 'odps_sin_evidencias').map((o: any) => (
                   <div key={o.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
-                    <span className="font-semibold text-slate-700">{o.numero_odp}</span>
-                    <span className="text-slate-500 truncate max-w-[110px]">{o.cliente}</span>
-                    <span className={`font-bold ${o.estado_produccion === 'ENTREGADA' ? 'text-red-600' : 'text-amber-600'}`}>{o.estado_produccion}</span>
+                    <span className="font-semibold text-slate-700 w-24 shrink-0">{o.numero_odp}</span>
+                    <span className="text-slate-500 truncate flex-1 mx-1">{o.cliente}</span>
+                    <span className={`font-bold shrink-0 ${o.estado_produccion === 'ENTREGADA' ? 'text-red-600' : 'text-amber-600'}`}>{o.estado_produccion}</span>
                   </div>
                 ))}
               </div>
-            )}
+              <ExpandBtn k="odps_sin_evidencias" total={data.odps_sin_evidencias?.count ?? 0} />
+            </>)}
           </div>
         </div>
       </div>
@@ -356,15 +368,16 @@ const TabMonitoreo: React.FC = () => {
       <div className="bg-white rounded-xl border border-slate-200 p-5">
         <SectionHeader icon={<FileText className="w-4 h-4" />} title="Comercial" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+
           {/* Cotizaciones pendientes */}
           <div>
             <div className="flex items-center gap-2 mb-2">
               <p className="text-xs font-bold text-slate-600">Cotizaciones sin respuesta (&gt;30d)</p>
               <MonBadge n={data.cotizaciones_pendientes?.count ?? 0} warn={1} crit={5} />
             </div>
-            {data.cotizaciones_pendientes?.count === 0 ? <EmptyState msg="Sin cotizaciones pendientes" /> : (
+            {data.cotizaciones_pendientes?.count === 0 ? <EmptyState msg="Sin cotizaciones pendientes" /> : (<>
               <div className="space-y-1">
-                {data.cotizaciones_pendientes?.registros?.slice(0, 5).map((c: any) => (
+                {vis(data.cotizaciones_pendientes?.registros, 'cotizaciones', 5).map((c: any) => (
                   <div key={c.id} className="text-xs bg-slate-50 rounded px-2 py-1">
                     <div className="flex justify-between">
                       <span className="font-semibold text-slate-700">{c.numero_cot}</span>
@@ -374,7 +387,8 @@ const TabMonitoreo: React.FC = () => {
                   </div>
                 ))}
               </div>
-            )}
+              <ExpandBtn k="cotizaciones" total={data.cotizaciones_pendientes?.count ?? 0} n={5} />
+            </>)}
           </div>
 
           {/* Prospectos sin gestión */}
@@ -383,9 +397,9 @@ const TabMonitoreo: React.FC = () => {
               <p className="text-xs font-bold text-slate-600">Prospectos sin gestión (&gt;15d)</p>
               <MonBadge n={data.prospectos_sin_gestion?.count ?? 0} warn={1} crit={5} />
             </div>
-            {data.prospectos_sin_gestion?.count === 0 ? <EmptyState msg="Todos los prospectos activos" /> : (
+            {data.prospectos_sin_gestion?.count === 0 ? <EmptyState msg="Todos los prospectos activos" /> : (<>
               <div className="space-y-1">
-                {data.prospectos_sin_gestion?.registros?.slice(0, 5).map((p: any) => (
+                {vis(data.prospectos_sin_gestion?.registros, 'prospectos', 5).map((p: any) => (
                   <div key={p.id} className="text-xs bg-slate-50 rounded px-2 py-1">
                     <div className="flex justify-between">
                       <span className="font-semibold text-slate-700 truncate max-w-[120px]">{p.nombre_contacto || p.numero_prospecto}</span>
@@ -395,7 +409,8 @@ const TabMonitoreo: React.FC = () => {
                   </div>
                 ))}
               </div>
-            )}
+              <ExpandBtn k="prospectos" total={data.prospectos_sin_gestion?.count ?? 0} n={5} />
+            </>)}
           </div>
 
           {/* Cartera vencida */}
@@ -404,9 +419,9 @@ const TabMonitoreo: React.FC = () => {
               <p className="text-xs font-bold text-slate-600">Cartera vencida ENTREGADA (&gt;30d)</p>
               <MonBadge n={data.cartera_vencida?.count ?? 0} warn={1} crit={3} />
             </div>
-            {data.cartera_vencida?.count === 0 ? <EmptyState msg="Sin cartera vencida" /> : (
+            {data.cartera_vencida?.count === 0 ? <EmptyState msg="Sin cartera vencida" /> : (<>
               <div className="space-y-1">
-                {data.cartera_vencida?.registros?.slice(0, 5).map((o: any) => (
+                {vis(data.cartera_vencida?.registros, 'cartera', 5).map((o: any) => (
                   <div key={o.id} className="text-xs bg-slate-50 rounded px-2 py-1">
                     <div className="flex justify-between">
                       <span className="font-semibold text-slate-700">{o.numero_odp}</span>
@@ -416,7 +431,8 @@ const TabMonitoreo: React.FC = () => {
                   </div>
                 ))}
               </div>
-            )}
+              <ExpandBtn k="cartera" total={data.cartera_vencida?.count ?? 0} n={5} />
+            </>)}
           </div>
         </div>
       </div>
@@ -424,49 +440,54 @@ const TabMonitoreo: React.FC = () => {
       {/* ── INVENTARIO PERFILERÍA ─────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-200 p-5">
         <SectionHeader icon={<Package className="w-4 h-4" />} title="Inventario perfilería — códigos con pocas piezas (&lt;5)" />
-        {!data.inventario_bajo?.count ? <EmptyState msg="Todos los códigos tienen 5 o más piezas" /> : (
+        {!data.inventario_bajo?.count ? <EmptyState msg="Todos los códigos tienen 5 o más piezas" /> : (<>
           <div className="flex flex-wrap gap-2">
-            {data.inventario_bajo?.registros?.map((inv: any) => (
+            {vis(data.inventario_bajo?.registros, 'inventario', 16).map((inv: any) => (
               <div key={inv.codigo} className={`rounded-lg border px-3 py-2 text-center ${Number(inv.piezas) === 0 ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
                 <p className={`text-base font-black ${Number(inv.piezas) === 0 ? 'text-red-700' : 'text-amber-700'}`}>{inv.piezas}</p>
                 <p className="text-[10px] text-slate-600 font-semibold">{inv.codigo}</p>
               </div>
             ))}
           </div>
-        )}
+          <ExpandBtn k="inventario" total={data.inventario_bajo?.count ?? 0} n={16} />
+        </>)}
       </div>
 
       {/* ── SEGURIDAD ─────────────────────────────────────────── */}
       <div className="bg-white rounded-xl border border-slate-200 p-5">
         <SectionHeader icon={<Lock className="w-4 h-4" />} title="Seguridad" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
           {/* Login fallidos */}
           <div>
             <div className="flex items-center gap-2 mb-2">
               <p className="text-xs font-bold text-slate-600">Login fallidos (últimas 24h)</p>
               <MonBadge n={data.login_fallidos_24h?.count ?? 0} warn={1} crit={10} />
             </div>
-            {data.login_fallidos_24h?.count === 0 ? <EmptyState msg="Sin intentos fallidos en 24h" /> : (
+            {data.login_fallidos_24h?.count === 0 ? <EmptyState msg="Sin intentos fallidos en 24h" /> : (<>
               <div className="space-y-1">
-                {data.login_fallidos_24h?.registros?.map((f: any, i: number) => (
+                {vis(data.login_fallidos_24h?.registros, 'login_fallidos', 5).map((f: any, i: number) => (
                   <div key={i} className="flex items-center justify-between text-xs bg-red-50 rounded px-2 py-1">
-                    <span className="font-semibold text-slate-700">{f.ip}</span>
-                    <span className="text-slate-500">{f.username_intentado || '—'}</span>
-                    <span className="text-red-700 font-bold">{f.intentos}x</span>
+                    <span className="font-semibold text-slate-700 w-28 shrink-0">{f.ip}</span>
+                    <span className="text-slate-500 truncate flex-1 mx-1">{f.username_intentado || '—'}</span>
+                    <span className="text-red-700 font-bold shrink-0">{f.intentos}x</span>
                   </div>
                 ))}
               </div>
-            )}
+              <ExpandBtn k="login_fallidos" total={data.login_fallidos_24h?.count ?? 0} n={5} />
+            </>)}
           </div>
 
           {/* Actividad usuarios 24h */}
           <div>
-            <p className="text-xs font-bold text-slate-600 mb-2">Actividad usuarios (24h)</p>
+            <p className="text-xs font-bold text-slate-600 mb-2">
+              Actividad usuarios (24h) <span className="font-normal text-slate-400">— {data.actividad_24h?.length ?? 0} usuarios</span>
+            </p>
             {!data.actividad_24h?.length ? (
               <div className="text-xs text-slate-400 italic">Sin actividad en las últimas 24h</div>
-            ) : (
+            ) : (<>
               <div className="space-y-1">
-                {data.actividad_24h?.map((u: any) => (
+                {vis(data.actividad_24h, 'actividad', 5).map((u: any) => (
                   <div key={u.usuario_id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
                     <span className="font-semibold text-slate-700 truncate max-w-[130px]">{u.nombre_completo}</span>
                     <span className="text-slate-400">{u.rol}</span>
@@ -474,7 +495,8 @@ const TabMonitoreo: React.FC = () => {
                   </div>
                 ))}
               </div>
-            )}
+              <ExpandBtn k="actividad" total={data.actividad_24h?.length ?? 0} n={5} />
+            </>)}
           </div>
         </div>
       </div>

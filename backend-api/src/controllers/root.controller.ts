@@ -1010,7 +1010,7 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
             o.fecha_creacion
           )) > 7
         ORDER BY dias_sin_cambio DESC
-        LIMIT 30
+        LIMIT 200
       `, { type: QueryTypes.SELECT }),
 
       // 2. SAPs sin ODC generada (> 3 días)
@@ -1024,7 +1024,7 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
         WHERE NOT EXISTS (SELECT 1 FROM ordenes_compra oc WHERE oc.sap_id = s.id)
           AND s.fecha_creacion < NOW() - INTERVAL '3 days'
         ORDER BY dias_sin_odc DESC
-        LIMIT 30
+        LIMIT 200
       `, { type: QueryTypes.SELECT }),
 
       // 3. PedidoPV activos agrupados por estado
@@ -1045,7 +1045,7 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
         GROUP BY codigo
         HAVING COUNT(*) < 5
         ORDER BY piezas ASC
-        LIMIT 20
+        LIMIT 200
       `, { type: QueryTypes.SELECT }),
 
       // 5. Cotizaciones sin respuesta > 30 días (borrador o enviada)
@@ -1061,7 +1061,7 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
         WHERE ct.estado IN ('borrador','enviada')
           AND ct.fecha_creacion < NOW() - INTERVAL '30 days'
         ORDER BY dias_pendiente DESC
-        LIMIT 30
+        LIMIT 200
       `, { type: QueryTypes.SELECT }),
 
       // 6. ODPs INSTALADA/ENTREGADA sin ninguna evidencia fotográfica
@@ -1076,7 +1076,7 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
         WHERE o.estado_produccion IN ('INSTALADA','ENTREGADA')
           AND NOT EXISTS (SELECT 1 FROM evidencias_instalacion ei WHERE ei.odp_id = o.id)
         ORDER BY o.fecha_listo_instalar ASC NULLS LAST
-        LIMIT 30
+        LIMIT 200
       `, { type: QueryTypes.SELECT }),
 
       // 7. Top 10 tablas más grandes
@@ -1118,7 +1118,7 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
           AND al.usuario_id IS NOT NULL
         GROUP BY al.usuario_id, u.nombre_completo, u.rol
         ORDER BY operaciones DESC
-        LIMIT 15
+        LIMIT 100
       `, { type: QueryTypes.SELECT }),
 
       // 10. Cartera vencida (ENTREGADA con caja PENDIENTE/ABONADO > 30 días)
@@ -1136,7 +1136,7 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
           AND o.fecha_entrega IS NOT NULL
           AND o.fecha_entrega < NOW() - INTERVAL '30 days'
         ORDER BY dias_sin_cobrar DESC
-        LIMIT 30
+        LIMIT 200
       `, { type: QueryTypes.SELECT }),
 
       // 11. Prospectos en gestión sin actividad > 15 días
@@ -1151,7 +1151,7 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
           AND p.odp_id IS NULL
           AND COALESCE(p.fecha_gestion, p.fecha_creacion) < NOW() - INTERVAL '15 days'
         ORDER BY dias_sin_actividad DESC
-        LIMIT 30
+        LIMIT 200
       `, { type: QueryTypes.SELECT }),
 
       // 12. Login fallidos en las últimas 24h
@@ -1167,7 +1167,7 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
           AND fecha >= NOW() - INTERVAL '24 hours'
         GROUP BY ip_address, datos_nuevos->>'username', datos_nuevos->>'razon'
         ORDER BY intentos DESC
-        LIMIT 20
+        LIMIT 200
       `, { type: QueryTypes.SELECT }),
     ]);
 
