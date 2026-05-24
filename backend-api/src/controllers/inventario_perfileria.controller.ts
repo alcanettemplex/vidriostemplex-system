@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
-import { InventarioPerfileria } from '../models';
+import { InventarioPerfileria, CatalogoProducto } from '../models';
 
 export const getInventario = async (req: Request, res: Response) => {
   try {
@@ -104,6 +104,33 @@ export const bulkInsertPerfileria = async (req: Request, res: Response) => {
     res.status(201).json({ insertados: created.length, items: created });
   } catch (e: any) {
     res.status(500).json({ error: e.message || 'Error al insertar perfilería' });
+  }
+};
+
+export const exportInventario = async (_req: Request, res: Response) => {
+  try {
+    const items = await InventarioPerfileria.findAll({
+      attributes: ['consecutivo', 'codigo', 'mm', 'ubicacion'],
+      order: [['consecutivo', 'ASC']],
+      include: [{
+        model: CatalogoProducto,
+        as: 'catalogo',
+        attributes: ['nombre'],
+        required: false,
+      }],
+    });
+
+    const rows = (items as any[]).map(item => ({
+      consecutivo: item.consecutivo,
+      codigo: item.codigo || '',
+      descripcion: item.catalogo?.nombre || '',
+      mm: parseFloat(item.mm) || 0,
+      ubicacion: item.ubicacion || '',
+    }));
+
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'Error al exportar inventario' });
   }
 };
 

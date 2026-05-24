@@ -4,6 +4,7 @@ import { requireRole } from '../middlewares/rbacMiddleware';
 import {
   getInventario,
   getInventarioStats,
+  exportInventario,
   updateInventarioItem,
   deleteInventarioItem,
   bulkInsertPerfileria,
@@ -16,6 +17,7 @@ router.use(authMiddleware);
 // VER: compras, produccion, admin, gerencia
 router.get('/', requireRole('admin', 'gerencia', 'compras', 'produccion'), getInventario);
 router.get('/stats', requireRole('admin', 'gerencia', 'compras', 'produccion'), getInventarioStats);
+router.get('/export', requireRole('admin', 'gerencia', 'compras', 'produccion'), exportInventario);
 
 // CRUD: compras, admin, gerencia
 router.post('/bulk', requireRole('admin', 'gerencia', 'compras'), bulkInsertPerfileria);

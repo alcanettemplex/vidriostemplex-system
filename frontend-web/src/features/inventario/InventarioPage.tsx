@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
-import { Search, MapPin, Ruler, Trash2, Edit2, Check, X, BarChart2, List, PackagePlus } from 'lucide-react';
+import { Search, MapPin, Ruler, Trash2, Edit2, Check, X, BarChart2, List, PackagePlus, Download } from 'lucide-react';
 import IngresarPerfilModal from './IngresarPerfilModal';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -139,6 +140,33 @@ const InventarioPage: React.FC = () => {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const token = sessionStorage.getItem('token');
+      const { data } = await axios.get(`${API}/api/inventario-perfileria/export`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const filas = data.map((row: any) => ({
+        CONSECUTIVO: row.consecutivo,
+        CÓDIGO: row.codigo,
+        DESCRIPCIÓN: row.descripcion,
+        'MM': row.mm,
+        UBICACIÓN: row.ubicacion,
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(filas);
+      ws['!cols'] = [{ wch: 14 }, { wch: 16 }, { wch: 40 }, { wch: 10 }, { wch: 14 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+
+      const fecha = new Date().toISOString().split('T')[0];
+      XLSX.writeFile(wb, `inventario_perfileria_${fecha}.xlsx`);
+    } catch {
+      toast.error('Error al exportar el inventario');
+    }
+  };
+
   // Obtener ubicaciones únicas para filtro
   const ubicacionesUnicas = Array.from(new Set(items.map(i => i.ubicacion).filter(Boolean))).sort();
 
@@ -164,6 +192,12 @@ const InventarioPage: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-emerald-300 text-emerald-700 bg-white hover:bg-emerald-50 transition-all"
+          >
+            <Download className="w-4 h-4" /> Exportar Excel
+          </button>
           <button
             onClick={() => setShowIngresoModal(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm shadow-indigo-200"

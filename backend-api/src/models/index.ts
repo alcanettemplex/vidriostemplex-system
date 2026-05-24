@@ -236,6 +236,10 @@ SalidaAlmacen.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
 Usuario.hasMany(SalidaAlmacen, { foreignKey: 'creado_por', as: 'salidas_creadas' });
 SalidaAlmacen.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
 
+// ─── Bloque I: Inventario Perfilería ─────────────────────────────────────────
+InventarioPerfileria.belongsTo(CatalogoProducto, { foreignKey: 'codigo', targetKey: 'codigo', as: 'catalogo' });
+CatalogoProducto.hasMany(InventarioPerfileria, { foreignKey: 'codigo', sourceKey: 'codigo', as: 'piezas' });
+
 // ─── Hooks globales de auditoría ────────────────────────────────────────────
 // Captura INSERT/UPDATE/DELETE en todos los modelos registrados y graba en auditoria_log
 import { getContext } from '../utils/requestContext';

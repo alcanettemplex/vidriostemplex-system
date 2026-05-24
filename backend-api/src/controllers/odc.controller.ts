@@ -74,7 +74,10 @@ const includeItemsLista = [
           include: [{
             model: ODP,
             attributes: ['id', 'numero_odp'],
-            include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
+            include: [
+              { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+              { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+            ],
           }],
         }],
       },

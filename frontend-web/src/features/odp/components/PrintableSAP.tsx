@@ -71,9 +71,16 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
     const allItems: any[] = sapData?.items || [];
     const odcs:    any[] = sapData?.ordenes_compra || [];
 
-    // IDs de SAPItems ya en ODC (para colorear fila en azul)
+    // IDs de SAPItems ya en cualquier ODC → badge E
     const itemsEnODC = new Set(
         odcs.flatMap((odc: any) => (odc.items || []).map((it: any) => it.sap_item_id))
+    );
+
+    // IDs de SAPItems en ODC con estado RECIBIDO → franja azul
+    const itemsEnODCRecibida = new Set(
+        odcs
+            .filter((odc: any) => odc.estado === 'recibido')
+            .flatMap((odc: any) => (odc.items || []).map((it: any) => it.sap_item_id))
     );
 
     /**
@@ -284,11 +291,12 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                                 {indices.map(idx => {
                                     const letra  = letraDeIndice(idx);
                                     const item   = itemPorIndice[idx];
-                                    const enODC  = item && itemsEnODC.has(item.id);
+                                    const enODC         = item && itemsEnODC.has(item.id);
+                                    const enODCRecibida = item && itemsEnODCRecibida.has(item.id);
                                     return (
                                         <tr
                                             key={idx}
-                                            className={`h-[24px] ${enODC ? 'bg-blue-100' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}
+                                            className={`h-[24px] ${enODCRecibida ? 'bg-blue-100' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}
                                         >
                                             <td className="font-bold text-center">{letra}</td>
                                             <td className="text-[11px] text-center">{item ? fmtCant(item.cantidad) : ''}</td>

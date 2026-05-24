@@ -12,10 +12,10 @@ interface ODCItemPrint {
     dimension?: string;
     und?: string;
     observacion?: string;
-    SAP?: { numero_sap: string; ODP?: { numero_odp: string; cliente?: { nombre_razon_social: string } } };
+    SAP?: { numero_sap: string; ODP?: { numero_odp: string; cliente?: { nombre_razon_social: string }; asesor?: { nombre_completo: string } } };
   };
   odp_item?: {
-    ODP?: { numero_odp: string; cliente?: { nombre_razon_social: string } };
+    ODP?: { numero_odp: string; cliente?: { nombre_razon_social: string }; asesor?: { nombre_completo: string } };
   };
 }
 
@@ -29,7 +29,7 @@ interface PrintableODCProps {
     fecha_recepcion?: string;
     creador?: { nombre_completo: string };
     items: ODCItemPrint[];
-    sap?: { numero_sap: string; ODP?: { numero_odp: string; descripcion?: string; cliente?: { nombre_razon_social: string } } };
+    sap?: { numero_sap: string; ODP?: { numero_odp: string; descripcion?: string; cliente?: { nombre_razon_social: string }; asesor?: { nombre_completo: string } } };
   };
 }
 
@@ -103,6 +103,12 @@ const PrintableODC: React.FC<PrintableODCProps> = ({ odc }) => {
                 <p className="font-black text-indigo-800 text-sm">{refODP.numero_odp}</p>
                 {refODP.cliente?.nombre_razon_social && (
                   <p className="text-[10px] text-indigo-600 mt-1 font-semibold">{refODP.cliente.nombre_razon_social}</p>
+                )}
+                {refODP.asesor?.nombre_completo && (
+                  <p className="text-[10px] text-indigo-500 mt-1">
+                    <span className="font-bold text-indigo-400 uppercase tracking-wider text-[9px]">Asesor: </span>
+                    {refODP.asesor.nombre_completo}
+                  </p>
                 )}
               </>
             ) : (
