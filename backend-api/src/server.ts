@@ -60,6 +60,11 @@ export const emitirCambio = (modulo: string) => {
   io.emit('data_changed', { modulo });
 };
 
+// ─── Helper genérico para emitir eventos con payload arbitrario ──────────────
+export const emitirEvento = (evento: string, data: unknown) => {
+  io.emit(evento, data);
+};
+
 // ─── Helper para emitir notificaciones dirigidas ─────────────────────────────
 export const emitirNotificacion = (
   destinatarios: { userId?: number; roles?: string[] },

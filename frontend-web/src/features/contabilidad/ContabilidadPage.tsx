@@ -10,7 +10,7 @@ import {
   Pencil, Trash2, Calendar, ChevronUp, ChevronDown, ChevronsUpDown,
   CheckCircle2, Search,
 } from 'lucide-react';
-import { useDataChangedSocket } from '../../store/useSocketNotifications';
+import { useDataChangedSocket, useODPSocketPatch } from '../../store/useSocketNotifications';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 const getToken = () => sessionStorage.getItem('token');
@@ -173,7 +173,7 @@ const ContabilidadPage: React.FC = () => {
   useEffect(() => { fetchOdps(); }, [fetchOdps]);
   useEffect(() => { fetchResumen(); }, [fetchResumen]);
   useDataChangedSocket('contabilidad', () => { fetchOdps(); fetchResumen(); });
-  useDataChangedSocket('odp', fetchOdps);
+  useODPSocketPatch({ setOdps, setOdpsOA });
 
   // ─── Handlers estado caja / facturación ──────────────────────────────────
   const updateCaja = async (id: number, campo: string, valor: string) => {

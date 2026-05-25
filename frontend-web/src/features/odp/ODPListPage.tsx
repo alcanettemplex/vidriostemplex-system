@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
-import { useDataChangedSocket } from '../../store/useSocketNotifications';
+import { useODPSocketPatch } from '../../store/useSocketNotifications';
 import { toast } from 'react-toastify';
 import {
     Plus, Search, FileText, CheckCircle2, Clock, Truck, Eye, Trash2, Edit3,
@@ -232,7 +232,7 @@ const ODPListPage: React.FC = () => {
     }, []);
 
     useEffect(() => { fetchODPs(); fetchGarantias(); }, [fetchODPs, fetchGarantias]);
-    useDataChangedSocket('odp', () => { fetchODPs(); fetchGarantias(); });
+    useODPSocketPatch({ setOdps, setGarantias });
 
     const handleSolicitarVisita = async (odp: ODP) => {
         const esRemedicion = odp.estado_produccion !== 'EN_ESPERA';

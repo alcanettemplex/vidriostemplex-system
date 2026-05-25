@@ -484,7 +484,7 @@ export const createODP = async (req: Request, res: Response) => {
       }
     }
 
-    import('../server').then(({ emitirCambio }) => emitirCambio('odp')).catch(() => {});
+    import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'create')).catch(() => {});
     res.status(201).json(newOdp);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
@@ -780,7 +780,7 @@ export const updateODP = async (req: Request, res: Response) => {
       }).catch(err => console.error('Error notificación ODP:', err));
     }
 
-    import('../server').then(({ emitirCambio }) => emitirCambio('odp')).catch(() => {});
+    import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(Number(id), 'update')).catch(() => {});
     res.json({ message: 'ODP actualizada con éxito', odp });
   } catch (error: any) {
     try {
@@ -864,6 +864,7 @@ export const deleteODP = async (req: Request, res: Response) => {
     await odp.destroy({ transaction: t });
     await t.commit();
 
+    import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'delete')).catch(() => {});
     res.json({ status: 'ODP y sus registros relacionados eliminados correctamente' });
   } catch (error) {
     try { await t.rollback(); } catch (_) { /* ya commiteado */ }

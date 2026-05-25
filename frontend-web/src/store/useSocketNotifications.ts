@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, Dispatch, SetStateAction } from 'react';
 import socket from '../store/socket';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
@@ -53,6 +53,69 @@ export const useSocketNotifications = () => {
  *
  * Uso: useDataChangedSocket('odp', fetchODPs);
  */
+type SetODPs = Dispatch<SetStateAction<any[]>>;
+
+interface ODPPatchPayload {
+  accion: 'create' | 'update' | 'delete';
+  id: number;
+  odp?: any;
+}
+
+/**
+ * Hook para actualizar el estado local de ODPs sin re-fetchear la lista completa.
+ * Escucha el evento 'odp_patch' emitido por emitirODPPatch() en el backend.
+ *
+ * RIESGO DOCUMENTADO: ContabilidadPage divide odps en dos arrays (odps / odpsOA).
+ * Pasar SIEMPRE setOdpsOA en ese contexto — si se omite, las OAs quedarán
+ * desactualizadas silenciosamente. Ver memory/project_odp_patch_riesgo.md.
+ *
+ * Uso en ODPListPage:       useODPSocketPatch({ setOdps, setGarantias })
+ * Uso en ContabilidadPage:  useODPSocketPatch({ setOdps, setOdpsOA })
+ */
+export const useODPSocketPatch = (params: {
+  setOdps: SetODPs;
+  setGarantias?: SetODPs;
+  setOdpsOA?: SetODPs;
+}) => {
+  const { setOdps, setGarantias, setOdpsOA } = params;
+
+  useEffect(() => {
+    const handler = ({ accion, id, odp }: ODPPatchPayload) => {
+      if (accion === 'delete') {
+        setOdps(prev => prev.filter(o => o.id !== id));
+        setGarantias?.(prev => prev.filter(o => o.id !== id));
+        setOdpsOA?.(prev => prev.filter(o => o.id !== id));
+        return;
+      }
+
+      if (!odp) return;
+
+      if (accion === 'create') {
+        const esGarantiaONC = odp.es_garantia || odp.es_no_conformidad;
+        if (odp.tipo_odp === 'OA') {
+          setOdpsOA?.(prev => [odp, ...prev]);
+        } else if (esGarantiaONC) {
+          setGarantias?.(prev => [odp, ...prev]);
+          // NCs tienen es_garantia:false → también van al array principal
+          if (odp.es_no_conformidad && !odp.es_garantia) setOdps(prev => [odp, ...prev]);
+        } else {
+          setOdps(prev => [odp, ...prev]);
+        }
+        return;
+      }
+
+      // update: parchar en todos los arrays; el .map es no-op donde el ID no existe
+      const patch = (arr: any[]) => arr.map(o => o.id === id ? odp : o);
+      setOdps(prev => patch(prev));
+      setGarantias?.(prev => patch(prev));
+      setOdpsOA?.(prev => patch(prev));
+    };
+
+    socket.on('odp_patch', handler);
+    return () => { socket.off('odp_patch', handler); };
+  }, [setOdps, setGarantias, setOdpsOA]);
+};
+
 export const useDataChangedSocket = (modulo: string, onRefresh: () => void) => {
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
