@@ -6,336 +6,43 @@ interface PrintableOPProps {
     odp: any;
 }
 
-// Máx. caracteres de servicios que caben en el bloque fijo de pág. 1.
-// Si se excede, los servicios restantes van a una página de continuación.
 const SERVICIOS_CHARS_MAX = 280;
+const ITEMS_POR_PAGINA = 10;
 
 const PrintableOP: React.FC<PrintableOPProps> = ({ odp }) => {
     const servicios: any[] = odp.servicios_detalle && odp.servicios_detalle.length > 0
         ? odp.servicios_detalle
         : [];
+    const items: any[] = odp.items || [];
 
-    // ── Detectar si servicios desbordan el bloque fijo ──────────────────────
+    // ── Servicios overflow ──────────────────────────────────────────────────
     let acumulado = 0;
-    let splitAt = servicios.length; // por defecto todos caben
-
+    let splitAt = servicios.length;
     for (let i = 0; i < servicios.length; i++) {
         const chars = (servicios[i].tipo_servicio?.length || 0) + (servicios[i].descripcion?.length || 0);
         acumulado += chars;
         if (acumulado > SERVICIOS_CHARS_MAX) {
-            splitAt = Math.max(1, i); // al menos 1 servicio en pág. 1
+            splitAt = Math.max(1, i);
             break;
         }
     }
-
     const svcPag1 = servicios.slice(0, splitAt);
     const svcCont = servicios.slice(splitAt);
     const hasContinuacion = svcCont.length > 0;
 
-    // ── Bloque de pág. 1 reutilizable ────────────────────────────────────────
-    const Pagina1 = (
-        <div className="print-container p-2 print:p-0">
-            {/* ---------- CABECERA ---------- */}
-            <div className="flex justify-between items-end mb-1">
-                <div className="flex items-center w-1/3">
-                    <TemplexLogo className="h-10 w-40 justify-start" />
-                </div>
-                <div className="w-1/3 text-center font-bold text-[11px] mb-2 uppercase tracking-[0.2em]">
-                    ORDEN DE PRODUCCIÓN
-                </div>
-                <div className="w-1/3 flex justify-end mb-1">
-                    <div className="border-[2px] border-black text-xl font-bold w-32 h-10 flex items-center justify-center">
-                        {odp.numero_odp?.split('-').pop() || odp.numero_odp}
-                    </div>
-                </div>
-            </div>
-
-            {/* ---------- DATOS CLIENTE ---------- */}
-            <table className="excel-table thick-b mb-1">
-                <tbody>
-                    <tr>
-                        <td className="w-[30%] font-bold">FECHA: <span className="font-normal uppercase ml-1">{odp.fecha_creacion ? format(new Date(odp.fecha_creacion), 'dd/MM/yyyy') : ''}</span></td>
-                        <td className="w-[45%] font-bold">CLIENTE: <span className="font-normal uppercase ml-1">{odp.cliente?.nombre_razon_social}</span></td>
-                        <td className="w-[25%] font-bold">TEL: <span className="font-normal uppercase ml-1">{odp.cliente?.telefono}</span></td>
-                    </tr>
-                    <tr>
-                        <td colSpan={2} className="font-bold border-r-0">
-                            <div className="flex items-center justify-between">
-                                <span>DIRECCION: <span className="font-normal uppercase ml-1">{odp.cliente?.direccion}</span></span>
-                                <span className="border-l border-black pl-2 ml-2">NIT O C.C: <span className="font-normal uppercase ml-1">{odp.cliente?.numero_documento || odp.cliente?.ruc_rut}</span></span>
-                            </div>
-                        </td>
-                        <td className="font-bold">CEL: <span className="font-normal uppercase ml-1">{odp.cliente?.celular || odp.cliente?.telefono}</span></td>
-                    </tr>
-                    <tr>
-                        <td colSpan={2} className="font-bold border-r-0">
-                            <div className="flex items-center justify-between">
-                                <span>FECHA ODP LISTO MATERIAL: <span className="font-normal uppercase ml-1">{odp.fecha_entrega ? format(new Date(odp.fecha_entrega), 'dd/MM/yyyy') : ''}</span></span>
-                                <span className="border-l border-black pl-2 ml-2">CORREO FACTURA ELECTRONICA: <span className="font-normal lowercase ml-1">{odp.cliente?.email}</span></span>
-                            </div>
-                        </td>
-                        <td className="font-bold">SEGM: <span className="font-normal uppercase ml-1">{odp.cliente?.segmento}</span></td>
-                    </tr>
-                </tbody>
-            </table>
-
-            {/* ---------- DESCRIPCION (bloque fijo h-[88px]) ---------- */}
-            <div className="h-[88px] overflow-hidden border-[2px] border-black mb-0">
-                <table className="excel-table" style={{ border: 'none' }}>
-                    <tbody>
-                        <tr>
-                            <td className="font-bold w-12 text-center border-b-black uppercase" style={{ borderTop: 'none', borderLeft: 'none' }}>CANT</td>
-                            <td className="font-bold text-center border-b-black uppercase tracking-widest" style={{ borderTop: 'none', borderRight: 'none' }}>PRODUCTO O SERVICIO</td>
-                        </tr>
-                        {svcPag1.length > 0 ? (
-                            svcPag1.map((svc: any, idx: number) => (
-                                <tr key={idx}>
-                                    <td className="h-8 font-bold text-center text-base align-middle">{svc.cantidad}</td>
-                                    <td className="align-top p-1">
-                                        <span className="whitespace-pre-line uppercase font-semibold text-[10px] leading-tight">
-                                            <span className="font-bold">{svc.tipo_servicio}{svc.descripcion ? ': ' : ''}</span>{svc.descripcion}
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td className="h-8 font-bold text-center text-base align-middle">{odp.cantidad_total || ''}</td>
-                                <td className="align-top p-1">
-                                    <span className="whitespace-pre-line uppercase font-semibold text-[10px] leading-tight">
-                                        <span className="font-bold">{odp.tipo_servicio}{odp.descripcion_pedido ? ': ' : ''}</span>{odp.descripcion_pedido}
-                                    </span>
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-            {/* Aviso de continuación */}
-            {hasContinuacion && (
-                <div className="border-l-[2px] border-r-[2px] border-b-[2px] border-black bg-red-50 text-red-700 font-bold text-[9px] text-center py-0.5 mb-1 uppercase tracking-wider">
-                    ▶ PRODUCTO / SERVICIO CONTINÚA EN PÁGINA SIGUIENTE
-                </div>
-            )}
-            {!hasContinuacion && <div className="mb-1" />}
-
-            {/* ---------- TABLA PRINCIPAL ---------- */}
-            <table className="excel-table text-center uppercase">
-                <thead>
-                    <tr className="font-bold">
-                        <th rowSpan={3} className="w-8">ITEM</th>
-                        <th rowSpan={3} className="w-6">CL</th>
-                        <th rowSpan={3} className="w-8">ESP<br />mm</th>
-                        <th rowSpan={3} className="w-8">CANT</th>
-                        <th colSpan={2} className="w-[18%]">MEDIDA EXACTA</th>
-                        <th colSpan={6}>ACABADOS</th>
-                        <th rowSpan={3} className="w-10">MTS<br />PT</th>
-                        <th rowSpan={3} className="w-[15%]">VALOR</th>
-                        <th rowSpan={3} className="w-10">PROD</th>
-                    </tr>
-                    <tr className="font-bold fs-[8px]">
-                        <th rowSpan={2}>Ancho (A)</th>
-                        <th rowSpan={2}>Alto (H)</th>
-                        <th colSpan={2}>PUL *</th>
-                        <th rowSpan={2} className="w-7">Perf</th>
-                        <th rowSpan={2} className="w-7">Boq.</th>
-                        <th rowSpan={2} className="w-7">Des</th>
-                        <th rowSpan={2} className="w-7">Otro**</th>
-                    </tr>
-                    <tr className="font-bold fs-[8px]">
-                        <th className="w-6">A</th>
-                        <th className="w-6">H</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {Array.from({ length: 10 }).map((_, idx) => {
-                        const item = odp.items?.[idx];
-                        const letter = String.fromCharCode(65 + idx);
-                        return (
-                            <tr key={idx} className="h-[20px]">
-                                <td className="font-bold">{letter}</td>
-                                <td className="font-bold">{item?.color?.substring(0, 2)?.toUpperCase() || ''}</td>
-                                <td className="font-bold">{item?.espesor || ''}</td>
-                                <td className="font-bold">{item?.cantidad || ''}</td>
-                                <td className="font-bold">{item?.ancho_mm || ''}</td>
-                                <td className="font-bold">{item?.alto_mm || ''}</td>
-                                <td className="font-bold text-[8px]">{item?.pulidos || ''}</td>
-                                <td className="font-bold text-[8px]">{item?.pulidos_h || ''}</td>
-                                <td className="font-bold">{item?.perforaciones > 0 ? item.perforaciones : ''}</td>
-                                <td className="font-bold">{item?.boquetes > 0 ? item.boquetes : ''}</td>
-                                <td className="font-bold text-[8px] max-w-[20px] truncate">{item?.descuentos || ''}</td>
-                                <td className="font-bold text-[8px] max-w-[30px] truncate">{item?.otros || ''}</td>
-                                <td className="font-bold text-[8px] text-center">{item?.ancho_mm && item?.alto_mm ? ((item.ancho_mm / 1000) * (item.alto_mm / 1000)).toFixed(3) : ''}</td>
-                                <td></td>
-                                <td className="font-bold text-[8px] text-center">{item?.prod || ''}</td>
-                            </tr>
-                        );
-                    })}
-                    {(() => {
-                        const IVA_RATE = 0.19;
-                        const valorTotal = Number(odp.valor_total || 0);
-                        const subtotal = valorTotal / (1 + IVA_RATE);
-                        const iva = valorTotal - subtotal;
-                        const fmt = (v: number) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(v);
-                        return (
-                            <>
-                                <tr>
-                                    <td colSpan={13} rowSpan={3} className="text-left font-bold pt-1 align-top">
-                                        ASESOR: <span className="font-normal ml-2 uppercase text-[9px]">{odp.asesor?.nombre_completo || `${odp.asesor?.first_name} ${odp.asesor?.last_name}`}</span>
-                                    </td>
-                                    <td className="text-right font-bold text-[8px] pr-1 text-orange-600">SUBTOTAL</td>
-                                    <td className="text-right font-bold text-[9px] pr-1">{valorTotal > 0 ? `$ ${fmt(subtotal)}` : ''}</td>
-                                </tr>
-                                <tr>
-                                    <td className="text-right font-bold text-[8px] pr-1 text-orange-600">IVA</td>
-                                    <td className="text-right font-bold text-[9px] pr-1">{valorTotal > 0 ? `$ ${fmt(iva)}` : ''}</td>
-                                </tr>
-                                <tr>
-                                    <td className="text-right font-bold text-[8px] pr-1 text-orange-600">VALOR TOTAL</td>
-                                    <td className="text-right font-bold text-[9px] pr-1">{valorTotal > 0 ? `$ ${fmt(valorTotal)}` : ''}</td>
-                                </tr>
-                            </>
-                        );
-                    })()}
-                </tbody>
-            </table>
-
-            <div className="flex justify-between items-end mt-1">
-                <div className="text-[7.5px] italic font-bold">
-                    *BORDE PUL: Pulido/Brillado (P/B) - Pulido cerrado (PC) -Matado (MF) <br />
-                    ** ACABADOS: Radios (RAD), Chaflan (CHA).
-                </div>
-            </div>
-
-            {/* ---------- OBSERVACIONES (bloque fijo h-[72px]) ---------- */}
-            <div className="border-[2px] border-black p-2 mt-1 h-[72px] overflow-hidden bg-white">
-                <p className="font-bold uppercase tracking-widest mb-0.5 text-[10px]">
-                    ENTREGA SOLICITADA - DIRECCION: <span className="font-normal">{odp.direccion_instalacion}</span>
-                </p>
-                <p className="font-bold uppercase tracking-widest mb-0.5 text-[10px]">OBSERVACIONES:</p>
-                <p className="font-normal uppercase text-[10px] leading-tight whitespace-pre-line">{odp.observaciones}</p>
-            </div>
-
-            {/* ---------- PROVEEDOR VIDRIO ---------- */}
-            <div className="border-l-[2px] border-r-[2px] border-b-[2px] border-black p-1 bg-slate-50">
-                <div className="flex gap-4">
-                    <span className="font-bold uppercase text-[10px]">PROVEEDOR VIDRIO: <span className="font-normal">{odp.proveedor_vidrio || ''}</span></span>
-                    <span className="font-bold uppercase text-[10px]">PEDIDO N°: <span className="font-normal font-mono">{odp.numero_pedido_proveedor || ''}</span></span>
-                </div>
-            </div>
-
-            {/* ---------- FORMA DE PAGO ---------- */}
-            <table className="excel-table mt-1 bg-white">
-                <tbody>
-                    <tr><td colSpan={6} className="font-bold text-center fs-8 uppercase tracking-widest">FORMA DE PAGO</td></tr>
-                    {(odp.pagos && odp.pagos.length > 0 ? odp.pagos : [null, null]).map((pago: any, i: number) => {
-                        const fechaPago = pago?.fecha ? format(new Date(pago.fecha), 'dd/MM/yyyy') : '';
-                        const recibo = [pago?.referencia_pago, fechaPago].filter(Boolean).join('  ');
-                        return (
-                            <tr key={i}>
-                                <td className="w-[10%] font-bold uppercase pl-2">RECIBO No:</td>
-                                <td className="w-[20%] text-[9px] font-bold pl-2">{recibo}</td>
-                                <td className="w-[15%] text-[9px] font-bold pl-2 uppercase">{pago?.metodo_pago || ''}</td>
-                                <td className="w-[25%] text-[9px] font-bold pl-2">{pago ? `$ ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(pago.monto))}` : ''}</td>
-                                <td className="w-[15%] font-bold uppercase pl-2">{i === 0 ? 'CODIGO:' : 'FE No.:'}</td>
-                                <td className="w-[15%] text-[9px] font-bold uppercase pl-2">
-                                    {i === 0
-                                        ? (() => {
-                                            const codigos: Record<string, string> = {
-                                                'Suministro e Instalación': 'SUMINS01',
-                                                'Venta / Suministro': 'VTAVID01',
-                                                'Venta': 'VTAVID01',
-                                                'Mantenimiento': 'INS002',
-                                            };
-                                            const tipo = odp.tipo_servicio || odp.servicios_detalle?.[0]?.tipo_servicio || '';
-                                            return codigos[tipo] || '';
-                                        })()
-                                        : (odp.factura_electronica
-                                            ? `FE-${odp.factura_electronica} — ${odp.fecha_factura ? format(new Date(odp.fecha_factura), 'dd/MM/yyyy') : ''}`
-                                            : '')
-                                    }
-                                </td>
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
-
-            {/* Grilla inferior (Checkboxes + ODC) */}
-            <div className="flex gap-1 mt-1 bg-white">
-                <table className="excel-table w-1/4">
-                    <tbody>
-                        <tr><td className="font-bold text-center py-1 border-b border-black">MATIZADO</td><td className="w-8 text-center font-bold text-base border-b border-black">{odp.matizado ? 'X' : ''}</td></tr>
-                        <tr><td className="font-bold text-center py-1 border-b border-black">ACARREO</td><td className="text-center font-bold text-base border-b border-black">{odp.acarreo ? 'X' : ''}</td></tr>
-                        <tr><td className="font-bold text-center py-1 border-b border-black">INSTALACIÓN</td><td className="text-center font-bold text-base border-b border-black">{odp.instalacion ? 'X' : ''}</td></tr>
-                    </tbody>
-                </table>
-                <table className="excel-table w-1/4">
-                    <tbody>
-                        <tr><td className="font-bold text-center py-1 border-b border-black">PELICULA</td><td className="w-8 text-center font-bold text-base border-b border-black">{odp.pelicula ? 'X' : ''}</td></tr>
-                        <tr><td className="font-bold text-center py-1 border-b border-black">HUACAL</td><td className="text-center font-bold text-base border-b border-black">{odp.huacal ? 'X' : ''}</td></tr>
-                        <tr><td className="font-bold text-center py-1 border-b border-black">CARTÓN</td><td className="text-center font-bold text-base border-b border-black">{odp.carton ? 'X' : ''}</td></tr>
-                    </tbody>
-                </table>
-                <table className="excel-table w-1/2">
-                    <tbody>
-                        {(() => {
-                            const odcs: any[] = odp.saps?.[0]?.ordenes_compra || [];
-                            const extraOdcs = odcs.slice(3);
-                            return (<>
-                            <tr>
-                                <td rowSpan={3 + extraOdcs.length} className="font-bold align-top text-center border-r-2 border-r-black w-24 pt-1">
-                                    <div>PEDIDO EXTERNO</div>
-                                    {odp.pedidos_pv?.[0] && (<>
-                                        <div className="text-blue-600 font-bold text-[11px] mt-1">{odp.pedidos_pv[0].numero_pedido}</div>
-                                        <div className="text-blue-600 font-bold text-[9px]">{odp.pedidos_pv[0].proveedor}</div>
-                                    </>)}
-                                </td>
-                                <td className="text-center w-12 py-1">SAP</td>
-                                <td className="w-16 text-center text-[9px] font-bold">{odp.saps?.[0]?.numero_sap?.split('-').pop() || ''}</td>
-                                <td className="text-center w-12 py-1">ODC</td>
-                                <td className="w-20 text-center text-[9px] font-bold">{odcs[0]?.numero_odc?.split('-').pop() || ''}</td>
-                                <td className="text-center w-10 py-1">PROV</td>
-                                <td className="w-20 text-center text-[9px] font-bold">{odcs[0]?.proveedor || ''}</td>
-                            </tr>
-                            <tr>
-                                <td className="text-center py-1">COT</td>
-                                <td className="text-center text-[9px] font-bold">{odp.numero_cotizacion || odp.cotizaciones?.[0]?.numero_cot?.split('-').pop() || ''}</td>
-                                <td className="text-center py-1">ODC</td>
-                                <td className="text-center text-[9px] font-bold">{odcs[1]?.numero_odc?.split('-').pop() || ''}</td>
-                                <td className="text-center py-1">PROV</td>
-                                <td className="text-center text-[9px] font-bold">{odcs[1]?.proveedor || ''}</td>
-                            </tr>
-                            <tr>
-                                <td className="text-center py-1">TM</td>
-                                <td className="text-center text-[9px] font-bold">{odp.tomas_medidas?.[0]?.numero_tm?.split('-').pop() || ''}</td>
-                                <td className="text-center py-1">ODC</td>
-                                <td className="text-center text-[9px] font-bold">{odcs[2]?.numero_odc?.split('-').pop() || ''}</td>
-                                <td className="text-center py-1">PROV</td>
-                                <td className="text-center text-[9px] font-bold">{odcs[2]?.proveedor || ''}</td>
-                            </tr>
-                            {extraOdcs.map((odc: any) => (
-                                <tr key={odc.id}>
-                                    <td></td><td></td>
-                                    <td className="text-center py-1">ODC</td>
-                                    <td className="text-center text-[9px] font-bold">{odc.numero_odc?.split('-').pop()}</td>
-                                    <td className="text-center py-1">PROV</td>
-                                    <td className="text-center text-[9px] font-bold">{odc.proveedor}</td>
-                                </tr>
-                            ))}
-                            </>);
-                        })()}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* ---------- PIE DE PÁGINA ---------- */}
-            <div className="flex justify-between mt-1">
-                <span className="text-[7px] text-slate-500 italic font-bold uppercase">SECCIÓN EXCLUSIVA PARA PRODUCCIÓN Y DESPACHO</span>
-                <span className="text-[7px] text-slate-500">VTS-2026-003</span>
-            </div>
-        </div>
+    // ── Paginación de ítems ─────────────────────────────────────────────────
+    const totalItemPaginas = Math.max(1, Math.ceil(items.length / ITEMS_POR_PAGINA));
+    const itemPaginas = Array.from({ length: totalItemPaginas }, (_, i) =>
+        items.slice(i * ITEMS_POR_PAGINA, (i + 1) * ITEMS_POR_PAGINA)
     );
+    const totalPaginas = totalItemPaginas + (hasContinuacion ? 1 : 0);
+
+    // ── Totales (calculados una vez) ────────────────────────────────────────
+    const IVA_RATE = 0.19;
+    const valorTotal = Number(odp.valor_total || 0);
+    const subtotal = valorTotal / (1 + IVA_RATE);
+    const iva = valorTotal - subtotal;
+    const fmt = (v: number) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(v);
 
     return (
         <div className="print-root block w-[21.5cm] min-h-[29cm] print:min-h-0 bg-white shadow-xl print:shadow-none text-black font-sans text-[10px] mx-auto overflow-hidden print:overflow-visible">
@@ -358,15 +65,340 @@ const PrintableOP: React.FC<PrintableOPProps> = ({ odp }) => {
                 `}
             </style>
 
-            {/* ── PÁGINA 1 ── */}
-            <div className={hasContinuacion ? 'page-break' : ''}>
-                {Pagina1}
-            </div>
+            {/* ── PÁGINAS DE ÍTEMS ── */}
+            {itemPaginas.map((itemsPagina, pageIdx) => {
+                const isFirst = pageIdx === 0;
+                const isLast  = pageIdx === totalItemPaginas - 1;
+                const pageNum = pageIdx + 1;
+                const needsBreak = pageIdx < totalPaginas - 1;
+
+                return (
+                    <div key={pageIdx} className={`print-container p-2 print:p-0${needsBreak ? ' page-break' : ''}`}>
+
+                        {isFirst ? (
+                            <>
+                                {/* ---------- CABECERA COMPLETA ---------- */}
+                                <div className="flex justify-between items-end mb-1">
+                                    <div className="flex items-center w-1/3">
+                                        <TemplexLogo className="h-10 w-40 justify-start" />
+                                    </div>
+                                    <div className="w-1/3 text-center font-bold text-[11px] mb-2 uppercase tracking-[0.2em]">
+                                        ORDEN DE PRODUCCIÓN
+                                    </div>
+                                    <div className="w-1/3 flex justify-end mb-1">
+                                        <div className="border-[2px] border-black text-xl font-bold w-32 h-10 flex items-center justify-center">
+                                            {odp.numero_odp?.split('-').pop() || odp.numero_odp}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* ---------- DATOS CLIENTE ---------- */}
+                                <table className="excel-table thick-b mb-1">
+                                    <tbody>
+                                        <tr>
+                                            <td className="w-[30%] font-bold">FECHA: <span className="font-normal uppercase ml-1">{odp.fecha_creacion ? format(new Date(odp.fecha_creacion), 'dd/MM/yyyy') : ''}</span></td>
+                                            <td className="w-[45%] font-bold">CLIENTE: <span className="font-normal uppercase ml-1">{odp.cliente?.nombre_razon_social}</span></td>
+                                            <td className="w-[25%] font-bold">TEL: <span className="font-normal uppercase ml-1">{odp.cliente?.telefono}</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td colSpan={2} className="font-bold border-r-0">
+                                                <div className="flex items-center justify-between">
+                                                    <span>DIRECCION: <span className="font-normal uppercase ml-1">{odp.cliente?.direccion}</span></span>
+                                                    <span className="border-l border-black pl-2 ml-2">NIT O C.C: <span className="font-normal uppercase ml-1">{odp.cliente?.numero_documento || odp.cliente?.ruc_rut}</span></span>
+                                                </div>
+                                            </td>
+                                            <td className="font-bold">CEL: <span className="font-normal uppercase ml-1">{odp.cliente?.celular || odp.cliente?.telefono}</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td colSpan={2} className="font-bold border-r-0">
+                                                <div className="flex items-center justify-between">
+                                                    <span>FECHA ODP LISTO MATERIAL: <span className="font-normal uppercase ml-1">{odp.fecha_entrega ? format(new Date(odp.fecha_entrega), 'dd/MM/yyyy') : ''}</span></span>
+                                                    <span className="border-l border-black pl-2 ml-2">CORREO FACTURA ELECTRONICA: <span className="font-normal lowercase ml-1">{odp.cliente?.email}</span></span>
+                                                </div>
+                                            </td>
+                                            <td className="font-bold">SEGM: <span className="font-normal uppercase ml-1">{odp.cliente?.segmento}</span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+
+                                {/* ---------- DESCRIPCION (bloque fijo h-[88px]) ---------- */}
+                                <div className="h-[88px] overflow-hidden border-[2px] border-black mb-0">
+                                    <table className="excel-table" style={{ border: 'none' }}>
+                                        <tbody>
+                                            <tr>
+                                                <td className="font-bold w-12 text-center border-b-black uppercase" style={{ borderTop: 'none', borderLeft: 'none' }}>CANT</td>
+                                                <td className="font-bold text-center border-b-black uppercase tracking-widest" style={{ borderTop: 'none', borderRight: 'none' }}>PRODUCTO O SERVICIO</td>
+                                            </tr>
+                                            {svcPag1.length > 0 ? (
+                                                svcPag1.map((svc: any, idx: number) => (
+                                                    <tr key={idx}>
+                                                        <td className="h-8 font-bold text-center text-base align-middle">{svc.cantidad}</td>
+                                                        <td className="align-top p-1">
+                                                            <span className="whitespace-pre-line uppercase font-semibold text-[10px] leading-tight">
+                                                                <span className="font-bold">{svc.tipo_servicio}{svc.descripcion ? ': ' : ''}</span>{svc.descripcion}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td className="h-8 font-bold text-center text-base align-middle">{odp.cantidad_total || ''}</td>
+                                                    <td className="align-top p-1">
+                                                        <span className="whitespace-pre-line uppercase font-semibold text-[10px] leading-tight">
+                                                            <span className="font-bold">{odp.tipo_servicio}{odp.descripcion_pedido ? ': ' : ''}</span>{odp.descripcion_pedido}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {hasContinuacion && (
+                                    <div className="border-l-[2px] border-r-[2px] border-b-[2px] border-black bg-red-50 text-red-700 font-bold text-[9px] text-center py-0.5 mb-1 uppercase tracking-wider">
+                                        ▶ PRODUCTO / SERVICIO CONTINÚA EN PÁGINA SIGUIENTE
+                                    </div>
+                                )}
+                                {!hasContinuacion && <div className="mb-1" />}
+                            </>
+                        ) : (
+                            /* ---------- MINI-CABECERA (páginas 2+) ---------- */
+                            <div className="flex justify-between items-center mb-2">
+                                <TemplexLogo className="h-8 w-32 justify-start" />
+                                <div className="font-bold text-[11px] uppercase tracking-widest">ORDEN DE PRODUCCIÓN</div>
+                                <div className="border-[2px] border-black text-lg font-bold w-28 h-8 flex items-center justify-center">
+                                    {odp.numero_odp?.split('-').pop() || odp.numero_odp}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ---------- TABLA PRINCIPAL ---------- */}
+                        <table className="excel-table text-center uppercase">
+                            <thead>
+                                <tr className="font-bold">
+                                    <th rowSpan={3} className="w-8">ITEM</th>
+                                    <th rowSpan={3} className="w-6">CL</th>
+                                    <th rowSpan={3} className="w-8">ESP<br />mm</th>
+                                    <th rowSpan={3} className="w-8">CANT</th>
+                                    <th colSpan={2} className="w-[18%]">MEDIDA EXACTA</th>
+                                    <th colSpan={6}>ACABADOS</th>
+                                    <th rowSpan={3} className="w-10">MTS<br />PT</th>
+                                    <th rowSpan={3} className="w-[15%]">VALOR</th>
+                                    <th rowSpan={3} className="w-10">PROD</th>
+                                </tr>
+                                <tr className="font-bold fs-[8px]">
+                                    <th rowSpan={2}>Ancho (A)</th>
+                                    <th rowSpan={2}>Alto (H)</th>
+                                    <th colSpan={2}>PUL *</th>
+                                    <th rowSpan={2} className="w-7">Perf</th>
+                                    <th rowSpan={2} className="w-7">Boq.</th>
+                                    <th rowSpan={2} className="w-7">Des</th>
+                                    <th rowSpan={2} className="w-7">Otro**</th>
+                                </tr>
+                                <tr className="font-bold fs-[8px]">
+                                    <th className="w-6">A</th>
+                                    <th className="w-6">H</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {Array.from({ length: ITEMS_POR_PAGINA }).map((_, idx) => {
+                                    const item = itemsPagina[idx];
+                                    const globalIdx = pageIdx * ITEMS_POR_PAGINA + idx;
+                                    const letter = String.fromCharCode(65 + globalIdx);
+                                    return (
+                                        <tr key={idx} className="h-[20px]">
+                                            <td className="font-bold">{item ? letter : ''}</td>
+                                            <td className="font-bold">{item?.color?.substring(0, 2)?.toUpperCase() || ''}</td>
+                                            <td className="font-bold">{item?.espesor || ''}</td>
+                                            <td className="font-bold">{item?.cantidad || ''}</td>
+                                            <td className="font-bold">{item?.ancho_mm || ''}</td>
+                                            <td className="font-bold">{item?.alto_mm || ''}</td>
+                                            <td className="font-bold text-[8px]">{item?.pulidos || ''}</td>
+                                            <td className="font-bold text-[8px]">{item?.pulidos_h || ''}</td>
+                                            <td className="font-bold">{item?.perforaciones > 0 ? item.perforaciones : ''}</td>
+                                            <td className="font-bold">{item?.boquetes > 0 ? item.boquetes : ''}</td>
+                                            <td className="font-bold text-[8px] max-w-[20px] truncate">{item?.descuentos || ''}</td>
+                                            <td className="font-bold text-[8px] max-w-[30px] truncate">{item?.otros || ''}</td>
+                                            <td className="font-bold text-[8px] text-center">{item?.ancho_mm && item?.alto_mm ? ((item.ancho_mm / 1000) * (item.alto_mm / 1000)).toFixed(3) : ''}</td>
+                                            <td></td>
+                                            <td className="font-bold text-[8px] text-center">{item?.prod || ''}</td>
+                                        </tr>
+                                    );
+                                })}
+                                {/* Fila de totales solo en la última página de ítems */}
+                                {isLast && (
+                                    <>
+                                        <tr>
+                                            <td colSpan={13} rowSpan={3} className="text-left font-bold pt-1 align-top">
+                                                ASESOR: <span className="font-normal ml-2 uppercase text-[9px]">{odp.asesor?.nombre_completo || `${odp.asesor?.first_name} ${odp.asesor?.last_name}`}</span>
+                                            </td>
+                                            <td className="text-right font-bold text-[8px] pr-1 text-orange-600">SUBTOTAL</td>
+                                            <td className="text-right font-bold text-[9px] pr-1">{valorTotal > 0 ? `$ ${fmt(subtotal)}` : ''}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="text-right font-bold text-[8px] pr-1 text-orange-600">IVA</td>
+                                            <td className="text-right font-bold text-[9px] pr-1">{valorTotal > 0 ? `$ ${fmt(iva)}` : ''}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="text-right font-bold text-[8px] pr-1 text-orange-600">VALOR TOTAL</td>
+                                            <td className="text-right font-bold text-[9px] pr-1">{valorTotal > 0 ? `$ ${fmt(valorTotal)}` : ''}</td>
+                                        </tr>
+                                    </>
+                                )}
+                            </tbody>
+                        </table>
+
+                        {/* Notas pie de tabla + número de hoja */}
+                        <div className="flex justify-between items-end mt-1">
+                            <div className="text-[7.5px] italic font-bold">
+                                *BORDE PUL: Pulido/Brillado (P/B) - Pulido cerrado (PC) -Matado (MF) <br />
+                                ** ACABADOS: Radios (RAD), Chaflan (CHA).
+                            </div>
+                            {totalPaginas > 1 && (
+                                <div className="text-[7.5px] text-slate-500">
+                                    Hoja {pageNum} de {totalPaginas}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Contenido de cierre solo en la última página de ítems */}
+                        {isLast && (
+                            <>
+                                {/* ---------- OBSERVACIONES (bloque fijo h-[72px]) ---------- */}
+                                <div className="border-[2px] border-black p-2 mt-1 h-[72px] overflow-hidden bg-white">
+                                    <p className="font-bold uppercase tracking-widest mb-0.5 text-[10px]">
+                                        ENTREGA SOLICITADA - DIRECCION: <span className="font-normal">{odp.direccion_instalacion}</span>
+                                    </p>
+                                    <p className="font-bold uppercase tracking-widest mb-0.5 text-[10px]">OBSERVACIONES:</p>
+                                    <p className="font-normal uppercase text-[10px] leading-tight whitespace-pre-line">{odp.observaciones}</p>
+                                </div>
+
+                                {/* ---------- PROVEEDOR VIDRIO ---------- */}
+                                <div className="border-l-[2px] border-r-[2px] border-b-[2px] border-black p-1 bg-slate-50">
+                                    <div className="flex gap-4">
+                                        <span className="font-bold uppercase text-[10px]">PROVEEDOR VIDRIO: <span className="font-normal">{odp.proveedor_vidrio || ''}</span></span>
+                                        <span className="font-bold uppercase text-[10px]">PEDIDO N°: <span className="font-normal font-mono">{odp.numero_pedido_proveedor || ''}</span></span>
+                                    </div>
+                                </div>
+
+                                {/* ---------- FORMA DE PAGO ---------- */}
+                                <table className="excel-table mt-1 bg-white">
+                                    <tbody>
+                                        <tr><td colSpan={6} className="font-bold text-center fs-8 uppercase tracking-widest">FORMA DE PAGO</td></tr>
+                                        {(odp.pagos && odp.pagos.length > 0 ? odp.pagos : [null, null]).map((pago: any, i: number) => {
+                                            const fechaPago = pago?.fecha ? format(new Date(pago.fecha), 'dd/MM/yyyy') : '';
+                                            const recibo = [pago?.referencia_pago, fechaPago].filter(Boolean).join('  ');
+                                            return (
+                                                <tr key={i}>
+                                                    <td className="w-[10%] font-bold uppercase pl-2">RECIBO No:</td>
+                                                    <td className="w-[20%] text-[9px] font-bold pl-2">{recibo}</td>
+                                                    <td className="w-[15%] text-[9px] font-bold pl-2 uppercase">{pago?.metodo_pago || ''}</td>
+                                                    <td className="w-[25%] text-[9px] font-bold pl-2">{pago ? `$ ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(pago.monto))}` : ''}</td>
+                                                    <td className="w-[15%] font-bold uppercase pl-2">{i === 0 ? 'CODIGO:' : 'FE No.:'}</td>
+                                                    <td className="w-[15%] text-[9px] font-bold uppercase pl-2">
+                                                        {i === 0
+                                                            ? (() => {
+                                                                const codigos: Record<string, string> = {
+                                                                    'Suministro e Instalación': 'SUMINS01',
+                                                                    'Venta / Suministro': 'VTAVID01',
+                                                                    'Venta': 'VTAVID01',
+                                                                    'Mantenimiento': 'INS002',
+                                                                };
+                                                                const tipo = odp.tipo_servicio || odp.servicios_detalle?.[0]?.tipo_servicio || '';
+                                                                return codigos[tipo] || '';
+                                                            })()
+                                                            : (odp.factura_electronica
+                                                                ? `FE-${odp.factura_electronica} — ${odp.fecha_factura ? format(new Date(odp.fecha_factura), 'dd/MM/yyyy') : ''}`
+                                                                : '')
+                                                        }
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+
+                                {/* Grilla inferior (Checkboxes + ODC) */}
+                                <div className="flex gap-1 mt-1 bg-white">
+                                    <table className="excel-table w-1/4">
+                                        <tbody>
+                                            <tr><td className="font-bold text-center py-1 border-b border-black">MATIZADO</td><td className="w-8 text-center font-bold text-base border-b border-black">{odp.matizado ? 'X' : ''}</td></tr>
+                                            <tr><td className="font-bold text-center py-1 border-b border-black">ACARREO</td><td className="text-center font-bold text-base border-b border-black">{odp.acarreo ? 'X' : ''}</td></tr>
+                                            <tr><td className="font-bold text-center py-1 border-b border-black">INSTALACIÓN</td><td className="text-center font-bold text-base border-b border-black">{odp.instalacion ? 'X' : ''}</td></tr>
+                                        </tbody>
+                                    </table>
+                                    <table className="excel-table w-1/4">
+                                        <tbody>
+                                            <tr><td className="font-bold text-center py-1 border-b border-black">PELICULA</td><td className="w-8 text-center font-bold text-base border-b border-black">{odp.pelicula ? 'X' : ''}</td></tr>
+                                            <tr><td className="font-bold text-center py-1 border-b border-black">HUACAL</td><td className="text-center font-bold text-base border-b border-black">{odp.huacal ? 'X' : ''}</td></tr>
+                                            <tr><td className="font-bold text-center py-1 border-b border-black">CARTÓN</td><td className="text-center font-bold text-base border-b border-black">{odp.carton ? 'X' : ''}</td></tr>
+                                        </tbody>
+                                    </table>
+                                    <table className="excel-table w-1/2">
+                                        <tbody>
+                                            {(() => {
+                                                const odcs: any[] = odp.saps?.[0]?.ordenes_compra || [];
+                                                const extraOdcs = odcs.slice(3);
+                                                return (<>
+                                                <tr>
+                                                    <td rowSpan={3 + extraOdcs.length} className="font-bold align-top text-center border-r-2 border-r-black w-24 pt-1">
+                                                        <div>PEDIDO EXTERNO</div>
+                                                        {odp.pedidos_pv?.[0] && (<>
+                                                            <div className="text-blue-600 font-bold text-[11px] mt-1">{odp.pedidos_pv[0].numero_pedido}</div>
+                                                            <div className="text-blue-600 font-bold text-[9px]">{odp.pedidos_pv[0].proveedor}</div>
+                                                        </>)}
+                                                    </td>
+                                                    <td className="text-center w-12 py-1">SAP</td>
+                                                    <td className="w-16 text-center text-[9px] font-bold">{odp.saps?.[0]?.numero_sap?.split('-').pop() || ''}</td>
+                                                    <td className="text-center w-12 py-1">ODC</td>
+                                                    <td className="w-20 text-center text-[9px] font-bold">{odcs[0]?.numero_odc?.split('-').pop() || ''}</td>
+                                                    <td className="text-center w-10 py-1">PROV</td>
+                                                    <td className="w-20 text-center text-[9px] font-bold">{odcs[0]?.proveedor || ''}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="text-center py-1">COT</td>
+                                                    <td className="text-center text-[9px] font-bold">{odp.numero_cotizacion || odp.cotizaciones?.[0]?.numero_cot?.split('-').pop() || ''}</td>
+                                                    <td className="text-center py-1">ODC</td>
+                                                    <td className="text-center text-[9px] font-bold">{odcs[1]?.numero_odc?.split('-').pop() || ''}</td>
+                                                    <td className="text-center py-1">PROV</td>
+                                                    <td className="text-center text-[9px] font-bold">{odcs[1]?.proveedor || ''}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="text-center py-1">TM</td>
+                                                    <td className="text-center text-[9px] font-bold">{odp.tomas_medidas?.[0]?.numero_tm?.split('-').pop() || ''}</td>
+                                                    <td className="text-center py-1">ODC</td>
+                                                    <td className="text-center text-[9px] font-bold">{odcs[2]?.numero_odc?.split('-').pop() || ''}</td>
+                                                    <td className="text-center py-1">PROV</td>
+                                                    <td className="text-center text-[9px] font-bold">{odcs[2]?.proveedor || ''}</td>
+                                                </tr>
+                                                {extraOdcs.map((odc: any) => (
+                                                    <tr key={odc.id}>
+                                                        <td></td><td></td>
+                                                        <td className="text-center py-1">ODC</td>
+                                                        <td className="text-center text-[9px] font-bold">{odc.numero_odc?.split('-').pop()}</td>
+                                                        <td className="text-center py-1">PROV</td>
+                                                        <td className="text-center text-[9px] font-bold">{odc.proveedor}</td>
+                                                    </tr>
+                                                ))}
+                                                </>);
+                                            })()}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* ---------- PIE DE PÁGINA ---------- */}
+                                <div className="flex justify-between mt-1">
+                                    <span className="text-[7px] text-slate-500 italic font-bold uppercase">SECCIÓN EXCLUSIVA PARA PRODUCCIÓN Y DESPACHO</span>
+                                    <span className="text-[7px] text-slate-500">VTS-2026-003</span>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                );
+            })}
 
             {/* ── PÁGINA DE CONTINUACIÓN DE SERVICIOS (solo si desborda) ── */}
             {hasContinuacion && (
                 <div className="print-container p-2 print:p-0">
-                    {/* Mini-cabecera */}
                     <div className="flex justify-between items-center mb-2">
                         <TemplexLogo className="h-8 w-32 justify-start" />
                         <div className="font-bold text-[11px] uppercase tracking-widest">ORDEN DE PRODUCCIÓN — CONT.</div>
@@ -375,7 +407,6 @@ const PrintableOP: React.FC<PrintableOPProps> = ({ odp }) => {
                         </div>
                     </div>
 
-                    {/* Servicios restantes */}
                     <table className="excel-table mb-2">
                         <tbody>
                             <tr>
@@ -396,6 +427,10 @@ const PrintableOP: React.FC<PrintableOPProps> = ({ odp }) => {
                             ))}
                         </tbody>
                     </table>
+
+                    <div className="text-right text-[7.5px] text-slate-500 mt-1">
+                        Hoja {totalPaginas} de {totalPaginas}
+                    </div>
                 </div>
             )}
         </div>

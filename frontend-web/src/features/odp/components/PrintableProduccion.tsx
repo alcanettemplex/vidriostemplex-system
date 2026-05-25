@@ -6,7 +6,8 @@ interface PrintableProduccionProps {
     odp: any;
 }
 
-const ITEMS_POR_PAGINA = 10;
+const ITEMS_PAG1 = 10;
+const ITEMS_CONT = 18;
 
 /** Convierte un índice 0-based a letra: 0→A, 25→Z, 26→AA, 27→AB… */
 const getLetra = (idx: number): string => {
@@ -19,7 +20,9 @@ const getLetra = (idx: number): string => {
 
 const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
     const totalItems = odp.items?.length || 0;
-    const paginas = Math.ceil(Math.max(totalItems, ITEMS_POR_PAGINA) / ITEMS_POR_PAGINA);
+    const paginas = totalItems <= ITEMS_PAG1
+        ? 1
+        : 1 + Math.ceil((totalItems - ITEMS_PAG1) / ITEMS_CONT);
 
     // Números de PedidoPV para "PEDIDO EXTERNO"
     const numerosExterno = odp.pedidos_pv?.length > 0
@@ -46,7 +49,6 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
             </style>
 
             {Array.from({ length: paginas }, (_, pageIdx) => {
-                const esUltimaPagina = pageIdx === paginas - 1;
                 const odcs: any[] = odp.saps?.[0]?.ordenes_compra || [];
                 const extraOdcs = odcs.slice(3);
 
@@ -64,50 +66,74 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                         <div className="print-container p-2">
 
                             {/* ---------- CABECERA ---------- */}
-                            <div className="flex justify-between items-end mb-1">
-                                <div className="flex items-center w-1/3">
-                                    <TemplexLogo className="h-10 w-40 justify-start" />
-                                </div>
-                                <div className="w-1/3 text-center font-bold text-[13px] mb-2 uppercase tracking-[0.2em]">
-                                    ORDEN DE PRODUCCION
-                                    {pageIdx > 0 && (
-                                        <div className="text-[9px] text-slate-500 font-normal normal-case tracking-normal mt-0.5">
-                                            (Continuación)
+                            {pageIdx === 0 ? (
+                                <>
+                                <div className="flex justify-between items-end mb-1">
+                                    <div className="flex items-center w-1/3">
+                                        <TemplexLogo className="h-10 w-40 justify-start" />
+                                    </div>
+                                    <div className="w-1/3 text-center font-bold text-[13px] mb-2 uppercase tracking-[0.2em]">
+                                        ORDEN DE PRODUCCION
+                                    </div>
+                                    <div className="w-1/3 flex justify-end mb-1">
+                                        <div className="border-[2px] border-black text-xl font-bold w-32 h-10 flex items-center justify-center">
+                                            {odp.numero_odp?.split('-').pop() || odp.numero_odp}
                                         </div>
-                                    )}
-                                </div>
-                                <div className="w-1/3 flex justify-end mb-1">
-                                    <div className="border-[2px] border-black text-xl font-bold w-32 h-10 flex items-center justify-center">
-                                        {odp.numero_odp?.split('-').pop() || odp.numero_odp}
                                     </div>
                                 </div>
-                            </div>
+                                <table className="excel-table thick-b mb-1">
+                                    <tbody>
+                                        <tr>
+                                            <td className="w-[30%] font-bold">FECHA: <span className="font-normal uppercase ml-1">{odp.fecha_creacion ? format(new Date(odp.fecha_creacion), 'dd/MM/yyyy') : ''}</span></td>
+                                            <td className="w-[45%] font-bold">CLIENTE: <span className="font-normal uppercase ml-1">{odp.cliente?.nombre_razon_social}</span></td>
+                                            <td className="w-[25%] font-bold">TEL: <span className="font-normal uppercase ml-1">{odp.cliente?.telefono}</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td className="w-[30%] font-bold">DIRECCION: <span className="font-normal uppercase ml-1">{odp.cliente?.direccion}</span></td>
+                                            <td className="w-[45%] font-bold">NIT O C.C: <span className="font-normal uppercase ml-1">{odp.cliente?.numero_documento || odp.cliente?.ruc_rut}</span></td>
+                                            <td className="w-[25%] font-bold">CEL: <span className="font-normal uppercase ml-1">{odp.cliente?.celular || odp.cliente?.telefono}</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td className="w-[20%] font-bold border-r-0">
+                                                <span className="whitespace-nowrap">LISTO MATERIAL: <span className="font-normal uppercase ml-1">{odp.fecha_entrega ? format(new Date(odp.fecha_entrega), 'dd/MM/yyyy') : ''}</span></span>
+                                            </td>
+                                            <td className="font-bold">CORREO FACTURA ELECTRONICA: <span className="font-normal lowercase ml-1">{odp.cliente?.email}</span></td>
+                                            <td className="font-bold">SEGM: <span className="font-normal uppercase ml-1">{odp.cliente?.segmento}</span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                </>
+                            ) : (
+                                /* Cabecera compacta para páginas de continuación */
+                                <>
+                                <div className="flex justify-between items-end mb-1">
+                                    <div className="flex items-center w-1/3">
+                                        <TemplexLogo className="h-8 w-32 justify-start" />
+                                    </div>
+                                    <div className="w-1/3 text-center font-bold text-[11px] mb-1 uppercase tracking-[0.15em]">
+                                        ORDEN DE PRODUCCION<br />
+                                        <span className="text-[9px] tracking-normal">CONTINUACIÓN</span>
+                                    </div>
+                                    <div className="w-1/3 flex justify-end mb-1">
+                                        <div className="border-[2px] border-black text-xl font-bold w-32 h-10 flex items-center justify-center">
+                                            {odp.numero_odp?.split('-').pop() || odp.numero_odp}
+                                        </div>
+                                    </div>
+                                </div>
+                                <table className="excel-table thick-b mb-1">
+                                    <tbody>
+                                        <tr>
+                                            <td className="w-[30%] font-bold">FECHA: <span className="font-normal uppercase ml-1">{odp.fecha_creacion ? format(new Date(odp.fecha_creacion), 'dd/MM/yyyy') : ''}</span></td>
+                                            <td className="w-[45%] font-bold">CLIENTE: <span className="font-normal uppercase ml-1">{odp.cliente?.nombre_razon_social}</span></td>
+                                            <td className="w-[25%] font-bold">TEL: <span className="font-normal uppercase ml-1">{odp.cliente?.telefono}</span></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                </>
+                            )}
 
-                            {/* ---------- DATOS CLIENTE ---------- */}
-                            <table className="excel-table thick-b mb-1">
-                                <tbody>
-                                    <tr>
-                                        <td className="w-[30%] font-bold">FECHA: <span className="font-normal uppercase ml-1">{odp.fecha_creacion ? format(new Date(odp.fecha_creacion), 'dd/MM/yyyy') : ''}</span></td>
-                                        <td className="w-[45%] font-bold">CLIENTE: <span className="font-normal uppercase ml-1">{odp.cliente?.nombre_razon_social}</span></td>
-                                        <td className="w-[25%] font-bold">TEL: <span className="font-normal uppercase ml-1">{odp.cliente?.telefono}</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td className="w-[30%] font-bold">DIRECCION: <span className="font-normal uppercase ml-1">{odp.cliente?.direccion}</span></td>
-                                        <td className="w-[45%] font-bold">NIT O C.C: <span className="font-normal uppercase ml-1">{odp.cliente?.numero_documento || odp.cliente?.ruc_rut}</span></td>
-                                        <td className="w-[25%] font-bold">CEL: <span className="font-normal uppercase ml-1">{odp.cliente?.celular || odp.cliente?.telefono}</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td className="w-[20%] font-bold border-r-0">
-                                            <span className="whitespace-nowrap">LISTO MATERIAL: <span className="font-normal uppercase ml-1">{odp.fecha_entrega ? format(new Date(odp.fecha_entrega), 'dd/MM/yyyy') : ''}</span></span>
-                                        </td>
-                                        <td className="font-bold">CORREO FACTURA ELECTRONICA: <span className="font-normal lowercase ml-1">{odp.cliente?.email}</span></td>
-                                        <td className="font-bold">SEGM: <span className="font-normal uppercase ml-1">{odp.cliente?.segmento}</span></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-
-                            {/* ---------- DESCRIPCION ---------- */}
-                            <table className="excel-table mb-1">
+                            {/* ---------- DESCRIPCION — solo página 1 ---------- */}
+                            {pageIdx === 0 && (<table className="excel-table mb-1">
                                 <tbody>
                                     <tr>
                                         <td className="font-bold w-12 text-center border-b-black uppercase">CANT</td>
@@ -135,7 +161,7 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                                         </tr>
                                     )}
                                 </tbody>
-                            </table>
+                            </table>)}
 
                             {/* ---------- TABLA PRINCIPAL - MODO TALLER ---------- */}
                             <table className="excel-table text-center uppercase">
@@ -166,8 +192,9 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {Array.from({ length: ITEMS_POR_PAGINA }, (_, rowIdx) => {
-                                        const absoluteIdx = pageIdx * ITEMS_POR_PAGINA + rowIdx;
+                                    {Array.from({ length: pageIdx === 0 ? ITEMS_PAG1 : ITEMS_CONT }, (_, rowIdx) => {
+                                        const startIdx = pageIdx === 0 ? 0 : ITEMS_PAG1 + (pageIdx - 1) * ITEMS_CONT;
+                                        const absoluteIdx = startIdx + rowIdx;
                                         const item = odp.items?.[absoluteIdx];
                                         const letra = getLetra(absoluteIdx);
                                         return (
