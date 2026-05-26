@@ -89,6 +89,9 @@ export const createNoConformidad = async (req: Request, res: Response) => {
       observaciones: `No Conformidad ${numero_reporte} - ${causa || tipo_error}`,
       forma_pago: odp.forma_pago,
       cantidad_total: items_solucion?.length || 1,
+      instalacion: odp.instalacion,
+      acarreo: odp.acarreo,
+      es_garantia: true,
       es_no_conformidad: true,
       odp_padre_id: odp.id,
     });

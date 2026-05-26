@@ -600,6 +600,10 @@ export const updateODP = async (req: Request, res: Response) => {
       delete (data as any).numero_pedido_proveedor;
     }
 
+    // Campos DATE: cadena vacía '' causa error en PostgreSQL. Convertir a null.
+    if ((data as any).fecha_entrega === '') delete (data as any).fecha_entrega;
+    if ((data as any).fecha_factura === '') delete (data as any).fecha_factura;
+
     // Actualizar campos de la ODP (incluyendo los booleanos, JSONs, y observaciones nuevas)
     await odp.update(data as any, { transaction });
 
