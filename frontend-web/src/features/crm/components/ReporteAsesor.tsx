@@ -19,11 +19,32 @@ const ETAPA_CONFIG: Record<string, { label: string; color: string; bg: string }>
   PERDIDO:        { label: 'Perdido',      color: 'bg-rose-500',    bg: 'bg-rose-50' },
 };
 
-interface KPIProps { label: string; value: string; sub?: string; icon: React.ReactNode; border: string; bg: string; }
-const KPI: React.FC<KPIProps> = ({ label, value, sub, icon, border, bg }) => (
+// ─── InfoTooltip ──────────────────────────────────────────────────────────────
+const InfoTooltip: React.FC<{ text: string }> = ({ text }) => (
+  <div className="relative group inline-flex ml-1.5 flex-shrink-0">
+    <button
+      type="button"
+      className="w-4 h-4 rounded-full bg-slate-200 text-slate-500 text-[9px] font-black flex items-center justify-center hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
+    >?</button>
+    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-slate-800 text-white text-[11px] rounded-xl p-3 shadow-xl z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none leading-snug">
+      {text}
+      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+    </div>
+  </div>
+);
+
+// ─── KPI card ─────────────────────────────────────────────────────────────────
+interface KPIProps {
+  label: string; value: string; sub?: string;
+  icon: React.ReactNode; border: string; bg: string; tooltip?: string;
+}
+const KPI: React.FC<KPIProps> = ({ label, value, sub, icon, border, bg, tooltip }) => (
   <div className={`bg-white rounded-2xl p-5 border border-slate-100 shadow-sm border-l-4 ${border} flex flex-col gap-1.5`}>
     <div className="flex items-center justify-between">
-      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
+      <div className="flex items-center">
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
+        {tooltip && <InfoTooltip text={tooltip} />}
+      </div>
       <div className={`w-8 h-8 rounded-xl ${bg} flex items-center justify-center`}>{icon}</div>
     </div>
     <p className="text-2xl font-black text-slate-800 leading-none">{value}</p>
@@ -112,6 +133,54 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
 
   const maxEtapa = Math.max(...etapasActivas.map(([, c]) => c), 1);
 
+  const KPIS_SECUNDARIOS = [
+    {
+      label: 'Aprobados', val: leads_aprobados,
+      desc: 'Leads cerrados como ganados en el período',
+      color: 'bg-emerald-50 border-emerald-100', txt: 'text-emerald-700',
+      tooltip: 'Leads cerrados exitosamente como APROBADO. Es la métrica de resultado más importante del asesor: refleja cuántos negocios reales generó en el período.',
+    },
+    {
+      label: 'Perdidos', val: leads_perdidos,
+      desc: 'Leads cerrados sin conversión en el período',
+      color: 'bg-rose-50 border-rose-100', txt: 'text-rose-600',
+      tooltip: 'Leads cerrados como PERDIDO con motivo registrado. Ver la sección "Razones de Pérdida" para entender qué está fallando en el proceso.',
+    },
+    {
+      label: 'Frío', val: (leads_por_etapa as any)['FRIO'] || 0,
+      desc: 'Leads pausados por baja probabilidad de cierre',
+      color: 'bg-sky-50 border-sky-100', txt: 'text-sky-600',
+      tooltip: 'Leads marcados como FRÍO: el cliente dejó de responder tras múltiples intentos. No están descartados definitivamente, pueden reactivarse si el cliente vuelve a tomar contacto.',
+    },
+    {
+      label: 'T° 1ª Respuesta',
+      val: `${tiempo_prom_primera_respuesta_h}h`,
+      desc: 'Horas promedio hasta el primer contacto con el lead',
+      color: tiempo_prom_primera_respuesta_h > 4 ? 'bg-rose-50 border-rose-100' : 'bg-amber-50 border-amber-100',
+      txt: tiempo_prom_primera_respuesta_h > 4 ? 'text-rose-600' : 'text-amber-600',
+      tooltip: 'Horas promedio entre que se asigna el lead al asesor y su primer intento de contacto registrado. Más de 4 horas (rojo) indica demora en atender nuevas oportunidades. Lo ideal es contactar en menos de 2 horas.',
+    },
+  ];
+
+  const ACTIVIDAD_ITEMS = [
+    {
+      label: 'Contactos', val: contactos_realizados, icon: '📞',
+      tooltip: 'Intentos de contacto con el cliente registrados en el período. Cada llamada, mensaje o reunión anotada en el sistema cuenta aquí.',
+    },
+    {
+      label: 'Seguimientos', val: seguimientos, icon: '🔄',
+      tooltip: 'Intentos de seguimiento adicionales tras el primer contacto. Cada toque de "seguimiento" que el asesor registra en el lead suma a este contador.',
+    },
+    {
+      label: 'Movimientos', val: cambios_estado, icon: '↔️',
+      tooltip: 'Cambios de etapa realizados por el asesor durante el período (ej: Asignado→En Contacto, Cotizando→Aprobado). Refleja la actividad de avance en el pipeline.',
+    },
+    {
+      label: 'T° Respuesta', val: `${tiempo_prom_primera_respuesta_h}h`, icon: '⏱',
+      tooltip: 'Tiempo promedio en horas desde la asignación del lead hasta el primer contacto registrado. Mide la agilidad de respuesta del asesor ante nuevas oportunidades.',
+    },
+  ];
+
   return (
     <div className="space-y-5 pb-10">
 
@@ -124,7 +193,6 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Selector de asesor (solo admin/gerencia) */}
           {esVistaGlobal && asesores.length > 0 && (
             <div className="relative">
               <button
@@ -170,37 +238,41 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
 
       {/* KPIs principales */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KPI label="Leads Asignados" value={String(leads_asignados)}
-          sub={`${leads_activos} activos`}
+        <KPI
+          label="Leads Asignados" value={String(leads_asignados)} sub={`${leads_activos} activos`}
           icon={<IconLeads size={16} className="text-violet-600" />}
-          border="border-l-violet-500" bg="bg-violet-50" />
-        <KPI label="Contactos" value={String(contactos_realizados)}
-          sub={`${seguimientos} seguimientos`}
+          border="border-l-violet-500" bg="bg-violet-50"
+          tooltip="Total de leads que el asesor tiene o tuvo asignados en el período. Incluye todos los estados: activos, aprobados, perdidos y fríos. Es el volumen total de trabajo gestionado."
+        />
+        <KPI
+          label="Contactos" value={String(contactos_realizados)} sub={`${seguimientos} seguimientos`}
           icon={<IconActivity size={16} className="text-blue-600" />}
-          border="border-l-blue-500" bg="bg-blue-50" />
-        <KPI label="Tasa de Conversión" value={`${tasa_conversion}%`}
-          sub={`${leads_aprobados} aprobados`}
+          border="border-l-blue-500" bg="bg-blue-50"
+          tooltip="Número de intentos de contacto registrados por el asesor. Los seguimientos son interacciones adicionales después del primer contacto (recordatorios, actualizaciones, re-consultas)."
+        />
+        <KPI
+          label="Tasa de Conversión" value={`${tasa_conversion}%`} sub={`${leads_aprobados} aprobados`}
           icon={<IconTarget size={16} className="text-emerald-600" />}
-          border="border-l-emerald-500" bg="bg-emerald-50" />
-        <KPI label="Monto Gestionado" value={fmtCOP(monto_gestionado)}
-          sub={`${cambios_estado} movimientos`}
+          border="border-l-emerald-500" bg="bg-emerald-50"
+          tooltip="Porcentaje de los leads del asesor que cerraron como APROBADO. Verde ≥30%, amarillo ≥15%, rojo <15%. Comparar con el promedio del equipo para evaluar rendimiento relativo."
+        />
+        <KPI
+          label="Monto Gestionado" value={fmtCOP(monto_gestionado)} sub={`${cambios_estado} movimientos`}
           icon={<IconDollar size={16} className="text-indigo-600" />}
-          border="border-l-indigo-500" bg="bg-indigo-50" />
+          border="border-l-indigo-500" bg="bg-indigo-50"
+          tooltip="Suma de las cotizaciones proyectadas de todos los leads asignados al asesor. Refleja el valor total del pipeline que está gestionando, sin importar si ya cerraron o no."
+        />
       </div>
 
       {/* KPIs secundarios */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Aprobados', val: leads_aprobados, desc: 'Leads cerrados como ganados en el periodo', color: 'bg-emerald-50 border-emerald-100', txt: 'text-emerald-700' },
-          { label: 'Perdidos',  val: leads_perdidos,  desc: 'Leads cerrados sin conversión en el periodo', color: 'bg-rose-50 border-rose-100',       txt: 'text-rose-600'    },
-          { label: 'Frío',      val: (leads_por_etapa as any)['FRIO'] || 0, desc: 'Leads pausados por baja probabilidad de cierre', color: 'bg-sky-50 border-sky-100', txt: 'text-sky-600' },
-          { label: 'T° 1ª Respuesta', val: `${tiempo_prom_primera_respuesta_h}h`, desc: 'Horas promedio hasta el primer contacto con el lead',
-            color: tiempo_prom_primera_respuesta_h > 4 ? 'bg-rose-50 border-rose-100' : 'bg-amber-50 border-amber-100',
-            txt: tiempo_prom_primera_respuesta_h > 4 ? 'text-rose-600' : 'text-amber-600' },
-        ].map(k => (
+        {KPIS_SECUNDARIOS.map(k => (
           <div key={k.label} className={`${k.color} border rounded-xl p-4 flex items-center gap-3`}>
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase">{k.label}</p>
+              <div className="flex items-center">
+                <p className="text-[10px] font-black text-slate-400 uppercase">{k.label}</p>
+                <InfoTooltip text={k.tooltip} />
+              </div>
               <p className={`text-xl font-black ${k.txt}`}>{k.val}</p>
               <p className="text-[10px] text-slate-400 font-medium mt-0.5 leading-snug">{k.desc}</p>
             </div>
@@ -217,12 +289,15 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
             <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center">
               <IconBarChart size={16} className="text-amber-600" />
             </div>
-            <div>
-              <h3 className="font-black text-slate-800 text-sm">Embudo Personal</h3>
-              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Leads activos por etapa</p>
+            <div className="flex items-center flex-1">
+              <div>
+                <h3 className="font-black text-slate-800 text-sm">Embudo Personal</h3>
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Leads activos por etapa</p>
+              </div>
+              <InfoTooltip text="Distribución de los leads activos del asesor entre las etapas del pipeline. El cuello de botella (⚠) es la etapa con mayor acumulación relativa, indicando dónde se están estancando los leads." />
             </div>
             {etapa_cuello && (
-              <span className="ml-auto text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100">
+              <span className="ml-auto text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100 flex-shrink-0">
                 ⚠ Cuello: {ETAPA_CONFIG[etapa_cuello]?.label || etapa_cuello}
               </span>
             )}
@@ -255,16 +330,22 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
 
           {/* Resultados (aprobados/perdidos/fríos) */}
           {etapasResultado.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-50 grid grid-cols-3 gap-3 text-center">
-              {etapasResultado.map(([etapa, count]) => {
-                const cfg = ETAPA_CONFIG[etapa];
-                return (
-                  <div key={etapa}>
-                    <p className="text-lg font-black text-slate-800">{count}</p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase">{cfg?.label || etapa}</p>
-                  </div>
-                );
-              })}
+            <div className="mt-4 pt-4 border-t border-slate-50">
+              <div className="flex items-center mb-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Resultados del período</p>
+                <InfoTooltip text="Leads cerrados en el período distribuidos por resultado: Aprobado (ganados), Perdido (descartados con motivo), Frío (sin respuesta del cliente)." />
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                {etapasResultado.map(([etapa, count]) => {
+                  const cfg = ETAPA_CONFIG[etapa];
+                  return (
+                    <div key={etapa}>
+                      <p className="text-lg font-black text-slate-800">{count}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">{cfg?.label || etapa}</p>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -277,15 +358,18 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
               <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center">
                 <IconTarget size={16} className="text-rose-500" />
               </div>
-              <div>
-                <h3 className="font-black text-slate-800 text-sm">Razones de Pérdida</h3>
-                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Motivos registrados al cerrar un lead como PERDIDO en el periodo</p>
+              <div className="flex items-center">
+                <div>
+                  <h3 className="font-black text-slate-800 text-sm">Razones de Pérdida</h3>
+                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">Motivos registrados al cerrar un lead como PERDIDO</p>
+                </div>
+                <InfoTooltip text="Motivos que el asesor registró al cerrar leads como PERDIDO en el período. Cada barra es proporcional al total de pérdidas. Identificar los motivos más frecuentes permite ajustar la estrategia de ventas." />
               </div>
             </div>
             {motivosList.length === 0 ? (
               <div className="text-center py-4">
                 <p className="text-2xl mb-1">🎯</p>
-                <p className="text-sm font-bold text-slate-400">Sin pérdidas en este periodo</p>
+                <p className="text-sm font-bold text-slate-400">Sin pérdidas en este período</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -315,22 +399,23 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
               <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center">
                 <IconCheck size={16} className="text-blue-600" />
               </div>
-              <div>
-                <h3 className="font-black text-slate-800 text-sm">Actividad Total</h3>
-                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Resumen de todas las interacciones registradas por el asesor en el periodo</p>
+              <div className="flex items-center">
+                <div>
+                  <h3 className="font-black text-slate-800 text-sm">Actividad Total</h3>
+                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">Todas las interacciones registradas en el período</p>
+                </div>
+                <InfoTooltip text="Resumen cuantitativo de toda la actividad del asesor: contactos intentados, seguimientos realizados, cambios de etapa y velocidad de respuesta. Refleja el nivel de intensidad de trabajo, independientemente de los resultados." />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'Contactos', val: contactos_realizados, icon: '📞' },
-                { label: 'Seguimientos', val: seguimientos, icon: '🔄' },
-                { label: 'Movimientos', val: cambios_estado, icon: '↔️' },
-                { label: 'T° Respuesta', val: `${tiempo_prom_primera_respuesta_h}h`, icon: '⏱' },
-              ].map(item => (
+              {ACTIVIDAD_ITEMS.map(item => (
                 <div key={item.label} className="bg-slate-50 rounded-xl p-3 border border-slate-100 text-center">
                   <span className="text-lg">{item.icon}</span>
                   <p className="text-lg font-black text-slate-800 mt-0.5">{item.val}</p>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wide">{item.label}</p>
+                  <div className="flex items-center justify-center">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wide">{item.label}</p>
+                    <InfoTooltip text={item.tooltip} />
+                  </div>
                 </div>
               ))}
             </div>

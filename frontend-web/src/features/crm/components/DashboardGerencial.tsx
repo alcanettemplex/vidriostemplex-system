@@ -1,37 +1,54 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  RefreshCw, TrendingUp, TrendingDown, ArrowUpRight,
-  CheckCircle2, XCircle, Clock, Trophy, Flame
-} from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, CheckCircle2, XCircle, Clock, Trophy } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiGetCRMStats } from '../crmService';
-import { IconDollar, IconTarget, IconLeads, IconUserCheck, IconTrophy, IconSparkles, IconZap, IconCheck, IconBarChart, IconClock } from './CRMIcons';
+import { IconDollar, IconTarget, IconLeads, IconUserCheck, IconTrophy, IconSparkles, IconCheck, IconBarChart, IconClock, IconActivity } from './CRMIcons';
 
-// ─── Formatters ────────────────────────────────────────────────────────────────
+// ─── Formatters ───────────────────────────────────────────────────────────────
 const fmtCOP = (v: number, compact = false) =>
   new Intl.NumberFormat('es-CO', {
     style: 'currency', currency: 'COP', maximumFractionDigits: 0,
     ...(compact ? { notation: 'compact' } : {})
   }).format(v);
 
-const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio',
+  'Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-// ─── KPI Card estilo Stitch (borde izquierdo de color) ─────────────────────────
+// ─── InfoTooltip ──────────────────────────────────────────────────────────────
+const InfoTooltip: React.FC<{ text: string }> = ({ text }) => (
+  <div className="relative group inline-flex ml-1.5 flex-shrink-0">
+    <button
+      type="button"
+      className="w-4 h-4 rounded-full bg-slate-200 text-slate-500 text-[9px] font-black flex items-center justify-center hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
+    >?</button>
+    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-slate-800 text-white text-[11px] rounded-xl p-3 shadow-xl z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none leading-snug">
+      {text}
+      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+    </div>
+  </div>
+);
+
+// ─── KPI principal (borde izquierdo de color) ─────────────────────────────────
 interface KPIStitchProps {
-  label: string; value: string; sub?: string;
+  label: string; value: string; sub?: string; tooltip?: string;
   icon: React.ReactNode; accentColor: string; borderColor: string;
   trend?: number; trendLabel?: string;
 }
-const KPIStitch: React.FC<KPIStitchProps> = ({ label, value, sub, icon, accentColor, borderColor, trend, trendLabel }) => (
+const KPIStitch: React.FC<KPIStitchProps> = ({
+  label, value, sub, tooltip, icon, accentColor, borderColor, trend, trendLabel
+}) => (
   <div className={`bg-white rounded-2xl p-5 border border-slate-100 shadow-sm border-l-4 ${borderColor} hover:shadow-md transition-all duration-200 flex flex-col gap-2`}>
     <div className="flex items-center justify-between">
-      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
-      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${accentColor}`}>
+      <div className="flex items-center">
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
+        {tooltip && <InfoTooltip text={tooltip} />}
+      </div>
+      <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${accentColor}`}>
         {icon}
       </div>
     </div>
     <p className="text-2xl font-black text-slate-800 leading-none">{value}</p>
-    {sub && <p className="text-[11px] text-slate-400 font-medium">{sub}</p>}
+    {sub && <p className="text-[11px] text-slate-400 font-medium leading-snug">{sub}</p>}
     {trend !== undefined && (
       <div className={`flex items-center gap-1 text-[11px] font-bold mt-1 ${trend >= 20 ? 'text-emerald-600' : trend > 0 ? 'text-amber-500' : 'text-slate-400'}`}>
         {trend >= 20 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
@@ -41,22 +58,28 @@ const KPIStitch: React.FC<KPIStitchProps> = ({ label, value, sub, icon, accentCo
   </div>
 );
 
-// ─── KPI Secundario (mini) ─────────────────────────────────────────────────────
-interface MiniKPIProps { label: string; value: string; icon: React.ReactNode; bg: string; desc?: string; }
-const MiniKPI: React.FC<MiniKPIProps> = ({ label, value, icon, bg, desc }) => (
+// ─── KPI secundario (mini) ────────────────────────────────────────────────────
+interface MiniKPIProps {
+  label: string; value: string; icon: React.ReactNode;
+  bg: string; desc?: string; tooltip?: string;
+}
+const MiniKPI: React.FC<MiniKPIProps> = ({ label, value, icon, bg, desc, tooltip }) => (
   <div className={`${bg} rounded-xl p-4 flex items-center gap-3`}>
     <div className="w-8 h-8 rounded-lg bg-white/60 flex items-center justify-center flex-shrink-0 shadow-sm">
       {icon}
     </div>
-    <div>
-      <p className="text-[10px] font-black text-slate-500 uppercase tracking-wide">{label}</p>
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center">
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-wide">{label}</p>
+        {tooltip && <InfoTooltip text={tooltip} />}
+      </div>
       <p className="text-lg font-black text-slate-800">{value}</p>
       {desc && <p className="text-[10px] text-slate-400 font-medium mt-0.5 leading-snug">{desc}</p>}
     </div>
   </div>
 );
 
-// ─── Donut SVG de eficiencia ───────────────────────────────────────────────────
+// ─── Donut de eficiencia ──────────────────────────────────────────────────────
 const DonutChart: React.FC<{ pct: number; color: string }> = ({ pct, color }) => {
   const r = 52, circ = 2 * Math.PI * r;
   const dash = (pct / 100) * circ;
@@ -72,17 +95,26 @@ const DonutChart: React.FC<{ pct: number; color: string }> = ({ pct, color }) =>
         style={{ transition: 'stroke-dasharray 1s ease-in-out' }}
       />
       <text x="65" y="60" textAnchor="middle" fontSize="18" fontWeight="900" fill="#1e293b">{pct}%</text>
-      <text x="65" y="76" textAnchor="middle" fontSize="8" fontWeight="700" fill="#94a3b8" letterSpacing="1">SUCCESS RATE</text>
+      <text x="65" y="76" textAnchor="middle" fontSize="8" fontWeight="700" fill="#94a3b8" letterSpacing="1">TASA ÉXITO</text>
     </svg>
   );
 };
 
-// ─── Barra de pipeline ─────────────────────────────────────────────────────────
-const PipelineBar: React.FC<{ label: string; count: number; total: number; color: string; pct: number }> = ({ label, count, total, color, pct }) => (
+// ─── Barra de pipeline ────────────────────────────────────────────────────────
+const PipelineBar: React.FC<{
+  label: string; count: number; total: number;
+  color: string; pct: number; tooltip?: string;
+}> = ({ label, count, total, color, pct, tooltip }) => (
   <div className="space-y-1.5">
     <div className="flex items-center justify-between">
-      <span className="text-xs font-bold text-slate-600">{label}</span>
-      <span className="text-xs font-black text-slate-500">{pct.toFixed(1)}%</span>
+      <div className="flex items-center">
+        <span className="text-xs font-bold text-slate-600">{label}</span>
+        {tooltip && <InfoTooltip text={tooltip} />}
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-black text-slate-500">{count}</span>
+        <span className="text-[10px] text-slate-300 font-bold">{pct.toFixed(1)}%</span>
+      </div>
     </div>
     <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden">
       <div className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ${color}`} style={{ width: `${pct}%` }} />
@@ -90,12 +122,10 @@ const PipelineBar: React.FC<{ label: string; count: number; total: number; color
   </div>
 );
 
-// ─── Avatar de asesor ──────────────────────────────────────────────────────────
+// ─── Card de asesor ───────────────────────────────────────────────────────────
 const AVATAR_COLORS = [
-  'from-indigo-400 to-violet-500',
-  'from-emerald-400 to-teal-500',
-  'from-amber-400 to-orange-500',
-  'from-rose-400 to-pink-500',
+  'from-indigo-400 to-violet-500', 'from-emerald-400 to-teal-500',
+  'from-amber-400 to-orange-500',  'from-rose-400 to-pink-500',
   'from-blue-400 to-cyan-500',
 ];
 const ETAPA_COLORS: Record<string, string> = {
@@ -105,11 +135,11 @@ const ETAPA_COLORS: Record<string, string> = {
 };
 const ETAPA_LABELS: Record<string, string> = {
   NUEVO: 'Nuevo', ASIGNADO: 'Asig.', EN_CONTACTO: 'Contacto',
-  COTIZANDO: 'Cotiz.', VISITA_TECNICA: 'V.Tec.', FRIO: 'Frío',
-  APROBADO: 'Apro.', PERDIDO: 'Perd.',
+  COTIZANDO: 'Cotiz.', VISITA_TECNICA: 'V.Tec.',
+  FRIO: 'Frío', APROBADO: 'Apro.', PERDIDO: 'Perd.',
 };
 
-const AsesorCardStitch: React.FC<{
+const AsesorCard: React.FC<{
   idx: number; nombre: string; total: number;
   aprobados: number; perdidos: number; tasa: number; monto: number;
   porEstado?: Record<string, number>; etapaCuello?: string | null;
@@ -118,14 +148,13 @@ const AsesorCardStitch: React.FC<{
   const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null;
 
   const etapasActivas = porEstado
-    ? Object.entries(porEstado).filter(([e, c]) => c > 0 && !['APROBADO','PERDIDO'].includes(e))
+    ? Object.entries(porEstado).filter(([e, c]) => c > 0 && !['APROBADO', 'PERDIDO', 'NUEVO'].includes(e))
     : [];
   const totalActivos = etapasActivas.reduce((s, [, c]) => s + c, 0) || 1;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 p-4 hover:shadow-md transition-all duration-200">
       <div className="flex items-center gap-4">
-        {/* Avatar */}
         <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} flex items-center justify-center font-black text-white text-sm flex-shrink-0 shadow-md`}>
           {initials}
         </div>
@@ -135,28 +164,33 @@ const AsesorCardStitch: React.FC<{
             <p className="font-black text-slate-800 text-sm truncate">{nombre}</p>
           </div>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide mt-0.5">{total} leads gestionados</p>
-          {/* Mini barra de conversión */}
           <div className="mt-2 flex items-center gap-2">
             <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div className="h-full bg-indigo-500 rounded-full transition-all duration-700" style={{ width: `${tasa}%` }} />
             </div>
-            <span className={`text-[10px] font-black ${tasa >= 30 ? 'text-emerald-600' : tasa >= 15 ? 'text-amber-500' : 'text-rose-500'}`}>{tasa}%</span>
+            <span className={`text-[10px] font-black ${tasa >= 30 ? 'text-emerald-600' : tasa >= 15 ? 'text-amber-500' : 'text-rose-500'}`}>
+              {tasa}% conv.
+            </span>
           </div>
         </div>
-        {/* Stats */}
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           <p className="text-sm font-black text-slate-700">{fmtCOP(monto, true)}</p>
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600"><CheckCircle2 className="w-3 h-3" />{aprobados}</span>
-            <span className="flex items-center gap-0.5 text-[10px] font-bold text-rose-500"><XCircle className="w-3 h-3" />{perdidos}</span>
+            <span className="flex items-center gap-0.5 text-[10px] font-bold text-emerald-600">
+              <CheckCircle2 className="w-3 h-3" />{aprobados}
+            </span>
+            <span className="flex items-center gap-0.5 text-[10px] font-bold text-rose-500">
+              <XCircle className="w-3 h-3" />{perdidos}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Barra segmentada por etapa (cuello de botella) */}
+      {/* Barra segmentada por etapa */}
       {etapasActivas.length > 0 && (
         <div className="mt-3 pt-3 border-t border-slate-50">
-          <div className="flex items-center gap-1 h-2 rounded-full overflow-hidden bg-slate-100">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Distribución de leads activos</p>
+          <div className="flex items-center gap-0.5 h-2 rounded-full overflow-hidden bg-slate-100">
             {etapasActivas.map(([etapa, count]) => (
               <div
                 key={etapa}
@@ -187,7 +221,7 @@ const AsesorCardStitch: React.FC<{
   );
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════════════════════
 interface Props { esVistaGlobal: boolean; mes?: number; anio?: number; }
 
 const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
@@ -205,7 +239,6 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
 
   const periodoLabel = mes && anio ? `${MONTH_NAMES[mes - 1]} ${anio}` : 'Acumulado';
 
-  // ─── Skeleton ──────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -226,18 +259,25 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
 
   const {
     total = 0, monto_total_proyectado = 0, tasa_conversion = 0,
-    convertidos_a_cliente = 0,
     nuevos_clientes = 0, nuevos_prospectos = 0, clientes_recurrentes = 0,
     leads_con_odp = 0, leads_aprobados_sin_odp = 0,
     monto_real_aprobados = 0,
-    ticket_promedio_proyectado = 0, tiempo_promedio_cierre_dias = 0,
+    tiempo_promedio_cierre_dias = 0,
     stats_por_asesor = [], por_estado = {}
   } = stats;
 
-  const aprobados  = (por_estado as any)['APROBADO']  || 0;
-  const perdidos   = (por_estado as any)['PERDIDO']   || 0;
-  const frios      = (por_estado as any)['FRIO']      || 0;
-  const activos    = total - aprobados - perdidos - frios;
+  const aprobados = (por_estado as any)['APROBADO']       || 0;
+  const perdidos  = (por_estado as any)['PERDIDO']        || 0;
+  const frios     = (por_estado as any)['FRIO']           || 0;
+  const nuevo     = (por_estado as any)['NUEVO']          || 0;
+  const activos   = total - aprobados - perdidos - frios - nuevo;
+
+  // Opción D: leads trabajando activamente ahora
+  const leadsEnGestion = (
+    ((por_estado as any)['EN_CONTACTO']    || 0) +
+    ((por_estado as any)['COTIZANDO']      || 0) +
+    ((por_estado as any)['VISITA_TECNICA'] || 0)
+  );
 
   const pctAprobados = total > 0 ? (aprobados / total) * 100 : 0;
   const pctFrios     = total > 0 ? (frios     / total) * 100 : 0;
@@ -255,7 +295,7 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
           <h2 className="text-lg font-black text-slate-800">Dashboard Gerencial</h2>
           <p className="text-xs text-slate-400 font-semibold flex items-center gap-1.5 mt-0.5">
             <Clock className="w-3.5 h-3.5" />
-            Periodo: {periodoLabel}
+            Período: {periodoLabel} — vista consolidada del equipo comercial
           </p>
         </div>
         <button
@@ -266,74 +306,108 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
         </button>
       </div>
 
-      {/* ── KPIs principales (estilo Stitch: borde izquierdo de color) ── */}
+      {/* ── KPIs principales ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KPIStitch
-          label="Venta Proyectada" value={fmtCOP(monto_total_proyectado, true)}
-          sub="Suma de montos proyectados de todos los leads del periodo"
+          label="Venta Proyectada"
+          value={fmtCOP(monto_total_proyectado, true)}
+          sub={`Suma de cotizaciones proyectadas de los ${total} leads del período`}
+          tooltip="Suma total del campo 'monto proyectado de cotización' de todos los leads del período. Representa el techo teórico de ingresos si todos los leads activos cerraran. Incluye leads en cualquier etapa, no solo aprobados."
           icon={<IconDollar size={16} className="text-indigo-600" />}
-          accentColor="bg-indigo-50" borderColor="border-l-indigo-500" />
+          accentColor="bg-indigo-50" borderColor="border-l-indigo-500"
+        />
         <KPIStitch
-          label="Éxito Comercial" value={`${tasa_conversion}%`}
-          sub={`${aprobados} leads aprobados`}
+          label="Éxito Comercial"
+          value={`${tasa_conversion}%`}
+          sub={`${aprobados} leads aprobados de ${total} registrados`}
+          tooltip="Porcentaje de leads que cerraron como APROBADO sobre el total del período. Verde ≥30%, amarillo ≥15%, azul <15%. Una tasa saludable para este sector es superior al 20%."
           icon={<IconTarget size={16} className="text-emerald-600" />}
           accentColor="bg-emerald-50" borderColor="border-l-emerald-500"
-          trend={tasa_conversion} trendLabel={`${tasa_conversion}% conversión`} />
+          trend={tasa_conversion} trendLabel={`${tasa_conversion}% de conversión`}
+        />
         <KPIStitch
-          label="Leads Ingresados" value={String(total)}
-          sub="Total de leads registrados en el periodo seleccionado"
+          label="Leads Ingresados"
+          value={String(total)}
+          sub="Total de leads registrados en el período seleccionado"
+          tooltip="Cantidad total de leads creados en el período (mes/año seleccionado). Incluye todos los estados: activos, aprobados, perdidos, fríos y sin respuesta. Es el volumen bruto de oportunidades captadas."
           icon={<IconLeads size={16} className="text-violet-600" />}
-          accentColor="bg-violet-50" borderColor="border-l-violet-500" />
+          accentColor="bg-violet-50" borderColor="border-l-violet-500"
+        />
         <KPIStitch
-          label="Clientes Nuevos" value={String(nuevos_clientes + nuevos_prospectos)}
+          label="Clientes Nuevos"
+          value={String(nuevos_clientes + nuevos_prospectos)}
           sub={`CRM: ${nuevos_clientes} · Prospectos: ${nuevos_prospectos} · Recurrentes: ${clientes_recurrentes}`}
+          tooltip="Suma de clientes nuevos captados por dos vías: leads CRM aprobados (${nuevos_clientes}) y prospectos formales convertidos a ODP (${nuevos_prospectos}). No incluye clientes recurrentes que ya existían en el sistema."
           icon={<IconUserCheck size={16} className="text-rose-600" />}
-          accentColor="bg-rose-50" borderColor="border-l-rose-400" />
+          accentColor="bg-rose-50" borderColor="border-l-rose-400"
+        />
       </div>
 
-      {/* ── KPIs secundarios (mini, fila inferior) ── */}
+      {/* ── KPIs secundarios ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <MiniKPI label="Venta Real Aprobados" value={fmtCOP(monto_real_aprobados, true)}
-          icon={<IconCheck size={16} className="text-emerald-600" />} bg="bg-emerald-50/60 border border-emerald-100"
-          desc="Suma del monto real de los leads cerrados como Aprobados" />
-        <MiniKPI label="Ticket Promedio" value={fmtCOP(ticket_promedio_proyectado, true)}
-          icon={<IconDollar size={16} className="text-indigo-600" />} bg="bg-indigo-50/60 border border-indigo-100"
-          desc="Cotización proyectada promedio por lead en gestión" />
-        <MiniKPI label="Leads Perdidos" value={String(perdidos)}
-          icon={<IconTarget size={16} className="text-rose-600" />} bg="bg-rose-50/60 border border-rose-100"
-          desc="Oportunidades cerradas sin conversión en el periodo" />
-        <MiniKPI label="Días Prom. Cierre" value={`${tiempo_promedio_cierre_dias}d`}
-          icon={<IconClock size={16} className="text-amber-600" />} bg="bg-amber-50/60 border border-amber-100"
-          desc="Tiempo promedio desde el registro hasta el cierre del lead" />
+        <MiniKPI
+          label="Venta Real Aprobados"
+          value={fmtCOP(monto_real_aprobados, true)}
+          icon={<IconCheck size={16} className="text-emerald-600" />}
+          bg="bg-emerald-50/60 border border-emerald-100"
+          tooltip="Suma del campo 'monto real de venta' de todos los leads que cerraron como APROBADO. A diferencia de la Venta Proyectada, este valor refleja el ingreso confirmado y actualizado por el asesor al momento del cierre."
+          desc={`Monto confirmado de los ${aprobados} leads aprobados`}
+        />
+        <MiniKPI
+          label="En Gestión Activa"
+          value={String(leadsEnGestion)}
+          icon={<IconActivity size={16} className="text-violet-600" />}
+          bg="bg-violet-50/60 border border-violet-100"
+          tooltip="Leads que el equipo está trabajando activamente ahora mismo: En Contacto, Cotizando y Visita Técnica. Excluye leads sin asignar, fríos, perdidos y aprobados. Es el 'trabajo en curso' real del equipo."
+          desc={`Contacto: ${(por_estado as any)['EN_CONTACTO'] || 0} · Cotizando: ${(por_estado as any)['COTIZANDO'] || 0} · V.Técnica: ${(por_estado as any)['VISITA_TECNICA'] || 0}`}
+        />
+        <MiniKPI
+          label="Leads Perdidos"
+          value={String(perdidos)}
+          icon={<IconTarget size={16} className="text-rose-600" />}
+          bg="bg-rose-50/60 border border-rose-100"
+          tooltip="Leads cerrados como PERDIDO en el período. El asesor debe registrar un motivo oficial al marcarlos así. Revisar la tab Métricas → Razones de Pérdida para ver el detalle de por qué se pierden los negocios."
+          desc="Oportunidades cerradas sin conversión"
+        />
+        <MiniKPI
+          label="Días Prom. Cierre"
+          value={tiempo_promedio_cierre_dias > 0 ? `${tiempo_promedio_cierre_dias}d` : 'N/A'}
+          icon={<IconClock size={16} className="text-amber-600" />}
+          bg="bg-amber-50/60 border border-amber-100"
+          tooltip="Promedio de días transcurridos desde que se crea el lead hasta que se cierra como APROBADO. Solo se calcula sobre los leads que tienen fecha de cierre registrada. Un número bajo indica un ciclo de venta eficiente."
+          desc="Desde creación hasta aprobación del lead"
+        />
       </div>
 
-      {/* ── Fila: Clientes nuevos vs recurrentes + Leads→ODP ── */}
+      {/* ── Origen de negocio + Leads→ODP ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Nuevos vs Recurrentes — 3 segmentos */}
+
+        {/* Origen de negocio */}
         <div className="md:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-          <div className="mb-3">
+          <div className="flex items-center mb-1">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Origen de Negocio del Período</p>
-            <p className="text-[10px] text-slate-400 font-medium mt-0.5">Leads aprobados vía CRM, prospectos convertidos a ODP y ODPs de clientes recurrentes (directas)</p>
+            <InfoTooltip text="Clasifica los negocios del período en tres categorías: Nuevos captados por CRM (leads aprobados), Nuevos por Prospectos formales (con visita técnica convertidos a ODP), y Recurrentes (ODPs de clientes existentes sin prospecto previo). Muestra de dónde viene el volumen de trabajo." />
           </div>
+          <p className="text-[10px] text-slate-400 font-medium mb-3">Distribución entre CRM, prospectos formales y clientes recurrentes</p>
           {(() => {
             const total3 = nuevos_clientes + nuevos_prospectos + clientes_recurrentes;
             if (total3 === 0) return (
-              <p className="text-sm text-slate-300 text-center py-2">Sin actividad registrada en este periodo</p>
+              <p className="text-sm text-slate-300 text-center py-2">Sin actividad registrada en este período</p>
             );
-            const pCRM  = Math.round((nuevos_clientes   / total3) * 100);
-            const pPros = Math.round((nuevos_prospectos  / total3) * 100);
-            const pRec  = Math.round((clientes_recurrentes / total3) * 100);
+            const pCRM  = Math.round((nuevos_clientes      / total3) * 100);
+            const pPros = Math.round((nuevos_prospectos     / total3) * 100);
+            const pRec  = Math.round((clientes_recurrentes  / total3) * 100);
             return (
               <>
                 <div className="flex items-center gap-0 h-3 rounded-full overflow-hidden mb-3 bg-slate-100">
                   {nuevos_clientes > 0 && (
-                    <div className="h-full bg-emerald-500 transition-all duration-700" style={{ width: `${pCRM}%` }} title={`CRM: ${nuevos_clientes}`} />
+                    <div className="h-full bg-emerald-500 transition-all duration-700" style={{ width: `${pCRM}%` }} />
                   )}
                   {nuevos_prospectos > 0 && (
-                    <div className="h-full bg-violet-500 transition-all duration-700" style={{ width: `${pPros}%` }} title={`Prospectos: ${nuevos_prospectos}`} />
+                    <div className="h-full bg-violet-500 transition-all duration-700" style={{ width: `${pPros}%` }} />
                   )}
                   {clientes_recurrentes > 0 && (
-                    <div className="h-full bg-blue-400 transition-all duration-700" style={{ width: `${pRec}%` }} title={`Recurrentes: ${clientes_recurrentes}`} />
+                    <div className="h-full bg-blue-400 transition-all duration-700" style={{ width: `${pRec}%` }} />
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs">
@@ -360,16 +434,21 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
 
         {/* Leads → ODP */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col justify-between">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Leads → ODP</p>
-          <p className="text-[10px] text-slate-400 font-medium mt-0.5">Leads aprobados que ya tienen una Orden de Producción vinculada</p>
-          <div className="flex items-end gap-2 mt-2">
+          <div className="flex items-center">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Leads → ODP</p>
+            <InfoTooltip text="Cuántos leads aprobados ya tienen una Orden de Producción vinculada. Un lead aprobado sin ODP significa que el negocio se cerró comercialmente pero aún no se generó la ODP en el sistema productivo. Esa brecha requiere seguimiento." />
+          </div>
+          <p className="text-[10px] text-slate-400 font-medium mt-0.5 mb-2">Leads aprobados convertidos a Orden de Producción</p>
+          <div className="flex items-end gap-2">
             <p className="text-3xl font-black text-slate-800">{leads_con_odp}</p>
             <p className="text-sm text-slate-400 font-semibold mb-1">vinculados</p>
           </div>
           {leads_aprobados_sin_odp > 0 ? (
             <div className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-100 rounded-xl">
               <span className="text-amber-500 text-sm font-black">⚠</span>
-              <p className="text-[11px] text-amber-700 font-bold">{leads_aprobados_sin_odp} aprobado{leads_aprobados_sin_odp > 1 ? 's' : ''} sin ODP</p>
+              <p className="text-[11px] text-amber-700 font-bold">
+                {leads_aprobados_sin_odp} aprobado{leads_aprobados_sin_odp > 1 ? 's' : ''} sin ODP
+              </p>
             </div>
           ) : (
             <div className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl">
@@ -380,49 +459,70 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
         </div>
       </div>
 
-      {/* ── Bloque central: Pipeline + Eficiencia ── */}
+      {/* ── Estado del Pipeline + Eficiencia Global ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-        {/* Estado del Pipeline */}
+        {/* Pipeline */}
         <div className="md:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
           <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="font-black text-slate-800 text-sm">Estado del Pipeline</h3>
-              <p className="text-[11px] text-slate-400 font-medium mt-0.5">Distribución operativa de prospectos</p>
+            <div className="flex items-center">
+              <div>
+                <h3 className="font-black text-slate-800 text-sm">Estado del Pipeline</h3>
+                <p className="text-[11px] text-slate-400 font-medium mt-0.5">Distribución de todos los leads del período por resultado</p>
+              </div>
+              <InfoTooltip text="Muestra cómo se distribuyen los leads del período entre sus cuatro posibles resultados: Aprobados (ganados), En Frío (sin respuesta tras 3 intentos), Perdidos (descartados con motivo) y Activos (en proceso, sin contar leads NUEVO sin asignar). El porcentaje es sobre el total del período." />
             </div>
             <div className="text-right">
               <p className="text-2xl font-black text-slate-800">{total}</p>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">LEADS ACTIVOS</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total del período</p>
             </div>
           </div>
           <div className="space-y-4">
-            <PipelineBar label="Aprobados" count={aprobados} total={total} color="bg-emerald-500" pct={pctAprobados} />
-            <PipelineBar label="En Frío"   count={frios}     total={total} color="bg-indigo-400"  pct={pctFrios} />
-            <PipelineBar label="Perdidos"  count={perdidos}  total={total} color="bg-rose-500"    pct={pctPerdidos} />
-            <PipelineBar label="Activos"   count={activos}   total={total} color="bg-amber-400"   pct={pctActivos} />
+            <PipelineBar
+              label="Aprobados" count={aprobados} total={total} color="bg-emerald-500" pct={pctAprobados}
+              tooltip="Leads cerrados exitosamente como APROBADO. Son los negocios ganados del período."
+            />
+            <PipelineBar
+              label="Activos en proceso" count={activos} total={total} color="bg-amber-400" pct={pctActivos}
+              tooltip="Leads asignados que el equipo está trabajando (Asignado, En Contacto, Cotizando, Visita Técnica). No incluye leads NUEVO sin asignar ni terminales (Aprobado/Perdido/Frío)."
+            />
+            <PipelineBar
+              label="En Frío" count={frios} total={total} color="bg-indigo-400" pct={pctFrios}
+              tooltip="Leads pasados automáticamente a estado FRÍO tras 3 intentos fallidos de contacto. No se descartaron, pero el cliente dejó de responder. Pueden reactivarse."
+            />
+            <PipelineBar
+              label="Perdidos" count={perdidos} total={total} color="bg-rose-500" pct={pctPerdidos}
+              tooltip="Leads cerrados como PERDIDO con motivo registrado. Son oportunidades descartadas definitivamente en este período."
+            />
           </div>
 
-          {/* Stats extra bajo las barras */}
+          {/* Desglose de etapas activas */}
           <div className="mt-6 pt-5 border-t border-slate-50 grid grid-cols-3 gap-4 text-center">
             {[
-              { label: 'Cotizaciones', val: (por_estado as any)['COTIZANDO'] || 0 },
-              { label: 'V. Técnicas',  val: (por_estado as any)['VISITA_TECNICA'] || 0 },
-              { label: 'En Contacto', val: (por_estado as any)['EN_CONTACTO'] || 0 },
+              { label: 'Cotizando',   val: (por_estado as any)['COTIZANDO']      || 0, tooltip: 'Leads en etapa de cotización activa' },
+              { label: 'V. Técnicas', val: (por_estado as any)['VISITA_TECNICA'] || 0, tooltip: 'Leads con visita técnica programada o en curso' },
+              { label: 'En Contacto', val: (por_estado as any)['EN_CONTACTO']    || 0, tooltip: 'Leads en proceso de primer contacto con el cliente' },
             ].map(s => (
               <div key={s.label}>
                 <p className="text-xl font-black text-slate-800">{s.val}</p>
-                <p className="text-[10px] text-slate-400 font-bold uppercase">{s.label}</p>
+                <div className="flex items-center justify-center">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{s.label}</p>
+                  <InfoTooltip text={s.tooltip} />
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Eficiencia Global - Donut */}
+        {/* Eficiencia Global */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col items-center justify-center gap-4">
           <div className="w-full flex items-center justify-between mb-2">
-            <div>
-              <h3 className="font-black text-slate-800 text-sm">Eficiencia Global</h3>
-              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Tasa de éxito del equipo comercial en el periodo</p>
+            <div className="flex items-center">
+              <div>
+                <h3 className="font-black text-slate-800 text-sm">Eficiencia Global</h3>
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Tasa de éxito del equipo en el período</p>
+              </div>
+              <InfoTooltip text="Porcentaje de leads que cerraron como APROBADO sobre el total. Verde ≥30% (excelente), amarillo ≥15% (aceptable), azul <15% (requiere atención). El Lead Velocity Index muestra cuántos días tarda en promedio cerrar un negocio." />
             </div>
             <span className={`text-[10px] font-black px-2 py-1 rounded-full ${tasa_conversion >= 20 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
               {tasa_conversion >= 20 ? '✓ En meta' : '⚠ Mejorable'}
@@ -431,11 +531,19 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
           <DonutChart pct={tasa_conversion} color={donutColor} />
           <div className="w-full space-y-2 text-xs">
             <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
-              <span className="text-slate-500 font-bold">Conversión Lead/Sale</span>
-              <span className={`font-black ${tasa_conversion > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>{tasa_conversion.toFixed(2)}%</span>
+              <div className="flex items-center">
+                <span className="text-slate-500 font-bold">Conversión Lead → Venta</span>
+                <InfoTooltip text="Leads APROBADO ÷ Total leads × 100. Mide cuántas oportunidades se convierten en negocios reales." />
+              </div>
+              <span className={`font-black ${tasa_conversion > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                {tasa_conversion.toFixed(2)}%
+              </span>
             </div>
             <div className="flex items-center justify-between py-1.5">
-              <span className="text-slate-500 font-bold">Lead Velocity Index</span>
+              <div className="flex items-center">
+                <span className="text-slate-500 font-bold">Lead Velocity Index</span>
+                <InfoTooltip text="Días promedio desde que se registra el lead hasta que se cierra como APROBADO. Mide la velocidad del ciclo de venta. Cuanto menor, más ágil es el equipo." />
+              </div>
               <span className={`font-black ${tiempo_promedio_cierre_dias > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>
                 {tiempo_promedio_cierre_dias > 0 ? `${tiempo_promedio_cierre_dias}d` : 'N/A'}
               </span>
@@ -444,26 +552,24 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
         </div>
       </div>
 
-      {/* ── Líderes del Periodo ── */}
+      {/* ── Líderes del Período ── */}
       {stats_por_asesor.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
-                <IconTrophy size={18} className="text-amber-500" />
-              </div>
-              <div>
-                <h3 className="font-black text-slate-800 text-sm">Líderes del Periodo</h3>
-                <p className="text-[10px] text-slate-400 font-medium">{periodoLabel} — Ranking por monto gestionado y conversión</p>
-              </div>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
+              <IconTrophy size={18} className="text-amber-500" />
             </div>
-            <button className="flex items-center gap-1.5 text-[11px] font-black text-indigo-600 hover:text-indigo-700 transition-colors">
-              Ver ranking completo <ArrowUpRight className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center">
+              <div>
+                <h3 className="font-black text-slate-800 text-sm">Líderes del Período</h3>
+                <p className="text-[10px] text-slate-400 font-medium">{periodoLabel} — Ranking por tasa de conversión</p>
+              </div>
+              <InfoTooltip text="Ranking de asesores ordenado por tasa de conversión (leads aprobados ÷ total leads asignados). El monto gestionado es la suma de cotizaciones proyectadas de todos sus leads. La barra de colores muestra cómo están distribuidos sus leads activos entre etapas. Verde ≥30%, naranja ≥15%, rojo <15%." />
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {stats_por_asesor.slice(0, 6).map((a: any, i: number) => (
-              <AsesorCardStitch
+              <AsesorCard
                 key={a.id} idx={i} nombre={a.nombre} total={a.total}
                 aprobados={a.aprobados} perdidos={a.perdidos}
                 tasa={a.tasa_conversion} monto={a.monto_gestionado}
@@ -472,31 +578,31 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
             ))}
           </div>
 
-          {/* CTA de acción rápida (estilo Stitch: botón azul oscuro prominente) */}
-          <div className="mt-5 pt-5 border-t border-slate-50 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button className="md:col-span-1 flex items-center justify-center gap-2 p-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-md shadow-indigo-200 hover:bg-indigo-700 transition-all hover:-translate-y-0.5">
-              <IconZap size={18} className="text-white" />
-              Actualizar Leads
-            </button>
-            <div className="md:col-span-2 grid grid-cols-2 gap-3">
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Top Asesor</p>
-                <p className="text-sm font-black text-slate-800 truncate">
-                  {stats_por_asesor[0]?.nombre || '—'}
-                </p>
-                <p className="text-xs text-indigo-600 font-bold mt-0.5">
-                  {stats_por_asesor[0]?.tasa_conversion || 0}% conversión
-                </p>
+          {/* Resumen top asesor */}
+          <div className="mt-5 pt-5 border-t border-slate-50 grid grid-cols-2 gap-3">
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+              <div className="flex items-center">
+                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Top Conversión</p>
+                <InfoTooltip text="Asesor con la mayor tasa de conversión en el período (aprobados ÷ total leads)." />
               </div>
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Monto Top</p>
-                <p className="text-sm font-black text-slate-800">
-                  {fmtCOP(stats_por_asesor[0]?.monto_gestionado || 0, true)}
-                </p>
-                <p className="text-xs text-emerald-600 font-bold mt-0.5">
-                  {stats_por_asesor[0]?.aprobados || 0} aprobados
-                </p>
+              <p className="text-sm font-black text-slate-800 truncate">
+                {stats_por_asesor[0]?.nombre || '—'}
+              </p>
+              <p className="text-xs text-indigo-600 font-bold mt-0.5">
+                {stats_por_asesor[0]?.tasa_conversion || 0}% conversión
+              </p>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+              <div className="flex items-center">
+                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Mayor Pipeline</p>
+                <InfoTooltip text="Monto proyectado acumulado del asesor con más volumen gestionado en el período." />
               </div>
+              <p className="text-sm font-black text-slate-800">
+                {fmtCOP(stats_por_asesor[0]?.monto_gestionado || 0, true)}
+              </p>
+              <p className="text-xs text-emerald-600 font-bold mt-0.5">
+                {stats_por_asesor[0]?.aprobados || 0} aprobados
+              </p>
             </div>
           </div>
         </div>
@@ -505,7 +611,8 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
       {stats_por_asesor.length === 0 && (
         <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center">
           <Trophy className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-          <p className="text-slate-400 text-sm font-semibold">Sin asesores con actividad en este periodo</p>
+          <p className="text-slate-400 text-sm font-semibold">Sin asesores con actividad en este período</p>
+          <p className="text-slate-300 text-xs mt-1">Selecciona un período con actividad registrada</p>
         </div>
       )}
     </div>

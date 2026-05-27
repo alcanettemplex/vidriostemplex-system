@@ -583,6 +583,75 @@ export const getCRMStats = async (req: Request, res: Response) => {
       }
     });
 
+    // Detalle de leads APROBADO sin ODP vinculada (ya cargados en memoria)
+    const leadsAprobadosSinOdpDetalle = leads
+      .filter((l: any) => l.getDataValue('estado_crm') === 'APROBADO' && !l.getDataValue('odp_id'))
+      .map((l: any) => {
+        const asesorData = l.getDataValue('asesor') as any;
+        const fechaAprobado = l.getDataValue('fecha_aprobado');
+        const diasDesdeAprobacion = fechaAprobado
+          ? Math.floor((Date.now() - new Date(fechaAprobado).getTime()) / (1000 * 60 * 60 * 24))
+          : null;
+        return {
+          id: l.getDataValue('id'),
+          nombre: l.getDataValue('nombre') || 'Sin nombre',
+          telefono: l.getDataValue('telefono') || '—',
+          monto: parseFloat(l.getDataValue('monto_proyectado_cotizacion') || '0'),
+          asesor_nombre: asesorData?.nombre_completo || 'Sin asignar',
+          asesor_id: l.getDataValue('asesor_id') || null,
+          dias_desde_aprobacion: diasDesdeAprobacion,
+        };
+      });
+
+    // Distribución semanal de leads creados en el período
+    const porSemana: { semana: string; count: number }[] = [];
+    if (periodStart && periodEnd) {
+      let cur = new Date(periodStart);
+      let semNum = 1;
+      while (cur <= periodEnd) {
+        const wStart = new Date(cur);
+        const wEnd = new Date(cur);
+        wEnd.setDate(wEnd.getDate() + 6);
+        if (wEnd > periodEnd) wEnd.setTime(periodEnd.getTime());
+        const cnt = leads.filter((l: any) => {
+          const d = new Date(l.getDataValue('createdAt'));
+          return d >= wStart && d <= wEnd;
+        }).length;
+        porSemana.push({ semana: `Sem ${semNum}`, count: cnt });
+        cur.setDate(cur.getDate() + 7);
+        semNum++;
+      }
+    }
+
+    // Comparativo vs período anterior (mes anterior al seleccionado)
+    let vsAnterior: any = null;
+    if (periodStart && mes && anio) {
+      const m = parseInt(mes as string);
+      const y = parseInt(anio as string);
+      const prevM = m === 1 ? 12 : m - 1;
+      const prevY = m === 1 ? y - 1 : y;
+      const prevStart = new Date(prevY, prevM - 1, 1);
+      const prevEnd   = new Date(prevY, prevM, 0, 23, 59, 59);
+      const prevWhere: any = esGlobal ? {} : { asesor_id: user.id };
+      prevWhere.createdAt = { [Op.between]: [prevStart, prevEnd] };
+      const prevLeads = await Lead.findAll({
+        where: prevWhere,
+        attributes: ['estado_crm', 'monto_proyectado_cotizacion', 'monto_real_venta']
+      });
+      const prevTotal     = prevLeads.length;
+      const prevAprobados = prevLeads.filter((l: any) => l.getDataValue('estado_crm') === 'APROBADO').length;
+      const prevMontoProyectado = prevLeads.reduce((s: number, l: any) => s + parseFloat(l.getDataValue('monto_proyectado_cotizacion') || '0'), 0);
+      const prevMontoReal = prevLeads
+        .filter((l: any) => l.getDataValue('estado_crm') === 'APROBADO')
+        .reduce((s: number, l: any) => s + parseFloat(l.getDataValue('monto_real_venta') || '0'), 0);
+      vsAnterior = {
+        total: prevTotal,
+        tasa_conversion: prevTotal > 0 ? Math.round((prevAprobados / prevTotal) * 100) : 0,
+        ticket_promedio_proyectado: prevTotal > 0 ? prevMontoProyectado / prevTotal : 0,
+        monto_real_aprobados: prevMontoReal,
+      };
+    }
+
     const msToHours = (ms: number) => Math.round(ms / (1000 * 60 * 60));
 
     const aprobados = porEstado['APROBADO'] || 0;
@@ -649,6 +718,9 @@ export const getCRMStats = async (req: Request, res: Response) => {
       leads_aprobados_sin_odp: leadsAprobadosSinOdp,
       tiempo_promedio_cierre_dias: cerradosConFecha > 0 ? Math.round(sumaDiasCierre / cerradosConFecha) : 0,
       stats_por_asesor: statsPorAsesor.sort((a,b) => b.tasa_conversion - a.tasa_conversion),
+      por_semana: porSemana,
+      vs_anterior: vsAnterior,
+      leads_aprobados_sin_odp_detalle: leadsAprobadosSinOdpDetalle,
     });
   } catch (error: any) {
     console.error('Error en stats CRM:', error);
