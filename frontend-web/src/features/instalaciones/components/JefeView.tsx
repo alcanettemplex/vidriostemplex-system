@@ -1,16 +1,61 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { CheckCircle2, Clock, AlertTriangle, MapPin, Truck, Users, Calendar, Pencil, Trash2, Plus, RefreshCw, PackageCheck, PauseCircle, Search } from 'lucide-react';
+import {
+  CheckCircle2, Clock, AlertTriangle, MapPin, Truck, Users, Calendar,
+  Pencil, Trash2, Plus, RefreshCw, PackageCheck, PauseCircle, Search,
+  Route, History, ChevronDown, ChevronUp,
+} from 'lucide-react';
 import ProgramarRutaModal from './ProgramarRutaModal';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+// ─── Helpers de fecha ─────────────────────────────────────────────────────────
+
+const getLunes = (): string => {
+  const d = new Date();
+  const diff = d.getDate() - d.getDay() + (d.getDay() === 0 ? -6 : 1);
+  d.setDate(diff);
+  return d.toISOString().split('T')[0];
+};
+
+const getDomingo = (): string => {
+  const d = new Date();
+  const diff = d.getDate() - d.getDay() + (d.getDay() === 0 ? 0 : 7);
+  d.setDate(diff);
+  return d.toISOString().split('T')[0];
+};
+
+const formatFecha = (iso: string | null | undefined): string => {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const formatDuracion = (msOrInicio: string | null, fin?: string | null): string | null => {
+  if (!msOrInicio) return null;
+  const inicio = new Date(msOrInicio).getTime();
+  const hastaMs = fin ? new Date(fin).getTime() : Date.now();
+  const ms = hastaMs - inicio;
+  if (ms < 0) return null;
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  return h > 0 ? `${h}h ${m}min` : `${m}min`;
+};
+
+// ─── Helpers de estado / badges ───────────────────────────────────────────────
 
 const ESTADO_RUTA_STYLES: Record<string, string> = {
   programada: 'bg-blue-100 text-blue-700',
   en_curso:   'bg-amber-100 text-amber-700',
   completada: 'bg-emerald-100 text-emerald-700',
   cancelada:  'bg-slate-100 text-slate-500',
+};
+
+const ESTADO_RUTA_LABEL: Record<string, string> = {
+  programada: 'Programada',
+  en_curso:   'En curso',
+  completada: 'Completada',
+  cancelada:  'Cancelada',
 };
 
 const ESTADO_ODP_RUTA_STYLES: Record<string, string> = {
@@ -21,22 +66,235 @@ const ESTADO_ODP_RUTA_STYLES: Record<string, string> = {
   con_dano:   'bg-orange-100 text-orange-700',
 };
 
+const getTipoServicio = (odp: any) => {
+  if (odp?.instalacion && odp?.acarreo) return { label: 'Instalación + Acarreo', cls: 'bg-indigo-100 text-indigo-700', icon: '🔧' };
+  if (odp?.instalacion) return { label: 'Instalación', cls: 'bg-indigo-100 text-indigo-700', icon: '🔧' };
+  if (odp?.acarreo)     return { label: 'Acarreo', cls: 'bg-sky-100 text-sky-700', icon: '🚚' };
+  return { label: 'Entrega taller', cls: 'bg-slate-100 text-slate-600', icon: '📦' };
+};
+
+const getPagoBadge = (odp: any) => {
+  if (odp?.es_garantia)                          return { label: 'Garantía', cls: 'bg-blue-100 text-blue-700' };
+  if (odp?.estado_caja === 'CANCELADO')           return { label: '✓ Pagado', cls: 'bg-emerald-100 text-emerald-700' };
+  if (odp?.estado_caja === 'CREDITO_APROBADO')    return { label: 'Crédito', cls: 'bg-blue-100 text-blue-700' };
+  if (odp?.autorizacion_especial_despacho)        return { label: 'Autorización', cls: 'bg-purple-100 text-purple-700' };
+  return { label: 'Pago pendiente', cls: 'bg-amber-100 text-amber-700' };
+};
+
+// ─── Tarjeta de ruta ──────────────────────────────────────────────────────────
+
+const RutaCard: React.FC<{
+  ruta: any;
+  readOnly: boolean;
+  historial?: boolean;
+  onEditar?: (r: any) => void;
+  onCancelar?: (id: number) => void;
+  onFinalizar?: (rutaOdpId: number, numero: string) => void;
+  onPausar?: (rutaOdpId: number, numero: string) => void;
+}> = ({ ruta, readOnly, historial = false, onEditar, onCancelar, onFinalizar, onPausar }) => {
+  const [expandida, setExpandida] = useState(true);
+
+  const totalOdps      = ruta.ruta_odps?.length ?? 0;
+  const completadasOdp = ruta.ruta_odps?.filter((ro: any) => ro.estado === 'completada').length ?? 0;
+  const pct            = totalOdps > 0 ? Math.round((completadasOdp / totalOdps) * 100) : 0;
+
+  const duracion = ruta.estado === 'en_curso'
+    ? formatDuracion(ruta.inicio_ruta)
+    : ruta.estado === 'completada'
+    ? formatDuracion(ruta.inicio_ruta, ruta.fin_ruta)
+    : null;
+
+  const puedeEditar    = !readOnly && !historial && (ruta.estado === 'programada' || ruta.estado === 'en_curso');
+  const puedeCancelar  = puedeEditar;
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="p-4 space-y-2.5">
+        {/* Fila 1: estado + vehículo + conductor + fecha + acciones */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase ${ESTADO_RUTA_STYLES[ruta.estado] ?? 'bg-slate-100 text-slate-600'}`}>
+            {ESTADO_RUTA_LABEL[ruta.estado] ?? ruta.estado}
+          </span>
+          {ruta.vehiculo && (
+            <span className="flex items-center gap-1 text-xs text-slate-500">
+              <Truck className="w-3 h-3" />{ruta.vehiculo.tipo} — {ruta.vehiculo.placa}
+            </span>
+          )}
+          {ruta.conductor && (
+            <span className="text-xs text-slate-500">🧑‍✈️ {ruta.conductor.nombre_completo}</span>
+          )}
+          <span className="text-xs text-slate-400 ml-auto flex items-center gap-1">
+            <Calendar className="w-3 h-3" />{formatFecha(ruta.creado_en)}
+          </span>
+          {puedeEditar && (
+            <button onClick={() => onEditar?.(ruta)} className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-400" title="Editar ruta">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {puedeCancelar && (
+            <button onClick={() => onCancelar?.(ruta.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-400" title="Cancelar ruta">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <button onClick={() => setExpandida(v => !v)} className="p-1.5 rounded-lg hover:bg-slate-50 text-slate-400">
+            {expandida ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+
+        {/* Fila 2: oficial + instaladores */}
+        {(ruta.oficial || ruta.instaladores?.length > 0) && (
+          <div className="flex flex-wrap gap-3 text-xs">
+            {ruta.oficial && (
+              <span className="flex items-center gap-1 text-indigo-600 font-semibold">
+                ⭐ Oficial: {ruta.oficial.nombre_completo}
+              </span>
+            )}
+            {ruta.instaladores?.length > 0 && (
+              <span className="flex items-center gap-1 text-slate-500">
+                <Users className="w-3 h-3" />
+                {ruta.instaladores.map((i: any) => i.nombre_completo).join(', ')}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Fila 3: progreso + duración */}
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <div className="flex justify-between text-[10px] mb-1">
+              <span className="text-slate-500">{completadasOdp}/{totalOdps} ODPs completadas</span>
+              <span className="font-bold text-slate-600">{pct}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-500' : 'bg-indigo-400'}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+          {duracion && (
+            <span className="text-xs font-semibold text-slate-500 whitespace-nowrap flex items-center gap-1">
+              ⏱ {ruta.estado === 'en_curso' ? `En ruta: ${duracion}` : `Duración: ${duracion}`}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ODPs en la ruta */}
+      {expandida && (
+        <div className="divide-y divide-slate-50 border-t border-slate-100">
+          {(ruta.ruta_odps ?? []).map((ro: any) => {
+            const tipo = getTipoServicio(ro.odp);
+            const pago = getPagoBadge(ro.odp);
+            return (
+              <div key={ro.id} className="flex items-start gap-3 px-4 py-3">
+                <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs flex items-center justify-center font-bold flex-shrink-0 mt-0.5">
+                  {ro.orden}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-slate-800">{ro.odp?.numero_odp}</span>
+                    <span className="text-xs text-slate-500 truncate">{ro.odp?.cliente?.nombre_razon_social}</span>
+                  </div>
+                  {ro.odp?.direccion_instalacion && (
+                    <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
+                      {ro.odp.direccion_instalacion}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${tipo.cls}`}>
+                      {tipo.icon} {tipo.label}
+                    </span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${pago.cls}`}>
+                      {pago.label}
+                    </span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${ESTADO_ODP_RUTA_STYLES[ro.estado] ?? ''}`}>
+                      {ro.estado?.replace('_', ' ')}
+                    </span>
+                    {ro.fecha_programada && (
+                      <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
+                        <Calendar className="w-2.5 h-2.5" />{ro.fecha_programada}
+                      </span>
+                    )}
+                  </div>
+                  {ro.estado === 'pausada' && ro.motivo_pausa && (
+                    <p className="text-xs text-violet-600 mt-1 flex items-start gap-1">
+                      <PauseCircle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                      {ro.motivo_pausa}
+                    </p>
+                  )}
+                </div>
+
+                {/* Acciones por ODP */}
+                {!readOnly && !historial && (
+                  <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+                    {ro.estado === 'en_curso' && (
+                      <button
+                        onClick={() => onPausar?.(ro.id, ro.odp?.numero_odp)}
+                        className="p-1 rounded hover:bg-violet-50 text-violet-400 hover:text-violet-600"
+                        title="Pausar instalación"
+                      >
+                        <PauseCircle className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {ro.estado !== 'completada' && ro.estado !== 'pausada' && (
+                      <button
+                        onClick={() => onFinalizar?.(ro.id, ro.odp?.numero_odp)}
+                        className="p-1 rounded hover:bg-emerald-50 text-emerald-400 hover:text-emerald-600"
+                        title="Marcar como entregada"
+                      >
+                        <PackageCheck className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {ruta.observaciones && (
+        <div className="px-4 py-2 bg-amber-50 border-t border-amber-100">
+          <p className="text-xs text-amber-700">{ruta.observaciones}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+
+type MainTab = 'listos' | 'pago' | 'produccion' | 'programados' | 'completados';
+type SubTabProg = 'programada' | 'en_curso';
+type SubTabComp = 'completadas' | 'canceladas';
+
 const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
-  const [tab, setTab] = useState<'listos' | 'pago' | 'produccion'>('listos');
+  // State
+  const [mainTab, setMainTab] = useState<MainTab>('listos');
+  const [subTabProg, setSubTabProg] = useState<SubTabProg>('programada');
+  const [subTabComp, setSubTabComp] = useState<SubTabComp>('completadas');
   const [odps, setOdps] = useState<{ listos: any[]; espera_pago: any[]; espera_produccion: any[] }>({ listos: [], espera_pago: [], espera_produccion: [] });
   const [rutas, setRutas] = useState<any[]>([]);
+  const [rutasHistorial, setRutasHistorial] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingHistorial, setLoadingHistorial] = useState(false);
+  const [historialCargado, setHistorialCargado] = useState(false);
+  const [fechaDesde, setFechaDesde] = useState<string>(getLunes());
+  const [fechaHasta, setFechaHasta] = useState<string>(getDomingo());
   const [showModal, setShowModal] = useState(false);
   const [rutaEditar, setRutaEditar] = useState<any>(null);
   const [odpsParaModal, setOdpsParaModal] = useState<any[]>([]);
-  const [verCompletadas, setVerCompletadas] = useState(false);
   const [pauseModal, setPauseModal] = useState<{ rutaOdpId: number; numeroOdp: string } | null>(null);
   const [pauseMotivo, setPauseMotivo] = useState('');
   const [busqueda, setBusqueda] = useState('');
 
+  // Carga datos principales
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
@@ -48,89 +306,101 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
       setRutas(rutasRes.data);
     } catch { toast.error('Error al cargar datos'); }
     finally { setLoading(false); }
-  }, []);
+  }, []); // eslint-disable-line
+
+  // Carga historial (lazy)
+  const cargarHistorial = useCallback(async (desde: string, hasta: string) => {
+    setLoadingHistorial(true);
+    try {
+      const res = await axios.get(`${API}/api/rutas/historial`, { headers, params: { desde, hasta } });
+      setRutasHistorial(res.data);
+      setHistorialCargado(true);
+    } catch { toast.error('Error al cargar historial'); }
+    finally { setLoadingHistorial(false); }
+  }, []); // eslint-disable-line
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  const handleProgramar = (odpsPre: any[] = []) => {
-    setOdpsParaModal(odps.listos);
-    setRutaEditar(null);
-    setShowModal(true);
-  };
+  useEffect(() => {
+    if (mainTab === 'completados') {
+      setHistorialCargado(false);
+      cargarHistorial(fechaDesde, fechaHasta);
+    }
+  }, [mainTab, fechaDesde, fechaHasta]); // eslint-disable-line
 
-  const handleEditar = (ruta: any) => {
-    setOdpsParaModal(odps.listos);
-    setRutaEditar(ruta);
-    setShowModal(true);
-  };
+  // Segmentación de rutas
+  const rutasProgramadas  = useMemo(() => rutas.filter((r: any) => r.estado === 'programada'), [rutas]);
+  const rutasEnCurso      = useMemo(() => rutas.filter((r: any) => r.estado === 'en_curso'), [rutas]);
+  const rutasCompletadas  = useMemo(() => rutasHistorial.filter((r: any) => r.estado === 'completada'), [rutasHistorial]);
+  const rutasCanceladas   = useMemo(() => rutasHistorial.filter((r: any) => r.estado === 'cancelada'), [rutasHistorial]);
 
+  // Búsqueda
+  const q = busqueda.toLowerCase().trim();
+
+  const filtrarOdps = (lista: any[]) =>
+    q ? lista.filter((o: any) =>
+      o.numero_odp?.toLowerCase().includes(q) ||
+      o.cliente?.nombre_razon_social?.toLowerCase().includes(q)
+    ) : lista;
+
+  const filtrarRutas = (lista: any[]) =>
+    q ? lista.filter((r: any) =>
+      r.ruta_odps?.some((ro: any) =>
+        ro.odp?.numero_odp?.toLowerCase().includes(q) ||
+        ro.odp?.cliente?.nombre_razon_social?.toLowerCase().includes(q)
+      )
+    ) : lista;
+
+  // Handlers
+  const handleEditar = (ruta: any) => { setOdpsParaModal(odps.listos); setRutaEditar(ruta); setShowModal(true); };
+  const handleCancelar = async (rutaId: number) => {
+    if (!window.confirm('¿Cancelar esta ruta? Las ODPs volverán a "Listo para instalar".')) return;
+    try { await axios.delete(`${API}/api/rutas/${rutaId}`, { headers }); toast.success('Ruta cancelada'); cargar(); }
+    catch (e: any) { toast.error(e.response?.data?.error || 'Error al cancelar'); }
+  };
   const handleFinalizarODP = async (rutaOdpId: number, numeroOdp: string) => {
     if (!window.confirm(`¿Marcar como entregada la ODP ${numeroOdp}?`)) return;
     try {
-      const fd = new FormData();
-      await axios.post(`${API}/api/rutas/ruta-odp/${rutaOdpId}/finalizar`, fd, { headers: { ...headers, 'Content-Type': 'multipart/form-data' } });
+      await axios.post(`${API}/api/rutas/ruta-odp/${rutaOdpId}/finalizar`, new FormData(), { headers });
       toast.success(`ODP ${numeroOdp} marcada como entregada`);
       cargar();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Error al finalizar ODP');
-    }
+    } catch (e: any) { toast.error(e.response?.data?.error || 'Error al finalizar ODP'); }
   };
-
-  const handlePausar = (rutaOdpId: number, numeroOdp: string) => {
-    setPauseMotivo('');
-    setPauseModal({ rutaOdpId, numeroOdp });
-  };
-
+  const handlePausar = (rutaOdpId: number, numeroOdp: string) => { setPauseMotivo(''); setPauseModal({ rutaOdpId, numeroOdp }); };
   const handleConfirmarPausa = async () => {
     if (!pauseModal) return;
     if (!pauseMotivo.trim()) { toast.error('Ingresa el motivo de la pausa'); return; }
     try {
-      await axios.post(`${API}/api/rutas/ruta-odp/${pauseModal.rutaOdpId}/pausar`,
-        { motivo_pausa: pauseMotivo.trim() },
-        { headers }
-      );
+      await axios.post(`${API}/api/rutas/ruta-odp/${pauseModal.rutaOdpId}/pausar`, { motivo_pausa: pauseMotivo.trim() }, { headers });
       toast.success(`Instalación de ${pauseModal.numeroOdp} pausada`);
       setPauseModal(null);
       cargar();
-    } catch (e: any) {
-      toast.error(e.response?.data?.error || 'Error al pausar');
-    }
+    } catch (e: any) { toast.error(e.response?.data?.error || 'Error al pausar'); }
   };
 
-  const handleCancelar = async (rutaId: number) => {
-    if (!window.confirm('¿Cancelar esta ruta? Las ODPs pendientes volverán a "Listo para instalar".')) return;
-    try {
-      await axios.delete(`${API}/api/rutas/${rutaId}`, { headers });
-      toast.success('Ruta cancelada');
-      cargar();
-    } catch (e: any) { toast.error(e.response?.data?.error || 'Error al cancelar'); }
-  };
-
-  const TABS = [
-    { key: 'listos', label: 'Listo para instalar', count: odps.listos.length, icon: CheckCircle2, color: 'text-emerald-600' },
-    { key: 'pago', label: 'En espera de pago', count: odps.espera_pago.length, icon: Clock, color: 'text-amber-600' },
-    { key: 'produccion', label: 'En espera de producción', count: odps.espera_produccion.length, icon: AlertTriangle, color: 'text-red-500' },
+  // Tabs principales
+  const MAIN_TABS = [
+    { key: 'listos',      label: 'Listo para instalar',    count: odps.listos.length,              icon: CheckCircle2,  color: 'text-emerald-600' },
+    { key: 'pago',        label: 'Espera de pago',          count: odps.espera_pago.length,         icon: Clock,         color: 'text-amber-600' },
+    { key: 'produccion',  label: 'Espera de producción',    count: odps.espera_produccion.length,   icon: AlertTriangle, color: 'text-red-500' },
+    { key: 'programados', label: 'Programados',             count: rutas.length,                    icon: Route,         color: 'text-indigo-600' },
+    { key: 'completados', label: 'Completados',             count: null,                            icon: History,       color: 'text-slate-500' },
   ] as const;
 
-  const q = busqueda.toLowerCase().trim();
-  const currentOdpsBase = tab === 'listos' ? odps.listos : tab === 'pago' ? odps.espera_pago : odps.espera_produccion;
-  const currentOdps = q
-    ? currentOdpsBase.filter((odp: any) =>
-        odp.numero_odp?.toLowerCase().includes(q) ||
-        odp.cliente?.nombre_razon_social?.toLowerCase().includes(q)
-      )
-    : currentOdpsBase;
-  const rutasFiltradas = q
-    ? rutas.filter((r: any) =>
-        r.ruta_odps?.some((ro: any) =>
-          ro.odp?.numero_odp?.toLowerCase().includes(q) ||
-          ro.odp?.cliente?.nombre_razon_social?.toLowerCase().includes(q)
-        )
-      )
-    : rutas;
+  // ODP list actual según tab
+  const odpListaActual = mainTab === 'listos' ? odps.listos : mainTab === 'pago' ? odps.espera_pago : odps.espera_produccion;
+  const odpsMostradas  = filtrarOdps(odpListaActual);
+
+  // Rutas según sub-tab programados
+  const rutasProg = filtrarRutas(subTabProg === 'programada' ? rutasProgramadas : rutasEnCurso);
+
+  // Rutas según sub-tab completados
+  const rutasComp = filtrarRutas(subTabComp === 'completadas' ? rutasCompletadas : rutasCanceladas);
+
+  const propsRutaCard = { readOnly, onEditar: handleEditar, onCancelar: handleCancelar, onFinalizar: handleFinalizarODP, onPausar: handlePausar };
 
   return (
-    <div className="p-5 max-w-7xl mx-auto space-y-6">
+    <div className="p-5 max-w-7xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -138,12 +408,15 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
           <p className="text-sm text-slate-500 mt-0.5">Programa rutas y monitorea el avance de instalaciones</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => cargar()} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50">
+          <button onClick={cargar} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50" title="Recargar">
             <RefreshCw className="w-4 h-4 text-slate-500" />
           </button>
           {!readOnly && (
-            <button onClick={() => handleProgramar()} disabled={!odps.listos.length}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 shadow-sm">
+            <button
+              onClick={() => { setOdpsParaModal(odps.listos); setRutaEditar(null); setShowModal(true); }}
+              disabled={!odps.listos.length}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 shadow-sm"
+            >
               <Plus className="w-4 h-4" /> Nueva Ruta
             </button>
           )}
@@ -162,189 +435,187 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
         />
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        <div className="flex border-b border-slate-100">
-          {TABS.map(t => {
+      {/* Tabs principales */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="flex border-b border-slate-100 overflow-x-auto">
+          {MAIN_TABS.map(t => {
             const Icon = t.icon;
+            const activo = mainTab === t.key;
             return (
-              <button key={t.key} onClick={() => setTab(t.key)}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-all ${tab === t.key ? 'bg-slate-50 border-b-2 border-indigo-500 text-indigo-700' : 'text-slate-500 hover:bg-slate-50'}`}>
-                <Icon className={`w-4 h-4 ${tab === t.key ? 'text-indigo-600' : t.color}`} />
-                {t.label}
-                <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${tab === t.key ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>
-                  {t.count}
-                </span>
+              <button
+                key={t.key}
+                onClick={() => setMainTab(t.key as MainTab)}
+                className={`flex-shrink-0 flex items-center justify-center gap-1.5 py-3 px-4 text-sm font-medium transition-all ${activo ? 'bg-slate-50 border-b-2 border-indigo-500 text-indigo-700' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                <Icon className={`w-4 h-4 ${activo ? 'text-indigo-600' : t.color}`} />
+                <span className="whitespace-nowrap">{t.label}</span>
+                {t.count !== null && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${activo ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>
+                    {t.count}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>
-        ) : currentOdps.length === 0 ? (
-          <div className="py-12 text-center text-slate-400 text-sm">No hay ODPs en esta categoría</div>
-        ) : (
-          <div className="divide-y divide-slate-50">
-            {currentOdps.map((odp: any) => (
-              <div key={odp.id} className="flex items-center gap-4 p-4 hover:bg-slate-50">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-bold text-slate-800 text-sm">{odp.numero_odp}</span>
-                    {odp.es_garantia && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 flex items-center gap-1">
-                        🛡 Garantía
-                      </span>
-                    )}
-                    {!odp.es_garantia && (
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${odp.estado_caja === 'CANCELADO' ? 'bg-emerald-100 text-emerald-700' : odp.estado_caja === 'CREDITO_APROBADO' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {odp.estado_caja === 'CANCELADO' ? 'Pagado' : odp.estado_caja === 'CREDITO_APROBADO' ? 'Crédito' : odp.estado_caja}
-                      </span>
-                    )}
-                    {odp.autorizacion_especial_despacho && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">Autorización especial</span>
+        {/* ── Contenido tabs ODP (listos / pago / produccion) ── */}
+        {(mainTab === 'listos' || mainTab === 'pago' || mainTab === 'produccion') && (
+          loading ? (
+            <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>
+          ) : odpsMostradas.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 text-sm">No hay ODPs en esta categoría</div>
+          ) : (
+            <div className="divide-y divide-slate-50">
+              {odpsMostradas.map((odp: any) => (
+                <div key={odp.id} className="flex items-center gap-4 p-4 hover:bg-slate-50">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-bold text-slate-800 text-sm">{odp.numero_odp}</span>
+                      {odp.es_garantia && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">🛡 Garantía</span>}
+                      {!odp.es_garantia && (
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${odp.estado_caja === 'CANCELADO' ? 'bg-emerald-100 text-emerald-700' : odp.estado_caja === 'CREDITO_APROBADO' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {odp.estado_caja === 'CANCELADO' ? 'Pagado' : odp.estado_caja === 'CREDITO_APROBADO' ? 'Crédito' : odp.estado_caja}
+                        </span>
+                      )}
+                      {odp.autorizacion_especial_despacho && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">Autorización especial</span>}
+                    </div>
+                    <p className="text-sm text-slate-600 font-medium">{odp.cliente?.nombre_razon_social}</p>
+                    {odp.direccion_instalacion && (
+                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3" />{odp.direccion_instalacion}</p>
                     )}
                   </div>
-                  <p className="text-sm text-slate-600 font-medium">{odp.cliente?.nombre_razon_social}</p>
-                  {odp.direccion_instalacion && (
-                    <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                      <MapPin className="w-3 h-3" />{odp.direccion_instalacion}
-                    </p>
+                  {odp.fecha_entrega && (
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs text-slate-400">Entrega</p>
+                      <p className="text-xs font-semibold text-slate-600">
+                        {new Date(odp.fecha_entrega).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                      </p>
+                    </div>
+                  )}
+                  {mainTab === 'listos' && !readOnly && (
+                    <button
+                      onClick={() => { setOdpsParaModal(odps.listos); setRutaEditar(null); setShowModal(true); }}
+                      className="flex-shrink-0 px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xs font-semibold hover:bg-indigo-100"
+                    >
+                      + Agregar a ruta
+                    </button>
                   )}
                 </div>
-                {odp.fecha_entrega && (
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-xs text-slate-400">Entrega</p>
-                    <p className="text-xs font-semibold text-slate-600">
-                      {new Date(odp.fecha_entrega).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
-                    </p>
-                  </div>
-                )}
-                {tab === 'listos' && !readOnly && (
-                  <button onClick={() => { setOdpsParaModal(odps.listos); setRutaEditar(null); setShowModal(true); }}
-                    className="flex-shrink-0 px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xs font-semibold hover:bg-indigo-100">
-                    + Agregar a ruta
-                  </button>
-                )}
+              ))}
+            </div>
+          )
+        )}
+
+        {/* ── Contenido tab Programados ── */}
+        {mainTab === 'programados' && (
+          <div className="p-4 space-y-4">
+            {/* Sub-tabs */}
+            <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+              {([
+                { key: 'programada', label: 'Programada', count: rutasProgramadas.length, cls: 'text-blue-700 bg-white' },
+                { key: 'en_curso',   label: 'En curso',   count: rutasEnCurso.length,     cls: 'text-amber-700 bg-white' },
+              ] as const).map(st => (
+                <button
+                  key={st.key}
+                  onClick={() => setSubTabProg(st.key)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${subTabProg === st.key ? st.cls + ' shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  {st.label}
+                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${subTabProg === st.key ? 'bg-slate-100' : 'bg-slate-200 text-slate-500'}`}>
+                    {st.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {loading ? (
+              <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-7 w-7 border-b-2 border-indigo-600" /></div>
+            ) : rutasProg.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 text-sm">
+                {q ? 'Sin resultados para la búsqueda.' : `No hay rutas ${subTabProg === 'programada' ? 'programadas' : 'en curso'}.`}
               </div>
-            ))}
+            ) : (
+              <div className="space-y-3">
+                {rutasProg.map((r: any) => <RutaCard key={r.id} ruta={r} {...propsRutaCard} />)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Contenido tab Completados ── */}
+        {mainTab === 'completados' && (
+          <div className="p-4 space-y-4">
+            {/* Filtro por fechas */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Período</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={fechaDesde}
+                  onChange={e => setFechaDesde(e.target.value)}
+                  className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                />
+                <span className="text-slate-400 text-xs">—</span>
+                <input
+                  type="date"
+                  value={fechaHasta}
+                  onChange={e => setFechaHasta(e.target.value)}
+                  className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                />
+              </div>
+              {/* Atajos */}
+              <div className="flex gap-1.5">
+                {[
+                  { label: 'Esta semana', desde: getLunes(), hasta: getDomingo() },
+                  { label: 'Este mes',    desde: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0], hasta: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0] },
+                ].map(atajo => (
+                  <button
+                    key={atajo.label}
+                    onClick={() => { setFechaDesde(atajo.desde); setFechaHasta(atajo.hasta); }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${fechaDesde === atajo.desde && fechaHasta === atajo.hasta ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                  >
+                    {atajo.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Sub-tabs */}
+            <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+              {([
+                { key: 'completadas', label: 'Completadas', count: rutasCompletadas.length, cls: 'text-emerald-700 bg-white' },
+                { key: 'canceladas',  label: 'Canceladas',  count: rutasCanceladas.length,  cls: 'text-slate-600 bg-white' },
+              ] as const).map(st => (
+                <button
+                  key={st.key}
+                  onClick={() => setSubTabComp(st.key)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${subTabComp === st.key ? st.cls + ' shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  {st.label}
+                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${subTabComp === st.key ? 'bg-slate-100' : 'bg-slate-200 text-slate-500'}`}>
+                    {st.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {loadingHistorial ? (
+              <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-7 w-7 border-b-2 border-indigo-600" /></div>
+            ) : rutasComp.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 text-sm">
+                {q ? 'Sin resultados para la búsqueda.' : `No hay rutas ${subTabComp} en el período seleccionado.`}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {rutasComp.map((r: any) => <RutaCard key={r.id} ruta={r} {...propsRutaCard} historial />)}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Rutas activas */}
-      <div>
-        {(() => {
-          const rutasActivas = rutasFiltradas.filter((r: any) => r.estado !== 'completada');
-          const rutasCompletadas = rutasFiltradas.filter((r: any) => r.estado === 'completada');
-          return (
-            <>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-slate-700">Rutas activas ({rutasActivas.length})</h2>
-                {rutasCompletadas.length > 0 && (
-                  <button onClick={() => setVerCompletadas(v => !v)}
-                    className="text-xs text-slate-400 hover:text-slate-600 underline">
-                    {verCompletadas ? 'Ocultar' : 'Ver'} completadas ({rutasCompletadas.length})
-                  </button>
-                )}
-              </div>
-              {rutasActivas.length === 0 ? (
-                <div className="bg-white rounded-xl border border-slate-200 py-10 text-center text-slate-400 text-sm">
-                  {q ? 'Sin resultados para la búsqueda.' : 'No hay rutas activas. Crea una desde "Nueva Ruta".'}
-                </div>
-              ) : null}
-              <div className="space-y-3">
-                {(verCompletadas ? rutasFiltradas : rutasActivas).map((ruta: any) => (
-              <div key={ruta.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                {/* Ruta header */}
-                <div className="flex items-center gap-3 p-4 border-b border-slate-100">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase ${ESTADO_RUTA_STYLES[ruta.estado] || 'bg-slate-100 text-slate-600'}`}>
-                    {ruta.estado}
-                  </span>
-                  <div className="flex-1 flex flex-wrap gap-3 text-xs text-slate-500">
-                    {ruta.vehiculo && (
-                      <span className="flex items-center gap-1"><Truck className="w-3 h-3" />{ruta.vehiculo.tipo} — {ruta.vehiculo.placa}</span>
-                    )}
-                    {ruta.conductor && (
-                      <span className="flex items-center gap-1">🧑‍✈️ {ruta.conductor.nombre_completo}</span>
-                    )}
-                    {ruta.oficial && (
-                      <span className="flex items-center gap-1 text-indigo-600 font-semibold">⭐ Oficial: {ruta.oficial.nombre_completo}</span>
-                    )}
-                    {ruta.instaladores?.length > 0 && (
-                      <span className="flex items-center gap-1"><Users className="w-3 h-3" />{ruta.instaladores.map((i: any) => i.nombre_completo).join(', ')}</span>
-                    )}
-                  </div>
-                  {!readOnly && (ruta.estado === 'programada' || ruta.estado === 'en_curso') && (
-                    <div className="flex gap-1">
-                      <button onClick={() => handleEditar(ruta)} className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-500" title="Editar / reprogramar ruta">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => handleCancelar(ruta.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-400" title="Cancelar ruta">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* ODPs en la ruta */}
-                <div className="divide-y divide-slate-50">
-                  {(ruta.ruta_odps || []).sort((a: any, b: any) => a.orden - b.orden).map((ro: any) => (
-                    <div key={ro.id} className="flex items-center gap-3 px-4 py-3">
-                      <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs flex items-center justify-center font-bold flex-shrink-0">
-                        {ro.orden}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-semibold text-slate-800">{ro.odp?.numero_odp}</span>
-                        <span className="text-xs text-slate-500 ml-2">{ro.odp?.cliente?.nombre_razon_social}</span>
-                        {ro.odp?.direccion_instalacion && (
-                          <p className="text-xs text-slate-400 flex items-center gap-1"><MapPin className="w-2.5 h-2.5" />{ro.odp.direccion_instalacion}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="flex items-center gap-1 text-xs text-slate-400">
-                          <Calendar className="w-3 h-3" />
-                          {ro.fecha_programada}
-                        </span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${ESTADO_ODP_RUTA_STYLES[ro.estado] || ''}`}>
-                          {ro.estado}
-                        </span>
-                        {!readOnly && ro.estado === 'en_curso' && (
-                          <button
-                            onClick={() => handlePausar(ro.id, ro.odp?.numero_odp)}
-                            className="p-1 rounded hover:bg-violet-50 text-violet-400 hover:text-violet-600"
-                            title="Pausar instalación"
-                          >
-                            <PauseCircle className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        {!readOnly && ro.estado !== 'completada' && ro.estado !== 'pausada' && (
-                          <button
-                            onClick={() => handleFinalizarODP(ro.id, ro.odp?.numero_odp)}
-                            className="p-1 rounded hover:bg-emerald-50 text-emerald-400 hover:text-emerald-600"
-                            title="Marcar como entregada"
-                          >
-                            <PackageCheck className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {ruta.observaciones && (
-                  <div className="px-4 py-2 bg-amber-50 border-t border-amber-100">
-                    <p className="text-xs text-amber-700">{ruta.observaciones}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-              </div>
-            </>
-          );
-        })()}
-      </div>
-
+      {/* Modal programar ruta */}
       {showModal && (
         <ProgramarRutaModal
           odpsDisponibles={odpsParaModal}
@@ -354,7 +625,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
         />
       )}
 
-      {/* MODAL MOTIVO PAUSA */}
+      {/* Modal motivo pausa */}
       {pauseModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 space-y-4">
@@ -378,12 +649,10 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
               />
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setPauseModal(null)}
-                className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-semibold text-sm rounded-xl hover:bg-slate-200 transition">
+              <button onClick={() => setPauseModal(null)} className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-semibold text-sm rounded-xl hover:bg-slate-200 transition">
                 Cancelar
               </button>
-              <button onClick={handleConfirmarPausa}
-                className="flex-1 py-2.5 bg-violet-600 text-white font-semibold text-sm rounded-xl hover:bg-violet-700 transition shadow-sm">
+              <button onClick={handleConfirmarPausa} className="flex-1 py-2.5 bg-violet-600 text-white font-semibold text-sm rounded-xl hover:bg-violet-700 transition shadow-sm">
                 Confirmar pausa
               </button>
             </div>

@@ -5,6 +5,7 @@ import { uploadConfig } from '../config/upload';
 import {
   getODPsParaGestion,
   getRutas,
+  getRutasHistorial,
   getRuta,
   getRutasProgramacion,
   createRuta,
@@ -30,6 +31,7 @@ router.use(authMiddleware);
 // Jefe: datos para gestión
 router.get('/odps-para-gestion', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'), getODPsParaGestion);
 router.get('/programacion', requireRole('admin', 'gerencia', 'jefe_produccion', 'compras', 'produccion', 'asistente_administrativo'), getRutasProgramacion);
+router.get('/historial', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'), getRutasHistorial);
 router.get('/vehiculos', getVehiculos);
 router.get('/personal', getInstaladores);
 

@@ -167,7 +167,7 @@ export const getRutas = async (_req: Request, res: Response) => {
   try {
     const includes = await INCLUDE_RUTA_LISTA();
     const rutas = await RutaInstalacion.findAll({
-      where: { estado: { [Op.ne]: 'cancelada' } },
+      where: { estado: { [Op.in]: ['programada', 'en_curso'] } },
       include: includes,
       order: [['creado_en', 'DESC']],
     });
@@ -175,6 +175,41 @@ export const getRutas = async (_req: Request, res: Response) => {
   } catch (e: any) {
     console.error('getRutas:', e.message);
     res.status(500).json({ error: 'Error al obtener rutas' });
+  }
+};
+
+export const getRutasHistorial = async (req: Request, res: Response) => {
+  try {
+    const { desde, hasta } = req.query;
+
+    // Default: semana actual (lunes a domingo)
+    const hoy = new Date();
+    const diaSemana = hoy.getDay();
+    const difLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
+    const lunes = new Date(hoy);
+    lunes.setDate(hoy.getDate() + difLunes);
+    lunes.setHours(0, 0, 0, 0);
+
+    const domingo = new Date(lunes);
+    domingo.setDate(lunes.getDate() + 6);
+    domingo.setHours(23, 59, 59, 999);
+
+    const desdeDate = desde ? new Date(`${desde}T00:00:00`) : lunes;
+    const hastaDate = hasta ? new Date(`${hasta}T23:59:59`) : domingo;
+
+    const includes = await INCLUDE_RUTA_LISTA();
+    const rutas = await RutaInstalacion.findAll({
+      where: {
+        estado: { [Op.in]: ['completada', 'cancelada'] },
+        creado_en: { [Op.between]: [desdeDate, hastaDate] },
+      },
+      include: includes,
+      order: [['creado_en', 'DESC']],
+    });
+    res.json(rutas);
+  } catch (e: any) {
+    console.error('getRutasHistorial:', e.message);
+    res.status(500).json({ error: 'Error al obtener historial de rutas' });
   }
 };
 
