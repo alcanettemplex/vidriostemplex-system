@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSelector } from 'react-redux';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
-import { Search, MapPin, Ruler, Trash2, Edit2, Check, X, BarChart2, List, PackagePlus, Download } from 'lucide-react';
+import { Search, MapPin, Ruler, Trash2, Edit2, Check, X, BarChart2, List, PackagePlus, Download, FileSpreadsheet } from 'lucide-react';
 import IngresarPerfilModal from './IngresarPerfilModal';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -29,9 +30,12 @@ interface CatalogoItem {
   nombre: string;
 }
 
-type ViewMode = 'lista' | 'resumen';
+type ViewMode = 'lista' | 'resumen' | 'reporte';
 
 const InventarioPage: React.FC = () => {
+  const user = useSelector((state: any) => state.auth.user);
+  const isAdmin = user?.rol === 'admin';
+
   const [items, setItems] = useState<PerfilItem[]>([]);
   const [stats, setStats] = useState<StatItem[]>([]);
   const [catalogoMap, setCatalogoMap] = useState<Record<string, string>>({});
@@ -45,6 +49,8 @@ const InventarioPage: React.FC = () => {
 
   const [ultimaEntrada, setUltimaEntrada] = useState<string | null>(null);
   const [showIngresoModal, setShowIngresoModal] = useState(false);
+
+  const [reporteSearch, setReporteSearch] = useState('');
 
   // Edición inline
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -96,6 +102,35 @@ const InventarioPage: React.FC = () => {
     if (viewMode === 'lista') loadItems();
     else loadStats();
   }, [viewMode, loadItems, loadStats]);
+
+  const statsReporteFiltrados = stats.filter(s => {
+    if (!reporteSearch) return true;
+    const q = reporteSearch.toLowerCase();
+    return s.codigo.toLowerCase().includes(q) || (catalogoMap[s.codigo] || '').toLowerCase().includes(q);
+  });
+
+  const handleExportReporte = () => {
+    const filas: any[] = statsReporteFiltrados.map(s => ({
+      'CÓDIGO': s.codigo,
+      'DESCRIPCIÓN': catalogoMap[s.codigo] || '',
+      'TOTAL PIEZAS': s.total_piezas,
+      'TOTAL MM': s.total_mm,
+      'TOTAL METROS': parseFloat((s.total_mm / 1000).toFixed(2)),
+    }));
+    filas.push({
+      'CÓDIGO': 'TOTAL',
+      'DESCRIPCIÓN': '',
+      'TOTAL PIEZAS': statsReporteFiltrados.reduce((a, s) => a + s.total_piezas, 0),
+      'TOTAL MM': statsReporteFiltrados.reduce((a, s) => a + s.total_mm, 0),
+      'TOTAL METROS': parseFloat((statsReporteFiltrados.reduce((a, s) => a + s.total_mm, 0) / 1000).toFixed(2)),
+    });
+    const ws = XLSX.utils.json_to_sheet(filas);
+    ws['!cols'] = [{ wch: 14 }, { wch: 40 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reporte MM Perfilería');
+    const fecha = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `reporte_mm_perfileria_${fecha}.xlsx`);
+  };
 
   // Debounce de búsqueda
   useEffect(() => {
@@ -216,6 +251,14 @@ const InventarioPage: React.FC = () => {
           >
             <BarChart2 className="w-4 h-4" /> Por código
           </button>
+          {isAdmin && (
+            <button
+              onClick={() => setViewMode('reporte')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all ${viewMode === 'reporte' ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-violet-600 border-violet-300 hover:bg-violet-50'}`}
+            >
+              <FileSpreadsheet className="w-4 h-4" /> Reporte
+            </button>
+          )}
         </div>
       </div>
 
@@ -356,6 +399,75 @@ const InventarioPage: React.FC = () => {
             </div>
           )}
         </>
+      ) : viewMode === 'reporte' ? (
+        /* Vista reporte admin */
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="relative flex-1 max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Filtrar por código o descripción..."
+                value={reporteSearch}
+                onChange={e => setReporteSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+            </div>
+            <button
+              onClick={handleExportReporte}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 transition-all shadow-sm"
+            >
+              <Download className="w-4 h-4" /> Descargar Excel
+            </button>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="px-4 py-2.5 bg-violet-50 border-b border-violet-100 text-xs font-medium text-violet-700">
+              Reporte de stock en MM por perfil — {statsReporteFiltrados.length} perfiles
+              {reporteSearch && ` · filtro: "${reporteSearch}"`}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="px-4 py-3 text-left font-semibold text-slate-600">Código</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-600">Descripción</th>
+                    <th className="px-4 py-3 text-right font-semibold text-slate-600">Total Piezas</th>
+                    <th className="px-4 py-3 text-right font-semibold text-slate-600">Total MM</th>
+                    <th className="px-4 py-3 text-right font-semibold text-slate-600">Total Metros</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {statsReporteFiltrados.map(s => (
+                    <tr key={s.codigo} className="hover:bg-slate-50">
+                      <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">{s.codigo}</td>
+                      <td className="px-4 py-2.5 text-slate-500">{catalogoMap[s.codigo] || '—'}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-700">{s.total_piezas.toLocaleString()}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-700">{s.total_mm.toLocaleString()}</td>
+                      <td className="px-4 py-2.5 text-right font-semibold text-violet-700">
+                        {(s.total_mm / 1000).toFixed(2)} m
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-violet-50 border-t-2 border-violet-200 font-semibold">
+                    <td className="px-4 py-3 text-violet-800">TOTAL</td>
+                    <td />
+                    <td className="px-4 py-3 text-right text-violet-800">
+                      {statsReporteFiltrados.reduce((a, s) => a + s.total_piezas, 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-right text-violet-800">
+                      {statsReporteFiltrados.reduce((a, s) => a + s.total_mm, 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-right text-violet-800">
+                      {(statsReporteFiltrados.reduce((a, s) => a + s.total_mm, 0) / 1000).toFixed(2)} m
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
       ) : (
         /* Vista resumen por código */
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
