@@ -13,11 +13,12 @@ interface RutaODPEntry { odp: ODPItem; orden: number; fecha_programada: string; 
 interface Props {
   odpsDisponibles: ODPItem[];
   rutaExistente?: any; // para edición
+  instaladorPreseleccionado?: number; // preselecciona un instalador al crear
   onClose: () => void;
   onSaved: () => void;
 }
 
-const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, onClose, onSaved }) => {
+const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, instaladorPreseleccionado, onClose, onSaved }) => {
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -27,15 +28,19 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, o
   const [conductorId, setConductorId] = useState<number | ''>(rutaExistente?.conductor?.id || '');
   const [oficialId, setOficialId] = useState<number | ''>(rutaExistente?.oficial?.id || '');
   const [instaladoresSeleccionados, setInstaladoresSeleccionados] = useState<number[]>(
-    rutaExistente?.instaladores?.map((i: any) => i.id) || []
+    rutaExistente?.instaladores?.map((i: any) => i.id) ??
+    (instaladorPreseleccionado ? [instaladorPreseleccionado] : [])
   );
   const [observaciones, setObservaciones] = useState(rutaExistente?.observaciones || '');
+  // Solo ODPs pendientes son editables; en_curso/pausada/con_dano no se tocan en el PUT
+  const rutaOdpsEditables = rutaExistente?.ruta_odps?.filter((ro: any) => !ro.estado || ro.estado === 'pendiente') ?? [];
+  const rutaOdpsNoEditables = rutaExistente?.ruta_odps?.filter((ro: any) => ro.estado && ro.estado !== 'pendiente') ?? [];
   const [entries, setEntries] = useState<RutaODPEntry[]>(
-    rutaExistente?.ruta_odps?.map((ro: any) => ({
+    rutaOdpsEditables.map((ro: any) => ({
       odp: ro.odp,
       orden: ro.orden,
       fecha_programada: ro.fecha_programada,
-    })) || []
+    }))
   );
   const [saving, setSaving] = useState(false);
 
@@ -80,7 +85,7 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, o
   };
 
   const handleSubmit = async () => {
-    if (!entries.length) return toast.error('Agrega al menos una ODP');
+    if (!entries.length && !rutaOdpsNoEditables.length) return toast.error('Agrega al menos una ODP');
     if (entries.some(e => !e.fecha_programada)) return toast.error('Todas las ODPs deben tener fecha');
     setSaving(true);
     try {
@@ -172,6 +177,16 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, o
               {instaladores.length === 0 && <p className="text-xs text-slate-400">No hay instaladores registrados</p>}
             </div>
           </div>
+
+          {/* Aviso ODPs no editables (en_curso, pausada, con_dano, completada) */}
+          {rutaOdpsNoEditables.length > 0 && (
+            <div className="flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+              <span className="font-bold mt-0.5">⚠</span>
+              <span>
+                {rutaOdpsNoEditables.length} ODP{rutaOdpsNoEditables.length > 1 ? 's' : ''} en curso / pausada{rutaOdpsNoEditables.length > 1 ? 's' : ''} no aparece{rutaOdpsNoEditables.length > 1 ? 'n' : ''} aquí — solo las pendientes son editables.
+              </span>
+            </div>
+          )}
 
           {/* ODPs disponibles para agregar */}
           {odpsNoAgregadas.length > 0 && (

@@ -4,9 +4,10 @@ import { toast } from 'react-toastify';
 import {
   CheckCircle2, Clock, AlertTriangle, MapPin, Truck, Users, Calendar,
   Pencil, Trash2, Plus, RefreshCw, PackageCheck, PauseCircle, Search,
-  Route, History, ChevronDown, ChevronUp,
+  Route, History, ChevronDown, ChevronUp, HardHat, Upload, X as XIcon,
 } from 'lucide-react';
 import ProgramarRutaModal from './ProgramarRutaModal';
+import InstaladorGestionTab from './InstaladorGestionTab';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -239,11 +240,11 @@ const RutaCard: React.FC<{
                         <PauseCircle className="w-3.5 h-3.5" />
                       </button>
                     )}
-                    {ro.estado !== 'completada' && ro.estado !== 'pausada' && (
+                    {ro.estado === 'en_curso' && (
                       <button
                         onClick={() => onFinalizar?.(ro.id, ro.odp?.numero_odp)}
                         className="p-1 rounded hover:bg-emerald-50 text-emerald-400 hover:text-emerald-600"
-                        title="Marcar como entregada"
+                        title="Registrar entrega"
                       >
                         <PackageCheck className="w-3.5 h-3.5" />
                       </button>
@@ -267,7 +268,7 @@ const RutaCard: React.FC<{
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-type MainTab = 'listos' | 'pago' | 'produccion' | 'programados' | 'completados';
+type MainTab = 'listos' | 'pago' | 'produccion' | 'programados' | 'completados' | 'instaladores';
 type SubTabProg = 'programada' | 'en_curso';
 type SubTabComp = 'completadas' | 'canceladas';
 
@@ -292,6 +293,10 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const [odpsParaModal, setOdpsParaModal] = useState<any[]>([]);
   const [pauseModal, setPauseModal] = useState<{ rutaOdpId: number; numeroOdp: string } | null>(null);
   const [pauseMotivo, setPauseMotivo] = useState('');
+  const [finalizarModal, setFinalizarModal] = useState<{ rutaOdpId: number; numeroOdp: string } | null>(null);
+  const [fotoFinalizar, setFotoFinalizar] = useState<File | null>(null);
+  const [datosReceptor, setDatosReceptor] = useState('');
+  const [savingFinalizar, setSavingFinalizar] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
   // Carga datos principales
@@ -358,13 +363,29 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     try { await axios.delete(`${API}/api/rutas/${rutaId}`, { headers }); toast.success('Ruta cancelada'); cargar(); }
     catch (e: any) { toast.error(e.response?.data?.error || 'Error al cancelar'); }
   };
-  const handleFinalizarODP = async (rutaOdpId: number, numeroOdp: string) => {
-    if (!window.confirm(`¿Marcar como entregada la ODP ${numeroOdp}?`)) return;
+  const handleFinalizarODP = (rutaOdpId: number, numeroOdp: string) => {
+    setFotoFinalizar(null);
+    setDatosReceptor('');
+    setFinalizarModal({ rutaOdpId, numeroOdp });
+  };
+
+  const handleConfirmarFinalizar = async () => {
+    if (!finalizarModal) return;
+    if (!fotoFinalizar) { toast.error('La foto de evidencia es obligatoria'); return; }
+    setSavingFinalizar(true);
     try {
-      await axios.post(`${API}/api/rutas/ruta-odp/${rutaOdpId}/finalizar`, new FormData(), { headers });
-      toast.success(`ODP ${numeroOdp} marcada como entregada`);
+      const fd = new FormData();
+      fd.append('foto', fotoFinalizar);
+      if (datosReceptor.trim()) fd.append('datos_receptor', datosReceptor.trim());
+      await axios.post(`${API}/api/rutas/ruta-odp/${finalizarModal.rutaOdpId}/finalizar`, fd, { headers });
+      toast.success(`ODP ${finalizarModal.numeroOdp} marcada como entregada`);
+      setFinalizarModal(null);
       cargar();
-    } catch (e: any) { toast.error(e.response?.data?.error || 'Error al finalizar ODP'); }
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Error al registrar entrega');
+    } finally {
+      setSavingFinalizar(false);
+    }
   };
   const handlePausar = (rutaOdpId: number, numeroOdp: string) => { setPauseMotivo(''); setPauseModal({ rutaOdpId, numeroOdp }); };
   const handleConfirmarPausa = async () => {
@@ -380,11 +401,12 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
 
   // Tabs principales
   const MAIN_TABS = [
-    { key: 'listos',      label: 'Listo para instalar',    count: odps.listos.length,              icon: CheckCircle2,  color: 'text-emerald-600' },
-    { key: 'pago',        label: 'Espera de pago',          count: odps.espera_pago.length,         icon: Clock,         color: 'text-amber-600' },
-    { key: 'produccion',  label: 'Espera de producción',    count: odps.espera_produccion.length,   icon: AlertTriangle, color: 'text-red-500' },
-    { key: 'programados', label: 'Programados',             count: rutas.length,                    icon: Route,         color: 'text-indigo-600' },
-    { key: 'completados', label: 'Completados',             count: null,                            icon: History,       color: 'text-slate-500' },
+    { key: 'listos',        label: 'Listo para instalar',  count: odps.listos.length,              icon: CheckCircle2,  color: 'text-emerald-600', soloEscritura: false },
+    { key: 'pago',          label: 'Espera de pago',        count: odps.espera_pago.length,         icon: Clock,         color: 'text-amber-600',   soloEscritura: false },
+    { key: 'produccion',    label: 'Espera de producción',  count: odps.espera_produccion.length,   icon: AlertTriangle, color: 'text-red-500',     soloEscritura: false },
+    { key: 'programados',   label: 'Programados',           count: rutas.length,                    icon: Route,         color: 'text-indigo-600',  soloEscritura: false },
+    { key: 'completados',   label: 'Completados',           count: null,                            icon: History,       color: 'text-slate-500',   soloEscritura: false },
+    { key: 'instaladores',  label: 'Instaladores',          count: null,                            icon: HardHat,       color: 'text-teal-600',    soloEscritura: true  },
   ] as const;
 
   // ODP list actual según tab
@@ -438,7 +460,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
       {/* Tabs principales */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="flex border-b border-slate-100 overflow-x-auto">
-          {MAIN_TABS.map(t => {
+          {MAIN_TABS.filter(t => !t.soloEscritura || !readOnly).map(t => {
             const Icon = t.icon;
             const activo = mainTab === t.key;
             return (
@@ -613,6 +635,11 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
             )}
           </div>
         )}
+
+        {/* ── Contenido tab Instaladores ── */}
+        {mainTab === 'instaladores' && !readOnly && (
+          <InstaladorGestionTab />
+        )}
       </div>
 
       {/* Modal programar ruta */}
@@ -623,6 +650,88 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
           onClose={() => { setShowModal(false); setRutaEditar(null); }}
           onSaved={() => { setShowModal(false); setRutaEditar(null); cargar(); }}
         />
+      )}
+
+      {/* Modal registrar entrega con foto */}
+      {finalizarModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center">
+                  <PackageCheck className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-slate-800 text-sm">Registrar entrega</p>
+                  <p className="text-xs text-slate-400">{finalizarModal.numeroOdp}</p>
+                </div>
+              </div>
+              <button onClick={() => setFinalizarModal(null)} className="p-2 rounded-lg hover:bg-slate-100">
+                <XIcon className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Foto evidencia */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                  Foto de evidencia *
+                </label>
+                <label className={`flex flex-col items-center justify-center gap-2 w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${fotoFinalizar ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-indigo-300 hover:bg-indigo-50'}`}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => setFotoFinalizar(e.target.files?.[0] ?? null)}
+                  />
+                  {fotoFinalizar ? (
+                    <>
+                      <PackageCheck className="w-6 h-6 text-emerald-500" />
+                      <span className="text-xs font-semibold text-emerald-600 text-center px-2 truncate max-w-full">{fotoFinalizar.name}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-6 h-6 text-slate-400" />
+                      <span className="text-xs text-slate-400">Clic para seleccionar imagen</span>
+                    </>
+                  )}
+                </label>
+              </div>
+
+              {/* Datos receptor */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                  Nombre de quien recibe <span className="normal-case font-normal">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={datosReceptor}
+                  onChange={e => setDatosReceptor(e.target.value)}
+                  placeholder="Ej. Carlos Mendoza, portero, propietario..."
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 pt-0 flex gap-3">
+              <button
+                onClick={() => setFinalizarModal(null)}
+                className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-semibold text-sm rounded-xl hover:bg-slate-200 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmarFinalizar}
+                disabled={savingFinalizar || !fotoFinalizar}
+                className="flex-[2] py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition shadow-sm"
+              >
+                {savingFinalizar ? 'Guardando...' : 'Confirmar entrega'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal motivo pausa */}

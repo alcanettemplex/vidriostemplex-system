@@ -108,12 +108,14 @@ const INCLUDE_ODP_BASICO = [
 
 export const getODPsParaGestion = async (_req: Request, res: Response) => {
   try {
-    // ODPs ya asignadas a rutas activas (no deben aparecer en "Listo para instalar")
-    const enRutaActiva = await RutaODP.findAll({
-      where: { estado: { [Op.in]: ['pendiente', 'en_curso'] } },
-      attributes: ['odp_id'],
-      raw: true,
-    }) as any[];
+    // ODPs ya asignadas a rutas activas (excluye también pausadas para evitar doble asignación)
+    const enRutaActiva: any[] = await sequelize.query(
+      `SELECT ro.odp_id FROM ruta_odp ro
+       JOIN rutas_instalacion ri ON ri.id = ro.ruta_id
+       WHERE ro.estado IN ('pendiente', 'en_curso', 'pausada')
+       AND ri.estado NOT IN ('cancelada', 'completada')`,
+      { type: QueryTypes.SELECT }
+    );
     const odpIdsEnRuta = enRutaActiva.map((r: any) => r.odp_id);
     const excluirEnRuta = odpIdsEnRuta.length ? { id: { [Op.notIn]: odpIdsEnRuta } } : {};
 
@@ -487,10 +489,11 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
 
     const ids = rutaIds.map((r: any) => r.ruta_id);
 
-    // ODPs en esas rutas (incluyendo completadas para métricas)
-    const asignacion = await RutaODP.findAll({
+    // Paso 1 SQL: solo en_curso y pendiente, descarta pausada/con_dano/completada
+    const candidatos = await RutaODP.findAll({
       where: {
         ruta_id: { [Op.in]: ids },
+        estado: { [Op.in]: ['en_curso', 'pendiente'] },
       },
       include: [
         {
@@ -512,11 +515,11 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
             { model: Pago, as: 'pagos' },
             { model: Cotizacion, as: 'cotizaciones' },
             { model: TomaMedidas, as: 'tomas_medidas' },
-            { 
+            {
               model: SAP, as: 'saps',
               include: [
                 { model: SAPItem, as: 'items' },
-                { 
+                {
                   model: OrdenCompra, as: 'ordenes_compra',
                   include: [{ model: ODCItem, as: 'items' }]
                 }
@@ -526,10 +529,20 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
         },
       ],
       order: [
-        // en_curso siempre primero
         [sequelize.literal(`CASE WHEN "RutaODP"."estado" = 'en_curso' THEN 0 ELSE 1 END`), 'ASC'],
         ['orden', 'ASC'],
       ],
+    });
+
+    // Paso 2 JS: pendiente solo aparece si la ruta está activa (programada/en_curso)
+    // en_curso pasa siempre (el instalador debe finalizarla independientemente del estado de la ruta)
+    const asignacion = (candidatos as any[]).filter(ro => {
+      if (ro.estado === 'en_curso') return true;
+      if (ro.estado === 'pendiente') {
+        const estadoRuta = ro.ruta?.estado;
+        return estadoRuta === 'programada' || estadoRuta === 'en_curso';
+      }
+      return false;
     });
 
     res.json(asignacion);
@@ -881,6 +894,61 @@ export const pausarInstalacion = async (req: Request, res: Response) => {
     await t.rollback();
     console.error('pausarInstalacion:', e.message);
     res.status(500).json({ error: 'Error al pausar instalación' });
+  }
+};
+
+// ─── JEFE: Asignación de un instalador específico ────────────────────────────
+
+export const getAsignacionInstalador = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const rutaIds: any[] = await sequelize.query(
+      `SELECT ruta_id FROM ruta_instaladores WHERE instalador_id = :uid
+       UNION
+       SELECT id AS ruta_id FROM rutas_instalacion WHERE oficial_id = :uid`,
+      { replacements: { uid: id }, type: QueryTypes.SELECT }
+    );
+    if (!rutaIds.length) return res.json([]);
+
+    const ids = rutaIds.map((r: any) => r.ruta_id);
+
+    const asignacion = await RutaODP.findAll({
+      where: {
+        ruta_id: { [Op.in]: ids },
+        estado: { [Op.in]: ['pendiente', 'en_curso', 'pausada', 'con_dano'] },
+      },
+      include: [
+        {
+          model: RutaInstalacion, as: 'ruta',
+          where: { estado: { [Op.ne]: 'cancelada' } },
+          include: [
+            { model: Vehiculo, as: 'vehiculo', attributes: ['placa', 'tipo'] },
+            { model: Usuario, as: 'instaladores', attributes: ['id', 'nombre_completo'], through: { attributes: [] } },
+            { model: Usuario, as: 'conductor', attributes: ['id', 'nombre_completo'] },
+            { model: Usuario, as: 'oficial', attributes: ['id', 'nombre_completo'] },
+          ],
+        },
+        {
+          model: ODP, as: 'odp',
+          include: [
+            { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'telefono'] },
+            { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+            { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
+            { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'fecha'] },
+          ],
+        },
+      ],
+      order: [
+        [sequelize.literal(`CASE WHEN "RutaODP"."estado" = 'en_curso' THEN 0 WHEN "RutaODP"."estado" = 'pausada' THEN 1 WHEN "RutaODP"."estado" = 'con_dano' THEN 2 ELSE 3 END`), 'ASC'],
+        ['orden', 'ASC'],
+      ],
+    });
+
+    res.json(asignacion);
+  } catch (e: any) {
+    console.error('getAsignacionInstalador:', e);
+    res.status(500).json({ error: 'Error al obtener asignación del instalador', details: e.message });
   }
 };
 

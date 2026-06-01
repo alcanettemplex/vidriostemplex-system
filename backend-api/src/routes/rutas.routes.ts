@@ -14,6 +14,7 @@ import {
   getVehiculos,
   getInstaladores,
   getMiAsignacion,
+  getAsignacionInstalador,
   iniciarInstalacion,
   finalizarInstalacion,
   pausarInstalacion,
@@ -37,6 +38,8 @@ router.get('/personal', getInstaladores);
 
 // Instalador: mi asignación del día
 router.get('/mi-asignacion', requireRole('instalador'), getMiAsignacion);
+// Jefe: asignación de un instalador específico
+router.get('/instalador/:id', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), getAsignacionInstalador);
 router.post('/ruta-odp/:id/iniciar', requireRole('instalador'), iniciarInstalacion);
 router.post('/ruta-odp/:id/finalizar', requireRole('instalador', 'produccion', 'jefe_produccion', 'admin', 'gerencia'), uploadConfig.single('foto'), finalizarInstalacion);
 router.post('/ruta-odp/:id/pausar', requireRole('instalador', 'jefe_produccion', 'admin', 'gerencia', 'produccion'), pausarInstalacion);
