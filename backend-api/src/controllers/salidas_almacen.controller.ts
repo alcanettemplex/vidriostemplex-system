@@ -39,7 +39,7 @@ export const getFacturadas = async (_req: Request, res: Response) => {
   }
 };
 
-// ─── GET: ODPs con salida de almacén registrada ───────────────────────────────
+// ─── GET: ODPs con salida de almacén registrada (excluye OA) ─────────────────
 export const getConSalida = async (_req: Request, res: Response) => {
   try {
     const salidas = await SalidaAlmacen.findAll({
@@ -47,6 +47,8 @@ export const getConSalida = async (_req: Request, res: Response) => {
         {
           model: ODP,
           as: 'odp',
+          where: { tipo_odp: { [Op.ne]: 'OA' } },
+          required: true,
           attributes: ['id', 'numero_odp', 'fecha_factura', 'factura_electronica', 'valor_total'],
           include: INCLUDE_ODP,
         },
@@ -58,6 +60,53 @@ export const getConSalida = async (_req: Request, res: Response) => {
   } catch (e: any) {
     console.error('getConSalida:', e.message);
     res.status(500).json({ error: 'Error al obtener salidas de almacén' });
+  }
+};
+
+// ─── GET: OAs sin salida de almacén registrada ────────────────────────────────
+export const getOAPendientes = async (_req: Request, res: Response) => {
+  try {
+    const conSalida = await SalidaAlmacen.findAll({ attributes: ['odp_id'], raw: true }) as any[];
+    const idsConSalida = conSalida.map((s: any) => s.odp_id);
+
+    const where: any = { tipo_odp: 'OA' };
+    if (idsConSalida.length) where.id = { [Op.notIn]: idsConSalida };
+
+    const oas = await ODP.findAll({
+      where,
+      include: INCLUDE_ODP,
+      attributes: ['id', 'numero_odp', 'estado_produccion', 'fecha_creacion'],
+      order: [['id', 'DESC']],
+    });
+
+    res.json(oas);
+  } catch (e: any) {
+    console.error('getOAPendientes:', e.message);
+    res.status(500).json({ error: 'Error al obtener OAs pendientes' });
+  }
+};
+
+// ─── GET: OAs con salida de almacén (SFV) registrada ─────────────────────────
+export const getConSalidaOA = async (_req: Request, res: Response) => {
+  try {
+    const salidas = await SalidaAlmacen.findAll({
+      include: [
+        {
+          model: ODP,
+          as: 'odp',
+          where: { tipo_odp: 'OA' },
+          required: true,
+          attributes: ['id', 'numero_odp', 'estado_produccion', 'fecha_creacion'],
+          include: INCLUDE_ODP,
+        },
+        { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
+      ],
+      order: [['creado_en', 'DESC']],
+    });
+    res.json(salidas);
+  } catch (e: any) {
+    console.error('getConSalidaOA:', e.message);
+    res.status(500).json({ error: 'Error al obtener salidas SFV de OA' });
   }
 };
 

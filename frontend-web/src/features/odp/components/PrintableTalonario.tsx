@@ -59,7 +59,9 @@ const PrintableTalonario: React.FC<PrintableTalonarioProps> = ({ odp }) => {
 
             {Array.from({ length: paginas }, (_, pageIdx) => {
                 const esUltimaPagina = pageIdx === paginas - 1;
-                const odcs: any[] = odp.saps?.[0]?.ordenes_compra || [];
+                const perfileria: any[] = odp.saps?.[0]?.ordenes_compra || [];
+                const vidrio: any[]     = odp.ordenes_compra_vidrio || [];
+                const odcs: any[]       = [...perfileria, ...vidrio];
                 const extraOdcs = odcs.slice(3);
 
                 const td = (content: React.ReactNode, extra?: React.CSSProperties) => (

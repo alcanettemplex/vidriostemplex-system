@@ -359,6 +359,29 @@ export const getODP = async (req: Request, res: Response) => {
       }
     }
 
+    // Enriquecer ODCs de vidrio via odc_items.odp_item_id
+    const odpItemIds: number[] = (odpJson.items || []).map((i: any) => i.id);
+    if (odpItemIds.length > 0) {
+      const vidrioOdcItems = await ODCItem.findAll({
+        where: { odp_item_id: { [Op.in]: odpItemIds } },
+        attributes: ['odc_id'],
+        raw: true
+      });
+      const vidrioOdcIds = [...new Set(vidrioOdcItems.map((i: any) => i.odc_id))];
+      if (vidrioOdcIds.length > 0) {
+        const vidrioOrdenes = await OrdenCompra.findAll({
+          where: { id: { [Op.in]: vidrioOdcIds }, tipo: 'vidrio' },
+          attributes: ['id', 'numero_odc', 'proveedor', 'tipo', 'estado', 'fecha_creacion'],
+          raw: true
+        });
+        odpJson.ordenes_compra_vidrio = vidrioOrdenes;
+      } else {
+        odpJson.ordenes_compra_vidrio = [];
+      }
+    } else {
+      odpJson.ordenes_compra_vidrio = [];
+    }
+
     res.json(odpJson);
   } catch (error: any) {
     console.error('Error getODP:', error.message);
