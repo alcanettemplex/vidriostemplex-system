@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { Op } from 'sequelize';
-import { ODP, Cliente, Usuario } from '../models';
+import { ODP, Cliente, Usuario, NoConformidad } from '../models';
 import SalidaAlmacen from '../models/salida_almacen.model';
 
 const salidaSchema = z.object({
@@ -107,6 +107,38 @@ export const getConSalidaOA = async (_req: Request, res: Response) => {
   } catch (e: any) {
     console.error('getConSalidaOA:', e.message);
     res.status(500).json({ error: 'Error al obtener salidas SFV de OA' });
+  }
+};
+
+// ─── GET: NC (es_no_conformidad=true) en estado INSTALADA/ENTREGADA SIN salida ─
+export const getNcSinSalida = async (_req: Request, res: Response) => {
+  try {
+    const conSalida = await SalidaAlmacen.findAll({ attributes: ['odp_id'], raw: true }) as any[];
+    const idsConSalida = conSalida.map((s: any) => s.odp_id);
+
+    const where: any = {
+      es_no_conformidad: true,
+      estado_produccion: { [Op.in]: ['INSTALADA', 'ENTREGADA'] },
+    };
+    if (idsConSalida.length) {
+      where.id = { [Op.notIn]: idsConSalida };
+    }
+
+    const odps = await ODP.findAll({
+      where,
+      include: [
+        ...INCLUDE_ODP,
+        { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp'] },
+        { model: NoConformidad, as: 'no_conformidad_origen', attributes: ['tipo_error'] },
+      ],
+      attributes: ['id', 'numero_odp', 'estado_produccion', 'fecha_creacion'],
+      order: [['id', 'DESC']],
+    });
+
+    res.json(odps);
+  } catch (e: any) {
+    console.error('getNcSinSalida:', e.message);
+    res.status(500).json({ error: 'Error al obtener NC sin salida' });
   }
 };
 

@@ -534,16 +534,10 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
       ],
     });
 
-    // Paso 2 JS: pendiente solo aparece si la ruta está activa (programada/en_curso)
-    // en_curso pasa siempre (el instalador debe finalizarla independientemente del estado de la ruta)
-    const asignacion = (candidatos as any[]).filter(ro => {
-      if (ro.estado === 'en_curso') return true;
-      if (ro.estado === 'pendiente') {
-        const estadoRuta = ro.ruta?.estado;
-        return estadoRuta === 'programada' || estadoRuta === 'en_curso';
-      }
-      return false;
-    });
+    // El conductor y el instalador tienen ciclos independientes.
+    // La cancelación de la ruta es el único evento que bloquea al instalador (ya filtrado en SQL).
+    // Una ruta 'completada' por el conductor no impide que el instalador continúe sus tareas.
+    const asignacion = candidatos as any[];
 
     res.json(asignacion);
   } catch (e: any) {

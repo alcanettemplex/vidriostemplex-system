@@ -5,7 +5,7 @@ import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import ODPFichaModal from '../odp/components/ODPFichaModal';
 import {
-  FileCheck, Warehouse, Plus, Pencil, Trash2, X, RefreshCw, Search, Package,
+  FileCheck, Warehouse, Plus, Pencil, Trash2, X, RefreshCw, Search, Package, AlertTriangle,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -40,8 +40,15 @@ const BadgeEstado = ({ estado }: { estado: string }) => {
   return <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${e.cls}`}>{e.label}</span>;
 };
 
-type Tab = 'facturadas' | 'oa' | 'con_salida';
+type Tab = 'facturadas' | 'oa' | 'nc' | 'con_salida';
 type SubTabConSalida = 'odps' | 'oa';
+
+const TIPO_ERROR_NC: Record<string, { label: string; cls: string }> = {
+  ERROR_INTERNO: { label: 'Error interno',  cls: 'bg-red-50 text-red-700 border border-red-200' },
+  DANO_PLANTA:   { label: 'Daño en planta', cls: 'bg-orange-50 text-orange-700 border border-orange-200' },
+  REPROCESO:     { label: 'Reproceso',      cls: 'bg-amber-50 text-amber-700 border border-amber-200' },
+  QUEJA:         { label: 'Queja',          cls: 'bg-purple-50 text-purple-700 border border-purple-200' },
+};
 
 interface ODPFacturada {
   id: number;
@@ -59,6 +66,16 @@ interface OAPendiente {
   estado_produccion: string;
   fecha_creacion: string | null;
   cliente: { id: number; nombre_razon_social: string };
+}
+
+interface ODPNoConformidad {
+  id: number;
+  numero_odp: string;
+  estado_produccion: string;
+  fecha_creacion: string | null;
+  cliente: { id: number; nombre_razon_social: string };
+  odp_padre: { id: number; numero_odp: string } | null;
+  no_conformidad_origen: { tipo_error: string } | null;
 }
 
 interface SalidaAlmacen {
@@ -80,7 +97,7 @@ interface SalidaAlmacen {
 }
 
 interface ModalSAState {
-  odp?: ODPFacturada | OAPendiente;
+  odp?: ODPFacturada | OAPendiente | ODPNoConformidad;
   salida?: SalidaAlmacen;
   esOA: boolean;
 }
@@ -99,6 +116,7 @@ const FacturasSalidasPage: React.FC = () => {
   const [oaPendientes, setOAPendientes] = useState<OAPendiente[]>([]);
   const [conSalida, setConSalida]       = useState<SalidaAlmacen[]>([]);
   const [conSalidaOA, setConSalidaOA]   = useState<SalidaAlmacen[]>([]);
+  const [odpsNc, setOdpsNc]             = useState<ODPNoConformidad[]>([]);
 
   const hoy = new Date();
   const [filtroMes, setFiltroMes]   = useState(hoy.getMonth() + 1);
@@ -107,6 +125,7 @@ const FacturasSalidasPage: React.FC = () => {
 
   const [busquedaFacturadas,   setBusquedaFacturadas]   = useState('');
   const [busquedaOA,           setBusquedaOA]           = useState('');
+  const [busquedaNc,           setBusquedaNc]           = useState('');
   const [busquedaConSalida,    setBusquedaConSalida]    = useState('');
   const [busquedaConSalidaOA,  setBusquedaConSalidaOA]  = useState('');
   const [filtroCajaFacturadas, setFiltroCajaFacturadas] = useState('');
@@ -119,16 +138,18 @@ const FacturasSalidasPage: React.FC = () => {
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const [resF, resS, resOA, resSalidaOA] = await Promise.all([
+      const [resF, resS, resOA, resSalidaOA, resNc] = await Promise.all([
         axios.get(`${API}/api/facturas-salidas/facturadas`,  { headers }),
         axios.get(`${API}/api/facturas-salidas/con-salida`,  { headers }),
         axios.get(`${API}/api/facturas-salidas/oa-pendientes`, { headers }),
         axios.get(`${API}/api/facturas-salidas/con-salida-oa`, { headers }),
+        axios.get(`${API}/api/facturas-salidas/nc`, { headers }),
       ]);
       setFacturadas(resF.data);
       setConSalida(resS.data);
       setOAPendientes(resOA.data);
       setConSalidaOA(resSalidaOA.data);
+      setOdpsNc(resNc.data);
     } catch { toast.error('Error al cargar datos'); }
     finally { setLoading(false); }
   }, []); // eslint-disable-line
@@ -142,6 +163,11 @@ const FacturasSalidasPage: React.FC = () => {
 
   const abrirCrearOA = (oa: OAPendiente) => {
     setModalSA({ odp: oa as any, esOA: true });
+    setFormSA({ numero: '', fecha: hoy.toISOString().split('T')[0] });
+  };
+
+  const abrirCrearNc = (nc: ODPNoConformidad) => {
+    setModalSA({ odp: nc, esOA: false });
     setFormSA({ numero: '', fecha: hoy.toISOString().split('T')[0] });
   };
 
@@ -238,6 +264,20 @@ const FacturasSalidasPage: React.FC = () => {
     return true;
   });
 
+  const ncFiltradas = odpsNc.filter(nc => {
+    if (!mesCorrecto(nc.fecha_creacion)) return false;
+    if (busquedaNc) {
+      const q = busquedaNc.toLowerCase();
+      return (
+        nc.numero_odp.toLowerCase().includes(q) ||
+        (nc.cliente?.nombre_razon_social || '').toLowerCase().includes(q) ||
+        (nc.odp_padre?.numero_odp || '').toLowerCase().includes(q) ||
+        (nc.no_conformidad_origen?.tipo_error || '').toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
   const conSalidaOAFiltradas = conSalidaOA.filter(s => {
     if (!mesCorrecto(s.fecha_sa)) return false;
     if (busquedaConSalidaOA) {
@@ -256,9 +296,10 @@ const FacturasSalidasPage: React.FC = () => {
   const anios = Array.from({ length: 4 }, (_, i) => hoy.getFullYear() - i);
 
   const TABS: { key: Tab; label: string; icon: React.ElementType; count: number }[] = [
-    { key: 'facturadas', label: 'Facturadas',             icon: FileCheck, count: facturadasFiltradas.length },
-    { key: 'oa',         label: 'OA',                     icon: Package,   count: oaFiltradas.length },
-    { key: 'con_salida', label: 'Con Salidas de Almacén', icon: Warehouse, count: conSalidaFiltradas.length + conSalidaOAFiltradas.length },
+    { key: 'facturadas', label: 'Facturadas',             icon: FileCheck,      count: facturadasFiltradas.length },
+    { key: 'oa',         label: 'OA',                     icon: Package,        count: oaFiltradas.length },
+    { key: 'nc',         label: 'No Conformidades',       icon: AlertTriangle,  count: ncFiltradas.length },
+    { key: 'con_salida', label: 'Con Salidas de Almacén', icon: Warehouse,      count: conSalidaFiltradas.length + conSalidaOAFiltradas.length },
   ];
 
   const prefijo = modalSA?.esOA ? 'SFV-' : 'SA-';
@@ -290,7 +331,7 @@ const FacturasSalidasPage: React.FC = () => {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
           <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
             <FileCheck className="w-5 h-5 text-blue-600" />
@@ -325,6 +366,15 @@ const FacturasSalidasPage: React.FC = () => {
           <div>
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">SA de OA</p>
             <p className="text-2xl font-black text-violet-700">{conSalidaOA.length}</p>
+          </div>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
+          <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-5 h-5 text-rose-600" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">NC sin SA</p>
+            <p className="text-2xl font-black text-rose-700">{odpsNc.length}</p>
           </div>
         </div>
       </div>
@@ -473,6 +523,74 @@ const FacturasSalidasPage: React.FC = () => {
                         )}
                       </motion.tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB NC ── */}
+          {tab === 'nc' && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex flex-wrap gap-3 items-center bg-slate-50/50">
+                <div className="relative flex-1 min-w-48">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input value={busquedaNc} onChange={e => setBusquedaNc(e.target.value)}
+                    placeholder="Buscar ODP, ODP padre, cliente, tipo error..."
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 bg-white" />
+                </div>
+                {busquedaNc && (
+                  <button onClick={() => setBusquedaNc('')}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-100 transition bg-white">
+                    <X className="w-3.5 h-3.5" /> Limpiar
+                  </button>
+                )}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      {['ODP Reproceso', 'ODP Padre', 'Cliente', 'Estado', 'Tipo Error', puedeEditar ? 'Acción' : ''].filter(Boolean).map(h => (
+                        <th key={h} className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {ncFiltradas.length === 0 ? (
+                      <tr><td colSpan={puedeEditar ? 6 : 5} className="px-5 py-12 text-center text-slate-400">
+                        <AlertTriangle className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                        <p>No hay No Conformidades pendientes de salida para el período seleccionado</p>
+                      </td></tr>
+                    ) : ncFiltradas.map(nc => {
+                      const tipoErr = nc.no_conformidad_origen?.tipo_error;
+                      const chip = tipoErr ? (TIPO_ERROR_NC[tipoErr] ?? { label: tipoErr, cls: 'bg-slate-100 text-slate-600 border border-slate-200' }) : null;
+                      return (
+                        <motion.tr key={nc.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                          className="hover:bg-slate-50 transition-colors">
+                          <td className="px-5 py-4 font-mono font-bold text-rose-700 cursor-pointer hover:underline" onClick={() => setFichaOdpId(nc.id)}>{nc.numero_odp}</td>
+                          <td className="px-5 py-4">
+                            {nc.odp_padre
+                              ? <span className="font-mono text-indigo-700 cursor-pointer hover:underline" onClick={() => setFichaOdpId(nc.odp_padre!.id)}>{nc.odp_padre.numero_odp}</span>
+                              : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="px-5 py-4 text-slate-700">{nc.cliente?.nombre_razon_social || '—'}</td>
+                          <td className="px-5 py-4"><BadgeEstado estado={nc.estado_produccion} /></td>
+                          <td className="px-5 py-4">
+                            {chip
+                              ? <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${chip.cls}`}>{chip.label}</span>
+                              : <span className="text-slate-300">—</span>}
+                          </td>
+                          {puedeEditar && (
+                            <td className="px-5 py-4">
+                              <button onClick={() => abrirCrearNc(nc)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 transition shadow-sm">
+                                <Plus className="w-3.5 h-3.5" /> Registrar SA
+                              </button>
+                            </td>
+                          )}
+                        </motion.tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
