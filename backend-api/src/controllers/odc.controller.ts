@@ -613,10 +613,12 @@ export const getVidriosPorGestionar = async (req: Request, res: Response) => {
     for (const odp of odps) {
       const todosItems: any[] = (odp as any).items || [];
       const proveedor_vidrio = odp.getDataValue('proveedor_vidrio');
+      const numero_pedido_proveedor = odp.getDataValue('numero_pedido_proveedor');
+      const tieneRutaPV = !!(proveedor_vidrio || numero_pedido_proveedor);
 
       let itemsParaCompras: any[] = [];
 
-      if (!proveedor_vidrio) {
+      if (!tieneRutaPV) {
         itemsParaCompras = todosItems;
       } else {
         const algunAsignado = todosItems.some((it: any) => it.pedido_pv_id !== null);
@@ -663,9 +665,11 @@ export const getVidriosPanel = async (req: Request, res: Response) => {
     for (const odp of odps) {
       const todosItems: any[] = (odp as any).items || [];
       const proveedor_vidrio = odp.getDataValue('proveedor_vidrio');
+      const numero_pedido_proveedor = odp.getDataValue('numero_pedido_proveedor');
+      const tieneRutaPV = !!(proveedor_vidrio || numero_pedido_proveedor);
 
       let itemsParaCompras: any[] = [];
-      if (!proveedor_vidrio) {
+      if (!tieneRutaPV) {
         itemsParaCompras = todosItems;
       } else {
         const algunAsignado = todosItems.some((it: any) => it.pedido_pv_id !== null);
