@@ -79,7 +79,7 @@ export const createNoConformidad = async (req: Request, res: Response) => {
       asesor_id: odp.asesor_id,
       estado_produccion: 'MEDICION',
       estado_facturacion: 'PENDIENTE',
-      estado_caja: 'PENDIENTE',
+      estado_caja: 'CANCELADO',
       fecha_entrega: null,
       nombre_recibe: odp.nombre_recibe,
       telefono_recibe: odp.telefono_recibe,

@@ -609,6 +609,11 @@ export const updateODP = async (req: Request, res: Response) => {
       delete (data as any).estado_caja;
     }
 
+    // NC y garantías no cobran al cliente — estado_caja siempre CANCELADO
+    if (odp.getDataValue('es_no_conformidad') || odp.getDataValue('es_garantia')) {
+      (data as any).estado_caja = 'CANCELADO';
+    }
+
     // Calcular fecha_vencimiento_credito al registrar factura electrónica en ODP de crédito
     if (data.fecha_factura) {
       const formaPago = data.forma_pago || odp.getDataValue('forma_pago');
@@ -1024,7 +1029,7 @@ export const crearGarantia = async (req: Request, res: Response) => {
       observaciones: observaciones || '',
       estado_produccion: 'EN_ESPERA',
       estado_facturacion: 'PENDIENTE',
-      estado_caja: 'PENDIENTE',
+      estado_caja: 'CANCELADO',
       instalacion: true,
       fecha_creacion: new Date(),
     } as any, { transaction: t });
@@ -1077,6 +1082,10 @@ export const actualizarEstadoCaja = async (req: Request, res: Response) => {
 
     const odp = await ODP.findByPk(id);
     if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
+
+    if (odp.getDataValue('es_no_conformidad') || odp.getDataValue('es_garantia')) {
+      return res.status(403).json({ error: 'Las ODP de No Conformidad y garantías tienen estado de caja fijo en CANCELADO.' });
+    }
 
     await odp.update({ estado_caja });
     res.json({ id: odp.getDataValue('id'), estado_caja });
