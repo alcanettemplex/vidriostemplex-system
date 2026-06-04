@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, getNcGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha } from '../controllers/odp.controller';
+import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, getNcGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha, getHistorialODP } from '../controllers/odp.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { uploadConfig } from '../config/upload';
@@ -15,6 +15,7 @@ router.get('/carga-por-fecha/:fecha', authMiddleware, getCargaPorFecha);
 router.get('/garantias/all', authMiddleware, getGarantias);
 router.get('/nc-garantias', authMiddleware, getNcGarantias);
 
+router.get('/:id/historial', authMiddleware, getHistorialODP);
 router.get('/:id', authMiddleware, getODP);
 
 // Creación: asesores, admin, gerencia, jefe_produccion

@@ -176,7 +176,7 @@ export const getODP = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     // Importar modelos dinámicamente para evitar circular imports
-    const { SAP, SAPItem, Cotizacion, TomaMedidas, EvidenciaInstalacion, RutaODP, RutaInstalacion, HistorialEstadoODP, NoConformidad, OrdenCompra, PedidoPV } = await import('../models');
+    const { SAP, SAPItem, Cotizacion, TomaMedidas, EvidenciaInstalacion, RutaODP, RutaInstalacion, HistorialEstadoODP, NoConformidad, OrdenCompra, PedidoPV, SalidaAlmacen } = await import('../models');
     const { Op } = require('sequelize');
 
     const odp = await ODP.findByPk(id, {
@@ -221,6 +221,7 @@ export const getODP = async (req: Request, res: Response) => {
         },
         {
           model: TomaMedidas, as: 'tomas_medidas',
+          attributes: ['id', 'numero_tm', 'estado', 'fecha_creacion', 'fecha_visita', 'direccion', 'observaciones', 'medidas_json', 'realizado_por'],
           include: [{ model: Usuario, as: 'realizador', attributes: ['id', 'nombre_completo'] }],
         },
         {
@@ -229,7 +230,7 @@ export const getODP = async (req: Request, res: Response) => {
         },
         {
           model: RutaODP, as: 'ruta_odps',
-          attributes: ['id', 'estado', 'inicio_instalacion', 'fin_instalacion', 'firma_receptor', 'datos_receptor', 'foto_evidencia_url', 'gps_finalizacion', 'descripcion_dano', 'foto_dano_url', 'motivo_pausa'],
+          attributes: ['id', 'estado', 'fecha_programada', 'inicio_instalacion', 'fin_instalacion', 'firma_receptor', 'datos_receptor', 'foto_evidencia_url', 'gps_finalizacion', 'descripcion_dano', 'foto_dano_url', 'motivo_pausa'],
           include: [
             {
               model: RutaInstalacion, as: 'ruta',
@@ -253,11 +254,22 @@ export const getODP = async (req: Request, res: Response) => {
           as: 'notas_produccion',
           include: [{ model: (await import('../models')).Usuario, as: 'usuario', attributes: ['nombre_completo'] }]
         },
-        { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
+        {
+          model: Pago, as: 'pagos',
+          attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'registrado_por', 'fecha'],
+          include: [{ model: Usuario, as: 'registrador', attributes: ['id', 'nombre_completo'] }],
+          separate: true, order: [['fecha', 'ASC']],
+        },
         {
           model: PedidoPV, as: 'pedidos_pv',
-          attributes: ['id', 'numero_pedido', 'proveedor', 'estado', 'fecha_envio', 'fecha_entrega_prometida', 'fecha_llegada_real', 'dias_diferencia', 'observaciones', 'tuvo_problema'],
-          separate: true, order: [['id', 'ASC']]
+          attributes: ['id', 'numero_pedido', 'proveedor', 'estado', 'fecha_envio', 'fecha_entrega_prometida', 'fecha_llegada_real', 'fecha_verificacion', 'dias_diferencia', 'observaciones', 'tuvo_problema', 'tipo_problema', 'estado_reposicion', 'creado_en'],
+          include: [{ model: Usuario, as: 'verificador', attributes: ['id', 'nombre_completo'] }],
+          separate: true, order: [['id', 'ASC']],
+        },
+        {
+          model: SalidaAlmacen, as: 'salida_almacen',
+          attributes: ['id', 'numero_sa', 'fecha_sa', 'creado_en'],
+          include: [{ model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] }],
         },
         {
           model: ODP, as: 'garantias',
@@ -1268,5 +1280,396 @@ export const aprobarSinItems = async (req: Request, res: Response) => {
     await transaction.rollback();
     console.error('Error al liberar ODP sin items:', error);
     res.status(500).json({ error: 'Error al liberar ODP', details: error?.message });
+  }
+};
+
+// ─── GET /api/odp/:id/historial ───────────────────────────────────────────────
+export const getHistorialODP = async (req: Request, res: Response) => {
+  try {
+    const odpId = Number(req.params.id);
+    if (isNaN(odpId)) return res.status(400).json({ error: 'ID inválido' });
+
+    const {
+      ODP: ODPModel, Usuario: UsuarioModel, HistorialEstadoODP: HistorialModel,
+      SAP: SAPModel, Cotizacion: CotizacionModel, TomaMedidas: TMModel,
+      EvidenciaInstalacion: EvModel, RutaODP: RutaODPModel, RutaInstalacion: RutaModel,
+      Vehiculo: VehiculoModel, Pago: PagoModel, PedidoPV: PVModel,
+      NoConformidad: NCModel, NotaProduccion: NotaModel,
+      OrdenCompra: ODCModel, SalidaAlmacen: SAModel,
+    } = await import('../models');
+    const { Op } = await import('sequelize');
+
+    const odp = await ODPModel.findByPk(odpId, {
+      attributes: ['id', 'numero_odp', 'fecha_creacion', 'asesor_id', 'estado_produccion',
+                   'es_no_conformidad', 'es_garantia', 'numero_garantia', 'odp_padre_id'],
+      include: [
+        { model: UsuarioModel, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+        {
+          model: HistorialModel, as: 'historial_estados',
+          attributes: ['id', 'estado_anterior', 'estado_nuevo', 'fecha', 'observacion'],
+          include: [{ model: UsuarioModel, as: 'usuario', attributes: ['id', 'nombre_completo'] }],
+          separate: true, order: [['fecha', 'ASC']],
+        },
+        {
+          model: SAPModel, as: 'saps',
+          attributes: ['id', 'numero_sap', 'fecha_creacion'],
+          include: [{ model: UsuarioModel, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
+          separate: true, order: [['fecha_creacion', 'ASC']],
+        },
+        {
+          model: CotizacionModel, as: 'cotizaciones',
+          attributes: ['id', 'numero_cot', 'valor_total', 'estado', 'fecha_creacion'],
+          include: [{ model: UsuarioModel, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
+          separate: true, order: [['fecha_creacion', 'ASC']],
+        },
+        {
+          model: TMModel, as: 'tomas_medidas',
+          attributes: ['id', 'numero_tm', 'estado', 'fecha_creacion', 'fecha_visita', 'direccion'],
+          include: [{ model: UsuarioModel, as: 'realizador', attributes: ['id', 'nombre_completo'] }],
+          separate: true, order: [['fecha_creacion', 'ASC']],
+        },
+        {
+          model: EvModel, as: 'evidencias',
+          attributes: ['id', 'archivo_url', 'fecha'],
+          include: [{ model: UsuarioModel, as: 'instalador', attributes: ['id', 'nombre_completo'] }],
+          separate: true, order: [['fecha', 'ASC']],
+        },
+        {
+          model: RutaODPModel, as: 'ruta_odps',
+          attributes: ['id', 'estado', 'fecha_programada', 'inicio_instalacion', 'fin_instalacion',
+                       'datos_receptor', 'descripcion_dano', 'foto_dano_url', 'motivo_pausa'],
+          include: [{
+            model: RutaModel, as: 'ruta',
+            attributes: ['id', 'creado_en'],
+            include: [
+              { model: VehiculoModel, as: 'vehiculo', attributes: ['placa', 'tipo'] },
+              { model: UsuarioModel, as: 'conductor', attributes: ['id', 'nombre_completo'] },
+              { model: UsuarioModel, as: 'oficial', attributes: ['id', 'nombre_completo'] },
+              { model: UsuarioModel, as: 'instaladores', attributes: ['id', 'nombre_completo'], through: { attributes: [] } },
+            ],
+          }],
+          separate: true, order: [['fecha_programada', 'ASC']],
+        },
+        {
+          model: PagoModel, as: 'pagos',
+          attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'],
+          include: [{ model: UsuarioModel, as: 'registrador', attributes: ['id', 'nombre_completo'] }],
+          separate: true, order: [['fecha', 'ASC']],
+        },
+        {
+          model: PVModel, as: 'pedidos_pv',
+          attributes: ['id', 'numero_pedido', 'proveedor', 'estado', 'fecha_envio',
+                       'fecha_entrega_prometida', 'fecha_llegada_real', 'fecha_verificacion',
+                       'observaciones', 'tuvo_problema', 'tipo_problema', 'estado_reposicion', 'creado_en'],
+          include: [{ model: UsuarioModel, as: 'verificador', attributes: ['id', 'nombre_completo'] }],
+          separate: true, order: [['creado_en', 'ASC']],
+        },
+        {
+          model: NCModel, as: 'no_conformidades',
+          attributes: ['id', 'numero_reporte', 'tipo_error', 'area_error', 'causa', 'efecto',
+                       'responsable', 'costo_total', 'estado', 'vo_bo_responsable', 'vo_bo_gerencia',
+                       'observaciones', 'nueva_odp_id', 'creado_en'],
+          include: [
+            { model: UsuarioModel, as: 'usuario_reporta', attributes: ['id', 'nombre_completo'] },
+            { model: ODPModel, as: 'nueva_odp', attributes: ['id', 'numero_odp', 'estado_produccion'] },
+          ],
+          separate: true, order: [['creado_en', 'ASC']],
+        },
+        {
+          model: NotaModel, as: 'notas_produccion',
+          attributes: ['id', 'texto', 'fecha'],
+          include: [{ model: UsuarioModel, as: 'usuario', attributes: ['id', 'nombre_completo'] }],
+          separate: true, order: [['fecha', 'ASC']],
+        },
+        {
+          model: SAModel, as: 'salida_almacen',
+          attributes: ['id', 'numero_sa', 'fecha_sa', 'creado_en'],
+          include: [{ model: UsuarioModel, as: 'creador', attributes: ['id', 'nombre_completo'] }],
+        },
+        {
+          model: ODPModel, as: 'garantias',
+          attributes: ['id', 'numero_odp', 'numero_garantia', 'estado_produccion', 'fecha_creacion', 'descripcion_pedido'],
+          include: [{ model: UsuarioModel, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
+          separate: true, order: [['fecha_creacion', 'ASC']],
+        },
+      ],
+    });
+
+    if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
+
+    const odpJson: any = odp.toJSON();
+
+    // Enriquecer ODCs via SAP items
+    const { ODCItem } = await import('../models');
+    if (odpJson.saps?.length > 0) {
+      const allSapItemIds: number[] = [];
+      for (const sap of odpJson.saps) {
+        const sapFull = await SAPModel.findByPk(sap.id, {
+          attributes: ['id'],
+          include: [{ model: (await import('../models')).SAPItem, as: 'items', attributes: ['id'] }],
+        });
+        const sapJson: any = sapFull?.toJSON() || {};
+        sap.ordenes_compra = [];
+        if (sapJson.items?.length) {
+          const sapItemIds = sapJson.items.map((i: any) => i.id);
+          allSapItemIds.push(...sapItemIds);
+          const odcItemsRel = await ODCItem.findAll({ where: { sap_item_id: { [Op.in]: sapItemIds } }, attributes: ['odc_id'], raw: true });
+          const odcIds = [...new Set(odcItemsRel.map((i: any) => i.odc_id))];
+          if (odcIds.length > 0) {
+            const odcs = await ODCModel.findAll({
+              where: { id: { [Op.in]: odcIds } },
+              attributes: ['id', 'numero_odc', 'proveedor', 'tipo', 'estado', 'fecha_creacion', 'fecha_recepcion'],
+              include: [{ model: UsuarioModel, as: 'creador', attributes: ['id', 'nombre_completo'] }],
+            });
+            sap.ordenes_compra = odcs.map((o: any) => o.toJSON());
+          }
+        }
+      }
+    }
+
+    // ODCs de vidrio
+    const odpItemIds: number[] = [];
+    const itemsFull = await (await import('../models')).ODPItem.findAll({ where: { odp_id: odpId }, attributes: ['id'] });
+    itemsFull.forEach((i: any) => odpItemIds.push(i.id));
+    if (odpItemIds.length > 0) {
+      const vidrioOdcItems = await ODCItem.findAll({ where: { odp_item_id: { [Op.in]: odpItemIds } }, attributes: ['odc_id'], raw: true });
+      const vidrioOdcIds = [...new Set(vidrioOdcItems.map((i: any) => i.odc_id))];
+      if (vidrioOdcIds.length > 0) {
+        const vidrioOrdenes = await ODCModel.findAll({
+          where: { id: { [Op.in]: vidrioOdcIds }, tipo: 'vidrio' },
+          attributes: ['id', 'numero_odc', 'proveedor', 'tipo', 'estado', 'fecha_creacion', 'fecha_recepcion'],
+          include: [{ model: UsuarioModel, as: 'creador', attributes: ['id', 'nombre_completo'] }],
+        });
+        odpJson.ordenes_compra_vidrio = vidrioOrdenes.map((o: any) => o.toJSON());
+      } else {
+        odpJson.ordenes_compra_vidrio = [];
+      }
+    } else {
+      odpJson.ordenes_compra_vidrio = [];
+    }
+
+    // ─── Construir timeline unificado ────────────────────────────────────────
+    type TipoEvento =
+      | 'ODP_CREADA' | 'ESTADO_CAMBIADO'
+      | 'TM_SOLICITADA' | 'TM_REALIZADA'
+      | 'SAP_CREADA'
+      | 'COT_CREADA'
+      | 'ODC_CREADA' | 'ODC_RECIBIDA'
+      | 'PV_CREADO' | 'PV_LLEGADO' | 'PV_VERIFICADO' | 'PV_PROBLEMA'
+      | 'PAGO_REGISTRADO'
+      | 'SA_GENERADA'
+      | 'RUTA_PROGRAMADA' | 'INSTALACION_INICIO' | 'INSTALACION_FIN' | 'DANO_REPORTADO'
+      | 'EVIDENCIA_SUBIDA'
+      | 'NC_REPORTADA' | 'GARANTIA_CREADA'
+      | 'NOTA_PRODUCCION';
+
+    type CategoriaEvento = 'comercial' | 'produccion' | 'instalacion' | 'financiero' | 'calidad' | 'sistema';
+
+    interface EventoTimeline {
+      tipo: TipoEvento;
+      categoria: CategoriaEvento;
+      fecha: string;
+      titulo: string;
+      subtitulo?: string;
+      meta: Record<string, any>;
+    }
+
+    const eventos: EventoTimeline[] = [];
+    const push = (e: EventoTimeline) => { if (e.fecha) eventos.push(e); };
+
+    // ODP creada
+    push({ tipo: 'ODP_CREADA', categoria: 'comercial', fecha: odpJson.fecha_creacion,
+      titulo: `ODP ${odpJson.numero_odp} creada`,
+      subtitulo: `Asesor: ${odpJson.asesor?.nombre_completo}`,
+      meta: { asesor: odpJson.asesor } });
+
+    // Cambios de estado
+    for (const h of odpJson.historial_estados || []) {
+      push({ tipo: 'ESTADO_CAMBIADO', categoria: 'produccion', fecha: h.fecha,
+        titulo: `Estado → ${(h.estado_nuevo || '').replace(/_/g, ' ')}`,
+        subtitulo: h.estado_anterior ? `Desde: ${h.estado_anterior.replace(/_/g, ' ')}` : undefined,
+        meta: { estado_anterior: h.estado_anterior, estado_nuevo: h.estado_nuevo,
+                usuario: h.usuario, observacion: h.observacion } });
+    }
+
+    // Tomas de medida
+    for (const tm of odpJson.tomas_medidas || []) {
+      push({ tipo: 'TM_SOLICITADA', categoria: 'produccion', fecha: tm.fecha_creacion,
+        titulo: `TM ${tm.numero_tm} solicitada`,
+        subtitulo: tm.realizador?.nombre_completo,
+        meta: { numero_tm: tm.numero_tm, realizador: tm.realizador, direccion: tm.direccion } });
+      if (tm.fecha_visita) {
+        push({ tipo: 'TM_REALIZADA', categoria: 'produccion', fecha: tm.fecha_visita,
+          titulo: `TM ${tm.numero_tm} realizada`,
+          subtitulo: `Por: ${tm.realizador?.nombre_completo}`,
+          meta: { numero_tm: tm.numero_tm, realizador: tm.realizador, estado: tm.estado } });
+      }
+    }
+
+    // SAPs
+    for (const sap of odpJson.saps || []) {
+      push({ tipo: 'SAP_CREADA', categoria: 'produccion', fecha: sap.fecha_creacion,
+        titulo: `SAP ${sap.numero_sap} creada`,
+        subtitulo: sap.asesor?.nombre_completo,
+        meta: { numero_sap: sap.numero_sap, asesor: sap.asesor } });
+
+      // ODCs de cada SAP
+      for (const odc of sap.ordenes_compra || []) {
+        push({ tipo: 'ODC_CREADA', categoria: 'produccion', fecha: odc.fecha_creacion,
+          titulo: `ODC ${odc.numero_odc} creada (${odc.tipo})`,
+          subtitulo: `Proveedor: ${odc.proveedor}`,
+          meta: { numero_odc: odc.numero_odc, proveedor: odc.proveedor, tipo: odc.tipo, estado: odc.estado, creador: odc.creador } });
+        if (odc.fecha_recepcion) {
+          push({ tipo: 'ODC_RECIBIDA', categoria: 'produccion', fecha: odc.fecha_recepcion,
+            titulo: `ODC ${odc.numero_odc} recibida`,
+            subtitulo: `Proveedor: ${odc.proveedor}`,
+            meta: { numero_odc: odc.numero_odc, proveedor: odc.proveedor, tipo: odc.tipo } });
+        }
+      }
+    }
+
+    // ODCs de vidrio
+    for (const odc of odpJson.ordenes_compra_vidrio || []) {
+      push({ tipo: 'ODC_CREADA', categoria: 'produccion', fecha: odc.fecha_creacion,
+        titulo: `ODC ${odc.numero_odc} creada (vidrio)`,
+        subtitulo: `Proveedor: ${odc.proveedor}`,
+        meta: { numero_odc: odc.numero_odc, proveedor: odc.proveedor, tipo: 'vidrio', estado: odc.estado, creador: odc.creador } });
+      if (odc.fecha_recepcion) {
+        push({ tipo: 'ODC_RECIBIDA', categoria: 'produccion', fecha: odc.fecha_recepcion,
+          titulo: `ODC ${odc.numero_odc} recibida`,
+          subtitulo: `Proveedor: ${odc.proveedor}`,
+          meta: { numero_odc: odc.numero_odc, proveedor: odc.proveedor, tipo: 'vidrio' } });
+      }
+    }
+
+    // Cotizaciones
+    for (const cot of odpJson.cotizaciones || []) {
+      push({ tipo: 'COT_CREADA', categoria: 'comercial', fecha: cot.fecha_creacion,
+        titulo: `Cotización ${cot.numero_cot} creada`,
+        subtitulo: `${cot.asesor?.nombre_completo} · $${Number(cot.valor_total).toLocaleString('es-CO')}`,
+        meta: { numero_cot: cot.numero_cot, valor_total: cot.valor_total, estado: cot.estado, asesor: cot.asesor } });
+    }
+
+    // Pedidos PV
+    for (const pv of odpJson.pedidos_pv || []) {
+      push({ tipo: 'PV_CREADO', categoria: 'produccion', fecha: pv.creado_en,
+        titulo: `PedidoPV ${pv.numero_pedido} creado`,
+        subtitulo: `Proveedor: ${pv.proveedor}`,
+        meta: { numero_pedido: pv.numero_pedido, proveedor: pv.proveedor, estado: pv.estado } });
+      if (pv.tuvo_problema && pv.fecha_envio) {
+        push({ tipo: 'PV_PROBLEMA', categoria: 'calidad', fecha: pv.fecha_envio,
+          titulo: `PedidoPV ${pv.numero_pedido} con problema`,
+          subtitulo: pv.tipo_problema || 'Problema reportado',
+          meta: { numero_pedido: pv.numero_pedido, tipo_problema: pv.tipo_problema, estado_reposicion: pv.estado_reposicion, observaciones: pv.observaciones } });
+      }
+      if (pv.fecha_llegada_real) {
+        push({ tipo: 'PV_LLEGADO', categoria: 'produccion', fecha: pv.fecha_llegada_real,
+          titulo: `PedidoPV ${pv.numero_pedido} llegó`,
+          subtitulo: pv.dias_diferencia != null
+            ? (pv.dias_diferencia > 0 ? `${pv.dias_diferencia} días de retraso` : 'A tiempo')
+            : undefined,
+          meta: { numero_pedido: pv.numero_pedido, proveedor: pv.proveedor,
+                  fecha_prometida: pv.fecha_entrega_prometida, dias_diferencia: pv.dias_diferencia } });
+      }
+      if (pv.fecha_verificacion) {
+        push({ tipo: 'PV_VERIFICADO', categoria: 'produccion', fecha: pv.fecha_verificacion,
+          titulo: `PedidoPV ${pv.numero_pedido} verificado`,
+          subtitulo: pv.verificador ? `Por: ${pv.verificador.nombre_completo}` : undefined,
+          meta: { numero_pedido: pv.numero_pedido, verificador: pv.verificador, observacion: pv.observacion_verificacion } });
+      }
+    }
+
+    // Pagos
+    for (const pago of odpJson.pagos || []) {
+      push({ tipo: 'PAGO_REGISTRADO', categoria: 'financiero', fecha: pago.fecha,
+        titulo: `Pago registrado — $${Number(pago.monto).toLocaleString('es-CO')}`,
+        subtitulo: `${pago.metodo_pago}${pago.referencia_pago ? ` · Ref: ${pago.referencia_pago}` : ''}`,
+        meta: { monto: pago.monto, metodo_pago: pago.metodo_pago, referencia: pago.referencia_pago,
+                observaciones: pago.observaciones, registrador: pago.registrador } });
+    }
+
+    // Salida Almacén
+    if (odpJson.salida_almacen) {
+      const sa = odpJson.salida_almacen;
+      push({ tipo: 'SA_GENERADA', categoria: 'financiero', fecha: sa.creado_en,
+        titulo: `Salida de Almacén ${sa.numero_sa} generada`,
+        subtitulo: sa.creador ? `Por: ${sa.creador.nombre_completo}` : undefined,
+        meta: { numero_sa: sa.numero_sa, fecha_sa: sa.fecha_sa, creador: sa.creador } });
+    }
+
+    // Rutas / Instalaciones
+    for (const r of odpJson.ruta_odps || []) {
+      if (r.fecha_programada) {
+        const instaladores = [r.ruta?.oficial, ...(r.ruta?.instaladores || [])].filter(Boolean);
+        push({ tipo: 'RUTA_PROGRAMADA', categoria: 'instalacion', fecha: r.ruta?.creado_en || r.fecha_programada,
+          titulo: `Instalación programada para ${new Date(r.fecha_programada + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}`,
+          subtitulo: r.ruta?.vehiculo ? `${r.ruta.vehiculo.tipo.toUpperCase()} ${r.ruta.vehiculo.placa}` : undefined,
+          meta: { fecha_programada: r.fecha_programada, vehiculo: r.ruta?.vehiculo,
+                  conductor: r.ruta?.conductor, instaladores, oficial: r.ruta?.oficial } });
+      }
+      if (r.inicio_instalacion) {
+        push({ tipo: 'INSTALACION_INICIO', categoria: 'instalacion', fecha: r.inicio_instalacion,
+          titulo: 'Instalación iniciada',
+          subtitulo: r.ruta?.oficial ? `Oficial: ${r.ruta.oficial.nombre_completo}` : undefined,
+          meta: { oficial: r.ruta?.oficial, instaladores: [r.ruta?.oficial, ...(r.ruta?.instaladores || [])].filter(Boolean) } });
+      }
+      if (r.descripcion_dano) {
+        push({ tipo: 'DANO_REPORTADO', categoria: 'calidad', fecha: r.inicio_instalacion || r.fecha_programada,
+          titulo: 'Daño reportado durante instalación',
+          subtitulo: r.descripcion_dano,
+          meta: { descripcion: r.descripcion_dano, foto_url: r.foto_dano_url,
+                  instaladores: [r.ruta?.oficial, ...(r.ruta?.instaladores || [])].filter(Boolean) } });
+      }
+      if (r.fin_instalacion && (r.estado === 'completada' || r.estado === 'con_dano')) {
+        push({ tipo: 'INSTALACION_FIN', categoria: 'instalacion', fecha: r.fin_instalacion,
+          titulo: r.estado === 'con_dano' ? 'Instalación finalizada con daño' : 'Instalación completada',
+          subtitulo: r.datos_receptor ? `Recibió: ${r.datos_receptor}` : undefined,
+          meta: { estado: r.estado, datos_receptor: r.datos_receptor, motivo_pausa: r.motivo_pausa } });
+      }
+    }
+
+    // Evidencias
+    for (const ev of odpJson.evidencias || []) {
+      push({ tipo: 'EVIDENCIA_SUBIDA', categoria: 'instalacion', fecha: ev.fecha,
+        titulo: 'Evidencia fotográfica subida',
+        subtitulo: ev.instalador?.nombre_completo,
+        meta: { instalador: ev.instalador, archivo_url: ev.archivo_url } });
+    }
+
+    // No Conformidades
+    for (const nc of odpJson.no_conformidades || []) {
+      push({ tipo: 'NC_REPORTADA', categoria: 'calidad', fecha: nc.creado_en,
+        titulo: `No Conformidad ${nc.numero_reporte} reportada`,
+        subtitulo: `${(nc.tipo_error || '').replace(/_/g, ' ')} · ${nc.area_error}`,
+        meta: { numero_reporte: nc.numero_reporte, tipo_error: nc.tipo_error, area_error: nc.area_error,
+                causa: nc.causa, efecto: nc.efecto, responsable: nc.responsable, costo_total: nc.costo_total,
+                estado: nc.estado, vo_bo_responsable: nc.vo_bo_responsable, vo_bo_gerencia: nc.vo_bo_gerencia,
+                observaciones: nc.observaciones, usuario_reporta: nc.usuario_reporta, nueva_odp: nc.nueva_odp } });
+    }
+
+    // Garantías
+    for (const g of odpJson.garantias || []) {
+      push({ tipo: 'GARANTIA_CREADA', categoria: 'calidad', fecha: g.fecha_creacion,
+        titulo: `Garantía ${g.numero_garantia} creada`,
+        subtitulo: `${g.numero_odp} · ${g.descripcion_pedido || ''}`,
+        meta: { numero_odp: g.numero_odp, numero_garantia: g.numero_garantia,
+                estado_produccion: g.estado_produccion, asesor: g.asesor } });
+    }
+
+    // Notas de producción
+    for (const nota of odpJson.notas_produccion || []) {
+      push({ tipo: 'NOTA_PRODUCCION', categoria: 'sistema', fecha: nota.fecha,
+        titulo: 'Nota de producción',
+        subtitulo: nota.usuario?.nombre_completo,
+        meta: { texto: nota.texto, usuario: nota.usuario } });
+    }
+
+    // Ordenar cronológicamente (más reciente primero)
+    eventos.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+
+    res.json({ odp_id: odpId, numero_odp: odpJson.numero_odp, total: eventos.length, eventos });
+  } catch (error: any) {
+    console.error('Error getHistorialODP:', error.message);
+    res.status(500).json({ error: 'Error al obtener historial de ODP' });
   }
 };

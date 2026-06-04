@@ -10,6 +10,7 @@ HistorialEstadoODP.init({
   estado_nuevo: { type: DataTypes.STRING(30) },
   usuario_id: { type: DataTypes.INTEGER, allowNull: false },
   fecha: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  observacion: { type: DataTypes.TEXT, allowNull: true },
 }, {
   sequelize,
   modelName: 'HistorialEstadoODP',
