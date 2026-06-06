@@ -13,7 +13,8 @@ import {
   ConfiguracionGlobal,
   MetaUsuarioMensual,
   NoConformidad,
-  Prospecto
+  Prospecto,
+  Cotizacion
 } from '../models';
 import sequelize from '../config/database';
 
@@ -671,7 +672,106 @@ export const getAlertas = async (_req: Request, res: Response) => {
   }
 };
 
-// ─── 6. DASHBOARD TRADICIONAL (COMPATIBILIDAD) ───────────────────────────────
+// ─── 6. PANEL COTIZACIONES ───────────────────────────────────────────────────
+export const getCotizacionesData = async (req: Request, res: Response) => {
+  try {
+    const { firstDay, lastDay } = parsePeriod(req);
+    const today = new Date();
+
+    // Resumen del período
+    const resumenRows = await sequelize.query<{
+      total: string;
+      en_seguimiento: string;
+      aprobadas: string;
+      rechazadas: string;
+      valor_aprobadas: string;
+    }>(`
+      SELECT
+        COUNT(*)::int                                                                        AS total,
+        COUNT(*) FILTER (WHERE estado = 'enviada')::int                                     AS en_seguimiento,
+        COUNT(*) FILTER (WHERE estado IN ('aprobada','convertida'))::int                    AS aprobadas,
+        COUNT(*) FILTER (WHERE estado IN ('rechazada','vencida'))::int                      AS rechazadas,
+        COALESCE(SUM(valor_total) FILTER (WHERE estado IN ('aprobada','convertida')), 0)   AS valor_aprobadas
+      FROM cotizacion
+      WHERE fecha_creacion BETWEEN :firstDay AND :lastDay
+    `, { replacements: { firstDay, lastDay }, type: QueryTypes.SELECT });
+
+    const r = resumenRows[0] || { total: '0', en_seguimiento: '0', aprobadas: '0', rechazadas: '0', valor_aprobadas: '0' };
+
+    // Desglose mes a mes
+    const porMesRaw = await sequelize.query<{
+      mes: Date;
+      realizadas: string;
+      en_seguimiento: string;
+      aprobadas: string;
+      rechazadas: string;
+      valor_aprobadas: string;
+    }>(`
+      SELECT
+        DATE_TRUNC('month', fecha_creacion)                                                  AS mes,
+        COUNT(*)::int                                                                        AS realizadas,
+        COUNT(*) FILTER (WHERE estado = 'enviada')::int                                     AS en_seguimiento,
+        COUNT(*) FILTER (WHERE estado IN ('aprobada','convertida'))::int                    AS aprobadas,
+        COUNT(*) FILTER (WHERE estado IN ('rechazada','vencida'))::int                      AS rechazadas,
+        COALESCE(SUM(valor_total) FILTER (WHERE estado IN ('aprobada','convertida')), 0)   AS valor_aprobadas
+      FROM cotizacion
+      WHERE fecha_creacion BETWEEN :firstDay AND :lastDay
+      GROUP BY DATE_TRUNC('month', fecha_creacion)
+      ORDER BY mes ASC
+    `, { replacements: { firstDay, lastDay }, type: QueryTypes.SELECT });
+
+    const por_mes = porMesRaw.map((row) => ({
+      mes:             new Date(row.mes).toLocaleDateString('es-CO', { month: 'short', year: '2-digit' }),
+      realizadas:      Number(row.realizadas),
+      en_seguimiento:  Number(row.en_seguimiento),
+      aprobadas:       Number(row.aprobadas),
+      rechazadas:      Number(row.rechazadas),
+      valor_aprobadas: Number(row.valor_aprobadas),
+    }));
+
+    // En seguimiento activo — snapshot actual independiente del período
+    const enSeguimientoRaw = await Cotizacion.findAll({
+      where: { estado: 'enviada' },
+      include: [
+        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+        { model: Usuario, as: 'asesor',  attributes: ['id', 'nombre_completo'] },
+      ],
+      order: [['fecha_creacion', 'ASC']],
+    });
+
+    const en_seguimiento_activo = enSeguimientoRaw.map(c => {
+      const fechaCreacion = new Date(c.getDataValue('fecha_creacion'));
+      const dias = Math.ceil((today.getTime() - fechaCreacion.getTime()) / (1000 * 3600 * 24));
+      return {
+        id:                 c.getDataValue('id'),
+        numero_cot:         c.getDataValue('numero_cot'),
+        nombre_proyecto:    c.getDataValue('nombre_proyecto') || '—',
+        cliente:            (c as any).cliente?.nombre_razon_social || '—',
+        asesor:             (c as any).asesor?.nombre_completo || '—',
+        valor_total:        Number(c.getDataValue('valor_total')),
+        fecha_creacion:     c.getDataValue('fecha_creacion'),
+        dias_transcurridos: dias,
+        validez_dias:       Number(c.getDataValue('validez_dias')),
+      };
+    });
+
+    res.json({
+      resumen_periodo: {
+        total_realizadas:      Number(r.total),
+        total_en_seguimiento:  Number(r.en_seguimiento),
+        total_aprobadas:       Number(r.aprobadas),
+        total_rechazadas:      Number(r.rechazadas),
+        valor_total_aprobadas: Number(r.valor_aprobadas),
+      },
+      por_mes,
+      en_seguimiento_activo,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ─── 7. DASHBOARD TRADICIONAL (COMPATIBILIDAD) ───────────────────────────────
 export const getDashboardData = async (_req: Request, res: Response) => {
   try {
     const today           = new Date();

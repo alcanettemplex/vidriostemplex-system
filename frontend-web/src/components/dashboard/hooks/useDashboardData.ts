@@ -9,17 +9,19 @@ export interface PeriodParams {
 }
 
 interface DashboardData {
-  general:    any | null;
-  ventas:     any | null;
-  produccion: any | null;
-  equipo:     any | null;
-  alertas:    any[];
+  general:       any | null;
+  ventas:        any | null;
+  produccion:    any | null;
+  equipo:        any | null;
+  alertas:       any[];
+  cotizaciones:  any | null;
   loading: {
-    general:    boolean;
-    ventas:     boolean;
-    produccion: boolean;
-    equipo:     boolean;
-    alertas:    boolean;
+    general:      boolean;
+    ventas:       boolean;
+    produccion:   boolean;
+    equipo:       boolean;
+    alertas:      boolean;
+    cotizaciones: boolean;
   };
   error:   string | null;
   refetch: () => void;
@@ -27,10 +29,10 @@ interface DashboardData {
 
 export const useDashboardData = (period: PeriodParams): DashboardData => {
   const [data, setData] = useState<Partial<DashboardData>>({
-    general: null, ventas: null, produccion: null, equipo: null, alertas: [],
+    general: null, ventas: null, produccion: null, equipo: null, alertas: [], cotizaciones: null,
   });
   const [loading, setLoading] = useState({
-    general: true, ventas: true, produccion: true, equipo: true, alertas: true,
+    general: true, ventas: true, produccion: true, equipo: true, alertas: true, cotizaciones: true,
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -58,11 +60,12 @@ export const useDashboardData = (period: PeriodParams): DashboardData => {
     setError(null);
     try {
       await Promise.allSettled([
-        fetchSection('general',    period),
-        fetchSection('ventas',     period),
-        fetchSection('produccion', period),
-        fetchSection('equipo',     period),
-        fetchSection('alertas',    period),
+        fetchSection('general',      period),
+        fetchSection('ventas',       period),
+        fetchSection('produccion',   period),
+        fetchSection('equipo',       period),
+        fetchSection('alertas',      period),
+        fetchSection('cotizaciones', period),
       ]);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error de conexión al cargar el dashboard');
@@ -76,7 +79,7 @@ export const useDashboardData = (period: PeriodParams): DashboardData => {
   }, [fetchAll]);
 
   return {
-    ...data as { general: any; ventas: any; produccion: any; equipo: any; alertas: any[] },
+    ...data as { general: any; ventas: any; produccion: any; equipo: any; alertas: any[]; cotizaciones: any },
     loading,
     error,
     refetch: fetchAll,

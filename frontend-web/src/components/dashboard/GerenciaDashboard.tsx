@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
+import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDashboardData, PeriodParams } from './hooks/useDashboardData';
-import { PanelGeneral }   from './panels/PanelGeneral';
-import { PanelVentas }    from './panels/PanelVentas';
-import { PanelProduccion }from './panels/PanelProduccion';
-import { PanelEquipo }    from './panels/PanelEquipo';
-import { PanelAlertas }   from './panels/PanelAlertas';
+import { PanelGeneral }        from './panels/PanelGeneral';
+import { PanelVentas }         from './panels/PanelVentas';
+import { PanelProduccion }     from './panels/PanelProduccion';
+import { PanelEquipo }         from './panels/PanelEquipo';
+import { PanelAlertas }        from './panels/PanelAlertas';
+import { PanelCotizaciones }   from './panels/PanelCotizaciones';
 import ODPFichaModal from '../../features/odp/components/ODPFichaModal';
 import { RefreshCw } from 'lucide-react';
+
+const ROLES_COTIZACIONES = ['admin', 'gerencia', 'root'];
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const YEARS = [2024, 2025, 2026, 2027];
@@ -22,9 +26,12 @@ export const GerenciaDashboard: React.FC = () => {
     anioFin:    today.getFullYear(),
   });
 
-  const { general, ventas, produccion, equipo, alertas, loading, error, refetch } = useDashboardData(period);
+  const userRol = useSelector((state: any) => state.auth.user?.rol as string | undefined);
+  const puedeVerCotizaciones = ROLES_COTIZACIONES.includes(userRol || '');
 
-  const [activeTab, setActiveTab]         = useState<'general'|'ventas'|'produccion'|'equipo'|'alertas'>('general');
+  const { general, ventas, produccion, equipo, alertas, cotizaciones, loading, error, refetch } = useDashboardData(period);
+
+  const [activeTab, setActiveTab]         = useState<'general'|'ventas'|'produccion'|'equipo'|'alertas'|'cotizaciones'>('general');
   const [isRefreshing, setIsRefreshing]   = useState(false);
   const [selectedOdpId, setSelectedOdpId] = useState<number | null>(null);
 
@@ -47,11 +54,12 @@ export const GerenciaDashboard: React.FC = () => {
   })();
 
   const tabs = [
-    { id: 'general',    label: 'Visión general', alert: 0 },
-    { id: 'ventas',     label: 'Ventas & cartera', alert: 0 },
-    { id: 'produccion', label: 'Producción', alert: 0 },
-    { id: 'equipo',     label: 'Equipo', alert: 0 },
-    { id: 'alertas',    label: 'Alertas', alert: alertasCriticas },
+    { id: 'general',       label: 'Visión general',  alert: 0 },
+    { id: 'ventas',        label: 'Ventas & cartera', alert: 0 },
+    { id: 'produccion',    label: 'Producción',       alert: 0 },
+    { id: 'equipo',        label: 'Equipo',           alert: 0 },
+    { id: 'alertas',       label: 'Alertas',          alert: alertasCriticas },
+    ...(puedeVerCotizaciones ? [{ id: 'cotizaciones', label: 'Cotizaciones', alert: 0 }] : []),
   ] as const;
 
   return (
@@ -128,7 +136,7 @@ export const GerenciaDashboard: React.FC = () => {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => setActiveTab(tab.id as any)}
               className={`relative px-4 py-2 text-[12px] font-medium transition-colors outline-none border-b-2
                 ${isActive ? 'text-indigo-600 border-indigo-600' : 'text-slate-500 hover:text-slate-800 border-transparent'}`}
               style={{ marginBottom: '-1px' }}
@@ -170,6 +178,11 @@ export const GerenciaDashboard: React.FC = () => {
           {activeTab === 'alertas' && (
             <motion.div key="pt-al" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <PanelAlertas data={alertas} isLoading={loading.alertas} onViewOdp={setSelectedOdpId} />
+            </motion.div>
+          )}
+          {activeTab === 'cotizaciones' && puedeVerCotizaciones && (
+            <motion.div key="pt-cot" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <PanelCotizaciones data={cotizaciones} isLoading={loading.cotizaciones} />
             </motion.div>
           )}
         </AnimatePresence>
