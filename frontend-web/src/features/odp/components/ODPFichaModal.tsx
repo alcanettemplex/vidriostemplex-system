@@ -774,7 +774,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
 
       {/* Modal Relacionar TM existente */}
       {relacionarOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50">
+        <div className="fixed inset-0 z-[1410] flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
@@ -1792,7 +1792,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
   ];
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-3">
+    <div className="fixed inset-0 z-[1400] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-3">
       <motion.div initial={{ opacity: 0, scale: 0.96, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
         className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[96vh] flex flex-col border border-slate-200 overflow-hidden relative">
 

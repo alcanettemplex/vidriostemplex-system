@@ -6,6 +6,7 @@ import {
   Plus, Pencil, Trash2, RefreshCw, UserCheck,
 } from 'lucide-react';
 import ProgramarRutaModal from './ProgramarRutaModal';
+import ODPFichaModal from '../../odp/components/ODPFichaModal';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -37,7 +38,8 @@ const ODPCard: React.FC<{
   onEditar: (ruta: any) => void;
   onCancelar: (rutaId: number) => void;
   onPausar: (rutaOdpId: number, numeroOdp: string) => void;
-}> = ({ ro, onEditar, onCancelar, onPausar }) => {
+  onVerODP?: (id: number) => void;
+}> = ({ ro, onEditar, onCancelar, onPausar, onVerODP }) => {
   const odp = ro.odp;
   const ruta = ro.ruta;
   const puedePausar = ro.estado === 'en_curso';
@@ -49,7 +51,12 @@ const ODPCard: React.FC<{
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
       {/* Fila superior: ODP + estado + ruta */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="font-bold text-slate-800 text-sm">{odp?.numero_odp}</span>
+        <span
+          className="font-bold text-slate-800 text-sm hover:text-indigo-600 cursor-pointer hover:underline underline-offset-2"
+          onClick={() => odp?.id && onVerODP?.(odp.id)}
+        >
+          {odp?.numero_odp}
+        </span>
         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${ESTADO_ODP_CLS[ro.estado] ?? 'bg-slate-100 text-slate-500'}`}>
           {ESTADO_ODP_LABEL[ro.estado] ?? ro.estado}
         </span>
@@ -184,6 +191,7 @@ const InstaladorGestionTab: React.FC = () => {
   const [instaladorParaRuta, setInstaladorParaRuta] = useState<number | null>(null);
   const [pauseModal, setPauseModal] = useState<{ rutaOdpId: number; numeroOdp: string } | null>(null);
   const [pauseMotivo, setPauseMotivo] = useState('');
+  const [selectedOdpId, setSelectedOdpId] = useState<number | null>(null);
 
   // Carga lista de instaladores una sola vez
   useEffect(() => {
@@ -277,6 +285,7 @@ const InstaladorGestionTab: React.FC = () => {
     onEditar: handleEditar,
     onCancelar: handleCancelar,
     onPausar: handlePausar,
+    onVerODP: setSelectedOdpId,
   };
 
   if (instaladores.length === 0) {
@@ -369,6 +378,14 @@ const InstaladorGestionTab: React.FC = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* ODPFichaModal */}
+      {selectedOdpId && (
+        <ODPFichaModal
+          odpId={selectedOdpId}
+          onClose={() => setSelectedOdpId(null)}
+        />
       )}
 
       {/* Modal programar / editar ruta */}

@@ -91,14 +91,14 @@ export const getGeneralData = async (req: Request, res: Response) => {
     const facturado_mes = Number(await ODP.sum('valor_total', { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] } } }) || 0);
     const abonos        = await ODP.sum('abono', { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] } } }) || 0;
 
-    // Cartera vencida: SOLO créditos que superaron el umbral de días
+    // Cartera vencida: créditos con FE emitida cuya fecha_factura supera el umbral de días (sin filtro de período)
     const carteraItems = await ODP.findAll({
       where: {
         forma_pago: 'credito',
         pendiente: { [Op.gt]: 0 },
-        fecha_entrega: { [Op.lt]: fechaUmbralCartera },
+        factura_electronica: { [Op.ne]: null },
+        fecha_factura: { [Op.lt]: fechaUmbralCartera },
         estado_caja: { [Op.ne]: 'CANCELADO' },
-        fecha_creacion: { [Op.between]: [firstDay, lastDay] }
       }
     });
     const cartera_vencida_total    = carteraItems.reduce((acc, o) => acc + Number(o.getDataValue('pendiente')), 0);
@@ -672,7 +672,56 @@ export const getAlertas = async (_req: Request, res: Response) => {
   }
 };
 
-// ─── 6. PANEL COTIZACIONES ───────────────────────────────────────────────────
+// ─── 6. CARTERA VENCIDA DETALLE (on-demand) ──────────────────────────────────
+export const getCarteraVencida = async (_req: Request, res: Response) => {
+  try {
+    const today = new Date();
+    const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
+    const diasAlerta = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
+    const fechaUmbral = new Date(today.getTime() - diasAlerta * 24 * 3600 * 1000);
+
+    const items = await ODP.findAll({
+      where: {
+        forma_pago: 'credito',
+        pendiente: { [Op.gt]: 0 },
+        factura_electronica: { [Op.ne]: null },
+        fecha_factura: { [Op.lt]: fechaUmbral },
+        estado_caja: { [Op.ne]: 'CANCELADO' },
+      },
+      include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
+      attributes: ['id', 'numero_odp', 'factura_electronica', 'fecha_factura', 'pendiente', 'valor_total', 'cliente_id'],
+      order: [['fecha_factura', 'ASC']],
+    });
+
+    const result = items.map(o => {
+      const fechaFe = new Date(o.getDataValue('fecha_factura'));
+      const diasVencido = Math.ceil((today.getTime() - fechaFe.getTime()) / (1000 * 3600 * 24));
+      return {
+        id:                  o.getDataValue('id'),
+        numero_odp:          o.getDataValue('numero_odp'),
+        factura_electronica: o.getDataValue('factura_electronica'),
+        fecha_factura:       o.getDataValue('fecha_factura'),
+        pendiente:           Number(o.getDataValue('pendiente')),
+        valor_total:         Number(o.getDataValue('valor_total')),
+        cliente_nombre:      (o as any).cliente?.nombre_razon_social || 'Sin cliente',
+        dias_vencido:        diasVencido,
+        riesgo:              diasVencido > diasAlerta * 2   ? 'critico'
+                           : diasVencido > diasAlerta * 1.5 ? 'alerta'
+                           : 'normal',
+      };
+    });
+
+    const total = result.reduce((acc, r) => acc + r.pendiente, 0);
+    const clientes_unicos = new Set(result.map(r => r.cliente_nombre)).size;
+
+    return res.json({ items: result, total, clientes_unicos, umbral_dias: diasAlerta });
+  } catch (error: any) {
+    console.error('Error getCarteraVencida:', error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+// ─── 7. PANEL COTIZACIONES ───────────────────────────────────────────────────
 export const getCotizacionesData = async (req: Request, res: Response) => {
   try {
     const { firstDay, lastDay } = parsePeriod(req);

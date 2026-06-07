@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import ProgramarRutaModal from './ProgramarRutaModal';
 import InstaladorGestionTab from './InstaladorGestionTab';
+import ODPFichaModal from '../../odp/components/ODPFichaModal';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -92,7 +93,8 @@ const RutaCard: React.FC<{
   onCancelar?: (id: number) => void;
   onFinalizar?: (rutaOdpId: number, numero: string) => void;
   onPausar?: (rutaOdpId: number, numero: string) => void;
-}> = ({ ruta, readOnly, historial = false, onEditar, onCancelar, onFinalizar, onPausar }) => {
+  onVerODP?: (id: number) => void;
+}> = ({ ruta, readOnly, historial = false, onEditar, onCancelar, onFinalizar, onPausar, onVerODP }) => {
   const [expandida, setExpandida] = useState(true);
 
   const totalOdps      = ruta.ruta_odps?.length ?? 0;
@@ -195,7 +197,12 @@ const RutaCard: React.FC<{
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-slate-800">{ro.odp?.numero_odp}</span>
+                    <span
+                      className="text-sm font-semibold text-slate-800 hover:text-indigo-600 cursor-pointer hover:underline underline-offset-2"
+                      onClick={() => ro.odp?.id && onVerODP?.(ro.odp.id)}
+                    >
+                      {ro.odp?.numero_odp}
+                    </span>
                     <span className="text-xs text-slate-500 truncate">{ro.odp?.cliente?.nombre_razon_social}</span>
                   </div>
                   {ro.odp?.direccion_instalacion && (
@@ -298,6 +305,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const [datosReceptor, setDatosReceptor] = useState('');
   const [savingFinalizar, setSavingFinalizar] = useState(false);
   const [busqueda, setBusqueda] = useState('');
+  const [selectedOdpId, setSelectedOdpId] = useState<number | null>(null);
 
   // Carga datos principales
   const cargar = useCallback(async () => {
@@ -419,7 +427,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   // Rutas según sub-tab completados
   const rutasComp = filtrarRutas(subTabComp === 'completadas' ? rutasCompletadas : rutasCanceladas);
 
-  const propsRutaCard = { readOnly, onEditar: handleEditar, onCancelar: handleCancelar, onFinalizar: handleFinalizarODP, onPausar: handlePausar };
+  const propsRutaCard = { readOnly, onEditar: handleEditar, onCancelar: handleCancelar, onFinalizar: handleFinalizarODP, onPausar: handlePausar, onVerODP: setSelectedOdpId };
 
   return (
     <div className="p-5 max-w-7xl mx-auto space-y-5">
@@ -493,7 +501,12 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                 <div key={odp.id} className="flex items-center gap-4 p-4 hover:bg-slate-50">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="font-bold text-slate-800 text-sm">{odp.numero_odp}</span>
+                      <span
+                        className="font-bold text-slate-800 text-sm hover:text-indigo-600 cursor-pointer hover:underline underline-offset-2"
+                        onClick={() => setSelectedOdpId(odp.id)}
+                      >
+                        {odp.numero_odp}
+                      </span>
                       {odp.es_garantia && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">🛡 Garantía</span>}
                       {!odp.es_garantia && (
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${odp.estado_caja === 'CANCELADO' ? 'bg-emerald-100 text-emerald-700' : odp.estado_caja === 'CREDITO_APROBADO' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
@@ -732,6 +745,14 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ODPFichaModal */}
+      {selectedOdpId && (
+        <ODPFichaModal
+          odpId={selectedOdpId}
+          onClose={() => setSelectedOdpId(null)}
+        />
       )}
 
       {/* Modal motivo pausa */}

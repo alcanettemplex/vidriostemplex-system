@@ -7,6 +7,8 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import DonutChart from '../charts/DonutChart';
+import CarteraVencidaModal from './CarteraVencidaModal';
+import ODPFichaModal from '../../../features/odp/components/ODPFichaModal';
 
 const fmtM = (n: number) => {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -78,10 +80,12 @@ const MonthlyTooltip = ({ active, payload, label }: any) => {
 };
 
 export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data, isLoading }) => {
-  const odpsActivas   = useCountUp(data?.odps_activas || 0);
-  const facturadoMes  = useCountUp(data?.facturado_mes || 0);
-  const carteraVenc   = useCountUp(data?.cartera_vencida_total || 0);
+  const odpsActivas    = useCountUp(data?.odps_activas || 0);
+  const facturadoMes   = useCountUp(data?.facturado_mes || 0);
+  const carteraVenc    = useCountUp(data?.cartera_vencida_total || 0);
   const totalRecaudado = useCountUp(data?.total_abonado || 0);
+  const [openCartera, setOpenCartera] = useState(false);
+  const [fichaId, setFichaId]         = useState<number | null>(null);
 
   if (isLoading) {
     return (
@@ -178,8 +182,9 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
         </motion.div>
 
         <motion.div custom={2} variants={cardVar} initial="hidden" animate="visible"
-          className="bg-white border border-slate-200 rounded-2xl p-5"
-          whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(220,38,38,0.1)' }}>
+          className="bg-white border border-slate-200 rounded-2xl p-5 cursor-pointer"
+          whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(220,38,38,0.15)' }}
+          onClick={() => setOpenCartera(true)}>
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Cartera Vencida</p>
           <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Créditos sin pago que superaron el umbral de días configurado</p>
           <p className="text-[38px] font-semibold text-rose-600 leading-none tabular-nums">{fmtM(carteraVenc)}</p>
@@ -188,6 +193,7 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
               ? `${data.cartera_vencida_clientes} cliente${data.cartera_vencida_clientes > 1 ? 's' : ''} con crédito vencido`
               : 'Sin créditos vencidos'}
           </p>
+          <p className="text-[10px] text-rose-400 mt-1">Ver detalle →</p>
         </motion.div>
 
         <motion.div custom={3} variants={cardVar} initial="hidden" animate="visible"
@@ -350,6 +356,8 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
         </motion.div>
       </div>
 
+      {openCartera && <CarteraVencidaModal onClose={() => setOpenCartera(false)} onVerODP={setFichaId} />}
+      {fichaId && <ODPFichaModal odpId={fichaId} onClose={() => setFichaId(null)} />}
     </div>
   );
 };
