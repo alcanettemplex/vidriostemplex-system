@@ -292,6 +292,7 @@ const TABLAS_AUDITABLES = new Set([
   'historial_estados_odp', 'vehiculos', 'rutas_instalacion', 'ruta_odps',
   'prospectos', 'catalogo_productos', 'inventario_perfileria', 'metas_mensuales',
   'configuracion_global', 'pedido_pv', 'salidas_almacen',
+  'leads', 'lead_eventos', 'lead_imagenes',
 ]);
 
 export const revertirAuditoria = async (req: Request, res: Response) => {
