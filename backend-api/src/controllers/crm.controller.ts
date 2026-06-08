@@ -1,8 +1,10 @@
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
 import sequelize from '../config/database';
-import { Lead, LeadEvento, Usuario, Cliente, Prospecto, TomaMedidas } from '../models';
+import { Lead, LeadEvento, LeadImagen, Usuario, Cliente, Prospecto, TomaMedidas } from '../models';
 import ODP from '../models/odp.model';
+import { v2 as cloudinary } from 'cloudinary';
+import '../config/upload'; // garantiza que cloudinary está configurado
 
 
 
@@ -1209,6 +1211,103 @@ export const solicitarVisitaTecnica = async (req: Request, res: Response) => {
   }
 };
 
+// ─── Imágenes del Lead ────────────────────────────────────────────────────────
+
+// GET /api/crm/:id/imagenes
+export const getLeadImagenes = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const imagenes = await LeadImagen.findAll({
+      where: { lead_id: id },
+      include: [{ model: Usuario, as: 'subidor', attributes: ['id', 'nombre_completo'] }],
+      order: [['created_at', 'ASC']],
+    });
+    res.json(imagenes);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al obtener imágenes del lead', detail: error.message });
+  }
+};
+
+// POST /api/crm/:id/imagenes (multipart: imagen, nota?)
+export const createLeadImagen = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user = req.user!;
+    const file = req.file as any;
+    if (!file) return res.status(400).json({ error: 'Se requiere una imagen' });
+
+    const lead = await Lead.findByPk(id);
+    if (!lead) return res.status(404).json({ error: 'Lead no encontrado' });
+
+    const count = await LeadImagen.count({ where: { lead_id: id } });
+    if (count >= 5) {
+      return res.status(400).json({ error: 'El lead ya tiene el máximo de 5 imágenes permitidas' });
+    }
+
+    const { nota } = req.body;
+    const imagen = await LeadImagen.create({
+      lead_id: Number(id),
+      url: file.path,
+      public_id: file.filename,
+      nota: nota || null,
+      subido_por: user.id,
+    });
+
+    const completa = await LeadImagen.findByPk(imagen.getDataValue('id'), {
+      include: [{ model: Usuario, as: 'subidor', attributes: ['id', 'nombre_completo'] }],
+    });
+    res.status(201).json(completa);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al subir imagen', detail: error.message });
+  }
+};
+
+// PATCH /api/crm/:id/imagenes/:imgId (editar nota)
+export const updateLeadImagenNota = async (req: Request, res: Response) => {
+  try {
+    const { id, imgId } = req.params;
+    const { nota } = req.body;
+    const user = req.user!;
+
+    const imagen = await LeadImagen.findOne({ where: { id: imgId, lead_id: id } });
+    if (!imagen) return res.status(404).json({ error: 'Imagen no encontrada' });
+
+    const esCreador = imagen.getDataValue('subido_por') === user.id;
+    if (!esCreador && !['admin', 'gerencia'].includes(user.rol)) {
+      return res.status(403).json({ error: 'Sin permiso para editar esta imagen' });
+    }
+
+    await imagen.update({ nota: nota ?? null });
+    res.json(imagen);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al actualizar nota', detail: error.message });
+  }
+};
+
+// DELETE /api/crm/:id/imagenes/:imgId
+export const deleteLeadImagen = async (req: Request, res: Response) => {
+  try {
+    const { id, imgId } = req.params;
+    const user = req.user!;
+
+    const imagen = await LeadImagen.findOne({ where: { id: imgId, lead_id: id } });
+    if (!imagen) return res.status(404).json({ error: 'Imagen no encontrada' });
+
+    const esCreador = imagen.getDataValue('subido_por') === user.id;
+    if (!esCreador && !['admin', 'gerencia'].includes(user.rol)) {
+      return res.status(403).json({ error: 'Sin permiso para eliminar esta imagen' });
+    }
+
+    const publicId = imagen.getDataValue('public_id');
+    try { await cloudinary.uploader.destroy(publicId); } catch { /* no bloquear */ }
+
+    await imagen.destroy();
+    res.json({ ok: true });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al eliminar imagen', detail: error.message });
+  }
+};
+
 // Vincular un lead aprobado a una ODP existente
 export const vincularODPAlLead = async (req: Request, res: Response) => {
   try {
@@ -1250,5 +1349,229 @@ export const vincularODPAlLead = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error al vincular ODP al lead:', error);
     res.status(500).json({ error: 'Error del servidor al vincular ODP' });
+  }
+};
+
+// GET /api/crm/embudo — embudo de conversión etapa→etapa por asesor
+export const getEmbudoAsesores = async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const { mes, anio } = req.query;
+
+    const where: any = { asesor_id: { [Op.ne]: null } };
+
+    if (mes && anio && mes !== 'undefined' && anio !== 'undefined') {
+      const month = parseInt(mes as string);
+      const year  = parseInt(anio as string);
+      where.createdAt = { [Op.between]: [new Date(year, month - 1, 1), new Date(year, month, 0, 23, 59, 59)] };
+    }
+
+    if (user.rol === 'asesor_comercial') {
+      where.asesor_id = user.id;
+    }
+
+    const leads = await Lead.findAll({
+      where,
+      attributes: [
+        'id', 'asesor_id', 'estado_crm',
+        'fecha_asignado', 'fecha_en_contacto', 'fecha_cotizando',
+        'fecha_visita_tecnica', 'fecha_aprobado', 'fecha_perdido', 'fecha_frio',
+      ],
+      include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
+      order: [['asesor_id', 'ASC']],
+    });
+
+    const mapaAsesores = new Map<number, { nombre: string; leads: any[] }>();
+    for (const lead of leads) {
+      const l = lead.toJSON() as any;
+      if (!mapaAsesores.has(l.asesor_id)) {
+        mapaAsesores.set(l.asesor_id, { nombre: l.asesor?.nombre_completo || 'Asesor', leads: [] });
+      }
+      mapaAsesores.get(l.asesor_id)!.leads.push(l);
+    }
+
+    // Conteo acumulativo: "llegó a etapa X" = tiene fecha_X O cualquier fecha posterior.
+    // Esto evita % imposibles cuando los leads saltan etapas (ej: ASIGNADO → COTIZANDO).
+    const TRAMOS = [
+      {
+        desde: 'ASIGNADO',
+        hasta: 'EN_CONTACTO',
+        camposD: ['fecha_asignado'],
+        camposH: ['fecha_en_contacto', 'fecha_cotizando', 'fecha_visita_tecnica', 'fecha_aprobado'],
+      },
+      {
+        desde: 'EN_CONTACTO',
+        hasta: 'COTIZANDO',
+        camposD: ['fecha_en_contacto', 'fecha_cotizando', 'fecha_visita_tecnica', 'fecha_aprobado'],
+        camposH: ['fecha_cotizando', 'fecha_visita_tecnica', 'fecha_aprobado'],
+      },
+      {
+        desde: 'COTIZANDO',
+        hasta: 'VISITA_TECNICA',
+        camposD: ['fecha_cotizando', 'fecha_visita_tecnica', 'fecha_aprobado'],
+        camposH: ['fecha_visita_tecnica', 'fecha_aprobado'],
+      },
+      {
+        desde: 'VISITA_TECNICA',
+        hasta: 'APROBADO',
+        camposD: ['fecha_visita_tecnica', 'fecha_aprobado'],
+        camposH: ['fecha_aprobado'],
+      },
+    ];
+
+    const llego = (l: any, campos: string[]) => campos.some(c => l[c] !== null);
+
+    const resultado = Array.from(mapaAsesores.entries()).map(([asesorId, { nombre, leads: ls }]) => {
+      const totalLeads     = ls.length;
+      const totalAprobados = ls.filter(l => l.fecha_aprobado !== null).length;
+
+      const tramos = TRAMOS.map(t => {
+        const leadsDesde = ls.filter(l => llego(l, t.camposD)).length;
+        const leadsHasta = ls.filter(l => llego(l, t.camposH)).length;
+        const pct = leadsDesde > 0 ? Math.round((leadsHasta / leadsDesde) * 100) : 0;
+
+        // Caídas: llegaron al inicio del tramo pero no al final, y ya están cerrados
+        const perdidos = ls.filter(l =>
+          llego(l, t.camposD) && !llego(l, t.camposH) && l.estado_crm === 'PERDIDO'
+        ).length;
+        const frios = ls.filter(l =>
+          llego(l, t.camposD) && !llego(l, t.camposH) && l.estado_crm === 'FRIO'
+        ).length;
+
+        return { desde: t.desde, hasta: t.hasta, leads_desde: leadsDesde, leads_hasta: leadsHasta, pct_conversion: pct, perdidos_en_etapa: perdidos, frios_en_etapa: frios };
+      });
+
+      return {
+        asesor_id:       asesorId,
+        asesor_nombre:   nombre,
+        total_leads:     totalLeads,
+        total_aprobados: totalAprobados,
+        tasa_final:      totalLeads > 0 ? Math.round((totalAprobados / totalLeads) * 100) : 0,
+        tramos,
+      };
+    }).sort((a, b) => b.tasa_final - a.tasa_final);
+
+    const promedio_equipo = resultado.length > 0
+      ? Math.round(resultado.reduce((s, a) => s + a.tasa_final, 0) / resultado.length)
+      : 0;
+
+    res.json({
+      asesores: resultado.map(a => ({ ...a, vs_equipo: a.tasa_final - promedio_equipo })),
+      promedio_equipo,
+    });
+  } catch (error: any) {
+    console.error('Error en getEmbudoAsesores:', error);
+    res.status(500).json({ error: 'Error del servidor al calcular embudo' });
+  }
+};
+
+// GET /api/crm/:id — lead individual completo (usado por MonitorAsesores al abrir detalle)
+export const getLeadById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const lead = await Lead.findByPk(id, {
+      include: [
+        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'rol'] },
+        { model: ODP, as: 'odp', attributes: ['id', 'numero_odp', 'estado_produccion'] },
+      ],
+    });
+    if (!lead) return res.status(404).json({ error: 'Lead no encontrado' });
+    res.json(lead);
+  } catch (error: any) {
+    console.error('Error al obtener lead:', error);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+};
+
+// GET /api/crm/monitor — leads activos agrupados por asesor con días en etapa
+export const getMonitorAsesores = async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const ESTADOS_ACTIVOS = ['ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'VISITA_TECNICA'];
+    const FECHA_POR_ESTADO: Record<string, string> = {
+      ASIGNADO:       'fecha_asignado',
+      EN_CONTACTO:    'fecha_en_contacto',
+      COTIZANDO:      'fecha_cotizando',
+      VISITA_TECNICA: 'fecha_visita_tecnica',
+    };
+
+    const where: any = {
+      estado_crm: { [Op.in]: ESTADOS_ACTIVOS },
+      asesor_id:  { [Op.ne]: null },
+    };
+    // asesor_comercial solo ve sus propios leads
+    if (user.rol === 'asesor_comercial') {
+      where.asesor_id = user.id;
+    }
+
+    const leads = await Lead.findAll({
+      where,
+      attributes: [
+        'id', 'nombre', 'telefono', 'producto_interes', 'estado_crm',
+        'fecha_asignado', 'fecha_en_contacto', 'fecha_cotizando', 'fecha_visita_tecnica',
+        'monto_proyectado_cotizacion', 'intentos_seguimiento', 'asesor_id', 'createdAt',
+        'segmento', 'fuente_lead', 'descripcion_contexto', 'mensaje_entrada',
+        'motivo_perdida', 'respondio',
+      ],
+      include: [
+        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+      ],
+      order: [['asesor_id', 'ASC'], ['createdAt', 'ASC']],
+    });
+
+    const now = new Date();
+    const mapaAsesores = new Map<number, any>();
+
+    for (const lead of leads) {
+      const l = lead.toJSON() as any;
+      const campoFecha = FECHA_POR_ESTADO[l.estado_crm];
+      const fechaEtapa = campoFecha ? l[campoFecha] : null;
+      const diasEnEtapa = fechaEtapa
+        ? Math.floor((now.getTime() - new Date(fechaEtapa).getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+
+      const leadData = {
+        id: l.id,
+        nombre: l.nombre,
+        telefono: l.telefono,
+        producto_interes: l.producto_interes,
+        estado_crm: l.estado_crm,
+        dias_en_etapa: Math.max(0, diasEnEtapa),
+        monto_proyectado_cotizacion: l.monto_proyectado_cotizacion,
+        intentos_seguimiento: l.intentos_seguimiento,
+        segmento: l.segmento,
+        createdAt: l.createdAt,
+      };
+
+      const asesorId = l.asesor_id;
+      if (!mapaAsesores.has(asesorId)) {
+        mapaAsesores.set(asesorId, {
+          asesor_id: asesorId,
+          asesor_nombre: l.asesor?.nombre_completo || 'Asesor',
+          leads_por_etapa: {
+            ASIGNADO:       [],
+            EN_CONTACTO:    [],
+            COTIZANDO:      [],
+            VISITA_TECNICA: [],
+          },
+        });
+      }
+      mapaAsesores.get(asesorId)!.leads_por_etapa[l.estado_crm].push(leadData);
+    }
+
+    const resultado = Array.from(mapaAsesores.values()).map(asesor => {
+      const todos: any[] = Object.values(asesor.leads_por_etapa).flat();
+      return {
+        ...asesor,
+        total_activos:  todos.length,
+        total_en_rojo:  todos.filter((l: any) => l.dias_en_etapa > 5).length,
+        total_en_ambar: todos.filter((l: any) => l.dias_en_etapa >= 3 && l.dias_en_etapa <= 5).length,
+      };
+    }).sort((a, b) => a.asesor_nombre.localeCompare(b.asesor_nombre));
+
+    res.json(resultado);
+  } catch (error: any) {
+    console.error('Error en getMonitorAsesores:', error);
+    res.status(500).json({ error: 'Error del servidor al obtener el monitor' });
   }
 };

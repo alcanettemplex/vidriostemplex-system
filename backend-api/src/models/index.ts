@@ -32,6 +32,7 @@ import CotizacionCaptura from './cotizacion_captura.model';
 import DetalleSAPImagen from './detalle_sap_imagen.model';
 import Lead from './lead.model';
 import LeadEvento from './lead_evento.model';
+import LeadImagen from './lead_imagen.model';
 import MetaUsuarioMensual from './meta_usuario_mensual.model';
 
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
@@ -133,6 +134,12 @@ ODP.hasMany(Lead, { foreignKey: 'odp_id', as: 'leads_origen' });
 // Lead → Prospecto (vínculo de visita técnica desde CRM)
 Lead.belongsTo(Prospecto, { foreignKey: 'prospecto_id', as: 'prospecto_visita' });
 Prospecto.hasMany(Lead, { foreignKey: 'prospecto_id', as: 'leads_origen_crm' });
+
+// Lead → Imágenes
+Lead.hasMany(LeadImagen, { foreignKey: 'lead_id', as: 'imagenes' });
+LeadImagen.belongsTo(Lead, { foreignKey: 'lead_id', as: 'lead' });
+Usuario.hasMany(LeadImagen, { foreignKey: 'subido_por', as: 'lead_imagenes_subidas' });
+LeadImagen.belongsTo(Usuario, { foreignKey: 'subido_por', as: 'subidor' });
 
 // ─── Bloque D: Prospectos ────────────────────────────────────────────────────
 Usuario.hasMany(Prospecto, { foreignKey: 'asesor_id', as: 'prospectos_gestionados' });
@@ -274,6 +281,7 @@ const MODELOS_AUDITADOS = [
   { model: CotizacionCaptura, tabla: 'cotizacion_capturas', pk: 'id' },
   { model: Lead, tabla: 'leads', pk: 'id' },
   { model: LeadEvento, tabla: 'lead_eventos', pk: 'id' },
+  { model: LeadImagen, tabla: 'lead_imagenes', pk: 'id' },
   { model: MetaUsuarioMensual, tabla: 'metas_usuario_mensual', pk: 'id' },
 ];
 
@@ -356,6 +364,7 @@ export {
   DetalleSAPImagen,
   Lead,
   LeadEvento,
+  LeadImagen,
   MetaUsuarioMensual,
 };
 

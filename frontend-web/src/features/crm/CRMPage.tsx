@@ -7,10 +7,12 @@ import DashboardGerencial from './components/DashboardGerencial';
 import SinRespuestaTab from './components/SinRespuestaTab';
 import ReporteAsesor from './components/ReporteAsesor';
 import ProspectosStats from './components/ProspectosStats';
+import MonitorAsesores from './components/MonitorAsesores';
+import EmbudoAsesores from './components/EmbudoAsesores';
 import PeriodSelector from '../../components/common/PeriodSelector';
-import { Plus, BarChart3, Kanban, TrendingUp, PhoneMissed, Search, X, ClipboardList, Users } from 'lucide-react';
+import { Plus, BarChart3, Kanban, TrendingUp, PhoneMissed, Search, X, ClipboardList, Users, ScanEye, Filter } from 'lucide-react';
 
-type Tab = 'pipeline' | 'metricas' | 'gerencial' | 'sin_respuesta' | 'reportes' | 'prospectos';
+type Tab = 'pipeline' | 'metricas' | 'gerencial' | 'sin_respuesta' | 'reportes' | 'prospectos' | 'monitor' | 'embudo';
 
 const ROLES_GLOBAL = ['admin', 'gerencia', 'asistente_administrativo', 'root', 'marketing', 'jefe_produccion'];
 const ROLES_GERENCIAL = ['admin', 'gerencia', 'asistente_administrativo', 'root', 'marketing', 'jefe_produccion'];
@@ -141,6 +143,32 @@ const CRMPage: React.FC = () => {
           <Users className="w-4 h-4" />
           Prospectos
         </button>
+        {puedeVerGerencial && (
+          <button
+            onClick={() => setActiveTab('monitor')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+              activeTab === 'monitor'
+                ? 'bg-white text-slate-800 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <ScanEye className="w-4 h-4" />
+            Monitor
+          </button>
+        )}
+        {puedeVerGerencial && (
+          <button
+            onClick={() => setActiveTab('embudo')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+              activeTab === 'embudo'
+                ? 'bg-white text-slate-800 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Filter className="w-4 h-4" />
+            Embudo
+          </button>
+        )}
         <button
           onClick={() => setActiveTab('reportes')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
@@ -188,6 +216,38 @@ const CRMPage: React.FC = () => {
           mes={mes}
           anio={anio}
         />
+      )}
+
+      {activeTab === 'monitor' && puedeVerGerencial && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
+              <ScanEye className="w-5 h-5 text-indigo-600" />
+            </div>
+            <div>
+              <h2 className="text-base font-black text-slate-800">Monitor de Pipeline</h2>
+              <p className="text-[11px] text-slate-400 font-medium mt-0.5">Leads activos por asesor · tiempo en etapa actual</p>
+            </div>
+          </div>
+          <MonitorAsesores rol={rol} userId={asesorId} />
+        </div>
+      )}
+
+      {activeTab === 'embudo' && puedeVerGerencial && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center">
+              <Filter className="w-5 h-5 text-violet-600" />
+            </div>
+            <div>
+              <h2 className="text-base font-black text-slate-800">Embudo de Conversión</h2>
+              <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                Tasa de conversión etapa→etapa por asesor · período seleccionado
+              </p>
+            </div>
+          </div>
+          <EmbudoAsesores mes={mes} anio={anio} />
+        </div>
       )}
 
       {activeTab === 'reportes' && (

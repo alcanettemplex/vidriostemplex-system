@@ -107,3 +107,39 @@ export const apiSolicitarVisitaTecnica = (leadId: number, data: {
   telefono_contacto?: string;
   observaciones?: string;
 }) => axios.post(`${API}/api/crm/${leadId}/solicitar-visita`, data, getHeaders());
+
+/** Embudo de conversión etapa→etapa por asesor */
+export const apiGetEmbudoAsesores = (mes?: number, anio?: number) => {
+  const params = (mes && anio) ? `?mes=${mes}&anio=${anio}` : '';
+  return axios.get(`${API}/api/crm/embudo${params}`, getHeaders());
+};
+
+/** Monitor de pipeline: leads activos agrupados por asesor con días en etapa */
+export const apiGetMonitorAsesores = () =>
+  axios.get(`${API}/api/crm/monitor`, getHeaders());
+
+/** Obtener un lead completo por ID (para abrir LeadDetalleModal desde el Monitor) */
+export const apiGetLeadById = (leadId: number) =>
+  axios.get(`${API}/api/crm/${leadId}`, getHeaders());
+
+/** Obtener imágenes de un lead */
+export const apiGetLeadImagenes = (leadId: number) =>
+  axios.get(`${API}/api/crm/${leadId}/imagenes`, getHeaders());
+
+/** Subir una imagen a un lead */
+export const apiUploadLeadImagen = (leadId: number, file: File, nota?: string) => {
+  const fd = new FormData();
+  fd.append('imagen', file);
+  if (nota?.trim()) fd.append('nota', nota.trim());
+  return axios.post(`${API}/api/crm/${leadId}/imagenes`, fd, {
+    headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` },
+  });
+};
+
+/** Editar la nota de una imagen del lead */
+export const apiUpdateLeadImagenNota = (leadId: number, imgId: number, nota: string) =>
+  axios.patch(`${API}/api/crm/${leadId}/imagenes/${imgId}`, { nota }, getHeaders());
+
+/** Eliminar una imagen del lead */
+export const apiDeleteLeadImagen = (leadId: number, imgId: number) =>
+  axios.delete(`${API}/api/crm/${leadId}/imagenes/${imgId}`, getHeaders());

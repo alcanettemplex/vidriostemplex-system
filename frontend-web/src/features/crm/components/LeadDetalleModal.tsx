@@ -22,6 +22,7 @@ import { updateLead } from '../crmSlice';
 import ConvertirClienteModal from './ConvertirClienteModal';
 import CrearODPModal from './CrearODPModal';
 import SolicitarVisitaModal from './SolicitarVisitaModal';
+import LeadImagenes from './LeadImagenes';
 
 // ─── Mapa estado → etiqueta visual ───────────────────────────────────────────
 const ESTADO_INFO: Record<string, { label: string; color: string; bg: string }> = {
@@ -842,6 +843,8 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
               </button>
             </div>
           )}
+
+          <LeadImagenes leadId={lead.id} rol={rol} userId={userId} />
 
           <div className="pb-4">
             <h3 className="text-xs font-black text-slate-500 uppercase mb-4 flex items-center gap-2 px-1">

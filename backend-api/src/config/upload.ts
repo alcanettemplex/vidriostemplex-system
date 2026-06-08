@@ -44,3 +44,14 @@ const storageDetalleSAP = new CloudinaryStorage({
 });
 
 export const uploadDetalleSAPConfig = multer({ storage: storageDetalleSAP });
+
+const storageLeads = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: async (_req: any, _file: any) => ({
+        folder: 'templex_leads',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+        transformation: [{ width: 1600, crop: 'limit' }, { quality: 'auto' }],
+    }),
+});
+
+export const uploadLeadsConfig = multer({ storage: storageLeads });

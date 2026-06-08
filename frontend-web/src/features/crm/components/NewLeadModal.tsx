@@ -1,9 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { X, UserPlus, Phone, AlignLeft, Info, User, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { X, UserPlus, Phone, AlignLeft, Info, User, ChevronDown, Camera, Trash2, ImageOff } from 'lucide-react';
 import { useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import { addLead } from '../crmSlice';
-import { apiCreateLead, apiGetAsesores } from '../crmService';
+import { apiCreateLead, apiGetAsesores, apiUploadLeadImagen } from '../crmService';
+
+interface ImagenLocal {
+  file: File;
+  preview: string;
+  nota: string;
+}
+
+const MAX_IMAGENES_LEAD = 5;
 
 interface NewLeadModalProps {
   onClose: () => void;
@@ -26,6 +34,8 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [asesores, setAsesores] = useState<any[]>([]);
+  const [imagenesLocales, setImagenesLocales] = useState<ImagenLocal[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     telefono: '',
@@ -56,6 +66,45 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const agregarImagen = (file: File) => {
+    if (imagenesLocales.length >= MAX_IMAGENES_LEAD) {
+      toast.warning(`Máximo ${MAX_IMAGENES_LEAD} imágenes por lead.`);
+      return;
+    }
+    setImagenesLocales(prev => [...prev, { file, preview: URL.createObjectURL(file), nota: '' }]);
+  };
+
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const f = items[i].getAsFile();
+        if (f) { agregarImagen(f); toast.info('Imagen pegada desde el portapapeles'); break; }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imagenesLocales.length]);
+
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [handlePaste]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(f => agregarImagen(f));
+    e.target.value = '';
+  };
+
+  const quitarImagen = (idx: number) => {
+    setImagenesLocales(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const actualizarNota = (idx: number, nota: string) => {
+    setImagenesLocales(prev => prev.map((img, i) => i === idx ? { ...img, nota } : img));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nombre.trim() || !formData.telefono.trim()) {
@@ -70,8 +119,20 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
         asesor_id: formData.asesor_id ? parseInt(formData.asesor_id) : null,
       };
       const { data } = await apiCreateLead(payload);
+
+      // Subir imágenes secuencialmente si hay alguna en cola
+      if (imagenesLocales.length > 0) {
+        for (const img of imagenesLocales) {
+          try {
+            await apiUploadLeadImagen(data.id, img.file, img.nota || undefined);
+          } catch {
+            toast.warning(`No se pudo subir una imagen. El lead fue creado.`);
+          }
+        }
+      }
+
       dispatch(addLead(data));
-      toast.success(`Lead "${data.nombre}" registrado en la Bolsa Común.`);
+      toast.success(`Lead "${data.nombre}" registrado${imagenesLocales.length > 0 ? ` con ${imagenesLocales.length} imagen(es)` : ''}.`);
       onClose();
     } catch (err: any) {
       toast.error(err?.response?.data?.error || 'Error al crear el lead. Intenta de nuevo.');
@@ -212,6 +273,62 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
               rows={2} placeholder="Notas adicionales para el asesor que tome el lead..."
               className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm resize-none transition-all"
             />
+          </div>
+
+          {/* Sección de imágenes adjuntas */}
+          <div className="space-y-2 pt-2 border-t border-dashed border-slate-200">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5 text-indigo-400" />
+                Imágenes Adjuntas
+                <span className="px-1.5 py-0.5 text-[10px] font-black bg-slate-100 text-slate-500 rounded-full">
+                  {imagenesLocales.length}/{MAX_IMAGENES_LEAD}
+                </span>
+              </label>
+              {imagenesLocales.length < MAX_IMAGENES_LEAD && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 underline underline-offset-2 transition"
+                >
+                  + Agregar imagen
+                </button>
+              )}
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} />
+
+            {imagenesLocales.length === 0 ? (
+              <div className="border border-dashed border-slate-200 rounded-xl p-4 text-center text-slate-400">
+                <ImageOff className="w-6 h-6 mx-auto mb-1 text-slate-200" />
+                <p className="text-[11px]">Sin imágenes · Selecciona archivos o pega con Ctrl+V</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {imagenesLocales.map((img, idx) => (
+                  <div key={idx} className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                    <div className="relative">
+                      <img src={img.preview} alt="" className="w-full aspect-square object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => quitarImagen(idx)}
+                        className="absolute top-1.5 right-1.5 bg-red-500 text-white rounded-full p-1 shadow hover:bg-red-600 transition"
+                      >
+                        <Trash2 className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                    <div className="p-2">
+                      <input
+                        type="text"
+                        value={img.nota}
+                        onChange={e => actualizarNota(idx, e.target.value)}
+                        placeholder="Nota opcional..."
+                        className="w-full border border-slate-200 rounded-lg px-2 py-1 text-[10px] focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-slate-50"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Asignación directa (oculta si no responde) */}

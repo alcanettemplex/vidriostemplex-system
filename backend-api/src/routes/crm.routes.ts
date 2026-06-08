@@ -18,9 +18,17 @@ import {
   getReporteAsesor,
   getStatsProspectos,
   solicitarVisitaTecnica,
+  getLeadImagenes,
+  createLeadImagen,
+  updateLeadImagenNota,
+  deleteLeadImagen,
+  getMonitorAsesores,
+  getEmbudoAsesores,
+  getLeadById,
 } from '../controllers/crm.controller';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { authMiddleware } from '../middlewares/authMiddleware';
+import { uploadLeadsConfig } from '../config/upload';
 
 const router = Router();
 
@@ -62,15 +70,28 @@ router.get('/stats/resumen', requireRole(...ROLES_CRM_LECTURA), getCRMStats);
 router.get('/stats/prospectos', requireRole(...ROLES_CRM_LECTURA), getStatsProspectos);
 router.get('/reporte-asesor', requireRole(...ROLES_CRM_LECTURA), getReporteAsesor);
 
+// Rutas con segmentos literales — DEBEN ir antes de /:id para evitar colisión
+router.get('/monitor',      requireRole(...ROLES_CRM_LECTURA), getMonitorAsesores);
+router.get('/embudo',       requireRole(...ROLES_CRM_LECTURA), getEmbudoAsesores);
+router.get('/odps/buscar',  requireRole(...ROLES_CRM_LECTURA), searchODPsForLead);
+
+// Lead individual por ID (captura cualquier número; va después de los literales)
+router.get('/:id', requireRole(...ROLES_CRM_LECTURA), getLeadById);
+
 // Recuperar lead desde "Sin Respuesta" a Bolsa Común
 router.put('/:id/recuperar', requireRole('asesor_comercial', 'asistente_administrativo', 'admin', 'gerencia', 'jefe_produccion'), recuperarLead);
 
 // Vínculo Lead APROBADO → ODP
-router.get('/odps/buscar', requireRole(...ROLES_CRM_LECTURA), searchODPsForLead);
 router.patch('/:id/vincular-odp', requireRole('asesor_comercial', 'admin', 'gerencia', 'jefe_produccion'), vincularODPAlLead);
 router.post('/:id/crear-odp', requireRole('asesor_comercial', 'admin', 'gerencia', 'jefe_produccion'), crearODPDesdeLead);
 
 // Solicitar visita técnica desde lead VISITA_TECNICA → crea Prospecto + TM
 router.post('/:id/solicitar-visita', requireRole('asesor_comercial', 'admin', 'gerencia', 'jefe_produccion'), solicitarVisitaTecnica);
+
+// Imágenes del lead
+router.get('/:id/imagenes', requireRole(...ROLES_CRM_LECTURA), getLeadImagenes);
+router.post('/:id/imagenes', requireRole(...ROLES_CRM), uploadLeadsConfig.single('imagen'), createLeadImagen);
+router.patch('/:id/imagenes/:imgId', requireRole(...ROLES_CRM), updateLeadImagenNota);
+router.delete('/:id/imagenes/:imgId', requireRole(...ROLES_CRM), deleteLeadImagen);
 
 export default router;
