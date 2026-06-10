@@ -744,6 +744,16 @@ export const createODCVidrios = async (req: Request, res: Response) => {
 
     const items = await ODPItem.findAll({ where: { id: odp_item_ids }, transaction: t });
 
+    // Verificar que todos los IDs solicitados existen en BD
+    if (items.length !== odp_item_ids.length) {
+      const encontrados = items.map((it: any) => it.getDataValue('id'));
+      const faltantes = odp_item_ids.filter((id: number) => !encontrados.includes(id));
+      await t.rollback();
+      return res.status(400).json({
+        error: `Los siguientes odp_item_ids no existen: ${faltantes.join(', ')}`,
+      });
+    }
+
     const odcItems = items.map((it: any, idx: number) => ({
       odc_id: odcId,
       sap_item_id: null,
@@ -759,6 +769,13 @@ export const createODCVidrios = async (req: Request, res: Response) => {
       ].filter(Boolean).join(' — '),
       cantidad: it.getDataValue('cantidad') || 1,
     }));
+
+    // Guardia final: ningún ODCItem puede quedar sin odp_item_id
+    const sinEnlace = odcItems.filter(i => !i.odp_item_id);
+    if (sinEnlace.length > 0) {
+      await t.rollback();
+      return res.status(500).json({ error: 'Error interno: ODCItems generados sin odp_item_id. Operación cancelada.' });
+    }
 
     await ODCItem.bulkCreate(odcItems, { transaction: t });
 

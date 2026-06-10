@@ -623,6 +623,52 @@ export const ejecutarMantenimiento = async (req: Request, res: Response) => {
         break;
       }
 
+      case 'integridad_compras': {
+        // 1. ODCItems de tipo vidrio sin odp_item_id (patrón legacy roto)
+        const odcItemsRotos: any[] = await sequelize.query(
+          `SELECT oi.id, oi.descripcion, oi.recibido, oi.odp_id,
+                  oc.numero_odc, oc.estado AS odc_estado
+           FROM odc_items oi
+           JOIN ordenes_compra oc ON oc.id = oi.odc_id
+           WHERE oc.tipo = 'vidrio' AND oi.odp_item_id IS NULL AND oi.odp_id IS NOT NULL
+           ORDER BY oc.numero_odc`,
+          { type: QueryTypes.SELECT }
+        );
+
+        // 2. ODPItems en 'pendiente' que ya tienen un ODCItem apuntándoles (estado desincronizado)
+        const odpItemsDesincronizados: any[] = await sequelize.query(
+          `SELECT od.id, od.estado_compra, od.color, od.ancho_mm, od.alto_mm,
+                  od.odp_id, oi.id AS odc_item_id, oc.numero_odc
+           FROM odp_items od
+           JOIN odc_items oi ON oi.odp_item_id = od.id
+           JOIN ordenes_compra oc ON oc.id = oi.odc_id
+           WHERE od.estado_compra = 'pendiente'
+           ORDER BY oc.numero_odc`,
+          { type: QueryTypes.SELECT }
+        );
+
+        // 3. ODPItems en 'en_odc' sin ningún ODCItem activo (huérfanos)
+        const odpItemsHuerfanos: any[] = await sequelize.query(
+          `SELECT od.id, od.estado_compra, od.color, od.ancho_mm, od.alto_mm,
+                  od.odp_id, o.numero_odp, o.estado_produccion
+           FROM odp_items od
+           JOIN odp o ON o.id = od.odp_id
+           WHERE od.estado_compra = 'en_odc'
+             AND NOT EXISTS (SELECT 1 FROM odc_items oi WHERE oi.odp_item_id = od.id)
+           ORDER BY o.estado_produccion, o.numero_odp`,
+          { type: QueryTypes.SELECT }
+        );
+
+        resultado = {
+          descripcion: 'Integridad del módulo de Compras (vidrios)',
+          ok: odcItemsRotos.length === 0 && odpItemsDesincronizados.length === 0,
+          odc_items_sin_odp_item_id: { cantidad: odcItemsRotos.length, registros: odcItemsRotos },
+          odp_items_pendiente_con_odc: { cantidad: odpItemsDesincronizados.length, registros: odpItemsDesincronizados },
+          odp_items_en_odc_sin_odc: { cantidad: odpItemsHuerfanos.length, registros: odpItemsHuerfanos },
+        };
+        break;
+      }
+
       default:
         return res.status(400).json({ error: `Tarea '${tarea}' no reconocida` });
     }

@@ -1106,6 +1106,7 @@ const TAREAS = [
   { id: 'integridad_referencial', label: 'Integridad referencial', desc: 'Verifica claves foráneas entre tablas principales', method: 'GET' },
   { id: 'usuarios_inactivos', label: 'Usuarios inactivos', desc: 'Usuarios activos sin actividad en más de 90 días', method: 'GET' },
   { id: 'sesiones_activas', label: 'Conexiones a BD', desc: 'Conexiones activas actuales a PostgreSQL', method: 'GET' },
+  { id: 'integridad_compras', label: 'Integridad Compras — Vidrios', desc: 'Detecta ODCItems sin odp_item_id, ODPItems desincronizados y huérfanos del módulo de compras', method: 'GET', warning: true },
   { id: 'limpiar_auditoria', label: 'Limpiar log de auditoría', desc: 'Elimina registros de auditoría anteriores a 180 días', method: 'POST', destructive: true },
 ];
 
@@ -1226,6 +1227,133 @@ const TabMantenimiento: React.FC = () => {
                     </div>
                   </>
                 )}
+              </div>
+            ) : resultado && tarea.id === 'integridad_compras' ? (
+              <div className="mt-3 space-y-3">
+                {/* Check global */}
+                {resultado.ok ? (
+                  <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2 text-xs font-bold">
+                    ✓ Sin inconsistencias detectadas en el módulo de Compras
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-xs font-bold">
+                    ✗ Se encontraron inconsistencias — revisar las secciones en rojo
+                  </div>
+                )}
+
+                {/* Sección 1: ODCItems sin odp_item_id */}
+                {(() => {
+                  const s = resultado.odc_items_sin_odp_item_id;
+                  return (
+                    <div className={`rounded-lg border p-3 ${s.cantidad > 0 ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-slate-50'}`}>
+                      <p className={`text-xs font-bold mb-1 ${s.cantidad > 0 ? 'text-amber-700' : 'text-slate-500'}`}>
+                        {s.cantidad > 0 ? `⚠ ${s.cantidad}` : '✓ 0'} ODCItem(s) de vidrio sin odp_item_id (legacy roto)
+                      </p>
+                      {s.cantidad > 0 && (
+                        <div className="overflow-auto max-h-40 rounded border border-amber-200">
+                          <table className="w-full text-[11px]">
+                            <thead className="bg-amber-100 text-amber-800 uppercase tracking-wide">
+                              <tr>
+                                <th className="text-left px-2 py-1.5">ID</th>
+                                <th className="text-left px-2 py-1.5">ODC</th>
+                                <th className="text-left px-2 py-1.5">Descripción</th>
+                                <th className="text-left px-2 py-1.5">odp_id</th>
+                                <th className="text-center px-2 py-1.5">Recibido</th>
+                                <th className="text-left px-2 py-1.5">Estado ODC</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {s.registros.map((r: any) => (
+                                <tr key={r.id} className="border-t border-amber-100">
+                                  <td className="px-2 py-1 font-mono text-amber-700">{r.id}</td>
+                                  <td className="px-2 py-1 font-bold">{r.numero_odc}</td>
+                                  <td className="px-2 py-1 text-slate-600">{r.descripcion}</td>
+                                  <td className="px-2 py-1 font-mono text-slate-500">{r.odp_id}</td>
+                                  <td className="px-2 py-1 text-center">{r.recibido ? '✓' : '—'}</td>
+                                  <td className="px-2 py-1">{r.odc_estado}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Sección 2: ODPItems pendiente con ODCItem activo */}
+                {(() => {
+                  const s = resultado.odp_items_pendiente_con_odc;
+                  return (
+                    <div className={`rounded-lg border p-3 ${s.cantidad > 0 ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-slate-50'}`}>
+                      <p className={`text-xs font-bold mb-1 ${s.cantidad > 0 ? 'text-red-700' : 'text-slate-500'}`}>
+                        {s.cantidad > 0 ? `✗ ${s.cantidad}` : '✓ 0'} ODPItem(s) en "pendiente" con ODCItem activo (estado desincronizado)
+                      </p>
+                      {s.cantidad > 0 && (
+                        <div className="overflow-auto max-h-40 rounded border border-red-200">
+                          <table className="w-full text-[11px]">
+                            <thead className="bg-red-100 text-red-800 uppercase tracking-wide">
+                              <tr>
+                                <th className="text-left px-2 py-1.5">ID Item</th>
+                                <th className="text-left px-2 py-1.5">Color</th>
+                                <th className="text-left px-2 py-1.5">Medidas</th>
+                                <th className="text-left px-2 py-1.5">ODC</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {s.registros.map((r: any) => (
+                                <tr key={r.id} className="border-t border-red-100">
+                                  <td className="px-2 py-1 font-mono text-red-700">{r.id}</td>
+                                  <td className="px-2 py-1">{r.color}</td>
+                                  <td className="px-2 py-1 font-mono">{r.ancho_mm}×{r.alto_mm}</td>
+                                  <td className="px-2 py-1 font-bold">{r.numero_odc}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Sección 3: ODPItems en_odc sin ODCItem */}
+                {(() => {
+                  const s = resultado.odp_items_en_odc_sin_odc;
+                  return (
+                    <div className={`rounded-lg border p-3 ${s.cantidad > 0 ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-slate-50'}`}>
+                      <p className={`text-xs font-bold mb-1 ${s.cantidad > 0 ? 'text-amber-700' : 'text-slate-500'}`}>
+                        {s.cantidad > 0 ? `⚠ ${s.cantidad}` : '✓ 0'} ODPItem(s) en "en_odc" sin ODCItem asociado (huérfanos)
+                      </p>
+                      {s.cantidad > 0 && (
+                        <div className="overflow-auto max-h-40 rounded border border-amber-200">
+                          <table className="w-full text-[11px]">
+                            <thead className="bg-amber-100 text-amber-800 uppercase tracking-wide">
+                              <tr>
+                                <th className="text-left px-2 py-1.5">ID Item</th>
+                                <th className="text-left px-2 py-1.5">Color</th>
+                                <th className="text-left px-2 py-1.5">Medidas</th>
+                                <th className="text-left px-2 py-1.5">ODP</th>
+                                <th className="text-left px-2 py-1.5">Estado Prod.</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {s.registros.map((r: any) => (
+                                <tr key={r.id} className="border-t border-amber-100">
+                                  <td className="px-2 py-1 font-mono text-amber-700">{r.id}</td>
+                                  <td className="px-2 py-1">{r.color}</td>
+                                  <td className="px-2 py-1 font-mono">{r.ancho_mm}×{r.alto_mm}</td>
+                                  <td className="px-2 py-1 font-bold text-indigo-700">{r.numero_odp}</td>
+                                  <td className="px-2 py-1 text-slate-500 text-[10px]">{r.estado_produccion}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ) : resultado && (
               <pre className="mt-3 text-[11px] bg-slate-50 border border-slate-200 rounded-lg p-3 overflow-auto max-h-48 text-slate-700">
