@@ -30,16 +30,17 @@ const ESTADO_INFO: Record<string, { label: string; color: string; bg: string }> 
   ASIGNADO:       { label: 'Asignado',       color: 'text-blue-700',   bg: 'bg-blue-100' },
   EN_CONTACTO:    { label: 'En Contacto',    color: 'text-purple-700', bg: 'bg-purple-100' },
   COTIZANDO:      { label: 'Cotizando',      color: 'text-amber-700',  bg: 'bg-amber-100' },
+  SEGUIMIENTO:    { label: 'Seguimiento',    color: 'text-teal-700',   bg: 'bg-teal-100' },
   VISITA_TECNICA: { label: 'Visita Técnica', color: 'text-indigo-700', bg: 'bg-indigo-100' },
   FRIO:           { label: 'Enfriado',       color: 'text-gray-600',   bg: 'bg-gray-100' },
   APROBADO:       { label: 'Aprobado ✓',     color: 'text-emerald-700', bg: 'bg-emerald-100' },
   PERDIDO:        { label: 'Perdido',        color: 'text-rose-700',   bg: 'bg-rose-100' },
 };
 
-const PIPELINE_PATH = ['NUEVO', 'ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'VISITA_TECNICA', 'APROBADO'];
+const PIPELINE_PATH = ['NUEVO', 'ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA', 'APROBADO'];
 
 // Etapas mostradas en el stepper (sin NUEVO, sin FRIO/PERDIDO que son acciones separadas)
-const STEPPER_STAGES = ['ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'VISITA_TECNICA', 'APROBADO'];
+const STEPPER_STAGES = ['ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA', 'APROBADO'];
 
 const MOTIVOS_PERDIDA = [
   'Precio alto',

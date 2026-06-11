@@ -79,7 +79,7 @@ export const updateLeadStatus = async (req: Request, res: Response) => {
     const estadoAnterior = lead.getDataValue('estado_crm');
 
     // Lógica Anti-Fantasma (Seguimientos)
-    if (nuevo_estado === 'EN_CONTACTO' || nuevo_estado === 'COTIZANDO' || nuevo_estado === 'VISITA_TECNICA') {
+    if (nuevo_estado === 'EN_CONTACTO' || nuevo_estado === 'COTIZANDO' || nuevo_estado === 'SEGUIMIENTO' || nuevo_estado === 'VISITA_TECNICA') {
        if (estadoAnterior === nuevo_estado) { // Es un intento re-iterativo de seguimiento en la misma columna
          const intentos = lead.getDataValue('intentos_seguimiento');
          if (intentos >= 3) {
@@ -102,6 +102,7 @@ export const updateLeadStatus = async (req: Request, res: Response) => {
       'ASIGNADO':       'fecha_asignado',
       'EN_CONTACTO':    'fecha_en_contacto',
       'COTIZANDO':      'fecha_cotizando',
+      'SEGUIMIENTO':    'fecha_seguimiento',
       'VISITA_TECNICA': 'fecha_visita_tecnica',
       'FRIO':           'fecha_frio',
       'APROBADO':       'fecha_aprobado',
@@ -1374,7 +1375,7 @@ export const getEmbudoAsesores = async (req: Request, res: Response) => {
       where,
       attributes: [
         'id', 'asesor_id', 'estado_crm',
-        'fecha_asignado', 'fecha_en_contacto', 'fecha_cotizando',
+        'fecha_asignado', 'fecha_en_contacto', 'fecha_cotizando', 'fecha_seguimiento',
         'fecha_visita_tecnica', 'fecha_aprobado', 'fecha_perdido', 'fecha_frio',
       ],
       include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
@@ -1397,18 +1398,24 @@ export const getEmbudoAsesores = async (req: Request, res: Response) => {
         desde: 'ASIGNADO',
         hasta: 'EN_CONTACTO',
         camposD: ['fecha_asignado'],
-        camposH: ['fecha_en_contacto', 'fecha_cotizando', 'fecha_visita_tecnica', 'fecha_aprobado'],
+        camposH: ['fecha_en_contacto', 'fecha_cotizando', 'fecha_seguimiento', 'fecha_visita_tecnica', 'fecha_aprobado'],
       },
       {
         desde: 'EN_CONTACTO',
         hasta: 'COTIZANDO',
-        camposD: ['fecha_en_contacto', 'fecha_cotizando', 'fecha_visita_tecnica', 'fecha_aprobado'],
-        camposH: ['fecha_cotizando', 'fecha_visita_tecnica', 'fecha_aprobado'],
+        camposD: ['fecha_en_contacto', 'fecha_cotizando', 'fecha_seguimiento', 'fecha_visita_tecnica', 'fecha_aprobado'],
+        camposH: ['fecha_cotizando', 'fecha_seguimiento', 'fecha_visita_tecnica', 'fecha_aprobado'],
       },
       {
         desde: 'COTIZANDO',
+        hasta: 'SEGUIMIENTO',
+        camposD: ['fecha_cotizando', 'fecha_seguimiento', 'fecha_visita_tecnica', 'fecha_aprobado'],
+        camposH: ['fecha_seguimiento', 'fecha_visita_tecnica', 'fecha_aprobado'],
+      },
+      {
+        desde: 'SEGUIMIENTO',
         hasta: 'VISITA_TECNICA',
-        camposD: ['fecha_cotizando', 'fecha_visita_tecnica', 'fecha_aprobado'],
+        camposD: ['fecha_seguimiento', 'fecha_visita_tecnica', 'fecha_aprobado'],
         camposH: ['fecha_visita_tecnica', 'fecha_aprobado'],
       },
       {
@@ -1487,11 +1494,12 @@ export const getLeadById = async (req: Request, res: Response) => {
 export const getMonitorAsesores = async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    const ESTADOS_ACTIVOS = ['ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'VISITA_TECNICA'];
+    const ESTADOS_ACTIVOS = ['ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA'];
     const FECHA_POR_ESTADO: Record<string, string> = {
       ASIGNADO:       'fecha_asignado',
       EN_CONTACTO:    'fecha_en_contacto',
       COTIZANDO:      'fecha_cotizando',
+      SEGUIMIENTO:    'fecha_seguimiento',
       VISITA_TECNICA: 'fecha_visita_tecnica',
     };
 
@@ -1508,7 +1516,7 @@ export const getMonitorAsesores = async (req: Request, res: Response) => {
       where,
       attributes: [
         'id', 'nombre', 'telefono', 'producto_interes', 'estado_crm',
-        'fecha_asignado', 'fecha_en_contacto', 'fecha_cotizando', 'fecha_visita_tecnica',
+        'fecha_asignado', 'fecha_en_contacto', 'fecha_cotizando', 'fecha_seguimiento', 'fecha_visita_tecnica',
         'monto_proyectado_cotizacion', 'intentos_seguimiento', 'asesor_id', 'createdAt',
         'segmento', 'fuente_lead', 'descripcion_contexto', 'mensaje_entrada',
         'motivo_perdida', 'respondio',
@@ -1552,6 +1560,7 @@ export const getMonitorAsesores = async (req: Request, res: Response) => {
             ASIGNADO:       [],
             EN_CONTACTO:    [],
             COTIZANDO:      [],
+            SEGUIMIENTO:    [],
             VISITA_TECNICA: [],
           },
         });

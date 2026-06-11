@@ -166,6 +166,7 @@ const ETAPAS_CONFIG = [
   { id: 'ASIGNADO',       label: 'Asignados',      color: 'bg-blue-500' },
   { id: 'EN_CONTACTO',    label: 'En Contacto',    color: 'bg-violet-500' },
   { id: 'COTIZANDO',      label: 'Cotizando',      color: 'bg-amber-500' },
+  { id: 'SEGUIMIENTO',    label: 'Seguimiento',    color: 'bg-teal-500' },
   { id: 'VISITA_TECNICA', label: 'Visita Técnica', color: 'bg-indigo-500' },
   { id: 'APROBADO',       label: 'Aprobados',      color: 'bg-emerald-500' },
 ];

@@ -29,7 +29,7 @@ Lead.init({
   },
   descripcion_contexto: { type: DataTypes.TEXT, allowNull: true },
   estado_crm: { 
-    type: DataTypes.ENUM('NUEVO', 'ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'VISITA_TECNICA', 'FRIO', 'APROBADO', 'PERDIDO'), 
+    type: DataTypes.ENUM('NUEVO', 'ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA', 'FRIO', 'APROBADO', 'PERDIDO'),
     allowNull: false, 
     defaultValue: 'NUEVO' 
   },
@@ -42,6 +42,7 @@ Lead.init({
   fecha_asignado:      { type: DataTypes.DATE, allowNull: true },
   fecha_en_contacto:   { type: DataTypes.DATE, allowNull: true },
   fecha_cotizando:     { type: DataTypes.DATE, allowNull: true },
+  fecha_seguimiento:   { type: DataTypes.DATE, allowNull: true },
   fecha_visita_tecnica:{ type: DataTypes.DATE, allowNull: true },
   fecha_frio:          { type: DataTypes.DATE, allowNull: true },
   fecha_aprobado:      { type: DataTypes.DATE, allowNull: true },

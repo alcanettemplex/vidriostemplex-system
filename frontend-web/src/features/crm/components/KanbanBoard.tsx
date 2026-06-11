@@ -46,6 +46,13 @@ const PIPELINE_STAGES = [
     color: 'bg-amber-50 border-amber-200', dot: 'bg-amber-500', headerBg: 'bg-amber-50',
   },
   {
+    id: 'SEGUIMIENTO',    label: 'Seguimiento',
+    icon: Clock,
+    iconBg: 'bg-teal-100',    iconColor: 'text-teal-600',
+    activeBg: 'bg-teal-600',  badgeBg: 'bg-teal-100 text-teal-800',
+    color: 'bg-teal-50 border-teal-200', dot: 'bg-teal-500', headerBg: 'bg-teal-50',
+  },
+  {
     id: 'VISITA_TECNICA', label: 'V. Técnica',
     icon: MapPin,
     iconBg: 'bg-indigo-100',  iconColor: 'text-indigo-600',
@@ -94,6 +101,7 @@ const FECHA_POR_ETAPA: Record<string, string> = {
   ASIGNADO:       'fecha_asignado',
   EN_CONTACTO:    'fecha_en_contacto',
   COTIZANDO:      'fecha_cotizando',
+  SEGUIMIENTO:    'fecha_seguimiento',
   VISITA_TECNICA: 'fecha_visita_tecnica',
   FRIO:           'fecha_frio',
   APROBADO:       'fecha_aprobado',

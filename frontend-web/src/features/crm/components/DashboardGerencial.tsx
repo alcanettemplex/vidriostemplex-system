@@ -130,12 +130,12 @@ const AVATAR_COLORS = [
 ];
 const ETAPA_COLORS: Record<string, string> = {
   NUEVO: 'bg-slate-400', ASIGNADO: 'bg-blue-500', EN_CONTACTO: 'bg-violet-500',
-  COTIZANDO: 'bg-amber-500', VISITA_TECNICA: 'bg-indigo-500',
+  COTIZANDO: 'bg-amber-500', SEGUIMIENTO: 'bg-teal-500', VISITA_TECNICA: 'bg-indigo-500',
   FRIO: 'bg-sky-400', APROBADO: 'bg-emerald-500', PERDIDO: 'bg-rose-500',
 };
 const ETAPA_LABELS: Record<string, string> = {
   NUEVO: 'Nuevo', ASIGNADO: 'Asig.', EN_CONTACTO: 'Contacto',
-  COTIZANDO: 'Cotiz.', VISITA_TECNICA: 'V.Tec.',
+  COTIZANDO: 'Cotiz.', SEGUIMIENTO: 'Seguim.', VISITA_TECNICA: 'V.Tec.',
   FRIO: 'Frío', APROBADO: 'Apro.', PERDIDO: 'Perd.',
 };
 
@@ -276,6 +276,7 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
   const leadsEnGestion = (
     ((por_estado as any)['EN_CONTACTO']    || 0) +
     ((por_estado as any)['COTIZANDO']      || 0) +
+    ((por_estado as any)['SEGUIMIENTO']    || 0) +
     ((por_estado as any)['VISITA_TECNICA'] || 0)
   );
 
@@ -358,8 +359,8 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
           value={String(leadsEnGestion)}
           icon={<IconActivity size={16} className="text-violet-600" />}
           bg="bg-violet-50/60 border border-violet-100"
-          tooltip="Leads que el equipo está trabajando activamente ahora mismo: En Contacto, Cotizando y Visita Técnica. Excluye leads sin asignar, fríos, perdidos y aprobados. Es el 'trabajo en curso' real del equipo."
-          desc={`Contacto: ${(por_estado as any)['EN_CONTACTO'] || 0} · Cotizando: ${(por_estado as any)['COTIZANDO'] || 0} · V.Técnica: ${(por_estado as any)['VISITA_TECNICA'] || 0}`}
+          tooltip="Leads que el equipo está trabajando activamente ahora mismo: En Contacto, Cotizando, Seguimiento y Visita Técnica. Excluye leads sin asignar, fríos, perdidos y aprobados. Es el 'trabajo en curso' real del equipo."
+          desc={`Contacto: ${(por_estado as any)['EN_CONTACTO'] || 0} · Cotizando: ${(por_estado as any)['COTIZANDO'] || 0} · Seguim.: ${(por_estado as any)['SEGUIMIENTO'] || 0} · V.Técnica: ${(por_estado as any)['VISITA_TECNICA'] || 0}`}
         />
         <MiniKPI
           label="Leads Perdidos"
@@ -497,11 +498,12 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
           </div>
 
           {/* Desglose de etapas activas */}
-          <div className="mt-6 pt-5 border-t border-slate-50 grid grid-cols-3 gap-4 text-center">
+          <div className="mt-6 pt-5 border-t border-slate-50 grid grid-cols-4 gap-4 text-center">
             {[
-              { label: 'Cotizando',   val: (por_estado as any)['COTIZANDO']      || 0, tooltip: 'Leads en etapa de cotización activa' },
-              { label: 'V. Técnicas', val: (por_estado as any)['VISITA_TECNICA'] || 0, tooltip: 'Leads con visita técnica programada o en curso' },
               { label: 'En Contacto', val: (por_estado as any)['EN_CONTACTO']    || 0, tooltip: 'Leads en proceso de primer contacto con el cliente' },
+              { label: 'Cotizando',   val: (por_estado as any)['COTIZANDO']      || 0, tooltip: 'Leads en etapa de cotización activa' },
+              { label: 'Seguimiento', val: (por_estado as any)['SEGUIMIENTO']    || 0, tooltip: 'Leads con cotización enviada en seguimiento activo' },
+              { label: 'V. Técnicas', val: (por_estado as any)['VISITA_TECNICA'] || 0, tooltip: 'Leads con visita técnica programada o en curso' },
             ].map(s => (
               <div key={s.label}>
                 <p className="text-xl font-black text-slate-800">{s.val}</p>

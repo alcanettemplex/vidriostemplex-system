@@ -19,7 +19,7 @@ const SEGMENTO_COLOR: Record<string, string> = {
 
 const FECHA_POR_ETAPA: Record<string, string> = {
   NUEVO: 'createdAt', ASIGNADO: 'fecha_asignado', EN_CONTACTO: 'fecha_en_contacto',
-  COTIZANDO: 'fecha_cotizando', VISITA_TECNICA: 'fecha_visita_tecnica',
+  COTIZANDO: 'fecha_cotizando', SEGUIMIENTO: 'fecha_seguimiento', VISITA_TECNICA: 'fecha_visita_tecnica',
 };
 
 const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool }) => {
@@ -65,6 +65,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
           stageId === 'ASIGNADO'       ? 'bg-blue-500' :
           stageId === 'EN_CONTACTO'    ? 'bg-purple-500' :
           stageId === 'COTIZANDO'      ? 'bg-amber-500' :
+          stageId === 'SEGUIMIENTO'    ? 'bg-teal-500' :
           stageId === 'VISITA_TECNICA' ? 'bg-indigo-500' :
           stageId === 'FRIO'           ? 'bg-sky-400' :
           stageId === 'APROBADO'       ? 'bg-emerald-500' :
@@ -140,7 +141,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
               </div>
             )}
           </div>
-          {['EN_CONTACTO', 'COTIZANDO', 'VISITA_TECNICA'].includes(stageId) && (
+          {['EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA'].includes(stageId) && (
             <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border ${
               lead.intentos_seguimiento >= 2
                 ? 'bg-orange-50 text-orange-600 border-orange-200 animate-pulse'

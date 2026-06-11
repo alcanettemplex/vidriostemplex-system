@@ -13,6 +13,7 @@ const ETAPA_CONFIG: Record<string, { label: string; color: string; bg: string }>
   ASIGNADO:       { label: 'Asignado',     color: 'bg-blue-500',    bg: 'bg-blue-50' },
   EN_CONTACTO:    { label: 'En Contacto',  color: 'bg-violet-500',  bg: 'bg-violet-50' },
   COTIZANDO:      { label: 'Cotizando',    color: 'bg-amber-500',   bg: 'bg-amber-50' },
+  SEGUIMIENTO:    { label: 'Seguimiento',  color: 'bg-teal-500',    bg: 'bg-teal-50' },
   VISITA_TECNICA: { label: 'V. Técnica',   color: 'bg-indigo-500',  bg: 'bg-indigo-50' },
   FRIO:           { label: 'Frío',         color: 'bg-sky-400',     bg: 'bg-sky-50' },
   APROBADO:       { label: 'Aprobado',     color: 'bg-emerald-500', bg: 'bg-emerald-50' },

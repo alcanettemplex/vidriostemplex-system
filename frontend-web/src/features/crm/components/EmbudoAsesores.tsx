@@ -43,6 +43,7 @@ const ETAPA_LABEL: Record<string, string> = {
   ASIGNADO:       'Asignado',
   EN_CONTACTO:    'En Contacto',
   COTIZANDO:      'Cotizando',
+  SEGUIMIENTO:    'Seguimiento',
   VISITA_TECNICA: 'V. Técnica',
   APROBADO:       'Aprobado',
 };

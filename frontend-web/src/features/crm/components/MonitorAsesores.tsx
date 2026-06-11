@@ -36,12 +36,13 @@ interface Props {
 }
 
 // ─── Config de etapas ─────────────────────────────────────────────────────────
-const ETAPAS_ORDEN = ['ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'VISITA_TECNICA'] as const;
+const ETAPAS_ORDEN = ['ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA'] as const;
 
 const ETAPA_CFG: Record<string, { label: string; color: string; bg: string; border: string; dot: string }> = {
   ASIGNADO:       { label: 'Asignado',      color: 'text-blue-700',   bg: 'bg-blue-50',   border: 'border-blue-100',   dot: 'bg-blue-500' },
   EN_CONTACTO:    { label: 'En Contacto',   color: 'text-violet-700', bg: 'bg-violet-50', border: 'border-violet-100', dot: 'bg-violet-500' },
   COTIZANDO:      { label: 'Cotizando',     color: 'text-amber-700',  bg: 'bg-amber-50',  border: 'border-amber-100',  dot: 'bg-amber-500' },
+  SEGUIMIENTO:    { label: 'Seguimiento',   color: 'text-teal-700',   bg: 'bg-teal-50',   border: 'border-teal-100',   dot: 'bg-teal-500' },
   VISITA_TECNICA: { label: 'V. Técnica',    color: 'text-indigo-700', bg: 'bg-indigo-50', border: 'border-indigo-100', dot: 'bg-indigo-500' },
 };
 

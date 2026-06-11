@@ -3,7 +3,7 @@ import { X, PhoneMissed, Clock, AlertTriangle } from 'lucide-react';
 
 const ETAPA_LABELS: Record<string, string> = {
   NUEVO: 'Nuevo', ASIGNADO: 'Asignado', EN_CONTACTO: 'En Contacto',
-  COTIZANDO: 'Cotizando', VISITA_TECNICA: 'V. Técnica',
+  COTIZANDO: 'Cotizando', SEGUIMIENTO: 'Seguimiento', VISITA_TECNICA: 'V. Técnica',
   FRIO: 'Frío', APROBADO: 'Aprobado', PERDIDO: 'Perdido',
 };
 
@@ -12,6 +12,7 @@ const ETAPA_COLORS: Record<string, string> = {
   ASIGNADO:       'bg-blue-100 text-blue-700',
   EN_CONTACTO:    'bg-violet-100 text-violet-700',
   COTIZANDO:      'bg-amber-100 text-amber-700',
+  SEGUIMIENTO:    'bg-teal-100 text-teal-700',
   VISITA_TECNICA: 'bg-indigo-100 text-indigo-700',
   FRIO:           'bg-sky-100 text-sky-700',
 };
