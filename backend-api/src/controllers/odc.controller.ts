@@ -385,6 +385,7 @@ export const deleteODC = async (req: Request, res: Response) => {
 
     const odcItems = (odc as any).items as any[];
     const sapItemIds = odcItems.map((i: any) => i.sap_item_id);
+    const odpItemIds = odcItems.map((i: any) => i.odp_item_id).filter(Boolean);
 
     await ODCItem.destroy({ where: { odc_id: id }, transaction: t });
     await odc.destroy({ transaction: t });
@@ -397,6 +398,17 @@ export const deleteODC = async (req: Request, res: Response) => {
         await SAPItem.update(
           { estado_compra: 'pendiente', modificado: false, datos_anteriores: null },
           { where: { id: sapItemId }, transaction: t }
+        );
+      }
+    }
+
+    // Revertir estado de odp_items a 'pendiente' si no están en otra ODC (ODC de vidrio)
+    for (const odpItemId of odpItemIds) {
+      const enOtraODC = await ODCItem.count({ where: { odp_item_id: odpItemId }, transaction: t });
+      if (enOtraODC === 0) {
+        await ODPItem.update(
+          { estado_compra: 'pendiente' },
+          { where: { id: odpItemId }, transaction: t }
         );
       }
     }
