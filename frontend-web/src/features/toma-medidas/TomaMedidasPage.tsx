@@ -492,7 +492,7 @@ const CardTM: React.FC<{
               <RotateCcw className="w-3.5 h-3.5" /> Retornar
             </button>
           )}
-          {tm.estado === 'realizada' && onOpenTM && (
+          {(tm.estado === 'realizada' || tm.estado === 'convertida') && onOpenTM && (
             <button onClick={() => onOpenTM(tm)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition shadow-sm whitespace-nowrap">
               <Ruler className="w-3.5 h-3.5" /> Abrir TM
