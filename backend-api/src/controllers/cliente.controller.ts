@@ -10,6 +10,8 @@ const CAMPO_LABELS: Record<string, string> = {
   email: 'correo electrónico',
 };
 
+export const FUENTES_CLIENTE = ['Web', 'Facebook', 'Instagram', 'WhatsApp', 'Llamada', 'Presencial', 'Otro'] as const;
+
 const clienteSchema = z.object({
   nombre_razon_social: z.string().min(1, 'El nombre es requerido'),
   tipo_documento: z.string().optional(),
@@ -19,7 +21,8 @@ const clienteSchema = z.object({
   celular: z.string().optional(),
   email: z.string().email('Email inválido').optional().or(z.literal('')),
   correo_comercial: z.string().email('Correo comercial inválido').optional().or(z.literal('')),
-  segmento: z.string().optional()
+  segmento: z.string().optional(),
+  fuente: z.enum(FUENTES_CLIENTE, { message: 'Selecciona la fuente del cliente' })
 });
 
 export const getClientes = async (req: Request, res: Response) => {

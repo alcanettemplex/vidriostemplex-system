@@ -101,6 +101,8 @@ const odpSchema = z.object({
   odp_padre_id: z.number().optional().nullable(),
   tipo_odp: z.enum(['ODP', 'OA']).optional(),
   color_taller: z.string().max(20).nullable().optional(),
+  // Fuente a registrar en el cliente cuando éste aún no la tiene (clientes existentes/viejos)
+  cliente_fuente: z.string().optional(),
   items: z.array(odpItemSchema).optional()
 });
 
@@ -473,6 +475,14 @@ export const createODP = async (req: Request, res: Response) => {
         if (data.items && data.items.length > 0) {
           const itemsData = data.items.map(item => ({ ...item, odp_id: createdId }));
           await ODPItem.bulkCreate(itemsData as any, { transaction: t });
+        }
+
+        // Registrar fuente en el cliente si aún no la tiene (clientes existentes/viejos)
+        if (data.cliente_fuente) {
+          const clienteActual = await Cliente.findByPk(data.cliente_id, { transaction: t });
+          if (clienteActual && !clienteActual.getDataValue('fuente')) {
+            await clienteActual.update({ fuente: data.cliente_fuente }, { transaction: t });
+          }
         }
 
         await t.commit();

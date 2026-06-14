@@ -43,7 +43,7 @@ export const getProspectos = async (req: Request, res: Response) => {
       where,
       include: [
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
-        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'telefono'] },
+        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'telefono', 'fuente'] },
         { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'estado', 'fecha_visita', 'croquis_url', 'medidas_json', 'direccion', 'nombre_contacto', 'telefono_contacto', 'observaciones'] },
         { model: ODP, as: 'odp', attributes: ['id', 'numero_odp', 'estado_produccion'] },
       ],
@@ -166,6 +166,8 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
       proveedor_vidrio, numero_pedido_proveedor,
       // Para contacto nuevo: cliente_id existente o datos de nuevo cliente
       cliente_id: cliente_id_body, nuevo_cliente,
+      // Fuente a registrar en un cliente existente que aún no la tenga
+      cliente_fuente,
       // asesor_id opcional: si se pasa, asigna la ODP a ese asesor; si no, al usuario logueado
       asesor_id: asesor_id_body,
     } = req.body;
@@ -210,6 +212,14 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
       } else {
         await t.rollback();
         return res.status(400).json({ error: 'Debes seleccionar o crear un cliente para aprobar el prospecto' });
+      }
+    }
+
+    // ── Registrar fuente en el cliente si aún no la tiene (clientes existentes/viejos) ──
+    if (cliente_fuente && cliente_id_final) {
+      const clienteActual = await Cliente.findByPk(cliente_id_final, { transaction: t });
+      if (clienteActual && !clienteActual.getDataValue('fuente')) {
+        await clienteActual.update({ fuente: cliente_fuente }, { transaction: t });
       }
     }
 

@@ -8,6 +8,9 @@ import { toast } from 'react-toastify';
 import { Plus, Search, User, Mail, Phone, MapPin, Building, AlertCircle, Edit2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// Fuentes de captación (misma lista que el CRM/Lead)
+const FUENTES = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Otro'];
+
 // Schema para Zod
 const clienteSchema = z.object({
   nombre_razon_social: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
@@ -17,6 +20,7 @@ const clienteSchema = z.object({
   telefono: z.string().optional(),
   celular: z.string().optional(),
   segmento: z.string().optional(),
+  fuente: z.string().refine((v) => FUENTES.includes(v), { message: 'Selecciona la fuente del cliente' }),
   email: z.string().email('Email inválido').optional().or(z.literal('')),
   correo_comercial: z.string().email('Correo comercial inválido').optional().or(z.literal(''))
 });
@@ -100,6 +104,7 @@ const ClientesListPage: React.FC = () => {
       telefono: cliente.telefono || '',
       celular: cliente.celular || '',
       segmento: cliente.segmento || '',
+      fuente: cliente.fuente || '',
       email: cliente.email || '',
       correo_comercial: cliente.correo_comercial || ''
     });
@@ -145,6 +150,7 @@ const ClientesListPage: React.FC = () => {
               telefono: '',
               celular: '',
               segmento: '',
+              fuente: '',
               email: '',
               correo_comercial: ''
             });
@@ -340,19 +346,32 @@ const ClientesListPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Segmento</label>
-                  <select
-                    {...register('segmento')}
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Seleccione Segmento...</option>
-                    <option value="CLIENTE FINAL">Cliente Final</option>
-                    <option value="INSTITUCIONAL">Institucional</option>
-                    <option value="INTERVID">Intervid</option>
-                    <option value="ARQUITECTO">Arquitecto</option>
-                    <option value="INDUSTRIAL">Industrial</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Segmento</label>
+                    <select
+                      {...register('segmento')}
+                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Seleccione Segmento...</option>
+                      <option value="CLIENTE FINAL">Cliente Final</option>
+                      <option value="INSTITUCIONAL">Institucional</option>
+                      <option value="INTERVID">Intervid</option>
+                      <option value="ARQUITECTO">Arquitecto</option>
+                      <option value="INDUSTRIAL">Industrial</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">¿Cómo nos contactó? *</label>
+                    <select
+                      {...register('fuente')}
+                      className={`w-full p-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-blue-500 ${errors.fuente ? 'border-red-400' : 'border-slate-200'}`}
+                    >
+                      <option value="">Seleccione Fuente...</option>
+                      {FUENTES.map(f => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                    {errors.fuente && <p className="text-red-500 text-xs mt-1">{errors.fuente.message}</p>}
+                  </div>
                 </div>
 
                 <div>

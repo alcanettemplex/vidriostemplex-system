@@ -414,14 +414,18 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
     por_estado = {}, por_motivo_perdida = {}, por_producto = {},
     por_fuente = {}, por_segmento = {}, tiempos_promedio_horas = {},
     stats_por_asesor = [],
-    nuevos_clientes = 0, clientes_recurrentes = 0,
+    nuevos_prospectos: nuevos_clientes = 0, clientes_recurrentes = 0,
     monto_nuevos_clientes = 0, monto_clientes_recurrentes = 0,
+    negocios_por_fuente = [],
     por_semana = [], vs_anterior = null,
     leads_aprobados_sin_odp_detalle = [],
   } = stats;
 
   // Listas derivadas
   const fuentesList   = Object.entries(por_fuente).map(([f, c]) => ({ fuente: f, count: c as number })).sort((a, b) => b.count - a.count);
+  const negociosFuenteList = (negocios_por_fuente as { fuente: string; count: number; monto: number }[]).slice().sort((a, b) => b.count - a.count);
+  const negociosFuenteTotal = negociosFuenteList.reduce((acc, f) => acc + f.count, 0);
+  const negociosFuenteMontoTotal = negociosFuenteList.reduce((acc, f) => acc + (f.monto || 0), 0);
   const motivosList   = Object.entries(por_motivo_perdida).map(([m, c]) => ({ motivo: m, count: c as number })).sort((a, b) => b.count - a.count);
   const productosList = Object.entries(por_producto).map(([p, d]: [string, any]) => ({
     producto: p, count: d.total,
@@ -853,6 +857,41 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
                 );
               })}
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Negocios por Fuente (ODPs del período según la fuente del cliente) ── */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center">
+              <IconGlobe size={16} className="text-emerald-600" />
+            </div>
+            <div className="flex items-center">
+              <h3 className="font-bold text-slate-800 text-base">Negocios por Fuente</h3>
+              <InfoTooltip text="Los negocios (ODPs) del período repartidos según el canal por el que llegó el cliente (WhatsApp, Facebook, Instagram, etc.). El total coincide con el de 'Clientes Nuevos vs Recurrentes'. Los negocios cuyo cliente aún no tiene fuente registrada aparecen como 'Sin especificar'." />
+            </div>
+          </div>
+          <span className="text-xs font-black text-slate-400">Total: {negociosFuenteTotal} · {fmtCOP(negociosFuenteMontoTotal, true)}</span>
+        </div>
+        <div className="space-y-3">
+          {negociosFuenteList.map((f, i) => {
+            const pct = negociosFuenteTotal > 0 ? Math.round((f.count / negociosFuenteTotal) * 100) : 0;
+            const colors = ['bg-emerald-500', 'bg-teal-500', 'bg-green-500', 'bg-cyan-500', 'bg-lime-500', 'bg-sky-500'];
+            return (
+              <div key={f.fuente} className="flex items-center gap-3">
+                <span className="text-xs font-bold text-slate-500 w-24 truncate">{f.fuente}</span>
+                <div className="flex-1 bg-slate-50 rounded-full h-2.5 overflow-hidden">
+                  <div className={`h-full rounded-full ${colors[i % colors.length]} transition-all duration-700`} style={{ width: `${pct}%` }} />
+                </div>
+                <span className="text-xs font-black text-slate-700 w-14 text-right">{f.count} ({pct}%)</span>
+                <span className="text-xs font-bold text-emerald-700 w-16 text-right">{fmtCOP(f.monto || 0, true)}</span>
+              </div>
+            );
+          })}
+          {negociosFuenteList.length === 0 && (
+            <p className="text-center text-slate-300 text-sm py-6">Sin negocios en este período</p>
           )}
         </div>
       </div>

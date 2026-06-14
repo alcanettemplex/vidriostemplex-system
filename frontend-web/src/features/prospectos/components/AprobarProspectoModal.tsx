@@ -38,7 +38,9 @@ const odpSchema = z.object({
 
 type ODPFormValues = z.infer<typeof odpSchema>;
 type CatalogoItem = { id: number; categoria: string; nombre: string; descripcion: string };
-type ClienteItem = { id: number; nombre_razon_social: string; telefono: string | null; celular: string | null; email: string | null; };
+type ClienteItem = { id: number; nombre_razon_social: string; telefono: string | null; celular: string | null; email: string | null; fuente?: string | null; };
+
+const FUENTES = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Otro'];
 
 interface Props {
   prospecto: any;
@@ -69,9 +71,12 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
     telefono: prospecto.telefono_contacto || '',
     email: prospecto.email_contacto || '',
     direccion: prospecto.direccion || '',
+    fuente: '',
   });
   const [clientes, setClientes] = useState<ClienteItem[]>([]);
   const [cargoRecibe, setCargoRecibe] = useState('');
+  // Fuente a registrar cuando el cliente destino (existente/viejo) aún no la tiene
+  const [fuenteExistente, setFuenteExistente] = useState('');
 
   const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
   const [categorias, setCategorias] = useState<string[]>([]);
@@ -133,6 +138,13 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
   const setNC = (k: string, v: string) => setNuevoCliente(prev => ({ ...prev, [k]: v }));
 
   const onSubmit = async (data: any) => {
+    // Cliente destino de la aprobación (puede ya existir y no tener fuente registrada)
+    const clienteSel = clientes.find(c => String(c.id) === clienteId);
+    const clienteDest = esContactoNuevo
+      ? (tipoCliente === 'existente' ? clienteSel : null)
+      : prospecto.cliente;
+    const necesitaFuenteExistente = !!clienteDest && !clienteDest.fuente;
+
     // Validar definición de cliente para contacto nuevo
     if (esContactoNuevo) {
       if (tipoCliente === 'existente' && !clienteId) {
@@ -141,7 +153,11 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
       if (tipoCliente === 'nuevo') {
         if (!nuevoCliente.nombre_razon_social.trim()) { toast.error('Ingresa la razón social del cliente'); return; }
         if (!nuevoCliente.numero_documento.trim()) { toast.error('Ingresa el número de documento del cliente'); return; }
+        if (!nuevoCliente.fuente) { toast.error('Selecciona la fuente del cliente'); return; }
       }
+    }
+    if (necesitaFuenteExistente && !fuenteExistente) {
+      toast.error('Selecciona la fuente del cliente'); return;
     }
 
     try {
@@ -162,6 +178,8 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
           payload.nuevo_cliente = nuevoCliente;
         }
       }
+      // Fuente para cliente existente/viejo sin fuente
+      if (necesitaFuenteExistente) payload.cliente_fuente = fuenteExistente;
 
       if (asesorId) payload.asesor_id = asesorId;
       if (tipoOdp) payload.tipo_odp = tipoOdp;
@@ -176,6 +194,11 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
   };
 
   const clienteSeleccionado = clientes.find(c => String(c.id) === clienteId);
+  // Cliente destino de la aprobación; si ya existe y no tiene fuente, hay que pedirla
+  const clienteDestino = esContactoNuevo
+    ? (tipoCliente === 'existente' ? clienteSeleccionado : null)
+    : prospecto.cliente;
+  const requiereFuenteExistente = !!clienteDestino && !clienteDestino.fuente;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
@@ -254,6 +277,22 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                         {clienteSeleccionado.email && <p>✉️ {clienteSeleccionado.email}</p>}
                       </div>
                     )}
+                    {clienteSeleccionado && !clienteSeleccionado.fuente && (
+                      <div>
+                        <label className="block text-xs font-bold text-amber-700 mb-1 uppercase tracking-wider">
+                          ¿Cómo nos contactó? <span className="text-red-400">*</span>
+                        </label>
+                        <select
+                          value={fuenteExistente}
+                          onChange={e => setFuenteExistente(e.target.value)}
+                          className="w-full border border-amber-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                        >
+                          <option value="">Seleccionar fuente...</option>
+                          {FUENTES.map(f => <option key={f} value={f}>{f}</option>)}
+                        </select>
+                        <p className="text-[11px] text-amber-600 mt-1">Este cliente aún no tiene fuente registrada.</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -314,6 +353,19 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                       />
                     </div>
                     <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">
+                        ¿Cómo nos contactó? <span className="text-red-400">*</span>
+                      </label>
+                      <select
+                        value={nuevoCliente.fuente}
+                        onChange={e => setNC('fuente', e.target.value)}
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      >
+                        <option value="">Seleccionar fuente...</option>
+                        {FUENTES.map(f => <option key={f} value={f}>{f}</option>)}
+                      </select>
+                    </div>
+                    <div className="md:col-span-2">
                       <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Dirección fiscal</label>
                       <input
                         value={nuevoCliente.direccion}
@@ -370,6 +422,22 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                     className="w-full border border-slate-200 bg-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
                   />
                 </div>
+                {requiereFuenteExistente && (
+                  <div>
+                    <label className="block text-xs font-bold text-amber-700 mb-1 uppercase tracking-wider">
+                      ¿Cómo nos contactó? <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      value={fuenteExistente}
+                      onChange={e => setFuenteExistente(e.target.value)}
+                      className="w-full border border-amber-200 bg-white rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    >
+                      <option value="">Seleccionar fuente...</option>
+                      {FUENTES.map(f => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                    <p className="text-[11px] text-amber-600 mt-1">Este cliente aún no tiene fuente registrada.</p>
+                  </div>
+                )}
               </div>
             )}
 

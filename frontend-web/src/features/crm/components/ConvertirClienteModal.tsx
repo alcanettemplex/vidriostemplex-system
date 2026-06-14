@@ -22,6 +22,7 @@ const SEGMENTOS = [
   { value: 'ARQUITECTO',     label: 'Arquitecto' },
   { value: 'INDUSTRIAL',     label: 'Industrial' },
 ];
+const FUENTES = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Otro'];
 
 interface Props {
   lead: any;
@@ -39,6 +40,7 @@ const ConvertirClienteModal: React.FC<Props> = ({ lead, onClose }) => {
     celular:             lead.telefono || '',
     email:               '',
     segmento:            lead.segmento || '',
+    fuente:              lead.fuente_lead || '',
     direccion:           '',
     condicion_pago:      'CONTADO',
   });
@@ -51,6 +53,10 @@ const ConvertirClienteModal: React.FC<Props> = ({ lead, onClose }) => {
     e.preventDefault();
     if (!form.numero_documento.trim() || form.numero_documento.length < 5) {
       toast.warning('El número de documento debe tener al menos 5 caracteres.');
+      return;
+    }
+    if (!form.fuente) {
+      toast.warning('Selecciona la fuente del cliente.');
       return;
     }
     setLoading(true);
@@ -161,12 +167,19 @@ const ConvertirClienteModal: React.FC<Props> = ({ lead, onClose }) => {
             <input type="email" name="email" value={form.email} onChange={handleChange}
               placeholder="email@empresa.com" className={inputCls} />)}
 
-          {/* Segmento */}
-          {field('Segmento', <Tag className="w-3.5 h-3.5" />,
-            <select name="segmento" value={form.segmento} onChange={handleChange} className={selectCls}>
-              <option value="">Seleccione segmento...</option>
-              {SEGMENTOS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>)}
+          {/* Segmento + Fuente */}
+          <div className="grid grid-cols-2 gap-4">
+            {field('Segmento', <Tag className="w-3.5 h-3.5" />,
+              <select name="segmento" value={form.segmento} onChange={handleChange} className={selectCls}>
+                <option value="">Seleccione segmento...</option>
+                {SEGMENTOS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>)}
+            {field('Fuente', <Tag className="w-3.5 h-3.5" />,
+              <select name="fuente" value={form.fuente} onChange={handleChange} className={selectCls}>
+                <option value="">Seleccione fuente...</option>
+                {FUENTES.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>, true)}
+          </div>
 
           {/* Dirección */}
           {field('Dirección', <MapPin className="w-3.5 h-3.5" />,

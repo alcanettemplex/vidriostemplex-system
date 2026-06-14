@@ -132,9 +132,12 @@ const ColorField: React.FC<{ index: number; register: any; control: any }> = ({ 
     );
 };
 
+const FUENTES_CLIENTE = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Otro'];
+
 const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesorId, tipoOdp }) => {
     const [step, setStep] = useState(1);
-    const [clientes, setClientes] = useState<{ id: number; nombre_razon_social: string; numero_documento?: string }[]>([]);
+    const [clientes, setClientes] = useState<{ id: number; nombre_razon_social: string; numero_documento?: string; fuente?: string | null }[]>([]);
+    const [clienteFuente, setClienteFuente] = useState('');
     const [catalogo, setCatalogo] = useState<CatalogoItem[]>([]);
     const [categorias, setCategorias] = useState<string[]>([]);
     const [catSeleccionada, setCatSeleccionada] = useState<Record<number, string>>({});
@@ -185,6 +188,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     const clienteIdWatch = useWatch({ control, name: 'cliente_id' });
     const fechaEntregaWatch = useWatch({ control, name: 'fecha_entrega' });
     const clienteSeleccionadoODP = clientes.find(c => c.id === Number(clienteIdWatch));
+    // En creación, si el cliente seleccionado aún no tiene fuente registrada, hay que pedirla
+    const requiereClienteFuente = !odpToEdit && !!clienteSeleccionadoODP && !clienteSeleccionadoODP.fuente;
 
     // Verificar prospectos en gestión al seleccionar cliente (solo en creación)
     useEffect(() => {
@@ -245,6 +250,10 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
 
     const nextStep = async () => {
         const isStepValid = await trigger(['cliente_id', 'servicios_detalle', 'nombre_recibe', 'telefono_recibe', 'direccion_instalacion']);
+        if (requiereClienteFuente && !clienteFuente) {
+            toast.error('Selecciona la fuente del cliente para continuar.');
+            return;
+        }
         if (isStepValid) {
             setStep(2);
         }
@@ -285,11 +294,16 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
 
     const onSubmit = async (data: ODPFormValues) => {
         try {
+            if (requiereClienteFuente && !clienteFuente) {
+                toast.error('Selecciona la fuente del cliente.');
+                return;
+            }
             const token = sessionStorage.getItem('token');
             const { requiere_visita_tecnica, ...rest } = data;
             const sinItems = itemFields.length === 0;
             const payload = {
                 ...rest,
+                ...(requiereClienteFuente && clienteFuente ? { cliente_fuente: clienteFuente } : {}),
                 cantidad_total: data.servicios_detalle.reduce((acc, curr) => acc + curr.cantidad, 0),
                 tipo_servicio: data.servicios_detalle[0].tipo_servicio,
                 descripcion_pedido: data.servicios_detalle.map(s => `${s.cantidad}x ${s.tipo_servicio}: ${s.descripcion}`).join('\n'),
@@ -494,6 +508,26 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                         </p>
                                                     </div>
                                                 </div>
+                                            </div>
+                                        )}
+
+                                        {/* Fuente del cliente (cuando el cliente aún no la tiene registrada) */}
+                                        {requiereClienteFuente && (
+                                            <div className="mt-2 bg-blue-50 border border-blue-300 rounded-lg px-4 py-3">
+                                                <label className="block text-xs font-bold text-blue-800 uppercase tracking-wide mb-1">
+                                                    ¿Cómo nos contactó este cliente? *
+                                                </label>
+                                                <p className="text-xs text-blue-700 mb-2">
+                                                    Este cliente no tiene fuente registrada. Selecciónala para poder crear la ODP.
+                                                </p>
+                                                <select
+                                                    value={clienteFuente}
+                                                    onChange={e => setClienteFuente(e.target.value)}
+                                                    className="w-full p-2.5 bg-white border border-blue-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                >
+                                                    <option value="">Seleccione fuente...</option>
+                                                    {FUENTES_CLIENTE.map(f => <option key={f} value={f}>{f}</option>)}
+                                                </select>
                                             </div>
                                         )}
                                     </div>

@@ -355,6 +355,7 @@ export const convertLeadToCliente = async (req: Request, res: Response) => {
       email: email || null,
       segmento: segmento || lead.getDataValue('segmento') || null,
       direccion: direccion || null,
+      fuente: req.body.fuente || lead.getDataValue('fuente_lead') || null,
       condicion_pago,
       creado_por: user.id,
     });
@@ -507,6 +508,7 @@ export const getCRMStats = async (req: Request, res: Response) => {
     let clientesRecurrentes = 0;
     let montoNuevosProspectos = 0;
     let montoClientesRecurrentes = 0;
+    let negociosPorFuente: { fuente: string; count: number; monto: number }[] = [];
     if (periodStart && periodEnd) {
       const whereODP = { fecha_creacion: { [Op.between]: [periodStart, periodEnd] } };
       const [odpsConProspectoData, totalOdpsData] = await Promise.all([
@@ -536,6 +538,24 @@ export const getCRMStats = async (req: Request, res: Response) => {
       const totalMonto = parseFloat(rowTotal.monto ?? '0');
       clientesRecurrentes = Math.max(0, totalCount - nuevosProspectos);
       montoClientesRecurrentes = Math.max(0, totalMonto - montoNuevosProspectos);
+
+      // Distribución por fuente: ODPs (negocios) del período según la fuente de su cliente.
+      // LEFT JOIN para no perder ninguna ODP → la suma cuadra con el total de ODPs del período.
+      const fuenteRows = await ODP.findAll({
+        attributes: [
+          [sequelize.col('cliente.fuente'), 'fuente'],
+          [sequelize.fn('COUNT', sequelize.col('ODP.id')), 'count'],
+          [sequelize.fn('SUM', sequelize.col('valor_total')), 'monto'],
+        ],
+        where: whereODP,
+        include: [{ model: Cliente, as: 'cliente', attributes: [], required: false }],
+        group: ['cliente.fuente'],
+        raw: true,
+      });
+      negociosPorFuente = (fuenteRows as any[])
+        .map((r: any) => ({ fuente: r.fuente || 'Sin especificar', count: parseInt(r.count ?? '0', 10), monto: parseFloat(r.monto ?? '0') }))
+        .filter((x) => x.count > 0)
+        .sort((a, b) => b.count - a.count);
     }
 
     leads.forEach((l: any) => {
@@ -739,6 +759,7 @@ export const getCRMStats = async (req: Request, res: Response) => {
       clientes_recurrentes: clientesRecurrentes,
       monto_nuevos_clientes: montoNuevosProspectos,
       monto_clientes_recurrentes: montoClientesRecurrentes,
+      negocios_por_fuente: negociosPorFuente,
       leads_con_odp: leadsConOdp,
       leads_aprobados_sin_odp: leadsAprobadosSinOdp,
       tiempo_promedio_cierre_dias: cerradosConFecha > 0 ? Math.round(sumaDiasCierre / cerradosConFecha) : 0,
