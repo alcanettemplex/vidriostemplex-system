@@ -80,20 +80,20 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
               {lead.nombre}
             </h4>
             {esUrgente && (
-              <span className="flex items-center gap-1 text-[9px] font-black text-rose-600 animate-pulse mt-0.5">
+              <span className="flex items-center gap-1 text-[11px] font-black text-rose-600 animate-pulse mt-0.5">
                 <Clock className="w-2.5 h-2.5" /> URGENTE +24H
               </span>
             )}
           </div>
           {lead.asesor ? (
             <div
-              className="w-6 h-6 rounded-full bg-indigo-100 border-2 border-white shadow-sm flex items-center justify-center text-[10px] font-black text-indigo-700 shrink-0 ml-2"
+              className="w-6 h-6 rounded-full bg-indigo-100 border-2 border-white shadow-sm flex items-center justify-center text-xs font-black text-indigo-700 shrink-0 ml-2"
               title={`Asesor: ${lead.asesor.nombre_completo}`}
             >
               {lead.asesor.nombre_completo[0].toUpperCase()}
             </div>
           ) : (
-            <span className="shrink-0 ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 uppercase tracking-wider">
+            <span className="shrink-0 ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 uppercase tracking-wider">
               Libre
             </span>
           )}
@@ -115,13 +115,13 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
             </p>
           )}
           {lead.segmento && (
-            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold mt-0.5 ${SEGMENTO_COLOR[lead.segmento] || 'bg-slate-100 text-slate-600'}`}>
+            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold mt-0.5 ${SEGMENTO_COLOR[lead.segmento] || 'bg-slate-100 text-slate-600'}`}>
               {lead.segmento}
             </span>
           )}
           {/* Monto si existe */}
           {montoFmt && (
-            <span className="inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 mt-0.5">
+            <span className="inline-block text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 mt-0.5">
               💰 {montoFmt}
             </span>
           )}
@@ -130,19 +130,19 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
         {/* Footer */}
         <div className="flex items-center justify-between pt-2 border-t border-dashed border-slate-100 pl-1">
           <div className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-1 text-[10px] text-slate-400 font-medium">
+            <div className="flex items-center gap-1 text-xs text-slate-400 font-medium">
               <Clock className={`w-3 h-3 ${esEstancado ? 'text-orange-500' : ''}`} />
               {fechaCreado}
             </div>
             {fechaAsignado && (
-              <div className="flex items-center gap-1 text-[9px] text-blue-500 font-bold">
+              <div className="flex items-center gap-1 text-[11px] text-blue-500 font-bold">
                 <UserCheck className="w-2.5 h-2.5" />
                 Asig. {fechaAsignado}
               </div>
             )}
           </div>
           {['EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA'].includes(stageId) && (
-            <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+            <div className={`flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded border ${
               lead.intentos_seguimiento >= 2
                 ? 'bg-orange-50 text-orange-600 border-orange-200 animate-pulse'
                 : 'bg-slate-50 text-slate-500 border-slate-100'
@@ -187,7 +187,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
           )}
 
           {yaConvertido && esAprobado && (
-            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-200">
+            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-200">
               ✓ Ya es cliente
             </span>
           )}

@@ -43,7 +43,7 @@ const CRMPage: React.FC = () => {
       {/* Encabezado */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-black text-slate-800 tracking-tight">CRM & Leads</h1>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight">CRM & Leads</h1>
           <p className="text-sm text-slate-500 mt-1">
             Gestión de prospectos, embudo de ventas y seguimiento inteligente.
           </p>
@@ -225,7 +225,7 @@ const CRMPage: React.FC = () => {
               <ScanEye className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <h2 className="text-base font-black text-slate-800">Monitor de Pipeline</h2>
+              <h2 className="text-lg font-bold text-slate-800">Monitor de Pipeline</h2>
               <p className="text-[11px] text-slate-400 font-medium mt-0.5">Leads activos por asesor · tiempo en etapa actual</p>
             </div>
           </div>
@@ -240,7 +240,7 @@ const CRMPage: React.FC = () => {
               <Filter className="w-5 h-5 text-violet-600" />
             </div>
             <div>
-              <h2 className="text-base font-black text-slate-800">Embudo de Conversión</h2>
+              <h2 className="text-lg font-bold text-slate-800">Embudo de Conversión</h2>
               <p className="text-[11px] text-slate-400 font-medium mt-0.5">
                 Tasa de conversión etapa→etapa por asesor · período seleccionado
               </p>

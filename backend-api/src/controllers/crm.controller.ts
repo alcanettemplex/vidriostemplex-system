@@ -505,17 +505,37 @@ export const getCRMStats = async (req: Request, res: Response) => {
     // Recurrentes = ODPs del período sin Prospecto (creación directa, clientes existentes)
     let nuevosProspectos = 0;
     let clientesRecurrentes = 0;
+    let montoNuevosProspectos = 0;
+    let montoClientesRecurrentes = 0;
     if (periodStart && periodEnd) {
       const whereODP = { fecha_creacion: { [Op.between]: [periodStart, periodEnd] } };
-      const [odpsConProspecto, totalOdps] = await Promise.all([
-        ODP.count({
+      const [odpsConProspectoData, totalOdpsData] = await Promise.all([
+        ODP.findAll({
+          attributes: [
+            [sequelize.fn('COUNT', sequelize.col('ODP.id')), 'count'],
+            [sequelize.fn('SUM', sequelize.col('valor_total')), 'monto'],
+          ],
           where: whereODP,
-          include: [{ model: Prospecto, as: 'prospecto', required: true }],
+          include: [{ model: Prospecto, as: 'prospecto', required: true, attributes: [] }],
+          raw: true,
         }),
-        ODP.count({ where: whereODP }),
+        ODP.findAll({
+          attributes: [
+            [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+            [sequelize.fn('SUM', sequelize.col('valor_total')), 'monto'],
+          ],
+          where: whereODP,
+          raw: true,
+        }),
       ]);
-      nuevosProspectos = odpsConProspecto;
-      clientesRecurrentes = Math.max(0, totalOdps - odpsConProspecto);
+      const rowCon = (odpsConProspectoData[0] as any) ?? {};
+      const rowTotal = (totalOdpsData[0] as any) ?? {};
+      nuevosProspectos = parseInt(rowCon.count ?? '0', 10);
+      montoNuevosProspectos = parseFloat(rowCon.monto ?? '0');
+      const totalCount = parseInt(rowTotal.count ?? '0', 10);
+      const totalMonto = parseFloat(rowTotal.monto ?? '0');
+      clientesRecurrentes = Math.max(0, totalCount - nuevosProspectos);
+      montoClientesRecurrentes = Math.max(0, totalMonto - montoNuevosProspectos);
     }
 
     leads.forEach((l: any) => {
@@ -717,6 +737,8 @@ export const getCRMStats = async (req: Request, res: Response) => {
       nuevos_clientes: nuevosClientes,
       nuevos_prospectos: nuevosProspectos,
       clientes_recurrentes: clientesRecurrentes,
+      monto_nuevos_clientes: montoNuevosProspectos,
+      monto_clientes_recurrentes: montoClientesRecurrentes,
       leads_con_odp: leadsConOdp,
       leads_aprobados_sin_odp: leadsAprobadosSinOdp,
       tiempo_promedio_cierre_dias: cerradosConFecha > 0 ? Math.round(sumaDiasCierre / cerradosConFecha) : 0,

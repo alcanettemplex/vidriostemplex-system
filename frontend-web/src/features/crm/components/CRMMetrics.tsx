@@ -31,7 +31,7 @@ const InfoTooltip: React.FC<{ text: string }> = ({ text }) => (
   <div className="relative group inline-flex ml-1.5 flex-shrink-0">
     <button
       type="button"
-      className="w-4 h-4 rounded-full bg-slate-200 text-slate-500 text-[9px] font-black flex items-center justify-center hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
+      className="w-4 h-4 rounded-full bg-slate-200 text-slate-500 text-[11px] font-black flex items-center justify-center hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
     >?</button>
     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-slate-800 text-white text-[11px] rounded-xl p-3 shadow-xl z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none leading-snug">
       {text}
@@ -55,22 +55,22 @@ const MetricKPI: React.FC<MetricKPIProps> = ({
   >
     <div className="flex items-center justify-between">
       <div className="flex items-center">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
+        <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{label}</span>
         {tooltip && <InfoTooltip text={tooltip} />}
       </div>
       <div className={`w-8 h-8 rounded-xl ${accentBg} flex items-center justify-center flex-shrink-0`}>{icon}</div>
     </div>
     <div className="flex items-end gap-3">
-      <p className="text-2xl font-black text-slate-800 leading-none">{value}</p>
+      <p className="text-3xl font-black text-slate-800 leading-none">{value}</p>
       {delta && (
         <span className={`flex items-center gap-0.5 text-xs font-black mb-0.5 ${positivo ? 'text-emerald-600' : 'text-rose-500'}`}>
           {positivo ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
           {delta}
-          <span className="text-[9px] font-medium text-slate-400 ml-0.5">vs mes ant.</span>
+          <span className="text-[11px] font-medium text-slate-400 ml-0.5">vs mes ant.</span>
         </span>
       )}
     </div>
-    {desc && <p className="text-[10px] text-slate-400 font-medium leading-snug">{desc}</p>}
+    {desc && <p className="text-xs text-slate-400 font-medium leading-snug">{desc}</p>}
   </div>
 );
 
@@ -148,7 +148,7 @@ const DonutCategoria: React.FC<{ items: { label: string; pct: number }[] }> = ({
         </svg>
       </div>
       <div className="space-y-2 flex-1 min-w-0">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Producto principal</p>
+        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Producto principal</p>
         {items.slice(0, 5).map((item, i) => (
           <div key={item.label} className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }} />
@@ -232,10 +232,10 @@ const LeadsSinODPModal: React.FC<{ leads: LeadSinODP[]; onClose: () => void }> =
           <div className="space-y-2">
             {/* Encabezado de columnas */}
             <div className="grid grid-cols-12 gap-2 px-3 py-1.5">
-              <span className="col-span-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Cliente / Lead</span>
-              <span className="col-span-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Asesor</span>
-              <span className="col-span-2 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Monto proy.</span>
-              <span className="col-span-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Días aprobado</span>
+              <span className="col-span-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Cliente / Lead</span>
+              <span className="col-span-3 text-[11px] font-black text-slate-400 uppercase tracking-widest">Asesor</span>
+              <span className="col-span-2 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Monto proy.</span>
+              <span className="col-span-3 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Días aprobado</span>
             </div>
             {leads.map(l => {
               const diasUrgente = l.dias_desde_aprobacion !== null && l.dias_desde_aprobacion >= 7;
@@ -244,7 +244,7 @@ const LeadsSinODPModal: React.FC<{ leads: LeadSinODP[]; onClose: () => void }> =
                   {/* Nombre + teléfono */}
                   <div className="col-span-4">
                     <p className="text-xs font-bold text-slate-800 truncate">{l.nombre}</p>
-                    <p className="text-[10px] text-slate-400 font-medium">{l.telefono}</p>
+                    <p className="text-xs text-slate-400 font-medium">{l.telefono}</p>
                   </div>
                   {/* Asesor */}
                   <div className="col-span-3">
@@ -257,11 +257,11 @@ const LeadsSinODPModal: React.FC<{ leads: LeadSinODP[]; onClose: () => void }> =
                   {/* Días */}
                   <div className="col-span-3 text-right">
                     {l.dias_desde_aprobacion !== null ? (
-                      <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-black ${diasUrgente ? 'bg-rose-500 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
+                      <span className={`inline-block px-2 py-0.5 rounded-lg text-xs font-black ${diasUrgente ? 'bg-rose-500 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
                         {l.dias_desde_aprobacion}d
                       </span>
                     ) : (
-                      <span className="text-[10px] text-slate-300">—</span>
+                      <span className="text-xs text-slate-300">—</span>
                     )}
                   </div>
                 </div>
@@ -273,7 +273,7 @@ const LeadsSinODPModal: React.FC<{ leads: LeadSinODP[]; onClose: () => void }> =
 
       {/* Footer */}
       <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-        <p className="text-[10px] text-slate-400 font-medium">
+        <p className="text-xs text-slate-400 font-medium">
           🔴 Rojo = aprobado hace 7+ días sin ODP. Requiere acción urgente.
         </p>
         <button
@@ -335,7 +335,7 @@ const AlertasPeriodo: React.FC<{
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Alertas del Período</p>
+      <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Alertas del Período</p>
       <div className="space-y-2">
         {alertas.map((a, i) => (
           <div
@@ -345,7 +345,7 @@ const AlertasPeriodo: React.FC<{
           >
             <span className="text-sm flex-shrink-0 mt-0.5">{icons[a.tipo]}</span>
             <span className="flex-1">{a.msg}</span>
-            {a.onClick && <span className="text-[10px] font-black opacity-60 flex-shrink-0 mt-0.5">Ver →</span>}
+            {a.onClick && <span className="text-xs font-black opacity-60 flex-shrink-0 mt-0.5">Ver →</span>}
           </div>
         ))}
       </div>
@@ -415,6 +415,7 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
     por_fuente = {}, por_segmento = {}, tiempos_promedio_horas = {},
     stats_por_asesor = [],
     nuevos_clientes = 0, clientes_recurrentes = 0,
+    monto_nuevos_clientes = 0, monto_clientes_recurrentes = 0,
     por_semana = [], vs_anterior = null,
     leads_aprobados_sin_odp_detalle = [],
   } = stats;
@@ -446,7 +447,7 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
 
       {/* ── Header ── */}
       <div>
-        <h2 className="text-lg font-black text-slate-800">Análisis de Métricas</h2>
+        <h2 className="text-xl font-bold text-slate-800">Análisis de Métricas</h2>
         <p className="text-xs text-slate-400 font-medium mt-0.5">
           Monitoreo de eficiencia comercial y gestión CRM del período seleccionado.
           {vs_anterior !== null && <span className="ml-1 text-indigo-400">Los deltas (↑↓) comparan vs el mes anterior.</span>}
@@ -510,17 +511,17 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
         <div className="md:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
-              <h3 className="font-black text-slate-800 text-sm">Leads Registrados por Semana</h3>
+              <h3 className="font-bold text-slate-800 text-base">Leads Registrados por Semana</h3>
               <InfoTooltip text="Cantidad de leads nuevos ingresados en cada semana del período seleccionado. Permite ver en qué semana hubo mayor o menor captación y detectar patrones de actividad." />
             </div>
-            <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
+            <span className="text-xs font-black text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
               Total: {total} leads
             </span>
           </div>
           <BarChart data={por_semana} color="#6366f1" />
           <div className="flex justify-between mt-1 px-1">
             {por_semana.map((s: any) => (
-              <span key={s.semana} className="text-[9px] text-slate-400 font-bold">{s.semana}</span>
+              <span key={s.semana} className="text-[11px] text-slate-400 font-bold">{s.semana}</span>
             ))}
           </div>
         </div>
@@ -532,7 +533,7 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
               <IconBarChart size={16} className="text-indigo-600" />
             </div>
             <div className="flex items-center">
-              <h3 className="font-black text-slate-800 text-sm">Participación por Producto</h3>
+              <h3 className="font-bold text-slate-800 text-base">Participación por Producto</h3>
               <InfoTooltip text="Distribución de leads según el tipo de producto de interés registrado. El porcentaje central muestra la participación del producto más solicitado sobre el total. No indica conversión, sino volumen de interés." />
             </div>
           </div>
@@ -553,7 +554,7 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
               <IconTarget size={16} className="text-amber-600" />
             </div>
             <div className="flex items-center">
-              <h3 className="font-black text-slate-800 text-sm">Embudo de Conversión</h3>
+              <h3 className="font-bold text-slate-800 text-base">Embudo de Conversión</h3>
               <InfoTooltip text="Cuántos leads activos hay en cada etapa del proceso comercial (excluye leads sin respuesta). La barra más ancha es la etapa con más volumen. Si Cotizando o En Contacto superan ampliamente a Aprobados, hay un cuello de botella que revisar." />
             </div>
           </div>
@@ -568,17 +569,17 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
                       className={`h-full rounded-lg ${e.color} opacity-90 transition-all duration-700 flex items-center px-2`}
                       style={{ width: `${pct}%` }}
                     >
-                      {pct > 15 && <span className="text-[10px] font-black text-white">{e.count}</span>}
+                      {pct > 15 && <span className="text-xs font-black text-white">{e.count}</span>}
                     </div>
                     {pct <= 15 && (
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-500">{e.count}</span>
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500">{e.count}</span>
                     )}
                   </div>
                 </div>
               );
             })}
           </div>
-          <p className="text-[10px] text-slate-400 text-center mt-4 italic">
+          <p className="text-xs text-slate-400 text-center mt-4 italic">
             {embudo.reduce((s, e) => s + e.count, 0)} leads en etapas activas
             <span className="ml-1 text-slate-300">(de {total} totales en el período)</span>
           </p>
@@ -592,11 +593,11 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
                 <IconGlobe size={16} className="text-blue-600" />
               </div>
               <div className="flex items-center">
-                <h3 className="font-black text-slate-800 text-sm">Distribución por Fuente</h3>
+                <h3 className="font-bold text-slate-800 text-base">Distribución por Fuente</h3>
                 <InfoTooltip text="Canal de origen de cada lead registrado (WhatsApp, referido, Instagram, presencial, etc.). Muestra qué canal trae más volumen y ayuda a decidir dónde enfocar esfuerzos de captación o inversión publicitaria." />
               </div>
             </div>
-            <span className="text-[10px] font-black text-slate-400">Total: {total}</span>
+            <span className="text-xs font-black text-slate-400">Total: {total}</span>
           </div>
           <div className="space-y-3">
             {fuentesList.map((f, i) => {
@@ -627,12 +628,12 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
               <IconClock size={16} className="text-amber-600" />
             </div>
             <div className="flex items-center">
-              <h3 className="font-black text-slate-800 text-sm">Ciclo de Vida del Lead</h3>
+              <h3 className="font-bold text-slate-800 text-base">Ciclo de Vida del Lead</h3>
               <InfoTooltip text="Tiempo promedio que tarda el equipo en avanzar al lead de una etapa a la siguiente. Celdas en rojo indican que se supera el tiempo ideal. Un ciclo largo puede reflejar falta de seguimiento, carga excesiva o leads mal calificados." />
             </div>
           </div>
           <div className="flex items-center gap-2 bg-amber-50 px-3 py-1.5 rounded-full border border-amber-100">
-            <span className="text-[10px] font-black text-amber-600">Cierre prom: {tiempo_promedio_cierre_dias}d</span>
+            <span className="text-xs font-black text-amber-600">Cierre prom: {tiempo_promedio_cierre_dias}d</span>
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -642,7 +643,7 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
             return (
               <div key={c.key} className={`rounded-xl p-4 border text-center ${isAlert ? 'bg-rose-50 border-rose-100' : 'bg-slate-50 border-slate-100'}`}>
                 <div className="flex items-center justify-center gap-1 mb-2">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{c.label}</p>
+                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">{c.label}</p>
                   <InfoTooltip text={c.tooltip} />
                 </div>
                 <p className={`text-3xl font-black ${isAlert ? 'text-rose-600' : 'text-slate-700'}`}>
@@ -654,8 +655,8 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
                     style={{ width: `${Math.min((val / (c.alert * 2)) * 100, 100)}%` }}
                   />
                 </div>
-                <p className="text-[9px] text-slate-400 font-bold mt-1.5">Ideal: &lt;{c.alert}h</p>
-                {isAlert && <p className="text-[9px] text-rose-500 font-bold mt-0.5">↑ Sobre el ideal</p>}
+                <p className="text-[11px] text-slate-400 font-bold mt-1.5">Ideal: &lt;{c.alert}h</p>
+                {isAlert && <p className="text-[11px] text-rose-500 font-bold mt-0.5">↑ Sobre el ideal</p>}
               </div>
             );
           })}
@@ -672,25 +673,25 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
               <IconPackage size={16} className="text-teal-600" />
             </div>
             <div className="flex items-center">
-              <h3 className="font-black text-slate-800 text-sm">Conversión por Producto</h3>
+              <h3 className="font-bold text-slate-800 text-base">Conversión por Producto</h3>
               <InfoTooltip text="Ranking de productos ordenado por monto proyectado acumulado. La barra interna muestra la frecuencia del producto (leads sobre el total). El badge de porcentaje es la tasa de conversión: verde ≥20%, naranja 1-19%, gris 0%." />
             </div>
           </div>
           <div className="space-y-2">
             {productosList.slice(0, 7).map((p, idx) => (
               <div key={p.producto} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors">
-                <span className="w-5 text-[10px] font-black text-slate-300 flex-shrink-0">{idx + 1}</span>
+                <span className="w-5 text-xs font-black text-slate-300 flex-shrink-0">{idx + 1}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-slate-700 truncate">{p.producto || 'Sin Definir'}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
                       <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${total > 0 ? (p.count / total) * 100 : 0}%` }} />
                     </div>
-                    <span className="text-[10px] text-slate-400 font-bold">{p.count} leads</span>
+                    <span className="text-xs text-slate-400 font-bold">{p.count} leads</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${p.rate >= 20 ? 'bg-emerald-100 text-emerald-700' : p.rate > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-400'}`}>
+                  <span className={`px-2 py-0.5 rounded-lg text-xs font-black ${p.rate >= 20 ? 'bg-emerald-100 text-emerald-700' : p.rate > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-400'}`}>
                     {p.rate}% conv.
                   </span>
                   <span className="text-xs font-black text-slate-600 w-14 text-right">{fmtCOP(p.monto, true)}</span>
@@ -710,7 +711,7 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
               <IconBarChart size={16} className="text-violet-600" />
             </div>
             <div className="flex items-center">
-              <h3 className="font-black text-slate-800 text-sm">Distribución por Segmento</h3>
+              <h3 className="font-bold text-slate-800 text-base">Distribución por Segmento</h3>
               <InfoTooltip text="Leads y monto proyectado agrupados por el perfil del cliente (arquitecto, industrial, etc.). El porcentaje en el círculo derecho es la tasa de conversión de ese segmento: verde ≥20%, naranja 1-19%. Identifica qué tipo de cliente convierte mejor." />
             </div>
           </div>
@@ -720,13 +721,13 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
               return (
                 <div key={s.segmento} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:shadow-sm transition-all">
                   <div className="flex items-center gap-3">
-                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${color}`}>{s.segmento}</span>
-                    <span className="text-[10px] text-slate-400 font-bold">{s.total} leads</span>
+                    <span className={`px-2 py-0.5 rounded-lg text-xs font-black ${color}`}>{s.segmento}</span>
+                    <span className="text-xs text-slate-400 font-bold">{s.total} leads</span>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
                       <p className="text-xs font-black text-slate-800">{fmtCOP(s.monto, true)}</p>
-                      <p className="text-[9px] text-slate-400 uppercase font-bold">Monto proy.</p>
+                      <p className="text-[11px] text-slate-400 uppercase font-bold">Monto proy.</p>
                     </div>
                     <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xs font-black shadow-sm ${s.conv >= 20 ? 'bg-emerald-500 text-white' : s.conv > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
                       {s.conv}%
@@ -752,7 +753,7 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
               <IconActivity size={16} className="text-emerald-600" />
             </div>
             <div className="flex items-center">
-              <h3 className="font-black text-slate-800 text-sm">Clientes Nuevos vs Recurrentes</h3>
+              <h3 className="font-bold text-slate-800 text-base">Clientes Nuevos vs Recurrentes</h3>
               <InfoTooltip text="'Nuevos' = ODPs del período creadas desde un Prospecto formal (primer contacto de un cliente que no estaba en el sistema). 'Recurrentes' = ODPs de clientes que ya existían y volvieron a comprar. Mide cuánto crece la base nueva vs cuánto se fideliza la existente." />
             </div>
           </div>
@@ -767,7 +768,7 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
                     style={{ width: `${(nuevos_clientes / (nuevos_clientes + clientes_recurrentes)) * 100}%` }}
                   >
                     {nuevos_clientes / (nuevos_clientes + clientes_recurrentes) > 0.15 && (
-                      <span className="text-[9px] font-black text-white">{nuevos_clientes}</span>
+                      <span className="text-[11px] font-black text-white">{nuevos_clientes}</span>
                     )}
                   </div>
                 )}
@@ -777,27 +778,33 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
                     style={{ width: `${(clientes_recurrentes / (nuevos_clientes + clientes_recurrentes)) * 100}%` }}
                   >
                     {clientes_recurrentes / (nuevos_clientes + clientes_recurrentes) > 0.15 && (
-                      <span className="text-[9px] font-black text-white">{clientes_recurrentes}</span>
+                      <span className="text-[11px] font-black text-white">{clientes_recurrentes}</span>
                     )}
                   </div>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100">
-                  <p className="text-[10px] font-black text-emerald-600 uppercase tracking-wide">Nuevos</p>
-                  <p className="text-2xl font-black text-slate-800 mt-1">{nuevos_clientes}</p>
-                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                  <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide">Nuevos</p>
+                  <p className="text-3xl font-black text-slate-800 mt-1">{nuevos_clientes}</p>
+                  <p className="text-xs text-slate-400 font-bold mt-0.5">
                     {Math.round((nuevos_clientes / (nuevos_clientes + clientes_recurrentes)) * 100)}% del total
                   </p>
-                  <p className="text-[9px] text-emerald-600 font-medium mt-1">ODPs con prospecto</p>
+                  {monto_nuevos_clientes > 0 && (
+                    <p className="text-xs font-bold text-emerald-700 mt-1">{fmtCOP(monto_nuevos_clientes, true)}</p>
+                  )}
+                  <p className="text-[11px] text-emerald-600 font-medium mt-1">ODPs con prospecto</p>
                 </div>
                 <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
-                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-wide">Recurrentes</p>
-                  <p className="text-2xl font-black text-slate-800 mt-1">{clientes_recurrentes}</p>
-                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                  <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Recurrentes</p>
+                  <p className="text-3xl font-black text-slate-800 mt-1">{clientes_recurrentes}</p>
+                  <p className="text-xs text-slate-400 font-bold mt-0.5">
                     {Math.round((clientes_recurrentes / (nuevos_clientes + clientes_recurrentes)) * 100)}% del total
                   </p>
-                  <p className="text-[9px] text-blue-600 font-medium mt-1">ODPs sin prospecto</p>
+                  {monto_clientes_recurrentes > 0 && (
+                    <p className="text-xs font-bold text-blue-700 mt-1">{fmtCOP(monto_clientes_recurrentes, true)}</p>
+                  )}
+                  <p className="text-[11px] text-blue-600 font-medium mt-1">ODPs sin prospecto</p>
                 </div>
               </div>
             </div>
@@ -811,11 +818,11 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
               <IconTarget size={16} className="text-rose-500" />
             </div>
             <div className="flex items-center">
-              <h3 className="font-black text-slate-800 text-sm">Razones de Pérdida</h3>
+              <h3 className="font-bold text-slate-800 text-base">Razones de Pérdida</h3>
               <InfoTooltip text="Motivos registrados cuando un lead pasa a estado PERDIDO. El asesor debe seleccionar un motivo oficial al cerrar el lead. Identificar los motivos más frecuentes permite ajustar el discurso comercial y reducir fugas." />
             </div>
           </div>
-          <p className="text-[10px] text-slate-400 font-bold mb-4">
+          <p className="text-xs text-slate-400 font-bold mb-4">
             {(por_estado as any)['PERDIDO'] || 0} leads perdidos en el período
           </p>
           {motivosList.length === 0 ? (
@@ -834,7 +841,7 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
                   <div key={m.motivo} className="space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-600 flex-1 mr-2">{m.motivo}</span>
-                      <span className="text-[10px] font-black text-slate-500">{m.count} ({pct}%)</span>
+                      <span className="text-xs font-black text-slate-500">{m.count} ({pct}%)</span>
                     </div>
                     <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                       <div
@@ -869,7 +876,7 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
               <IconSparkles size={16} className="text-amber-500" />
             </div>
             <div className="flex items-center">
-              <h3 className="font-black text-slate-800 text-sm">Ranking Comercial</h3>
+              <h3 className="font-bold text-slate-800 text-base">Ranking Comercial</h3>
               <InfoTooltip text="Comparativo de desempeño por asesor en el período, ordenado por tasa de conversión. El monto gestionado es la suma de montos proyectados de todos sus leads. Verde ≥30%, naranja 15-29%, rojo &lt;15%. Solo visible para roles con acceso global." />
             </div>
           </div>
@@ -886,22 +893,22 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       {medal && <span className="text-sm">{medal}</span>}
-                      <p className="font-black text-slate-800 text-sm truncate">{a.nombre}</p>
+                      <p className="font-bold text-slate-800 text-base truncate">{a.nombre}</p>
                     </div>
-                    <p className="text-[10px] text-slate-400 font-bold">{a.total} leads asignados</p>
+                    <p className="text-xs text-slate-400 font-bold">{a.total} leads asignados</p>
                     <div className="mt-1.5 flex items-center gap-2">
                       <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
                         <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${a.tasa_conversion}%` }} />
                       </div>
-                      <span className={`text-[10px] font-black ${a.tasa_conversion >= 30 ? 'text-emerald-600' : a.tasa_conversion >= 15 ? 'text-amber-500' : 'text-rose-500'}`}>
+                      <span className={`text-xs font-black ${a.tasa_conversion >= 30 ? 'text-emerald-600' : a.tasa_conversion >= 15 ? 'text-amber-500' : 'text-rose-500'}`}>
                         {a.tasa_conversion}% conv.
                       </span>
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-sm font-black text-slate-700">{fmtCOP(a.monto_gestionado, true)}</p>
-                    <p className="text-[10px] font-bold text-emerald-600 mt-1">{a.aprobados} aprobados</p>
-                    <p className="text-[10px] font-bold text-rose-500">{a.perdidos} perdidos</p>
+                    <p className="text-xs font-bold text-emerald-600 mt-1">{a.aprobados} aprobados</p>
+                    <p className="text-xs font-bold text-rose-500">{a.perdidos} perdidos</p>
                   </div>
                 </div>
               );
