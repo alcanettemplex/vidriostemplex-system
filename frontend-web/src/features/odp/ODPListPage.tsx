@@ -33,13 +33,14 @@ interface ODP {
     abono?: number;
     pendiente?: number;
     sin_items?: boolean;
+    tiene_dano_instalacion?: boolean;
 }
 
 type SortField = 'numero_odp' | 'cliente' | 'asesor' | 'estado_produccion' | 'estado_caja' | 'fecha_entrega' | 'fecha_creacion';
 type SortDir = 'asc' | 'desc';
 
 const ESTADOS_PRODUCCION = [
-    'EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'PEDIDO_PROVEEDOR',
+    'EN_ESPERA', 'VISITA_TECNICA', 'MEDICION',
     'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS',
     'LISTO_INSTALAR', 'PROGRAMADA', 'PAUSADA'
 ];
@@ -51,7 +52,6 @@ const getStatusColor = (estado: string) => {
         case 'EN_ESPERA':           return 'bg-amber-50 text-amber-800 border-amber-300';
         case 'VISITA_TECNICA':      return 'bg-orange-100 text-orange-800 border-orange-300';
         case 'MEDICION':            return 'bg-sky-100 text-sky-800 border-sky-300';
-        case 'PEDIDO_PROVEEDOR':    return 'bg-purple-100 text-purple-800 border-purple-300';
         case 'ALUMINIO_CORTADO':    return 'bg-blue-100 text-blue-800 border-blue-300';
         case 'VIDRIO_RECIBIDO':     return 'bg-indigo-100 text-indigo-800 border-indigo-300';
         case 'ACCESORIOS_SEPARADOS':return 'bg-teal-100 text-teal-800 border-teal-300';
@@ -69,7 +69,6 @@ const getStatusIcon = (estado: string) => {
         case 'EN_ESPERA':           return <Clock className="w-3 h-3 mr-1 shrink-0" />;
         case 'VISITA_TECNICA':      return <Ruler className="w-3 h-3 mr-1 shrink-0" />;
         case 'MEDICION':            return <Ruler className="w-3 h-3 mr-1 shrink-0" />;
-        case 'PEDIDO_PROVEEDOR':    return <Package className="w-3 h-3 mr-1 shrink-0" />;
         case 'ALUMINIO_CORTADO':    return <Clock className="w-3 h-3 mr-1 shrink-0" />;
         case 'VIDRIO_RECIBIDO':     return <Clock className="w-3 h-3 mr-1 shrink-0" />;
         case 'ACCESORIOS_SEPARADOS':return <Package className="w-3 h-3 mr-1 shrink-0" />;
@@ -296,11 +295,12 @@ const ODPListPage: React.FC = () => {
 
     // Segmentación por tabs
     const ESTADOS_LISTAS = ['LISTO_INSTALAR', 'PROGRAMADA'];
-    const odpsActivas = odps.filter(o => !['VISITA_TECNICA', ...ESTADOS_LISTAS, ...ESTADOS_COMPLETADAS].includes(o.estado_produccion));
-    const odpsVisita = odps.filter(o => o.estado_produccion === 'VISITA_TECNICA');
-    const odpsListas = odps.filter(o => ESTADOS_LISTAS.includes(o.estado_produccion));
-    const odpsCompletadas = odps.filter(o => ESTADOS_COMPLETADAS.includes(o.estado_produccion));
-    const odpsConDano = odps.filter((o: any) => o.tiene_dano_instalacion === true);
+    // Con Daños tiene prioridad: una ODP con daño pendiente de revisar solo aparece en esa tab.
+    const odpsConDano = odps.filter(o => o.tiene_dano_instalacion === true);
+    const odpsActivas = odps.filter(o => !o.tiene_dano_instalacion && !['VISITA_TECNICA', ...ESTADOS_LISTAS, ...ESTADOS_COMPLETADAS].includes(o.estado_produccion));
+    const odpsVisita = odps.filter(o => !o.tiene_dano_instalacion && o.estado_produccion === 'VISITA_TECNICA');
+    const odpsListas = odps.filter(o => !o.tiene_dano_instalacion && ESTADOS_LISTAS.includes(o.estado_produccion));
+    const odpsCompletadas = odps.filter(o => !o.tiene_dano_instalacion && ESTADOS_COMPLETADAS.includes(o.estado_produccion));
 
     const ESTADOS_REALIZADAS = ['INSTALADA', 'ENTREGADA'];
     const garantiasActivas = garantias.filter(g => !ESTADOS_REALIZADAS.includes(g.estado_produccion));

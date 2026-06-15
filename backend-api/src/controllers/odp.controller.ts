@@ -56,7 +56,7 @@ const odpSchema = z.object({
   numero_odp: z.string().optional(),
   cliente_id: z.number().int().positive('ID de cliente requerido'),
   asesor_id: z.number().int().positive('ID de asesor requerido').optional(),
-  estado_produccion: z.enum(['EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA']).optional(),
+  estado_produccion: z.enum(['EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA']).optional(),
   estado_facturacion: z.enum(['PENDIENTE', 'FACTURADA']).optional(),
   estado_caja: z.enum(['PENDIENTE', 'ABONADO', 'CANCELADO', 'CREDITO_APROBADO']).optional(),
   factura_electronica: z.string().optional(),
@@ -657,6 +657,26 @@ export const updateODP = async (req: Request, res: Response) => {
     // Actualizar campos de la ODP (incluyendo los booleanos, JSONs, y observaciones nuevas)
     await odp.update(data as any, { transaction });
 
+    // ─── Avance de estado por checks de taller (Control Taller) ───
+    // Al activar un check de etapa, el estado refleja ese último check marcado.
+    // Solo aplica en etapas productivas tempranas; nunca retrocede desde LISTO_INSTALAR+.
+    // Desmarcar un check no modifica el estado. La auto-transición a LISTO_INSTALAR
+    // (más abajo) puede sobrescribir este valor si todos los checks requeridos están listos.
+    if (!data.estado_produccion) {
+      const CHECK_ESTADO_MAP: Record<string, string> = {
+        chk_corte: 'ALUMINIO_CORTADO',
+        chk_accesorios: 'ACCESORIOS_SEPARADOS',
+      };
+      const ESTADOS_INTERMEDIOS_TALLER = ['MEDICION', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS'];
+      let estadoPorCheck: string | null = null;
+      for (const [chk, est] of Object.entries(CHECK_ESTADO_MAP)) {
+        if ((data as any)[chk] === true) estadoPorCheck = est;
+      }
+      if (estadoPorCheck && ESTADOS_INTERMEDIOS_TALLER.includes(odp.getDataValue('estado_produccion'))) {
+        await odp.update({ estado_produccion: estadoPorCheck }, { transaction });
+      }
+    }
+
     // Actualizar cristales si vienen en la data
     // IMPORTANTE: este bloque debe correr ANTES de la auto-transición a LISTO_INSTALAR
     // para que ODPItem.count() refleje el conteo final real y no un estado intermedio
@@ -691,7 +711,7 @@ export const updateODP = async (req: Request, res: Response) => {
     // definitivo (post destroy+bulkCreate) y no un valor transitorio incorrecto.
     // Solo corre si la ODP está en un estado productivo activo: impide saltos desde
     // EN_ESPERA o VISITA_TECNICA donde la producción aún no ha empezado.
-    const ESTADOS_PRODUCTIVOS = ['MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS'];
+    const ESTADOS_PRODUCTIVOS = ['MEDICION', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS'];
     const updatedOdp = await ODP.findByPk(id, { transaction });
     if (updatedOdp && !data.estado_produccion && ESTADOS_PRODUCTIVOS.includes(updatedOdp.getDataValue('estado_produccion')) && !updatedOdp.getDataValue('sin_items')) {
       const { SAP: SAPModel, TomaMedidas: TMModel, PedidoPV: PedidoPVModel } = await import('../models');
@@ -998,6 +1018,14 @@ export const crearGarantia = async (req: Request, res: Response) => {
 
     const odpPadre = await ODP.findByPk(id, { transaction: t });
     if (!odpPadre) { await t.rollback(); return res.status(404).json({ error: 'ODP padre no encontrada' }); }
+
+    // Permisos: roles con acceso global o el dueño (asesor_id) de la ODP, sin importar su rol
+    const rolesPermitidos = ['admin', 'gerencia', 'produccion', 'asesor_comercial', 'jefe_produccion'];
+    const esDueno = userId === odpPadre.getDataValue('asesor_id');
+    if (!rolesPermitidos.includes(req.user?.rol) && !esDueno) {
+      await t.rollback();
+      return res.status(403).json({ error: 'No tienes permiso para crear garantías de esta ODP' });
+    }
 
     if (odpPadre.getDataValue('es_garantia') || odpPadre.getDataValue('es_no_conformidad')) {
       await t.rollback();

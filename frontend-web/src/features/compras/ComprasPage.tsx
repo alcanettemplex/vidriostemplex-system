@@ -101,7 +101,7 @@ const getSAPsDeODC = (odc: ODC): string[] => {
 
 const ESTADO_PROD_COLOR: Record<string, string> = {
   EN_ESPERA: 'bg-slate-100 text-slate-600', MEDICION: 'bg-yellow-100 text-yellow-700',
-  PEDIDO_PROVEEDOR: 'bg-orange-100 text-orange-700', ALUMINIO_CORTADO: 'bg-blue-100 text-blue-700',
+  ALUMINIO_CORTADO: 'bg-blue-100 text-blue-700',
   VIDRIO_RECIBIDO: 'bg-cyan-100 text-cyan-700', ACCESORIOS_SEPARADOS: 'bg-indigo-100 text-indigo-700',
   LISTO_INSTALAR: 'bg-green-100 text-green-700', PROGRAMADA: 'bg-violet-100 text-violet-700',
   INSTALADA: 'bg-emerald-100 text-emerald-700', ENTREGADA: 'bg-teal-100 text-teal-700',

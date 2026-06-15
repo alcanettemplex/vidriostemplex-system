@@ -489,7 +489,7 @@ const TabAsesores: React.FC<{ asesores: { id: number; nombre: string }[] }> = ({
 
 const LABELS_ESTADO: Record<string, string> = {
   EN_ESPERA: 'En Espera', VISITA_TECNICA: 'Visita Técnica', MEDICION: 'Medición',
-  PEDIDO_PROVEEDOR: 'Pedido Proveedor', ALUMINIO_CORTADO: 'Aluminio Cortado',
+  ALUMINIO_CORTADO: 'Aluminio Cortado',
   VIDRIO_RECIBIDO: 'Vidrio Recibido', ACCESORIOS_SEPARADOS: 'Accesorios Sep.',
   LISTO_INSTALAR: 'Listo Instalar', PROGRAMADA: 'Programada',
   INSTALADA: 'Instalada', PAUSADA: 'Pausada',

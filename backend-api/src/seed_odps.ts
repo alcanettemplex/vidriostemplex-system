@@ -32,7 +32,7 @@ const seedOdpsReales = async () => {
     }
 
     // 3. Crear 15 ODPs distribuidas
-    const estados = ['EN_ESPERA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA'];
+    const estados = ['EN_ESPERA', 'MEDICION', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA'];
     
     for (let i = 1; i <= 15; i++) {
         const asesorId = asesores[i % asesores.length].getDataValue('id');

@@ -36,13 +36,13 @@ const useCountUp = (target: number, duration = 1400) => {
 
 const ESTADO_COLORS: Record<string, string> = {
   EN_ESPERA: '#94a3b8', VISITA_TECNICA: '#c084fc', MEDICION: '#818cf8',
-  PEDIDO_PROVEEDOR: '#f59e0b', ALUMINIO_CORTADO: '#06b6d4', VIDRIO_RECIBIDO: '#3b82f6',
+  ALUMINIO_CORTADO: '#06b6d4', VIDRIO_RECIBIDO: '#3b82f6',
   ACCESORIOS_SEPARADOS: '#8b5cf6', LISTO_INSTALAR: '#f97316', PROGRAMADA: '#14b8a6',
   INSTALADA: '#22c55e', ENTREGADA: '#10b981', PAUSADA: '#e11d48',
 };
 const ESTADO_LABELS: Record<string, string> = {
   EN_ESPERA: 'En Espera', VISITA_TECNICA: 'Visita Técnica', MEDICION: 'En producción',
-  PEDIDO_PROVEEDOR: 'Ped. Proveedor', ALUMINIO_CORTADO: 'Al. Cortado', VIDRIO_RECIBIDO: 'Vidrio',
+  ALUMINIO_CORTADO: 'Al. Cortado', VIDRIO_RECIBIDO: 'Vidrio',
   ACCESORIOS_SEPARADOS: 'Accesorios', LISTO_INSTALAR: 'A Instalar', PROGRAMADA: 'Programada',
   INSTALADA: 'Instalada', ENTREGADA: 'Entregada', PAUSADA: 'Pausada',
 };

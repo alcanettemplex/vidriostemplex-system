@@ -30,7 +30,6 @@ import { getTmEstadoConfig, tmVisitaRealizada } from '../../../utils/tmEstado';
 const estadoProdColor: Record<string, string> = {
   EN_ESPERA: 'bg-slate-100 text-slate-700 border-slate-200',
   MEDICION: 'bg-sky-100 text-sky-700 border-sky-200',
-  PEDIDO_PROVEEDOR: 'bg-purple-100 text-purple-700 border-purple-200',
   ALUMINIO_CORTADO: 'bg-blue-100 text-blue-700 border-blue-200',
   VIDRIO_RECIBIDO: 'bg-indigo-100 text-indigo-700 border-indigo-200',
   ACCESORIOS_SEPARADOS: 'bg-teal-100 text-teal-700 border-teal-200',
@@ -1151,7 +1150,6 @@ const HIST_CATS: Record<string, { bg: string; text: string; border: string; dot:
 const ESTADO_HIST_COLOR: Record<string, string> = {
   EN_ESPERA: 'bg-slate-100 text-slate-600 border-slate-200',
   MEDICION: 'bg-sky-100 text-sky-700 border-sky-200',
-  PEDIDO_PROVEEDOR: 'bg-purple-100 text-purple-700 border-purple-200',
   ALUMINIO_CORTADO: 'bg-blue-100 text-blue-700 border-blue-200',
   VIDRIO_RECIBIDO: 'bg-indigo-100 text-indigo-700 border-indigo-200',
   ACCESORIOS_SEPARADOS: 'bg-teal-100 text-teal-700 border-teal-200',
@@ -1876,11 +1874,11 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {/* Botón Reportar: solo asesor dueño, gerencia o admin. Solo para ODPs normales (no garantía, no reproceso) */}
+                {/* Botón Reportar: dueño de la ODP (cualquier rol), o admin/gerencia/produccion. Solo para ODPs normales (no garantía, no reproceso) */}
                 {(() => {
                   if (!currentUser) return null;
                   const role = currentUser.rol;
-                  const isOwner = role === 'asesor_comercial' && currentUser.id === odp.asesor_id;
+                  const isOwner = currentUser.id === odp.asesor_id;
                   const canReport = ['admin', 'gerencia', 'produccion'].includes(role) || isOwner;
                   if (!canReport) return null;
                   // Para garantías y reprocesos: solo NC, sin opción de crear otra garantía

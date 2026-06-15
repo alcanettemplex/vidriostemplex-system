@@ -24,7 +24,6 @@ const ESTADO_PROD: Record<string, { label: string; cls: string }> = {
   EN_ESPERA:           { label: 'En espera',          cls: 'bg-slate-100 text-slate-600' },
   VISITA_TECNICA:      { label: 'Visita técnica',      cls: 'bg-blue-50 text-blue-700' },
   MEDICION:            { label: 'Medición',            cls: 'bg-cyan-50 text-cyan-700' },
-  PEDIDO_PROVEEDOR:    { label: 'Pedido proveedor',    cls: 'bg-amber-50 text-amber-700' },
   ALUMINIO_CORTADO:    { label: 'Aluminio cortado',    cls: 'bg-orange-50 text-orange-700' },
   VIDRIO_RECIBIDO:     { label: 'Vidrio recibido',     cls: 'bg-yellow-50 text-yellow-700' },
   ACCESORIOS_SEPARADOS:{ label: 'Accesorios sep.',     cls: 'bg-lime-50 text-lime-700' },

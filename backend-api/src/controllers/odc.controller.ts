@@ -344,7 +344,7 @@ export const updateODC = async (req: Request, res: Response) => {
             numero_odp: odp.numero_odp,
             odp_id: odp.id,
             asesor_id: odp.asesor_id,
-            estado_nuevo: 'PEDIDO_PROVEEDOR',
+            estado_nuevo: odp.estado_produccion,
             mensaje: `ODC ${odc.getDataValue('numero_odc')} recibida — proveedor: ${proveedor || odc.getDataValue('proveedor')}`,
           });
         }).catch(err => console.error('Error notificación ODC recibida:', err));

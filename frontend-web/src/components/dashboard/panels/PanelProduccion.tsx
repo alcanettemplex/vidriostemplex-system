@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 
 const ESTADO_LABEL: Record<string, string> = {
   EN_ESPERA: 'En Espera', VISITA_TECNICA: 'Visita', MEDICION: 'Medición',
-  PEDIDO_PROVEEDOR: 'Pedido Prov.', ALUMINIO_CORTADO: 'Al. Cortado',
+  ALUMINIO_CORTADO: 'Al. Cortado',
   VIDRIO_RECIBIDO: 'Vidrio Recibido', ACCESORIOS_SEPARADOS: 'Accesorios Sep.',
   LISTO_INSTALAR: 'Listo Instalar', PROGRAMADA: 'Programada',
   INSTALADA: 'Instalada', ENTREGADA: 'Entregada', PAUSADA: 'Pausada',

@@ -9,7 +9,7 @@ ODP.init({
   cliente_id: { type: DataTypes.INTEGER, allowNull: false },
   asesor_id: { type: DataTypes.INTEGER, allowNull: false },
   estado_produccion: {
-    type: DataTypes.ENUM('EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'PEDIDO_PROVEEDOR', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA'),
+    type: DataTypes.ENUM('EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA'),
     defaultValue: 'EN_ESPERA',
     allowNull: false
   },

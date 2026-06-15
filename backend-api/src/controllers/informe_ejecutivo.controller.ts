@@ -405,7 +405,7 @@ export const getProduccionCritica = async (req: Request, res: Response) => {
     }) as unknown as { estado_produccion: string; total: string }[];
 
     const ORDEN_ESTADOS = [
-      'EN_ESPERA','VISITA_TECNICA','MEDICION','PEDIDO_PROVEEDOR','ALUMINIO_CORTADO',
+      'EN_ESPERA','VISITA_TECNICA','MEDICION','ALUMINIO_CORTADO',
       'VIDRIO_RECIBIDO','ACCESORIOS_SEPARADOS','LISTO_INSTALAR','PROGRAMADA','INSTALADA','PAUSADA',
     ];
     const embudo = ORDEN_ESTADOS.map(e => ({

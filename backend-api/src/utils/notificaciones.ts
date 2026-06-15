@@ -5,7 +5,6 @@ const ESTADO_LABELS: Record<string, string> = {
   EN_ESPERA:            'En Espera',
   VISITA_TECNICA:       'Visita Técnica',
   MEDICION:             'Medición',
-  PEDIDO_PROVEEDOR:     'Pedido a Proveedor',
   ALUMINIO_CORTADO:     'Aluminio Cortado',
   VIDRIO_RECIBIDO:      'Vidrio Recibido',
   ACCESORIOS_SEPARADOS: 'Accesorios Separados',

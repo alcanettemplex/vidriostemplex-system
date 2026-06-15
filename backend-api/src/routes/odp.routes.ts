@@ -48,8 +48,9 @@ router.patch('/:id/aprobar-sin-items', authMiddleware, requireRole('admin', 'ger
 // Agregar ítems a ODP existente (desde módulo PedidosPV — puede_gestionar_pv)
 router.post('/:id/items', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion', 'compras'), agregarItems);
 
-// Creación de garantía desde una ODP padre
-router.post('/:id/garantia', authMiddleware, requireRole('admin', 'asesor_comercial', 'gerencia', 'jefe_produccion'), crearGarantia);
+// Creación de garantía desde una ODP padre. La validación de permisos
+// (roles permitidos o dueño de la ODP) se hace dentro del controlador.
+router.post('/:id/garantia', authMiddleware, crearGarantia);
 
 export default router;
 
