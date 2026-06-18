@@ -1062,11 +1062,11 @@ export const revisarDano = async (req: Request, res: Response) => {
 
     const asesorId = odp.getDataValue('asesor_id');
     const rol = usuario.rol;
-    const esAsesorDueno = rol === 'asesor_comercial' && usuario.id === asesorId;
-    const esAutorizado = ['admin', 'gerencia'].includes(rol) || esAsesorDueno;
+    const esDueno = usuario.id === asesorId;
+    const esAutorizado = ['admin', 'gerencia', 'produccion', 'jefe_produccion'].includes(rol) || esDueno;
 
     if (!esAutorizado) {
-      return res.status(403).json({ error: 'Solo el asesor creador, admin o gerencia pueden marcar el daño como revisado' });
+      return res.status(403).json({ error: 'No tiene permisos para revisar el daño. Solo el asesor dueño, producción, jefe de producción o gerencia pueden hacerlo.' });
     }
 
     await odp.update({ tiene_dano_instalacion: false } as any);

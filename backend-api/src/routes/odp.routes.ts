@@ -33,8 +33,8 @@ router.post('/:id/instalacion', authMiddleware, requireRole('admin', 'gerencia',
 // Subida de croquis: asesores, admin, gerencia, jefe_produccion
 router.post('/:id/croquis', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), uploadConfig.single('croquis'), uploadCroquisODP);
 
-// Marcar daño de instalación como revisado: asesor dueño, admin, gerencia (owner check en controller)
-router.patch('/:id/revisar-dano', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial'), revisarDano);
+// Marcar daño de instalación como revisado: dueño (cualquier rol), admin, gerencia, producción, jefe_producción (check en controller)
+router.patch('/:id/revisar-dano', authMiddleware, revisarDano);
 
 // Facturación: contabilidad, admin, gerencia pueden registrar/actualizar FE
 router.patch('/:id/facturar', authMiddleware, requireRole('admin', 'gerencia', 'contabilidad'), facturarODP);

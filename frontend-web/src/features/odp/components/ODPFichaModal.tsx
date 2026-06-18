@@ -847,8 +847,8 @@ const TabInstalacion: React.FC<{ odp: any; onOpenLightbox: (src: string) => void
   const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const token = sessionStorage.getItem('token');
 
-  const isOwnerAsesor = currentUser?.rol === 'asesor_comercial' && currentUser?.id === odp.asesor_id;
-  const puedeRevisar = isOwnerAsesor || ['admin', 'gerencia'].includes(currentUser?.rol);
+  const isOwner = currentUser?.id === odp.asesor_id;
+  const puedeRevisar = isOwner || ['admin', 'gerencia', 'produccion', 'jefe_produccion'].includes(currentUser?.rol);
 
   const handleRevisarDano = async () => {
     if (!window.confirm('¿Marcar el daño como revisado? La ODP saldrá del tab "Con Daños".')) return;
@@ -1879,7 +1879,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                   if (!currentUser) return null;
                   const role = currentUser.rol;
                   const isOwner = currentUser.id === odp.asesor_id;
-                  const canReport = ['admin', 'gerencia', 'produccion'].includes(role) || isOwner;
+                  const canReport = ['admin', 'gerencia', 'produccion', 'jefe_produccion'].includes(role) || isOwner;
                   if (!canReport) return null;
                   // Para garantías y reprocesos: solo NC, sin opción de crear otra garantía
                   const esDerivada = odp.es_garantia || odp.es_no_conformidad;

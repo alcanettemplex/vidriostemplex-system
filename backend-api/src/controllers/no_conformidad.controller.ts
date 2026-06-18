@@ -46,13 +46,13 @@ export const createNoConformidad = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'ODP no encontrada' });
     }
 
-    // 2. Verificar permisos: solo asesor dueño, producción, gerencia o admin
+    // 2. Verificar permisos: asesor dueño (cualquier rol), producción, jefe de producción, gerencia o admin
     const userRole = usuario.rol;
-    const isOwnerAsesor = userRole === 'asesor_comercial' && usuario.id === odp.asesor_id;
-    const isAuthorized = ['admin', 'gerencia', 'produccion'].includes(userRole) || isOwnerAsesor;
+    const isOwner = usuario.id === odp.asesor_id;
+    const isAuthorized = ['admin', 'gerencia', 'produccion', 'jefe_produccion'].includes(userRole) || isOwner;
 
     if (!isAuthorized) {
-      return res.status(403).json({ message: 'No tiene permisos para reportar problemas en esta ODP. Solo el asesor dueño, producción o gerencia pueden hacerlo.' });
+      return res.status(403).json({ message: 'No tiene permisos para reportar problemas en esta ODP. Solo el asesor dueño, producción, jefe de producción o gerencia pueden hacerlo.' });
     }
 
     // 3. Generar consecutivo NC-XXXX
