@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import {
   CheckCircle2, Clock, AlertTriangle, MapPin, Truck, Users, Calendar,
   Pencil, Trash2, Plus, RefreshCw, PackageCheck, PauseCircle, Search,
-  Route, History, ChevronDown, ChevronUp, HardHat, Upload, X as XIcon,
+  Route, History, ChevronDown, ChevronUp, HardHat, Upload, X as XIcon, Receipt,
 } from 'lucide-react';
 import ProgramarRutaModal from './ProgramarRutaModal';
 import InstaladorGestionTab from './InstaladorGestionTab';
@@ -275,7 +275,7 @@ const RutaCard: React.FC<{
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-type MainTab = 'listos' | 'pago' | 'produccion' | 'programados' | 'completados' | 'instaladores';
+type MainTab = 'listos' | 'pago' | 'factura' | 'produccion' | 'programados' | 'completados' | 'instaladores';
 type SubTabProg = 'programada' | 'en_curso';
 type SubTabComp = 'completadas' | 'canceladas';
 
@@ -287,7 +287,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const [mainTab, setMainTab] = useState<MainTab>('listos');
   const [subTabProg, setSubTabProg] = useState<SubTabProg>('programada');
   const [subTabComp, setSubTabComp] = useState<SubTabComp>('completadas');
-  const [odps, setOdps] = useState<{ listos: any[]; espera_pago: any[]; espera_produccion: any[] }>({ listos: [], espera_pago: [], espera_produccion: [] });
+  const [odps, setOdps] = useState<{ listos: any[]; espera_pago: any[]; espera_produccion: any[]; espera_factura: any[] }>({ listos: [], espera_pago: [], espera_produccion: [], espera_factura: [] });
   const [rutas, setRutas] = useState<any[]>([]);
   const [rutasHistorial, setRutasHistorial] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -411,6 +411,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const MAIN_TABS = [
     { key: 'listos',        label: 'Listo para instalar',  count: odps.listos.length,              icon: CheckCircle2,  color: 'text-emerald-600', soloEscritura: false },
     { key: 'pago',          label: 'Espera de pago',        count: odps.espera_pago.length,         icon: Clock,         color: 'text-amber-600',   soloEscritura: false },
+    { key: 'factura',       label: 'Espera de factura',     count: odps.espera_factura.length,      icon: Receipt,       color: 'text-orange-600',  soloEscritura: false },
     { key: 'produccion',    label: 'Espera de producción',  count: odps.espera_produccion.length,   icon: AlertTriangle, color: 'text-red-500',     soloEscritura: false },
     { key: 'programados',   label: 'Programados',           count: rutas.length,                    icon: Route,         color: 'text-indigo-600',  soloEscritura: false },
     { key: 'completados',   label: 'Completados',           count: null,                            icon: History,       color: 'text-slate-500',   soloEscritura: false },
@@ -418,7 +419,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   ] as const;
 
   // ODP list actual según tab
-  const odpListaActual = mainTab === 'listos' ? odps.listos : mainTab === 'pago' ? odps.espera_pago : odps.espera_produccion;
+  const odpListaActual = mainTab === 'listos' ? odps.listos : mainTab === 'pago' ? odps.espera_pago : mainTab === 'factura' ? odps.espera_factura : odps.espera_produccion;
   const odpsMostradas  = filtrarOdps(odpListaActual);
 
   // Rutas según sub-tab programados
@@ -489,8 +490,8 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
           })}
         </div>
 
-        {/* ── Contenido tabs ODP (listos / pago / produccion) ── */}
-        {(mainTab === 'listos' || mainTab === 'pago' || mainTab === 'produccion') && (
+        {/* ── Contenido tabs ODP (listos / pago / factura / produccion) ── */}
+        {(mainTab === 'listos' || mainTab === 'pago' || mainTab === 'factura' || mainTab === 'produccion') && (
           loading ? (
             <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>
           ) : odpsMostradas.length === 0 ? (
@@ -514,6 +515,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                         </span>
                       )}
                       {odp.autorizacion_especial_despacho && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">Autorización especial</span>}
+                      {mainTab === 'factura' && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">Sin factura</span>}
                     </div>
                     <p className="text-sm text-slate-600 font-medium">{odp.cliente?.nombre_razon_social}</p>
                     {odp.direccion_instalacion && (

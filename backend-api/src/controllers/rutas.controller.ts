@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Op, QueryTypes } from 'sequelize';
+import { Op, QueryTypes, Transaction } from 'sequelize';
 import {
   ODP, Usuario, Vehiculo, EvidenciaInstalacion, HistorialEstadoODP,
   RutaInstalacion, RutaODP, sequelize,
@@ -99,6 +99,50 @@ const REQUIERE_SERVICIO = {
   [Op.or as any]: [{ instalacion: true }, { acarreo: true }],
 };
 
+// Condición de factura electrónica para instalar (garantías, NC y crédito están exentas)
+const FACTURA_OK = {
+  [Op.or as any]: [
+    { estado_facturacion: 'FACTURADA' },
+    { es_garantia: true },
+    { es_no_conformidad: true },
+    { forma_pago: 'credito' },
+  ],
+};
+
+// Validación defensiva: las ODPs deben cumplir pago y facturación para poder programarse.
+// Devuelve los numero_odp que incumplen cada condición (createRuta y ODPs nuevas en updateRuta).
+const validarElegibilidadProgramacion = async (
+  odpIds: number[],
+  t: Transaction
+): Promise<{ sinPago: string[]; sinFactura: string[] }> => {
+  if (!odpIds.length) return { sinPago: [], sinFactura: [] };
+  const filas = (await ODP.findAll({
+    where: { id: { [Op.in]: odpIds } },
+    attributes: [
+      'id', 'numero_odp', 'estado_caja', 'autorizacion_especial_despacho',
+      'forma_pago', 'es_garantia', 'es_no_conformidad', 'estado_facturacion',
+    ],
+    transaction: t,
+  })) as any[];
+
+  const cumplePago = (o: any) =>
+    ['CANCELADO', 'CREDITO_APROBADO'].includes(o.estado_caja) ||
+    o.autorizacion_especial_despacho === true ||
+    o.forma_pago === 'credito' ||
+    o.es_garantia === true;
+
+  const cumpleFactura = (o: any) =>
+    o.estado_facturacion === 'FACTURADA' ||
+    o.es_garantia === true ||
+    o.es_no_conformidad === true ||
+    o.forma_pago === 'credito';
+
+  return {
+    sinPago: filas.filter((o) => !cumplePago(o)).map((o) => o.numero_odp as string),
+    sinFactura: filas.filter((o) => !cumpleFactura(o)).map((o) => o.numero_odp as string),
+  };
+};
+
 const INCLUDE_ODP_BASICO = [
   { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'telefono'] },
   { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
@@ -119,13 +163,13 @@ export const getODPsParaGestion = async (_req: Request, res: Response) => {
     const odpIdsEnRuta = enRutaActiva.map((r: any) => r.odp_id);
     const excluirEnRuta = odpIdsEnRuta.length ? { id: { [Op.notIn]: odpIdsEnRuta } } : {};
 
-    const [listos, esperaPago, esperaProduccion] = await Promise.all([
-      // Pestaña 1: producción lista + pago OK → puede programarse
+    const [listos, esperaPago, esperaProduccion, esperaFactura] = await Promise.all([
+      // Pestaña 1: producción lista + pago OK + factura OK → puede programarse
       ODP.findAll({
         where: {
           estado_produccion: 'LISTO_INSTALAR',
           ...excluirEnRuta,
-          [Op.and as any]: [PAGO_OK, REQUIERE_SERVICIO],
+          [Op.and as any]: [PAGO_OK, REQUIERE_SERVICIO, FACTURA_OK],
         },
         include: INCLUDE_ODP_BASICO,
         order: [['fecha_entrega', 'ASC']],
@@ -154,9 +198,28 @@ export const getODPsParaGestion = async (_req: Request, res: Response) => {
         include: INCLUDE_ODP_BASICO,
         order: [['fecha_entrega', 'ASC']],
       }),
+      // Pestaña 4: producción lista + pago OK pero SIN factura electrónica (excluye garantía/NC/crédito)
+      ODP.findAll({
+        where: {
+          estado_produccion: 'LISTO_INSTALAR',
+          es_garantia: { [Op.not]: true },
+          es_no_conformidad: { [Op.not]: true },
+          forma_pago: { [Op.or]: [{ [Op.ne]: 'credito' }, { [Op.is]: null }] },
+          estado_facturacion: { [Op.or]: [{ [Op.ne]: 'FACTURADA' }, { [Op.is]: null }] },
+          ...excluirEnRuta,
+          [Op.and as any]: [PAGO_OK, REQUIERE_SERVICIO],
+        },
+        include: INCLUDE_ODP_BASICO,
+        order: [['fecha_entrega', 'ASC']],
+      }),
     ]);
 
-    res.json({ listos, espera_pago: esperaPago, espera_produccion: esperaProduccion });
+    res.json({
+      listos,
+      espera_pago: esperaPago,
+      espera_produccion: esperaProduccion,
+      espera_factura: esperaFactura,
+    });
   } catch (e: any) {
     console.error('getODPsParaGestion:', e.message);
     res.status(500).json({ error: 'Error al obtener ODPs para gestión' });
@@ -280,6 +343,20 @@ export const createRuta = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Debe incluir al menos una ODP' });
     }
 
+    // Validación defensiva: pago y factura aprobados antes de programar
+    const { sinPago, sinFactura } = await validarElegibilidadProgramacion(
+      odps.map((o: any) => o.odp_id),
+      t
+    );
+    if (sinPago.length) {
+      await t.rollback();
+      return res.status(400).json({ error: `Pago no aprobado en: ${sinPago.join(', ')}` });
+    }
+    if (sinFactura.length) {
+      await t.rollback();
+      return res.status(400).json({ error: `Sin factura electrónica en: ${sinFactura.join(', ')}` });
+    }
+
     // Crear la ruta
     const ruta = await RutaInstalacion.create(
       { vehiculo_id, conductor_id, oficial_id: oficial_id || null, creado_por: user.id, observaciones },
@@ -384,6 +461,19 @@ export const updateRuta = async (req: Request, res: Response) => {
       const actuales = await RutaODP.findAll({ where: { ruta_id: id, estado: 'pendiente' }, transaction: t }) as any[];
       const nuevosIds = odps.map((o: any) => o.odp_id);
       const quitadas = actuales.filter((ro: any) => !nuevosIds.includes(ro.odp_id)).map((ro: any) => ro.odp_id);
+
+      // Validación defensiva: solo las ODPs nuevas que se agregan a la ruta
+      const idsActuales = actuales.map((ro: any) => ro.odp_id);
+      const idsNuevas = nuevosIds.filter((oid: number) => !idsActuales.includes(oid));
+      const { sinPago, sinFactura } = await validarElegibilidadProgramacion(idsNuevas, t);
+      if (sinPago.length) {
+        await t.rollback();
+        return res.status(400).json({ error: `Pago no aprobado en: ${sinPago.join(', ')}` });
+      }
+      if (sinFactura.length) {
+        await t.rollback();
+        return res.status(400).json({ error: `Sin factura electrónica en: ${sinFactura.join(', ')}` });
+      }
 
       if (quitadas.length) {
         await ODP.update({ estado_produccion: 'LISTO_INSTALAR' }, { where: { id: { [Op.in]: quitadas } }, transaction: t });
