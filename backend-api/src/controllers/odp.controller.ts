@@ -761,6 +761,61 @@ export const updateODP = async (req: Request, res: Response) => {
       }
     }
 
+    // ─── Retroceso desde LISTO_INSTALAR al desmarcar un check aplicable ───
+    // Si la ODP estaba en LISTO_INSTALAR y en este update se desmarca (chk_* = false)
+    // una etapa que realmente aplica, la orden deja de estar lista y vuelve al estado
+    // de taller correspondiente al check faltante más temprano. Solo aplica a
+    // LISTO_INSTALAR; estados posteriores (PROGRAMADA, INSTALADA…) no se tocan.
+    let retrocesoEstado: string | null = null;
+    const CHECKS_CONOCIDOS = ['chk_medicion', 'chk_corte', 'chk_vidrio', 'chk_accesorios', 'chk_ensamble', 'chk_matizado', 'chk_pelicula', 'chk_huacal', 'chk_carton'];
+    if (
+      updatedOdp &&
+      !data.estado_produccion &&
+      updatedOdp.getDataValue('estado_produccion') === 'LISTO_INSTALAR' &&
+      CHECKS_CONOCIDOS.some((k) => (data as any)[k] === false)
+    ) {
+      const { SAP: SAPRetro, TomaMedidas: TMRetro } = await import('../models');
+      const [tmCnt, sapCnt, itemCnt] = await Promise.all([
+        TMRetro.count({ where: { odp_id: id }, transaction }),
+        SAPRetro.count({ where: { odp_id: id }, transaction }),
+        ODPItem.count({ where: { odp_id: id }, transaction }),
+      ]);
+      const tieneAl = !!updatedOdp.getDataValue('tiene_aluminio');
+      // Cada etapa aplicable mapea al estado de taller al que se debe retroceder.
+      const REGLAS_RETRO: Array<{ chk: string; estado: string; orden: number; aplica: boolean; label: string }> = [
+        { chk: 'chk_medicion',   estado: 'MEDICION',             orden: 1, aplica: tmCnt > 0,                                                       label: 'Medición' },
+        { chk: 'chk_vidrio',     estado: 'MEDICION',             orden: 1, aplica: itemCnt > 0 || !!updatedOdp.getDataValue('proveedor_vidrio'),    label: 'Vidrio' },
+        { chk: 'chk_corte',      estado: 'ALUMINIO_CORTADO',     orden: 2, aplica: tieneAl,                                                         label: 'Aluminio' },
+        { chk: 'chk_accesorios', estado: 'VIDRIO_RECIBIDO',      orden: 3, aplica: sapCnt > 0,                                                      label: 'Herrajes' },
+        { chk: 'chk_ensamble',   estado: 'ACCESORIOS_SEPARADOS', orden: 4, aplica: tieneAl,                                                         label: 'Ensamble' },
+        { chk: 'chk_matizado',   estado: 'ACCESORIOS_SEPARADOS', orden: 4, aplica: !!updatedOdp.getDataValue('matizado'),                           label: 'Matizado' },
+        { chk: 'chk_pelicula',   estado: 'ACCESORIOS_SEPARADOS', orden: 4, aplica: !!updatedOdp.getDataValue('pelicula'),                           label: 'Película' },
+        { chk: 'chk_huacal',     estado: 'ACCESORIOS_SEPARADOS', orden: 4, aplica: !!updatedOdp.getDataValue('huacal'),                             label: 'Huacal' },
+        { chk: 'chk_carton',     estado: 'ACCESORIOS_SEPARADOS', orden: 4, aplica: !!updatedOdp.getDataValue('carton'),                             label: 'Cartón' },
+      ];
+      // Etapas que aplican pero quedaron sin marcar tras el update.
+      const faltantes = REGLAS_RETRO.filter((r) => r.aplica && !updatedOdp.getDataValue(r.chk as any));
+      if (faltantes.length > 0) {
+        // Destino: el estado más temprano (menor orden) entre las etapas faltantes.
+        const destino = faltantes.reduce((a, b) => (b.orden < a.orden ? b : a));
+        const etiquetas = faltantes.map((f) => f.label).join(', ');
+        await updatedOdp.update(
+          { estado_produccion: destino.estado, fecha_listo_instalar: null },
+          { transaction }
+        );
+        await HistorialEstadoODP.create({
+          odp_id: Number(id),
+          estado_anterior: 'LISTO_INSTALAR',
+          estado_nuevo: destino.estado,
+          usuario_id: req.user?.id || null,
+          fecha: new Date(),
+          observacion: `Retroceso desde Listo para Instalar: se desmarcó ${etiquetas} en Control Taller.`,
+        }, { transaction });
+        retrocesoEstado = destino.estado;
+        console.log(`↩️  ODP ${updatedOdp.getDataValue('numero_odp')} retrocedió de LISTO_INSTALAR a ${destino.estado} (desmarcado: ${etiquetas}).`);
+      }
+    }
+
     await transaction.commit();
 
     // ─── Auto-crear PedidoPV si proveedor_vidrio se asigna por primera vez en edición ───
@@ -851,6 +906,22 @@ export const updateODP = async (req: Request, res: Response) => {
           mensaje,
         });
       }).catch(err => console.error('Error notificación ODP:', err));
+    }
+
+    // Notificación cuando una ODP retrocede de LISTO_INSTALAR por desmarcar un check
+    if (retrocesoEstado) {
+      const numeroOdp = odp.getDataValue('numero_odp');
+      const odpId = odp.getDataValue('id');
+      const asesorId = odp.getDataValue('asesor_id');
+      import('../utils/notificaciones').then(({ notificarCambioEstadoODP }) => {
+        notificarCambioEstadoODP({
+          numero_odp: numeroOdp,
+          odp_id: odpId,
+          asesor_id: asesorId,
+          estado_nuevo: retrocesoEstado!,
+          mensaje: 'La orden volvió a producción: se desmarcó una etapa en Control Taller.',
+        });
+      }).catch(err => console.error('Error notificación retroceso ODP:', err));
     }
 
     import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(Number(id), 'update')).catch(() => {});

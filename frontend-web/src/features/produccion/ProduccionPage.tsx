@@ -337,9 +337,16 @@ const ProduccionPage: React.FC = () => {
             toast.warning('Esta tarea requiere que el vidrio haya sido recibido primero.');
             return;
         }
+        const newValue = !(odp as any)[field];
+        // Desmarcar una etapa aplicable de una ODP ya lista la regresa a producción
+        if (!newValue && odp.estado_produccion === 'LISTO_INSTALAR' && isColApplicable(odp, field)) {
+            const etapa = COLUMNS.find(c => c.key === field)?.label || 'esta etapa';
+            if (!window.confirm(`La ${odp.numero_odp} ya está LISTA PARA INSTALAR. Al desmarcar «${etapa}» volverá a producción. ¿Continuar?`)) {
+                return;
+            }
+        }
         try {
             const token = sessionStorage.getItem('token');
-            const newValue = !(odp as any)[field];
             await axios.put(
                 `${API}/api/odp/${odp.id}`,
                 { [field]: newValue },
