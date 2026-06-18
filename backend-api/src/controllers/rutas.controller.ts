@@ -27,16 +27,21 @@ const INCLUDE_RUTA_LISTA = async (): Promise<any[]> => [
     model: RutaODP, as: 'ruta_odps',
     separate: true,
     order: [['orden', 'ASC']],
+    // Listado: NO trae firma_receptor (TEXT base64 ~13KB), fotos ni datos_receptor —
+    // esos campos solo se muestran en ODPFichaModal (detalle que re-fetcha). Reduce egress.
+    attributes: ['id', 'ruta_id', 'odp_id', 'orden', 'fecha_programada', 'estado',
+      'motivo_pausa', 'descripcion_dano', 'llegada_conductor',
+      'inicio_instalacion', 'fin_instalacion'],
     include: [
       {
         model: ODP, as: 'odp',
+        // Solo los campos que usan getTipoServicio/getPagoBadge y las tarjetas de ruta.
+        attributes: ['id', 'numero_odp', 'cliente_id', 'asesor_id', 'direccion_instalacion',
+          'instalacion', 'acarreo', 'es_garantia', 'estado_caja',
+          'autorizacion_especial_despacho'],
         include: [
           { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'telefono'] },
           { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
-          { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
-          { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'fecha', 'observaciones'] },
-          { model: Cotizacion, as: 'cotizaciones', attributes: ['id', 'numero_cot', 'valor_total', 'estado', 'fecha_creacion'] },
-          { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'] },
         ],
       },
     ],

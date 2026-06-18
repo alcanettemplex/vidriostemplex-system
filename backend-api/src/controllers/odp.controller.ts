@@ -157,7 +157,7 @@ export const getGarantias = async (req: Request, res: Response) => {
     const garantias = await ODP.findAll({
       where: { es_garantia: true } as any,
       include: [
-        { model: Cliente, as: 'cliente' },
+        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento', 'telefono', 'celular', 'email', 'direccion'] },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
         { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
         { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp', 'fecha_entrega'] },
