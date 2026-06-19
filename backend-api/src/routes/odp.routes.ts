@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, getNcGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha, getHistorialODP } from '../controllers/odp.controller';
+import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, getNcGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha, getHistorialODP, agregarFacturaAdicional, eliminarFacturaAdicional } from '../controllers/odp.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { uploadConfig } from '../config/upload';
@@ -41,6 +41,10 @@ router.patch('/:id/facturar', authMiddleware, requireRole('admin', 'gerencia', '
 
 // Estado de caja: contabilidad, admin, gerencia pueden cambiar estado_caja manualmente
 router.patch('/:id/caja', authMiddleware, requireRole('admin', 'gerencia', 'contabilidad'), actualizarEstadoCaja);
+
+// Facturas electrónicas adicionales (2ª/3ª): contabilidad, admin, gerencia
+router.post('/:id/facturas-adicionales', authMiddleware, requireRole('admin', 'gerencia', 'contabilidad'), agregarFacturaAdicional);
+router.delete('/:id/facturas-adicionales/:facturaId', authMiddleware, requireRole('admin', 'gerencia', 'contabilidad'), eliminarFacturaAdicional);
 
 // Aprobar ODP sin requerimientos (pago adelantado): asesor creador, admin, gerencia
 router.patch('/:id/aprobar-sin-items', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), aprobarSinItems);

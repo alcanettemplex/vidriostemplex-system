@@ -54,6 +54,7 @@ interface ODPFacturada {
   numero_odp: string;
   fecha_factura: string | null;
   factura_electronica: string | null;
+  facturas_adicionales?: { id: number; numero_fe: string; fecha_factura: string | null }[];
   valor_total: number | null;
   estado_caja: string | null;
   cliente: { id: number; nombre_razon_social: string };
@@ -88,6 +89,7 @@ interface SalidaAlmacen {
     numero_odp: string;
     fecha_factura?: string | null;
     factura_electronica?: string | null;
+    facturas_adicionales?: { id: number; numero_fe: string; fecha_factura: string | null }[];
     valor_total?: number | null;
     estado_produccion?: string;
     fecha_creacion?: string | null;
@@ -453,7 +455,14 @@ const FacturasSalidasPage: React.FC = () => {
                         <td className="px-5 py-4 text-slate-600">{fmtFecha(odp.fecha_factura)}</td>
                         <td className="px-5 py-4">
                           {odp.factura_electronica
-                            ? <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-200">{odp.factura_electronica}</span>
+                            ? (
+                              <div className="flex flex-wrap items-center gap-1">
+                                <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-200">{odp.factura_electronica}</span>
+                                {odp.facturas_adicionales?.map((f: any) => (
+                                  <span key={f.id} className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold border border-indigo-200">{f.numero_fe}</span>
+                                ))}
+                              </div>
+                            )
                             : <span className="text-slate-300">—</span>}
                         </td>
                         <td className="px-5 py-4 text-slate-600">{fmtMoneda(odp.valor_total)}</td>
@@ -658,7 +667,14 @@ const FacturasSalidasPage: React.FC = () => {
                             <td className="px-5 py-4 text-slate-700">{s.odp?.cliente?.nombre_razon_social || '—'}</td>
                             <td className="px-5 py-4">
                               {s.odp?.factura_electronica
-                                ? <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-200">{s.odp.factura_electronica}</span>
+                                ? (
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-200">{s.odp.factura_electronica}</span>
+                                    {s.odp.facturas_adicionales?.map((f: any) => (
+                                      <span key={f.id} className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold border border-indigo-200">{f.numero_fe}</span>
+                                    ))}
+                                  </div>
+                                )
                                 : <span className="text-slate-300">—</span>}
                             </td>
                             <td className="px-5 py-4 text-slate-600">{fmtFecha(s.odp?.fecha_factura)}</td>

@@ -23,6 +23,9 @@ import {
   iniciarRutaConductor,
   llegadaConductor,
   terminarRutaConductor,
+  getODPsAtascadas,
+  reprogramarAtascada,
+  entregarAtascada,
 } from '../controllers/rutas.controller';
 
 const router = Router();
@@ -35,6 +38,11 @@ router.get('/programacion', requireRole('admin', 'gerencia', 'jefe_produccion', 
 router.get('/historial', requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'), getRutasHistorial);
 router.get('/vehiculos', getVehiculos);
 router.get('/personal', getInstaladores);
+
+// Jefe: ODPs atascadas tras cierre de ruta (rescate)
+router.get('/atascadas', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), getODPsAtascadas);
+router.post('/atascadas/:id/reprogramar', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), reprogramarAtascada);
+router.post('/atascadas/:id/entregar', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), entregarAtascada);
 
 // Instalador: mi asignación del día
 router.get('/mi-asignacion', requireRole('instalador'), getMiAsignacion);

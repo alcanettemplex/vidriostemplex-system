@@ -1100,6 +1100,19 @@ const TabFinanciero: React.FC<{ odp: any }> = ({ odp }) => {
           <InfoRow label="N° Factura Electrónica" value={odp.factura_electronica ? <span className="font-mono font-bold text-emerald-700">#{odp.factura_electronica}</span> : <span className="text-slate-400 text-xs italic">No emitida</span>} />
           <InfoRow label="Forma de Pago ODP" value={odp.forma_pago} />
           {odp.autorizacion_especial_despacho && <InfoRow label="Autorización Especial" value={<Badge className="bg-amber-100 text-amber-700 border-amber-200"><AlertCircle className="w-3 h-3" />Sí</Badge>} />}
+          {odp.facturas_adicionales?.length > 0 && (
+            <div className="col-span-2">
+              <InfoRow label="Facturas Adicionales" value={
+                <div className="flex flex-wrap gap-1.5">
+                  {odp.facturas_adicionales.map((f: any) => (
+                    <span key={f.id} className="font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded text-xs">
+                      #{f.numero_fe}
+                    </span>
+                  ))}
+                </div>
+              } />
+            </div>
+          )}
         </div>
         {odp.url_documento_factura && (
           <a href={odp.url_documento_factura} target="_blank" rel="noopener noreferrer"

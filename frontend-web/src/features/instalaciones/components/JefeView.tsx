@@ -5,6 +5,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, MapPin, Truck, Users, Calendar,
   Pencil, Trash2, Plus, RefreshCw, PackageCheck, PauseCircle, Search,
   Route, History, ChevronDown, ChevronUp, HardHat, Upload, X as XIcon, Receipt,
+  AlertOctagon,
 } from 'lucide-react';
 import ProgramarRutaModal from './ProgramarRutaModal';
 import InstaladorGestionTab from './InstaladorGestionTab';
@@ -275,7 +276,7 @@ const RutaCard: React.FC<{
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-type MainTab = 'listos' | 'pago' | 'factura' | 'produccion' | 'programados' | 'completados' | 'instaladores';
+type MainTab = 'listos' | 'pago' | 'factura' | 'produccion' | 'programados' | 'completados' | 'instaladores' | 'atascadas';
 type SubTabProg = 'programada' | 'en_curso';
 type SubTabComp = 'completadas' | 'canceladas';
 
@@ -289,6 +290,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const [subTabComp, setSubTabComp] = useState<SubTabComp>('completadas');
   const [odps, setOdps] = useState<{ listos: any[]; espera_pago: any[]; espera_produccion: any[]; espera_factura: any[] }>({ listos: [], espera_pago: [], espera_produccion: [], espera_factura: [] });
   const [rutas, setRutas] = useState<any[]>([]);
+  const [atascadas, setAtascadas] = useState<any[]>([]);
   const [rutasHistorial, setRutasHistorial] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingHistorial, setLoadingHistorial] = useState(false);
@@ -311,12 +313,14 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const [gestion, rutasRes] = await Promise.all([
+      const [gestion, rutasRes, atascadasRes] = await Promise.all([
         axios.get(`${API}/api/rutas/odps-para-gestion`, { headers }),
         axios.get(`${API}/api/rutas`, { headers }),
+        axios.get(`${API}/api/rutas/atascadas`, { headers }),
       ]);
       setOdps(gestion.data);
       setRutas(rutasRes.data);
+      setAtascadas(atascadasRes.data);
     } catch { toast.error('Error al cargar datos'); }
     finally { setLoading(false); }
   }, []); // eslint-disable-line
@@ -407,6 +411,24 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     } catch (e: any) { toast.error(e.response?.data?.error || 'Error al pausar'); }
   };
 
+  // Atascadas: reprogramar (→ Listo para instalar) o marcar entregada (cierre administrativo)
+  const handleReprogramarAtascada = async (rutaOdpId: number, numeroOdp: string) => {
+    if (!window.confirm(`¿Reprogramar ${numeroOdp}? Volverá a "Listo para instalar" para asignarla a una ruta nueva.`)) return;
+    try {
+      await axios.post(`${API}/api/rutas/atascadas/${rutaOdpId}/reprogramar`, {}, { headers });
+      toast.success(`${numeroOdp} reprogramada`);
+      cargar();
+    } catch (e: any) { toast.error(e.response?.data?.error || 'Error al reprogramar'); }
+  };
+  const handleEntregarAtascada = async (rutaOdpId: number, numeroOdp: string) => {
+    if (!window.confirm(`¿Marcar ${numeroOdp} como ENTREGADA? Úsalo solo si la instalación realmente se realizó. Es un cierre administrativo.`)) return;
+    try {
+      await axios.post(`${API}/api/rutas/atascadas/${rutaOdpId}/entregar`, {}, { headers });
+      toast.success(`${numeroOdp} marcada como entregada`);
+      cargar();
+    } catch (e: any) { toast.error(e.response?.data?.error || 'Error al marcar entregada'); }
+  };
+
   // Tabs principales
   const MAIN_TABS = [
     { key: 'listos',        label: 'Listo para instalar',  count: odps.listos.length,              icon: CheckCircle2,  color: 'text-emerald-600', soloEscritura: false },
@@ -414,6 +436,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     { key: 'factura',       label: 'Espera de factura',     count: odps.espera_factura.length,      icon: Receipt,       color: 'text-orange-600',  soloEscritura: false },
     { key: 'produccion',    label: 'Espera de producción',  count: odps.espera_produccion.length,   icon: AlertTriangle, color: 'text-red-500',     soloEscritura: false },
     { key: 'programados',   label: 'Programados',           count: rutas.length,                    icon: Route,         color: 'text-indigo-600',  soloEscritura: false },
+    { key: 'atascadas',     label: 'Atascadas',             count: atascadas.length,                icon: AlertOctagon,  color: 'text-rose-600',    soloEscritura: false },
     { key: 'completados',   label: 'Completados',           count: null,                            icon: History,       color: 'text-slate-500',   soloEscritura: false },
     { key: 'instaladores',  label: 'Instaladores',          count: null,                            icon: HardHat,       color: 'text-teal-600',    soloEscritura: true  },
   ] as const;
@@ -421,6 +444,13 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   // ODP list actual según tab
   const odpListaActual = mainTab === 'listos' ? odps.listos : mainTab === 'pago' ? odps.espera_pago : mainTab === 'factura' ? odps.espera_factura : odps.espera_produccion;
   const odpsMostradas  = filtrarOdps(odpListaActual);
+
+  // Atascadas: estructura plana (cliente es string), filtro propio
+  const atascadasMostradas = q
+    ? atascadas.filter((a: any) =>
+        a.numero_odp?.toLowerCase().includes(q) ||
+        a.cliente?.toLowerCase().includes(q))
+    : atascadas;
 
   // Rutas según sub-tab programados
   const rutasProg = filtrarRutas(subTabProg === 'programada' ? rutasProgramadas : rutasEnCurso);
@@ -469,7 +499,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
       {/* Tabs principales */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="flex border-b border-slate-100 overflow-x-auto">
-          {MAIN_TABS.filter(t => !t.soloEscritura || !readOnly).map(t => {
+          {MAIN_TABS.filter(t => (!t.soloEscritura || !readOnly) && (t.key !== 'atascadas' || atascadas.length > 0)).map(t => {
             const Icon = t.icon;
             const activo = mainTab === t.key;
             return (
@@ -575,6 +605,69 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
             ) : (
               <div className="space-y-3">
                 {rutasProg.map((r: any) => <RutaCard key={r.id} ruta={r} {...propsRutaCard} />)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Contenido tab Atascadas ── */}
+        {mainTab === 'atascadas' && (
+          <div className="p-4 space-y-3">
+            <div className="flex items-start gap-2 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-xs text-rose-800">
+              <AlertOctagon className="w-4 h-4 mt-0.5 shrink-0 text-rose-600" />
+              <span>
+                ODPs que quedaron en <b>PROGRAMADA</b> porque su ruta se cerró sin registrar la instalación.
+                Reprogámalas para asignarlas a una ruta nueva, o márcalas como entregadas si la instalación
+                sí se realizó pero no se registró.
+              </span>
+            </div>
+
+            {loading ? (
+              <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-7 w-7 border-b-2 border-rose-600" /></div>
+            ) : atascadasMostradas.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 text-sm">
+                {q ? 'Sin resultados para la búsqueda.' : 'No hay ODPs atascadas. 🎉'}
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {atascadasMostradas.map((a: any) => (
+                  <div key={a.ruta_odp_id} className="border border-slate-200 rounded-xl p-3.5 bg-white hover:shadow-sm transition-shadow">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button onClick={() => setSelectedOdpId(a.odp_id)} className="font-bold text-sm text-indigo-700 hover:underline">
+                            {a.numero_odp}
+                          </button>
+                          {a.es_no_conformidad && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">REPROCESO</span>}
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">Ruta #{a.ruta_id} cerrada</span>
+                        </div>
+                        <p className="text-sm text-slate-700 font-medium mt-1 truncate">{a.cliente || 'Sin cliente'}</p>
+                        {a.direccion_instalacion && (
+                          <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1 truncate">
+                            <MapPin className="w-3 h-3 shrink-0" /> {a.direccion_instalacion}
+                          </p>
+                        )}
+                        <p className="text-[11px] text-slate-400 mt-0.5">Asesor: {a.asesor || '—'}</p>
+                      </div>
+                      {!readOnly && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => handleReprogramarAtascada(a.ruta_odp_id, a.numero_odp)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" /> Reprogramar
+                          </button>
+                          <button
+                            onClick={() => handleEntregarAtascada(a.ruta_odp_id, a.numero_odp)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                          >
+                            <PackageCheck className="w-3.5 h-3.5" /> Marcar entregada
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

@@ -1131,3 +1131,155 @@ export const terminarRutaConductor = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Error al finalizar ruta' });
   }
 };
+
+// ─── JEFE: ODPs "atascadas" tras cierre de ruta ──────────────────────────────
+// ODP en PROGRAMADA cuya parada quedó pendiente pero el conductor ya cerró la ruta.
+// Quedan invisibles: no entran en odps-para-gestion (no es LISTO_INSTALAR) ni en
+// getRutas (la ruta está completada). Esta vista las rescata para reprogramar o cerrar.
+
+export const getODPsAtascadas = async (_req: Request, res: Response) => {
+  try {
+    const filas = await sequelize.query(
+      `SELECT ro.id AS ruta_odp_id, ro.estado AS estado_parada, ro.fecha_programada,
+              ri.id AS ruta_id, ri.fin_ruta,
+              o.id AS odp_id, o.numero_odp, o.estado_produccion,
+              o.instalacion, o.acarreo, o.es_no_conformidad, o.direccion_instalacion,
+              c.nombre_razon_social AS cliente,
+              u.nombre_completo AS asesor
+       FROM ruta_odp ro
+       JOIN rutas_instalacion ri ON ri.id = ro.ruta_id
+       JOIN odp o ON o.id = ro.odp_id
+       LEFT JOIN clientes c ON c.id = o.cliente_id
+       LEFT JOIN usuarios u ON u.id = o.asesor_id
+       WHERE ri.estado = 'completada'
+         AND ro.estado = 'pendiente'
+         AND o.estado_produccion = 'PROGRAMADA'
+       ORDER BY ri.fin_ruta DESC NULLS LAST`,
+      { type: QueryTypes.SELECT }
+    );
+    res.json(filas);
+  } catch (e: any) {
+    console.error('getODPsAtascadas:', e.message);
+    res.status(500).json({ error: 'Error al obtener ODPs atascadas' });
+  }
+};
+
+// JEFE: reprogramar una ODP atascada → vuelve a LISTO_INSTALAR para rearmar ruta.
+// Cierra la parada vieja (completada) para sacarla de la ruta finalizada.
+export const reprogramarAtascada = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params; // ruta_odp.id
+    const user = req.user!;
+
+    const rutaODP = await RutaODP.findByPk(id, {
+      include: [{ model: RutaInstalacion, as: 'ruta', attributes: ['id', 'estado'] }],
+      transaction: t,
+    }) as any;
+    if (!rutaODP) { await t.rollback(); return res.status(404).json({ error: 'Parada de ruta no encontrada' }); }
+    if (rutaODP.estado !== 'pendiente' || rutaODP.ruta?.estado !== 'completada') {
+      await t.rollback();
+      return res.status(400).json({ error: 'Esta ODP ya no está atascada (su estado cambió). Refresca la lista.' });
+    }
+
+    const ahora = new Date();
+    // Cerrar la parada vieja para que no reaparezca; la ODP se reasignará a una ruta nueva.
+    await rutaODP.update({ estado: 'completada', fin_instalacion: ahora }, { transaction: t });
+
+    const odp = await ODP.findByPk(rutaODP.odp_id, { transaction: t }) as any;
+    if (odp) {
+      const estadoAnterior = odp.getDataValue('estado_produccion');
+      await odp.update({ estado_produccion: 'LISTO_INSTALAR' }, { transaction: t });
+      await HistorialEstadoODP.create({
+        odp_id: odp.id,
+        estado_anterior: estadoAnterior,
+        estado_nuevo: 'LISTO_INSTALAR',
+        usuario_id: user.id,
+        fecha: ahora,
+        observacion: `Reprogramada desde panel "Atascadas" (ruta #${rutaODP.ruta_id} se cerró sin instalar)`,
+      }, { transaction: t });
+      notificarCambioEstadoODP({
+        numero_odp: odp.numero_odp,
+        odp_id: odp.id,
+        asesor_id: odp.asesor_id,
+        estado_nuevo: 'LISTO_INSTALAR',
+        mensaje: `${odp.numero_odp} reprogramada — lista para nueva ruta`,
+      }).catch(() => {});
+    }
+
+    await t.commit();
+    res.json({ ok: true });
+  } catch (e: any) {
+    await t.rollback();
+    console.error('reprogramarAtascada:', e.message);
+    res.status(500).json({ error: 'Error al reprogramar ODP' });
+  }
+};
+
+// JEFE: marcar entregada una ODP atascada → cierre administrativo (sí se instaló
+// pero no se registró). Replica el cierre de finalizarInstalacion sin evidencia.
+export const entregarAtascada = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params; // ruta_odp.id
+    const user = req.user!;
+
+    const rutaODP = await RutaODP.findByPk(id, {
+      include: [{ model: RutaInstalacion, as: 'ruta', attributes: ['id', 'estado'] }],
+      transaction: t,
+    }) as any;
+    if (!rutaODP) { await t.rollback(); return res.status(404).json({ error: 'Parada de ruta no encontrada' }); }
+    if (rutaODP.estado !== 'pendiente' || rutaODP.ruta?.estado !== 'completada') {
+      await t.rollback();
+      return res.status(400).json({ error: 'Esta ODP ya no está atascada (su estado cambió). Refresca la lista.' });
+    }
+
+    const ahora = new Date();
+    await rutaODP.update({ estado: 'completada', fin_instalacion: ahora }, { transaction: t });
+
+    const odp = await ODP.findByPk(rutaODP.odp_id, { transaction: t }) as any;
+    if (odp) {
+      const estadoAnterior = odp.getDataValue('estado_produccion');
+      await odp.update({ estado_produccion: 'ENTREGADA' }, { transaction: t });
+      await HistorialEstadoODP.create({
+        odp_id: odp.id,
+        estado_anterior: estadoAnterior,
+        estado_nuevo: 'ENTREGADA',
+        usuario_id: user.id,
+        fecha: ahora,
+        observacion: `Entrega registrada desde panel "Atascadas" (cierre administrativo, ruta #${rutaODP.ruta_id})`,
+      }, { transaction: t });
+
+      // Si era ODP de reproceso → reactivar el padre pausado (igual que finalizarInstalacion)
+      if (odp.es_no_conformidad && odp.odp_padre_id) {
+        const padre = await ODP.findByPk(odp.odp_padre_id, { transaction: t }) as any;
+        if (padre && padre.estado_produccion === 'PAUSADA') {
+          await padre.update({ estado_produccion: 'INSTALADA' }, { transaction: t });
+          await HistorialEstadoODP.create({
+            odp_id: padre.id,
+            estado_anterior: 'PAUSADA',
+            estado_nuevo: 'INSTALADA',
+            usuario_id: user.id,
+            fecha: ahora,
+            observacion: `Reactivada: reproceso ${odp.numero_odp} entregado`,
+          }, { transaction: t });
+        }
+      }
+
+      notificarCambioEstadoODP({
+        numero_odp: odp.numero_odp,
+        odp_id: odp.id,
+        asesor_id: odp.asesor_id,
+        estado_nuevo: 'ENTREGADA',
+        mensaje: `${odp.numero_odp} marcada como entregada`,
+      }).catch(() => {});
+    }
+
+    await t.commit();
+    res.json({ ok: true });
+  } catch (e: any) {
+    await t.rollback();
+    console.error('entregarAtascada:', e.message);
+    res.status(500).json({ error: 'Error al marcar entregada' });
+  }
+};

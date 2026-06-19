@@ -53,6 +53,7 @@ const odpSchema = z.object({
     numero_pedido_proveedor: z.string().optional(),
     items: z.array(itemSchema).optional(),
     requiere_visita_tecnica: z.boolean().optional().default(false),
+    es_no_conformidad: z.boolean().optional().default(false),
 });
 
 type ItemFormValues = {
@@ -98,6 +99,7 @@ type ODPFormValues = {
     numero_pedido_proveedor?: string;
     items: ItemFormValues[];
     requiere_visita_tecnica?: boolean;
+    es_no_conformidad?: boolean;
 };
 
 interface ODPFormProps {
@@ -180,7 +182,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
             carton: false,
             items: [],
             valor_total: 0,
-            forma_pago: ''
+            forma_pago: '',
+            es_no_conformidad: false
         }
     });
 
@@ -305,7 +308,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                 return;
             }
             const token = sessionStorage.getItem('token');
-            const { requiere_visita_tecnica, ...rest } = data;
+            const { requiere_visita_tecnica, es_no_conformidad, ...rest } = data;
             const sinItems = itemFields.length === 0;
             const payload = {
                 ...rest,
@@ -326,6 +329,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                 ...(!odpToEdit && tipoOdp ? { tipo_odp: tipoOdp } : {}),
                 // Pago adelantado sin requerimientos de vidrio
                 ...(!odpToEdit && sinItems ? { sin_items: true } : {}),
+                // Reposición / No Conformidad sin cobro (solo en creación)
+                ...(!odpToEdit && es_no_conformidad ? { es_no_conformidad: true } : {}),
             };
 
             if (odpToEdit) {
@@ -882,6 +887,21 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                         <label htmlFor="requiere_visita_tecnica" className="cursor-pointer">
                                             <p className="text-sm font-bold text-orange-800">Requiere visita técnica</p>
                                             <p className="text-xs text-orange-600 mt-0.5">El cliente no tiene medidas. El jefe de producción debe realizar una visita antes de iniciar la orden.</p>
+                                        </label>
+                                    </div>
+                                )}
+                                {/* Reposición / No Conformidad — solo para nuevas ODPs */}
+                                {!odpToEdit && (
+                                    <div className="flex items-start gap-3 p-4 bg-rose-50 border border-rose-200 rounded-xl">
+                                        <input
+                                            type="checkbox"
+                                            id="es_no_conformidad"
+                                            {...register('es_no_conformidad')}
+                                            className="mt-0.5 w-4 h-4 text-rose-500 rounded border-rose-300 focus:ring-rose-400"
+                                        />
+                                        <label htmlFor="es_no_conformidad" className="cursor-pointer">
+                                            <p className="text-sm font-bold text-rose-800">Reposición / No Conformidad (sin cobro al cliente)</p>
+                                            <p className="text-xs text-rose-600 mt-0.5">Úsalo para reprocesos o reposiciones que no se cobran. La caja quedará en CANCELADO y la orden no exigirá factura electrónica para instalar.</p>
                                         </label>
                                     </div>
                                 )}

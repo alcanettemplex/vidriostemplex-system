@@ -20,6 +20,7 @@ import {
   Prospecto,
   PedidoPV,
   SalidaAlmacen,
+  FacturaAdicionalODP,
 } from '../models';
 import Pago from '../models/pago.model';
 import Produccion from '../models/produccion.model';
@@ -118,6 +119,7 @@ export const getODPs = async (req: Request, res: Response) => {
         { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
         { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
         { model: SAP, as: 'saps', attributes: ['id'], separate: true },
+        { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura'], separate: true },
       ],
       order: [['fecha_creacion', 'DESC']]
     });
@@ -272,6 +274,11 @@ export const getODP = async (req: Request, res: Response) => {
           model: SalidaAlmacen, as: 'salida_almacen',
           attributes: ['id', 'numero_sa', 'fecha_sa', 'creado_en'],
           include: [{ model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] }],
+        },
+        {
+          model: FacturaAdicionalODP, as: 'facturas_adicionales',
+          attributes: ['id', 'numero_fe', 'fecha_factura', 'url_documento_factura'],
+          separate: true, order: [['id', 'ASC']],
         },
         {
           model: ODP, as: 'garantias',
@@ -434,13 +441,20 @@ export const createODP = async (req: Request, res: Response) => {
         const estadoInicial = data.estado_produccion
           ?? ((data.items && data.items.length > 0) ? 'MEDICION' : 'EN_ESPERA');
 
+        // Reposición / No Conformidad creada directamente (sin flujo formal de NC,
+        // p.ej. cuando la ODP origen no existe en el sistema): no se cobra al cliente.
+        const esNoConformidad = data.es_no_conformidad === true;
+
         const odpData = {
           numero_odp: data.numero_odp || generatedNumeroODP,
           cliente_id: data.cliente_id,
           asesor_id: data.asesor_id || userId,
           estado_produccion: estadoInicial,
           estado_facturacion: data.estado_facturacion,
-          estado_caja: data.forma_pago === 'credito' ? 'CREDITO_APROBADO' : (data.estado_caja || 'PENDIENTE'),
+          es_no_conformidad: esNoConformidad,
+          estado_caja: esNoConformidad
+            ? 'CANCELADO'
+            : (data.forma_pago === 'credito' ? 'CREDITO_APROBADO' : (data.estado_caja || 'PENDIENTE')),
           factura_electronica: data.factura_electronica,
           url_documento_factura: data.url_documento_factura,
           autorizacion_especial_despacho: data.autorizacion_especial_despacho,
@@ -1266,6 +1280,63 @@ export const facturarODP = async (req: Request, res: Response) => {
     if (error?.name === 'ZodError') return res.status(400).json({ error: error.errors });
     console.error('Error al facturar ODP:', error);
     res.status(500).json({ error: 'Error al registrar la factura', details: error?.message });
+  }
+};
+
+// Máximo de facturas electrónicas por ODP: 1 principal + 2 adicionales
+const MAX_FACTURAS_ADICIONALES = 2;
+
+// ─── Agregar factura electrónica adicional (2ª/3ª) ──────────────────────────
+// La FE principal vive en odp.factura_electronica; aquí solo se registran las extra.
+export const agregarFacturaAdicional = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const schema = z.object({
+      numero_fe: z.string().min(1, 'Número de FE requerido'),
+      fecha_factura: z.string().optional(),
+    }).strict();
+    const data = schema.parse(req.body);
+
+    const odp = await ODP.findByPk(id, { attributes: ['id', 'factura_electronica', 'estado_facturacion'] });
+    if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
+
+    // Debe existir la FE principal antes de agregar adicionales
+    if (!odp.getDataValue('factura_electronica')) {
+      return res.status(400).json({ error: 'Primero registra la factura electrónica principal de la ODP.' });
+    }
+
+    const totalAdicionales = await FacturaAdicionalODP.count({ where: { odp_id: id } });
+    if (totalAdicionales >= MAX_FACTURAS_ADICIONALES) {
+      return res.status(400).json({ error: `Una ODP admite máximo ${MAX_FACTURAS_ADICIONALES + 1} facturas electrónicas (1 principal + ${MAX_FACTURAS_ADICIONALES} adicionales).` });
+    }
+
+    const factura = await FacturaAdicionalODP.create({
+      odp_id: Number(id),
+      numero_fe: data.numero_fe.trim(),
+      fecha_factura: data.fecha_factura ? new Date(data.fecha_factura + 'T12:00:00.000Z') : null,
+      creado_por: req.user?.id ?? null,
+    });
+
+    res.status(201).json(factura);
+  } catch (error: any) {
+    if (error?.name === 'ZodError') return res.status(400).json({ error: error.errors });
+    console.error('Error al agregar factura adicional:', error);
+    res.status(500).json({ error: 'Error al agregar la factura adicional', details: error?.message });
+  }
+};
+
+// ─── Eliminar factura electrónica adicional ─────────────────────────────────
+export const eliminarFacturaAdicional = async (req: Request, res: Response) => {
+  try {
+    const { id, facturaId } = req.params;
+    const factura = await FacturaAdicionalODP.findOne({ where: { id: facturaId, odp_id: id } });
+    if (!factura) return res.status(404).json({ error: 'Factura adicional no encontrada' });
+
+    await factura.destroy();
+    res.json({ ok: true });
+  } catch (error: any) {
+    console.error('Error al eliminar factura adicional:', error);
+    res.status(500).json({ error: 'Error al eliminar la factura adicional', details: error?.message });
   }
 };
 

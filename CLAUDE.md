@@ -135,6 +135,7 @@ Hija con `odp_padre_id` + `es_no_conformidad: true`. Padre → PAUSADA. Se react
 | `SalidaAlmacen` | `salidas_almacen` | SA-XXXX, UNIQUE por ODP |
 | `AuditoriaLog` | `auditoria_log` | INSERT/UPDATE/DELETE de 25 modelos |
 | `AlertasUmbral` | `alertas_umbral` | Umbrales panel ROOT |
+| `FacturaAdicionalODP` | `facturas_adicionales_odp` | FE 2ª/3ª de una ODP. Principal sigue en `odp.factura_electronica`. Máx 3 FE totales |
 
 ---
 

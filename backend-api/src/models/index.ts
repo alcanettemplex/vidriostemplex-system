@@ -34,6 +34,7 @@ import Lead from './lead.model';
 import LeadEvento from './lead_evento.model';
 import LeadImagen from './lead_imagen.model';
 import MetaUsuarioMensual from './meta_usuario_mensual.model';
+import FacturaAdicionalODP from './factura_adicional_odp.model';
 
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
@@ -207,6 +208,12 @@ Pago.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
 Usuario.hasMany(Pago, { foreignKey: 'registrado_por', as: 'pagos_registrados' });
 Pago.belongsTo(Usuario, { foreignKey: 'registrado_por', as: 'registrador' });
 
+// ─── Facturas electrónicas adicionales (2ª y 3ª FE de una ODP) ───────────────
+ODP.hasMany(FacturaAdicionalODP, { foreignKey: 'odp_id', as: 'facturas_adicionales' });
+FacturaAdicionalODP.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
+Usuario.hasMany(FacturaAdicionalODP, { foreignKey: 'creado_por', as: 'facturas_adicionales_creadas' });
+FacturaAdicionalODP.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
+
 // ─── Bloque F: Pedidos PV ────────────────────────────────────────────────────
 ODP.hasMany(PedidoPV, { foreignKey: 'odp_id', as: 'pedidos_pv' });
 PedidoPV.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
@@ -283,6 +290,7 @@ const MODELOS_AUDITADOS = [
   { model: LeadEvento, tabla: 'lead_eventos', pk: 'id' },
   { model: LeadImagen, tabla: 'lead_imagenes', pk: 'id' },
   { model: MetaUsuarioMensual, tabla: 'metas_usuario_mensual', pk: 'id' },
+  { model: FacturaAdicionalODP, tabla: 'facturas_adicionales_odp', pk: 'id' },
 ];
 
 function registrarAuditoria(
@@ -366,5 +374,6 @@ export {
   LeadEvento,
   LeadImagen,
   MetaUsuarioMensual,
+  FacturaAdicionalODP,
 };
 

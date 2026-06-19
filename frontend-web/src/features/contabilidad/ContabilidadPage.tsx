@@ -80,8 +80,12 @@ const ContabilidadPage: React.FC = () => {
   // ─── Modal FE (nueva o edición) ──────────────────────────────────────────
   const [fichaOdpId, setFichaOdpId] = useState<number | null>(null);
   const [showFeModal, setShowFeModal] = useState(false);
-  const [feTarget, setFeTarget] = useState<{ id: number; numero_odp: string } | null>(null);
+  const [feTarget, setFeTarget] = useState<{ id: number; numero_odp: string; facturada: boolean } | null>(null);
   const [feForm, setFeForm] = useState({ numero_fe: '', fecha_fe: '' });
+  // Facturas electrónicas adicionales (2ª/3ª) de la ODP en edición
+  const [feAdicionales, setFeAdicionales] = useState<any[]>([]);
+  const [nuevaAdic, setNuevaAdic] = useState({ numero_fe: '', fecha_fe: '' });
+  const [addingAdic, setAddingAdic] = useState(false);
   const [submittingFe, setSubmittingFe] = useState(false);
 
   // ─── Modal editar pago ───────────────────────────────────────────────────
@@ -188,12 +192,44 @@ const ContabilidadPage: React.FC = () => {
   };
 
   const abrirFeModal = (odp: any) => {
-    setFeTarget({ id: odp.id, numero_odp: odp.numero_odp });
+    setFeTarget({ id: odp.id, numero_odp: odp.numero_odp, facturada: !!odp.factura_electronica });
     setFeForm({
       numero_fe: odp.factura_electronica || '',
       fecha_fe: odp.fecha_factura ? odp.fecha_factura.split('T')[0] : new Date().toISOString().split('T')[0],
     });
+    setFeAdicionales(odp.facturas_adicionales || []);
+    setNuevaAdic({ numero_fe: '', fecha_fe: '' });
     setShowFeModal(true);
+  };
+
+  const handleAddAdicional = async () => {
+    if (!feTarget) return;
+    if (!nuevaAdic.numero_fe.trim()) { toast.error('Ingresa el número de la factura adicional'); return; }
+    setAddingAdic(true);
+    try {
+      const res = await axios.post(`${API}/api/odp/${feTarget.id}/facturas-adicionales`, {
+        numero_fe: nuevaAdic.numero_fe.trim(),
+        ...(nuevaAdic.fecha_fe ? { fecha_factura: nuevaAdic.fecha_fe } : {}),
+      }, { headers: headers() });
+      const nueva = res.data;
+      setFeAdicionales(prev => [...prev, nueva]);
+      setOdps(prev => prev.map(o => o.id === feTarget.id
+        ? { ...o, facturas_adicionales: [...(o.facturas_adicionales || []), nueva] } : o));
+      setNuevaAdic({ numero_fe: '', fecha_fe: '' });
+      toast.success('Factura adicional agregada');
+    } catch (e: any) { toast.error(e.response?.data?.error || 'Error al agregar la factura'); }
+    finally { setAddingAdic(false); }
+  };
+
+  const handleDeleteAdicional = async (facturaId: number) => {
+    if (!feTarget) return;
+    try {
+      await axios.delete(`${API}/api/odp/${feTarget.id}/facturas-adicionales/${facturaId}`, { headers: headers() });
+      setFeAdicionales(prev => prev.filter(f => f.id !== facturaId));
+      setOdps(prev => prev.map(o => o.id === feTarget.id
+        ? { ...o, facturas_adicionales: (o.facturas_adicionales || []).filter((f: any) => f.id !== facturaId) } : o));
+      toast.success('Factura adicional eliminada');
+    } catch (e: any) { toast.error(e.response?.data?.error || 'Error al eliminar'); }
   };
 
   const handleFacturacionChange = (odp: any, nuevoEstado: string) => {
@@ -629,9 +665,17 @@ const ContabilidadPage: React.FC = () => {
                         <div className="flex items-center gap-1.5">
                           {odp.factura_electronica ? (
                             <div>
-                              <span className="font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 text-xs">
-                                FE-{odp.factura_electronica}
-                              </span>
+                              <div className="flex items-center gap-1">
+                                <span className="font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 text-xs">
+                                  FE-{odp.factura_electronica}
+                                </span>
+                                {odp.facturas_adicionales?.length > 0 && (
+                                  <span title={`${odp.facturas_adicionales.length} factura(s) adicional(es)`}
+                                    className="font-bold text-[10px] text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                                    +{odp.facturas_adicionales.length}
+                                  </span>
+                                )}
+                              </div>
                               {odp.fecha_factura && (
                                 <p className="text-xs text-slate-400 mt-0.5">{fmtFecha(odp.fecha_factura)}</p>
                               )}
@@ -1168,6 +1212,57 @@ const ContabilidadPage: React.FC = () => {
                 <input type="date" value={feForm.fecha_fe} onChange={e => setFeForm(p => ({ ...p, fecha_fe: e.target.value }))}
                   required className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
+
+              {/* Facturas electrónicas adicionales (solo si la ODP ya tiene FE principal) */}
+              {feTarget.facturada && (
+                <div className="pt-3 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-bold text-slate-600 uppercase">Facturas adicionales</label>
+                    <span className="text-[10px] text-slate-400">{feAdicionales.length}/2 · máx. 3 FE por ODP</span>
+                  </div>
+
+                  {feAdicionales.length > 0 && (
+                    <div className="space-y-1.5 mb-2">
+                      {feAdicionales.map((f: any) => (
+                        <div key={f.id} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-mono text-xs font-bold text-emerald-700">FE-{f.numero_fe}</span>
+                            {f.fecha_factura && <span className="text-[11px] text-slate-400">{fmtFecha(f.fecha_factura)}</span>}
+                          </div>
+                          <button type="button" onClick={() => handleDeleteAdicional(f.id)}
+                            title="Eliminar factura adicional"
+                            className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {feAdicionales.length < 2 ? (
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <label className="block text-[10px] font-semibold text-slate-500 mb-0.5 uppercase">FE No.</label>
+                        <input value={nuevaAdic.numero_fe} onChange={e => setNuevaAdic(p => ({ ...p, numero_fe: e.target.value }))}
+                          placeholder="Ej: 2024-002"
+                          className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                      </div>
+                      <div className="w-32">
+                        <label className="block text-[10px] font-semibold text-slate-500 mb-0.5 uppercase">Fecha</label>
+                        <input type="date" value={nuevaAdic.fecha_fe} onChange={e => setNuevaAdic(p => ({ ...p, fecha_fe: e.target.value }))}
+                          className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                      </div>
+                      <button type="button" onClick={handleAddAdicional} disabled={addingAdic}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition disabled:opacity-50">
+                        <Plus className="w-3.5 h-3.5" /> Agregar
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-400 italic">Límite alcanzado (3 facturas en total).</p>
+                  )}
+                </div>
+              )}
+
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => { setShowFeModal(false); setFeTarget(null); }}
                   className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">Cancelar</button>

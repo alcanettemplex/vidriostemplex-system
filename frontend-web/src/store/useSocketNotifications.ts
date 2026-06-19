@@ -91,13 +91,10 @@ export const useODPSocketPatch = (params: {
       if (!odp) return;
 
       if (accion === 'create') {
-        const esGarantiaONC = odp.es_garantia || odp.es_no_conformidad;
         if (odp.tipo_odp === 'OA') {
           setOdpsOA?.(prev => [odp, ...prev]);
-        } else if (esGarantiaONC) {
+        } else if (odp.es_garantia) {
           setGarantias?.(prev => [odp, ...prev]);
-          // NCs tienen es_garantia:false → también van al array principal
-          if (odp.es_no_conformidad && !odp.es_garantia) setOdps(prev => [odp, ...prev]);
         } else {
           setOdps(prev => [odp, ...prev]);
         }

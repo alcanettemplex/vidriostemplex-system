@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { Op } from 'sequelize';
-import { ODP, Cliente, Usuario, NoConformidad } from '../models';
+import { ODP, Cliente, Usuario, NoConformidad, FacturaAdicionalODP } from '../models';
 import SalidaAlmacen from '../models/salida_almacen.model';
 
 const salidaSchema = z.object({
@@ -27,7 +27,10 @@ export const getFacturadas = async (_req: Request, res: Response) => {
 
     const odps = await ODP.findAll({
       where,
-      include: INCLUDE_ODP,
+      include: [
+        ...INCLUDE_ODP,
+        { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura'], separate: true },
+      ],
       attributes: ['id', 'numero_odp', 'fecha_factura', 'factura_electronica', 'valor_total', 'estado_caja'],
       order: [['fecha_factura', 'DESC']],
     });
@@ -50,7 +53,10 @@ export const getConSalida = async (_req: Request, res: Response) => {
           where: { tipo_odp: { [Op.ne]: 'OA' } },
           required: true,
           attributes: ['id', 'numero_odp', 'fecha_factura', 'factura_electronica', 'valor_total'],
-          include: INCLUDE_ODP,
+          include: [
+            ...INCLUDE_ODP,
+            { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura'], separate: true },
+          ],
         },
         { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
       ],
