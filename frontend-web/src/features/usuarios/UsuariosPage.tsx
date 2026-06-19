@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { Users, Plus, Pencil, Trash2, X, Eye, EyeOff } from 'lucide-react';
+import { Users, Plus, Pencil, X, Eye, EyeOff, UserX, UserCheck } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const ROLES = [
@@ -67,13 +67,24 @@ const UsuariosPage: React.FC = () => {
     } catch { toast.error('Error al guardar usuario'); }
   };
 
-  const handleDelete = async (id: number, nombre: string) => {
-    if (!window.confirm(`¿Eliminar a ${nombre}?`)) return;
+  const handleDesactivar = async (id: number, nombre: string) => {
+    if (!window.confirm(`¿Desactivar a ${nombre}? No podrá iniciar sesión ni recibir nuevas asignaciones. Su historial se conserva y puedes reactivarlo después.`)) return;
     try {
       await axios.delete(`${API}/api/usuarios/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-      toast.success('Usuario eliminado');
+      toast.success('Usuario desactivado');
       fetchData();
-    } catch { toast.error('Error al eliminar'); }
+    } catch (e: any) { toast.error(e?.response?.data?.error || 'Error al desactivar'); }
+  };
+
+  const handleReactivar = async (u: any) => {
+    if (!window.confirm(`¿Reactivar a ${u.nombre_completo}?`)) return;
+    try {
+      await axios.put(`${API}/api/usuarios/${u.id}`,
+        { username: u.username, rol: u.rol, nombre_completo: u.nombre_completo, email: u.email, puede_gestionar_pv: u.puede_gestionar_pv, activo: true },
+        { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('Usuario reactivado');
+      fetchData();
+    } catch (e: any) { toast.error(e?.response?.data?.error || 'Error al reactivar'); }
   };
 
   const getRolConfig = (rol: string) => ROLES.find(r => r.value === rol) || { label: rol, color: 'bg-slate-100 text-slate-700' };
@@ -109,18 +120,19 @@ const UsuariosPage: React.FC = () => {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
-              {['Usuario', 'Nombre Completo', 'Email', 'Rol', 'Gestión PV', 'Acciones'].map(h => (
+              {['Usuario', 'Nombre Completo', 'Email', 'Rol', 'Gestión PV', 'Estado', 'Acciones'].map(h => (
                 <th key={h} className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? Array.from({length: 5}).map((_,i)=>(
-              <tr key={i}><td colSpan={6} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse"/></td></tr>
+              <tr key={i}><td colSpan={7} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse"/></td></tr>
             )) : usuarios.map(u => {
               const cfg = getRolConfig(u.rol);
+              const inactivo = u.activo === false;
               return (
-                <motion.tr key={u.id} initial={{opacity:0}} animate={{opacity:1}} className="hover:bg-slate-50 transition-colors">
+                <motion.tr key={u.id} initial={{opacity:0}} animate={{opacity:1}} className={`hover:bg-slate-50 transition-colors ${inactivo ? 'opacity-50' : ''}`}>
                   <td className="px-5 py-4 font-mono text-sm font-bold text-slate-700">{u.username}</td>
                   <td className="px-5 py-4 font-semibold text-slate-800">{u.nombre_completo}</td>
                   <td className="px-5 py-4 text-slate-500">{u.email || '—'}</td>
@@ -134,14 +146,24 @@ const UsuariosPage: React.FC = () => {
                     }
                   </td>
                   <td className="px-5 py-4">
+                    {inactivo
+                      ? <span className="px-2 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200">Inactivo</span>
+                      : <span className="px-2 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">Activo</span>
+                    }
+                  </td>
+                  <td className="px-5 py-4">
                     <div className="flex gap-2">
-                      <button onClick={() => openEdit(u)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
+                      <button onClick={() => openEdit(u)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="Editar">
                         <Pencil className="w-4 h-4"/>
                       </button>
                       {u.rol !== 'admin' && (
-                        <button onClick={() => handleDelete(u.id, u.nombre_completo)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
-                          <Trash2 className="w-4 h-4"/>
-                        </button>
+                        inactivo
+                          ? <button onClick={() => handleReactivar(u)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Reactivar">
+                              <UserCheck className="w-4 h-4"/>
+                            </button>
+                          : <button onClick={() => handleDesactivar(u.id, u.nombre_completo)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Desactivar">
+                              <UserX className="w-4 h-4"/>
+                            </button>
                       )}
                     </div>
                   </td>

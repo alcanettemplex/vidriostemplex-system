@@ -47,6 +47,19 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
 
+    if (user.getDataValue('activo') === false) {
+      AuditoriaLog.create({
+        tabla: 'auth',
+        operacion: 'LOGIN_FAIL',
+        registro_id: String(user.getDataValue('id')),
+        datos_anteriores: null,
+        datos_nuevos: { username, razon: 'usuario_inactivo' },
+        usuario_id: null,
+        ip_address: req.ip || null,
+      }).catch(() => {});
+      return res.status(403).json({ error: 'Tu cuenta está desactivada. Contacta al administrador.' });
+    }
+
     const token = jwt.sign(
       { id: user.getDataValue('id'), rol: user.getDataValue('rol') },
       JWT_SECRET,

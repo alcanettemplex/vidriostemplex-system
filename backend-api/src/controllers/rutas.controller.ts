@@ -555,7 +555,7 @@ export const getVehiculos = async (_req: Request, res: Response) => {
 export const getInstaladores = async (_req: Request, res: Response) => {
   try {
     const personal = await Usuario.findAll({
-      where: { rol: { [Op.in]: ['instalador', 'conductor'] } },
+      where: { rol: { [Op.in]: ['instalador', 'conductor'] }, activo: true },
       attributes: ['id', 'nombre_completo', 'rol'],
       order: [['nombre_completo', 'ASC']],
     });
