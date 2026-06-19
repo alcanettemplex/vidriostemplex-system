@@ -6,6 +6,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { Plus, Trash2, X, FileCheck, DollarSign, Package, AlertCircle, ChevronRight, ChevronLeft, Briefcase, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSelector } from 'react-redux';
 
 const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Gris', 'Azul', 'Verde', 'Mate', 'Otro'];
 
@@ -135,6 +136,11 @@ const ColorField: React.FC<{ index: number; register: any; control: any }> = ({ 
 const FUENTES_CLIENTE = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Otro'];
 
 const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesorId, tipoOdp }) => {
+    const authUser = useSelector((state: any) => state.auth.user);
+    const userRole = (authUser?.rol || authUser?.role)?.toLowerCase() || '';
+    const esEdicion = !!odpToEdit;
+    // La forma de pago solo puede cambiarse tras crear la ODP si el rol es admin o gerencia.
+    const puedeEditarFormaPago = !esEdicion || ['admin', 'gerencia'].includes(userRole);
     const [step, setStep] = useState(1);
     const [clientes, setClientes] = useState<{ id: number; nombre_razon_social: string; numero_documento?: string; fuente?: string | null }[]>([]);
     const [clienteFuente, setClienteFuente] = useState('');
@@ -630,13 +636,17 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                         <label className="block text-sm font-medium text-slate-700 mb-1">Forma de Pago</label>
                                         <select
                                             {...register('forma_pago')}
-                                            className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                            disabled={!puedeEditarFormaPago}
+                                            className={`w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm ${puedeEditarFormaPago ? 'bg-white' : 'bg-slate-100 text-slate-500 cursor-not-allowed'}`}
                                         >
                                             <option value="">Seleccionar...</option>
                                             <option value="contado">Pago Anticipado</option>
                                             <option value="credito">Crédito</option>
                                             <option value="50_50">50% anticipo / 50% entrega</option>
                                         </select>
+                                        {!puedeEditarFormaPago && (
+                                            <p className="text-xs text-slate-500 mt-1">La forma de pago solo puede cambiarla gerencia o un administrador.</p>
+                                        )}
                                     </div>
                                 </div>
 

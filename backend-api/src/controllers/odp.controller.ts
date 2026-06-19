@@ -589,6 +589,13 @@ export const updateODP = async (req: Request, res: Response) => {
 
     console.log(`Update ODP ${id} - Rol: ${rolUsuario}, Taller: ${esTaller}, Creador: ${esCreador}`);
 
+    // ─── La forma de pago no se puede cambiar tras crear la ODP, salvo admin/gerencia ───
+    const formaPagoCambia = data.forma_pago !== undefined && data.forma_pago !== odp.getDataValue('forma_pago');
+    if (formaPagoCambia && !esAdminOGerencia) {
+      await transaction.rollback();
+      return res.status(403).json({ error: 'Solo gerencia o un administrador pueden cambiar la forma de pago de una ODP ya creada.' });
+    }
+
     // ─── Lógica de dependencias de producción ───
     if (data.chk_pelicula || data.chk_matizado || data.chk_huacal || data.chk_carton) {
       if (!odp.getDataValue('chk_vidrio') && !data.chk_vidrio) {
@@ -597,8 +604,8 @@ export const updateODP = async (req: Request, res: Response) => {
       }
     }
 
-    // Recalcular pendiente y estado_caja si viene valor_total o abono
-    if (data.valor_total !== undefined || data.abono !== undefined) {
+    // Recalcular pendiente y estado_caja si viene valor_total o abono, o si cambia la forma de pago
+    if (data.valor_total !== undefined || data.abono !== undefined || formaPagoCambia) {
       const nuevoValorTotal = data.valor_total !== undefined ? (data.valor_total || 0) : (Number(odp.getDataValue('valor_total')) || 0);
       const nuevoAbono = data.abono !== undefined ? (data.abono || 0) : (Number(odp.getDataValue('abono')) || 0);
       const nuevoPendiente = Math.max(0, nuevoValorTotal - nuevoAbono);
