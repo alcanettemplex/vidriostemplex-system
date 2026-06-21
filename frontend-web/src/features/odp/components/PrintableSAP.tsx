@@ -293,16 +293,20 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                                     const item   = itemPorIndice[idx];
                                     const enODC         = item && itemsEnODC.has(item.id);
                                     const enODCRecibida = item && itemsEnODCRecibida.has(item.id);
+                                    const esFaltante    = item?.es_faltante === true;
                                     return (
                                         <tr
                                             key={idx}
-                                            className={`h-[24px] ${enODCRecibida ? 'bg-blue-100' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}
+                                            className={`h-[24px] ${enODCRecibida ? 'bg-blue-100' : esFaltante ? 'bg-amber-50' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}
                                         >
                                             <td className="font-bold text-center">{letra}</td>
                                             <td className="text-[11px] text-center">{item ? fmtCant(item.cantidad) : ''}</td>
                                             <td className="text-[11px]">{item?.codigo || ''}</td>
                                             <td className="text-left text-[11px] px-1">
                                                 <span>{item?.descripcion || ''}</span>
+                                                {esFaltante && (
+                                                    <span className="text-white text-[8px] font-black bg-amber-500 rounded px-1 ml-1 align-middle">FALTA</span>
+                                                )}
                                                 {enODC ? (
                                                     <span className="inline-flex items-center justify-center w-[13px] h-[13px] rounded-full bg-blue-600 ml-1 align-middle">
                                                         <span className="text-white text-[9px] font-black leading-none">E</span>

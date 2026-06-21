@@ -11,6 +11,7 @@ import {
   recibirItems,
   toggleExistencia,
   updateExistPerf,
+  dividirPorExistencia,
   getInventarioPorCodigo,
   deleteInventarioPerfileria,
   getCodigosPerfileria,
@@ -46,6 +47,7 @@ router.put('/odc/:id/recibir-items', authMiddleware, rc('admin', 'compras', 'jef
 router.delete('/odc/:id', authMiddleware, rc('admin', 'compras'), deleteODC);
 router.patch('/sap-item/:id/existencia', authMiddleware, rc('admin', 'compras'), toggleExistencia);
 router.patch('/sap-item/:id/exist-perf', authMiddleware, rc('admin', 'compras'), updateExistPerf);
+router.post('/sap-item/:id/dividir-existencia', authMiddleware, rc('admin', 'compras'), dividirPorExistencia);
 router.delete('/inventario-perfileria/:consecutivo', authMiddleware, rc('admin', 'compras'), deleteInventarioPerfileria);
 
 // Vidrios - VER: todos + jefe_produccion; CRUD: solo compras

@@ -20,6 +20,8 @@ SAPItem.init({
     allowNull: false,
   },
   modificado: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false },
+  // true = ítem generado como "faltante" desde una cobertura parcial de existencia perfilería
+  es_faltante: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false },
   datos_anteriores: { type: DataTypes.JSONB, allowNull: true },
 }, {
   sequelize, modelName: 'SAPItem', tableName: 'sap_items', timestamps: false,

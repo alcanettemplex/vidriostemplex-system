@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Package, ShoppingCart, Clock, AlertCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { X } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -73,8 +73,20 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
   // Perfiles seleccionados localmente — se aplican en BD solo al confirmar la ODC
   const [perfilesSeleccionados, setPerfilesSeleccionados] = useState<Record<number, InventarioPerfil[]>>({});
 
+  // Mini-form "Falta material" — cobertura parcial de existencia perfilería
+  const [faltanteItem, setFaltanteItem] = useState<SAPItemConContexto | null>(null);
+  const [faltanteCant, setFaltanteCant] = useState('');
+  const [faltanteDim, setFaltanteDim] = useState('');
+  const [guardandoFaltante, setGuardandoFaltante] = useState(false);
+
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
+
+  // Texto descriptivo de las piezas de inventario asignadas (formato compartido)
+  const formatExistPerf = (perfiles: InventarioPerfil[]) =>
+    perfiles
+      .map(p => `${p.mm != null ? `${Math.round(p.mm)} mm` : 'sin mm'} — #${p.consecutivo} (${p.ubicacion || '—'})`)
+      .join(' / ');
 
   useEffect(() => {
     axios.get(`${API}/api/compras/codigos-perfileria`, { headers })
@@ -123,6 +135,33 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
     }));
   };
 
+  // Guardar faltante: marca el original como existencia, consume inventario y crea el ítem pendiente
+  const handleGuardarFaltante = async () => {
+    if (!faltanteItem) return;
+    if (!faltanteDim.trim()) { toast.error('Ingresa la dimensión del faltante'); return; }
+    const perfiles = perfilesSeleccionados[faltanteItem.id] || [];
+    const idCerrado = faltanteItem.id;
+    setGuardandoFaltante(true);
+    try {
+      await axios.post(`${API}/api/compras/sap-item/${idCerrado}/dividir-existencia`, {
+        exist_perf: formatExistPerf(perfiles),
+        consecutivos: perfiles.map(p => p.consecutivo),
+        faltante: { cantidad: parseFloat(faltanteCant) || 0, dimension: faltanteDim.trim() },
+      }, { headers });
+
+      toast.success('Faltante registrado y enviado a Pendientes');
+      // El ítem original sale del modal (queda cubierto por existencia)
+      const restantes = localItems.filter(it => it.id !== idCerrado);
+      setLocalItems(restantes);
+      setPerfilesSeleccionados(prev => { const n = { ...prev }; delete n[idCerrado]; return n; });
+      setFaltanteItem(null); setFaltanteCant(''); setFaltanteDim('');
+      onRefresh();
+      if (restantes.length === 0) onClose();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Error al registrar el faltante');
+    } finally { setGuardandoFaltante(false); }
+  };
+
   const renderExisPerf = (item: SAPItemConContexto) => {
     if (!item.codigo || !codigosPerfileria.has(item.codigo)) return <span className="text-slate-400">—</span>;
     const opciones = inventarioPorCodigo[item.codigo] ?? null;
@@ -165,6 +204,16 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
             ))}
           </select>
         )}
+        {seleccionados.length > 0 && (
+          <button
+            type="button"
+            onClick={() => { setFaltanteItem(item); setFaltanteCant(''); setFaltanteDim(''); }}
+            className="mt-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 hover:bg-amber-100 transition w-full max-w-[150px]"
+            title="La existencia no alcanza: registrar lo que falta como ítem pendiente"
+          >
+            Falta material
+          </button>
+        )}
       </div>
     );
   };
@@ -205,9 +254,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
         entradasPerfil.flatMap(([itemIdStr, perfiles]) => {
           if (!perfiles || perfiles.length === 0) return [];
           const itemId = Number(itemIdStr);
-          const existPerfTexto = perfiles
-            .map(p => `${p.mm != null ? `${Math.round(p.mm)} mm` : 'sin mm'} — #${p.consecutivo} (${p.ubicacion || '—'})`)
-            .join(' / ');
+          const existPerfTexto = formatExistPerf(perfiles);
           return [
             // Eliminar cada pieza seleccionada del inventario
             ...perfiles.map(p => axios.delete(`${API}/api/compras/inventario-perfileria/${p.consecutivo}`, { headers })),
@@ -241,7 +288,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
           <div>
             <h2 className="text-lg font-bold text-slate-800">Nueva ODC Consolidada</h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              {items.length} item(s) de {new Set(items.map(i => i.SAP?.id)).size} SAP(s) seleccionados
+              {localItems.length} item(s) de {new Set(localItems.map(i => i.SAP?.id)).size} SAP(s) seleccionados
             </p>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
@@ -375,13 +422,95 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
           </button>
           <button
             onClick={handleCrearODC}
-            disabled={loading || !proveedor.trim() || !numeroOdc.trim()}
+            disabled={loading || !proveedor.trim() || !numeroOdc.trim() || localItems.length === 0}
             className="flex-1 py-3 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
           >
-            {loading ? 'Creando...' : `Crear ODC con ${items.length} item(s)`}
+            {loading ? 'Creando...' : `Crear ODC con ${localItems.length} item(s)`}
           </button>
         </div>
       </motion.div>
+
+      {/* Sub-modal: registrar faltante (cobertura parcial de existencia) */}
+      {faltanteItem && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
+            <div className="flex justify-between items-start px-6 py-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-black text-slate-800">Falta material</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {faltanteItem.codigo} · lo seleccionado se marca como existencia y se compra solo el faltante
+                </p>
+              </div>
+              <button onClick={() => setFaltanteItem(null)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Contexto del ítem */}
+              <div className="text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1">
+                <div>
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">Dimensión solicitada:</span>{' '}
+                  <span className="text-slate-700 font-semibold">{faltanteItem.dimension || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">
+                    De existencia ({(perfilesSeleccionados[faltanteItem.id] || []).length}):
+                  </span>{' '}
+                  <span className="text-green-700 font-semibold">
+                    {formatExistPerf(perfilesSeleccionados[faltanteItem.id] || []) || '—'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Inputs del faltante */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Cant.</label>
+                  <input
+                    type="number" min={0} value={faltanteCant}
+                    onChange={e => setFaltanteCant(e.target.value)}
+                    placeholder="0"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    Dimensión faltante <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text" value={faltanteDim}
+                    onChange={e => setFaltanteDim(e.target.value)}
+                    placeholder="Ej: 2-1100 / 1-650 MM"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              <p className="text-[11px] text-amber-600 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+                Se creará un ítem pendiente con este faltante y el ítem actual saldrá de la ODC.
+              </p>
+            </div>
+
+            <div className="flex gap-3 px-6 pb-6">
+              <button
+                onClick={() => setFaltanteItem(null)}
+                className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleGuardarFaltante}
+                disabled={guardandoFaltante || !faltanteDim.trim()}
+                className="flex-1 py-2.5 font-bold text-white bg-amber-600 rounded-xl hover:bg-amber-700 transition disabled:opacity-40"
+              >
+                {guardandoFaltante ? 'Guardando...' : 'Guardar faltante'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -575,6 +575,71 @@ export const toggleExistencia = async (req: Request, res: Response) => {
   }
 };
 
+// POST /sap-item/:id/dividir-existencia — Cobertura parcial de existencia perfilería:
+//   1. Crea un ítem "faltante" (pendiente) heredando el contexto del original
+//   2. Marca el ítem original como en_existencia, guardando el texto de piezas en exist_perf
+//   3. Consume del inventario las piezas asignadas (consecutivos)
+// Operación atómica: si algo falla, no quedan estados a medias.
+export const dividirPorExistencia = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const { exist_perf, consecutivos, faltante } = req.body as {
+      exist_perf?: string;
+      consecutivos?: number[];
+      faltante?: { cantidad?: number; dimension?: string };
+    };
+
+    if (!faltante || !faltante.dimension || !String(faltante.dimension).trim()) {
+      await t.rollback();
+      return res.status(400).json({ error: 'La dimensión del faltante es requerida' });
+    }
+
+    const original = await SAPItem.findByPk(id, { transaction: t });
+    if (!original) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Ítem no encontrado' });
+    }
+
+    // 1. Crear el ítem faltante (pendiente), heredando contexto del original
+    const faltanteItem = await SAPItem.create({
+      sap_id: original.getDataValue('sap_id'),
+      item: original.getDataValue('item'),
+      codigo: original.getDataValue('codigo'),
+      descripcion: original.getDataValue('descripcion'),
+      dimension: String(faltante.dimension).trim(),
+      cantidad: Number(faltante.cantidad) || 0,
+      und: original.getDataValue('und'),
+      estado_compra: 'pendiente',
+      modificado: false,
+      es_faltante: true,
+    }, { transaction: t });
+
+    // 2. Marcar el original como cubierto por existencia (sale de Pendientes)
+    await original.update({
+      estado_compra: 'en_existencia',
+      exist_perf: (exist_perf && exist_perf.trim()) || original.getDataValue('exist_perf') || null,
+      modificado: false,
+      datos_anteriores: null,
+    }, { transaction: t });
+
+    // 3. Consumir las piezas del inventario asignadas
+    if (Array.isArray(consecutivos) && consecutivos.length > 0) {
+      await InventarioPerfileria.destroy({
+        where: { consecutivo: { [Op.in]: consecutivos } },
+        transaction: t,
+      });
+    }
+
+    await t.commit();
+    import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+    res.status(201).json({ original_id: Number(id), faltante: faltanteItem });
+  } catch (error: any) {
+    await t.rollback();
+    res.status(500).json({ error: 'Error al dividir por existencia', detail: error.message });
+  }
+};
+
 // GET /codigos-perfileria — Devuelve el set de códigos únicos en inventario_perfileria
 export const getCodigosPerfileria = async (req: Request, res: Response) => {
   try {
