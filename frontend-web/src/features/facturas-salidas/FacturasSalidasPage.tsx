@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import ODPFichaModal from '../odp/components/ODPFichaModal';
+import FolderTabs from '../../components/FolderTabs';
 import {
   FileCheck, Warehouse, Plus, Pencil, Trash2, X, RefreshCw, Search, Package, AlertTriangle,
 } from 'lucide-react';
@@ -380,25 +381,13 @@ const FacturasSalidasPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs principales */}
-      <div className="flex gap-2 border-b border-slate-200">
-        {TABS.map(t => {
-          const Icon = t.icon;
-          const active = tab === t.key;
-          return (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-all ${
-                active ? 'border-violet-600 text-violet-700' : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}>
-              <Icon className="w-4 h-4" />
-              {t.label}
-              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                active ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-500'
-              }`}>{t.count}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Tabs principales — estilo carpeta */}
+      <FolderTabs
+        tabs={TABS.map(t => { const Icon = t.icon; return { key: t.key, label: t.label, icon: <Icon className="w-4 h-4" />, badge: t.count }; })}
+        activeKey={tab}
+        onChange={(k) => setTab(k as Tab)}
+        className="border-b border-slate-200"
+      />
 
       {/* Contenido */}
       {loading ? (

@@ -10,6 +10,7 @@ import ProspectosStats from './components/ProspectosStats';
 import MonitorAsesores from './components/MonitorAsesores';
 import EmbudoAsesores from './components/EmbudoAsesores';
 import PeriodSelector from '../../components/common/PeriodSelector';
+import FolderTabs from '../../components/FolderTabs';
 import { Plus, BarChart3, Kanban, TrendingUp, PhoneMissed, Search, X, ClipboardList, Users, ScanEye, Filter } from 'lucide-react';
 
 type Tab = 'pipeline' | 'metricas' | 'gerencial' | 'sin_respuesta' | 'reportes' | 'prospectos' | 'monitor' | 'embudo';
@@ -84,102 +85,23 @@ const CRMPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs de navegación */}
-      <div className="flex items-center gap-1 mb-6 p-1 bg-slate-100 rounded-xl w-fit">
-        <button
-          onClick={() => setActiveTab('pipeline')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-            activeTab === 'pipeline'
-              ? 'bg-white text-slate-800 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <Kanban className="w-4 h-4" />
-          Pipeline
-        </button>
-        <button
-          onClick={() => setActiveTab('sin_respuesta')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-            activeTab === 'sin_respuesta'
-              ? 'bg-white text-slate-800 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <PhoneMissed className="w-4 h-4" />
-          Sin Respuesta
-        </button>
-        <button
-          onClick={() => setActiveTab('metricas')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-            activeTab === 'metricas'
-              ? 'bg-white text-slate-800 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <BarChart3 className="w-4 h-4" />
-          Métricas
-        </button>
-        {puedeVerGerencial && (
-          <button
-            onClick={() => setActiveTab('gerencial')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'gerencial'
-                ? 'bg-white text-slate-800 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <TrendingUp className="w-4 h-4" />
-            Dashboard Gerencial
-          </button>
-        )}
-        <button
-          onClick={() => setActiveTab('prospectos')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-            activeTab === 'prospectos'
-              ? 'bg-white text-slate-800 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          Prospectos
-        </button>
-        {puedeVerGerencial && (
-          <button
-            onClick={() => setActiveTab('monitor')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'monitor'
-                ? 'bg-white text-slate-800 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <ScanEye className="w-4 h-4" />
-            Monitor
-          </button>
-        )}
-        {puedeVerGerencial && (
-          <button
-            onClick={() => setActiveTab('embudo')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'embudo'
-                ? 'bg-white text-slate-800 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <Filter className="w-4 h-4" />
-            Embudo
-          </button>
-        )}
-        <button
-          onClick={() => setActiveTab('reportes')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-            activeTab === 'reportes'
-              ? 'bg-white text-slate-800 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-          }`}
-        >
-          <ClipboardList className="w-4 h-4" />
-          Reportes
-        </button>
+      {/* Tabs de navegación — estilo carpeta */}
+      <div className="mb-6">
+        <FolderTabs
+          tabs={[
+            { key: 'pipeline',      label: 'Pipeline',      icon: <Kanban className="w-4 h-4" /> },
+            { key: 'sin_respuesta', label: 'Sin Respuesta', icon: <PhoneMissed className="w-4 h-4" /> },
+            { key: 'metricas',      label: 'Métricas',      icon: <BarChart3 className="w-4 h-4" /> },
+            ...(puedeVerGerencial ? [{ key: 'gerencial', label: 'Dashboard Gerencial', icon: <TrendingUp className="w-4 h-4" /> }] : []),
+            { key: 'prospectos',    label: 'Prospectos',    icon: <Users className="w-4 h-4" /> },
+            ...(puedeVerGerencial ? [{ key: 'monitor', label: 'Monitor', icon: <ScanEye className="w-4 h-4" /> }] : []),
+            ...(puedeVerGerencial ? [{ key: 'embudo',  label: 'Embudo',  icon: <Filter className="w-4 h-4" /> }] : []),
+            { key: 'reportes',      label: 'Reportes',      icon: <ClipboardList className="w-4 h-4" /> },
+          ]}
+          activeKey={activeTab}
+          onChange={(k) => setActiveTab(k as Tab)}
+          className="border-b border-slate-200"
+        />
       </div>
 
       {/* Contenido de tabs */}

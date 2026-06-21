@@ -14,11 +14,13 @@ interface Props {
   odpsDisponibles: ODPItem[];
   rutaExistente?: any; // para edición
   instaladorPreseleccionado?: number; // preselecciona un instalador al crear
+  odpsPreseleccionadas?: ODPItem[]; // ODPs precargadas (desde un día de la agenda)
+  fechaPreseleccion?: string; // fecha tentativa del día de la agenda
   onClose: () => void;
   onSaved: () => void;
 }
 
-const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, instaladorPreseleccionado, onClose, onSaved }) => {
+const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, instaladorPreseleccionado, odpsPreseleccionadas, fechaPreseleccion, onClose, onSaved }) => {
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -36,11 +38,18 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
   const rutaOdpsEditables = rutaExistente?.ruta_odps?.filter((ro: any) => !ro.estado || ro.estado === 'pendiente') ?? [];
   const rutaOdpsNoEditables = rutaExistente?.ruta_odps?.filter((ro: any) => ro.estado && ro.estado !== 'pendiente') ?? [];
   const [entries, setEntries] = useState<RutaODPEntry[]>(
-    rutaOdpsEditables.map((ro: any) => ({
-      odp: ro.odp,
-      orden: ro.orden,
-      fecha_programada: ro.fecha_programada,
-    }))
+    rutaExistente
+      ? rutaOdpsEditables.map((ro: any) => ({
+          odp: ro.odp,
+          orden: ro.orden,
+          fecha_programada: ro.fecha_programada,
+        }))
+      // Creación desde la agenda: precarga las ODPs del día (con su fecha tentativa)
+      : (odpsPreseleccionadas ?? []).map((odp, i) => ({
+          odp,
+          orden: i + 1,
+          fecha_programada: fechaPreseleccion || new Date().toISOString().split('T')[0],
+        }))
   );
   const [saving, setSaving] = useState(false);
 

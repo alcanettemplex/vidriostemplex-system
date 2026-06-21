@@ -27,9 +27,26 @@ import {
   reprogramarAtascada,
   entregarAtascada,
 } from '../controllers/rutas.controller';
+import {
+  getAgenda,
+  colocarEnAgenda,
+  actualizarAgenda,
+  reordenarAgenda,
+  quitarDeAgenda,
+} from '../controllers/agenda.controller';
 
 const router = Router();
 router.use(authMiddleware);
+
+// ─── Agenda tentativa de instalaciones (planeación previa a la ruta) ─────────
+const LECTURA_GESTION = ['admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'] as const;
+const ESCRITURA_GESTION = ['admin', 'gerencia', 'jefe_produccion', 'produccion'] as const;
+
+router.get('/agenda', requireRole(...LECTURA_GESTION), getAgenda);
+router.post('/agenda', requireRole(...ESCRITURA_GESTION), colocarEnAgenda);
+router.post('/agenda/reordenar', requireRole(...ESCRITURA_GESTION), reordenarAgenda);
+router.put('/agenda/:id', requireRole(...ESCRITURA_GESTION), actualizarAgenda);
+router.delete('/agenda/:id', requireRole(...ESCRITURA_GESTION), quitarDeAgenda);
 
 // ─── Rutas estáticas antes de /:id ──────────────────────────────────────────
 // Jefe: datos para gestión

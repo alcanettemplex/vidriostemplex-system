@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPForm from './components/ODPForm';
+import FolderTabs from '../../components/FolderTabs';
 import ODPFichaModal from './components/ODPFichaModal';
 import AsignarAsesorODPModal from './components/AsignarAsesorODPModal';
 import SeleccionarTipoODPModal from './components/SeleccionarTipoODPModal';
@@ -366,66 +367,21 @@ const ODPListPage: React.FC = () => {
                 )}
             </div>
 
-            {/* Tabs */}
-            <div className="flex gap-2 mb-4">
-                <button
-                    onClick={() => setActiveTab('activas')}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition border ${activeTab === 'activas' ? 'bg-white border-slate-200 text-slate-800 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white/60'}`}
-                >
-                    <FileText className="w-4 h-4" />
-                    Activas
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-black ${activeTab === 'activas' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{odpsActivas.length}</span>
-                </button>
-                <button
-                    onClick={() => setActiveTab('visita')}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition border ${activeTab === 'visita' ? 'bg-white border-orange-200 text-orange-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white/60'}`}
-                >
-                    <Ruler className="w-4 h-4" />
-                    Visita Técnica
-                    {odpsVisita.length > 0 && (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-black bg-orange-100 text-orange-700">{odpsVisita.length}</span>
-                    )}
-                </button>
-                <button
-                    onClick={() => setActiveTab('listas')}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition border ${activeTab === 'listas' ? 'bg-white border-indigo-200 text-indigo-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white/60'}`}
-                >
-                    <Truck className="w-4 h-4" />
-                    Listas para instalar
-                    {odpsListas.length > 0 && (
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-black ${activeTab === 'listas' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>{odpsListas.length}</span>
-                    )}
-                </button>
-                <button
-                    onClick={() => setActiveTab('completadas')}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition border ${activeTab === 'completadas' ? 'bg-white border-emerald-200 text-emerald-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white/60'}`}
-                >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Completadas
-                    {odpsCompletadas.length > 0 && (
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-black ${activeTab === 'completadas' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{odpsCompletadas.length}</span>
-                    )}
-                </button>
-                <button
-                    onClick={() => setActiveTab('con_dano')}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition border ${activeTab === 'con_dano' ? 'bg-white border-orange-200 text-orange-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white/60'}`}
-                >
-                    <AlertTriangle className="w-4 h-4" />
-                    Con Daños
-                    {odpsConDano.length > 0 && (
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-black ${activeTab === 'con_dano' ? 'bg-orange-100 text-orange-700' : 'bg-orange-100 text-orange-600'}`}>{odpsConDano.length}</span>
-                    )}
-                </button>
-                <button
-                    onClick={() => setActiveTab('garantia')}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition border ${activeTab === 'garantia' ? 'bg-white border-blue-200 text-blue-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white/60'}`}
-                >
-                    <Shield className="w-4 h-4" />
-                    Garantías
-                    {garantias.length > 0 && (
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-black ${activeTab === 'garantia' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{garantias.length}</span>
-                    )}
-                </button>
+            {/* Tabs — estilo carpeta */}
+            <div className="mb-4">
+                <FolderTabs
+                    tabs={[
+                        { key: 'activas',     label: 'Activas',              icon: <FileText className="w-4 h-4" />,      badge: odpsActivas.length },
+                        { key: 'visita',      label: 'Visita Técnica',       icon: <Ruler className="w-4 h-4" />,         badge: odpsVisita.length || undefined },
+                        { key: 'listas',      label: 'Listas para instalar', icon: <Truck className="w-4 h-4" />,         badge: odpsListas.length || undefined },
+                        { key: 'completadas', label: 'Completadas',          icon: <CheckCircle2 className="w-4 h-4" />,  badge: odpsCompletadas.length || undefined },
+                        { key: 'con_dano',    label: 'Con Daños',            icon: <AlertTriangle className="w-4 h-4" />, badge: odpsConDano.length || undefined },
+                        { key: 'garantia',    label: 'Garantías',            icon: <Shield className="w-4 h-4" />,        badge: garantias.length || undefined },
+                    ]}
+                    activeKey={activeTab}
+                    onChange={(k) => setActiveTab(k as any)}
+                    className="border-b border-slate-200"
+                />
             </div>
 
             {/* Sub-tabs de Garantías */}

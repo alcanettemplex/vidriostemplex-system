@@ -8,6 +8,7 @@ import ODCVidriosModal, { ODPItemConContexto } from './components/ODCVidriosModa
 import ODCSinSAPModal from './components/ODCSinSAPModal';
 import PrintableODC from './components/PrintableODC';
 import ODPFichaModal from '../odp/components/ODPFichaModal';
+import FolderTabs from '../../components/FolderTabs';
 
 import { useDataChangedSocket } from '../../store/useSocketNotifications';
 
@@ -994,27 +995,18 @@ const ComprasPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-white border border-slate-200 rounded-xl p-1 mb-5 w-fit shadow-sm">
-        {TABS.map(t => {
-          const Icon = t.icon;
-          const count = countBadge(t.key);
-          return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key as any)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition ${tab === t.key ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-            >
-              <Icon className="w-4 h-4" />
-              {t.label}
-              {count > 0 && (
-                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${tab === t.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })}
+      {/* Tabs — estilo carpeta */}
+      <div className="mb-5">
+        <FolderTabs
+          tabs={TABS.map(t => {
+            const Icon = t.icon;
+            const count = countBadge(t.key);
+            return { key: t.key, label: t.label, icon: <Icon className="w-4 h-4" />, badge: count > 0 ? count : undefined };
+          })}
+          activeKey={tab}
+          onChange={(k) => setTab(k as any)}
+          className="border-b border-slate-200"
+        />
       </div>
 
       {/* Buscador */}

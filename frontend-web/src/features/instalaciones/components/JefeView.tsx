@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import ProgramarRutaModal from './ProgramarRutaModal';
 import InstaladorGestionTab from './InstaladorGestionTab';
+import AgendaTab from './AgendaTab';
+import FolderTabs, { FOLDER_BODY } from '../../../components/FolderTabs';
 import ODPFichaModal from '../../odp/components/ODPFichaModal';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -276,7 +278,7 @@ const RutaCard: React.FC<{
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-type MainTab = 'listos' | 'pago' | 'factura' | 'produccion' | 'programados' | 'completados' | 'instaladores' | 'atascadas';
+type MainTab = 'agenda' | 'listos' | 'pago' | 'factura' | 'produccion' | 'programados' | 'completados' | 'instaladores' | 'atascadas';
 type SubTabProg = 'programada' | 'en_curso';
 type SubTabComp = 'completadas' | 'canceladas';
 
@@ -285,7 +287,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const headers = { Authorization: `Bearer ${token}` };
 
   // State
-  const [mainTab, setMainTab] = useState<MainTab>('listos');
+  const [mainTab, setMainTab] = useState<MainTab>('agenda');
   const [subTabProg, setSubTabProg] = useState<SubTabProg>('programada');
   const [subTabComp, setSubTabComp] = useState<SubTabComp>('completadas');
   const [odps, setOdps] = useState<{ listos: any[]; espera_pago: any[]; espera_produccion: any[]; espera_factura: any[] }>({ listos: [], espera_pago: [], espera_produccion: [], espera_factura: [] });
@@ -300,6 +302,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const [showModal, setShowModal] = useState(false);
   const [rutaEditar, setRutaEditar] = useState<any>(null);
   const [odpsParaModal, setOdpsParaModal] = useState<any[]>([]);
+  const [preseleccionRuta, setPreseleccionRuta] = useState<{ odps: any[]; fecha: string } | null>(null);
   const [pauseModal, setPauseModal] = useState<{ rutaOdpId: number; numeroOdp: string } | null>(null);
   const [pauseMotivo, setPauseMotivo] = useState('');
   const [finalizarModal, setFinalizarModal] = useState<{ rutaOdpId: number; numeroOdp: string } | null>(null);
@@ -369,7 +372,14 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     ) : lista;
 
   // Handlers
-  const handleEditar = (ruta: any) => { setOdpsParaModal(odps.listos); setRutaEditar(ruta); setShowModal(true); };
+  const handleEditar = (ruta: any) => { setPreseleccionRuta(null); setOdpsParaModal(odps.listos); setRutaEditar(ruta); setShowModal(true); };
+  // Crear ruta desde un día de la agenda: precarga las ODPs de ese día
+  const handleCrearRutaDia = (odpsDia: any[], fecha: string) => {
+    setOdpsParaModal(odps.listos);
+    setRutaEditar(null);
+    setPreseleccionRuta({ odps: odpsDia, fecha });
+    setShowModal(true);
+  };
   const handleCancelar = async (rutaId: number) => {
     if (!window.confirm('¿Cancelar esta ruta? Las ODPs volverán a "Listo para instalar".')) return;
     try { await axios.delete(`${API}/api/rutas/${rutaId}`, { headers }); toast.success('Ruta cancelada'); cargar(); }
@@ -431,6 +441,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
 
   // Tabs principales
   const MAIN_TABS = [
+    { key: 'agenda',        label: 'Agenda',                count: null,                            icon: Calendar,      color: 'text-indigo-600',  soloEscritura: false },
     { key: 'listos',        label: 'Listo para instalar',  count: odps.listos.length,              icon: CheckCircle2,  color: 'text-emerald-600', soloEscritura: false },
     { key: 'pago',          label: 'Espera de pago',        count: odps.espera_pago.length,         icon: Clock,         color: 'text-amber-600',   soloEscritura: false },
     { key: 'factura',       label: 'Espera de factura',     count: odps.espera_factura.length,      icon: Receipt,       color: 'text-orange-600',  soloEscritura: false },
@@ -474,7 +485,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
           </button>
           {!readOnly && (
             <button
-              onClick={() => { setOdpsParaModal(odps.listos); setRutaEditar(null); setShowModal(true); }}
+              onClick={() => { setPreseleccionRuta(null); setOdpsParaModal(odps.listos); setRutaEditar(null); setShowModal(true); }}
               disabled={!odps.listos.length}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 shadow-sm"
             >
@@ -496,29 +507,29 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
         />
       </div>
 
-      {/* Tabs principales */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="flex border-b border-slate-100 overflow-x-auto">
-          {MAIN_TABS.filter(t => (!t.soloEscritura || !readOnly) && (t.key !== 'atascadas' || atascadas.length > 0)).map(t => {
-            const Icon = t.icon;
-            const activo = mainTab === t.key;
-            return (
-              <button
-                key={t.key}
-                onClick={() => setMainTab(t.key as MainTab)}
-                className={`flex-shrink-0 flex items-center justify-center gap-1.5 py-3 px-4 text-sm font-medium transition-all ${activo ? 'bg-slate-50 border-b-2 border-indigo-500 text-indigo-700' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                <Icon className={`w-4 h-4 ${activo ? 'text-indigo-600' : t.color}`} />
-                <span className="whitespace-nowrap">{t.label}</span>
-                {t.count !== null && (
-                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${activo ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>
-                    {t.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+      {/* Tabs principales — estilo carpeta (FolderTabs) */}
+      <div className="relative">
+        <FolderTabs
+          tabs={MAIN_TABS
+            .filter(t => (!t.soloEscritura || !readOnly) && (t.key !== 'atascadas' || atascadas.length > 0))
+            .map(t => ({ key: t.key, label: t.label, icon: React.createElement(t.icon, { className: 'w-4 h-4' }), badge: t.count ?? undefined }))}
+          activeKey={mainTab}
+          onChange={(k) => setMainTab(k as MainTab)}
+        />
+
+        {/* Cuerpo de la carpeta (panel de contenido) */}
+        <div className={FOLDER_BODY}>
+
+        {/* ── Contenido tab Agenda ── */}
+        {mainTab === 'agenda' && (
+          <AgendaTab
+            odpsListos={odps.listos}
+            readOnly={readOnly}
+            onVerODP={setSelectedOdpId}
+            onCrearRutaDia={handleCrearRutaDia}
+            onAgendaChange={cargar}
+          />
+        )}
 
         {/* ── Contenido tabs ODP (listos / pago / factura / produccion) ── */}
         {(mainTab === 'listos' || mainTab === 'pago' || mainTab === 'factura' || mainTab === 'produccion') && (
@@ -545,6 +556,12 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                         </span>
                       )}
                       {odp.autorizacion_especial_despacho && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">Autorización especial</span>}
+                      {odp.agenda && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 flex items-center gap-1">
+                          <Calendar className="w-2.5 h-2.5" />
+                          Agendada {new Date(`${odp.agenda.fecha_tentativa}T00:00:00`).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                        </span>
+                      )}
                       {mainTab === 'factura' && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">Sin factura</span>}
                     </div>
                     <p className="text-sm text-slate-600 font-medium">{odp.cliente?.nombre_razon_social}</p>
@@ -562,7 +579,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                   )}
                   {mainTab === 'listos' && !readOnly && (
                     <button
-                      onClick={() => { setOdpsParaModal(odps.listos); setRutaEditar(null); setShowModal(true); }}
+                      onClick={() => { setPreseleccionRuta(null); setOdpsParaModal(odps.listos); setRutaEditar(null); setShowModal(true); }}
                       className="flex-shrink-0 px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xs font-semibold hover:bg-indigo-100"
                     >
                       + Agregar a ruta
@@ -748,6 +765,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
         {mainTab === 'instaladores' && !readOnly && (
           <InstaladorGestionTab />
         )}
+        </div>
       </div>
 
       {/* Modal programar ruta */}
@@ -755,8 +773,10 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
         <ProgramarRutaModal
           odpsDisponibles={odpsParaModal}
           rutaExistente={rutaEditar}
-          onClose={() => { setShowModal(false); setRutaEditar(null); }}
-          onSaved={() => { setShowModal(false); setRutaEditar(null); cargar(); }}
+          odpsPreseleccionadas={preseleccionRuta?.odps}
+          fechaPreseleccion={preseleccionRuta?.fecha}
+          onClose={() => { setShowModal(false); setRutaEditar(null); setPreseleccionRuta(null); }}
+          onSaved={() => { setShowModal(false); setRutaEditar(null); setPreseleccionRuta(null); cargar(); }}
         />
       )}
 

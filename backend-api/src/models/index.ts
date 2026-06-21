@@ -18,6 +18,7 @@ import ODCItem from './odc_item.model';
 import Pago from './pago.model';
 import RutaInstalacion from './ruta_instalacion.model';
 import RutaODP from './ruta_odp.model';
+import AgendaInstalacion from './agenda_instalacion.model';
 
 import NoConformidad from './no_conformidad.model';
 import ConfiguracionGlobal from './configuracion.model';
@@ -179,6 +180,13 @@ RutaODP.belongsTo(RutaInstalacion, { foreignKey: 'ruta_id', as: 'ruta' });
 
 ODP.hasMany(RutaODP, { foreignKey: 'odp_id', as: 'ruta_odps' });
 RutaODP.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
+
+// ─── Agenda tentativa de instalaciones (planeación previa a la ruta) ─────────
+// 1 ODP = 1 día (odp_id UNIQUE). No se audita: planeación volátil.
+ODP.hasOne(AgendaInstalacion, { foreignKey: 'odp_id', as: 'agenda' });
+AgendaInstalacion.belongsTo(ODP, { foreignKey: 'odp_id', as: 'odp' });
+Usuario.hasMany(AgendaInstalacion, { foreignKey: 'creado_por', as: 'agendas_creadas' });
+AgendaInstalacion.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
 
 // ─── Bloque C: Compras y Pagos ───────────────────────────────────────────────
 ODP.hasMany(OrdenCompra, { foreignKey: 'odp_id', as: 'compras' });
@@ -366,6 +374,7 @@ export {
   InventarioPerfileria,
   RutaInstalacion,
   RutaODP,
+  AgendaInstalacion,
   PedidoPV,
   SalidaAlmacen,
   CotizacionCaptura,

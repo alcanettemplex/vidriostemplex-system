@@ -4,6 +4,7 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import ODPFichaModal from '../odp/components/ODPFichaModal';
+import FolderTabs from '../../components/FolderTabs';
 import {
   Calculator, DollarSign, FileCheck, AlertCircle,
   CreditCard, Plus, X, Receipt, Clock, Banknote, TrendingDown,
@@ -548,24 +549,12 @@ const ContabilidadPage: React.FC = () => {
 
       {/* TABS */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="flex border-b border-slate-100">
-          {TABS.map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex items-center gap-2 px-5 py-3.5 text-sm font-semibold transition-all border-b-2 ${
-                tab === t.key
-                  ? 'border-indigo-500 text-indigo-700 bg-slate-50'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              }`}>
-              {t.icon}
-              {t.label}
-              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                tab === t.key ? 'bg-indigo-100 text-indigo-700' : t.badgeColor || 'bg-slate-100 text-slate-600'
-              }`}>
-                {t.badge}
-              </span>
-            </button>
-          ))}
-        </div>
+        <FolderTabs
+          tabs={TABS.map(t => ({ key: t.key, label: t.label, icon: t.icon, badge: t.badge, badgeClassName: (t as any).badgeColor }))}
+          activeKey={tab}
+          onChange={(k) => setTab(k as typeof tab)}
+          className="border-b border-slate-100"
+        />
 
         {/* ── TAB 1: Estado Caja ─────────────────────────────────────────────── */}
         {tab === 'estado_caja' && (

@@ -4,6 +4,7 @@ import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'react-toastify';
 import ODPFichaModal from '../odp/components/ODPFichaModal';
+import FolderTabs from '../../components/FolderTabs';
 import {
     CheckCircle2,
     QrCode,
@@ -1063,34 +1064,19 @@ const ProduccionPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* ── Main Tabs ── */}
-            <div className="flex bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-full md:w-fit">
-                {[
-                    { id: 'activas',      label: 'Control Taller',     icon: Wrench },
-                    { id: 'pedido_mano',  label: 'Pedido en la mano',  icon: Inbox },
-                    { id: 'nc_garantias', label: 'NC / Garantías',     icon: AlertTriangle },
-                    { id: 'pausadas',     label: 'ODP Pausadas',       icon: PauseCircle },
-                ].map(tab => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setMainTab(tab.id as any)}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all
-                            ${mainTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-700'}`}
-                    >
-                        <tab.icon className="w-3.5 h-3.5" />
-                        {tab.label}
-                        {tab.id === 'nc_garantias' && ncOdps.length > 0 && (
-                            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${mainTab === tab.id ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-600'}`}>
-                                {ncOdps.length}
-                            </span>
-                        )}
-                        {tab.id === 'pausadas' && pausadasOdps.length > 0 && (
-                            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${mainTab === tab.id ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-600'}`}>
-                                {pausadasOdps.length}
-                            </span>
-                        )}
-                    </button>
-                ))}
+            {/* ── Main Tabs — estilo carpeta ── */}
+            <div>
+                <FolderTabs
+                    tabs={[
+                        { key: 'activas',      label: 'Control Taller',    icon: <Wrench className="w-4 h-4" /> },
+                        { key: 'pedido_mano',  label: 'Pedido en la mano', icon: <Inbox className="w-4 h-4" /> },
+                        { key: 'nc_garantias', label: 'NC / Garantías',    icon: <AlertTriangle className="w-4 h-4" />, badge: ncOdps.length || undefined, badgeClassName: 'bg-rose-100 text-rose-600' },
+                        { key: 'pausadas',     label: 'ODP Pausadas',      icon: <PauseCircle className="w-4 h-4" />,   badge: pausadasOdps.length || undefined, badgeClassName: 'bg-amber-100 text-amber-600' },
+                    ]}
+                    activeKey={mainTab}
+                    onChange={(k) => setMainTab(k as any)}
+                    className="border-b border-slate-200"
+                />
             </div>
 
             {/* ══════════════════════════════════════════════

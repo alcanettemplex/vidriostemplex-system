@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import ProspectoModal from './components/ProspectoModal';
 import AprobarProspectoModal from './components/AprobarProspectoModal';
+import FolderTabs from '../../components/FolderTabs';
 import AsignarAsesorODPModal from '../odp/components/AsignarAsesorODPModal';
 import SeleccionarTipoODPModal from '../odp/components/SeleccionarTipoODPModal';
 import SolicitarTMModal from './components/SolicitarTMModal';
@@ -381,22 +382,14 @@ const ProspectosPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-4 bg-slate-100 p-1 rounded-xl w-fit">
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition flex items-center gap-2 ${
-              tab === t.key ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {t.label}
-            <span className={`text-xs px-1.5 py-0.5 rounded-full font-black ${
-              tab === t.key ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500'
-            }`}>
-              {counts[t.key as keyof typeof counts] || 0}
-            </span>
-          </button>
-        ))}
+      {/* Tabs — estilo carpeta */}
+      <div className="mb-4">
+        <FolderTabs
+          tabs={TABS.map(t => ({ key: t.key, label: t.label, badge: counts[t.key as keyof typeof counts] || 0 }))}
+          activeKey={tab}
+          onChange={(k) => setTab(k)}
+          className="border-b border-slate-200"
+        />
       </div>
 
       {/* Búsqueda */}

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { Op, QueryTypes, Transaction } from 'sequelize';
 import {
   ODP, Usuario, Vehiculo, EvidenciaInstalacion, HistorialEstadoODP,
-  RutaInstalacion, RutaODP, sequelize,
+  RutaInstalacion, RutaODP, AgendaInstalacion, sequelize,
   ODPItem, SAP, SAPItem, Cotizacion, TomaMedidas, OrdenCompra, ODCItem, Pago
 } from '../models';
 import Cliente from '../models/cliente.model';
@@ -169,14 +169,18 @@ export const getODPsParaGestion = async (_req: Request, res: Response) => {
     const excluirEnRuta = odpIdsEnRuta.length ? { id: { [Op.notIn]: odpIdsEnRuta } } : {};
 
     const [listos, esperaPago, esperaProduccion, esperaFactura] = await Promise.all([
-      // Pestaña 1: producción lista + pago OK + factura OK → puede programarse
+      // Pestaña 1: producción lista + pago OK + factura OK → puede programarse.
+      // Incluye su entrada de agenda (si está agendada) para pintar el badge "Agendada: X".
       ODP.findAll({
         where: {
           estado_produccion: 'LISTO_INSTALAR',
           ...excluirEnRuta,
           [Op.and as any]: [PAGO_OK, REQUIERE_SERVICIO, FACTURA_OK],
         },
-        include: INCLUDE_ODP_BASICO,
+        include: [
+          ...INCLUDE_ODP_BASICO,
+          { model: AgendaInstalacion, as: 'agenda', attributes: ['id', 'fecha_tentativa', 'orden'], required: false },
+        ],
         order: [['fecha_entrega', 'ASC']],
       }),
       // Pestaña 2: producción lista pero sin pago (excluye crédito, que ya puede instalarse)
@@ -396,6 +400,9 @@ export const createRuta = async (req: Request, res: Response) => {
       { where: { id: { [Op.in]: odpIds } }, transaction: t }
     );
 
+    // Salen de la agenda tentativa: ya quedaron materializadas en una ruta real
+    await AgendaInstalacion.destroy({ where: { odp_id: { [Op.in]: odpIds } }, transaction: t });
+
     // Historial
     const odpRows = await ODP.findAll({ where: { id: { [Op.in]: odpIds } }, attributes: ['id', 'numero_odp', 'asesor_id'], transaction: t });
     for (const odp of odpRows as any[]) {
@@ -497,6 +504,11 @@ export const updateRuta = async (req: Request, res: Response) => {
           await RutaODP.create({ ruta_id: Number(id), odp_id: o.odp_id, orden: o.orden, fecha_programada: o.fecha_programada }, { transaction: t });
           await ODP.update({ estado_produccion: 'PROGRAMADA' }, { where: { id: o.odp_id }, transaction: t });
         }
+      }
+
+      // Las ODPs que quedaron en esta ruta salen de la agenda tentativa
+      if (nuevosIds.length) {
+        await AgendaInstalacion.destroy({ where: { odp_id: { [Op.in]: nuevosIds } }, transaction: t });
       }
     }
 
