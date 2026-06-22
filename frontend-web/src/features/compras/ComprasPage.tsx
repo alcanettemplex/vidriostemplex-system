@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, Trash2, AlertCircle, X, Layers, Plus, Printer } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, Ban, X, Layers, Plus, Printer, RotateCw } from 'lucide-react';
+import { toast } from 'react-toastify';
 import ODCModal, { SAPItemConContexto } from './components/ODCModal';
 import ODCVidriosModal, { ODPItemConContexto } from './components/ODCVidriosModal';
 import ODCSinSAPModal from './components/ODCSinSAPModal';
@@ -49,8 +50,10 @@ interface ODCItemConContexto {
 
 interface ODC {
   id: number; numero_odc: string; proveedor: string;
-  estado: 'pendiente' | 'en_transito' | 'recibido' | 'problema';
+  estado: 'pendiente' | 'en_transito' | 'recibido' | 'problema' | 'cancelado';
   notas: string; fecha_creacion: string; fecha_recepcion?: string;
+  fecha_cancelacion?: string | null; motivo_cancelacion?: string | null;
+  cancelador?: { id: number; nombre_completo: string } | null;
   creador: { id: number; nombre_completo: string };
   items: ODCItemConContexto[];
   // backward compat: ODCs antiguas con sap_id tienen esto
@@ -114,6 +117,7 @@ const ODC_ESTADO_STYLE: Record<string, { label: string; className: string }> = {
   en_transito: { label: 'En tránsito', className: 'bg-blue-100 text-blue-700 border-blue-200' },
   recibido:    { label: 'Recibido',    className: 'bg-green-100 text-green-700 border-green-200' },
   problema:    { label: 'Problema',    className: 'bg-red-100 text-red-700 border-red-200' },
+  cancelado:   { label: 'Cancelada',   className: 'bg-slate-200 text-slate-600 border-slate-300' },
 };
 
 const TABS = [
@@ -122,6 +126,7 @@ const TABS = [
   { key: 'recibidas',    label: 'Recibidas',    icon: CheckCircle2 },
   { key: 'vidrios',      label: 'Vidrios',      icon: Layers },
   { key: 'existencia',   label: 'En Existencia', icon: Package },
+  { key: 'canceladas',   label: 'Canceladas',   icon: Ban },
 ];
 
 const ESTADO_COMPRA_STYLE: Record<string, { label: string; className: string }> = {
@@ -147,7 +152,7 @@ const buildTooltipModificado = (it: ODCItemConContexto): string => {
 
 // ─── Componente tarjeta ODC (Seguimiento / Recibidas) ───────────────────────
 
-const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?: (nuevoEstado: string) => void; onFichaOdp?: (id: number) => void }> = ({ odc, onActualizar, onEstadoCambiado, onFichaOdp }) => {
+const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?: (nuevoEstado: string) => void; onFichaOdp?: (id: number) => void; soloLectura?: boolean }> = ({ odc, onActualizar, onEstadoCambiado, onFichaOdp, soloLectura }) => {
   const [loading, setLoading] = useState(false);
   const [verDetalle, setVerDetalle] = useState(false);
   const [itemsDetalle, setItemsDetalle] = useState<any[] | null>(null);
@@ -156,10 +161,18 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
   const [editProveedor, setEditProveedor] = useState(odc.proveedor);
   const [editNotas, setEditNotas] = useState(odc.notas || '');
   const [editEstado, setEditEstado] = useState<string>(odc.estado);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [motivoCancel, setMotivoCancel] = useState('');
+  const [cancelando, setCancelando] = useState(false);
+  const [sincronizandoItem, setSincronizandoItem] = useState<number | null>(null);
   const [showRecibirModal, setShowRecibirModal] = useState(false);
   const [itemsSeleccionados, setItemsSeleccionados] = useState<Set<number>>(new Set());
   const [recibiendoItems, setRecibiendoItems] = useState(false);
+
+  // ¿La ODC tiene material modificado sin actualizar? Bloquea la recepción.
+  const hayModificados = odc.items.some(it => it.sap_item?.modificado === true);
+  // ¿Tiene material ya recibido (total o parcial)? No se puede cancelar.
+  const tieneRecibidos = odc.estado === 'recibido' || odc.items.some(it => it.recibido === true);
 
   const token = sessionStorage.getItem('token');
 
@@ -190,6 +203,10 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
   const handleGuardarEdicion = async () => {
     // Si el usuario seleccionó "Recibido" y la ODC no está recibida → abrir modal de items
     if (editEstado === 'recibido' && odc.estado !== 'recibido') {
+      if (hayModificados) {
+        toast.error('Hay materiales modificados sin actualizar. Actualiza la orden antes de recibir.');
+        return;
+      }
       // Guardar proveedor/notas sin cambiar el estado
       if (editProveedor !== odc.proveedor || editNotas !== (odc.notas || '')) {
         setLoading(true);
@@ -243,17 +260,35 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
         onActualizar();
       }
     } catch (e: any) {
-      console.error('Error al recibir items:', e?.response?.data || e?.message);
+      toast.error(e?.response?.data?.error || 'Error al registrar la recepción');
     } finally { setRecibiendoItems(false); }
   };
 
-  const handleEliminar = async () => {
+  const handleCancelar = async () => {
+    setCancelando(true);
     try {
-      await axios.delete(`${API}/api/compras/odc/${odc.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.patch(`${API}/api/compras/odc/${odc.id}/cancelar`,
+        { motivo: motivoCancel.trim() || undefined },
+        { headers: { Authorization: `Bearer ${token}` } });
+      toast.success(`ODC ${odc.numero_odc} cancelada`);
+      setConfirmCancel(false);
       onActualizar();
-    } catch (err) { console.error('Error en operación de compras:', err); }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'No se pudo cancelar la ODC');
+    } finally { setCancelando(false); }
+  };
+
+  // Caso 1 — "Actualizar orden": sincroniza la línea de la ODC con la cantidad nueva del SAP
+  const handleSincronizarItem = async (odcItemId: number) => {
+    setSincronizandoItem(odcItemId);
+    try {
+      await axios.patch(`${API}/api/compras/odc/${odc.id}/sincronizar-item/${odcItemId}`, {},
+        { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('Orden actualizada con la nueva cantidad');
+      onActualizar();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'No se pudo actualizar el ítem');
+    } finally { setSincronizandoItem(null); }
   };
 
   const handleImprimir = () => {
@@ -329,6 +364,13 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
               )}
             </div>
             {odc.notas && <p className="text-xs text-slate-400 italic mt-1">"{odc.notas}"</p>}
+            {odc.estado === 'cancelado' && (
+              <p className="text-xs text-red-400 italic mt-1">
+                Cancelada{odc.fecha_cancelacion ? ` el ${new Date(odc.fecha_cancelacion).toLocaleDateString('es-CO')}` : ''}
+                {odc.cancelador ? ` por ${odc.cancelador.nombre_completo}` : ''}
+                {odc.motivo_cancelacion ? ` — "${odc.motivo_cancelacion}"` : ''}
+              </p>
+            )}
           </div>
 
           {/* Botones de acción */}
@@ -340,25 +382,37 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
             >
               <Eye className="w-3.5 h-3.5" /> Ver
             </button>
-            <button
-              onClick={() => {
-                setEditProveedor(odc.proveedor);
-                setEditNotas(odc.notas || '');
-                setEditEstado(odc.estado);
-                setEditando(true);
-              }}
-              title="Editar ODC"
-              className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition"
-            >
-              <Edit3 className="w-3.5 h-3.5" /> Editar
-            </button>
-            <button
-              onClick={() => setConfirmDelete(true)}
-              title="Eliminar ODC"
-              className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 border border-slate-200 text-slate-400 rounded-lg hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition"
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Eliminar
-            </button>
+            {!soloLectura && (
+              <button
+                onClick={() => {
+                  setEditProveedor(odc.proveedor);
+                  setEditNotas(odc.notas || '');
+                  setEditEstado(odc.estado);
+                  setEditando(true);
+                }}
+                title="Editar ODC"
+                className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition"
+              >
+                <Edit3 className="w-3.5 h-3.5" /> Editar
+              </button>
+            )}
+            {!soloLectura && !tieneRecibidos && (
+              <button
+                onClick={() => { setMotivoCancel(''); setConfirmCancel(true); }}
+                title="Cancelar ODC"
+                className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 border border-slate-200 text-slate-400 rounded-lg hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition"
+              >
+                <Ban className="w-3.5 h-3.5" /> Cancelar
+              </button>
+            )}
+            {!soloLectura && tieneRecibidos && (
+              <span
+                title="No se puede cancelar: ya tiene material recibido"
+                className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 border border-slate-100 text-slate-300 rounded-lg cursor-not-allowed"
+              >
+                <Ban className="w-3.5 h-3.5" /> Cancelar
+              </span>
+            )}
           </div>
         </div>
 
@@ -388,10 +442,22 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                 return (
                   <tr key={i} className={rowClass} title={esModificado ? buildTooltipModificado(it) : undefined}>
                     <td className="px-4 py-1.5 font-mono text-blue-700 font-bold">
-                      {it.codigo || '—'}
-                      {esModificado && (
-                        <span className="ml-1.5 text-[9px] font-black px-1.5 py-0.5 rounded bg-red-500 text-white align-middle">MOD</span>
-                      )}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{it.codigo || '—'}</span>
+                        {esModificado && (
+                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-red-500 text-white align-middle">MOD</span>
+                        )}
+                        {esModificado && !soloLectura && (
+                          <button
+                            onClick={() => handleSincronizarItem(it.id)}
+                            disabled={sincronizandoItem === it.id}
+                            title="Actualizar la orden con la nueva cantidad del SAP"
+                            className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 transition disabled:opacity-50"
+                          >
+                            <RotateCw className="w-2.5 h-2.5" /> {sincronizandoItem === it.id ? '...' : 'Actualizar'}
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-1.5 text-slate-700">{it.descripcion || '—'}</td>
                     <td className="px-4 py-1.5 text-center font-bold text-slate-600">{Number(it.cantidad) % 1 === 0 ? Math.round(Number(it.cantidad)) : it.cantidad}</td>
@@ -768,31 +834,43 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
         )}
       </AnimatePresence>
 
-      {/* ── MODAL CONFIRMAR ELIMINAR ── */}
+      {/* ── MODAL CONFIRMAR CANCELACIÓN ── */}
       <AnimatePresence>
-        {confirmDelete && (
+        {confirmCancel && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center border border-slate-200"
+              className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200"
             >
-              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-              <h3 className="font-bold text-slate-800 mb-2">¿Eliminar {odc.numero_odc}?</h3>
-              <p className="text-sm text-slate-500 mb-5">Los items del SAP vuelven a estado pendiente. Esta acción no se puede deshacer.</p>
+              <Ban className="w-12 h-12 text-red-500 mx-auto mb-3" />
+              <h3 className="font-bold text-slate-800 mb-2 text-center">¿Cancelar {odc.numero_odc}?</h3>
+              <p className="text-sm text-slate-500 mb-4 text-center">
+                La orden quedará marcada como <strong>cancelada</strong> y se conserva en el historial. El material que no esté en otra orden activa vuelve a <strong>Pendientes</strong>.
+              </p>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Motivo (opcional)</label>
+              <textarea
+                value={motivoCancel}
+                onChange={e => setMotivoCancel(e.target.value)}
+                rows={2}
+                placeholder="Ej: pedido duplicado, error de proveedor..."
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4 resize-none"
+              />
               <div className="flex gap-3">
                 <button
-                  onClick={() => setConfirmDelete(false)}
+                  onClick={() => setConfirmCancel(false)}
+                  disabled={cancelando}
                   className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
                 >
-                  Cancelar
+                  Volver
                 </button>
                 <button
-                  onClick={handleEliminar}
-                  className="flex-1 py-2.5 font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition"
+                  onClick={handleCancelar}
+                  disabled={cancelando}
+                  className="flex-1 py-2.5 font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition disabled:opacity-50"
                 >
-                  Sí, eliminar
+                  {cancelando ? 'Cancelando...' : 'Sí, cancelar'}
                 </button>
               </div>
             </motion.div>
@@ -806,7 +884,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
 // ─── Componente principal ────────────────────────────────────────────────────
 
 const ComprasPage: React.FC = () => {
-  const [tab, setTab] = useState<'pendientes' | 'seguimiento' | 'recibidas' | 'vidrios' | 'existencia'>('pendientes');
+  const [tab, setTab] = useState<'pendientes' | 'seguimiento' | 'recibidas' | 'vidrios' | 'existencia' | 'canceladas'>('pendientes');
   const [fichaOdpId, setFichaOdpId] = useState<number | null>(null);
   const [itemsPendientes, setItemsPendientes] = useState<SAPItemConContexto[]>([]);
   const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
@@ -814,6 +892,7 @@ const ComprasPage: React.FC = () => {
   const [mostrarModalSinSAP, setMostrarModalSinSAP] = useState(false);
   const [odcsSeguimiento, setOdcsSeguimiento] = useState<ODC[]>([]);
   const [odcsRecibidas, setOdcsRecibidas] = useState<ODC[]>([]);
+  const [odcsCanceladas, setOdcsCanceladas] = useState<ODC[]>([]);
   const [vidriosFlat, setVidriosFlat] = useState<ODPItemConContexto[]>([]);
   const [seleccionadosVidrios, setSeleccionadosVidrios] = useState<Set<number>>(new Set());
   const [mostrarModalVidrios, setMostrarModalVidrios] = useState(false);
@@ -845,6 +924,9 @@ const ComprasPage: React.FC = () => {
       } else if (t === 'existencia') {
         const res = await axios.get(`${API}/api/compras/vidrios/existencia`, { headers });
         setVidriosExistencia(res.data);
+      } else if (t === 'canceladas') {
+        const res = await axios.get(`${API}/api/compras/canceladas`, { headers });
+        setOdcsCanceladas(res.data);
       } else {
         const res = await axios.get(`${API}/api/compras/recibidas`, { headers });
         setOdcsRecibidas(res.data);
@@ -860,6 +942,7 @@ const ComprasPage: React.FC = () => {
     axios.get(`${API}/api/compras/recibidas`, { headers: h }).then(r => setOdcsRecibidas(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
     axios.get(`${API}/api/compras/vidrios/panel`, { headers: h }).then(r => setVidriosFlat(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
     axios.get(`${API}/api/compras/vidrios/existencia`, { headers: h }).then(r => setVidriosExistencia(r.data)).catch(err => console.error('Error cargando existencia:', err));
+    axios.get(`${API}/api/compras/canceladas`, { headers: h }).then(r => setOdcsCanceladas(r.data)).catch(err => console.error('Error cargando canceladas:', err));
     axios.get(`${API}/api/compras/codigos-perfileria`, { headers: h }).then(r => setCodigosConStock(new Set(r.data as string[]))).catch(err => console.error('Error cargando códigos perfilería:', err));
   }, []);
 
@@ -944,6 +1027,7 @@ const ComprasPage: React.FC = () => {
     if (t === 'seguimiento') return odcsSeguimiento.length;
     if (t === 'vidrios') return vidriosFlat.length;
     if (t === 'existencia') return vidriosExistencia.length;
+    if (t === 'canceladas') return odcsCanceladas.length;
     return odcsRecibidas.length;
   };
 
@@ -1295,6 +1379,21 @@ const ComprasPage: React.FC = () => {
               ) : (
                 <div className="grid gap-4">
                   {lista.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} onFichaOdp={setFichaOdpId} />)}
+                </div>
+              );
+            })()}
+
+            {/* ── TAB CANCELADAS ── */}
+            {tab === 'canceladas' && (() => {
+              const lista = filtrarOdcs(odcsCanceladas);
+              return lista.length === 0 ? (
+                <div className="text-center py-20">
+                  <Ban className="w-16 h-16 text-slate-200 mx-auto mb-3" />
+                  <p className="text-lg font-bold text-slate-500">{busqueda ? 'Sin resultados' : 'No hay ODCs canceladas'}</p>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {lista.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} onFichaOdp={setFichaOdpId} soloLectura />)}
                 </div>
               );
             })()}

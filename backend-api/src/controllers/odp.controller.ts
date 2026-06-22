@@ -344,7 +344,7 @@ export const getODP = async (req: Request, res: Response) => {
 
           // Traer info base de las ODCs
           const ordenes = await OrdenCompra.findAll({
-            where: { id: { [Op.in]: odcIds } },
+            where: { id: { [Op.in]: odcIds }, estado: { [Op.ne]: 'cancelado' } },
             attributes: ['id', 'numero_odc', 'proveedor', 'tipo', 'estado', 'fecha_creacion', 'fecha_recepcion'],
             raw: true
           });
@@ -371,10 +371,12 @@ export const getODP = async (req: Request, res: Response) => {
             const odcItemsDelSap = odcItemsRelacionados.filter((i: any) => sapItemIdsContext.has(i.sap_item_id));
             const odcIdsDelSap = [...new Set(odcItemsDelSap.map((i: any) => i.odc_id))];
 
-            sap.ordenes_compra = odcIdsDelSap.map((id) => ({
-              ...ordenesMap.get(id),
-              items: itemsByOdc.get(id) || []
-            }));
+            sap.ordenes_compra = odcIdsDelSap
+              .filter((id) => ordenesMap.has(id))
+              .map((id) => ({
+                ...ordenesMap.get(id),
+                items: itemsByOdc.get(id) || []
+              }));
           }
         }
       }
@@ -391,7 +393,7 @@ export const getODP = async (req: Request, res: Response) => {
       const vidrioOdcIds = [...new Set(vidrioOdcItems.map((i: any) => i.odc_id))];
       if (vidrioOdcIds.length > 0) {
         const vidrioOrdenes = await OrdenCompra.findAll({
-          where: { id: { [Op.in]: vidrioOdcIds }, tipo: 'vidrio' },
+          where: { id: { [Op.in]: vidrioOdcIds }, tipo: 'vidrio', estado: { [Op.ne]: 'cancelado' } },
           attributes: ['id', 'numero_odc', 'proveedor', 'tipo', 'estado', 'fecha_creacion'],
           raw: true
         });
@@ -1613,7 +1615,7 @@ export const getHistorialODP = async (req: Request, res: Response) => {
           const odcIds = [...new Set(odcItemsRel.map((i: any) => i.odc_id))];
           if (odcIds.length > 0) {
             const odcs = await ODCModel.findAll({
-              where: { id: { [Op.in]: odcIds } },
+              where: { id: { [Op.in]: odcIds }, estado: { [Op.ne]: 'cancelado' } },
               attributes: ['id', 'numero_odc', 'proveedor', 'tipo', 'estado', 'fecha_creacion', 'fecha_recepcion'],
               include: [{ model: UsuarioModel, as: 'creador', attributes: ['id', 'nombre_completo'] }],
             });
@@ -1632,7 +1634,7 @@ export const getHistorialODP = async (req: Request, res: Response) => {
       const vidrioOdcIds = [...new Set(vidrioOdcItems.map((i: any) => i.odc_id))];
       if (vidrioOdcIds.length > 0) {
         const vidrioOrdenes = await ODCModel.findAll({
-          where: { id: { [Op.in]: vidrioOdcIds }, tipo: 'vidrio' },
+          where: { id: { [Op.in]: vidrioOdcIds }, tipo: 'vidrio', estado: { [Op.ne]: 'cancelado' } },
           attributes: ['id', 'numero_odc', 'proveedor', 'tipo', 'estado', 'fecha_creacion', 'fecha_recepcion'],
           include: [{ model: UsuarioModel, as: 'creador', attributes: ['id', 'nombre_completo'] }],
         });

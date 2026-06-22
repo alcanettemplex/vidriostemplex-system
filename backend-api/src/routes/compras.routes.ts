@@ -3,11 +3,13 @@ import {
   getODPsConSAPPendiente,
   getODCsSeguimiento,
   getODCsRecibidas,
+  getODCsCanceladas,
   getODCItems,
   getSAPParaCompras,
   createODC,
   updateODC,
-  deleteODC,
+  cancelarODC,
+  sincronizarItemODC,
   recibirItems,
   toggleExistencia,
   updateExistPerf,
@@ -34,6 +36,7 @@ const rc = (...r: RolUsuario[]) => requireRole(...r);
 router.get('/panel', authMiddleware, getODPsConSAPPendiente);
 router.get('/seguimiento', authMiddleware, getODCsSeguimiento);
 router.get('/recibidas', authMiddleware, getODCsRecibidas);
+router.get('/canceladas', authMiddleware, getODCsCanceladas);
 router.get('/odc/:id/items', authMiddleware, getODCItems);
 router.get('/sap/:sap_id', authMiddleware, getSAPParaCompras);
 router.get('/codigos-perfileria', authMiddleware, getCodigosPerfileria);
@@ -44,7 +47,8 @@ router.post('/odc', authMiddleware, rc('admin', 'compras'), createODC);
 router.post('/odc-sin-sap', authMiddleware, rc('admin', 'compras'), createODCSinSAP);
 router.put('/odc/:id', authMiddleware, rc('admin', 'compras'), updateODC);
 router.put('/odc/:id/recibir-items', authMiddleware, rc('admin', 'compras', 'jefe_produccion', 'produccion'), recibirItems);
-router.delete('/odc/:id', authMiddleware, rc('admin', 'compras'), deleteODC);
+router.patch('/odc/:id/sincronizar-item/:itemId', authMiddleware, rc('admin', 'compras'), sincronizarItemODC);
+router.patch('/odc/:id/cancelar', authMiddleware, rc('admin', 'compras'), cancelarODC);
 router.patch('/sap-item/:id/existencia', authMiddleware, rc('admin', 'compras'), toggleExistencia);
 router.patch('/sap-item/:id/exist-perf', authMiddleware, rc('admin', 'compras'), updateExistPerf);
 router.post('/sap-item/:id/dividir-existencia', authMiddleware, rc('admin', 'compras'), dividirPorExistencia);

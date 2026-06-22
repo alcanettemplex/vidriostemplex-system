@@ -11,6 +11,16 @@ const validarNumeroODC = async (numero_odc: string, excludeId?: number): Promise
   if (existente) throw new Error(`Ya existe una ODC con el número ${numero_odc}`);
 };
 
+// True si la ODC tiene algún SAPItem vinculado con modificado=true (cambio sin resolver).
+// Se usa para bloquear la recepción hasta que el comprador actualice la orden.
+const hayItemsModificadosEnODC = async (odcId: number | string, transaction?: any): Promise<boolean> => {
+  const odcItems = await ODCItem.findAll({ where: { odc_id: odcId }, attributes: ['sap_item_id'], transaction });
+  const sapItemIds = odcItems.map((i: any) => i.getDataValue('sap_item_id')).filter(Boolean);
+  if (sapItemIds.length === 0) return false;
+  const count = await SAPItem.count({ where: { id: { [Op.in]: sapItemIds }, modificado: true }, transaction });
+  return count > 0;
+};
+
 // Inclusión completa para detalle expandido y actualización tras recepción
 const includeItemsTrazabilidad = [
   {
@@ -166,11 +176,49 @@ export const getODCsRecibidas = async (req: Request, res: Response) => {
   }
 };
 
-// GET /odc/panel — Lista plana de SAPItems pendientes + modificados (ya en ODC pero con datos cambiados)
+// GET /odc/canceladas — ODCs canceladas (baja lógica), solo lectura
+export const getODCsCanceladas = async (req: Request, res: Response) => {
+  try {
+    const odcs = await OrdenCompra.findAll({
+      where: { estado: 'cancelado' },
+      include: [
+        ...includeItemsLista,
+        { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
+        { model: Usuario, as: 'cancelador', attributes: ['id', 'nombre_completo'] },
+        // Backward compat: ODCs antiguas con sap_id
+        {
+          model: SAP, as: 'sap',
+          include: [{
+            model: ODP,
+            attributes: ['id', 'numero_odp', 'estado_produccion', 'fecha_creacion'],
+            include: [
+              { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+              { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+            ],
+          }],
+        },
+        // ODCs con odp_id directo en cabecera
+        {
+          model: ODP, as: 'odp',
+          required: false,
+          include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
+        },
+      ],
+      order: [['fecha_cancelacion', 'DESC']],
+    });
+    res.json(odcs);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al obtener canceladas', detail: error.message });
+  }
+};
+
+// GET /odc/panel — Lista plana de SAPItems realmente pendientes.
+// Los ítems modificados que ya están en una ODC NO reaparecen aquí: se resuelven
+// desde Seguimiento con el botón "Actualizar orden" (evita el doble pedido).
 export const getODPsConSAPPendiente = async (req: Request, res: Response) => {
   try {
     const items = await SAPItem.findAll({
-      where: { [Op.or]: [{ estado_compra: 'pendiente' }, { modificado: true }] },
+      where: { estado_compra: 'pendiente' },
       include: [
         {
           model: SAP,
@@ -247,6 +295,27 @@ export const createODC = async (req: Request, res: Response) => {
       return res.status(409).json({ error: e.message });
     }
 
+    // ─── Salvaguarda anti-doble-pedido ───
+    // Ningún SAPItem seleccionado puede estar ya en otra ODC activa (no recibida/cancelada).
+    const sapItemIdsSel = items.map((i: any) => i.sap_item_id).filter(Boolean);
+    if (sapItemIdsSel.length > 0) {
+      const yaEnODC = await ODCItem.findAll({
+        where: { sap_item_id: { [Op.in]: sapItemIdsSel } },
+        include: [{
+          model: OrdenCompra, attributes: ['numero_odc'], required: true,
+          where: { estado: { [Op.in]: ['pendiente', 'en_transito', 'problema'] } },
+        }],
+        transaction: t,
+      });
+      if (yaEnODC.length > 0) {
+        const numeros = [...new Set(yaEnODC.map((x: any) => x.OrdenCompra?.numero_odc).filter(Boolean))];
+        await t.rollback();
+        return res.status(409).json({
+          error: `Hay material que ya está en una ODC activa (${numeros.join(', ')}). Actualiza esa orden en lugar de crear un pedido nuevo.`,
+        });
+      }
+    }
+
     const odc = await OrdenCompra.create({
       numero_odc: String(numero_odc).trim(),
       sap_id: null,
@@ -273,11 +342,10 @@ export const createODC = async (req: Request, res: Response) => {
     }
 
     // Marcar todos los SAPItems incluidos como en_odc y limpiar flag de modificado
-    const sapItemIds = items.map((i: any) => i.sap_item_id).filter(Boolean);
-    if (sapItemIds.length > 0) {
+    if (sapItemIdsSel.length > 0) {
       await SAPItem.update(
         { estado_compra: 'en_odc', modificado: false, datos_anteriores: null },
-        { where: { id: { [Op.in]: sapItemIds } }, transaction: t }
+        { where: { id: { [Op.in]: sapItemIdsSel } }, transaction: t }
       );
     }
 
@@ -317,6 +385,14 @@ export const updateODC = async (req: Request, res: Response) => {
     }
 
     const estadoAnterior = odc.getDataValue('estado');
+
+    // No se puede recibir una ODC con material modificado sin actualizar
+    if (estado === 'recibido' && estadoAnterior !== 'recibido') {
+      if (await hayItemsModificadosEnODC(id)) {
+        return res.status(400).json({ error: 'Hay materiales modificados sin actualizar. Actualiza la orden antes de marcarla como recibida.' });
+      }
+    }
+
     const fechaRecepcion = estado === 'recibido' && estadoAnterior !== 'recibido'
       ? new Date() : odc.getDataValue('fecha_recepcion');
 
@@ -363,11 +439,13 @@ export const updateODC = async (req: Request, res: Response) => {
   }
 };
 
-// DELETE /odc/:id — Eliminar ODC y revertir estado_compra de sus items
-export const deleteODC = async (req: Request, res: Response) => {
+// PATCH /odc/:id/cancelar — Cancelar ODC (baja lógica) y revertir estado_compra de sus items.
+// Bloquea si la ODC ya fue recibida (total o parcial). Conserva el historial (no borra nada).
+export const cancelarODC = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
+    const { motivo } = req.body as { motivo?: string };
 
     const odc = await OrdenCompra.findByPk(id, {
       include: [{ model: ODCItem, as: 'items' }],
@@ -375,26 +453,44 @@ export const deleteODC = async (req: Request, res: Response) => {
     });
     if (!odc) { await t.rollback(); return res.status(404).json({ error: 'ODC no encontrada' }); }
 
-    // ─── Verificación de ownership (solo creador o admin) ───
-    if (req.user?.rol !== 'admin') {
-      if (Number(odc.getDataValue('creado_por')) !== Number(req.user?.id)) {
-        await t.rollback();
-        return res.status(403).json({ error: 'Solo el creador de la ODC puede eliminarla' });
-      }
+    // ─── Ownership: solo creador o admin ───
+    if (req.user?.rol !== 'admin' && Number(odc.getDataValue('creado_por')) !== Number(req.user?.id)) {
+      await t.rollback();
+      return res.status(403).json({ error: 'Solo el creador de la ODC puede cancelarla' });
     }
 
+    // ─── No se puede cancelar una ODC ya recibida (total o parcial) ───
+    const estadoActual = odc.getDataValue('estado');
+    if (estadoActual === 'cancelado') {
+      await t.rollback();
+      return res.status(400).json({ error: 'La ODC ya está cancelada' });
+    }
     const odcItems = (odc as any).items as any[];
-    const sapItemIds = odcItems.map((i: any) => i.sap_item_id);
+    const tieneRecibidos = estadoActual === 'recibido' || odcItems.some((i: any) => i.recibido === true);
+    if (tieneRecibidos) {
+      await t.rollback();
+      return res.status(400).json({ error: 'No se puede cancelar una ODC con material ya recibido.' });
+    }
+
+    // ─── Baja lógica ───
+    await odc.update({
+      estado: 'cancelado',
+      cancelado_por: req.user?.id ?? null,
+      fecha_cancelacion: new Date(),
+      motivo_cancelacion: (motivo && String(motivo).trim()) || null,
+    }, { transaction: t });
+
+    const sapItemIds = odcItems.map((i: any) => i.sap_item_id).filter(Boolean);
     const odpItemIds = odcItems.map((i: any) => i.odp_item_id).filter(Boolean);
 
-    await ODCItem.destroy({ where: { odc_id: id }, transaction: t });
-    await odc.destroy({ transaction: t });
-
-    // Revertir estado de sap_items a 'pendiente' si no están en otra ODC
+    // Revertir sap_items a 'pendiente' si no quedan en otra ODC ACTIVA (no cancelada)
     for (const sapItemId of sapItemIds) {
-      if (!sapItemId) continue;
-      const enOtraODC = await ODCItem.count({ where: { sap_item_id: sapItemId }, transaction: t });
-      if (enOtraODC === 0) {
+      const enOtraODCActiva = await ODCItem.count({
+        where: { sap_item_id: sapItemId },
+        include: [{ model: OrdenCompra, attributes: [], required: true, where: { estado: { [Op.ne]: 'cancelado' } } }],
+        transaction: t,
+      });
+      if (enOtraODCActiva === 0) {
         await SAPItem.update(
           { estado_compra: 'pendiente', modificado: false, datos_anteriores: null },
           { where: { id: sapItemId }, transaction: t }
@@ -402,10 +498,14 @@ export const deleteODC = async (req: Request, res: Response) => {
       }
     }
 
-    // Revertir estado de odp_items a 'pendiente' si no están en otra ODC (ODC de vidrio)
+    // Revertir odp_items (vidrio) a 'pendiente' si no quedan en otra ODC ACTIVA
     for (const odpItemId of odpItemIds) {
-      const enOtraODC = await ODCItem.count({ where: { odp_item_id: odpItemId }, transaction: t });
-      if (enOtraODC === 0) {
+      const enOtraODCActiva = await ODCItem.count({
+        where: { odp_item_id: odpItemId },
+        include: [{ model: OrdenCompra, attributes: [], required: true, where: { estado: { [Op.ne]: 'cancelado' } } }],
+        transaction: t,
+      });
+      if (enOtraODCActiva === 0) {
         await ODPItem.update(
           { estado_compra: 'pendiente' },
           { where: { id: odpItemId }, transaction: t }
@@ -414,10 +514,11 @@ export const deleteODC = async (req: Request, res: Response) => {
     }
 
     await t.commit();
-    res.json({ ok: true });
+    import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+    res.json({ ok: true, estado: 'cancelado' });
   } catch (error: any) {
     await t.rollback();
-    res.status(500).json({ error: 'Error al eliminar ODC', detail: error.message });
+    res.status(500).json({ error: 'Error al cancelar ODC', detail: error.message });
   }
 };
 
@@ -445,6 +546,12 @@ export const recibirItems = async (req: Request, res: Response) => {
     if (!odc) {
       await t.rollback();
       return res.status(404).json({ error: 'ODC no encontrada' });
+    }
+
+    // No se puede recibir una ODC con material modificado sin actualizar
+    if (await hayItemsModificadosEnODC(id, t)) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Hay materiales modificados sin actualizar. Actualiza la orden antes de registrar la recepción.' });
     }
 
     // Marcar como recibido los ítems seleccionados
@@ -511,6 +618,63 @@ export const recibirItems = async (req: Request, res: Response) => {
   } catch (error: any) {
     try { await t.rollback(); } catch (_) { /* ya hecho */ }
     res.status(500).json({ error: 'Error al registrar recepción', detail: error.message });
+  }
+};
+
+/**
+ * PATCH /odc/:id/sincronizar-item/:itemId
+ * Caso 1 — "Actualizar orden": sincroniza una línea de la ODC con los datos actuales
+ * del SAPItem (código, descripción, cantidad) y limpia la alerta de modificado.
+ * Solo el creador de la ODC o un admin. Solo en ODCs activas (no recibidas/canceladas).
+ */
+export const sincronizarItemODC = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id, itemId } = req.params;
+
+    const odc = await OrdenCompra.findByPk(id, { transaction: t });
+    if (!odc) { await t.rollback(); return res.status(404).json({ error: 'ODC no encontrada' }); }
+
+    // Ownership: solo creador o admin
+    if (req.user?.rol !== 'admin' && Number(odc.getDataValue('creado_por')) !== Number(req.user?.id)) {
+      await t.rollback();
+      return res.status(403).json({ error: 'Solo el creador de la ODC puede actualizarla' });
+    }
+
+    const estadoODC = odc.getDataValue('estado');
+    if (estadoODC === 'recibido' || estadoODC === 'cancelado') {
+      await t.rollback();
+      return res.status(400).json({ error: 'No se puede actualizar una ODC recibida o cancelada' });
+    }
+
+    const odcItem = await ODCItem.findOne({ where: { id: itemId, odc_id: id }, transaction: t });
+    if (!odcItem) { await t.rollback(); return res.status(404).json({ error: 'Ítem no encontrado en esta ODC' }); }
+
+    const sapItemId = odcItem.getDataValue('sap_item_id');
+    if (!sapItemId) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Este ítem no proviene de una SAP; no hay nada que sincronizar' });
+    }
+
+    const sapItem = await SAPItem.findByPk(sapItemId, { transaction: t });
+    if (!sapItem) { await t.rollback(); return res.status(404).json({ error: 'SAPItem no encontrado' }); }
+
+    // Copiar valores actuales del SAPItem a la línea de la ODC
+    await odcItem.update({
+      codigo: sapItem.getDataValue('codigo'),
+      descripcion: sapItem.getDataValue('descripcion'),
+      cantidad: sapItem.getDataValue('cantidad'),
+    }, { transaction: t });
+
+    // Limpiar la alerta de modificado
+    await sapItem.update({ modificado: false, datos_anteriores: null }, { transaction: t });
+
+    await t.commit();
+    import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+    res.json({ ok: true, odc_item_id: Number(itemId) });
+  } catch (error: any) {
+    await t.rollback();
+    res.status(500).json({ error: 'Error al sincronizar el ítem', detail: error.message });
   }
 };
 
@@ -804,6 +968,24 @@ export const createODCVidrios = async (req: Request, res: Response) => {
     try { await validarNumeroODC(String(numero_odc).trim()); } catch (e: any) {
       await t.rollback();
       return res.status(409).json({ error: e.message });
+    }
+
+    // ─── Salvaguarda anti-doble-pedido ───
+    // Ningún ODPItem seleccionado puede estar ya en otra ODC activa (no recibida/cancelada).
+    const yaEnODCVidrio = await ODCItem.findAll({
+      where: { odp_item_id: { [Op.in]: odp_item_ids } },
+      include: [{
+        model: OrdenCompra, attributes: ['numero_odc'], required: true,
+        where: { estado: { [Op.in]: ['pendiente', 'en_transito', 'problema'] } },
+      }],
+      transaction: t,
+    });
+    if (yaEnODCVidrio.length > 0) {
+      const numeros = [...new Set(yaEnODCVidrio.map((x: any) => x.OrdenCompra?.numero_odc).filter(Boolean))];
+      await t.rollback();
+      return res.status(409).json({
+        error: `Hay vidrio que ya está en una ODC activa (${numeros.join(', ')}). Actualiza esa orden en lugar de crear un pedido nuevo.`,
+      });
     }
 
     const odc = await OrdenCompra.create({

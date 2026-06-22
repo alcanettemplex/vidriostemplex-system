@@ -20,6 +20,10 @@ OrdenCompra.init(
     creado_por: { type: DataTypes.INTEGER, allowNull: false },
     fecha_creacion: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     fecha_recepcion: { type: DataTypes.DATE, allowNull: true },
+    // ─── Cancelación (baja lógica) ───
+    cancelado_por: { type: DataTypes.INTEGER, allowNull: true },
+    fecha_cancelacion: { type: DataTypes.DATE, allowNull: true },
+    motivo_cancelacion: { type: DataTypes.TEXT, allowNull: true },
   },
   {
     sequelize,
