@@ -116,19 +116,39 @@ export const useODPSocketPatch = (params: {
 export const useDataChangedSocket = (modulo: string, onRefresh: () => void) => {
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let pendiente = false; // hubo un cambio mientras la pestaña estaba oculta
+
+    const ejecutarRefresh = () => {
+      pendiente = false;
+      onRefresh();
+    };
 
     const handler = (data: { modulo: string }) => {
       if (data.modulo !== modulo) return;
+      // Si la pestaña no está visible (segundo plano), no re-fetchear: marcar
+      // pendiente y sincronizar una sola vez cuando el usuario vuelva al foco.
+      // Evita refetches de listas completas en clientes que no están mirando.
+      if (document.hidden) {
+        pendiente = true;
+        return;
+      }
       if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
-        onRefresh();
-      }, 600);
+      debounceTimer = setTimeout(ejecutarRefresh, 600);
+    };
+
+    const onVisibilityChange = () => {
+      if (!document.hidden && pendiente) {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        ejecutarRefresh();
+      }
     };
 
     socket.on('data_changed', handler);
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       socket.off('data_changed', handler);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       if (debounceTimer) clearTimeout(debounceTimer);
     };
   }, [modulo, onRefresh]);
