@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
 import { Search, MapPin, Ruler, Trash2, Edit2, Check, X, BarChart2, List, PackagePlus, Download, FileSpreadsheet } from 'lucide-react';
 import IngresarPerfilModal from './IngresarPerfilModal';
+import { getCatalogoCached } from '../../services/listasCache';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -60,8 +61,8 @@ const InventarioPage: React.FC = () => {
   const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
-    axios.get<CatalogoItem[]>(`${API}/api/catalogo`, { headers })
-      .then(({ data }) => {
+    getCatalogoCached()
+      .then((data: CatalogoItem[]) => {
         const map: Record<string, string> = {};
         data.forEach(c => { map[c.codigo] = c.nombre; });
         setCatalogoMap(map);

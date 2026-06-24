@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import { Plus, Trash2, X, FileCheck, DollarSign, Package, AlertCircle, ChevronRight, ChevronLeft, Briefcase, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSelector } from 'react-redux';
+import { getClientesCached, getCatalogoCached } from '../../../services/listasCache';
 
 const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Gris', 'Azul', 'Verde', 'Mate', 'Otro'];
 
@@ -244,10 +245,10 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
         const headers = { Authorization: `Bearer ${token}` };
         const base = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-        axios.get(`${base}/api/clientes`, { headers }).then(r => setClientes(r.data)).catch(() => {});
-        axios.get(`${base}/api/catalogo`, { headers }).then(r => {
-            setCatalogo(r.data);
-            const cats = Array.from(new Set<string>(r.data.map((i: CatalogoItem) => i.categoria)));
+        getClientesCached().then(setClientes).catch(() => {});
+        getCatalogoCached().then(data => {
+            setCatalogo(data);
+            const cats = Array.from(new Set<string>(data.map((i: CatalogoItem) => i.categoria)));
             setCategorias(cats);
         }).catch(() => {});
         if (!odpToEdit) {

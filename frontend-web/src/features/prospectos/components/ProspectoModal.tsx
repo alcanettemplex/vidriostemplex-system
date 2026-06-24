@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { X, Building2, User, Ruler } from 'lucide-react';
+import { getClientesCached } from '../../../services/listasCache';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -37,7 +38,7 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
   const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
-    axios.get(`${API}/api/clientes`, { headers }).then(r => setClientes(r.data)).catch(() => {});
+    getClientesCached().then(setClientes).catch(() => {});
   }, []); // eslint-disable-line
 
   // Resetear form cuando cambia el prospecto seleccionado

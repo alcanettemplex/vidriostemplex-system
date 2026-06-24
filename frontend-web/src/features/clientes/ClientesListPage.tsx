@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { toast } from 'react-toastify';
 import { Plus, Search, User, Mail, Phone, MapPin, Building, AlertCircle, Edit2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { invalidarClientes } from '../../services/listasCache';
 
 // Fuentes de captación (misma lista que el CRM/Lead)
 const FUENTES = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Otro'];
@@ -88,6 +89,7 @@ const ClientesListPage: React.FC = () => {
       setIsFormOpen(false);
       setEditingClienteId(null);
       reset({});
+      invalidarClientes(); // refrescar la caché que consumen los formularios
       fetchClientes();
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Error al guardar cliente');
@@ -120,6 +122,7 @@ const ClientesListPage: React.FC = () => {
       });
       toast.success('Cliente eliminado exitosamente');
       setDeletingCliente(null);
+      invalidarClientes(); // refrescar la caché que consumen los formularios
       fetchClientes();
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Error al eliminar cliente');

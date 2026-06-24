@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { X, Plus, Trash2, Search, PackagePlus } from 'lucide-react';
+import { getCatalogoCached } from '../../services/listasCache';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -41,8 +42,8 @@ const IngresarPerfilModal: React.FC<Props> = ({ onClose, onGuardado }) => {
   const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
-    axios.get(`${API}/api/catalogo`, { headers })
-      .then(r => setCatalogo(r.data))
+    getCatalogoCached()
+      .then(setCatalogo)
       .catch(() => toast.error('Error al cargar catálogo'));
   }, []);
 

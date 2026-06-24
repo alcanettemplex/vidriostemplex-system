@@ -16,6 +16,7 @@ import {
   CotizacionType, CotizacionItemType, SeccionItem,
   FORMAS_PAGO, LABEL_SECCION, TODAS_UNIDADES,
 } from '../cotizacionesTypes';
+import { getClientesCached } from '../../../services/listasCache';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -119,14 +120,12 @@ const CotizacionFormModal: React.FC<Props> = ({ open, onClose, cotizacion, onSav
   // Cargar clientes
   const fetchClientes = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/clientes`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setClientes(res.data || []);
+      const data = await getClientesCached();
+      setClientes(data || []);
     } catch {
       // silencioso
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => { if (open) fetchClientes(); }, [open, fetchClientes]);
 

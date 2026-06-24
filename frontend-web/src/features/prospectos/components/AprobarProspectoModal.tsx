@@ -9,6 +9,7 @@ import {
   X, CheckCircle2, Plus, Briefcase, DollarSign, Package, Building2, UserCheck,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getClientesCached, getCatalogoCached } from '../../../services/listasCache';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -117,14 +118,14 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
 
   const loadData = useCallback(async () => {
     try {
-      const [catRes, cliRes] = await Promise.all([
-        axios.get(`${API}/api/catalogo`, { headers }),
-        axios.get(`${API}/api/clientes`, { headers }),
+      const [catData, cliData] = await Promise.all([
+        getCatalogoCached(),
+        getClientesCached(),
       ]);
-      setCatalogo(catRes.data);
-      const cats = Array.from(new Set<string>(catRes.data.map((i: CatalogoItem) => i.categoria)));
+      setCatalogo(catData);
+      const cats = Array.from(new Set<string>(catData.map((i: CatalogoItem) => i.categoria)));
       setCategorias(cats);
-      setClientes(cliRes.data);
+      setClientes(cliData);
     } catch { /* opcional */ }
   }, []); // eslint-disable-line
 

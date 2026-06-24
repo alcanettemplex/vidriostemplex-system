@@ -7,6 +7,7 @@ import {
   Wifi, WifiOff, Clock, BarChart2, Lock, X, ExternalLink,
   TrendingUp, Users, Package, FileText, Eye, DollarSign
 } from 'lucide-react';
+import { invalidarCatalogo } from '../../services/listasCache';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -1468,12 +1469,14 @@ const TabCatalogo: React.FC = () => {
       await fetch(`${API}/api/catalogo`, { method: 'POST', headers: headers(), body: JSON.stringify(catForm) });
     }
     setCatForm(null); setCatEditing(null); setCatSaving(false);
+    invalidarCatalogo(); // refrescar la caché que consumen los formularios
     fetchCatalogo();
   };
 
   const deleteCatItem = async (id: number) => {
     if (!window.confirm('¿Eliminar este producto?')) return;
     await fetch(`${API}/api/catalogo/${id}`, { method: 'DELETE', headers: headers() });
+    invalidarCatalogo(); // refrescar la caché que consumen los formularios
     fetchCatalogo();
   };
 
