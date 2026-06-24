@@ -118,15 +118,22 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
   const asesores       = (data.meta_vs_real_asesores || []).slice().sort((a: any, b: any) => b.real - a.real);
 
   const IVA_RATE = 0.19;
-  const ivaOf    = (n: number) => n - n / (1 + IVA_RATE);
-  const baseOf   = (n: number) => n / (1 + IVA_RATE);
+  // oa = porción del monto que proviene de OAs (Órdenes Azules, SIN IVA). Con oa=0 el cálculo es idéntico al original.
+  const ivaOf    = (n: number, oa = 0) => { const c = n - oa; return c - c / (1 + IVA_RATE); };
+  const baseOf   = (n: number, oa = 0) => n - ivaOf(n, oa);
+
+  // Ticket promedio: la porción OA se estima proporcional al peso de las OAs en el total facturado
+  const totalFact = data.total_facturado_mes || 0;
+  const ticketOA  = totalFact > 0
+    ? (data.ticket_promedio || 0) * ((data.total_facturado_mes_oa || 0) / totalFact)
+    : 0;
 
   // Helper: columna con desglose IVA apilado
-  const MontoCol = ({ n, colorCls = 'text-slate-700' }: { n: number; colorCls?: string }) => (
+  const MontoCol = ({ n, oa = 0, colorCls = 'text-slate-700' }: { n: number; oa?: number; colorCls?: string }) => (
     <div className="w-20 text-right shrink-0">
       <p className={`text-[11px] font-semibold tabular-nums ${colorCls}`}>{fmtM(n)}</p>
-      <p className="text-[9px] text-slate-400 tabular-nums">{fmtM(baseOf(n))}</p>
-      <p className="text-[9px] text-indigo-400 tabular-nums">IVA {fmtM(ivaOf(n))}</p>
+      <p className="text-[9px] text-slate-400 tabular-nums">{fmtM(baseOf(n, oa))}</p>
+      <p className="text-[9px] text-indigo-400 tabular-nums">IVA {fmtM(ivaOf(n, oa))}</p>
     </div>
   );
   const cartera        = data.cartera_vencida_detalle || [];
@@ -146,16 +153,16 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
           <GaugeMeta real={totalFacturado} meta={meta} />
           <div className="grid grid-cols-2 gap-2 w-full">
             {[
-              { label: 'Recaudado',    desc: 'Abonos cobrados',       raw: data.total_abonado   || 0, color: 'text-emerald-600', ivaColor: 'text-emerald-400' },
-              { label: 'Pendiente',    desc: 'Por cobrar',            raw: data.total_pendiente || 0, color: 'text-rose-500',    ivaColor: 'text-rose-400' },
-              { label: 'Ticket prom.', desc: 'Valor promedio por ODP', raw: data.ticket_promedio || 0, color: 'text-slate-800',   ivaColor: 'text-indigo-400' },
+              { label: 'Recaudado',    desc: 'Abonos cobrados',       raw: data.total_abonado   || 0, oa: data.total_abonado_oa   || 0, color: 'text-emerald-600', ivaColor: 'text-emerald-400' },
+              { label: 'Pendiente',    desc: 'Por cobrar',            raw: data.total_pendiente || 0, oa: data.total_pendiente_oa || 0, color: 'text-rose-500',    ivaColor: 'text-rose-400' },
+              { label: 'Ticket prom.', desc: 'Valor promedio por ODP', raw: data.ticket_promedio || 0, oa: ticketOA,                    color: 'text-slate-800',   ivaColor: 'text-indigo-400' },
             ].map((item, i) => (
               <div key={i} className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
                 <p className="text-[9px] text-slate-400 uppercase tracking-wider">{item.label}</p>
                 <p className="text-[8px] text-slate-300 mb-1">{item.desc}</p>
                 <p className={`text-[13px] font-semibold tabular-nums ${item.color}`}>{fmtM(item.raw)}</p>
-                <p className="text-[9px] text-slate-400 tabular-nums mt-0.5">{fmtM(baseOf(item.raw))}</p>
-                <p className={`text-[9px] tabular-nums ${item.ivaColor}`}>IVA {fmtM(ivaOf(item.raw))}</p>
+                <p className="text-[9px] text-slate-400 tabular-nums mt-0.5">{fmtM(baseOf(item.raw, item.oa))}</p>
+                <p className={`text-[9px] tabular-nums ${item.ivaColor}`}>IVA {fmtM(ivaOf(item.raw, item.oa))}</p>
               </div>
             ))}
             <div className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
@@ -218,8 +225,8 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
                         </div>
                       </div>
                       <MontoCol n={as.meta}      colorCls="text-slate-500" />
-                      <MontoCol n={as.real}      colorCls="text-slate-700" />
-                      <MontoCol n={as.recaudado} colorCls="text-emerald-600" />
+                      <MontoCol n={as.real}      oa={as.real_oa}      colorCls="text-slate-700" />
+                      <MontoCol n={as.recaudado} oa={as.recaudado_oa} colorCls="text-emerald-600" />
                       <span className="text-[12px] font-bold tabular-nums w-9 text-right" style={{ color }}>{pctLabel}%</span>
                     </div>
                     {/* Barra facturado */}

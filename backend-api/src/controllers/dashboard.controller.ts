@@ -91,6 +91,10 @@ export const getGeneralData = async (req: Request, res: Response) => {
     const facturado_mes = Number(await ODP.sum('valor_total', { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] } } }) || 0);
     const abonos        = await ODP.sum('abono', { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] } } }) || 0;
 
+    // Porción proveniente de OAs (Órdenes Azules, SIN IVA) — el frontend la descuenta para el desglose Base/IVA
+    const facturado_mes_oa = Number(await ODP.sum('valor_total', { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] }, tipo_odp: 'OA' } }) || 0);
+    const total_abonado_oa = Number(await ODP.sum('abono', { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] }, tipo_odp: 'OA' } }) || 0);
+
     // Cartera vencida: créditos con FE emitida cuya fecha_factura supera el umbral de días (sin filtro de período)
     const carteraItems = await ODP.findAll({
       where: {
@@ -198,7 +202,9 @@ export const getGeneralData = async (req: Request, res: Response) => {
       odps_activas,
       odps_activas_delta_pct,
       facturado_mes: Number(facturado_mes),
+      facturado_mes_oa,
       total_abonado: Number(abonos),
+      total_abonado_oa,
       cartera_vencida_total,
       cartera_vencida_clientes,
       tasa_entrega_tiempo_pct,
@@ -232,6 +238,11 @@ export const getVentasData = async (req: Request, res: Response) => {
     const total_pendiente     = await ODP.sum('pendiente', {
       where: { ...periodWhere, pendiente: { [Op.gt]: 0 } }
     }) || 0;
+
+    // Porciones provenientes de OAs (SIN IVA) — el frontend las descuenta del desglose Base/IVA
+    const total_facturado_mes_oa = Number(await ODP.sum('valor_total', { where: { ...periodWhere, tipo_odp: 'OA' } }) || 0);
+    const total_abonado_oa       = Number(await ODP.sum('abono',       { where: { ...periodWhere, tipo_odp: 'OA' } }) || 0);
+    const total_pendiente_oa     = Number(await ODP.sum('pendiente',   { where: { ...periodWhere, tipo_odp: 'OA', pendiente: { [Op.gt]: 0 } } }) || 0);
 
     const odps_sin_facturar = await ODP.count({ where: { ...periodWhere, factura_electronica: null } });
     const countPeriod       = await ODP.count({ where: periodWhere });
@@ -296,21 +307,29 @@ export const getVentasData = async (req: Request, res: Response) => {
       where: { rol: { [Op.in]: ['asesor_comercial', 'gerencia', 'jefe_produccion'] } }
     });
 
-    // facturado = suma de valor_total (monto contratado de cada ODP/OA)
+    // facturado = suma de valor_total (monto contratado de cada ODP/OA). total_oa = porción de OAs (SIN IVA)
     const realByAsesor = await ODP.findAll({
-      attributes: ['asesor_id', [fn('SUM', col('valor_total')), 'total']],
+      attributes: [
+        'asesor_id',
+        [fn('SUM', col('valor_total')), 'total'],
+        [literal("SUM(CASE WHEN tipo_odp = 'OA' THEN valor_total ELSE 0 END)"), 'total_oa']
+      ],
       where: { ...periodWhere, asesor_id: { [Op.ne]: null } },
       group: ['asesor_id'],
       raw: true
-    }) as unknown as { asesor_id: number; total: string }[];
+    }) as unknown as { asesor_id: number; total: string; total_oa: string }[];
 
-    // recaudado = suma de abonos efectivamente cobrados
+    // recaudado = suma de abonos efectivamente cobrados. total_oa = porción de OAs (SIN IVA)
     const recaudadoByAsesor = await ODP.findAll({
-      attributes: ['asesor_id', [fn('SUM', col('abono')), 'total']],
+      attributes: [
+        'asesor_id',
+        [fn('SUM', col('abono')), 'total'],
+        [literal("SUM(CASE WHEN tipo_odp = 'OA' THEN abono ELSE 0 END)"), 'total_oa']
+      ],
       where: { ...periodWhere, asesor_id: { [Op.ne]: null } },
       group: ['asesor_id'],
       raw: true
-    }) as unknown as { asesor_id: number; total: string }[];
+    }) as unknown as { asesor_id: number; total: string; total_oa: string }[];
 
     const metaByAsesor = monthList.length > 0
       ? await MetaUsuarioMensual.findAll({
@@ -331,7 +350,9 @@ export const getVentasData = async (req: Request, res: Response) => {
         nombre:     (u as any).nombre_completo,
         rol:        (u as any).rol,
         real:       Number(realRow?.total) || 0,       // facturado = abono + pendiente
+        real_oa:    Number(realRow?.total_oa) || 0,    // porción de OAs (SIN IVA)
         recaudado:  Number(recRow?.total)  || 0,       // solo abono (cobrado)
+        recaudado_oa: Number(recRow?.total_oa) || 0,   // porción de OAs (SIN IVA)
         meta:       Number(metaRow?.total) || 0,
       };
     });
@@ -352,9 +373,12 @@ export const getVentasData = async (req: Request, res: Response) => {
     });
 
     res.json({
-      total_abonado:       Number(total_abonado),
-      total_facturado_mes: Number(total_facturado_mes),
-      total_pendiente:     Number(total_pendiente),
+      total_abonado:           Number(total_abonado),
+      total_abonado_oa,
+      total_facturado_mes:     Number(total_facturado_mes),
+      total_facturado_mes_oa,
+      total_pendiente:         Number(total_pendiente),
+      total_pendiente_oa,
       odps_sin_facturar,
       odps_atrasadas,
       ticket_promedio,

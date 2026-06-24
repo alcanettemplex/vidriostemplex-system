@@ -124,10 +124,15 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
   const IVA_RATE      = 0.19;
   const rawFacturado  = data?.facturado_mes   || 0;
   const rawRecaudado  = data?.total_abonado   || 0;
-  const facturadoBase = rawFacturado / (1 + IVA_RATE);
-  const facturadoIva  = rawFacturado - facturadoBase;
-  const recaudadoBase = rawRecaudado / (1 + IVA_RATE);
-  const recaudadoIva  = rawRecaudado - recaudadoBase;
+  // Las OAs (Órdenes Azules) no llevan IVA: se descuenta su porción antes del desglose
+  const facturadoOA      = data?.facturado_mes_oa || 0;
+  const recaudadoOA      = data?.total_abonado_oa || 0;
+  const facturadoConIva  = rawFacturado - facturadoOA;
+  const facturadoIva     = facturadoConIva - facturadoConIva / (1 + IVA_RATE);
+  const facturadoBase    = rawFacturado - facturadoIva;
+  const recaudadoConIva  = rawRecaudado - recaudadoOA;
+  const recaudadoIva     = recaudadoConIva - recaudadoConIva / (1 + IVA_RATE);
+  const recaudadoBase    = rawRecaudado - recaudadoIva;
 
   return (
     <div className="space-y-3">

@@ -111,6 +111,8 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
   const valorTotalRaw = useWatch({ control, name: 'valor_total' }) || 0;
   const proveedorVidrio = useWatch({ control, name: 'proveedor_vidrio' });
   const IVA_RATE = 0.19;
+  // Orden Azul (OA): no aplica IVA ni subtotal. Este modal es solo de creación desde un prospecto.
+  const esOA = tipoOdp === 'OA';
   const subtotal = Number(valorTotalRaw) / (1 + IVA_RATE);
   const ivaValor = Number(valorTotalRaw) - subtotal;
   const fmtCOP = (n: number) =>
@@ -468,7 +470,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Valor Total de la Obra (con IVA)</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{esOA ? 'Valor Total de la Obra (sin IVA)' : 'Valor Total de la Obra (con IVA)'}</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <DollarSign className="w-4 h-4 text-slate-400" />
@@ -481,7 +483,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                     className="w-full pl-9 p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-green-500"
                   />
                 </div>
-                {Number(valorTotalRaw) > 0 && (
+                {!esOA && Number(valorTotalRaw) > 0 && (
                   <div className="mt-2 p-2.5 bg-blue-50 border border-blue-100 rounded-lg text-xs space-y-0.5">
                     <div className="flex justify-between text-slate-600">
                       <span>Subtotal (sin IVA):</span><span className="font-semibold">{fmtCOP(subtotal)}</span>
@@ -494,6 +496,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                     </div>
                   </div>
                 )}
+                {esOA && <p className="text-xs text-slate-400 mt-1">Esta orden no aplica IVA.</p>}
               </div>
             </div>
 

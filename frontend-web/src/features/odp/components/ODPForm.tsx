@@ -142,6 +142,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     const authUser = useSelector((state: any) => state.auth.user);
     const userRole = (authUser?.rol || authUser?.role)?.toLowerCase() || '';
     const esEdicion = !!odpToEdit;
+    // Orden Azul (OA): no aplica IVA ni subtotal. Al editar, tipoOdp llega undefined → detectar por odpToEdit.
+    const esOA = tipoOdp === 'OA' || odpToEdit?.tipo_odp === 'OA';
     // La forma de pago solo puede cambiarse tras crear la ODP si el rol es admin o gerencia.
     const puedeEditarFormaPago = !esEdicion || ['admin', 'gerencia'].includes(userRole);
     const [step, setStep] = useState(1);
@@ -606,7 +608,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
 
                                     {/* Valor Total de la Obra */}
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">Valor Total de la Obra (con IVA)</label>
+                                        <label className="block text-sm font-medium text-slate-700 mb-1">{esOA ? 'Valor Total de la Obra (sin IVA)' : 'Valor Total de la Obra (con IVA)'}</label>
                                         <div className="relative">
                                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                                 <DollarSign className="w-4 h-4 text-slate-400" />
@@ -619,7 +621,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                 className="w-full pl-9 p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                                             />
                                         </div>
-                                        {Number(valorTotalRaw) > 0 && (
+                                        {!esOA && Number(valorTotalRaw) > 0 && (
                                             <div className="mt-2 p-2.5 bg-blue-50 border border-blue-100 rounded-lg text-xs space-y-0.5">
                                                 <div className="flex justify-between text-slate-600">
                                                     <span>Subtotal (sin IVA):</span>
@@ -635,6 +637,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                 </div>
                                             </div>
                                         )}
+                                        {esOA && <p className="text-xs text-slate-400 mt-1">Esta orden no aplica IVA.</p>}
                                     </div>
 
                                     {/* Forma de Pago */}
