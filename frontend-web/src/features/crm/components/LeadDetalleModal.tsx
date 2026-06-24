@@ -584,7 +584,7 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
                     onChange={e => setFormData({...formData, fuente_lead: e.target.value})}
                     className="w-full text-xs border rounded-lg p-2 bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-300"
                   >
-                    {['Web', 'Facebook', 'Instagram', 'WhatsApp', 'Llamada', 'Presencial', 'Otro'].map(f => (
+                    {['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Show Room', 'Referidos', 'Visita Asesor', 'Cliente'].map(f => (
                       <option key={f} value={f}>{f}</option>
                     ))}
                   </select>

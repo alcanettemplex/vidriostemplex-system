@@ -14,7 +14,7 @@ Lead.init({
     allowNull: true 
   },
   fuente_lead: { 
-    type: DataTypes.ENUM('Web', 'Facebook', 'Instagram', 'WhatsApp', 'Llamada', 'Presencial', 'Otro'),
+    type: DataTypes.ENUM('Web', 'Facebook', 'Instagram', 'WhatsApp', 'Llamada', 'Presencial', 'Show Room', 'Referidos', 'Visita Asesor', 'Cliente'),
     allowNull: true,
     defaultValue: 'Presencial'
   },

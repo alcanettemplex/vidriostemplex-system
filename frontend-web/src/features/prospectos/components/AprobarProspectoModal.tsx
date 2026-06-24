@@ -41,7 +41,7 @@ type ODPFormValues = z.infer<typeof odpSchema>;
 type CatalogoItem = { id: number; categoria: string; nombre: string; descripcion: string };
 type ClienteItem = { id: number; nombre_razon_social: string; telefono: string | null; celular: string | null; email: string | null; fuente?: string | null; };
 
-const FUENTES = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Otro'];
+const FUENTES = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Show Room', 'Referidos', 'Visita Asesor', 'Cliente'];
 
 interface Props {
   prospecto: any;

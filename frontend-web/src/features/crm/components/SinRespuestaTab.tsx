@@ -10,13 +10,16 @@ import {
 import { apiGetLeads, apiMoverAlPipeline } from '../crmService';
 
 const FUENTE_COLOR: Record<string, string> = {
-  WhatsApp:   'bg-emerald-100 text-emerald-700',
-  Facebook:   'bg-blue-100 text-blue-700',
-  Instagram:  'bg-fuchsia-100 text-fuchsia-700',
-  Web:        'bg-indigo-100 text-indigo-700',
-  Llamada:    'bg-amber-100 text-amber-700',
-  Presencial: 'bg-slate-100 text-slate-600',
-  Otro:       'bg-gray-100 text-gray-600',
+  WhatsApp:        'bg-emerald-100 text-emerald-700',
+  Facebook:        'bg-blue-100 text-blue-700',
+  Instagram:       'bg-fuchsia-100 text-fuchsia-700',
+  Web:             'bg-indigo-100 text-indigo-700',
+  Llamada:         'bg-amber-100 text-amber-700',
+  Presencial:      'bg-slate-100 text-slate-600',
+  'Show Room':     'bg-teal-100 text-teal-700',
+  Referidos:       'bg-rose-100 text-rose-700',
+  'Visita Asesor': 'bg-orange-100 text-orange-700',
+  Cliente:         'bg-violet-100 text-violet-700',
 };
 
 interface SinRespuestaTabProps {
@@ -67,7 +70,7 @@ const SinRespuestaTab: React.FC<SinRespuestaTabProps> = ({ mes, anio, busqueda =
   // Resumen por fuente (sobre lista filtrada)
   const porFuente: Record<string, number> = {};
   leadsFiltrados.forEach((l: any) => {
-    const f = l.fuente_lead || 'Otro';
+    const f = l.fuente_lead || 'Presencial';
     porFuente[f] = (porFuente[f] || 0) + 1;
   });
 

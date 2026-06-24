@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { invalidarClientes } from '../../services/listasCache';
 
 // Fuentes de captación (misma lista que el CRM/Lead)
-const FUENTES = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Otro'];
+const FUENTES = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Show Room', 'Referidos', 'Visita Asesor', 'Cliente'];
 
 // Schema para Zod
 const clienteSchema = z.object({

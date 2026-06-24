@@ -10,7 +10,7 @@ const CAMPO_LABELS: Record<string, string> = {
   email: 'correo electrónico',
 };
 
-export const FUENTES_CLIENTE = ['Web', 'Facebook', 'Instagram', 'WhatsApp', 'Llamada', 'Presencial', 'Otro'] as const;
+export const FUENTES_CLIENTE = ['Web', 'Facebook', 'Instagram', 'WhatsApp', 'Llamada', 'Presencial', 'Show Room', 'Referidos', 'Visita Asesor', 'Cliente'] as const;
 
 const clienteSchema = z.object({
   nombre_razon_social: z.string().min(1, 'El nombre es requerido'),

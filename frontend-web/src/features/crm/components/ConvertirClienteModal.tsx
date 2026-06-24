@@ -22,7 +22,7 @@ const SEGMENTOS = [
   { value: 'ARQUITECTO',     label: 'Arquitecto' },
   { value: 'INDUSTRIAL',     label: 'Industrial' },
 ];
-const FUENTES = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Otro'];
+const FUENTES = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Show Room', 'Referidos', 'Visita Asesor', 'Cliente'];
 
 interface Props {
   lead: any;
