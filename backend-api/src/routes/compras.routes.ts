@@ -23,6 +23,11 @@ import {
   createODCVidrios,
   updateEstadoItemVidrio,
   createODCSinSAP,
+  asignarExistencia,
+  revertirExistencia,
+  getPerfileriaExistencia,
+  eliminarODC,
+  editarItemsODC,
 } from '../controllers/odc.controller';
 
 import authMiddleware from '../middlewares/authMiddleware';
@@ -40,18 +45,24 @@ router.get('/canceladas', authMiddleware, getODCsCanceladas);
 router.get('/odc/:id/items', authMiddleware, getODCItems);
 router.get('/sap/:sap_id', authMiddleware, getSAPParaCompras);
 router.get('/codigos-perfileria', authMiddleware, getCodigosPerfileria);
+router.get('/perfileria/existencia', authMiddleware, getPerfileriaExistencia);
 router.get('/inventario-perfileria/:codigo', authMiddleware, getInventarioPorCodigo);
 
 // CRUD: solo admin + compras
 router.post('/odc', authMiddleware, rc('admin', 'compras'), createODC);
 router.post('/odc-sin-sap', authMiddleware, rc('admin', 'compras'), createODCSinSAP);
+// Específica antes que '/odc/:id' para que matchee primero
+router.put('/odc/:id/items', authMiddleware, rc('admin', 'compras'), editarItemsODC);
 router.put('/odc/:id', authMiddleware, rc('admin', 'compras'), updateODC);
 router.put('/odc/:id/recibir-items', authMiddleware, rc('admin', 'compras', 'jefe_produccion', 'produccion'), recibirItems);
+router.delete('/odc/:id', authMiddleware, rc('admin', 'compras'), eliminarODC);
 router.patch('/odc/:id/sincronizar-item/:itemId', authMiddleware, rc('admin', 'compras'), sincronizarItemODC);
 router.patch('/odc/:id/cancelar', authMiddleware, rc('admin', 'compras'), cancelarODC);
 router.patch('/sap-item/:id/existencia', authMiddleware, rc('admin', 'compras'), toggleExistencia);
 router.patch('/sap-item/:id/exist-perf', authMiddleware, rc('admin', 'compras'), updateExistPerf);
 router.post('/sap-item/:id/dividir-existencia', authMiddleware, rc('admin', 'compras'), dividirPorExistencia);
+router.post('/sap-item/:id/asignar-existencia', authMiddleware, rc('admin', 'compras'), asignarExistencia);
+router.post('/sap-item/:id/revertir-existencia', authMiddleware, rc('admin', 'compras'), revertirExistencia);
 router.delete('/inventario-perfileria/:consecutivo', authMiddleware, rc('admin', 'compras'), deleteInventarioPerfileria);
 
 // Vidrios - VER: todos + jefe_produccion; CRUD: solo compras

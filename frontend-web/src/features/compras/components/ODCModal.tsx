@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -32,20 +32,15 @@ export interface SAPItemConContexto {
   };
 }
 
-interface InventarioPerfil {
-  id: number;
-  consecutivo: number;
-  codigo: string;
-  mm: number | null;
-  ubicacion: string | null;
-}
-
 interface Props {
   items: SAPItemConContexto[];
   onClose: () => void;
   onRefresh: () => void;
 }
 
+// Nota: la gestión de existencia de perfilería (selección de piezas, "Falta material")
+// se realiza ahora desde la pestaña Pendientes. Este modal solo crea la orden con lo
+// que se va a COMPRAR; no asigna existencia ni consume inventario.
 const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
   const [numeroOdc, setNumeroOdc] = useState('');
   const [proveedor, setProveedor] = useState('');
@@ -66,157 +61,8 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
     ));
   };
 
-  // Inventario perfilería por código
-  const [inventarioPorCodigo, setInventarioPorCodigo] = useState<Record<string, InventarioPerfil[]>>({});
-  const [loadingInventario, setLoadingInventario] = useState(false);
-  const [codigosPerfileria, setCodigosPerfileria] = useState<Set<string>>(new Set());
-  // Perfiles seleccionados localmente — se aplican en BD solo al confirmar la ODC
-  const [perfilesSeleccionados, setPerfilesSeleccionados] = useState<Record<number, InventarioPerfil[]>>({});
-
-  // Mini-form "Falta material" — cobertura parcial de existencia perfilería
-  const [faltanteItem, setFaltanteItem] = useState<SAPItemConContexto | null>(null);
-  const [faltanteCant, setFaltanteCant] = useState('');
-  const [faltanteDim, setFaltanteDim] = useState('');
-  const [guardandoFaltante, setGuardandoFaltante] = useState(false);
-
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
-
-  // Texto descriptivo de las piezas de inventario asignadas (formato compartido)
-  const formatExistPerf = (perfiles: InventarioPerfil[]) =>
-    perfiles
-      .map(p => `${p.mm != null ? `${Math.round(p.mm)} mm` : 'sin mm'} — #${p.consecutivo} (${p.ubicacion || '—'})`)
-      .join(' / ');
-
-  useEffect(() => {
-    axios.get(`${API}/api/compras/codigos-perfileria`, { headers })
-      .then(r => setCodigosPerfileria(new Set(r.data as string[])))
-      .catch(err => console.error('Error cargando códigos perfilería:', err));
-
-    const codigos = Array.from(new Set(items.map(i => i.codigo).filter(Boolean)));
-    if (codigos.length === 0) return;
-
-    setLoadingInventario(true);
-    Promise.all(
-      codigos.map(cod =>
-        axios.get(`${API}/api/compras/inventario-perfileria/${encodeURIComponent(cod)}`, { headers })
-          .then(r => ({ cod, data: r.data as InventarioPerfil[] }))
-          .catch(() => ({ cod, data: [] as InventarioPerfil[] }))
-      )
-    ).then(results => {
-      const map: Record<string, InventarioPerfil[]> = {};
-      results.forEach(({ cod, data }) => { map[cod] = data; });
-      setInventarioPorCodigo(map);
-    }).finally(() => setLoadingInventario(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleSeleccionarPerfil = (itemId: number, codigo: string, perfil: InventarioPerfil) => {
-    setPerfilesSeleccionados(prev => ({
-      ...prev,
-      [itemId]: [...(prev[itemId] || []), perfil],
-    }));
-    // Ocultar de todos los dropdowns para evitar selección doble
-    setInventarioPorCodigo(prev => ({
-      ...prev,
-      [codigo]: (prev[codigo] || []).filter(p => p.consecutivo !== perfil.consecutivo),
-    }));
-  };
-
-  const handleQuitarPerfil = (itemId: number, codigo: string, perfil: InventarioPerfil) => {
-    setPerfilesSeleccionados(prev => ({
-      ...prev,
-      [itemId]: (prev[itemId] || []).filter(p => p.consecutivo !== perfil.consecutivo),
-    }));
-    // Devolver al pool de opciones disponibles
-    setInventarioPorCodigo(prev => ({
-      ...prev,
-      [codigo]: [...(prev[codigo] || []), perfil].sort((a, b) => a.consecutivo - b.consecutivo),
-    }));
-  };
-
-  // Guardar faltante: marca el original como existencia, consume inventario y crea el ítem pendiente
-  const handleGuardarFaltante = async () => {
-    if (!faltanteItem) return;
-    if (!faltanteDim.trim()) { toast.error('Ingresa la dimensión del faltante'); return; }
-    const perfiles = perfilesSeleccionados[faltanteItem.id] || [];
-    const idCerrado = faltanteItem.id;
-    setGuardandoFaltante(true);
-    try {
-      await axios.post(`${API}/api/compras/sap-item/${idCerrado}/dividir-existencia`, {
-        exist_perf: formatExistPerf(perfiles),
-        consecutivos: perfiles.map(p => p.consecutivo),
-        faltante: { cantidad: parseFloat(faltanteCant) || 0, dimension: faltanteDim.trim() },
-      }, { headers });
-
-      toast.success('Faltante registrado y enviado a Pendientes');
-      // El ítem original sale del modal (queda cubierto por existencia)
-      const restantes = localItems.filter(it => it.id !== idCerrado);
-      setLocalItems(restantes);
-      setPerfilesSeleccionados(prev => { const n = { ...prev }; delete n[idCerrado]; return n; });
-      setFaltanteItem(null); setFaltanteCant(''); setFaltanteDim('');
-      onRefresh();
-      if (restantes.length === 0) onClose();
-    } catch (e: any) {
-      toast.error(e.response?.data?.error || 'Error al registrar el faltante');
-    } finally { setGuardandoFaltante(false); }
-  };
-
-  const renderExisPerf = (item: SAPItemConContexto) => {
-    if (!item.codigo || !codigosPerfileria.has(item.codigo)) return <span className="text-slate-400">—</span>;
-    const opciones = inventarioPorCodigo[item.codigo] ?? null;
-    if (loadingInventario && opciones === null) return <span className="text-slate-400 text-[10px]">…</span>;
-
-    const seleccionados = perfilesSeleccionados[item.id] || [];
-    const opcionesDisponibles = opciones || [];
-
-    if (seleccionados.length === 0 && opcionesDisponibles.length === 0) return <span className="text-slate-400">—</span>;
-
-    return (
-      <div className="flex flex-col gap-0.5" onClick={e => e.stopPropagation()}>
-        {seleccionados.map(p => (
-          <div key={p.consecutivo} className="flex items-center gap-1 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
-            <span className="text-[10px] font-bold text-green-700 flex-1 leading-tight">
-              {p.mm != null ? `${Math.round(p.mm)} mm` : '—'} · #{p.consecutivo}
-            </span>
-            <button
-              type="button"
-              onClick={() => handleQuitarPerfil(item.id, item.codigo, p)}
-              className="text-red-400 hover:text-red-600 font-bold text-[11px] leading-none shrink-0"
-            >×</button>
-          </div>
-        ))}
-        {opcionesDisponibles.length > 0 && (
-          <select
-            className="text-[10px] border border-slate-200 rounded px-1 py-0.5 w-full max-w-[150px] bg-white cursor-pointer mt-0.5"
-            value=""
-            onChange={e => {
-              if (!e.target.value) return;
-              const perfil = opcionesDisponibles.find(p => p.consecutivo === parseInt(e.target.value));
-              if (perfil) handleSeleccionarPerfil(item.id, item.codigo, perfil);
-            }}
-          >
-            <option value="">{seleccionados.length > 0 ? '+ Agregar…' : 'Seleccionar…'}</option>
-            {opcionesDisponibles.map(p => (
-              <option key={p.consecutivo} value={p.consecutivo}>
-                {p.mm != null ? `${Math.round(p.mm)} mm` : '—'} — #{p.consecutivo} ({p.ubicacion || '—'})
-              </option>
-            ))}
-          </select>
-        )}
-        {seleccionados.length > 0 && (
-          <button
-            type="button"
-            onClick={() => { setFaltanteItem(item); setFaltanteCant(''); setFaltanteDim(''); }}
-            className="mt-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 hover:bg-amber-100 transition w-full max-w-[150px]"
-            title="La existencia no alcanza: registrar lo que falta como ítem pendiente"
-          >
-            Falta material
-          </button>
-        )}
-      </div>
-    );
-  };
 
   // Agrupar items por código para la vista consolidada
   const gruposPorCodigo = (() => {
@@ -234,7 +80,6 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
     if (!proveedor.trim()) { toast.error('Ingresa el proveedor'); return; }
     setLoading(true);
     try {
-      // 1. Crear la ODC en el backend
       await axios.post(`${API}/api/compras/odc`, {
         numero_odc: numeroOdc.trim(),
         proveedor,
@@ -247,22 +92,6 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
           cantidad: i.cantidad,
         })),
       }, { headers });
-
-      // 2. Al confirmar la ODC: consumir del inventario y actualizar exist_perf en cada SAP item
-      const entradasPerfil = Object.entries(perfilesSeleccionados) as [string, InventarioPerfil[]][];
-      await Promise.allSettled(
-        entradasPerfil.flatMap(([itemIdStr, perfiles]) => {
-          if (!perfiles || perfiles.length === 0) return [];
-          const itemId = Number(itemIdStr);
-          const existPerfTexto = formatExistPerf(perfiles);
-          return [
-            // Eliminar cada pieza seleccionada del inventario
-            ...perfiles.map(p => axios.delete(`${API}/api/compras/inventario-perfileria/${p.consecutivo}`, { headers })),
-            // Guardar texto descriptivo concatenado en el SAP item
-            axios.patch(`${API}/api/compras/sap-item/${itemId}/exist-perf`, { exist_perf: existPerfTexto }, { headers }),
-          ];
-        })
-      );
 
       toast.success('ODC creada exitosamente');
       onRefresh();
@@ -331,7 +160,6 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
                         <th className="px-4 py-1.5 text-left w-28">SAP</th>
                         <th className="px-4 py-1.5 text-left w-28">ODP</th>
                         <th className="px-4 py-1.5 text-left">CLIENTE</th>
-                        <th className="px-4 py-1.5 text-center w-40">EXIS. PERF.</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -362,7 +190,6 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
                           <td className="px-4 py-1.5 font-bold text-indigo-600">{item.SAP?.numero_sap || '—'}</td>
                           <td className="px-4 py-1.5 font-bold text-slate-700">{item.SAP?.ODP?.numero_odp || '—'}</td>
                           <td className="px-4 py-1.5 text-slate-600 truncate max-w-[180px]">{item.SAP?.ODP?.cliente?.nombre_razon_social || '—'}</td>
-                          <td className="px-4 py-1.5 text-center">{renderExisPerf(item)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -429,88 +256,6 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
           </button>
         </div>
       </motion.div>
-
-      {/* Sub-modal: registrar faltante (cobertura parcial de existencia) */}
-      {faltanteItem && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
-            <div className="flex justify-between items-start px-6 py-4 border-b border-slate-100">
-              <div>
-                <h3 className="text-base font-black text-slate-800">Falta material</h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {faltanteItem.codigo} · lo seleccionado se marca como existencia y se compra solo el faltante
-                </p>
-              </div>
-              <button onClick={() => setFaltanteItem(null)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              {/* Contexto del ítem */}
-              <div className="text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1">
-                <div>
-                  <span className="text-slate-400 font-bold uppercase tracking-wider">Dimensión solicitada:</span>{' '}
-                  <span className="text-slate-700 font-semibold">{faltanteItem.dimension || '—'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-bold uppercase tracking-wider">
-                    De existencia ({(perfilesSeleccionados[faltanteItem.id] || []).length}):
-                  </span>{' '}
-                  <span className="text-green-700 font-semibold">
-                    {formatExistPerf(perfilesSeleccionados[faltanteItem.id] || []) || '—'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Inputs del faltante */}
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Cant.</label>
-                  <input
-                    type="number" min={0} value={faltanteCant}
-                    onChange={e => setFaltanteCant(e.target.value)}
-                    placeholder="0"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                    Dimensión faltante <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="text" value={faltanteDim}
-                    onChange={e => setFaltanteDim(e.target.value)}
-                    placeholder="Ej: 2-1100 / 1-650 MM"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-              </div>
-
-              <p className="text-[11px] text-amber-600 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
-                Se creará un ítem pendiente con este faltante y el ítem actual saldrá de la ODC.
-              </p>
-            </div>
-
-            <div className="flex gap-3 px-6 pb-6">
-              <button
-                onClick={() => setFaltanteItem(null)}
-                className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleGuardarFaltante}
-                disabled={guardandoFaltante || !faltanteDim.trim()}
-                className="flex-1 py-2.5 font-bold text-white bg-amber-600 rounded-xl hover:bg-amber-700 transition disabled:opacity-40"
-              >
-                {guardandoFaltante ? 'Guardando...' : 'Guardar faltante'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

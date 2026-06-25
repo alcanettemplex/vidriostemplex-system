@@ -3,6 +3,21 @@ import { OrdenCompra, ODCItem, SAP, SAPItem, ODP, ODPItem, Cliente, Usuario, Inv
 import sequelize from '../config/database';
 import { Op } from 'sequelize';
 
+// Snapshot de una pieza de inventario consumida al cubrir un SAPItem por existencia.
+// Se persiste en SAPItem.existencia_piezas para poder revertir (recrear el inventario).
+interface PiezaExistencia {
+  consecutivo: number;
+  codigo: string | null;
+  mm: number | null;
+  ubicacion: string | null;
+  fecha_corte: string | null;
+}
+// Forma del campo JSONB SAPItem.existencia_piezas
+interface ExistenciaPiezas {
+  piezas: PiezaExistencia[];
+  faltante_id: number | null;
+}
+
 // Validar unicidad de numero_odc
 const validarNumeroODC = async (numero_odc: string, excludeId?: number): Promise<void> => {
   const where: any = { numero_odc };
@@ -77,7 +92,7 @@ const includeItemsLista = [
     include: [
       {
         model: SAPItem, as: 'sap_item',
-        attributes: ['id', 'dimension', 'observacion', 'modificado'],
+        attributes: ['id', 'dimension', 'observacion', 'modificado', 'exist_perf', 'estado_compra'],
         include: [{
           model: SAP,
           attributes: ['id', 'numero_sap'],
@@ -748,10 +763,11 @@ export const dividirPorExistencia = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const { exist_perf, consecutivos, faltante } = req.body as {
+    const { exist_perf, consecutivos, faltante, piezas } = req.body as {
       exist_perf?: string;
       consecutivos?: number[];
       faltante?: { cantidad?: number; dimension?: string };
+      piezas?: PiezaExistencia[];
     };
 
     if (!faltante || !faltante.dimension || !String(faltante.dimension).trim()) {
@@ -780,9 +796,11 @@ export const dividirPorExistencia = async (req: Request, res: Response) => {
     }, { transaction: t });
 
     // 2. Marcar el original como cubierto por existencia (sale de Pendientes)
+    //    Guardar snapshot de piezas + id del faltante para poder revertir después
     await original.update({
       estado_compra: 'en_existencia',
       exist_perf: (exist_perf && exist_perf.trim()) || original.getDataValue('exist_perf') || null,
+      existencia_piezas: { piezas: piezas || [], faltante_id: faltanteItem.getDataValue('id') },
       modificado: false,
       datos_anteriores: null,
     }, { transaction: t });
@@ -1184,5 +1202,422 @@ export const createODCSinSAP = async (req: Request, res: Response) => {
   } catch (error: any) {
     await t.rollback();
     res.status(500).json({ error: 'Error al crear ODC sin SAP', detail: error.message });
+  }
+};
+
+// POST /sap-item/:id/asignar-existencia — Cobertura TOTAL por existencia perfilería:
+//   El ítem completo queda cubierto por inventario (no genera faltante).
+//   Guarda snapshot de piezas (faltante_id=null) y consume del inventario los consecutivos.
+// Body: { exist_perf, consecutivos: number[], piezas: PiezaExistencia[] }
+export const asignarExistencia = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const { exist_perf, consecutivos, piezas } = req.body as {
+      exist_perf?: string;
+      consecutivos?: number[];
+      piezas?: PiezaExistencia[];
+    };
+
+    const item = await SAPItem.findByPk(id, { transaction: t });
+    if (!item) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Ítem no encontrado' });
+    }
+
+    if (item.getDataValue('estado_compra') === 'en_odc') {
+      await t.rollback();
+      return res.status(400).json({ error: 'No se puede marcar en existencia un ítem ya asignado a una ODC' });
+    }
+
+    await item.update({
+      estado_compra: 'en_existencia',
+      exist_perf: (exist_perf && exist_perf.trim()) || null,
+      existencia_piezas: { piezas: piezas || [], faltante_id: null },
+      modificado: false,
+      datos_anteriores: null,
+    }, { transaction: t });
+
+    // Consumir del inventario las piezas asignadas
+    if (Array.isArray(consecutivos) && consecutivos.length > 0) {
+      await InventarioPerfileria.destroy({
+        where: { consecutivo: { [Op.in]: consecutivos } },
+        transaction: t,
+      });
+    }
+
+    await t.commit();
+    import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+    res.json({ ok: true, id: Number(id), estado_compra: 'en_existencia' });
+  } catch (error: any) {
+    await t.rollback();
+    res.status(500).json({ error: 'Error al asignar existencia', detail: error.message });
+  }
+};
+
+// POST /sap-item/:id/revertir-existencia — Deshacer una cobertura por existencia:
+//   1. Si hay faltante asociado y aún es revertible (pendiente, sin ODC) → se elimina.
+//   2. Recrea en inventario las piezas consumidas (desde el snapshot existencia_piezas).
+//   3. Devuelve el SAPItem a 'pendiente' y limpia exist_perf/existencia_piezas.
+// Caso legacy (sin snapshot pero con exist_perf): solo limpia y vuelve a pendiente.
+export const revertirExistencia = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+
+    const item = await SAPItem.findByPk(id, { transaction: t });
+    if (!item) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Ítem no encontrado' });
+    }
+
+    const snapshot = item.getDataValue('existencia_piezas') as ExistenciaPiezas | null;
+
+    // 1. Manejar el faltante asociado (cobertura parcial previa)
+    const faltanteId = snapshot?.faltante_id ?? null;
+    if (faltanteId) {
+      const faltante = await SAPItem.findByPk(faltanteId, { transaction: t });
+      if (faltante) {
+        // ¿El faltante ya entró a una ODC activa (no cancelada)?
+        const enODCActiva = await ODCItem.count({
+          where: { sap_item_id: faltanteId },
+          include: [{ model: OrdenCompra, attributes: [], required: true, where: { estado: { [Op.ne]: 'cancelado' } } }],
+          transaction: t,
+        });
+        if (faltante.getDataValue('estado_compra') === 'en_odc' || enODCActiva > 0) {
+          await t.rollback();
+          return res.status(400).json({
+            error: 'No se puede revertir: el faltante asociado ya está en una ODC. Elimina o cancela esa ODC primero.',
+          });
+        }
+        // Faltante pendiente y sin ODC activa → eliminar
+        await faltante.destroy({ transaction: t });
+      }
+    }
+
+    // 2. Recrear las piezas consumidas en el inventario (si hay snapshot)
+    const piezas = snapshot?.piezas ?? [];
+    if (piezas.length > 0) {
+      try {
+        await InventarioPerfileria.bulkCreate(
+          piezas.map((p) => ({
+            consecutivo: p.consecutivo,
+            codigo: p.codigo ?? null,
+            mm: p.mm ?? null,
+            ubicacion: p.ubicacion ?? null,
+            fecha_corte: p.fecha_corte ?? null,
+          })),
+          { transaction: t },
+        );
+      } catch (e: any) {
+        await t.rollback();
+        const esUnique = e?.name === 'SequelizeUniqueConstraintError';
+        return res.status(esUnique ? 409 : 500).json({
+          error: esUnique
+            ? 'No se puede revertir: uno o más consecutivos ya existen en el inventario.'
+            : 'Error al recrear las piezas en el inventario',
+          detail: e?.message,
+        });
+      }
+    }
+
+    // 3. Devolver el SAPItem a pendiente
+    await item.update({
+      estado_compra: 'pendiente',
+      exist_perf: null,
+      existencia_piezas: null,
+    }, { transaction: t });
+
+    await t.commit();
+    import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+    res.json({ ok: true, id: Number(id), estado_compra: 'pendiente' });
+  } catch (error: any) {
+    await t.rollback();
+    res.status(500).json({ error: 'Error al revertir existencia', detail: error.message });
+  }
+};
+
+// GET /perfileria/existencia — Lista de SAPItems de perfilería cubiertos por existencia.
+// Pestaña "En Existencia". Excluye ODPs ENTREGADA. Ordena por código ASC.
+export const getPerfileriaExistencia = async (req: Request, res: Response) => {
+  try {
+    const items = await SAPItem.findAll({
+      where: {
+        estado_compra: 'en_existencia',
+        exist_perf: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] },
+      },
+      include: [
+        {
+          model: SAP,
+          required: true,
+          include: [
+            {
+              model: ODP,
+              required: true,
+              attributes: ['id', 'numero_odp', 'estado_produccion'],
+              where: { estado_produccion: { [Op.ne]: 'ENTREGADA' } },
+              include: [
+                { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
+                { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+              ],
+            },
+          ],
+        },
+      ],
+      order: [['codigo', 'ASC']],
+    });
+    res.json(items);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Error al obtener existencia de perfilería', detail: error.message });
+  }
+};
+
+// DELETE /odc/:id — Eliminación FÍSICA de una ODC (perfilería/consumible/vidrio) no recibida.
+// Revierte a 'pendiente' los SAPItems/ODPItems que no queden en otra ODC activa.
+export const eliminarODC = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+
+    const odc = await OrdenCompra.findByPk(id, {
+      include: [{ model: ODCItem, as: 'items' }],
+      transaction: t,
+    });
+    if (!odc) { await t.rollback(); return res.status(404).json({ error: 'ODC no encontrada' }); }
+
+    const odcItems = (odc as any).items as any[];
+    const tieneRecibidos = odc.getDataValue('estado') === 'recibido' || odcItems.some((i: any) => i.recibido === true);
+    if (tieneRecibidos) {
+      await t.rollback();
+      return res.status(400).json({ error: 'No se puede eliminar una ODC con material ya recibido.' });
+    }
+
+    const sapItemIds = odcItems.map((i: any) => i.sap_item_id).filter(Boolean);
+    const odpItemIds = odcItems.map((i: any) => i.odp_item_id).filter(Boolean);
+
+    // Revertir sap_items a 'pendiente' si no quedan en OTRA ODC activa (excluyendo esta, que se borrará)
+    for (const sapItemId of sapItemIds) {
+      const enOtraODCActiva = await ODCItem.count({
+        where: { sap_item_id: sapItemId, odc_id: { [Op.ne]: id } },
+        include: [{ model: OrdenCompra, attributes: [], required: true, where: { estado: { [Op.ne]: 'cancelado' } } }],
+        transaction: t,
+      });
+      if (enOtraODCActiva === 0) {
+        await SAPItem.update(
+          { estado_compra: 'pendiente', modificado: false, datos_anteriores: null },
+          { where: { id: sapItemId }, transaction: t },
+        );
+      }
+    }
+
+    // Revertir odp_items (vidrio) a 'pendiente' si no quedan en OTRA ODC activa
+    for (const odpItemId of odpItemIds) {
+      const enOtraODCActiva = await ODCItem.count({
+        where: { odp_item_id: odpItemId, odc_id: { [Op.ne]: id } },
+        include: [{ model: OrdenCompra, attributes: [], required: true, where: { estado: { [Op.ne]: 'cancelado' } } }],
+        transaction: t,
+      });
+      if (enOtraODCActiva === 0) {
+        await ODPItem.update(
+          { estado_compra: 'pendiente' },
+          { where: { id: odpItemId }, transaction: t },
+        );
+      }
+    }
+
+    // Borrado físico: primero los ítems, luego la cabecera
+    await ODCItem.destroy({ where: { odc_id: id }, transaction: t });
+    await odc.destroy({ transaction: t });
+
+    await t.commit();
+    import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+    res.json({ ok: true, eliminado: true });
+  } catch (error: any) {
+    await t.rollback();
+    res.status(500).json({ error: 'Error al eliminar ODC', detail: error.message });
+  }
+};
+
+// PUT /odc/:id/items — Editar las líneas de una ODC (perfilería/consumible).
+// Body: { proveedor?, notas?, items: [{ id?, sap_item_id?, codigo?, descripcion?, cantidad, und? }] }
+// `items` es el SET FINAL deseado. Las líneas con id se actualizan; sin id se crean;
+// las existentes ausentes del set se eliminan (revirtiendo su SAPItem si aplica).
+export const editarItemsODC = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const { proveedor, notas, items } = req.body as {
+      proveedor?: string;
+      notas?: string;
+      items?: Array<{
+        id?: number;
+        sap_item_id?: number | null;
+        codigo?: string;
+        descripcion?: string;
+        cantidad: number;
+        und?: string;
+      }>;
+    };
+
+    if (!Array.isArray(items)) {
+      await t.rollback();
+      return res.status(400).json({ error: 'items debe ser un arreglo' });
+    }
+    if (items.length === 0) {
+      await t.rollback();
+      return res.status(400).json({ error: 'La ODC debe conservar al menos un ítem. Si deseas eliminarla, usa la opción de eliminar.' });
+    }
+
+    const odc = await OrdenCompra.findByPk(id, {
+      include: [{ model: ODCItem, as: 'items' }],
+      transaction: t,
+    });
+    if (!odc) { await t.rollback(); return res.status(404).json({ error: 'ODC no encontrada' }); }
+
+    const tipo = odc.getDataValue('tipo');
+    if (tipo === 'vidrio') {
+      await t.rollback();
+      return res.status(400).json({ error: 'La edición de ítems no aplica a ODC de vidrio.' });
+    }
+
+    // ─── Bloqueos ───
+    const existentes = (odc as any).items as any[];
+    const tieneRecibidos = odc.getDataValue('estado') === 'recibido' || existentes.some((i: any) => i.recibido === true);
+    if (tieneRecibidos) {
+      await t.rollback();
+      return res.status(400).json({ error: 'No se puede editar una ODC con material ya recibido.' });
+    }
+    if (await hayItemsModificadosEnODC(id, t)) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Hay materiales modificados sin sincronizar. Actualiza la orden antes de editarla.' });
+    }
+
+    // ─── Cabecera ───
+    const cambiosCabecera: { proveedor?: string; notas?: string | null } = {};
+    if (typeof proveedor === 'string' && proveedor.trim()) cambiosCabecera.proveedor = proveedor.trim();
+    if (notas !== undefined) cambiosCabecera.notas = notas || null;
+    if (Object.keys(cambiosCabecera).length > 0) {
+      await odc.update(cambiosCabecera, { transaction: t });
+    }
+
+    const existentesPorId = new Map<number, any>(existentes.map((i: any) => [i.getDataValue('id'), i]));
+    const idsEnSet = new Set<number>(items.filter((l) => l.id != null).map((l) => Number(l.id)));
+
+    // ─── 1. Eliminar líneas existentes ausentes del set final ───
+    for (const existente of existentes) {
+      const odcItemId = existente.getDataValue('id');
+      if (idsEnSet.has(odcItemId)) continue;
+      const sapItemId = existente.getDataValue('sap_item_id');
+      await existente.destroy({ transaction: t });
+      if (sapItemId) {
+        const enOtraODCActiva = await ODCItem.count({
+          where: { sap_item_id: sapItemId, odc_id: { [Op.ne]: id } },
+          include: [{ model: OrdenCompra, attributes: [], required: true, where: { estado: { [Op.ne]: 'cancelado' } } }],
+          transaction: t,
+        });
+        if (enOtraODCActiva === 0) {
+          await SAPItem.update(
+            { estado_compra: 'pendiente', modificado: false, datos_anteriores: null },
+            { where: { id: sapItemId }, transaction: t },
+          );
+        }
+      }
+    }
+
+    // ─── 2. Procesar el set final: update existentes / crear nuevas ───
+    for (const linea of items) {
+      const cantidad = Number(linea.cantidad);
+      if (!Number.isFinite(cantidad) || cantidad <= 0) {
+        await t.rollback();
+        return res.status(400).json({ error: 'Cada ítem debe tener una cantidad válida mayor a 0' });
+      }
+
+      if (linea.id != null) {
+        // Línea existente → actualizar
+        const existente = existentesPorId.get(Number(linea.id));
+        if (!existente) {
+          await t.rollback();
+          return res.status(400).json({ error: `El ítem ${linea.id} no pertenece a esta ODC` });
+        }
+        const cambios: any = { cantidad };
+        if (tipo === 'consumible') {
+          if (linea.codigo !== undefined) cambios.codigo = linea.codigo || null;
+          if (linea.descripcion !== undefined) cambios.descripcion = linea.descripcion || null;
+        }
+        await existente.update(cambios, { transaction: t });
+      } else {
+        // Línea nueva
+        if (tipo === 'perfileria') {
+          if (linea.sap_item_id == null) {
+            await t.rollback();
+            return res.status(400).json({ error: 'En ODC de perfilería solo se pueden agregar ítems desde pendientes (con sap_item_id).' });
+          }
+          const sapItem = await SAPItem.findByPk(linea.sap_item_id, { transaction: t });
+          if (!sapItem) {
+            await t.rollback();
+            return res.status(400).json({ error: `El SAPItem ${linea.sap_item_id} no existe` });
+          }
+          // Anti-doble-pedido: que no esté en otra ODC activa
+          const yaEnODC = await ODCItem.count({
+            where: { sap_item_id: linea.sap_item_id },
+            include: [{
+              model: OrdenCompra, attributes: [], required: true,
+              where: { estado: { [Op.in]: ['pendiente', 'en_transito', 'problema'] } },
+            }],
+            transaction: t,
+          });
+          if (yaEnODC > 0) {
+            await t.rollback();
+            return res.status(409).json({ error: `El material (SAPItem ${linea.sap_item_id}) ya está en una ODC activa. Actualiza esa orden en lugar de agregarlo aquí.` });
+          }
+          await ODCItem.create({
+            odc_id: Number(id),
+            sap_item_id: sapItem.getDataValue('id'),
+            odp_item_id: null,
+            odp_id: null,
+            item: sapItem.getDataValue('item'),
+            codigo: sapItem.getDataValue('codigo'),
+            descripcion: sapItem.getDataValue('descripcion'),
+            cantidad,
+            recibido: false,
+          }, { transaction: t });
+          await sapItem.update({ estado_compra: 'en_odc', modificado: false, datos_anteriores: null }, { transaction: t });
+        } else {
+          // consumible: línea libre
+          await ODCItem.create({
+            odc_id: Number(id),
+            sap_item_id: null,
+            odp_item_id: null,
+            odp_id: null,
+            item: null,
+            codigo: linea.codigo || null,
+            descripcion: linea.descripcion || null,
+            cantidad,
+            recibido: false,
+          }, { transaction: t });
+        }
+      }
+    }
+
+    // ─── Guardia: la ODC no puede quedar vacía ───
+    const finales = await ODCItem.count({ where: { odc_id: id }, transaction: t });
+    if (finales === 0) {
+      await t.rollback();
+      return res.status(400).json({ error: 'La ODC quedaría sin ítems. Operación cancelada.' });
+    }
+
+    await t.commit();
+    import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+
+    const actualizada = await OrdenCompra.findByPk(id, {
+      include: [
+        { model: ODCItem, as: 'items' },
+        { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
+      ],
+    });
+    res.json(actualizada);
+  } catch (error: any) {
+    await t.rollback();
+    res.status(500).json({ error: 'Error al editar ítems de la ODC', detail: error.message });
   }
 };

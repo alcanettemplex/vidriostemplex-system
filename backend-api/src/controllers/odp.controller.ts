@@ -375,7 +375,8 @@ export const getODP = async (req: Request, res: Response) => {
               .filter((id) => ordenesMap.has(id))
               .map((id) => ({
                 ...ordenesMap.get(id),
-                items: itemsByOdc.get(id) || []
+                // Solo los ítems de ESTA SAP (la ODC puede ser consolidada con ítems de varias SAPs)
+                items: (itemsByOdc.get(id) || []).filter((it: any) => sapItemIdsContext.has(it.sap_item_id))
               }));
           }
         }

@@ -12,6 +12,7 @@ interface ODCItemPrint {
     dimension?: string;
     und?: string;
     observacion?: string;
+    exist_perf?: string | null;
     SAP?: { numero_sap: string; ODP?: { numero_odp: string; cliente?: { nombre_razon_social: string }; asesor?: { nombre_completo: string } } };
   };
   odp_item?: {
@@ -43,7 +44,10 @@ const PrintableODC: React.FC<PrintableODCProps> = ({ odc }) => {
     ? new Date(odc.fecha_recepcion).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })
     : null;
 
-  const totalItems = odc.items.reduce((s, it) => s + Number(it.cantidad), 0);
+  // Los ítems 100% cubiertos por existencia (exist_perf con contenido) no se compran → no se imprimen
+  const itemsVisibles = odc.items.filter(it => !(it.sap_item?.exist_perf && it.sap_item.exist_perf.trim() !== ''));
+
+  const totalItems = itemsVisibles.reduce((s, it) => s + Number(it.cantidad), 0);
 
   // Resolver ODP y SAP: primero desde odc.sap, luego desde items (ODC de vidrio sin SAP)
   const refODP = odc.sap?.ODP
@@ -147,7 +151,7 @@ const PrintableODC: React.FC<PrintableODCProps> = ({ odc }) => {
               </tr>
             </thead>
             <tbody>
-              {odc.items.map((it, i) => (
+              {itemsVisibles.map((it, i) => (
                 <tr key={i}>
                   <td style={{ textAlign: 'center', color: '#64748b' }}>{i + 1}</td>
                   <td style={{ fontFamily: 'monospace', fontWeight: 'bold', color: '#1d4ed8' }}>{it.codigo || '—'}</td>
@@ -168,7 +172,7 @@ const PrintableODC: React.FC<PrintableODCProps> = ({ odc }) => {
         <div className="flex justify-end mb-6">
           <div className="border-2 border-slate-800 rounded p-3 text-right min-w-[160px]">
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total ítems</p>
-            <p className="text-xl font-black text-slate-800">{odc.items.length} <span className="text-sm font-normal text-slate-500">refs</span></p>
+            <p className="text-xl font-black text-slate-800">{itemsVisibles.length} <span className="text-sm font-normal text-slate-500">refs</span></p>
             <p className="text-[10px] text-slate-500 mt-0.5">Cantidad total: <strong>{totalItems}</strong></p>
           </div>
         </div>

@@ -12,7 +12,7 @@ SAPItem.init({
   dimension: { type: DataTypes.STRING(100) },      // medida ingresada por asesor
   cantidad: { type: DataTypes.DECIMAL(10, 2), defaultValue: 1 },
   und: { type: DataTypes.STRING(20), allowNull: true },
-  exist_perf: { type: DataTypes.STRING(100), allowNull: true },
+  exist_perf: { type: DataTypes.TEXT, allowNull: true },
   observacion: { type: DataTypes.TEXT, allowNull: true },
   estado_compra: {
     type: DataTypes.STRING(20),
@@ -23,6 +23,9 @@ SAPItem.init({
   // true = ítem generado como "faltante" desde una cobertura parcial de existencia perfilería
   es_faltante: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false },
   datos_anteriores: { type: DataTypes.JSONB, allowNull: true },
+  // Snapshot de piezas de inventario consumidas al cubrir por existencia (para poder revertir).
+  // Forma: { piezas: [{ consecutivo, codigo, mm, ubicacion, fecha_corte }], faltante_id: number | null }
+  existencia_piezas: { type: DataTypes.JSONB, allowNull: true },
 }, {
   sequelize, modelName: 'SAPItem', tableName: 'sap_items', timestamps: false,
 });
