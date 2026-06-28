@@ -21,8 +21,8 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
   const [step, setStep] = useState<Step>('foto_gps');
   const [gps, setGps] = useState<string>('');
   const [gpsStatus, setGpsStatus] = useState<'cargando' | 'ok' | 'error'>('cargando');
-  const [foto, setFoto] = useState<File | null>(null);
-  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [fotos, setFotos] = useState<File[]>([]);
+  const [fotosPreview, setFotosPreview] = useState<string[]>([]);
   const [datosReceptor, setDatosReceptor] = useState('');
   const [firmaTrazada, setFirmaTrazada] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
@@ -102,10 +102,19 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
     setFirmaTrazada(false);
   };
 
-  const handleFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]; if (!f) return;
-    setFoto(f);
-    setFotoPreview(URL.createObjectURL(f));
+  const handleFotos = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    const restantes = 10 - fotos.length;
+    if (files.length > restantes) return toast.error(`Máximo 10 fotos. Puedes agregar ${restantes} más.`);
+    setFotos(prev => [...prev, ...files]);
+    setFotosPreview(prev => [...prev, ...files.map(f => URL.createObjectURL(f))]);
+  };
+
+  const removerFoto = (idx: number) => {
+    URL.revokeObjectURL(fotosPreview[idx]);
+    setFotos(prev => prev.filter((_, i) => i !== idx));
+    setFotosPreview(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handlePaste = useCallback((e: ClipboardEvent) => {
@@ -115,7 +124,7 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.startsWith('image/')) {
         const f = items[i].getAsFile();
-        if (f) { setFoto(f); setFotoPreview(URL.createObjectURL(f)); toast.info('Imagen pegada desde portapapeles'); break; }
+        if (f) { setFotos([f]); setFotosPreview([URL.createObjectURL(f)]); toast.info('Imagen pegada desde portapapeles'); break; }
       }
     }
   }, [step]);
@@ -126,7 +135,7 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
   }, [handlePaste]);
 
   const handleSubmit = async () => {
-    if (!foto) return toast.error('Se requiere foto de evidencia');
+    if (!fotos.length) return toast.error('Se requiere al menos una foto de evidencia');
     if (!datosReceptor.trim()) return toast.error('Ingresa los datos de quien recibe');
     if (!firmaTrazada) return toast.error('El cliente debe firmar');
 
@@ -136,7 +145,7 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
     setSubiendo(true);
     try {
       const fd = new FormData();
-      fd.append('foto', foto);
+      for (const f of fotos) fd.append('fotos', f);
       fd.append('gps', gps || '');
       fd.append('datos_receptor', datosReceptor);
       fd.append('firma_receptor', firmaBase64);
@@ -189,23 +198,31 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
                 </div>
               </div>
 
-              {/* Foto */}
+              {/* Fotos */}
               <div>
-                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Evidencia Fotográfica *</p>
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFoto} />
-                {fotoPreview ? (
-                  <div className="relative rounded-xl overflow-hidden border border-slate-200">
-                    <img src={fotoPreview} alt="Evidencia" className="w-full h-48 object-cover" />
-                    <button onClick={() => { setFoto(null); setFotoPreview(null); }}
-                      className="absolute top-2 right-2 p-1.5 rounded-full bg-slate-900/60 text-white hover:bg-red-600">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Evidencia Fotográfica *</p>
+                  <span className="text-[10px] text-slate-400 font-medium">{fotos.length}/10</span>
+                </div>
+                <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFotos} />
+                {fotosPreview.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {fotosPreview.map((preview, i) => (
+                      <div key={i} className="relative rounded-xl overflow-hidden border border-slate-200 aspect-square">
+                        <img src={preview} alt={`Evidencia ${i + 1}`} className="w-full h-full object-cover" />
+                        <button onClick={() => removerFoto(i)}
+                          className="absolute top-1 right-1 p-1 rounded-full bg-slate-900/60 text-white hover:bg-red-600">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ) : (
+                )}
+                {fotos.length < 10 && (
                   <button onClick={() => fileRef.current?.click()}
-                    className="w-full h-36 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all">
-                    <Camera className="w-8 h-8" />
-                    <span className="text-sm font-medium">Pulsa para Tomar Foto</span>
+                    className="w-full h-24 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-1 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all">
+                    <Camera className="w-6 h-6" />
+                    <span className="text-xs font-medium">Agregar foto{fotos.length > 0 ? ' más' : ''}</span>
                   </button>
                 )}
               </div>
@@ -244,8 +261,8 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
         {/* Footer */}
         <div className="p-5 border-t border-slate-100">
           {step === 'foto_gps' ? (
-            <button onClick={() => { if (!foto) return toast.error('Se requiere foto'); setStep('firma'); }}
-              disabled={!foto}
+            <button onClick={() => { if (!fotos.length) return toast.error('Se requiere al menos una foto'); setStep('firma'); }}
+              disabled={!fotos.length}
               className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 shadow-lg shadow-indigo-200">
               Continuar — Firma <ChevronRight className="w-4 h-4" />
             </button>

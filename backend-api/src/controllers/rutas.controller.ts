@@ -740,8 +740,8 @@ export const finalizarInstalacion = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'La instalación debe estar en curso para finalizar' });
     }
 
-    const fotoUrl = req.file ? (req.file as any).path : null;
-    if (!fotoUrl) { await t.rollback(); return res.status(400).json({ error: 'Se requiere foto de evidencia' }); }
+    const fotos = req.files as Express.Multer.File[];
+    if (!fotos || fotos.length === 0) { await t.rollback(); return res.status(400).json({ error: 'Se requiere al menos una foto de evidencia' }); }
 
     const ahora = new Date();
 
@@ -751,19 +751,20 @@ export const finalizarInstalacion = async (req: Request, res: Response) => {
       fin_instalacion: ahora,
       datos_receptor: datos_receptor || null,
       firma_receptor: firma_receptor || null,
-      foto_evidencia_url: fotoUrl,
       gps_finalizacion: gps || null,
     }, { transaction: t });
 
-    // Crear evidencia formal
-    await EvidenciaInstalacion.create({
-      odp_id: rutaODP.odp_id,
-      instalador_id: user.id,
-      tipo_evidencia: 'foto',
-      archivo_url: fotoUrl,
-      gps: gps || null,
-      datos_firmante: datos_receptor || null,
-    }, { transaction: t });
+    // Crear N evidencias formales (una por foto)
+    for (const file of fotos) {
+      await EvidenciaInstalacion.create({
+        odp_id: rutaODP.odp_id,
+        instalador_id: user.id,
+        tipo_evidencia: 'foto',
+        archivo_url: (file as any).path,
+        gps: gps || null,
+        datos_firmante: datos_receptor || null,
+      }, { transaction: t });
+    }
 
     // ODP → ENTREGADA
     const odp = await ODP.findByPk(rutaODP.odp_id, { transaction: t }) as any;

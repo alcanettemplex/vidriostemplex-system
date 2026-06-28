@@ -306,7 +306,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const [pauseModal, setPauseModal] = useState<{ rutaOdpId: number; numeroOdp: string } | null>(null);
   const [pauseMotivo, setPauseMotivo] = useState('');
   const [finalizarModal, setFinalizarModal] = useState<{ rutaOdpId: number; numeroOdp: string } | null>(null);
-  const [fotoFinalizar, setFotoFinalizar] = useState<File | null>(null);
+  const [fotosFinalizar, setFotosFinalizar] = useState<File[]>([]);
   const [datosReceptor, setDatosReceptor] = useState('');
   const [savingFinalizar, setSavingFinalizar] = useState(false);
   const [busqueda, setBusqueda] = useState('');
@@ -386,18 +386,18 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     catch (e: any) { toast.error(e.response?.data?.error || 'Error al cancelar'); }
   };
   const handleFinalizarODP = (rutaOdpId: number, numeroOdp: string) => {
-    setFotoFinalizar(null);
+    setFotosFinalizar([]);
     setDatosReceptor('');
     setFinalizarModal({ rutaOdpId, numeroOdp });
   };
 
   const handleConfirmarFinalizar = async () => {
     if (!finalizarModal) return;
-    if (!fotoFinalizar) { toast.error('La foto de evidencia es obligatoria'); return; }
+    if (!fotosFinalizar.length) { toast.error('La foto de evidencia es obligatoria'); return; }
     setSavingFinalizar(true);
     try {
       const fd = new FormData();
-      fd.append('foto', fotoFinalizar);
+      for (const f of fotosFinalizar) fd.append('fotos', f);
       if (datosReceptor.trim()) fd.append('datos_receptor', datosReceptor.trim());
       await axios.post(`${API}/api/rutas/ruta-odp/${finalizarModal.rutaOdpId}/finalizar`, fd, { headers });
       toast.success(`ODP ${finalizarModal.numeroOdp} marcada como entregada`);
@@ -801,30 +801,41 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
             </div>
 
             <div className="p-5 space-y-4">
-              {/* Foto evidencia */}
+              {/* Fotos evidencia */}
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
-                  Foto de evidencia *
-                </label>
-                <label className={`flex flex-col items-center justify-center gap-2 w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-all ${fotoFinalizar ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-indigo-300 hover:bg-indigo-50'}`}>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={e => setFotoFinalizar(e.target.files?.[0] ?? null)}
-                  />
-                  {fotoFinalizar ? (
-                    <>
-                      <PackageCheck className="w-6 h-6 text-emerald-500" />
-                      <span className="text-xs font-semibold text-emerald-600 text-center px-2 truncate max-w-full">{fotoFinalizar.name}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-6 h-6 text-slate-400" />
-                      <span className="text-xs text-slate-400">Clic para seleccionar imagen</span>
-                    </>
-                  )}
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Fotos de evidencia *
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-medium">{fotosFinalizar.length}/10</span>
+                </div>
+                {fotosFinalizar.length > 0 && (
+                  <div className="grid grid-cols-4 gap-2 mb-3">
+                    {fotosFinalizar.map((f, i) => (
+                      <div key={i} className="relative rounded-xl overflow-hidden border border-slate-200 aspect-square">
+                        <img src={URL.createObjectURL(f)} alt={`Evidencia ${i + 1}`} className="w-full h-full object-cover" />
+                        <button onClick={() => setFotosFinalizar(prev => prev.filter((_, j) => j !== i))}
+                          className="absolute top-1 right-1 p-1 rounded-full bg-slate-900/60 text-white hover:bg-red-600">
+                          <XIcon className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {fotosFinalizar.length < 10 && (
+                  <label className="flex flex-col items-center justify-center gap-1 w-full h-20 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-indigo-300 hover:bg-indigo-50 transition-all">
+                    <input type="file" accept="image/*" multiple className="hidden"
+                      onChange={e => {
+                        const files = Array.from(e.target.files ?? []);
+                        const restantes = 10 - fotosFinalizar.length;
+                        if (files.length > restantes) return toast.error(`Máximo 10 fotos. Puedes agregar ${restantes} más.`);
+                        setFotosFinalizar(prev => [...prev, ...files]);
+                      }}
+                    />
+                    <Upload className="w-5 h-5 text-slate-400" />
+                    <span className="text-[10px] text-slate-400 font-medium">Agregar foto{fotosFinalizar.length > 0 ? ' más' : ''}</span>
+                  </label>
+                )}
               </div>
 
               {/* Datos receptor */}
@@ -852,7 +863,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
               </button>
               <button
                 onClick={handleConfirmarFinalizar}
-                disabled={savingFinalizar || !fotoFinalizar}
+                disabled={savingFinalizar || !fotosFinalizar.length}
                 className="flex-[2] py-2.5 bg-emerald-600 text-white font-semibold text-sm rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition shadow-sm"
               >
                 {savingFinalizar ? 'Guardando...' : 'Confirmar entrega'}

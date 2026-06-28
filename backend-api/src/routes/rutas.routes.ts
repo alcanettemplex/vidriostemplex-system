@@ -66,7 +66,7 @@ router.get('/mi-asignacion', requireRole('instalador'), getMiAsignacion);
 // Jefe: asignación de un instalador específico
 router.get('/instalador/:id', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), getAsignacionInstalador);
 router.post('/ruta-odp/:id/iniciar', requireRole('instalador'), iniciarInstalacion);
-router.post('/ruta-odp/:id/finalizar', requireRole('instalador', 'produccion', 'jefe_produccion', 'admin', 'gerencia'), uploadConfig.single('foto'), finalizarInstalacion);
+router.post('/ruta-odp/:id/finalizar', requireRole('instalador', 'produccion', 'jefe_produccion', 'admin', 'gerencia'), uploadConfig.array('fotos', 10), finalizarInstalacion);
 router.post('/ruta-odp/:id/pausar', requireRole('instalador', 'jefe_produccion', 'admin', 'gerencia', 'produccion'), pausarInstalacion);
 router.post('/ruta-odp/:id/reportar-dano', requireRole('instalador'), uploadConfig.single('foto_dano'), reportarDano);
 
