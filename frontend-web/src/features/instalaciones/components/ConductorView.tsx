@@ -393,11 +393,13 @@ const StopItem = ({ stop, idx, registrarLlegada, abrirDocumento, abrirMapa, enCu
            <p className="text-xs text-slate-500 font-medium italic border-l-4 border-indigo-200 pl-4 py-1 leading-relaxed">
              {odp?.descripcion_pedido || "Proceder con despacho estándar según requerimientos técnicos."}
            </p>
+           {abrirDocumento && (
            <div className="flex flex-wrap gap-2">
-             <DocBtn onClick={() => abrirDocumento(odp, 'op')} icon={Printer} label="ODP" />
-             <DocBtn onClick={() => abrirDocumento(odp, 'tecnico')} icon={FileText} label="Técnico" />
-             {sap && <DocBtn onClick={() => abrirDocumento(odp, 'sap')} icon={FileText} label="SAP" color="indigo" />}
+              <DocBtn onClick={() => abrirDocumento(odp, 'op')} icon={Printer} label="ODP" />
+              <DocBtn onClick={() => abrirDocumento(odp, 'tecnico')} icon={FileText} label="Técnico" />
+              {sap && <DocBtn onClick={() => abrirDocumento(odp, 'sap')} icon={FileText} label="SAP" color="indigo" />}
            </div>
+           )}
         </div>
 
         {enCurso && !isDone && (

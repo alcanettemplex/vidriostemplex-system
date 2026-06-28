@@ -443,12 +443,14 @@ const TaskCard = ({ item, onIniciar, onFinalizar, onReportarDano, onPausar, abri
                 {odp.descripcion_pedido}
               </p>
             )}
+            {!isHistory && (
             <div className="flex flex-wrap gap-2">
               <DocBtn icon={Printer} label="ODP" onClick={() => abrirDoc(odp, 'op')} />
               <DocBtn icon={FileText} label="Ficha Técnica" onClick={() => abrirDoc(odp, 'tecnico')} />
               {sap && <DocBtn icon={ShieldCheck} label="SAP" color="indigo" onClick={() => abrirDoc(odp, 'sap')} />}
               <DocBtn icon={Images} label="Det. SAP" color="violet" onClick={() => abrirDoc(odp, 'det_sap')} />
             </div>
+            )}
           </div>
 
           {/* Acciones en curso — solo oficial */}
