@@ -80,18 +80,19 @@ const MonthlyTooltip = ({ active, payload, label }: any) => {
 };
 
 export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data, isLoading }) => {
-  const odpsActivas    = useCountUp(data?.odps_activas || 0);
-  const facturadoMes   = useCountUp(data?.facturado_mes || 0);
-  const carteraVenc    = useCountUp(data?.cartera_vencida_total || 0);
-  const totalRecaudado = useCountUp(data?.total_abonado || 0);
+  const odpsActivas          = useCountUp(data?.odps_activas || 0);
+  const facturadoMes         = useCountUp(data?.facturado_mes || 0);
+  const facturadoConFactura  = useCountUp(data?.facturado_con_factura || 0);
+  const carteraVenc          = useCountUp(data?.cartera_vencida_total || 0);
+  const totalRecaudado       = useCountUp(data?.total_abonado || 0);
   const [openCartera, setOpenCartera] = useState(false);
   const [fichaId, setFichaId]         = useState<number | null>(null);
 
   if (isLoading) {
     return (
       <div className="space-y-3 animate-pulse">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[0,1,2,3].map(i => <div key={i} className="h-28 rounded-2xl bg-slate-200" />)}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {[0,1,2,3,4].map(i => <div key={i} className="h-28 rounded-2xl bg-slate-200" />)}
         </div>
         <div className="grid grid-cols-12 gap-3">
           <div className="col-span-12 lg:col-span-8 h-64 rounded-2xl bg-slate-200" />
@@ -134,11 +135,19 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
   const recaudadoIva     = recaudadoConIva - recaudadoConIva / (1 + IVA_RATE);
   const recaudadoBase    = rawRecaudado - recaudadoIva;
 
+  // Lógica de desglose para la nueva tarjeta de Pedidos Facturados (con factura electrónica)
+  const rawConFactura      = data?.facturado_con_factura || 0;
+  const conFacturaOA       = data?.facturado_con_factura_oa || 0;
+  const conFacturaConIva   = rawConFactura - conFacturaOA;
+  const conFacturaIva      = conFacturaConIva - conFacturaConIva / (1 + IVA_RATE);
+  const conFacturaBase     = rawConFactura - conFacturaIva;
+  const conFacturaPct      = rawFacturado > 0 ? Math.min((rawConFactura / rawFacturado) * 100, 100) : 0;
+
   return (
     <div className="space-y-3">
 
-      {/* ── ROW 1: 4 KPI cards ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* ── ROW 1: 5 KPI cards ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
 
         <motion.div custom={0} variants={cardVar} initial="hidden" animate="visible"
           className="bg-white border border-slate-200 rounded-2xl p-5"
@@ -187,6 +196,35 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
         </motion.div>
 
         <motion.div custom={2} variants={cardVar} initial="hidden" animate="visible"
+          className="bg-white border border-slate-200 rounded-2xl p-5 relative overflow-hidden"
+          whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(99,102,241,0.12)' }}>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Pedidos Facturados</p>
+          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Órdenes creadas en el período que ya cuentan con factura electrónica</p>
+          <p className="text-[34px] font-semibold text-indigo-600 leading-none tabular-nums">{fmtM(facturadoConFactura)}</p>
+          <div className="mt-2.5 mb-2 border-t border-slate-100 pt-2 space-y-1">
+            <div className="flex justify-between text-[11px]">
+              <span className="text-slate-400">Base sin IVA</span>
+              <span className="font-semibold text-slate-600 tabular-nums">{fmtM(conFacturaBase)}</span>
+            </div>
+            <div className="flex justify-between text-[11px]">
+              <span className="text-slate-400">IVA (19%)</span>
+              <span className="font-semibold text-indigo-500 tabular-nums">{fmtM(conFacturaIva)}</span>
+            </div>
+          </div>
+          {rawFacturado > 0 && (
+            <p className="text-[10px] text-slate-400">
+              {Math.round((rawConFactura / rawFacturado) * 100)}% del ingresado
+            </p>
+          )}
+          <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-100">
+            <motion.div className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-b-2xl"
+              initial={{ width: 0 }}
+              animate={{ width: `${conFacturaPct}%` }}
+              transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1], delay: 0.4 }} />
+          </div>
+        </motion.div>
+
+        <motion.div custom={3} variants={cardVar} initial="hidden" animate="visible"
           className="bg-white border border-slate-200 rounded-2xl p-5 cursor-pointer"
           whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(220,38,38,0.15)' }}
           onClick={() => setOpenCartera(true)}>
@@ -201,7 +239,7 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
           <p className="text-[10px] text-rose-400 mt-1">Ver detalle →</p>
         </motion.div>
 
-        <motion.div custom={3} variants={cardVar} initial="hidden" animate="visible"
+        <motion.div custom={4} variants={cardVar} initial="hidden" animate="visible"
           className="bg-white border border-slate-200 rounded-2xl p-5 relative overflow-hidden"
           whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(16,185,129,0.1)' }}>
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Total Recaudado</p>

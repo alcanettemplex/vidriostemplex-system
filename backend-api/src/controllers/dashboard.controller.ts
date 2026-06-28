@@ -95,6 +95,25 @@ export const getGeneralData = async (req: Request, res: Response) => {
     const facturado_mes_oa = Number(await ODP.sum('valor_total', { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] }, tipo_odp: 'OA' } }) || 0);
     const total_abonado_oa = Number(await ODP.sum('abono', { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] }, tipo_odp: 'OA' } }) || 0);
 
+    // Pedidos facturados (tienen factura electrónica)
+    const facturado_con_factura = Number(
+      await ODP.sum('valor_total', {
+        where: {
+          fecha_creacion: { [Op.between]: [firstDay, lastDay] },
+          factura_electronica: { [Op.ne]: null }
+        }
+      }) || 0
+    );
+    const facturado_con_factura_oa = Number(
+      await ODP.sum('valor_total', {
+        where: {
+          fecha_creacion: { [Op.between]: [firstDay, lastDay] },
+          tipo_odp: 'OA',
+          factura_electronica: { [Op.ne]: null }
+        }
+      }) || 0
+    );
+
     // Cartera vencida: créditos con FE emitida cuya fecha_factura supera el umbral de días (sin filtro de período)
     const carteraItems = await ODP.findAll({
       where: {
@@ -203,6 +222,8 @@ export const getGeneralData = async (req: Request, res: Response) => {
       odps_activas_delta_pct,
       facturado_mes: Number(facturado_mes),
       facturado_mes_oa,
+      facturado_con_factura,
+      facturado_con_factura_oa,
       total_abonado: Number(abonos),
       total_abonado_oa,
       cartera_vencida_total,
