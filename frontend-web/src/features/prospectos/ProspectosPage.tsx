@@ -299,20 +299,25 @@ const ProspectosPage: React.FC = () => {
   const [motivoArchivo, setMotivoArchivo] = useState('');
   const [solicitandoTM, setSolicitandoTM] = useState<Prospecto | null>(null);
 
+  // Paginación server-side
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
   const fetchProspectos = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API}/api/prospectos`, { headers });
-      setProspectos(res.data);
+      const res = await axios.get(`${API}/api/prospectos`, { headers, params: { page: pagina, limit: 100 } });
+      setProspectos(res.data.rows ?? []);
+      setTotalPaginas(res.data.totalPages ?? 1);
     } catch {
       toast.error('Error al cargar prospectos');
     } finally {
       setLoading(false);
     }
-  }, []); // eslint-disable-line
+  }, [pagina]); // eslint-disable-line
 
   useEffect(() => { fetchProspectos(); }, [fetchProspectos]);
 
@@ -468,6 +473,23 @@ const ProspectosPage: React.FC = () => {
               </motion.button>
             );
           })}
+        </div>
+      )}
+
+      {/* Paginación */}
+      {!loading && totalPaginas > 0 && (
+        <div className="flex items-center justify-center gap-3 mt-6">
+          <button onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={pagina <= 1}
+            className="px-3 py-1.5 text-sm font-bold border border-slate-200 rounded-xl disabled:opacity-40 hover:bg-slate-50 transition">
+            ←
+          </button>
+          <span className="text-sm font-semibold text-slate-600">
+            Página {pagina} de {totalPaginas}
+          </span>
+          <button onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))} disabled={pagina >= totalPaginas}
+            className="px-3 py-1.5 text-sm font-bold border border-slate-200 rounded-xl disabled:opacity-40 hover:bg-slate-50 transition">
+            →
+          </button>
         </div>
       )}
 

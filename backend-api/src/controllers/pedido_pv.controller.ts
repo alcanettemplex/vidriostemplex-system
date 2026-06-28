@@ -103,7 +103,10 @@ const verificarAvanceODP = async (odp_id: number, usuario_id: number) => {
 // GET /api/pedidos-pv
 export const getPedidosPV = async (req: Request, res: Response) => {
   try {
-    const { estado, proveedor, odp_id, origen } = req.query;
+    const { estado, proveedor, odp_id, origen, page: pageRaw, limit: limitRaw } = req.query;
+    const page = Math.max(1, parseInt(pageRaw as string) || 1);
+    const limit = Math.max(1, Math.min(500, parseInt(limitRaw as string) || 100));
+    const offset = (page - 1) * limit;
     const where: Record<string, unknown> = {};
 
     if (estado) where.estado = estado;
@@ -111,13 +114,15 @@ export const getPedidosPV = async (req: Request, res: Response) => {
     if (odp_id) where.odp_id = odp_id;
     if (origen) where.origen = origen;
 
-    const pedidos = await PedidoPV.findAll({
+    const { rows, count } = await PedidoPV.findAndCountAll({
       where,
       include: INCLUDE_COMPLETO,
       order: [['numero_base', 'DESC'], ['sufijo', 'ASC']],
+      limit,
+      offset,
     });
 
-    res.json(pedidos);
+    res.json({ rows, count, page, totalPages: Math.ceil(count / limit) });
   } catch (error) {
     console.error('Error getPedidosPV:', error);
     res.status(500).json({ error: 'Error al obtener pedidos PV' });

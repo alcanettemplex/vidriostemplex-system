@@ -28,18 +28,20 @@ const clienteSchema = z.object({
 export const getClientes = async (req: Request, res: Response) => {
   try {
     const { buscar } = req.query;
-    const where: any = {};
-    if (buscar && typeof buscar === 'string' && buscar.trim()) {
-      const q = buscar.trim();
-      where[Op.or] = [
+    if (!buscar || typeof buscar !== 'string' || buscar.trim().length < 2) {
+      return res.json({ rows: [], message: 'Escribe al menos 2 caracteres para buscar' });
+    }
+    const q = buscar.trim();
+    const where = {
+      [Op.or]: [
         { nombre_razon_social: { [Op.iLike]: `%${q}%` } },
         { telefono: { [Op.iLike]: `%${q}%` } },
         { celular: { [Op.iLike]: `%${q}%` } },
         { numero_documento: { [Op.iLike]: `%${q}%` } },
-      ];
-    }
-    const clientes = await Cliente.findAll({ where, order: [['nombre_razon_social', 'ASC']], limit: buscar ? 15 : undefined });
-    res.json(clientes);
+      ],
+    };
+    const { rows, count } = await Cliente.findAndCountAll({ where, order: [['nombre_razon_social', 'ASC']], limit: 15 });
+    res.json({ rows, count });
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener clientes' });
   }

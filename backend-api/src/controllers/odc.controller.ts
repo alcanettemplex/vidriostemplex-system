@@ -149,6 +149,7 @@ export const getODCsSeguimiento = async (req: Request, res: Response) => {
         },
       ],
       order: [['fecha_creacion', 'ASC']],
+      limit: 200,
     });
     res.json(odcs);
   } catch (error: any) {
@@ -184,46 +185,11 @@ export const getODCsRecibidas = async (req: Request, res: Response) => {
         },
       ],
       order: [['fecha_recepcion', 'DESC']],
+      limit: 200,
     });
     res.json(odcs);
   } catch (error: any) {
     res.status(500).json({ error: 'Error al obtener recibidas', detail: error.message });
-  }
-};
-
-// GET /odc/canceladas — ODCs canceladas (baja lógica), solo lectura
-export const getODCsCanceladas = async (req: Request, res: Response) => {
-  try {
-    const odcs = await OrdenCompra.findAll({
-      where: { estado: 'cancelado' },
-      include: [
-        ...includeItemsLista,
-        { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
-        { model: Usuario, as: 'cancelador', attributes: ['id', 'nombre_completo'] },
-        // Backward compat: ODCs antiguas con sap_id
-        {
-          model: SAP, as: 'sap',
-          include: [{
-            model: ODP,
-            attributes: ['id', 'numero_odp', 'estado_produccion', 'fecha_creacion'],
-            include: [
-              { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
-              { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
-            ],
-          }],
-        },
-        // ODCs con odp_id directo en cabecera
-        {
-          model: ODP, as: 'odp',
-          required: false,
-          include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
-        },
-      ],
-      order: [['fecha_cancelacion', 'DESC']],
-    });
-    res.json(odcs);
-  } catch (error: any) {
-    res.status(500).json({ error: 'Error al obtener canceladas', detail: error.message });
   }
 };
 
@@ -232,7 +198,10 @@ export const getODCsCanceladas = async (req: Request, res: Response) => {
 // desde Seguimiento con el botón "Actualizar orden" (evita el doble pedido).
 export const getODPsConSAPPendiente = async (req: Request, res: Response) => {
   try {
-    const items = await SAPItem.findAll({
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit as string) || 100));
+    const offset = (page - 1) * limit;
+    const items = await SAPItem.findAndCountAll({
       where: { estado_compra: 'pendiente' },
       include: [
         {
@@ -249,8 +218,15 @@ export const getODPsConSAPPendiente = async (req: Request, res: Response) => {
         },
       ],
       order: [['codigo', 'ASC']],
+      limit,
+      offset,
     });
-    res.json(items);
+    res.json({
+      rows: items.rows,
+      count: items.count,
+      page,
+      totalPages: Math.ceil(items.count / limit),
+    });
   } catch (error: any) {
     res.status(500).json({ error: 'Error al obtener panel de compras', detail: error.message });
   }
@@ -454,89 +430,6 @@ export const updateODC = async (req: Request, res: Response) => {
   }
 };
 
-// PATCH /odc/:id/cancelar — Cancelar ODC (baja lógica) y revertir estado_compra de sus items.
-// Bloquea si la ODC ya fue recibida (total o parcial). Conserva el historial (no borra nada).
-export const cancelarODC = async (req: Request, res: Response) => {
-  const t = await sequelize.transaction();
-  try {
-    const { id } = req.params;
-    const { motivo } = req.body as { motivo?: string };
-
-    const odc = await OrdenCompra.findByPk(id, {
-      include: [{ model: ODCItem, as: 'items' }],
-      transaction: t,
-    });
-    if (!odc) { await t.rollback(); return res.status(404).json({ error: 'ODC no encontrada' }); }
-
-    // ─── Ownership: solo creador o admin ───
-    if (req.user?.rol !== 'admin' && Number(odc.getDataValue('creado_por')) !== Number(req.user?.id)) {
-      await t.rollback();
-      return res.status(403).json({ error: 'Solo el creador de la ODC puede cancelarla' });
-    }
-
-    // ─── No se puede cancelar una ODC ya recibida (total o parcial) ───
-    const estadoActual = odc.getDataValue('estado');
-    if (estadoActual === 'cancelado') {
-      await t.rollback();
-      return res.status(400).json({ error: 'La ODC ya está cancelada' });
-    }
-    const odcItems = (odc as any).items as any[];
-    const tieneRecibidos = estadoActual === 'recibido' || odcItems.some((i: any) => i.recibido === true);
-    if (tieneRecibidos) {
-      await t.rollback();
-      return res.status(400).json({ error: 'No se puede cancelar una ODC con material ya recibido.' });
-    }
-
-    // ─── Baja lógica ───
-    await odc.update({
-      estado: 'cancelado',
-      cancelado_por: req.user?.id ?? null,
-      fecha_cancelacion: new Date(),
-      motivo_cancelacion: (motivo && String(motivo).trim()) || null,
-    }, { transaction: t });
-
-    const sapItemIds = odcItems.map((i: any) => i.sap_item_id).filter(Boolean);
-    const odpItemIds = odcItems.map((i: any) => i.odp_item_id).filter(Boolean);
-
-    // Revertir sap_items a 'pendiente' si no quedan en otra ODC ACTIVA (no cancelada)
-    for (const sapItemId of sapItemIds) {
-      const enOtraODCActiva = await ODCItem.count({
-        where: { sap_item_id: sapItemId },
-        include: [{ model: OrdenCompra, attributes: [], required: true, where: { estado: { [Op.ne]: 'cancelado' } } }],
-        transaction: t,
-      });
-      if (enOtraODCActiva === 0) {
-        await SAPItem.update(
-          { estado_compra: 'pendiente', modificado: false, datos_anteriores: null },
-          { where: { id: sapItemId }, transaction: t }
-        );
-      }
-    }
-
-    // Revertir odp_items (vidrio) a 'pendiente' si no quedan en otra ODC ACTIVA
-    for (const odpItemId of odpItemIds) {
-      const enOtraODCActiva = await ODCItem.count({
-        where: { odp_item_id: odpItemId },
-        include: [{ model: OrdenCompra, attributes: [], required: true, where: { estado: { [Op.ne]: 'cancelado' } } }],
-        transaction: t,
-      });
-      if (enOtraODCActiva === 0) {
-        await ODPItem.update(
-          { estado_compra: 'pendiente' },
-          { where: { id: odpItemId }, transaction: t }
-        );
-      }
-    }
-
-    await t.commit();
-    import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
-    res.json({ ok: true, estado: 'cancelado' });
-  } catch (error: any) {
-    await t.rollback();
-    res.status(500).json({ error: 'Error al cancelar ODC', detail: error.message });
-  }
-};
-
 /**
  * PUT /odc/:id/recibir-items
  * Marca ítems individuales como recibidos.
@@ -640,7 +533,7 @@ export const recibirItems = async (req: Request, res: Response) => {
  * PATCH /odc/:id/sincronizar-item/:itemId
  * Caso 1 — "Actualizar orden": sincroniza una línea de la ODC con los datos actuales
  * del SAPItem (código, descripción, cantidad) y limpia la alerta de modificado.
- * Solo el creador de la ODC o un admin. Solo en ODCs activas (no recibidas/canceladas).
+ * Solo el creador de la ODC o un admin. Solo en ODCs activas (no recibidas).
  */
 export const sincronizarItemODC = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
@@ -657,9 +550,9 @@ export const sincronizarItemODC = async (req: Request, res: Response) => {
     }
 
     const estadoODC = odc.getDataValue('estado');
-    if (estadoODC === 'recibido' || estadoODC === 'cancelado') {
+    if (estadoODC === 'recibido') {
       await t.rollback();
-      return res.status(400).json({ error: 'No se puede actualizar una ODC recibida o cancelada' });
+      return res.status(400).json({ error: 'No se puede actualizar una ODC recibida' });
     }
 
     const odcItem = await ODCItem.findOne({ where: { id: itemId, odc_id: id }, transaction: t });

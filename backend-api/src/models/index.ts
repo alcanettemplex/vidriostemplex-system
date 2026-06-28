@@ -197,7 +197,6 @@ OrdenCompra.belongsTo(SAP, { foreignKey: 'sap_id', as: 'sap' });
 
 Usuario.hasMany(OrdenCompra, { foreignKey: 'creado_por', as: 'compras_creadas' });
 OrdenCompra.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
-OrdenCompra.belongsTo(Usuario, { foreignKey: 'cancelado_por', as: 'cancelador' });
 
 OrdenCompra.hasMany(ODCItem, { foreignKey: 'odc_id', as: 'items' });
 ODCItem.belongsTo(OrdenCompra, { foreignKey: 'odc_id' });

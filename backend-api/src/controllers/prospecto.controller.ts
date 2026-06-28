@@ -35,11 +35,14 @@ export const getProspectosEnGestionPorCliente = async (req: Request, res: Respon
 // GET /prospectos — listar todos (con filtro de estado opcional)
 export const getProspectos = async (req: Request, res: Response) => {
   try {
-    const { estado } = req.query;
+    const { estado, page: pageRaw, limit: limitRaw } = req.query;
+    const page = Math.max(1, parseInt(pageRaw as string) || 1);
+    const limit = Math.max(1, Math.min(500, parseInt(limitRaw as string) || 100));
+    const offset = (page - 1) * limit;
     const where: any = {};
     if (estado) where.estado = estado;
 
-    const prospectos = await Prospecto.findAll({
+    const { rows, count } = await Prospecto.findAndCountAll({
       where,
       include: [
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
@@ -48,8 +51,11 @@ export const getProspectos = async (req: Request, res: Response) => {
         { model: ODP, as: 'odp', attributes: ['id', 'numero_odp', 'estado_produccion'] },
       ],
       order: [['fecha_creacion', 'DESC']],
+      limit,
+      offset,
     });
-    res.json(prospectos);
+
+    res.json({ rows, count, page, totalPages: Math.ceil(count / limit) });
   } catch (error: any) {
     res.status(500).json({ error: 'Error al obtener prospectos', detail: error.message });
   }

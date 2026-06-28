@@ -109,9 +109,28 @@ const odpSchema = z.object({
 
 export const getODPs = async (req: Request, res: Response) => {
   try {
-    const { SAP, TomaMedidas, Op } = await import('../models').then(m => ({ ...m, Op: require('sequelize').Op }));
-    const odps = await ODP.findAll({
-      where: { es_garantia: false } as any,
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+    const estado = req.query.estado as string | undefined;
+    const search = req.query.search as string | undefined;
+
+    const whereClause: any = { es_garantia: false };
+
+    if (estado) {
+      whereClause.estado_produccion = estado;
+    }
+
+    if (search) {
+      const like = { [Op.iLike]: `%${search}%` };
+      whereClause[Op.or] = [
+        { numero_odp: like },
+        { '$cliente.nombre_razon_social$': like },
+        { '$asesor.nombre_completo$': like },
+      ];
+    }
+
+    const { count, rows } = await ODP.findAndCountAll({
+      where: whereClause,
       include: [
         { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento', 'telefono', 'celular', 'email', 'direccion'] },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
@@ -121,9 +140,18 @@ export const getODPs = async (req: Request, res: Response) => {
         { model: SAP, as: 'saps', attributes: ['id'], separate: true },
         { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura'], separate: true },
       ],
-      order: [['fecha_creacion', 'DESC']]
+      order: [['fecha_creacion', 'DESC']],
+      limit,
+      offset: (page - 1) * limit,
+      distinct: true,
     });
-    res.json(odps);
+
+    res.json({
+      rows,
+      count,
+      page,
+      totalPages: Math.ceil(count / limit),
+    });
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener ODPs' });
   }
@@ -146,6 +174,7 @@ export const getNcGarantias = async (req: Request, res: Response) => {
         { model: SAP, as: 'saps', attributes: ['id'], separate: true },
       ],
       order: [['fecha_creacion', 'DESC']],
+      limit: 100,
     });
     res.json(odps);
   } catch (error) {
@@ -167,7 +196,8 @@ export const getGarantias = async (req: Request, res: Response) => {
         { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
         { model: SAP, as: 'saps', attributes: ['id'], separate: true },
       ],
-      order: [['fecha_creacion', 'DESC']]
+      order: [['fecha_creacion', 'DESC']],
+      limit: 100,
     });
     res.json(garantias);
   } catch (error) {

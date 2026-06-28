@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -6,7 +6,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import {
-  X, CheckCircle2, Plus, Briefcase, DollarSign, Package, Building2, UserCheck,
+  X, CheckCircle2, Plus, Briefcase, DollarSign, Package, Building2, UserCheck, Search, Loader2,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getClientesCached, getCatalogoCached } from '../../../services/listasCache';
@@ -39,7 +39,7 @@ const odpSchema = z.object({
 
 type ODPFormValues = z.infer<typeof odpSchema>;
 type CatalogoItem = { id: number; categoria: string; nombre: string; descripcion: string };
-type ClienteItem = { id: number; nombre_razon_social: string; telefono: string | null; celular: string | null; email: string | null; fuente?: string | null; };
+type ClienteItem = { id: number; nombre_razon_social: string; numero_documento?: string; telefono: string | null; celular: string | null; email: string | null; fuente?: string | null; };
 
 const FUENTES = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presencial', 'Show Room', 'Referidos', 'Visita Asesor', 'Cliente'];
 
@@ -75,6 +75,10 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
     fuente: '',
   });
   const [clientes, setClientes] = useState<ClienteItem[]>([]);
+  const [clienteBusqueda, setClienteBusqueda] = useState('');
+  const [clientesBuscando, setClientesBuscando] = useState(false);
+  const [dropdownClienteAbierto, setDropdownClienteAbierto] = useState(false);
+  const clienteSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cargoRecibe, setCargoRecibe] = useState('');
   // Fuente a registrar cuando el cliente destino (existente/viejo) aún no la tiene
   const [fuenteExistente, setFuenteExistente] = useState('');
@@ -120,16 +124,25 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
 
   const loadData = useCallback(async () => {
     try {
-      const [catData, cliData] = await Promise.all([
-        getCatalogoCached(),
-        getClientesCached(),
-      ]);
+      const catData = await getCatalogoCached();
       setCatalogo(catData);
       const cats = Array.from(new Set<string>(catData.map((i: CatalogoItem) => i.categoria)));
       setCategorias(cats);
-      setClientes(cliData);
     } catch { /* opcional */ }
   }, []); // eslint-disable-line
+
+  // Búsqueda server-side de clientes
+  useEffect(() => {
+    if (clienteSearchRef.current) clearTimeout(clienteSearchRef.current);
+    if (clienteBusqueda.trim().length < 2) { setClientes([]); return; }
+    setClientesBuscando(true);
+    clienteSearchRef.current = setTimeout(async () => {
+      try { setClientes(await getClientesCached(clienteBusqueda)); }
+      catch { setClientes([]); }
+      finally { setClientesBuscando(false); }
+    }, 300);
+    return () => { if (clienteSearchRef.current) clearTimeout(clienteSearchRef.current); };
+  }, [clienteBusqueda]);
 
   useEffect(() => {
     loadData();
@@ -264,14 +277,40 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                 {/* Cliente existente */}
                 {tipoCliente === 'existente' && (
                   <div className="space-y-2">
-                    <select
-                      value={clienteId}
-                      onChange={e => setClienteId(e.target.value)}
-                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                    >
-                      <option value="">Seleccionar cliente...</option>
-                      {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre_razon_social}</option>)}
-                    </select>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        value={dropdownClienteAbierto ? clienteBusqueda : (clienteSeleccionado?.nombre_razon_social || clienteBusqueda)}
+                        onChange={e => { setClienteBusqueda(e.target.value); setDropdownClienteAbierto(true); }}
+                        onFocus={() => { setClienteBusqueda(''); setDropdownClienteAbierto(true); }}
+                        placeholder="Buscar cliente..."
+                        className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                      {clientesBuscando && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin" />}
+                      {dropdownClienteAbierto && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setDropdownClienteAbierto(false)} />
+                          <div className="absolute top-full mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg z-20 max-h-52 overflow-y-auto">
+                            {clientes.length > 0 ? clientes.map(c => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => { setClienteId(String(c.id)); setClienteBusqueda(''); setDropdownClienteAbierto(false); }}
+                                className="w-full text-left px-4 py-2.5 text-sm hover:bg-amber-50 hover:text-amber-700 transition-colors"
+                              >
+                                <span className="block font-medium">{c.nombre_razon_social}</span>
+                                {c.numero_documento && <span className="block text-xs text-slate-400">{c.numero_documento}</span>}
+                              </button>
+                            )) : (
+                              <p className="px-4 py-3 text-sm text-slate-400 text-center">
+                                {clienteBusqueda.trim().length >= 2 ? 'Sin resultados' : 'Escribe al menos 2 caracteres'}
+                              </p>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
                     {clienteSeleccionado && (
                       <div className="p-2.5 bg-white border border-amber-100 rounded-lg text-xs text-slate-600 space-y-0.5">
                         {(clienteSeleccionado.telefono || clienteSeleccionado.celular) && (

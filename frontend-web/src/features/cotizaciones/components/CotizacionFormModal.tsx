@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -77,6 +77,9 @@ const formatCOP = (n: number) =>
 const CotizacionFormModal: React.FC<Props> = ({ open, onClose, cotizacion, onSaved }) => {
   const token = useSelector((s: any) => s.auth.token);
   const [clientes, setClientes] = useState<any[]>([]);
+  const [clientesBuscando, setClientesBuscando] = useState(false);
+  const [clienteInput, setClienteInput] = useState('');
+  const clienteSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [tabSeccion, setTabSeccion] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -117,17 +120,18 @@ const CotizacionFormModal: React.FC<Props> = ({ open, onClose, cotizacion, onSav
   const iva = baseGravable * 0.19;
   const totalNeto = baseGravable + iva;
 
-  // Cargar clientes
-  const fetchClientes = useCallback(async () => {
-    try {
-      const data = await getClientesCached();
-      setClientes(data || []);
-    } catch {
-      // silencioso
-    }
-  }, []);
-
-  useEffect(() => { if (open) fetchClientes(); }, [open, fetchClientes]);
+  // Búsqueda server-side de clientes para el Autocomplete
+  useEffect(() => {
+    if (clienteSearchRef.current) clearTimeout(clienteSearchRef.current);
+    if (clienteInput.trim().length < 2) { setClientes([]); return; }
+    setClientesBuscando(true);
+    clienteSearchRef.current = setTimeout(async () => {
+      try { setClientes(await getClientesCached(clienteInput) || []); }
+      catch { setClientes([]); }
+      finally { setClientesBuscando(false); }
+    }, 300);
+    return () => { if (clienteSearchRef.current) clearTimeout(clienteSearchRef.current); };
+  }, [clienteInput]);
 
   // Cargar datos al editar
   useEffect(() => {
@@ -231,6 +235,9 @@ const CotizacionFormModal: React.FC<Props> = ({ open, onClose, cotizacion, onSav
             getOptionLabel={(c: any) => c.nombre_razon_social || ''}
             value={clientes.find(c => c.id === Number(watchedClienteId)) || null}
             onChange={(_, v) => setValue('cliente_id', v?.id || 0, { shouldValidate: true })}
+            onInputChange={(_, v) => setClienteInput(v)}
+            loading={clientesBuscando}
+            noOptionsText={clienteInput.trim().length >= 2 ? 'Sin resultados' : 'Escribe al menos 2 caracteres'}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -238,6 +245,15 @@ const CotizacionFormModal: React.FC<Props> = ({ open, onClose, cotizacion, onSav
                 size="small"
                 error={!!errors.cliente_id}
                 helperText={errors.cliente_id?.message}
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {clientesBuscando ? <CircularProgress color="inherit" size={20} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
               />
             )}
           />

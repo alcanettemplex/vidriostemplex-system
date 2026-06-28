@@ -208,13 +208,16 @@ produccion | auxiliar_produccion | instalador | conductor | contabilidad | compr
 
 ## Metodología de Trabajo — OBLIGATORIO
 
-**Definir → Acordar → Ejecutar.** Nunca tocar archivos durante la fase de definición.
+**Tú propones → Yo analizo y pregunto → Plan quirúrgico → "Procede" → Ejecuto.**
 
-1. Entrevistar, proponer estructura completa (BD + backend + frontend + casos borde)
-2. Esperar aprobación explícita ("adelante", "hazlo", "sí")
-3. Solo entonces editar archivos
+Nunca tocar archivos hasta recibir la palabra "procede".
 
-**Verificación de impacto antes de commit:**
+1. **Tú propones** — consulta, cambio, modificación, mejora, etc.
+2. **Yo analizo y pregunto** — exploro el código, identifico impacto en módulos relacionados y casos borde, cierro ambigüedades contigo.
+3. **Actuación quirúrgica** — sistema en producción. Toda modificación considera el engranaje con otros módulos (backend, frontend, BD, estados, roles, auditoría, sockets).
+4. **Entrego plan completo** — estructura BD + backend + frontend + casos borde. Solo cuando digas **"procede"** empiezo a modificar archivos.
+
+**Verificación de impacto antes de finalizar:**
 - Cambió **controlador** → revisar TODAS las vistas que consumen ese endpoint
 - Cambió **modelo** → revisar todos los controladores que lo usan
 - Cambió **ENUM/estado** → verificar Sequelize ENUM + PG ENUM + CHECK CONSTRAINT

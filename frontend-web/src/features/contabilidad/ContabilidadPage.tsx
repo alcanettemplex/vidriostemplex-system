@@ -138,12 +138,13 @@ const ContabilidadPage: React.FC = () => {
   const fetchOdps = useCallback(async () => {
     try {
       setLoadingOdps(true);
-      const res = await axios.get(`${API}/api/odp`, { headers: headers() });
-      if (Array.isArray(res.data)) {
-        setOdps(res.data.filter((o: any) => o.tipo_odp !== 'OA'));
-        if (canSeeOA) setOdpsOA(res.data.filter((o: any) => o.tipo_odp === 'OA'));
+      const res = await axios.get(`${API}/api/contabilidad/odps?limit=500`, { headers: headers() });
+      const data = res.data;
+      if (data && Array.isArray(data.rows)) {
+        setOdps(data.rows.filter((o: any) => o.tipo_odp !== 'OA'));
+        if (canSeeOA) setOdpsOA(data.rows.filter((o: any) => o.tipo_odp === 'OA'));
       } else {
-        console.error('Respuesta de ODPs no es un array:', res.data);
+        console.error('Respuesta de ODPs no tiene rows:', data);
         setOdps([]);
       }
     } catch (err) { 

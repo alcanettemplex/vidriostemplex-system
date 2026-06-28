@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, Ban, X, Layers, Plus, Printer, RotateCw, Trash2, RotateCcw } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, X, Layers, Plus, Printer, RotateCw, Trash2, RotateCcw } from 'lucide-react';
 import { toast } from 'react-toastify';
 import ODCModal, { SAPItemConContexto } from './components/ODCModal';
 import ODCVidriosModal, { ODPItemConContexto } from './components/ODCVidriosModal';
@@ -50,10 +50,8 @@ interface ODCItemConContexto {
 interface ODC {
   id: number; numero_odc: string; proveedor: string;
   tipo?: 'perfileria' | 'vidrio' | 'consumible';
-  estado: 'pendiente' | 'en_transito' | 'recibido' | 'problema' | 'cancelado';
+  estado: 'pendiente' | 'en_transito' | 'recibido' | 'problema';
   notas: string; fecha_creacion: string; fecha_recepcion?: string;
-  fecha_cancelacion?: string | null; motivo_cancelacion?: string | null;
-  cancelador?: { id: number; nombre_completo: string } | null;
   creador: { id: number; nombre_completo: string };
   items: ODCItemConContexto[];
   // backward compat: ODCs antiguas con sap_id tienen esto
@@ -154,7 +152,6 @@ const ODC_ESTADO_STYLE: Record<string, { label: string; className: string }> = {
   en_transito: { label: 'En tránsito', className: 'bg-blue-100 text-blue-700 border-blue-200' },
   recibido:    { label: 'Recibido',    className: 'bg-green-100 text-green-700 border-green-200' },
   problema:    { label: 'Problema',    className: 'bg-red-100 text-red-700 border-red-200' },
-  cancelado:   { label: 'Cancelada',   className: 'bg-slate-200 text-slate-600 border-slate-300' },
 };
 
 const TABS = [
@@ -163,7 +160,6 @@ const TABS = [
   { key: 'recibidas',    label: 'Recibidas',    icon: CheckCircle2 },
   { key: 'vidrios',      label: 'Vidrios',      icon: Layers },
   { key: 'existencia',   label: 'En Existencia', icon: Package },
-  { key: 'canceladas',   label: 'Canceladas',   icon: Ban },
 ];
 
 const ESTADO_COMPRA_STYLE: Record<string, { label: string; className: string }> = {
@@ -333,8 +329,8 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
     if (panelItems.length === 0) {
       setPanelLoading(true);
       try {
-        const res = await axios.get(`${API}/api/compras/panel`, { headers: { Authorization: `Bearer ${token}` } });
-        setPanelItems(res.data);
+        const res = await axios.get(`${API}/api/compras/panel`, { headers: { Authorization: `Bearer ${token}` }, params: { limit: 500 } });
+        setPanelItems(res.data.rows || []);
       } catch (e: any) {
         toast.error(e?.response?.data?.error || 'Error al cargar ítems pendientes');
       } finally { setPanelLoading(false); }
@@ -460,13 +456,6 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
               )}
             </div>
             {odc.notas && <p className="text-xs text-slate-400 italic mt-1">"{odc.notas}"</p>}
-            {odc.estado === 'cancelado' && (
-              <p className="text-xs text-red-400 italic mt-1">
-                Cancelada{odc.fecha_cancelacion ? ` el ${new Date(odc.fecha_cancelacion).toLocaleDateString('es-CO')}` : ''}
-                {odc.cancelador ? ` por ${odc.cancelador.nombre_completo}` : ''}
-                {odc.motivo_cancelacion ? ` — "${odc.motivo_cancelacion}"` : ''}
-              </p>
-            )}
           </div>
 
           {/* Botones de acción */}
@@ -1162,7 +1151,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
 // ─── Componente principal ────────────────────────────────────────────────────
 
 const ComprasPage: React.FC = () => {
-  const [tab, setTab] = useState<'pendientes' | 'seguimiento' | 'recibidas' | 'vidrios' | 'existencia' | 'canceladas'>('pendientes');
+  const [tab, setTab] = useState<'pendientes' | 'seguimiento' | 'recibidas' | 'vidrios' | 'existencia'>('pendientes');
   const [fichaOdpId, setFichaOdpId] = useState<number | null>(null);
   const [itemsPendientes, setItemsPendientes] = useState<SAPItemConContexto[]>([]);
   const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
@@ -1170,7 +1159,6 @@ const ComprasPage: React.FC = () => {
   const [mostrarModalSinSAP, setMostrarModalSinSAP] = useState(false);
   const [odcsSeguimiento, setOdcsSeguimiento] = useState<ODC[]>([]);
   const [odcsRecibidas, setOdcsRecibidas] = useState<ODC[]>([]);
-  const [odcsCanceladas, setOdcsCanceladas] = useState<ODC[]>([]);
   const [vidriosFlat, setVidriosFlat] = useState<ODPItemConContexto[]>([]);
   const [seleccionadosVidrios, setSeleccionadosVidrios] = useState<Set<number>>(new Set());
   const [mostrarModalVidrios, setMostrarModalVidrios] = useState(false);
@@ -1178,6 +1166,9 @@ const ComprasPage: React.FC = () => {
   const [perfileriaExistencia, setPerfileriaExistencia] = useState<PerfileriaExistenciaItem[]>([]);
   const [revirtiendoExist, setRevirtiendoExist] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pendientesPage, setPendientesPage] = useState(1);
+  const [pendientesTotalPages, setPendientesTotalPages] = useState(1);
+  const [pendientesLoadingMore, setPendientesLoadingMore] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [codigosConStock, setCodigosConStock] = useState<Set<string>>(new Set());
   const [stockPorCodigo, setStockPorCodigo] = useState<Record<string, PiezaPerfil[]>>({});
@@ -1192,13 +1183,20 @@ const ComprasPage: React.FC = () => {
 
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const fetchTab = useCallback(async (t: string) => {
+  const fetchTab = useCallback(async (t: string, page: number = 1, append: boolean = false) => {
     setLoading(true);
     try {
       if (t === 'pendientes') {
-        const res = await axios.get(`${API}/api/compras/panel`, { headers });
-        setItemsPendientes(res.data);
+        const res = await axios.get(`${API}/api/compras/panel`, { headers, params: { page, limit: 50 } });
+        if (append) {
+          setItemsPendientes(prev => [...prev, ...res.data.rows]);
+        } else {
+          setItemsPendientes(res.data.rows);
+          setPendientesPage(page);
+          setPendientesTotalPages(res.data.totalPages);
+        }
         setSeleccionados(new Set());
       } else if (t === 'seguimiento') {
         const res = await axios.get(`${API}/api/compras/seguimiento`, { headers });
@@ -1214,9 +1212,6 @@ const ComprasPage: React.FC = () => {
         ]);
         setVidriosExistencia(resV.data);
         setPerfileriaExistencia(resP.data);
-      } else if (t === 'canceladas') {
-        const res = await axios.get(`${API}/api/compras/canceladas`, { headers });
-        setOdcsCanceladas(res.data);
       } else {
         const res = await axios.get(`${API}/api/compras/recibidas`, { headers });
         setOdcsRecibidas(res.data);
@@ -1227,13 +1222,12 @@ const ComprasPage: React.FC = () => {
   // Cargar conteos de todos los tabs al montar para mostrar badges
   useEffect(() => {
     const h = { Authorization: `Bearer ${sessionStorage.getItem('token')}` };
-    axios.get(`${API}/api/compras/panel`, { headers: h }).then(r => setItemsPendientes(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
+    axios.get(`${API}/api/compras/panel`, { headers: h, params: { page: 1, limit: 50 } }).then(r => { setItemsPendientes(r.data.rows); setPendientesTotalPages(r.data.totalPages); }).catch(err => console.error('Error cargando datos de compras:', err));
     axios.get(`${API}/api/compras/seguimiento`, { headers: h }).then(r => setOdcsSeguimiento(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
     axios.get(`${API}/api/compras/recibidas`, { headers: h }).then(r => setOdcsRecibidas(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
     axios.get(`${API}/api/compras/vidrios/panel`, { headers: h }).then(r => setVidriosFlat(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
     axios.get(`${API}/api/compras/vidrios/existencia`, { headers: h }).then(r => setVidriosExistencia(r.data)).catch(err => console.error('Error cargando existencia:', err));
     axios.get(`${API}/api/compras/perfileria/existencia`, { headers: h }).then(r => setPerfileriaExistencia(r.data)).catch(err => console.error('Error cargando existencia perfilería:', err));
-    axios.get(`${API}/api/compras/canceladas`, { headers: h }).then(r => setOdcsCanceladas(r.data)).catch(err => console.error('Error cargando canceladas:', err));
     axios.get(`${API}/api/compras/codigos-perfileria`, { headers: h }).then(r => setCodigosConStock(new Set(r.data as string[]))).catch(err => console.error('Error cargando códigos perfilería:', err));
   }, []);
 
@@ -1242,6 +1236,35 @@ const ComprasPage: React.FC = () => {
   const refresh = () => fetchTab(tab);
 
   useDataChangedSocket('compras', refresh);
+
+  const loadMorePendientes = useCallback(async () => {
+    if (pendientesLoadingMore || pendientesPage >= pendientesTotalPages) return;
+    setPendientesLoadingMore(true);
+    try {
+      const nextPage = pendientesPage + 1;
+      const res = await axios.get(`${API}/api/compras/panel`, { headers, params: { page: nextPage, limit: 50 } });
+      const { rows, totalPages } = res.data;
+      setItemsPendientes(prev => [...prev, ...rows]);
+      setPendientesPage(nextPage);
+      setPendientesTotalPages(totalPages);
+    } catch (err) {
+      console.error('Error cargando más items:', err);
+    } finally {
+      setPendientesLoadingMore(false);
+    }
+  }, [pendientesPage, pendientesTotalPages, pendientesLoadingMore]);
+
+  useEffect(() => {
+    if (tab !== 'pendientes') return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) loadMorePendientes(); },
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [tab, loadMorePendientes]);
 
   const refreshTrasRecibida = () => {
     setOdcsSeguimiento(prev => prev.filter(() => false));
@@ -1403,7 +1426,6 @@ const ComprasPage: React.FC = () => {
     if (t === 'seguimiento') return odcsSeguimiento.length;
     if (t === 'vidrios') return vidriosFlat.length;
     if (t === 'existencia') return perfileriaExistencia.length + vidriosExistencia.length;
-    if (t === 'canceladas') return odcsCanceladas.length;
     return odcsRecibidas.length;
   };
 
@@ -1691,6 +1713,18 @@ const ComprasPage: React.FC = () => {
                   </div>
                   )}
 
+                  {/* Infinite scroll sentinel */}
+                  <div ref={sentinelRef} className="h-4" />
+                  {pendientesLoadingMore && (
+                    <div className="text-center py-4">
+                      <div className="w-6 h-6 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin inline-block" />
+                      <p className="text-sm text-slate-400 mt-2">Cargando más...</p>
+                    </div>
+                  )}
+                  {pendientesPage >= pendientesTotalPages && itemsPendientes.length > 0 && (
+                    <p className="text-center text-sm text-slate-400 py-4">Todos los items cargados</p>
+                  )}
+
                 </div>
               );
             })()}
@@ -1721,21 +1755,6 @@ const ComprasPage: React.FC = () => {
               ) : (
                 <div className="grid gap-4">
                   {lista.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} onFichaOdp={setFichaOdpId} />)}
-                </div>
-              );
-            })()}
-
-            {/* ── TAB CANCELADAS ── */}
-            {tab === 'canceladas' && (() => {
-              const lista = filtrarOdcs(odcsCanceladas);
-              return lista.length === 0 ? (
-                <div className="text-center py-20">
-                  <Ban className="w-16 h-16 text-slate-200 mx-auto mb-3" />
-                  <p className="text-lg font-bold text-slate-500">{busqueda ? 'Sin resultados' : 'No hay ODCs canceladas'}</p>
-                </div>
-              ) : (
-                <div className="grid gap-4">
-                  {lista.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} onFichaOdp={setFichaOdpId} soloLectura />)}
                 </div>
               );
             })()}

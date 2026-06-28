@@ -33,7 +33,7 @@ const CrearODPModal: React.FC<Props> = ({ lead, onClose, onSuccess }) => {
       setBuscando(true);
       try {
         const { data } = await apiSearchClientes(busqueda);
-        setResultados(Array.isArray(data) ? data : []);
+        setResultados(data?.rows ?? data ?? []);
       } catch {
         setResultados([]);
       } finally {

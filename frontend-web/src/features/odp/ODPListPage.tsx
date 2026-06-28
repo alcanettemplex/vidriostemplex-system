@@ -173,9 +173,11 @@ const SortIcon: React.FC<{ field: SortField; sortField: SortField; sortDir: Sort
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 const ODPListPage: React.FC = () => {
-    const [odps, setOdps] = useState<ODP[]>([]);
+    const [tabData, setTabData] = useState<Record<string, { rows: ODP[], count: number, page: number, totalPages: number }>>({});
+    const [tabPage, setTabPage] = useState<Record<string, number>>({ activas: 1, visita: 1, listas: 1, con_dano: 1, garantia: 1 });
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<{ rows: ODP[], count: number, page: number, totalPages: number } | null>(null);
     const [activeTab, setActiveTab] = useState<'activas' | 'visita' | 'listas' | 'completadas' | 'con_dano' | 'garantia'>('activas');
     const [garantiaSubTab, setGarantiaSubTab] = useState<'activas' | 'realizadas'>('activas');
     const [garantias, setGarantias] = useState<ODP[]>([]);
@@ -217,13 +219,16 @@ const ODPListPage: React.FC = () => {
         }
     }, []);
 
-    const fetchODPs = useCallback(async () => {
+    const fetchTabData = useCallback(async (tab: string, _pageNum?: number) => {
+        if (tab === 'completadas' || tab === 'garantia') return;
+        setLoading(true);
         try {
             const token = sessionStorage.getItem('token');
-            const res = await axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setOdps(res.data);
+            const baseUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+            const params: Record<string, any> = { page: 1, limit: 200 };
+
+            const res = await axios.get(`${baseUrl}/api/odp`, { params, headers: { Authorization: `Bearer ${token}` } });
+            setTabData(prev => ({ ...prev, [tab]: res.data }));
         } catch (error) {
             console.error('Error fetching ODPs', error);
         } finally {
@@ -231,8 +236,49 @@ const ODPListPage: React.FC = () => {
         }
     }, []);
 
-    useEffect(() => { fetchODPs(); fetchGarantias(); }, [fetchODPs, fetchGarantias]);
-    useODPSocketPatch({ setOdps, setGarantias });
+    const handleSearch = useCallback(async (pageNum: number = 1) => {
+        if (!searchQuery || searchQuery.length < 2) return;
+        setLoading(true);
+        try {
+            const token = sessionStorage.getItem('token');
+            const baseUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+            const res = await axios.get(`${baseUrl}/api/odp`, {
+                params: { search: searchQuery, page: pageNum, limit: 20 },
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setSearchResults(res.data);
+        } catch (error) {
+            console.error('Error searching ODPs', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [searchQuery]);
+
+    useEffect(() => {
+        fetchGarantias();
+        if (activeTab === 'completadas') {
+            setSearchResults(null);
+            setLoading(false);
+            return;
+        }
+        if (activeTab !== 'garantia') {
+            fetchTabData(activeTab);
+        } else {
+            setLoading(false);
+        }
+    }, [activeTab, fetchTabData, fetchGarantias]);
+
+    const setOdpsWrapper = useCallback((value: React.SetStateAction<ODP[]>) => {
+        setTabData(prev => {
+            const curr = prev[activeTab];
+            if (!curr) return prev;
+            const newRows = typeof value === 'function' ? value(curr.rows) : value;
+            const diff = newRows.length - curr.rows.length;
+            return { ...prev, [activeTab]: { ...curr, rows: newRows, count: curr.count + diff, totalPages: Math.ceil((curr.count + diff) / 50) } };
+        });
+    }, [activeTab]);
+
+    useODPSocketPatch({ setOdps: setOdpsWrapper, setGarantias });
 
     const handleSolicitarVisita = async (odp: ODP) => {
         const esRemedicion = odp.estado_produccion !== 'EN_ESPERA';
@@ -247,7 +293,7 @@ const ODPListPage: React.FC = () => {
                 { headers: { Authorization: `Bearer ${tkn}` } }
             );
             toast.success(`${odp.numero_odp} — Visita técnica solicitada`);
-            fetchODPs();
+            fetchTabData(activeTab, tabPage[activeTab] || 1);
         } catch {
             toast.error('Error al solicitar visita técnica');
         }
@@ -262,7 +308,7 @@ const ODPListPage: React.FC = () => {
                 { headers: { Authorization: `Bearer ${tkn}` } }
             );
             toast.success(`${odp.numero_odp} — Liberada para producción`);
-            fetchODPs();
+            fetchTabData(activeTab, tabPage[activeTab] || 1);
         } catch (err: any) {
             toast.error(err.response?.data?.error || 'Error al liberar ODP');
         }
@@ -274,7 +320,11 @@ const ODPListPage: React.FC = () => {
             await axios.delete(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setOdps(odps.filter(o => o.id !== id));
+            setTabData(prev => {
+                const curr = prev[activeTab];
+                if (!curr) return prev;
+                return { ...prev, [activeTab]: { ...curr, rows: curr.rows.filter(o => o.id !== id), count: Math.max(0, curr.count - 1) } };
+            });
             setDeletingOdp(null);
         } catch {
             toast.error('Error al eliminar ODP');
@@ -290,22 +340,27 @@ const ODPListPage: React.FC = () => {
         }
     };
 
+    const ESTADOS_REALIZADAS = ['INSTALADA', 'ENTREGADA'];
+    const garantiasActivas = garantias.filter(g => !ESTADOS_REALIZADAS.includes(g.estado_produccion));
+    const garantiasRealizadas = garantias.filter(g => ESTADOS_REALIZADAS.includes(g.estado_produccion));
+
+    // Filas actuales según tab activo
+    const currentRows = activeTab === 'completadas' ? (searchResults?.rows || [])
+        : activeTab === 'garantia' ? (garantiaSubTab === 'realizadas' ? garantiasRealizadas : garantiasActivas)
+        : (tabData[activeTab]?.rows || []);
+
     // Listas de asesores y años únicos para filtros
-    const asesoresUnicos = Array.from(new Set(odps.map(o => o.asesor?.nombre_completo).filter(Boolean)));
-    const aniosUnicos = Array.from(new Set(odps.map(o => o.fecha_entrega ? new Date(o.fecha_entrega).getFullYear() : null).filter(Boolean) as number[])).sort((a, b) => b - a);
+    const asesoresUnicos = Array.from(new Set(currentRows.map(o => o.asesor?.nombre_completo).filter(Boolean)));
+    const aniosUnicos = Array.from(new Set(currentRows.map(o => o.fecha_entrega ? new Date(o.fecha_entrega).getFullYear() : null).filter(Boolean) as number[])).sort((a, b) => b - a);
 
     // Segmentación por tabs
     const ESTADOS_LISTAS = ['LISTO_INSTALAR', 'PROGRAMADA'];
     // Con Daños tiene prioridad: una ODP con daño pendiente de revisar solo aparece en esa tab.
-    const odpsConDano = odps.filter(o => o.tiene_dano_instalacion === true);
-    const odpsActivas = odps.filter(o => !o.tiene_dano_instalacion && !['VISITA_TECNICA', ...ESTADOS_LISTAS, ...ESTADOS_COMPLETADAS].includes(o.estado_produccion));
-    const odpsVisita = odps.filter(o => !o.tiene_dano_instalacion && o.estado_produccion === 'VISITA_TECNICA');
-    const odpsListas = odps.filter(o => !o.tiene_dano_instalacion && ESTADOS_LISTAS.includes(o.estado_produccion));
-    const odpsCompletadas = odps.filter(o => !o.tiene_dano_instalacion && ESTADOS_COMPLETADAS.includes(o.estado_produccion));
-
-    const ESTADOS_REALIZADAS = ['INSTALADA', 'ENTREGADA'];
-    const garantiasActivas = garantias.filter(g => !ESTADOS_REALIZADAS.includes(g.estado_produccion));
-    const garantiasRealizadas = garantias.filter(g => ESTADOS_REALIZADAS.includes(g.estado_produccion));
+    const odpsConDano = currentRows.filter(o => o.tiene_dano_instalacion === true);
+    const odpsActivas = currentRows.filter(o => !o.tiene_dano_instalacion && !['VISITA_TECNICA', ...ESTADOS_LISTAS, ...ESTADOS_COMPLETADAS].includes(o.estado_produccion));
+    const odpsVisita = currentRows.filter(o => !o.tiene_dano_instalacion && o.estado_produccion === 'VISITA_TECNICA');
+    const odpsListas = currentRows.filter(o => !o.tiene_dano_instalacion && ESTADOS_LISTAS.includes(o.estado_produccion));
+    const odpsCompletadas = currentRows.filter(o => !o.tiene_dano_instalacion && ESTADOS_COMPLETADAS.includes(o.estado_produccion));
 
     const tabBase = activeTab === 'visita' ? odpsVisita
         : activeTab === 'listas' ? odpsListas
@@ -316,8 +371,8 @@ const ODPListPage: React.FC = () => {
 
     // Aplicar filtros
     const filtered = tabBase.filter(odp => {
-        const matchSearch = odp.numero_odp.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            odp.cliente.nombre_razon_social.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchSearch = odp.numero_odp.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            odp.cliente.nombre_razon_social.toLowerCase().includes(searchQuery.toLowerCase());
         const matchAsesor = !filterAsesor || odp.asesor?.nombre_completo === filterAsesor;
         const matchEstado = !filterEstado || odp.estado_produccion === filterEstado;
         const fecha = new Date(odp.fecha_creacion);
@@ -342,6 +397,12 @@ const ODPListPage: React.FC = () => {
         }
         return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
     });
+
+    const pageSize = 50;
+    const currentPage = tabPage[activeTab] || 1;
+    const displayRows = ['completadas', 'garantia'].includes(activeTab)
+        ? sorted
+        : sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     const hayFiltrosActivos = filterAsesor || filterEstado || filterMes || filterAnio;
 
@@ -379,7 +440,10 @@ const ODPListPage: React.FC = () => {
                         { key: 'garantia',    label: 'Garantías',            icon: <Shield className="w-4 h-4" />,        badge: garantias.length || undefined },
                     ]}
                     activeKey={activeTab}
-                    onChange={(k) => setActiveTab(k as any)}
+                    onChange={(k) => {
+                        setActiveTab(k as any);
+                        setTabPage(prev => ({ ...prev, [k as string]: 1 }));
+                    }}
                     className="border-b border-slate-200"
                 />
             </div>
@@ -409,76 +473,101 @@ const ODPListPage: React.FC = () => {
             <div className="glass-panel overflow-hidden">
                 {/* Barra de búsqueda y filtros */}
                 <div className="p-4 border-b border-slate-100 bg-white/50 space-y-3">
-                    <div className="flex flex-wrap gap-3 items-center">
-                        {/* Búsqueda */}
-                        <div className="relative flex-1 min-w-[200px]">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    {activeTab === 'completadas' ? (
+                        <div className="flex gap-2">
                             <input
                                 type="text"
-                                placeholder="Buscar por ODP o cliente..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                                placeholder="Buscar por ODP, cliente o asesor..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter' && searchQuery.length >= 2) handleSearch(); }}
+                                className="flex-1 px-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
                             />
-                        </div>
-                        {/* Filtro asesor */}
-                        <select
-                            value={filterAsesor}
-                            onChange={e => setFilterAsesor(e.target.value)}
-                            className="py-2 px-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm text-slate-700 min-w-[160px]"
-                        >
-                            <option value="">Todos los asesores</option>
-                            {asesoresUnicos.map(a => <option key={a} value={a}>{a}</option>)}
-                        </select>
-                        {/* Filtro estado */}
-                        <select
-                            value={filterEstado}
-                            onChange={e => setFilterEstado(e.target.value)}
-                            className="py-2 px-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm text-slate-700 min-w-[160px]"
-                        >
-                            <option value="">Todos los estados</option>
-                            {ESTADOS_PRODUCCION.map(e => <option key={e} value={e}>{e.replace(/_/g, ' ')}</option>)}
-                        </select>
-                        {/* Filtro mes */}
-                        <select
-                            value={filterMes}
-                            onChange={e => setFilterMes(e.target.value)}
-                            className="py-2 px-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm text-slate-700 min-w-[130px]"
-                        >
-                            <option value="">Todos los meses</option>
-                            <option value="1">Enero</option>
-                            <option value="2">Febrero</option>
-                            <option value="3">Marzo</option>
-                            <option value="4">Abril</option>
-                            <option value="5">Mayo</option>
-                            <option value="6">Junio</option>
-                            <option value="7">Julio</option>
-                            <option value="8">Agosto</option>
-                            <option value="9">Septiembre</option>
-                            <option value="10">Octubre</option>
-                            <option value="11">Noviembre</option>
-                            <option value="12">Diciembre</option>
-                        </select>
-                        {/* Filtro año */}
-                        <select
-                            value={filterAnio}
-                            onChange={e => setFilterAnio(e.target.value)}
-                            className="py-2 px-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm text-slate-700 min-w-[110px]"
-                        >
-                            <option value="">Todos los años</option>
-                            {aniosUnicos.map(a => <option key={a} value={a}>{a}</option>)}
-                        </select>
-                        {/* Limpiar filtros */}
-                        {hayFiltrosActivos && (
                             <button
-                                onClick={() => { setFilterAsesor(''); setFilterEstado(''); setFilterMes(''); setFilterAnio(''); }}
-                                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-200 transition"
+                                onClick={() => handleSearch()}
+                                disabled={searchQuery.length < 2}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 text-sm font-medium"
                             >
-                                <Filter className="w-3.5 h-3.5" /> Limpiar filtros
+                                <Search className="w-4 h-4" /> Buscar
                             </button>
-                        )}
-                    </div>
-                    {sorted.length !== tabBase.length && (
+                            {searchResults && (
+                                <p className="text-xs text-slate-400 font-medium self-center ml-2">
+                                    {searchResults.count} resultado(s)
+                                </p>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="flex flex-wrap gap-3 items-center">
+                            {/* Búsqueda */}
+                            <div className="relative flex-1 min-w-[200px]">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por ODP o cliente..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                                />
+                            </div>
+                            {/* Filtro asesor */}
+                            <select
+                                value={filterAsesor}
+                                onChange={e => setFilterAsesor(e.target.value)}
+                                className="py-2 px-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm text-slate-700 min-w-[160px]"
+                            >
+                                <option value="">Todos los asesores</option>
+                                {asesoresUnicos.map(a => <option key={a} value={a}>{a}</option>)}
+                            </select>
+                            {/* Filtro estado */}
+                            <select
+                                value={filterEstado}
+                                onChange={e => setFilterEstado(e.target.value)}
+                                className="py-2 px-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm text-slate-700 min-w-[160px]"
+                            >
+                                <option value="">Todos los estados</option>
+                                {ESTADOS_PRODUCCION.map(e => <option key={e} value={e}>{e.replace(/_/g, ' ')}</option>)}
+                            </select>
+                            {/* Filtro mes */}
+                            <select
+                                value={filterMes}
+                                onChange={e => setFilterMes(e.target.value)}
+                                className="py-2 px-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm text-slate-700 min-w-[130px]"
+                            >
+                                <option value="">Todos los meses</option>
+                                <option value="1">Enero</option>
+                                <option value="2">Febrero</option>
+                                <option value="3">Marzo</option>
+                                <option value="4">Abril</option>
+                                <option value="5">Mayo</option>
+                                <option value="6">Junio</option>
+                                <option value="7">Julio</option>
+                                <option value="8">Agosto</option>
+                                <option value="9">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                            {/* Filtro año */}
+                            <select
+                                value={filterAnio}
+                                onChange={e => setFilterAnio(e.target.value)}
+                                className="py-2 px-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm text-slate-700 min-w-[110px]"
+                            >
+                                <option value="">Todos los años</option>
+                                {aniosUnicos.map(a => <option key={a} value={a}>{a}</option>)}
+                            </select>
+                            {/* Limpiar filtros */}
+                            {hayFiltrosActivos && (
+                                <button
+                                    onClick={() => { setFilterAsesor(''); setFilterEstado(''); setFilterMes(''); setFilterAnio(''); }}
+                                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-200 transition"
+                                >
+                                    <Filter className="w-3.5 h-3.5" /> Limpiar filtros
+                                </button>
+                            )}
+                        </div>
+                    )}
+                    {!['completadas', 'garantia'].includes(activeTab) && sorted.length !== tabBase.length && (
                         <p className="text-xs text-slate-400 font-medium">
                             Mostrando <span className="font-bold text-slate-600">{sorted.length}</span> de <span className="font-bold text-slate-600">{tabBase.length}</span> órdenes
                         </p>
@@ -542,7 +631,7 @@ const ODPListPage: React.FC = () => {
                                         ))}
                                     </tr>
                                 ))
-                            ) : sorted.length === 0 ? (
+                            ) : displayRows.length === 0 ? (
                                 <tr>
                                     <td colSpan={isGarantiaTab ? 7 : (activeTab === 'listas' ? 11 : 10)} className="px-6 py-12 text-center text-slate-500">
                                         <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -550,7 +639,7 @@ const ODPListPage: React.FC = () => {
                                     </td>
                                 </tr>
                             ) : (
-                                sorted.map((odp, idx) => (
+                                displayRows.map((odp, idx) => (
                                     <motion.tr
                                         initial={{ opacity: 0, y: 8 }}
                                         animate={{ opacity: 1, y: 0 }}
@@ -725,6 +814,54 @@ const ODPListPage: React.FC = () => {
                         </tbody>
                     </table>
                 </div>
+
+                {/* Paginación */}
+                {activeTab !== 'garantia' && activeTab !== 'completadas' && (() => {
+                    const totalClientPages = Math.ceil(sorted.length / 50) || 1;
+                    if (totalClientPages <= 1) return null;
+                    return (
+                        <div className="flex justify-center items-center gap-3 px-4 py-3 border-t border-slate-100 bg-white/50">
+                            <button
+                                disabled={(tabPage[activeTab] || 1) <= 1}
+                                onClick={() => setTabPage(prev => ({ ...prev, [activeTab]: Math.max(1, (prev[activeTab] || 1) - 1) }))}
+                                className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                            >
+                                ← Anterior
+                            </button>
+                            <span className="text-sm text-slate-500">
+                                Página {tabPage[activeTab] || 1} de {totalClientPages}
+                            </span>
+                            <button
+                                disabled={(tabPage[activeTab] || 1) >= totalClientPages}
+                                onClick={() => setTabPage(prev => ({ ...prev, [activeTab]: (prev[activeTab] || 1) + 1 }))}
+                                className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                            >
+                                Siguiente →
+                            </button>
+                        </div>
+                    );
+                })()}
+                {activeTab === 'completadas' && searchResults && searchResults.totalPages > 1 && (
+                    <div className="flex justify-center items-center gap-3 px-4 py-3 border-t border-slate-100 bg-white/50">
+                        <button
+                            disabled={searchResults.page <= 1}
+                            onClick={() => handleSearch(searchResults.page - 1)}
+                            className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        >
+                            ← Anterior
+                        </button>
+                        <span className="text-sm text-slate-500">
+                            Página {searchResults.page} de {searchResults.totalPages}
+                        </span>
+                        <button
+                            disabled={searchResults.page >= searchResults.totalPages}
+                            onClick={() => handleSearch(searchResults.page + 1)}
+                            className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        >
+                            Siguiente →
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Paso 1: asignar asesor */}
@@ -759,7 +896,7 @@ const ODPListPage: React.FC = () => {
                         asesorId={editingOdp ? undefined : asesorParaODP}
                         tipoOdp={editingOdp ? undefined : tipoOdp}
                         onClose={() => { setIsFormOpen(false); setEditingOdp(null); setAsesorParaODP(null); setTipoOdp('ODP'); }}
-                        onSuccess={() => { setIsFormOpen(false); setEditingOdp(null); setAsesorParaODP(null); setTipoOdp('ODP'); fetchODPs(); }}
+                        onSuccess={() => { setIsFormOpen(false); setEditingOdp(null); setAsesorParaODP(null); setTipoOdp('ODP'); fetchTabData(activeTab, tabPage[activeTab] || 1); }}
                     />
                 )}
                 {selectedOdpDetail !== null && (

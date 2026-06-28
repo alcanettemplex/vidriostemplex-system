@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'react-toastify';
-import { Plus, Search, User, Mail, Phone, MapPin, Building, AlertCircle, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Search, User, Mail, Phone, MapPin, Building, AlertCircle, Edit2, Trash2, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { invalidarClientes } from '../../services/listasCache';
 
@@ -33,44 +33,40 @@ const ClientesListPage: React.FC = () => {
   const isReadOnly = authUser?.rol === 'asistente_administrativo';
 
   const [clientes, setClientes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingClienteId, setEditingClienteId] = useState<number | null>(null);
   const [deletingCliente, setDeletingCliente] = useState<any | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ClienteFormValues>({
     resolver: zodResolver(clienteSchema)
   });
 
-  const fetchClientes = async () => {
+  const fetchClientes = async (buscar: string) => {
+    if (buscar.trim().length < 2) { setClientes([]); return; }
+    setLoading(true);
     try {
       const token = sessionStorage.getItem('token');
-      const res = await axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/clientes`, {
+      const res = await axios.get(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/clientes?buscar=${encodeURIComponent(buscar)}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setClientes(res.data);
+      setClientes(res.data?.rows ?? []);
     } catch (error) {
       console.error('Error fetching clientes', error);
-      // Fallback para testing local
-      if (clientes.length === 0) {
-        setClientes([{
-          id: 1,
-          nombre_razon_social: 'Constructora Beta SAC',
-          tipo_documento: 'RUC',
-          numero_documento: '20123456789',
-          telefono: '987654321',
-          email: 'contacto@beta.com'
-        }]);
-      }
+      setClientes([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchClientes();
-  }, []);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (searchTerm.trim().length < 2) { setClientes([]); setLoading(false); return; }
+    debounceRef.current = setTimeout(() => { fetchClientes(searchTerm); }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchTerm]);
 
   const onSubmit = async (data: ClienteFormValues) => {
     try {
@@ -90,7 +86,7 @@ const ClientesListPage: React.FC = () => {
       setEditingClienteId(null);
       reset({});
       invalidarClientes(); // refrescar la caché que consumen los formularios
-      fetchClientes();
+      fetchClientes(searchTerm);
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Error al guardar cliente');
     }
@@ -123,16 +119,13 @@ const ClientesListPage: React.FC = () => {
       toast.success('Cliente eliminado exitosamente');
       setDeletingCliente(null);
       invalidarClientes(); // refrescar la caché que consumen los formularios
-      fetchClientes();
+      fetchClientes(searchTerm);
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Error al eliminar cliente');
     }
   };
 
-  const filteredClientes = clientes.filter(c =>
-    c.nombre_razon_social.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.numero_documento.includes(searchTerm)
-  );
+  const noSearchYet = searchTerm.trim().length < 2 && clientes.length === 0 && !loading;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -192,22 +185,30 @@ const ClientesListPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white/30">
-              {loading ? (
-                <tr className="animate-pulse">
-                  <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-48"></div></td>
-                  <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-24"></div></td>
-                  <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-32"></div></td>
-                  <td className="px-6 py-4"><div className="h-4 bg-slate-200 rounded w-8 ml-auto"></div></td>
+              {noSearchYet ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-16 text-center text-slate-400">
+                    <Search className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+                    <p className="text-base font-medium">Escribe al menos 2 caracteres para buscar</p>
+                    <p className="text-sm mt-1">Busca por nombre, teléfono o documento</p>
+                  </td>
                 </tr>
-              ) : filteredClientes.length === 0 ? (
+              ) : loading ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-8 text-center text-slate-400">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                    <p className="text-sm">Buscando...</p>
+                  </td>
+                </tr>
+              ) : clientes.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
                     <User className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                    No se encontraron clientes.
+                    No se encontraron clientes para "{searchTerm}".
                   </td>
                 </tr>
               ) : (
-                filteredClientes.map((cliente) => (
+                clientes.map((cliente) => (
                   <motion.tr
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}

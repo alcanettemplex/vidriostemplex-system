@@ -242,12 +242,26 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
         name: 'servicios_detalle'
     });
 
+    const clienteSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Búsqueda server-side de clientes para el dropdown
+    useEffect(() => {
+        if (clienteSearchRef.current) clearTimeout(clienteSearchRef.current);
+        if (clienteBusqueda.trim().length < 2) { setClientes([]); return; }
+        clienteSearchRef.current = setTimeout(async () => {
+            try {
+                const data = await getClientesCached(clienteBusqueda);
+                setClientes(data);
+            } catch { setClientes([]); }
+        }, 300);
+        return () => { if (clienteSearchRef.current) clearTimeout(clienteSearchRef.current); };
+    }, [clienteBusqueda]);
+
     useEffect(() => {
         const token = sessionStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
         const base = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-        getClientesCached().then(setClientes).catch(() => {});
         getCatalogoCached().then(data => {
             setCatalogo(data);
             const cats = Array.from(new Set<string>(data.map((i: CatalogoItem) => i.categoria)));
@@ -467,29 +481,20 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                     <>
                                                         <div className="fixed inset-0 z-10" onClick={() => setDropdownClienteAbierto(false)} />
                                                         <div className="absolute top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-52 overflow-y-auto">
-                                                            {clientes
-                                                                .filter(c => {
-                                                                const q = clienteBusqueda.toLowerCase();
-                                                                return c.nombre_razon_social.toLowerCase().includes(q) ||
-                                                                  (c.numero_documento && c.numero_documento.toLowerCase().includes(q));
-                                                              })
-                                                                .map(c => (
-                                                                    <button
-                                                                        key={c.id}
-                                                                        type="button"
-                                                                        onClick={() => { setValue('cliente_id', c.id); setClienteBusqueda(''); setDropdownClienteAbierto(false); }}
-                                                                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                                                                    >
-                                                                        <span className="block font-medium">{c.nombre_razon_social}</span>
-                                                                        {c.numero_documento && <span className="block text-xs text-slate-400">{c.numero_documento}</span>}
-                                                                    </button>
-                                                                ))}
-                                                            {clientes.filter(c => {
-                                                                const q = clienteBusqueda.toLowerCase();
-                                                                return c.nombre_razon_social.toLowerCase().includes(q) ||
-                                                                  (c.numero_documento && c.numero_documento.toLowerCase().includes(q));
-                                                              }).length === 0 && (
-                                                                <p className="px-4 py-3 text-sm text-slate-400 text-center">Sin resultados</p>
+                                                            {clientes.length > 0 ? clientes.map(c => (
+                                                                <button
+                                                                    key={c.id}
+                                                                    type="button"
+                                                                    onClick={() => { setValue('cliente_id', c.id); setClienteBusqueda(''); setDropdownClienteAbierto(false); }}
+                                                                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                                                                >
+                                                                    <span className="block font-medium">{c.nombre_razon_social}</span>
+                                                                    {c.numero_documento && <span className="block text-xs text-slate-400">{c.numero_documento}</span>}
+                                                                </button>
+                                                            )) : (
+                                                                <p className="px-4 py-3 text-sm text-slate-400 text-center">
+                                                                    {clienteBusqueda.trim().length >= 2 ? 'Sin resultados' : 'Escribe al menos 2 caracteres'}
+                                                                </p>
                                                             )}
                                                         </div>
                                                     </>

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { X, Building2, User, Ruler } from 'lucide-react';
+import { X, Building2, User, Ruler, Loader2 } from 'lucide-react';
 import { getClientesCached } from '../../../services/listasCache';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -36,10 +36,20 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
   const [loading, setLoading] = useState(false);
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
+  const [clientesBuscando, setClientesBuscando] = useState(false);
+  const clienteSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    getClientesCached().then(setClientes).catch(() => {});
-  }, []); // eslint-disable-line
+    if (clienteSearchRef.current) clearTimeout(clienteSearchRef.current);
+    if (clienteBusqueda.trim().length < 2) { setClientes([]); return; }
+    setClientesBuscando(true);
+    clienteSearchRef.current = setTimeout(async () => {
+      try { setClientes(await getClientesCached(clienteBusqueda)); }
+      catch { setClientes([]); }
+      finally { setClientesBuscando(false); }
+    }, 300);
+    return () => { if (clienteSearchRef.current) clearTimeout(clienteSearchRef.current); };
+  }, [clienteBusqueda]);
 
   // Resetear form cuando cambia el prospecto seleccionado
   useEffect(() => {
@@ -218,13 +228,11 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setDropdownAbierto(false)} />
                       <div className="absolute top-full mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg z-20 max-h-52 overflow-y-auto">
-                        {clientes
-                          .filter(c => {
-                            const q = clienteBusqueda.toLowerCase();
-                            return c.nombre_razon_social.toLowerCase().includes(q) ||
-                              (c.numero_documento && c.numero_documento.toLowerCase().includes(q));
-                          })
-                          .map(c => (
+                        {clientesBuscando ? (
+                          <p className="px-4 py-3 text-sm text-slate-400 text-center flex items-center justify-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" /> Buscando...
+                          </p>
+                        ) : clientes.length > 0 ? clientes.map(c => (
                             <button
                               key={c.id}
                               type="button"
@@ -234,13 +242,10 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
                               <span className="block font-medium">{c.nombre_razon_social}</span>
                               {c.numero_documento && <span className="block text-xs text-slate-400">{c.numero_documento}</span>}
                             </button>
-                          ))}
-                        {clientes.filter(c => {
-                          const q = clienteBusqueda.toLowerCase();
-                          return c.nombre_razon_social.toLowerCase().includes(q) ||
-                            (c.numero_documento && c.numero_documento.toLowerCase().includes(q));
-                        }).length === 0 && (
-                          <p className="px-4 py-3 text-sm text-slate-400 text-center">Sin resultados</p>
+                        )) : (
+                          <p className="px-4 py-3 text-sm text-slate-400 text-center">
+                            {clienteBusqueda.trim().length >= 2 ? 'Sin resultados' : 'Escribe al menos 2 caracteres'}
+                          </p>
                         )}
                       </div>
                     </>

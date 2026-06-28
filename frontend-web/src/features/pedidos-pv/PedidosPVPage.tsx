@@ -248,9 +248,9 @@ const PedidosPVPage: React.FC = () => {
   const [soloRetrasos, setSoloRetrasos] = useState(false);
   const [filtrosAplicados, setFiltrosAplicados] = useState({ estado: '', proveedor: '', asesor: '' });
 
-  // Paginación Gestión PV
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  // Paginación Gestión PV (server-side)
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
 
   // Filtro Vista Excel
   const [busquedaExcel, setBusquedaExcel] = useState('');
@@ -308,17 +308,18 @@ const PedidosPVPage: React.FC = () => {
     setError(null);
     try {
       const [resExcel, resSistema] = await Promise.all([
-        axios.get(`${API}/api/pedidos-pv`, { headers, params: { origen: 'EXCEL' } }),
-        axios.get(`${API}/api/pedidos-pv`, { headers, params: { origen: 'SISTEMA' } }),
+        axios.get(`${API}/api/pedidos-pv`, { headers, params: { origen: 'EXCEL', limit: 5000 } }),
+        axios.get(`${API}/api/pedidos-pv`, { headers, params: { origen: 'SISTEMA', page: pagina, limit: 100 } }),
       ]);
-      setPedidosExcel(resExcel.data);
-      setPedidosSistema(resSistema.data);
+      setPedidosExcel(resExcel.data.rows ?? []);
+      setPedidosSistema(resSistema.data.rows ?? []);
+      setTotalPaginas(resSistema.data.totalPages ?? 1);
     } catch {
       setError('Error al cargar pedidos PV');
     } finally {
       setLoading(false);
     }
-  }, [headers]);
+  }, [headers, pagina]);
 
   const cargarPorGestionar = useCallback(async () => {
     if (!user?.puede_gestionar_pv) return;
@@ -354,7 +355,7 @@ const PedidosPVPage: React.FC = () => {
     return matchBusqueda && matchEstado && matchProveedor && matchAsesor && matchRetraso;
   });
 
-  const pedidosPaginados = pedidosFiltrados.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
 
   // ─── Filtrado Vista Excel ─────────────────────────────────────────────────
 
@@ -662,10 +663,10 @@ const PedidosPVPage: React.FC = () => {
               {/* Búsqueda + toggle */}
               <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5} flexWrap="wrap" gap={1.5}>
                 <TextField size="small" placeholder="Buscar pedido, cliente o referencia..."
-                  value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPage(0); }}
+                  value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }}
                   sx={{ minWidth: 340 }}
                   InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18, color: 'text.secondary' }} /></InputAdornment> }} />
-                <FormControlLabel control={<Switch checked={soloRetrasos} onChange={(e) => { setSoloRetrasos(e.target.checked); setPage(0); }} size="small" />}
+                <FormControlLabel control={<Switch checked={soloRetrasos} onChange={(e) => { setSoloRetrasos(e.target.checked); setPagina(1); }} size="small" />}
                   label={<Typography variant="body2">Mostrar solo retrasos</Typography>} />
               </Stack>
 
@@ -695,11 +696,11 @@ const PedidosPVPage: React.FC = () => {
                   </Select>
                 </FormControl>
                 <Button variant="outlined" size="small"
-                  onClick={() => { setFiltrosAplicados({ estado: '', proveedor: '', asesor: '' }); setFiltroEstado(''); setFiltroProveedor(''); setFiltroAsesor(''); setPage(0); }}>
+                  onClick={() => { setFiltrosAplicados({ estado: '', proveedor: '', asesor: '' }); setFiltroEstado(''); setFiltroProveedor(''); setFiltroAsesor(''); setPagina(1); }}>
                   Limpiar
                 </Button>
                 <Button variant="contained" size="small"
-                  onClick={() => { setFiltrosAplicados({ estado: filtroEstado, proveedor: filtroProveedor, asesor: filtroAsesor }); setPage(0); }}>
+                  onClick={() => { setFiltrosAplicados({ estado: filtroEstado, proveedor: filtroProveedor, asesor: filtroAsesor }); setPagina(1); }}>
                   Aplicar
                 </Button>
               </Stack>
@@ -730,14 +731,14 @@ const PedidosPVPage: React.FC = () => {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {pedidosPaginados.length === 0 && (
+                      {pedidosFiltrados.length === 0 && (
                         <TableRow>
                           <TableCell colSpan={17} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                             No hay pedidos con los filtros seleccionados
                           </TableCell>
                         </TableRow>
                       )}
-                      {pedidosPaginados.map((p) => {
+                      {pedidosFiltrados.map((p) => {
                         const cfg = ESTADO_CONFIG[p.estado] ?? ESTADO_CONFIG['PENDIENTE'];
                         const retrasado = p.dias_diferencia !== null && p.dias_diferencia < 0;
                         const barColor = getBarColor(p);
@@ -924,18 +925,18 @@ const PedidosPVPage: React.FC = () => {
                   </Table>
                 </TableContainer>
                 <Divider />
-                <Box sx={{ px: 2 }}>
-                  <TablePagination
-                    component="div"
-                    count={pedidosFiltrados.length}
-                    page={page}
-                    onPageChange={(_, p) => setPage(p)}
-                    rowsPerPage={rowsPerPage}
-                    onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value)); setPage(0); }}
-                    rowsPerPageOptions={[10, 25, 50]}
-                    labelRowsPerPage="por página"
-                    labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count} pedidos`}
-                  />
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2, py: 2 }}>
+                  <Button variant="outlined" size="small" disabled={pagina <= 1}
+                    onClick={() => setPagina(p => Math.max(1, p - 1))}>
+                    ←
+                  </Button>
+                  <Typography variant="body2" fontWeight={600}>
+                    Página {pagina} de {totalPaginas}
+                  </Typography>
+                  <Button variant="outlined" size="small" disabled={pagina >= totalPaginas}
+                    onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}>
+                    →
+                  </Button>
                 </Box>
               </Paper>
             </Box>

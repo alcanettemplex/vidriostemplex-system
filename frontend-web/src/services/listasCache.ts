@@ -21,8 +21,6 @@ const TTL = 10 * 60 * 1000; // 10 minutos
 
 interface CacheEntry { data: any[]; ts: number; }
 
-let clientesCache: CacheEntry | null = null;
-let clientesInflight: Promise<any[]> | null = null;
 let catalogoCache: CacheEntry | null = null;
 let catalogoInflight: Promise<any[]> | null = null;
 
@@ -30,20 +28,18 @@ const authHeaders = () => ({ Authorization: `Bearer ${sessionStorage.getItem('to
 const esFresco = (c: CacheEntry | null) => !!c && (Date.now() - c.ts < TTL);
 
 /**
- * Devuelve la lista de clientes desde caché si está fresca; si no, la descarga.
- * Devuelve una copia superficial para evitar mutaciones cruzadas entre consumidores.
+ * Busca clientes por nombre/teléfono/documento. Requiere al menos 2 caracteres.
+ * El endpoint ya no devuelve la lista completa sin búsqueda.
+ * Devuelve el arreglo de resultados (campo `rows` de la respuesta).
  */
-export async function getClientesCached(force = false): Promise<any[]> {
-  if (!force && esFresco(clientesCache)) return [...clientesCache!.data];
-  if (!force && clientesInflight) return clientesInflight.then(d => [...d]);
-  clientesInflight = axios
-    .get(`${API}/api/clientes`, { headers: authHeaders() })
-    .then(r => { clientesCache = { data: r.data, ts: Date.now() }; return r.data as any[]; })
-    .finally(() => { clientesInflight = null; });
-  return clientesInflight.then(d => [...d]);
+export async function getClientesCached(buscar = '', force = false): Promise<any[]> {
+  if (!buscar || buscar.trim().length < 2) return [];
+  const q = encodeURIComponent(buscar.trim());
+  const { data } = await axios.get(`${API}/api/clientes?buscar=${q}`, { headers: authHeaders() });
+  return data?.rows ?? [];
 }
 
-export function invalidarClientes(): void { clientesCache = null; }
+export function invalidarClientes(): void { /* no-op: clientes ya no se cachea */ }
 
 /**
  * Devuelve el catálogo de productos desde caché si está fresco; si no, lo descarga.

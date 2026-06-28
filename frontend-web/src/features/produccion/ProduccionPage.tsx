@@ -243,10 +243,10 @@ const ProduccionPage: React.FC = () => {
             const token = sessionStorage.getItem('token');
             const headers = { Authorization: `Bearer ${token}` };
             const [res, resNcG] = await Promise.all([
-                axios.get(`${API}/api/odp`, { headers }),
+                axios.get(`${API}/api/odp?limit=1000`, { headers }),
                 axios.get(`${API}/api/odp/nc-garantias`, { headers }),
             ]);
-            const data: ODP[] = res.data;
+            const data: ODP[] = Array.isArray(res.data) ? res.data : (res.data.rows || []);
             const allPausadas = data.filter(o => o.estado_produccion === 'PAUSADA');
             const allActive = data.filter(o => activeStates.includes(o.estado_produccion));
             const allReady  = data.filter(o => o.estado_produccion === 'LISTO_INSTALAR');

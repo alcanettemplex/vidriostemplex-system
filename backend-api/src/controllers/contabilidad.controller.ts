@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { Op } from 'sequelize';
-import { ODP, Cliente, Usuario, Pago, sequelize } from '../models';
+import { ODP, Cliente, Usuario, Pago, FacturaAdicionalODP, sequelize } from '../models';
 
 // Helper: recalcula abono/pendiente/estado_caja de una ODP a partir de sus pagos actuales
 const recalcularFinanciero = async (odp_id: number, t: any) => {
@@ -157,6 +157,41 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
   } catch (error) {
     console.error('Error en resumen financiero:', error);
     res.status(500).json({ error: 'Error al calcular resumen financiero' });
+  }
+};
+
+/**
+ * Lista ODPs con filtros para el módulo de contabilidad.
+ */
+export const getContabilidadODPs = async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(parseInt(String(req.query.limit || '200')), 500);
+    const page = Math.max(parseInt(String(req.query.page || '1')), 1);
+    const offset = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (req.query.estado_caja) where.estado_caja = req.query.estado_caja;
+    if (req.query.estado_facturacion) where.estado_facturacion = req.query.estado_facturacion;
+    if (req.query.tipo_odp) where.tipo_odp = req.query.tipo_odp;
+
+    const { count, rows } = await ODP.findAndCountAll({
+      where,
+      attributes: ['id', 'numero_odp', 'cliente_id', 'asesor_id', 'valor_total', 'abono', 'pendiente', 'estado_caja', 'estado_facturacion', 'factura_electronica', 'fecha_factura', 'fecha_creacion', 'tipo_odp', 'fecha_vencimiento_credito', 'estado_produccion'],
+      include: [
+        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento'] },
+        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+        { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura'], separate: true },
+      ],
+      order: [['fecha_creacion', 'DESC']],
+      limit,
+      offset,
+    });
+
+    res.json({ rows, count, page, totalPages: Math.ceil(count / limit) });
+  } catch (error) {
+    console.error('Error al obtener ODPs de contabilidad:', error);
+    res.status(500).json({ error: 'Error al obtener ODPs' });
   }
 };
 
