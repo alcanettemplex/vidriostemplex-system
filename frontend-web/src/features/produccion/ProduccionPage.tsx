@@ -41,6 +41,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ODPMatrixModal from './components/ODPMatrixModal';
 import PrintableSAP from '../odp/components/PrintableSAP';
 import ProgramacionWhatsAppModal from './components/ProgramacionWhatsAppModal';
+import API from '../../services/config';
 
 interface Nota {
     id: number;
@@ -188,8 +189,6 @@ const getPaymentInfo = (odp: ODP): { label: string; cls: string } => {
     if (odp.estado_caja === 'ABONADO') return { label: 'Abono parcial', cls: 'bg-amber-50 text-amber-700' };
     return { label: 'Pendiente', cls: 'bg-slate-100 text-slate-500' };
 };
-
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 const ProduccionPage: React.FC = () => {
     const [mainTab, setMainTab]           = useState<'activas' | 'pedido_mano' | 'nc_garantias' | 'pausadas'>('activas');

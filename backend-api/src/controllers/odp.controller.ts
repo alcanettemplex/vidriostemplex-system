@@ -17,6 +17,8 @@ import {
   OrdenCompra,
   ODCItem,
   RutaODP,
+  RutaInstalacion,
+  Vehiculo,
   Prospecto,
   PedidoPV,
   SalidaAlmacen,
@@ -157,13 +159,10 @@ export const getODPs = async (req: Request, res: Response) => {
   }
 };
 
-export const getNcGarantias = async (req: Request, res: Response) => {
+const buscarODPsEspeciales = async (where: any, req: Request, res: Response) => {
   try {
-    const { SAP, TomaMedidas, Op } = await import('../models').then(m => ({ ...m, Op: require('sequelize').Op }));
     const odps = await ODP.findAll({
-      where: {
-        [Op.or]: [{ es_no_conformidad: true }, { es_garantia: true }],
-      } as any,
+      where,
       include: [
         { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento', 'telefono', 'celular', 'email', 'direccion'] },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
@@ -178,44 +177,25 @@ export const getNcGarantias = async (req: Request, res: Response) => {
     });
     res.json(odps);
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener NC y garantías' });
+    res.status(500).json({ error: 'Error al obtener registros especiales' });
   }
 };
 
+export const getNcGarantias = async (req: Request, res: Response) => {
+  return buscarODPsEspeciales({ es_no_conformidad: true } as any, req, res);
+};
+
 export const getGarantias = async (req: Request, res: Response) => {
-  try {
-    const { SAP, TomaMedidas } = await import('../models');
-    const garantias = await ODP.findAll({
-      where: { es_garantia: true } as any,
-      include: [
-        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento', 'telefono', 'celular', 'email', 'direccion'] },
-        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
-        { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
-        { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp', 'fecha_entrega'] },
-        { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
-        { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
-        { model: SAP, as: 'saps', attributes: ['id'], separate: true },
-      ],
-      order: [['fecha_creacion', 'DESC']],
-      limit: 100,
-    });
-    res.json(garantias);
-  } catch (error) {
-    res.status(500).json({ error: 'Error al obtener garantías' });
-  }
+  return buscarODPsEspeciales({ es_garantia: true } as any, req, res);
 };
 
 export const getODP = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    // Importar modelos dinámicamente para evitar circular imports
-    const { SAP, SAPItem, Cotizacion, TomaMedidas, EvidenciaInstalacion, RutaODP, RutaInstalacion, HistorialEstadoODP, NoConformidad, OrdenCompra, PedidoPV, SalidaAlmacen } = await import('../models');
-    const { Op } = require('sequelize');
-
     const odp = await ODP.findByPk(id, {
       include: [
-        { model: Cliente, as: 'cliente' },
+        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento', 'telefono', 'celular', 'direccion', 'email'] },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username', 'email'] },
         { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
         {
@@ -270,7 +250,7 @@ export const getODP = async (req: Request, res: Response) => {
               model: RutaInstalacion, as: 'ruta',
               attributes: ['id', 'estado', 'creado_en'],
               include: [
-                { model: (await import('../models')).Vehiculo, as: 'vehiculo', attributes: ['placa', 'tipo'] },
+                { model: Vehiculo, as: 'vehiculo', attributes: ['placa', 'tipo'] },
                 { model: Usuario, as: 'instaladores', attributes: ['id', 'nombre_completo'], through: { attributes: [] } },
                 { model: Usuario, as: 'oficial', attributes: ['id', 'nombre_completo'] },
               ],
@@ -284,9 +264,9 @@ export const getODP = async (req: Request, res: Response) => {
           separate: true,
         },
         {
-          model: (await import('../models')).NotaProduccion,
+          model: NotaProduccion,
           as: 'notas_produccion',
-          include: [{ model: (await import('../models')).Usuario, as: 'usuario', attributes: ['nombre_completo'] }]
+          include: [{ model: Usuario, as: 'usuario', attributes: ['nombre_completo'] }]
         },
         {
           model: Pago, as: 'pagos',
@@ -338,11 +318,10 @@ export const getODP = async (req: Request, res: Response) => {
     if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
 
     // Enriquecer ordenes_compra de cada SAP a través de sus SAPItems (soporta ODC multi-SAP)
-    const { ODCItem, Prospecto: ProspectoModel } = await import('../models');
     const odpJson: any = odp.toJSON();
 
     // Cargar TMs del prospecto vinculado que aún no tienen odp_id (datos previos a la corrección)
-    const prospecto = await ProspectoModel.findOne({ where: { odp_id: Number(id) }, attributes: ['id'] });
+    const prospecto = await Prospecto.findOne({ where: { odp_id: Number(id) }, attributes: ['id'] });
     if (prospecto) {
       const tmsFaltantes = await TomaMedidas.findAll({
         where: { prospecto_id: prospecto.getDataValue('id'), odp_id: null } as any,
@@ -354,7 +333,6 @@ export const getODP = async (req: Request, res: Response) => {
     }
 
     if (odpJson.saps && odpJson.saps.length > 0) {
-      const { Op } = await import('sequelize');
       const allSapItemIds: number[] = [];
       
       for (const sap of odpJson.saps) {
@@ -651,26 +629,31 @@ export const updateODP = async (req: Request, res: Response) => {
       }
     }
 
-    // Recalcular pendiente y estado_caja si viene valor_total o abono, o si cambia la forma de pago
-    if (data.valor_total !== undefined || data.abono !== undefined || formaPagoCambia) {
-      const nuevoValorTotal = data.valor_total !== undefined ? (data.valor_total || 0) : (Number(odp.getDataValue('valor_total')) || 0);
-      const nuevoAbono = data.abono !== undefined ? (data.abono || 0) : (Number(odp.getDataValue('abono')) || 0);
-      const nuevoPendiente = Math.max(0, nuevoValorTotal - nuevoAbono);
-      (data as any).pendiente = nuevoPendiente;
-      const formaPago = data.forma_pago || odp.getDataValue('forma_pago');
-      // Auto-calcular estado_caja según pagos (no permitir override manual)
-      if (nuevoPendiente <= 0 && nuevoAbono > 0) {
-        (data as any).estado_caja = 'CANCELADO';
-      } else if (formaPago === 'credito' && nuevoAbono <= 0) {
-        (data as any).estado_caja = 'CREDITO_APROBADO';
-      } else if (nuevoAbono > 0) {
-        (data as any).estado_caja = 'ABONADO';
+    // Recalcular pendiente y estado_caja solo si cambiaron campos financieros
+    const camposFinancieros: (keyof typeof data)[] = ['valor_total', 'abono', 'pendiente', 'forma_pago'];
+    const tocaronFinanzas = camposFinancieros.some(c => data[c] !== undefined);
+
+    if (tocaronFinanzas) {
+      if (data.valor_total !== undefined || data.abono !== undefined || formaPagoCambia) {
+        const nuevoValorTotal = data.valor_total !== undefined ? (data.valor_total || 0) : (Number(odp.getDataValue('valor_total')) || 0);
+        const nuevoAbono = data.abono !== undefined ? (data.abono || 0) : (Number(odp.getDataValue('abono')) || 0);
+        const nuevoPendiente = Math.max(0, nuevoValorTotal - nuevoAbono);
+        (data as any).pendiente = nuevoPendiente;
+        const formaPago = data.forma_pago || odp.getDataValue('forma_pago');
+        // Auto-calcular estado_caja según pagos (no permitir override manual)
+        if (nuevoPendiente <= 0 && nuevoAbono > 0) {
+          (data as any).estado_caja = 'CANCELADO';
+        } else if (formaPago === 'credito' && nuevoAbono <= 0) {
+          (data as any).estado_caja = 'CREDITO_APROBADO';
+        } else if (nuevoAbono > 0) {
+          (data as any).estado_caja = 'ABONADO';
+        } else {
+          (data as any).estado_caja = 'PENDIENTE';
+        }
       } else {
-        (data as any).estado_caja = 'PENDIENTE';
+        // Si no viene valor_total ni abono, no permitir cambio manual de estado_caja
+        delete (data as any).estado_caja;
       }
-    } else {
-      // Si no viene valor_total ni abono, no permitir cambio manual de estado_caja
-      delete (data as any).estado_caja;
     }
 
     // NC y garantías no cobran al cliente — estado_caja siempre CANCELADO
@@ -768,7 +751,7 @@ export const updateODP = async (req: Request, res: Response) => {
     const ESTADOS_PRODUCTIVOS = ['MEDICION', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS'];
     const updatedOdp = await ODP.findByPk(id, { transaction });
     if (updatedOdp && !data.estado_produccion && ESTADOS_PRODUCTIVOS.includes(updatedOdp.getDataValue('estado_produccion')) && !updatedOdp.getDataValue('sin_items')) {
-      const { SAP: SAPModel, TomaMedidas: TMModel, PedidoPV: PedidoPVModel } = await import('../models');
+      const SAPModel = SAP, TMModel = TomaMedidas, PedidoPVModel = PedidoPV;
       const [tmCount, sapCount, itemCount, pvPendienteCount] = await Promise.all([
         TMModel.count({ where: { odp_id: id }, transaction }),
         SAPModel.count({ where: { odp_id: id }, transaction }),
@@ -828,7 +811,7 @@ export const updateODP = async (req: Request, res: Response) => {
       updatedOdp.getDataValue('estado_produccion') === 'LISTO_INSTALAR' &&
       CHECKS_CONOCIDOS.some((k) => (data as any)[k] === false)
     ) {
-      const { SAP: SAPRetro, TomaMedidas: TMRetro } = await import('../models');
+      const SAPRetro = SAP, TMRetro = TomaMedidas;
       const [tmCnt, sapCnt, itemCnt] = await Promise.all([
         TMRetro.count({ where: { odp_id: id }, transaction }),
         SAPRetro.count({ where: { odp_id: id }, transaction }),
@@ -913,9 +896,8 @@ export const updateODP = async (req: Request, res: Response) => {
     }
 
     // ─── Regla automática: ODP padre → INSTALADA cuando el reproceso se completa ───
-    if (data.estado_produccion === 'INSTALADA' && odp.getDataValue('es_no_conformidad') && odp.getDataValue('odp_padre_id')) {
+      if (data.estado_produccion === 'INSTALADA' && odp.getDataValue('es_no_conformidad') && odp.getDataValue('odp_padre_id')) {
       try {
-        const { HistorialEstadoODP } = await import('../models');
         const odpPadre = await ODP.findByPk(odp.getDataValue('odp_padre_id'));
         if (odpPadre && odpPadre.getDataValue('estado_produccion') === 'PAUSADA') {
           await odpPadre.update({ estado_produccion: 'INSTALADA' });
@@ -1377,52 +1359,40 @@ export const eliminarFacturaAdicional = async (req: Request, res: Response) => {
 export const agregarItems = async (req: Request, res: Response) => {
   try {
     const odpId = parseInt(req.params.id);
-    const { items } = req.body;
 
-    if (!Array.isArray(items) || items.length === 0) {
+    const itemsSchema = z.array(odpItemSchema);
+    const itemsValidados = itemsSchema.parse(req.body.items);
+
+    if (itemsValidados.length === 0) {
       return res.status(400).json({ error: 'Debe enviar al menos un ítem' });
     }
 
-    const odp = await ODP.findByPk(odpId);
-    if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
+    const creados = await sequelize.transaction(async (t) => {
+      const odp = await ODP.findByPk(odpId, { transaction: t });
+      if (!odp) throw new Error('ODP no encontrada');
 
-    const estadoActual = odp.getDataValue('estado_produccion') as string;
-    const rolUsuario = req.user?.rol;
-    const esAdminOGerencia = rolUsuario === 'admin' || rolUsuario === 'gerencia';
-    if (['INSTALADA', 'ENTREGADA', 'PAUSADA'].includes(estadoActual) && !esAdminOGerencia) {
-      return res.status(400).json({ error: `No se pueden agregar ítems a una ODP en estado ${estadoActual}` });
-    }
+      const estadoActual = odp.getDataValue('estado_produccion') as string;
+      const rolUsuario = req.user?.rol;
+      const esAdminOGerencia = rolUsuario === 'admin' || rolUsuario === 'gerencia';
+      if (['INSTALADA', 'ENTREGADA', 'PAUSADA'].includes(estadoActual) && !esAdminOGerencia) {
+        throw new Error(`No se pueden agregar ítems a una ODP en estado ${estadoActual}`);
+      }
 
-    const nuevosItems = items.map((item: any) => ({
-      odp_id: odpId,
-      item: item.item || '',
-      color: item.color || '',
-      espesor: item.espesor || '',
-      cantidad: item.cantidad || 1,
-      ancho_mm: item.ancho_mm || null,
-      alto_mm: item.alto_mm || null,
-      tipo_vidrio: item.tipo_vidrio || '',
-      pelicula: item.pelicula || false,
-      matizado: item.matizado || false,
-      carton: item.carton || false,
-      huacal: item.huacal || false,
-      accesorios: item.accesorios || '',
-      pulidos: item.pulidos || '',
-      pulidos_h: item.pulidos_h || '',
-      perforaciones: item.perforaciones || 0,
-      boquetes: item.boquetes || 0,
-      descuentos: item.descuentos || '',
-      otros: item.otros || '',
-      mts_pt_a: item.mts_pt_a || '',
-      mts_pt_h: item.mts_pt_h || '',
-      prod: item.prod || '',
-    }));
+      const nuevosItems = itemsValidados.map(item => ({
+        ...item,
+        odp_id: odpId,
+      }));
 
-    const creados = await ODPItem.bulkCreate(nuevosItems as any);
+      return await ODPItem.bulkCreate(nuevosItems as any, { transaction: t });
+    });
+
     return res.status(201).json(creados);
   } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Datos de ítems inválidos', detalles: (error as any).errors });
+    }
     console.error('Error agregarItems ODP:', error);
-    return res.status(500).json({ error: 'Error al agregar ítems', details: error?.message });
+    return res.status(500).json({ error: error.message || 'Error al agregar ítems', details: error?.message });
   }
 };
 
@@ -1518,15 +1488,12 @@ export const getHistorialODP = async (req: Request, res: Response) => {
     const odpId = Number(req.params.id);
     if (isNaN(odpId)) return res.status(400).json({ error: 'ID inválido' });
 
-    const {
-      ODP: ODPModel, Usuario: UsuarioModel, HistorialEstadoODP: HistorialModel,
-      SAP: SAPModel, Cotizacion: CotizacionModel, TomaMedidas: TMModel,
-      EvidenciaInstalacion: EvModel, RutaODP: RutaODPModel, RutaInstalacion: RutaModel,
-      Vehiculo: VehiculoModel, Pago: PagoModel, PedidoPV: PVModel,
-      NoConformidad: NCModel, NotaProduccion: NotaModel,
-      OrdenCompra: ODCModel, SalidaAlmacen: SAModel,
-    } = await import('../models');
-    const { Op } = await import('sequelize');
+    const ODPModel = ODP, UsuarioModel = Usuario, HistorialModel = HistorialEstadoODP,
+      SAPModel = SAP, CotizacionModel = Cotizacion, TMModel = TomaMedidas,
+      EvModel = EvidenciaInstalacion, RutaODPModel = RutaODP, RutaModel = RutaInstalacion,
+      VehiculoModel = Vehiculo, PagoModel = Pago, PVModel = PedidoPV,
+      NCModel = NoConformidad, NotaModel = NotaProduccion,
+      ODCModel = OrdenCompra, SAModel = SalidaAlmacen;
 
     const odp = await ODPModel.findByPk(odpId, {
       attributes: ['id', 'numero_odp', 'fecha_creacion', 'asesor_id', 'estado_produccion',
@@ -1629,13 +1596,12 @@ export const getHistorialODP = async (req: Request, res: Response) => {
     const odpJson: any = odp.toJSON();
 
     // Enriquecer ODCs via SAP items
-    const { ODCItem } = await import('../models');
     if (odpJson.saps?.length > 0) {
       const allSapItemIds: number[] = [];
       for (const sap of odpJson.saps) {
         const sapFull = await SAPModel.findByPk(sap.id, {
           attributes: ['id'],
-          include: [{ model: (await import('../models')).SAPItem, as: 'items', attributes: ['id'] }],
+          include: [{ model: SAPItem, as: 'items', attributes: ['id'] }],
         });
         const sapJson: any = sapFull?.toJSON() || {};
         sap.ordenes_compra = [];
@@ -1658,7 +1624,7 @@ export const getHistorialODP = async (req: Request, res: Response) => {
 
     // ODCs de vidrio
     const odpItemIds: number[] = [];
-    const itemsFull = await (await import('../models')).ODPItem.findAll({ where: { odp_id: odpId }, attributes: ['id'] });
+    const itemsFull = await ODPItem.findAll({ where: { odp_id: odpId }, attributes: ['id'] });
     itemsFull.forEach((i: any) => odpItemIds.push(i.id));
     if (odpItemIds.length > 0) {
       const vidrioOdcItems = await ODCItem.findAll({ where: { odp_item_id: { [Op.in]: odpItemIds } }, attributes: ['odc_id'], raw: true });

@@ -4,7 +4,7 @@ import { X, User, Users } from 'lucide-react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../../services/config';
 const ROLES_ASESOR = ['asesor_comercial', 'gerencia', 'jefe_produccion'];
 
 interface AsignarAsesorODPModalProps {

@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 import { useSelector } from 'react-redux';
 import sistemasSAP from '../data/sap-sistemas.json';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../../services/config';
 
 interface SAPItem {
   id?: number;

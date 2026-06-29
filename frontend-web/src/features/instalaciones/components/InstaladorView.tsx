@@ -16,9 +16,10 @@ import PrintableOA from '../../odp/components/PrintableOA';
 import PrintableDetalleTecnico from '../../odp/components/PrintableDetalleTecnico';
 import PrintableSAP from '../../odp/components/PrintableSAP';
 import PrintableDetSAP from '../../odp/components/PrintableDetSAP';
+import { abrirDocumento as abrirDocumentoPrint } from '../utils/printDocument';
 import { Images } from 'lucide-react';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../../services/config';
 
 const InstaladorView: React.FC = () => {
   const token = sessionStorage.getItem('token');
@@ -79,9 +80,8 @@ const InstaladorView: React.FC = () => {
     } finally { setIniciando(null); }
   };
 
-  const abrirDocumento = async (odp: any, tipo: 'op' | 'tecnico' | 'sap' | 'det_sap') => {
+  const abrirDocumentoConDetSap = async (odp: any, tipo: 'op' | 'tecnico' | 'sap' | 'det_sap') => {
     if (tipo === 'det_sap') {
-      // Fetch imagenes y renderiza en nueva ventana
       try {
         const { data } = await axios.get(`${API}/api/detalle-sap-imagenes?odp_id=${odp.id}`, { headers });
         const el = document.getElementById(`print-det-sap-${odp.id}`);
@@ -95,15 +95,7 @@ const InstaladorView: React.FC = () => {
       } catch { toast.error('Error al cargar Det. SAP'); }
       return;
     }
-    const win = window.open('', '_blank', 'width=950,height=800');
-    if (!win) return;
-    let contenidoId = tipo === 'op' ? `print-op-${odp.id}` : tipo === 'tecnico' ? `print-tec-${odp.id}` : `print-sap-${odp.id}`;
-    const el = document.getElementById(contenidoId);
-    if (!el) return toast.error('Documento no disponible');
-    win.document.write(`<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"></script></head><body>${el.innerHTML}</body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); }, 600);
+    abrirDocumentoPrint(odp, tipo);
   };
 
   const handlePausar = (rutaODPId: number) => {
@@ -239,7 +231,7 @@ const InstaladorView: React.FC = () => {
                     onFinalizar={() => setFinalizando({ rutaODPId: item.id, numeroODP: item.odp.numero_odp })}
                     onReportarDano={() => setReportandoDano({ rutaODPId: item.id, numeroODP: item.odp.numero_odp })}
                     onPausar={handlePausar}
-                    abrirDoc={abrirDocumento}
+                    abrirDoc={abrirDocumentoConDetSap}
                     abrirMapa={abrirMapa}
                     iniciando={iniciando === item.id}
                     pausando={pausando === item.id}

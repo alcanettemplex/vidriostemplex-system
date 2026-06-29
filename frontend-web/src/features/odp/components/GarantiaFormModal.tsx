@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { X, Shield, AlertTriangle, CheckCircle, Send } from 'lucide-react';
 import { differenceInMonths, isValid } from 'date-fns';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../../services/config';
 
 interface Props {
   odp: any; // ODP padre

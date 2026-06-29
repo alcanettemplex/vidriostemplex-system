@@ -537,11 +537,17 @@ export const cancelarRuta = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Hay instalaciones en curso. No se puede cancelar.' });
     }
 
-    // Restaurar ODPs pendientes a LISTO_INSTALAR
-    const pendientes = await RutaODP.findAll({ where: { ruta_id: id, estado: 'pendiente' }, transaction: t }) as any[];
-    if (pendientes.length) {
-      const ids = pendientes.map((ro: any) => ro.odp_id);
-      await ODP.update({ estado_produccion: 'LISTO_INSTALAR' }, { where: { id: { [Op.in]: ids } }, transaction: t });
+    // Restaurar ODPs activas a LISTO_INSTALAR (excluye solo completadas)
+    const activas = await RutaODP.findAll({
+      where: { ruta_id: id, estado: { [Op.ne]: 'completada' } },
+      transaction: t
+    }) as any[];
+    if (activas.length) {
+      const ids = activas.map((ro: any) => ro.odp_id);
+      await ODP.update({ estado_produccion: 'LISTO_INSTALAR' }, {
+        where: { id: { [Op.in]: ids } },
+        transaction: t
+      });
     }
 
     await ruta.update({ estado: 'cancelada' }, { transaction: t });

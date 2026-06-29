@@ -18,7 +18,7 @@ import {
 } from '../cotizacionesTypes';
 import { getClientesCached } from '../../../services/listasCache';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../../services/config';
 
 // ─── Esquema Zod ─────────────────────────────────────────────────────────────
 

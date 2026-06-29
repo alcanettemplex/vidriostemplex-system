@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { TocEntry } from '../data/toc';
+import API from '../../../services/config';
 
 interface ManualVisorProps {
   open: boolean;
@@ -27,8 +28,6 @@ interface ManualVisorProps {
   titulo: string;
   toc: TocEntry[];
 }
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 const normalize = (text: string) =>
   text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -52,7 +51,7 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
     setError(null);
     try {
       const token = sessionStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/manuales/${tipo}`, {
+      const response = await axios.get(`${API}/api/manuales/${tipo}`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob',
       });
@@ -81,7 +80,7 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
     setDownloading(true);
     try {
       const token = sessionStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/manuales/${tipo}`, {
+      const response = await axios.get(`${API}/api/manuales/${tipo}`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob',
       });

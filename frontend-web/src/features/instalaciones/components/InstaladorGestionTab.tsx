@@ -8,7 +8,7 @@ import {
 import ProgramarRutaModal from './ProgramarRutaModal';
 import ODPFichaModal from '../../odp/components/ODPFichaModal';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../../services/config';
 
 interface Personal { id: number; nombre_completo: string; rol: string; }
 

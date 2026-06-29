@@ -3,7 +3,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { X, AlertTriangle, Camera, Send, CheckCircle } from 'lucide-react';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../../services/config';
 
 interface Props {
   rutaODPId: number;

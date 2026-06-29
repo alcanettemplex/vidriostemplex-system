@@ -16,7 +16,7 @@ import axios from 'axios';
  * porque su acción invalida la caché.
  */
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from './config';
 const TTL = 10 * 60 * 1000; // 10 minutos
 
 interface CacheEntry { data: any[]; ts: number; }

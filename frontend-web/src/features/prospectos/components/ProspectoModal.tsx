@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { X, Building2, User, Ruler, Loader2 } from 'lucide-react';
 import { getClientesCached } from '../../../services/listasCache';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../../services/config';
 
 interface Cliente { id: number; nombre_razon_social: string; numero_documento?: string; telefono: string | null; celular: string | null; email: string | null; }
 

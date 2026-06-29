@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../../services/config';
 
 // Tipo exportado para que ComprasPage y otros consumidores lo importen
 export interface ODPItemConContexto {

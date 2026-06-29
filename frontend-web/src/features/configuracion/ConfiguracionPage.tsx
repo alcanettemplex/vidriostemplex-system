@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, Save, DollarSign, Clock, AlertCircle, TrendingUp, Users } from 'lucide-react';
+import API from '../../services/config';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -56,7 +57,6 @@ export const ConfiguracionPage: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear]   = useState<number>(new Date().getFullYear());
 
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const token   = sessionStorage.getItem('token');
 
   // ─── Fetch ────────────────────────────────────────────────────────────────
@@ -67,9 +67,9 @@ export const ConfiguracionPage: React.FC = () => {
       const headers = { Authorization: `Bearer ${token}` };
 
       const [configRes, metaRes, usuariosRes] = await Promise.all([
-        fetch(`${API_URL}/api/configuracion`, { headers }),
-        fetch(`${API_URL}/api/configuracion/metas/${selectedYear}/${selectedMonth}`, { headers }),
-        fetch(`${API_URL}/api/configuracion/metas-usuarios/${selectedYear}/${selectedMonth}`, { headers }),
+        fetch(`${API}/api/configuracion`, { headers }),
+        fetch(`${API}/api/configuracion/metas/${selectedYear}/${selectedMonth}`, { headers }),
+        fetch(`${API}/api/configuracion/metas-usuarios/${selectedYear}/${selectedMonth}`, { headers }),
       ]);
 
       if (configRes.ok)    setConfig(await configRes.json());
@@ -80,7 +80,7 @@ export const ConfiguracionPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedMonth, selectedYear, API_URL, token]);
+  }, [selectedMonth, selectedYear, API, token]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -112,15 +112,15 @@ export const ConfiguracionPage: React.FC = () => {
       const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
 
       const [r1, r2, r3] = await Promise.all([
-        fetch(`${API_URL}/api/configuracion`, {
+        fetch(`${API}/api/configuracion`, {
           method: 'PUT', headers,
           body: JSON.stringify(config)
         }),
-        fetch(`${API_URL}/api/configuracion/metas/${selectedYear}/${selectedMonth}`, {
+        fetch(`${API}/api/configuracion/metas/${selectedYear}/${selectedMonth}`, {
           method: 'PUT', headers,
           body: JSON.stringify(metaMensual)
         }),
-        fetch(`${API_URL}/api/configuracion/metas-usuarios/${selectedYear}/${selectedMonth}`, {
+        fetch(`${API}/api/configuracion/metas-usuarios/${selectedYear}/${selectedMonth}`, {
           method: 'PUT', headers,
           body: JSON.stringify(metasUsuarios.map(u => ({
             usuario_id: u.usuario_id,

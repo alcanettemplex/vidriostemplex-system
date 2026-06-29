@@ -12,7 +12,7 @@ import FolderTabs from '../../components/FolderTabs';
 
 import { useDataChangedSocket } from '../../store/useSocketNotifications';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../services/config';
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────
 
@@ -1217,18 +1217,6 @@ const ComprasPage: React.FC = () => {
         setOdcsRecibidas(res.data);
       }
     } catch (err) { console.error('Error en operación de compras:', err); } finally { setLoading(false); }
-  }, []);
-
-  // Cargar conteos de todos los tabs al montar para mostrar badges
-  useEffect(() => {
-    const h = { Authorization: `Bearer ${sessionStorage.getItem('token')}` };
-    axios.get(`${API}/api/compras/panel`, { headers: h, params: { page: 1, limit: 50 } }).then(r => { setItemsPendientes(r.data.rows); setPendientesTotalPages(r.data.totalPages); }).catch(err => console.error('Error cargando datos de compras:', err));
-    axios.get(`${API}/api/compras/seguimiento`, { headers: h }).then(r => setOdcsSeguimiento(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
-    axios.get(`${API}/api/compras/recibidas`, { headers: h }).then(r => setOdcsRecibidas(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
-    axios.get(`${API}/api/compras/vidrios/panel`, { headers: h }).then(r => setVidriosFlat(r.data)).catch(err => console.error('Error cargando datos de compras:', err));
-    axios.get(`${API}/api/compras/vidrios/existencia`, { headers: h }).then(r => setVidriosExistencia(r.data)).catch(err => console.error('Error cargando existencia:', err));
-    axios.get(`${API}/api/compras/perfileria/existencia`, { headers: h }).then(r => setPerfileriaExistencia(r.data)).catch(err => console.error('Error cargando existencia perfilería:', err));
-    axios.get(`${API}/api/compras/codigos-perfileria`, { headers: h }).then(r => setCodigosConStock(new Set(r.data as string[]))).catch(err => console.error('Error cargando códigos perfilería:', err));
   }, []);
 
   useEffect(() => { fetchTab(tab); setBusqueda(''); }, [tab, fetchTab]);

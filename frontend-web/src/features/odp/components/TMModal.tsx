@@ -3,6 +3,7 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 import { X, Plus, Printer, Ruler, MapPin, Camera, Upload, CheckCircle2, Phone, User, CalendarCheck, Image } from 'lucide-react';
 import { toast } from 'react-toastify';
+import API from '../../../services/config';
 
 interface TM {
   id: number;
@@ -40,7 +41,6 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
   });
   const fotoInputRef = useRef<HTMLInputElement>(null);
 
-  const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const token = sessionStorage.getItem('token');
 
   useEffect(() => { fetchTMs(); }, []); // eslint-disable-line

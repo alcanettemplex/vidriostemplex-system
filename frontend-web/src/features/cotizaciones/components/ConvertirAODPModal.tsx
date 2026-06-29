@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { updateCotizacionInList } from '../cotizacionesSlice';
 import { CotizacionType } from '../cotizacionesTypes';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../../services/config';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);

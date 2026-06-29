@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import { Camera, Plus, Trash2, Pencil, X, ZoomIn, Check, Hash } from 'lucide-react';
 import { RootState } from '../../../store/store';
+import API from '../../../services/config';
 
 interface Captura {
   id: number;
@@ -21,7 +22,6 @@ interface Props {
   onRefresh?: () => void;
 }
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 const PUEDE_SUBIR = ['asesor_comercial', 'jefe_produccion', 'admin', 'gerencia'];
 
 const CotizacionCapturas: React.FC<Props> = ({ odp_id, prospecto_id, numeroCotizacion, onRefresh }) => {

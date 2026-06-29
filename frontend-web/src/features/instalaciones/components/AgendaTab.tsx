@@ -7,7 +7,7 @@ import {
   MapPin, Route, Inbox, Search, StickyNote, Check,
 } from 'lucide-react';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../../services/config';
 
 // ─── Helpers de fecha ─────────────────────────────────────────────────────────
 

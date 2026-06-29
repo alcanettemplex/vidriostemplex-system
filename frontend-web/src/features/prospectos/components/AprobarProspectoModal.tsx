@@ -11,7 +11,7 @@ import {
 import { motion } from 'framer-motion';
 import { getClientesCached, getCatalogoCached } from '../../../services/listasCache';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../../services/config';
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 

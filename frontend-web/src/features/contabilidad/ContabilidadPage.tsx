@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useDataChangedSocket, useODPSocketPatch } from '../../store/useSocketNotifications';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../services/config';
 const getToken = () => sessionStorage.getItem('token');
 const headers = () => ({ Authorization: `Bearer ${getToken()}` });
 const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);

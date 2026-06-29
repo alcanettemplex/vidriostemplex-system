@@ -7,7 +7,7 @@ import { Search, MapPin, Ruler, Trash2, Edit2, Check, X, BarChart2, List, Packag
 import IngresarPerfilModal from './IngresarPerfilModal';
 import { getCatalogoCached } from '../../services/listasCache';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../services/config';
 
 interface PerfilItem {
   id: number;

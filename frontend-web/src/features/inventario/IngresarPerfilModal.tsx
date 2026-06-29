@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { X, Plus, Trash2, Search, PackagePlus } from 'lucide-react';
 import { getCatalogoCached } from '../../services/listasCache';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../services/config';
 
 interface CatalogoItem {
   id: number;

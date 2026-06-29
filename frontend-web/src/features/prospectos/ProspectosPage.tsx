@@ -17,7 +17,7 @@ import SolicitarTMModal from './components/SolicitarTMModal';
 import CotizacionCapturas from '../odp/components/CotizacionCapturas';
 import { getTmEstadoConfig, tmVisitaRealizada } from '../../utils/tmEstado';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../services/config';
 
 interface TM {
   id: number; numero_tm: string; estado: string; fecha_visita: string | null;

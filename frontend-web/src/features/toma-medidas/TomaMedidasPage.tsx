@@ -11,7 +11,7 @@ import { toast } from 'react-toastify';
 import TMModal from '../odp/components/TMModal';
 import ProspectoModal from '../prospectos/components/ProspectoModal';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../services/config';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 

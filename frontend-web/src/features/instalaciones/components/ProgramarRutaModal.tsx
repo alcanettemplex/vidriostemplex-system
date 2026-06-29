@@ -3,7 +3,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { X, Plus, Trash2, ArrowUp, ArrowDown, Truck, Users, Calendar } from 'lucide-react';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../../services/config';
 
 interface ODPItem { id: number; numero_odp: string; cliente: { nombre_razon_social: string }; direccion_instalacion?: string; }
 interface Vehiculo { id: number; placa: string; tipo: string; }

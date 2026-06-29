@@ -13,8 +13,9 @@ import PrintableOP from '../../odp/components/PrintableOP';
 import PrintableOA from '../../odp/components/PrintableOA';
 import PrintableDetalleTecnico from '../../odp/components/PrintableDetalleTecnico';
 import PrintableSAP from '../../odp/components/PrintableSAP';
+import { abrirDocumento } from '../utils/printDocument';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../../services/config';
 
 const ESTADO_STYLES: Record<string, string> = {
   programada: 'bg-indigo-100 text-indigo-700',
@@ -99,18 +100,6 @@ const ConductorView: React.FC = () => {
     } catch (e: any) {
       toast.error(e.response?.data?.error || 'Error al registrar llegada');
     } finally { setRegistrandoLlegada(null); }
-  };
-
-  const abrirDocumento = (odp: any, tipo: 'op' | 'tecnico' | 'sap') => {
-    const win = window.open('', '_blank', 'width=950,height=800');
-    if (!win) return;
-    let contenidoId = tipo === 'op' ? `print-op-${odp.id}` : tipo === 'tecnico' ? `print-tec-${odp.id}` : `print-sap-${odp.id}`;
-    const el = document.getElementById(contenidoId);
-    if (!el) return toast.error('Documento no disponible');
-    win.document.write(`<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"></script></head><body>${el.innerHTML}</body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); }, 600);
   };
 
   const abrirMapa = (direccion: string) => window.open(`https://maps.google.com/maps?q=${encodeURIComponent(direccion)}`, '_blank');

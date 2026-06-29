@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { X, Copy, Check, Calendar, MessageCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
+import API from '../../../services/config';
 
 interface ODPItemData {
     item: string;
@@ -34,8 +35,6 @@ interface RutaData {
     instaladores: { nombre_completo: string }[];
     ruta_odps: RutaODPData[];
 }
-
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 const formatFechaDisplay = (fechaISO: string): string => {
     const [year, month, day] = fechaISO.split('-');

@@ -8,6 +8,7 @@ import { Plus, Trash2, X, FileCheck, DollarSign, Package, AlertCircle, ChevronRi
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { getClientesCached, getCatalogoCached } from '../../../services/listasCache';
+import API from '../../../services/config';
 
 const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Gris', 'Azul', 'Verde', 'Mate', 'Otro'];
 
@@ -206,9 +207,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     // Verificar prospectos en gestión al seleccionar cliente (solo en creación)
     useEffect(() => {
         if (odpToEdit || !clienteIdWatch) { setProspectosBanner([]); return; }
-        const base = process.env.REACT_APP_API_URL || 'http://localhost:3001';
         const token = sessionStorage.getItem('token');
-        axios.get(`${base}/api/prospectos/cliente/${clienteIdWatch}/en-gestion`, {
+        axios.get(`${API}/api/prospectos/cliente/${clienteIdWatch}/en-gestion`, {
             headers: { Authorization: `Bearer ${token}` },
         }).then(r => setProspectosBanner(r.data)).catch(() => setProspectosBanner([]));
     }, [clienteIdWatch, odpToEdit]);
@@ -216,8 +216,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     useEffect(() => {
         if (!calendarOpen) return;
         const token = sessionStorage.getItem('token');
-        const base = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-        axios.get(`${base}/api/odp/carga-por-fecha?mes=${calendarMes}`, {
+        axios.get(`${API}/api/odp/carga-por-fecha?mes=${calendarMes}`, {
             headers: { Authorization: `Bearer ${token}` }
         }).then(r => setCargaDias(r.data)).catch(() => setCargaDias({}));
     }, [calendarOpen, calendarMes]);
@@ -260,7 +259,6 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     useEffect(() => {
         const token = sessionStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
-        const base = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
         getCatalogoCached().then(data => {
             setCatalogo(data);
@@ -268,7 +266,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
             setCategorias(cats);
         }).catch(() => {});
         if (!odpToEdit) {
-            axios.get(`${base}/api/pedidos-pv/siguiente-numero`, { headers })
+            axios.get(`${API}/api/pedidos-pv/siguiente-numero`, { headers })
                 .then(r => setSiguienteNumeroPV(r.data.siguiente))
                 .catch(() => {});
         }
@@ -380,9 +378,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
         setLoadingDetalle(true);
         setDetalleDia([]);
         const token = sessionStorage.getItem('token');
-        const base = process.env.REACT_APP_API_URL || 'http://localhost:3001';
         try {
-            const r = await axios.get(`${base}/api/odp/carga-por-fecha/${dia}`, {
+            const r = await axios.get(`${API}/api/odp/carga-por-fecha/${dia}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setDetalleDia(r.data);

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { X, Plus, Printer, FileText, DollarSign, ExternalLink } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import API from '../../../services/config';
 
 interface COT {
   id: number;
@@ -44,7 +45,6 @@ const COTModal: React.FC<Props> = ({ odp, onClose }) => {
   const [mode, setMode] = useState<'list' | 'view'>('list');
   const [selected, setSelected] = useState<COT | null>(null);
 
-  const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
   const token = sessionStorage.getItem('token');
 
   useEffect(() => { fetchCOTs(); }, []);

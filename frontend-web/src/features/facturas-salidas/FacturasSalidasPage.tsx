@@ -11,7 +11,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+import API from '../../services/config';
 
 const fmtFecha = (f: string | null | undefined) => {
   if (!f) return '—';
