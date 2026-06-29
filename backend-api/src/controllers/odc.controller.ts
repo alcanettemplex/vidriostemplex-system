@@ -157,11 +157,27 @@ export const getODCsSeguimiento = async (req: Request, res: Response) => {
   }
 };
 
-// GET /odc/recibidas — ODCs en estado recibido
+// GET /odc/recibidas — ODCs en estado recibido. Busca por q o retorna []
 export const getODCsRecibidas = async (req: Request, res: Response) => {
   try {
+    const { q } = req.query;
+    if (!q || typeof q !== 'string' || !q.trim()) {
+      return res.json([]);
+    }
+    const search = q.trim();
     const odcs = await OrdenCompra.findAll({
-      where: { estado: 'recibido' },
+      where: {
+        estado: 'recibido',
+        [Op.or]: [
+          { numero_odc: { [Op.iLike]: `%${search}%` } },
+          { proveedor: { [Op.iLike]: `%${search}%` } },
+          { '$sap.numero_sap$': { [Op.iLike]: `%${search}%` } },
+          { '$odp.numero_odp$': { [Op.iLike]: `%${search}%` } },
+          { '$odp->cliente.nombre_razon_social$': { [Op.iLike]: `%${search}%` } },
+          { '$sap->ODP.numero_odp$': { [Op.iLike]: `%${search}%` } },
+          { '$sap->ODP->cliente.nombre_razon_social$': { [Op.iLike]: `%${search}%` } },
+        ],
+      },
       include: [
         ...includeItemsLista,
         { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
@@ -185,7 +201,7 @@ export const getODCsRecibidas = async (req: Request, res: Response) => {
         },
       ],
       order: [['fecha_recepcion', 'DESC']],
-      limit: 200,
+      limit: 50,
     });
     res.json(odcs);
   } catch (error: any) {

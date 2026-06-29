@@ -1213,15 +1213,39 @@ const ComprasPage: React.FC = () => {
         setVidriosExistencia(resV.data);
         setPerfileriaExistencia(resP.data);
       } else {
-        const res = await axios.get(`${API}/api/compras/recibidas`, { headers });
-        setOdcsRecibidas(res.data);
+        setOdcsRecibidas([]);
       }
     } catch (err) { console.error('Error en operación de compras:', err); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchTab(tab); setBusqueda(''); }, [tab, fetchTab]);
 
-  const refresh = () => fetchTab(tab);
+  // Busqueda server-side con debounce para tab recibidas
+  const busquedaDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const buscarRecibidas = useCallback(async (q: string) => {
+    if (!q.trim()) { setOdcsRecibidas([]); return; }
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API}/api/compras/recibidas`, { headers, params: { q: q.trim() } });
+      setOdcsRecibidas(res.data);
+    } catch (err) { console.error('Error buscando recibidas:', err); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (tab !== 'recibidas') return;
+    if (busquedaDebounceRef.current) clearTimeout(busquedaDebounceRef.current);
+    busquedaDebounceRef.current = setTimeout(() => { buscarRecibidas(busqueda); }, 400);
+    return () => { if (busquedaDebounceRef.current) clearTimeout(busquedaDebounceRef.current); };
+  }, [busqueda, tab, buscarRecibidas]);
+
+  const refresh = useCallback(() => {
+    if (tab === 'recibidas') {
+      buscarRecibidas(busqueda);
+    } else {
+      fetchTab(tab);
+    }
+  }, [tab, busqueda, fetchTab, buscarRecibidas]);
 
   useDataChangedSocket('compras', refresh);
 
@@ -1734,15 +1758,14 @@ const ComprasPage: React.FC = () => {
 
             {/* ── TAB RECIBIDAS ── */}
             {tab === 'recibidas' && (() => {
-              const lista = filtrarOdcs(odcsRecibidas);
-              return lista.length === 0 ? (
+              return odcsRecibidas.length === 0 ? (
                 <div className="text-center py-20">
                   <CheckCircle2 className="w-16 h-16 text-slate-200 mx-auto mb-3" />
-                  <p className="text-lg font-bold text-slate-500">{busqueda ? 'Sin resultados' : 'No hay ODCs recibidas aún'}</p>
+                  <p className="text-lg font-bold text-slate-500">{busqueda ? 'Sin resultados' : 'Escribe en el buscador para encontrar ODCs recibidas'}</p>
                 </div>
               ) : (
                 <div className="grid gap-4">
-                  {lista.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} onFichaOdp={setFichaOdpId} />)}
+                  {odcsRecibidas.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} onFichaOdp={setFichaOdpId} />)}
                 </div>
               );
             })()}
