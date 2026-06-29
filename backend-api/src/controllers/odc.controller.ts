@@ -171,11 +171,8 @@ export const getODCsRecibidas = async (req: Request, res: Response) => {
         [Op.or]: [
           { numero_odc: { [Op.iLike]: `%${search}%` } },
           { proveedor: { [Op.iLike]: `%${search}%` } },
-          { '$sap.numero_sap$': { [Op.iLike]: `%${search}%` } },
-          { '$odp.numero_odp$': { [Op.iLike]: `%${search}%` } },
-          { '$odp->cliente.nombre_razon_social$': { [Op.iLike]: `%${search}%` } },
-          { '$sap->ODP.numero_odp$': { [Op.iLike]: `%${search}%` } },
-          { '$sap->ODP->cliente.nombre_razon_social$': { [Op.iLike]: `%${search}%` } },
+          sequelize.where(sequelize.col('sap.numero_sap'), 'ILIKE', `%${search}%`),
+          sequelize.where(sequelize.col('odp.numero_odp'), 'ILIKE', `%${search}%`),
         ],
       },
       include: [
@@ -183,9 +180,9 @@ export const getODCsRecibidas = async (req: Request, res: Response) => {
         { model: Usuario, as: 'creador', attributes: ['id', 'nombre_completo'] },
         // Backward compat: ODCs antiguas con sap_id
         {
-          model: SAP, as: 'sap',
+          model: SAP, as: 'sap', required: false,
           include: [{
-            model: ODP,
+            model: ODP, required: false,
             attributes: ['id', 'numero_odp', 'estado_produccion', 'fecha_creacion'],
             include: [
               { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
@@ -195,12 +192,12 @@ export const getODCsRecibidas = async (req: Request, res: Response) => {
         },
         // ODCs con odp_id directo en cabecera (sin sap_id ni items vinculados)
         {
-          model: ODP, as: 'odp',
-          required: false,
+          model: ODP, as: 'odp', required: false,
           include: [{ model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] }],
         },
       ],
       order: [['fecha_recepcion', 'DESC']],
+      subQuery: false,
       limit: 50,
     });
     res.json(odcs);
