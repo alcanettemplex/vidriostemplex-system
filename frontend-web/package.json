@@ -44,6 +44,7 @@
     "zod": "^4.3.6"
   },
   "scripts": {
+    "prestart": "node -e \"require('fs').rmSync('node_modules/.cache',{recursive:true,force:true})\"",
     "start": "react-scripts start",
     "build": "CI=false react-scripts build && cp build/index.html build/404.html",
     "test": "react-scripts test",
