@@ -242,8 +242,25 @@ const ODPListPage: React.FC = () => {
         try {
             const token = sessionStorage.getItem('token');
             const baseUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+            // Cuando la tab activa es 'completadas', filtrar solo ODPs con estado INSTALADA o ENTREGADA
+            const params: Record<string, any> = { search: searchQuery, page: pageNum, limit: 20 };
+            if (activeTab === 'completadas') {
+                params.estados = ESTADOS_COMPLETADAS; // ['ENTREGADA', 'INSTALADA']
+            }
             const res = await axios.get(`${baseUrl}/api/odp`, {
-                params: { search: searchQuery, page: pageNum, limit: 20 },
+                params,
+                // Serializar arrays como: estados=INSTALADA&estados=ENTREGADA (sin corchetes)
+                paramsSerializer: (p) => {
+                    const sp = new URLSearchParams();
+                    Object.entries(p).forEach(([key, val]) => {
+                        if (Array.isArray(val)) {
+                            val.forEach((v: string) => sp.append(key, v));
+                        } else {
+                            sp.append(key, String(val));
+                        }
+                    });
+                    return sp.toString();
+                },
                 headers: { Authorization: `Bearer ${token}` }
             });
             setSearchResults(res.data);
@@ -252,7 +269,7 @@ const ODPListPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [searchQuery]);
+    }, [searchQuery, activeTab]);
 
     useEffect(() => {
         fetchGarantias();

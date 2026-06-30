@@ -114,11 +114,19 @@ export const getODPs = async (req: Request, res: Response) => {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
     const estado = req.query.estado as string | undefined;
+    // Soporte para array de estados: ?estados=INSTALADA&estados=ENTREGADA
+    const estadosRaw = req.query.estados;
+    const estados: string[] | undefined = estadosRaw
+      ? (Array.isArray(estadosRaw) ? estadosRaw as string[] : [estadosRaw as string])
+      : undefined;
     const search = req.query.search as string | undefined;
 
     const whereClause: any = { es_garantia: false };
 
-    if (estado) {
+    if (estados && estados.length > 0) {
+      // Filtrar por múltiples estados (usado por la tab Completadas)
+      whereClause.estado_produccion = { [Op.in]: estados };
+    } else if (estado) {
       whereClause.estado_produccion = estado;
     }
 
