@@ -156,6 +156,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     const [siguienteNumeroPV, setSiguienteNumeroPV] = useState<number | null>(null);
     const [clienteBusqueda, setClienteBusqueda] = useState('');
     const [dropdownClienteAbierto, setDropdownClienteAbierto] = useState(false);
+    const [clienteSeleccionadoObj, setClienteSeleccionadoObj] = useState<{ id: number; nombre_razon_social: string; numero_documento?: string; fuente?: string | null } | null>(null);
     const [prospectosBanner, setProspectosBanner] = useState<{ id: number; numero_prospecto: string; descripcion: string }[]>([]);
     const [calendarOpen, setCalendarOpen] = useState(false);
     const [calendarMes, setCalendarMes] = useState(() => {
@@ -200,7 +201,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
     const proveedorVidrio = useWatch({ control, name: 'proveedor_vidrio' });
     const clienteIdWatch = useWatch({ control, name: 'cliente_id' });
     const fechaEntregaWatch = useWatch({ control, name: 'fecha_entrega' });
-    const clienteSeleccionadoODP = clientes.find(c => c.id === Number(clienteIdWatch));
+    const clienteSeleccionadoODP = clienteSeleccionadoObj || clientes.find(c => c.id === Number(clienteIdWatch));
     // En creación, si el cliente seleccionado aún no tiene fuente registrada, hay que pedirla
     const requiereClienteFuente = !odpToEdit && !!clienteSeleccionadoODP && !clienteSeleccionadoODP.fuente;
 
@@ -287,6 +288,14 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
         if (odpToEdit) {
             if (odpToEdit.fecha_entrega) {
                 setCalendarMes(odpToEdit.fecha_entrega.split('T')[0].substring(0, 7));
+            }
+            if (odpToEdit.cliente) {
+                setClienteSeleccionadoObj({
+                    id: odpToEdit.cliente_id,
+                    nombre_razon_social: odpToEdit.cliente.nombre_razon_social,
+                    numero_documento: odpToEdit.cliente.numero_documento,
+                    fuente: odpToEdit.cliente.fuente,
+                });
             }
             reset({
                 cliente_id: odpToEdit.cliente_id,
@@ -468,9 +477,9 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                             <div className="relative">
                                                 <input
                                                     type="text"
-                                                    value={dropdownClienteAbierto ? clienteBusqueda : (clienteSeleccionadoODP?.nombre_razon_social || clienteBusqueda)}
-                                                    onChange={e => { setClienteBusqueda(e.target.value); setDropdownClienteAbierto(true); }}
-                                                    onFocus={() => { setClienteBusqueda(''); setDropdownClienteAbierto(true); }}
+                                                    value={dropdownClienteAbierto ? clienteBusqueda : (clienteSeleccionadoObj?.nombre_razon_social || '')}
+                                                    onChange={e => { setClienteBusqueda(e.target.value); setClienteSeleccionadoObj(null); setValue('cliente_id', '' as any); setDropdownClienteAbierto(true); }}
+                                                    onFocus={() => { setClienteBusqueda(clienteSeleccionadoObj?.nombre_razon_social || ''); setDropdownClienteAbierto(true); }}
                                                     placeholder="Buscar cliente..."
                                                     className={`w-full p-2.5 bg-white border ${errors.cliente_id ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:ring-2 focus:ring-blue-500`}
                                                 />
@@ -482,7 +491,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                                 <button
                                                                     key={c.id}
                                                                     type="button"
-                                                                    onClick={() => { setValue('cliente_id', c.id); setClienteBusqueda(''); setDropdownClienteAbierto(false); }}
+                                                                    onClick={() => { setValue('cliente_id', c.id); setClienteSeleccionadoObj(c); setClienteBusqueda(''); setDropdownClienteAbierto(false); }}
                                                                     className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700 transition-colors"
                                                                 >
                                                                     <span className="block font-medium">{c.nombre_razon_social}</span>

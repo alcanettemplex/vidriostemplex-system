@@ -1220,6 +1220,13 @@ const ComprasPage: React.FC = () => {
 
   useEffect(() => { fetchTab(tab); setBusqueda(''); }, [tab, fetchTab]);
 
+  // Cargar códigos de perfilería con existencia para la columna EXIS. PERF.
+  useEffect(() => {
+    axios.get(`${API}/api/compras/codigos-perfileria`, { headers })
+      .then(res => setCodigosConStock(new Set(res.data)))
+      .catch(() => {});
+  }, []);
+
   // Busqueda server-side con debounce para tab recibidas
   const busquedaDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const buscarRecibidas = useCallback(async (q: string) => {
@@ -1354,9 +1361,15 @@ const ComprasPage: React.FC = () => {
   // Invalida el cache del código tras consumir piezas y recalcula codigosConStock
   const invalidarStockCodigo = async (codigo: string) => {
     const restantes = await cargarPiezasCodigo(codigo);
-    if (restantes.length === 0) {
-      setCodigosConStock(prev => { const next = new Set(prev); next.delete(codigo); return next; });
-    }
+    setCodigosConStock(prev => {
+      const next = new Set(prev);
+      if (restantes.length === 0) {
+        next.delete(codigo);
+      } else {
+        next.add(codigo);
+      }
+      return next;
+    });
   };
 
   // Acción: asignar existencia (cobertura total)

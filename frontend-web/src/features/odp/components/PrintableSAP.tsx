@@ -95,15 +95,25 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
         return ia - ib;
     });
 
+    // Mapa índice → item, unificando duplicados (cobertura parcial: original + faltante)
     const itemPorIndice: Record<number, any> = {};
     for (const it of itemsSorted) {
         const { indice } = normalizarItem(it.item);
-        itemPorIndice[indice] = it;
+        const existente = itemPorIndice[indice];
+        if (!existente) {
+            itemPorIndice[indice] = { ...it };
+        } else {
+            // Duplicado (misma letra): unificar en una sola fila
+            if (it.exist_perf) existente.exist_perf = it.exist_perf;
+            if (it.es_faltante) { existente.es_faltante = true; existente.id = it.id; }
+            if (it.cantidad > 0) existente.cantidad = it.cantidad;
+            if (it.estado_compra === 'en_odc') existente.estado_compra = it.estado_compra;
+        }
     }
 
 
     // Cuántas páginas necesitamos
-    const cantidadReal = allItems.length;
+    const cantidadReal = Object.keys(itemPorIndice).length;
     const paginas = Math.ceil(Math.max(cantidadReal, ITEMS_POR_PAGINA) / ITEMS_POR_PAGINA);
 
     // Bloques de índices (0-base) por página
