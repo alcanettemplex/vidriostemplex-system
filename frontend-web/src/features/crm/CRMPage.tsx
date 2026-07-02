@@ -9,7 +9,7 @@ import ReporteAsesor from './components/ReporteAsesor';
 import ProspectosStats from './components/ProspectosStats';
 import MonitorAsesores from './components/MonitorAsesores';
 import EmbudoAsesores from './components/EmbudoAsesores';
-import PeriodSelector from '../../components/common/PeriodSelector';
+import DateRangeSelector from '../../components/common/DateRangeSelector';
 import FolderTabs from '../../components/FolderTabs';
 import { Plus, BarChart3, Kanban, TrendingUp, PhoneMissed, Search, X, ClipboardList, Users, ScanEye, Filter } from 'lucide-react';
 
@@ -18,15 +18,47 @@ type Tab = 'pipeline' | 'metricas' | 'gerencial' | 'sin_respuesta' | 'reportes' 
 const ROLES_GLOBAL = ['admin', 'gerencia', 'asistente_administrativo', 'root', 'marketing', 'jefe_produccion'];
 const ROLES_GERENCIAL = ['admin', 'gerencia', 'asistente_administrativo', 'root', 'marketing', 'jefe_produccion'];
 
+// Inicializar periodo con el mes actual (Desde = mes actual, Hasta = mes actual)
+const mesActual = (): string => {
+  const hoy = new Date();
+  const anio = hoy.getFullYear();
+  const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+  return `${anio}-${mes}`;
+};
+
+/**
+ * Convierte "YYYY-MM" al último día del mes en formato "YYYY-MM-DD".
+ * Ej: "2026-07" → "2026-07-31"
+ * Esto garantiza que el filtro de Hasta incluya todos los leads del mes seleccionado.
+ */
+const ultimoDiaMes = (ym: string | null): string | null => {
+  if (!ym) return null;
+  const [anio, mes] = ym.split('-').map(Number);
+  if (!anio || !mes) return null;
+  // new Date(anio, mes, 0) devuelve el último día del mes anterior al mes+1, es decir el último día de `mes`
+  const ultimo = new Date(anio, mes, 0).getDate();
+  return `${anio}-${String(mes).padStart(2, '0')}-${String(ultimo).padStart(2, '0')}`;
+};
+
+/**
+ * Convierte "YYYY-MM" al primer día del mes en formato "YYYY-MM-DD".
+ * Ej: "2026-07" → "2026-07-01"
+ */
+const primerDiaMes = (ym: string | null): string | null => {
+  if (!ym) return null;
+  const [anio, mes] = ym.split('-').map(Number);
+  if (!anio || !mes) return null;
+  return `${anio}-${String(mes).padStart(2, '0')}-01`;
+};
+
 const CRMPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('pipeline');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
-  // Estado de periodo (mes actual por defecto)
-  const now = new Date();
-  const [mes, setMes] = useState(now.getMonth() + 1);
-  const [anio, setAnio] = useState(now.getFullYear());
+  // Estado de periodo (rango de fechas, máx 4 meses) — inicializado con el mes actual
+  const [fechaDesde, setFechaDesde] = useState<string | null>(mesActual);
+  const [fechaHasta, setFechaHasta] = useState<string | null>(mesActual);
 
   const user = useSelector((state: any) => state.auth.user);
   const rol: string = user?.rol || '';
@@ -34,10 +66,16 @@ const CRMPage: React.FC = () => {
   const esVistaGlobal = ROLES_GLOBAL.includes(rol);
   const puedeVerGerencial = ROLES_GERENCIAL.includes(rol);
 
-  const handlePeriodChange = (m: number, a: number) => {
-    setMes(m);
-    setAnio(a);
+  const handleDateRangeChange = (desde: string | null, hasta: string | null) => {
+    setFechaDesde(desde);
+    setFechaHasta(hasta);
   };
+
+  // Fechas expandidas a día completo para enviar al backend:
+  // Desde → primer día del mes (YYYY-MM-01)
+  // Hasta → último día del mes (YYYY-MM-DD con el último día real)
+  const fechaDesdeApi = primerDiaMes(fechaDesde);
+  const fechaHastaApi = ultimoDiaMes(fechaHasta);
 
   return (
     <div className="p-6 min-h-screen" style={{ background: '#EEF0F8' }}>
@@ -50,7 +88,7 @@ const CRMPage: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <PeriodSelector mes={mes} anio={anio} onChange={handlePeriodChange} />
+          <DateRangeSelector desde={fechaDesde} hasta={fechaHasta} onChange={handleDateRangeChange} />
 
           {(activeTab === 'pipeline' || activeTab === 'sin_respuesta') && (
             <>
@@ -107,36 +145,36 @@ const CRMPage: React.FC = () => {
       {/* Contenido de tabs */}
       {activeTab === 'pipeline' && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <KanbanBoard mes={mes} anio={anio} busqueda={busqueda} setBusqueda={setBusqueda} />
+          <KanbanBoard fecha_desde={fechaDesdeApi} fecha_hasta={fechaHastaApi} busqueda={busqueda} setBusqueda={setBusqueda} />
         </div>
       )}
 
       {activeTab === 'sin_respuesta' && (
-        <SinRespuestaTab mes={mes} anio={anio} busqueda={busqueda} />
+        <SinRespuestaTab fecha_desde={fechaDesdeApi} fecha_hasta={fechaHastaApi} busqueda={busqueda} />
       )}
 
       {activeTab === 'metricas' && (
         <CRMMetrics
           asesorId={asesorId}
           esVistaGlobal={esVistaGlobal}
-          mes={mes}
-          anio={anio}
+          fecha_desde={fechaDesdeApi}
+          fecha_hasta={fechaHastaApi}
         />
       )}
 
       {activeTab === 'gerencial' && puedeVerGerencial && (
         <DashboardGerencial
           esVistaGlobal={esVistaGlobal}
-          mes={mes}
-          anio={anio}
+          fecha_desde={fechaDesdeApi}
+          fecha_hasta={fechaHastaApi}
         />
       )}
 
       {activeTab === 'prospectos' && (
         <ProspectosStats
           esVistaGlobal={esVistaGlobal}
-          mes={mes}
-          anio={anio}
+          fecha_desde={fechaDesdeApi}
+          fecha_hasta={fechaHastaApi}
         />
       )}
 
@@ -168,15 +206,15 @@ const CRMPage: React.FC = () => {
               </p>
             </div>
           </div>
-          <EmbudoAsesores mes={mes} anio={anio} />
+          <EmbudoAsesores fecha_desde={fechaDesdeApi} fecha_hasta={fechaHastaApi} />
         </div>
       )}
 
       {activeTab === 'reportes' && (
         <ReporteAsesor
           esVistaGlobal={esVistaGlobal}
-          mes={mes}
-          anio={anio}
+          fecha_desde={fechaDesdeApi}
+          fecha_hasta={fechaHastaApi}
         />
       )}
 
