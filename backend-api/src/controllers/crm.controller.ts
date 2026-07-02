@@ -383,7 +383,7 @@ export const convertLeadToCliente = async (req: Request, res: Response) => {
 export const getLeads = async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    const { mes, anio, vista } = req.query;
+    const { fecha_desde, fecha_hasta, vista } = req.query;
     const esSinRespuesta = vista === 'sin_respuesta';
     const esAdminOGerencia = ['admin', 'gerencia', 'root', 'asistente_administrativo', 'marketing', 'jefe_produccion'].includes(user.rol?.toLowerCase());
 
@@ -403,15 +403,22 @@ export const getLeads = async (req: Request, res: Response) => {
       whereClause.respondio = { [Op.ne]: 'No responde' };
     }
 
-    // Filtro por mes y año si vienen en el query
-    if (mes && anio && mes !== 'undefined' && anio !== 'undefined') {
-      const month = parseInt(mes as string);
-      const year = parseInt(anio as string);
-      const startDate = new Date(year, month - 1, 1);
-      const endDate = new Date(year, month, 0, 23, 59, 59);
+    // Filtro por rango de fechas (máx 4 meses)
+    if (fecha_desde && fecha_hasta) {
+      const start = new Date(fecha_desde as string);
+      const end = new Date(fecha_hasta as string);
+      end.setHours(23, 59, 59, 999);
+
+      const diffMeses = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      if (diffMeses > 4) {
+        return res.status(400).json({
+          error: 'Rango demasiado amplio',
+          mensaje: 'El período máximo permitido es de 4 meses.'
+        });
+      }
 
       whereClause.createdAt = {
-        [Op.between]: [startDate, endDate]
+        [Op.between]: [start, end]
       };
     }
 
@@ -448,7 +455,7 @@ export const getLeads = async (req: Request, res: Response) => {
 export const getCRMStats = async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    const { mes, anio } = req.query;
+    const { fecha_desde, fecha_hasta } = req.query;
     const esGlobal = ['admin', 'gerencia', 'root', 'asistente_administrativo', 'marketing', 'jefe_produccion'].includes(user.rol?.toLowerCase());
     
     const whereBase: any = esGlobal ? {} : { asesor_id: user.id };
@@ -456,11 +463,19 @@ export const getCRMStats = async (req: Request, res: Response) => {
     // Extraer rango de fechas para reutilizar en queries de leads y ODP
     let periodStart: Date | null = null;
     let periodEnd: Date | null = null;
-    if (mes && anio && mes !== 'undefined' && anio !== 'undefined') {
-      const month = parseInt(mes as string);
-      const year = parseInt(anio as string);
-      periodStart = new Date(year, month - 1, 1);
-      periodEnd = new Date(year, month, 0, 23, 59, 59);
+    if (fecha_desde && fecha_hasta) {
+      periodStart = new Date(fecha_desde as string);
+      periodEnd = new Date(fecha_hasta as string);
+      periodEnd.setHours(23, 59, 59, 999);
+
+      const diffMeses = (periodEnd.getFullYear() - periodStart.getFullYear()) * 12 + (periodEnd.getMonth() - periodStart.getMonth());
+      if (diffMeses > 4) {
+        return res.status(400).json({
+          error: 'Rango demasiado amplio',
+          mensaje: 'El período máximo permitido es de 4 meses.'
+        });
+      }
+
       whereBase.createdAt = { [Op.between]: [periodStart, periodEnd] };
     }
 
@@ -668,13 +683,13 @@ export const getCRMStats = async (req: Request, res: Response) => {
 
     // Comparativo vs período anterior (mes anterior al seleccionado)
     let vsAnterior: any = null;
-    if (periodStart && mes && anio) {
-      const m = parseInt(mes as string);
-      const y = parseInt(anio as string);
-      const prevM = m === 1 ? 12 : m - 1;
-      const prevY = m === 1 ? y - 1 : y;
-      const prevStart = new Date(prevY, prevM - 1, 1);
-      const prevEnd   = new Date(prevY, prevM, 0, 23, 59, 59);
+    if (periodStart) {
+      const prevStart = new Date(periodStart);
+      prevStart.setMonth(prevStart.getMonth() - 1);
+      const prevEnd = new Date(prevStart);
+      prevEnd.setMonth(prevEnd.getMonth() + 1);
+      prevEnd.setDate(0);
+      prevEnd.setHours(23, 59, 59, 999);
       const prevWhere: any = esGlobal ? {} : { asesor_id: user.id };
       prevWhere.createdAt = { [Op.between]: [prevStart, prevEnd] };
       const prevLeads = await Lead.findAll({
@@ -883,7 +898,7 @@ export const searchODPsForLead = async (req: Request, res: Response) => {
 export const getReporteAsesor = async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    const { mes, anio, asesor_id } = req.query;
+    const { fecha_desde, fecha_hasta, asesor_id } = req.query;
     const esAdmin = ['admin', 'gerencia', 'root', 'jefe_produccion', 'asistente_administrativo'].includes(user.rol?.toLowerCase());
     // null = vista global (solo para admins sin asesor específico seleccionado)
     const asesorIdTarget: number | null = asesor_id
@@ -891,10 +906,20 @@ export const getReporteAsesor = async (req: Request, res: Response) => {
       : esAdmin ? null : user.id;
 
     const whereBase: any = asesorIdTarget ? { asesor_id: asesorIdTarget } : {};
-    if (mes && anio && mes !== 'undefined' && anio !== 'undefined') {
-      const month = parseInt(mes as string);
-      const year  = parseInt(anio as string);
-      whereBase.createdAt = { [Op.between]: [new Date(year, month - 1, 1), new Date(year, month, 0, 23, 59, 59)] };
+    if (fecha_desde && fecha_hasta) {
+      const start = new Date(fecha_desde as string);
+      const end = new Date(fecha_hasta as string);
+      end.setHours(23, 59, 59, 999);
+
+      const diffMeses = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      if (diffMeses > 4) {
+        return res.status(400).json({
+          error: 'Rango demasiado amplio',
+          mensaje: 'El período máximo permitido es de 4 meses.'
+        });
+      }
+
+      whereBase.createdAt = { [Op.between]: [start, end] };
     }
 
     const leads = await Lead.findAll({ where: whereBase });
@@ -975,14 +1000,24 @@ export const getReporteAsesor = async (req: Request, res: Response) => {
 export const getStatsProspectos = async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    const { mes, anio } = req.query;
+    const { fecha_desde, fecha_hasta } = req.query;
     const esGlobal = ['admin', 'gerencia', 'root', 'asistente_administrativo', 'marketing', 'jefe_produccion'].includes(user.rol?.toLowerCase());
 
     const whereBase: any = esGlobal ? {} : { asesor_id: user.id };
-    if (mes && anio && mes !== 'undefined' && anio !== 'undefined') {
-      const month = parseInt(mes as string);
-      const year  = parseInt(anio as string);
-      whereBase.fecha_creacion = { [Op.between]: [new Date(year, month - 1, 1), new Date(year, month, 0, 23, 59, 59)] };
+    if (fecha_desde && fecha_hasta) {
+      const start = new Date(fecha_desde as string);
+      const end = new Date(fecha_hasta as string);
+      end.setHours(23, 59, 59, 999);
+
+      const diffMeses = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      if (diffMeses > 4) {
+        return res.status(400).json({
+          error: 'Rango demasiado amplio',
+          mensaje: 'El período máximo permitido es de 4 meses.'
+        });
+      }
+
+      whereBase.fecha_creacion = { [Op.between]: [start, end] };
     }
 
     const prospectos = await Prospecto.findAll({
@@ -1400,14 +1435,24 @@ export const vincularODPAlLead = async (req: Request, res: Response) => {
 export const getEmbudoAsesores = async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    const { mes, anio } = req.query;
+    const { fecha_desde, fecha_hasta } = req.query;
 
     const where: any = { asesor_id: { [Op.ne]: null } };
 
-    if (mes && anio && mes !== 'undefined' && anio !== 'undefined') {
-      const month = parseInt(mes as string);
-      const year  = parseInt(anio as string);
-      where.createdAt = { [Op.between]: [new Date(year, month - 1, 1), new Date(year, month, 0, 23, 59, 59)] };
+    if (fecha_desde && fecha_hasta) {
+      const start = new Date(fecha_desde as string);
+      const end = new Date(fecha_hasta as string);
+      end.setHours(23, 59, 59, 999);
+
+      const diffMeses = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      if (diffMeses > 4) {
+        return res.status(400).json({
+          error: 'Rango demasiado amplio',
+          mensaje: 'El período máximo permitido es de 4 meses.'
+        });
+      }
+
+      where.createdAt = { [Op.between]: [start, end] };
     }
 
     if (user.rol === 'asesor_comercial') {

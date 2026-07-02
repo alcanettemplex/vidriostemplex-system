@@ -243,13 +243,13 @@ interface PerdidaPendiente { leadId: number; leadNombre: string; sourceStageId: 
 type ViewMode = 'kanban' | 'tabla';
 
 interface KanbanBoardProps {
-  mes?: number;
-  anio?: number;
+  fecha_desde?: string | null;
+  fecha_hasta?: string | null;
   busqueda?: string;
   setBusqueda?: (v: string) => void;
 }
 
-const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio, busqueda: busquedaExterna, setBusqueda: setBusquedaExterna }) => {
+const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, busqueda: busquedaExterna, setBusqueda: setBusquedaExterna }) => {
   const dispatch = useDispatch();
   const { leads, loading } = useSelector((state: any) => state.crm);
   const user = useSelector((state: any) => state.auth.user);
@@ -297,7 +297,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio, busqueda: busqueda
   const fetchLeads = useCallback(async () => {
     dispatch(fetchLeadsStart());
     try {
-      const { data } = await apiGetLeads(mes, anio, 'pipeline');
+      const { data } = await apiGetLeads(fecha_desde || undefined, fecha_hasta || undefined, 'pipeline');
       dispatch(fetchLeadsSuccess(data));
     } catch (err: any) {
       const msg = err?.response?.data?.error || err?.response?.data?.message || 'No se pudieron cargar los leads. Verifica la conexión.';
@@ -308,7 +308,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ mes, anio, busqueda: busqueda
         toast.error(msg);
       }
     }
-  }, [dispatch, mes, anio]);
+  }, [dispatch, fecha_desde, fecha_hasta]);
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
   useDataChangedSocket('crm', fetchLeads);

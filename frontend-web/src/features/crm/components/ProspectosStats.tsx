@@ -5,7 +5,7 @@ import { IconLeads, IconTarget, IconCheck, IconClock, IconBarChart } from './CRM
 
 const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-interface Props { esVistaGlobal: boolean; mes?: number; anio?: number; }
+interface Props { esVistaGlobal: boolean; fecha_desde?: string | null; fecha_hasta?: string | null; }
 
 // ─── InfoTooltip ──────────────────────────────────────────────────────────────
 const InfoTooltip: React.FC<{ text: string }> = ({ text }) => (
@@ -52,24 +52,24 @@ const EmbudoStep: React.FC<{
   );
 };
 
-const ProspectosStats: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
+const ProspectosStats: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta }) => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const periodoLabel = mes && anio ? `${MONTH_NAMES[mes - 1]} ${anio}` : 'Acumulado';
+  const periodoLabel = (fecha_desde && fecha_hasta) ? `${fecha_desde} → ${fecha_hasta}` : 'Acumulado';
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const { data } = await apiGetStatsProspectos(mes, anio);
+      const { data } = await apiGetStatsProspectos(fecha_desde || undefined, fecha_hasta || undefined);
       setStats(data);
     } catch {
       setError('No se pudo cargar la información de prospectos.');
     } finally {
       setLoading(false);
     }
-  }, [mes, anio]);
+  }, [fecha_desde, fecha_hasta]);
 
   useEffect(() => { cargar(); }, [cargar]);
 

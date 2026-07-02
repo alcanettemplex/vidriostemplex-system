@@ -53,11 +53,9 @@ const KPI: React.FC<KPIProps> = ({ label, value, sub, icon, border, bg, tooltip 
   </div>
 );
 
-interface Props { esVistaGlobal: boolean; mes?: number; anio?: number; }
+interface Props { esVistaGlobal: boolean; fecha_desde?: string | null; fecha_hasta?: string | null; }
 
-const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-
-const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
+const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta }) => {
   const user = useSelector((state: any) => state.auth.user);
   const [reporte, setReporte] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -66,7 +64,7 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
   const [asesorSeleccionado, setAsesorSeleccionado] = useState<number | undefined>(undefined);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  const periodoLabel = mes && anio ? `${MONTH_NAMES[mes - 1]} ${anio}` : 'Acumulado';
+  const periodoLabel = (fecha_desde && fecha_hasta) ? `${fecha_desde} → ${fecha_hasta}` : 'Acumulado';
 
   const cargarAsesores = useCallback(async () => {
     if (!esVistaGlobal) return;
@@ -82,14 +80,14 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const { data } = await apiGetReporteAsesor(mes, anio, asesorSeleccionado);
+      const { data } = await apiGetReporteAsesor(fecha_desde || undefined, fecha_hasta || undefined, asesorSeleccionado);
       setReporte(data);
     } catch {
       setError('No se pudo cargar el reporte.');
     } finally {
       setLoading(false);
     }
-  }, [mes, anio, asesorSeleccionado]);
+  }, [fecha_desde, fecha_hasta, asesorSeleccionado]);
 
   useEffect(() => { cargarAsesores(); }, [cargarAsesores]);
   useEffect(() => { cargar(); }, [cargar]);

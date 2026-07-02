@@ -354,10 +354,10 @@ const AlertasPeriodo: React.FC<{
 };
 
 // ─── Props ────────────────────────────────────────────────────────────────────
-interface Props { asesorId?: number; esVistaGlobal?: boolean; mes?: number; anio?: number; }
+interface Props { asesorId?: number; esVistaGlobal?: boolean; fecha_desde?: string | null; fecha_hasta?: string | null; }
 
 // ═════════════════════════════════════════════════════════════════════════════
-const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
+const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta }) => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -367,19 +367,19 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
 
   const cargar = async () => {
     setLoading(true); setError(null);
-    try { const { data } = await apiGetCRMStats(mes, anio); setStats(data); }
+    try { const { data } = await apiGetCRMStats(fecha_desde || undefined, fecha_hasta || undefined); setStats(data); }
     catch { setError('No se pudieron cargar las métricas.'); }
     finally { setLoading(false); }
   };
 
   const cargarSR = useCallback(async () => {
     try {
-      const { data } = await apiGetLeads(mes, anio, 'sin_respuesta');
+      const { data } = await apiGetLeads(fecha_desde || undefined, fecha_hasta || undefined, 'sin_respuesta');
       setSrLeads(Array.isArray(data) ? data : []);
     } catch { setSrLeads([]); }
-  }, [mes, anio]);
+  }, [fecha_desde, fecha_hasta]);
 
-  useEffect(() => { cargar(); }, [mes, anio, esVistaGlobal]); // eslint-disable-line
+  useEffect(() => { cargar(); }, [fecha_desde, fecha_hasta, esVistaGlobal]); // eslint-disable-line
   useEffect(() => { cargarSR(); }, [cargarSR]);
 
   if (loading) return (

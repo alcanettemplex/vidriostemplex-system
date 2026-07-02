@@ -7,9 +7,10 @@ const getHeaders = () => ({
 });
 
 /** Obtener leads del pipeline (excluye sin-respuesta) o del tab sin-respuesta */
-export const apiGetLeads = (mes?: number, anio?: number, vista?: 'pipeline' | 'sin_respuesta') => {
+export const apiGetLeads = (fecha_desde?: string, fecha_hasta?: string, vista?: 'pipeline' | 'sin_respuesta') => {
   const params = new URLSearchParams();
-  if (mes && anio) { params.append('mes', String(mes)); params.append('anio', String(anio)); }
+  if (fecha_desde) params.append('fecha_desde', fecha_desde);
+  if (fecha_hasta) params.append('fecha_hasta', fecha_hasta);
   if (vista) params.append('vista', vista);
   const qs = params.toString() ? `?${params.toString()}` : '';
   return axios.get(`${API}/api/crm${qs}`, getHeaders());
@@ -56,8 +57,8 @@ export const apiConvertLeadToCliente = (id: number, data: any) =>
   axios.post(`${API}/api/crm/${id}/convertir`, data, getHeaders());
 
 /** Obtener estadísticas de CRM */
-export const apiGetCRMStats = (mes?: number, anio?: number) => {
-  const params = (mes && anio) ? `?mes=${mes}&anio=${anio}` : '';
+export const apiGetCRMStats = (fecha_desde?: string, fecha_hasta?: string) => {
+  const params = (fecha_desde && fecha_hasta) ? `?fecha_desde=${fecha_desde}&fecha_hasta=${fecha_hasta}` : '';
   return axios.get(`${API}/api/crm/stats/resumen${params}`, getHeaders());
 };
 
@@ -78,16 +79,17 @@ export const apiVincularODP = (leadId: number, odp_id: number | null) =>
   axios.patch(`${API}/api/crm/${leadId}/vincular-odp`, { odp_id }, getHeaders());
 
 /** Reporte de actividad mensual por asesor */
-export const apiGetReporteAsesor = (mes?: number, anio?: number, asesor_id?: number) => {
+export const apiGetReporteAsesor = (fecha_desde?: string, fecha_hasta?: string, asesor_id?: number) => {
   const params = new URLSearchParams();
-  if (mes && anio) { params.append('mes', String(mes)); params.append('anio', String(anio)); }
+  if (fecha_desde) params.append('fecha_desde', fecha_desde);
+  if (fecha_hasta) params.append('fecha_hasta', fecha_hasta);
   if (asesor_id) params.append('asesor_id', String(asesor_id));
   return axios.get(`${API}/api/crm/reporte-asesor?${params.toString()}`, getHeaders());
 };
 
 /** Estadísticas de prospectos para el módulo CRM */
-export const apiGetStatsProspectos = (mes?: number, anio?: number) => {
-  const params = (mes && anio) ? `?mes=${mes}&anio=${anio}` : '';
+export const apiGetStatsProspectos = (fecha_desde?: string, fecha_hasta?: string) => {
+  const params = (fecha_desde && fecha_hasta) ? `?fecha_desde=${fecha_desde}&fecha_hasta=${fecha_hasta}` : '';
   return axios.get(`${API}/api/crm/stats/prospectos${params}`, getHeaders());
 };
 
@@ -109,8 +111,8 @@ export const apiSolicitarVisitaTecnica = (leadId: number, data: {
 }) => axios.post(`${API}/api/crm/${leadId}/solicitar-visita`, data, getHeaders());
 
 /** Embudo de conversión etapa→etapa por asesor */
-export const apiGetEmbudoAsesores = (mes?: number, anio?: number) => {
-  const params = (mes && anio) ? `?mes=${mes}&anio=${anio}` : '';
+export const apiGetEmbudoAsesores = (fecha_desde?: string, fecha_hasta?: string) => {
+  const params = (fecha_desde && fecha_hasta) ? `?fecha_desde=${fecha_desde}&fecha_hasta=${fecha_hasta}` : '';
   return axios.get(`${API}/api/crm/embudo${params}`, getHeaders());
 };
 

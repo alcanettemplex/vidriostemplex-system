@@ -23,25 +23,25 @@ const FUENTE_COLOR: Record<string, string> = {
 };
 
 interface SinRespuestaTabProps {
-  mes: number;
-  anio: number;
+  fecha_desde?: string | null;
+  fecha_hasta?: string | null;
   busqueda?: string;
 }
 
-const SinRespuestaTab: React.FC<SinRespuestaTabProps> = ({ mes, anio, busqueda = '' }) => {
+const SinRespuestaTab: React.FC<SinRespuestaTabProps> = ({ fecha_desde, fecha_hasta, busqueda = '' }) => {
   const dispatch = useDispatch();
   const { leadsSinRespuesta, loadingSinRespuesta } = useSelector((state: any) => state.crm);
 
   const cargar = useCallback(async () => {
     dispatch(fetchLeadsSinRespuestaStart());
     try {
-      const { data } = await apiGetLeads(mes, anio, 'sin_respuesta');
+      const { data } = await apiGetLeads(fecha_desde || undefined, fecha_hasta || undefined, 'sin_respuesta');
       dispatch(fetchLeadsSinRespuestaSuccess(data));
     } catch {
       toast.error('No se pudieron cargar los leads sin respuesta.');
       dispatch(fetchLeadsSinRespuestaSuccess([]));
     }
-  }, [dispatch, mes, anio]);
+  }, [dispatch, fecha_desde, fecha_hasta]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -92,7 +92,7 @@ const SinRespuestaTab: React.FC<SinRespuestaTabProps> = ({ mes, anio, busqueda =
             <PhoneMissed className="w-5 h-5 text-amber-600" />
           </div>
           <div>
-            <p className="font-black text-slate-800 text-sm">Leads sin respuesta — {mes}/{anio}</p>
+            <p className="font-black text-slate-800 text-sm">Leads sin respuesta — {fecha_desde || '—'} → {fecha_hasta || '—'}</p>
             <p className="text-xs text-slate-500 mt-0.5">
               {leadsFiltrados.length} lead{leadsFiltrados.length !== 1 ? 's' : ''} registrados que no mantuvieron comunicación.
               {busqueda && leadsFiltrados.length !== leadsSinRespuesta.length && (

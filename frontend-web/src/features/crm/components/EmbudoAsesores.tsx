@@ -34,8 +34,8 @@ interface EmbудoData {
 }
 
 interface Props {
-  mes?: number;
-  anio?: number;
+  fecha_desde?: string | null;
+  fecha_hasta?: string | null;
 }
 
 // ─── Config visual ────────────────────────────────────────────────────────────
@@ -229,21 +229,21 @@ const CardAsesor: React.FC<{ asesor: AsesorEmbudo; promedioEquipo: number }> = (
 };
 
 // ─── Componente principal ─────────────────────────────────────────────────────
-const EmbudoAsesores: React.FC<Props> = ({ mes, anio }) => {
+const EmbudoAsesores: React.FC<Props> = ({ fecha_desde, fecha_hasta }) => {
   const [datos, setDatos]   = useState<EmbудoData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await apiGetEmbudoAsesores(mes, anio);
+      const { data } = await apiGetEmbudoAsesores(fecha_desde || undefined, fecha_hasta || undefined);
       setDatos(data);
     } catch {
       toast.error('No se pudo cargar el embudo de conversión');
     } finally {
       setLoading(false);
     }
-  }, [mes, anio]);
+  }, [fecha_desde, fecha_hasta]);
 
   useEffect(() => { cargar(); }, [cargar]);
 

@@ -222,22 +222,22 @@ const AsesorCard: React.FC<{
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
-interface Props { esVistaGlobal: boolean; mes?: number; anio?: number; }
+interface Props { esVistaGlobal: boolean; fecha_desde?: string | null; fecha_hasta?: string | null; }
 
-const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, mes, anio }) => {
+const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta }) => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
-    try { const { data } = await apiGetCRMStats(mes, anio); setStats(data); }
+    try { const { data } = await apiGetCRMStats(fecha_desde || undefined, fecha_hasta || undefined); setStats(data); }
     catch { toast.error('No se pudieron cargar las estadísticas.'); }
     finally { setLoading(false); }
-  }, [mes, anio]);
+  }, [fecha_desde, fecha_hasta]);
 
   useEffect(() => { fetchStats(); }, [fetchStats, esVistaGlobal]);
 
-  const periodoLabel = mes && anio ? `${MONTH_NAMES[mes - 1]} ${anio}` : 'Acumulado';
+  const periodoLabel = (fecha_desde && fecha_hasta) ? `${fecha_desde} → ${fecha_hasta}` : 'Acumulado';
 
   if (loading) return (
     <div className="space-y-5">
