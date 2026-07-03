@@ -158,13 +158,19 @@ const TablaEditable: React.FC<{
   };
 
   const addRow = () => {
-    onChange([...items, emptyItem(items.length)]);
+    // Asignar la primera letra libre (no la posición en el array): evita colisionar
+    // con la letra de un ítem existente cuando hay huecos por filas eliminadas.
+    const usadas = new Set(items.map(it => it.item));
+    let i = 0;
+    while (usadas.has(LETRAS[i] || String(i + 1))) i++;
+    onChange([...items, { ...emptyItem(0), item: LETRAS[i] || String(i + 1) }]);
   };
 
   const removeRow = (idx: number) => {
-    const updated = items.filter((_, i) => i !== idx)
-      .map((it, i) => ({ ...it, item: LETRAS[i] || String(i + 1) }));
-    onChange(updated);
+    // Solo quitar la fila: nunca reasignar la letra de los ítems restantes,
+    // ya que eso puede colisionar con la letra de un ítem ya persistido en BD
+    // que no fue tocado (rompe la identidad del ítem y su referencia en ODCs/impresos).
+    onChange(items.filter((_, i) => i !== idx));
   };
 
   return (

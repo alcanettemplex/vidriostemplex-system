@@ -95,19 +95,34 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
         return ia - ib;
     });
 
-    // Mapa índice → item, unificando duplicados (cobertura parcial: original + faltante)
+    // Mapa índice → item, unificando duplicados LEGÍTIMOS (cobertura parcial: original + faltante,
+    // marcados con es_faltante por dividirPorExistencia). Si dos ítems distintos colisionan en la
+    // misma letra por un dato corrupto (nunca deberían compartir letra sin ser par original/faltante),
+    // no se fusionan silenciosamente perdiendo datos: el segundo se reubica en el próximo índice libre
+    // para que ambos sigan siendo visibles en el imprimible.
+    const indicesOriginales = new Set(itemsSorted.map(it => normalizarItem(it.item).indice));
     const itemPorIndice: Record<number, any> = {};
+    let cursorLibre = 0;
+    const siguienteIndiceLibre = (): number => {
+        while (indicesOriginales.has(cursorLibre) || Object.prototype.hasOwnProperty.call(itemPorIndice, cursorLibre)) {
+            cursorLibre++;
+        }
+        return cursorLibre;
+    };
     for (const it of itemsSorted) {
         const { indice } = normalizarItem(it.item);
         const existente = itemPorIndice[indice];
         if (!existente) {
             itemPorIndice[indice] = { ...it };
-        } else {
-            // Duplicado (misma letra): unificar en una sola fila
+        } else if (it.es_faltante || existente.es_faltante) {
+            // Cobertura parcial legítima: unificar en una sola fila
             if (it.exist_perf) existente.exist_perf = it.exist_perf;
             if (it.es_faltante) { existente.es_faltante = true; existente.id = it.id; }
             if (it.cantidad > 0) existente.cantidad = it.cantidad;
             if (it.estado_compra === 'en_odc') existente.estado_compra = it.estado_compra;
+        } else {
+            // Colisión de letra entre ítems distintos (dato corrupto): no ocultar
+            itemPorIndice[siguienteIndiceLibre()] = { ...it };
         }
     }
 
