@@ -7,9 +7,9 @@ class LeadEvento extends Model { }
 
 LeadEvento.init({
   id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
-  tipo: { 
-    type: DataTypes.ENUM('CREACION', 'ASIGNACION', 'COMUNICACION', 'SEGUIMIENTO', 'PASE_A_FRIO', 'CAMBIO_ESTADO'),
-    allowNull: false 
+  tipo: {
+    type: DataTypes.ENUM('CREACION', 'ASIGNACION', 'COMUNICACION', 'SEGUIMIENTO', 'PASE_A_FRIO', 'CAMBIO_ESTADO', 'CONVERSION'),
+    allowNull: false
   },
   detalle_texto: { type: DataTypes.TEXT, allowNull: false },
   lead_id: { 
