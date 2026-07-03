@@ -352,6 +352,7 @@ const MonitorAsesores: React.FC<Props> = ({ rol, userId }) => {
             rol={rol}
             userId={userId}
             onClose={() => { setLeadDetalle(null); cargar(); }}
+            onLeadUpdate={setLeadDetalle}
             inlineMode={false}
           />
         </div>

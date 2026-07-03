@@ -27,9 +27,12 @@ const FUENTES = ['WhatsApp', 'Web', 'Facebook', 'Instagram', 'Llamada', 'Presenc
 interface Props {
   lead: any;
   onClose: () => void;
+  /** Notifica al padre el lead actualizado (además del dispatch a Redux), para
+   *  padres que no leen el lead desde una lista reactiva del store. */
+  onSuccess?: (lead: any) => void;
 }
 
-const ConvertirClienteModal: React.FC<Props> = ({ lead, onClose }) => {
+const ConvertirClienteModal: React.FC<Props> = ({ lead, onClose, onSuccess }) => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -66,7 +69,9 @@ const ConvertirClienteModal: React.FC<Props> = ({ lead, onClose }) => {
         form,
         getHeaders()
       );
-      dispatch(updateLead({ ...lead, cliente_id: data.cliente.id, fecha_cierre: data.lead.fecha_cierre }));
+      const leadActualizado = { ...lead, cliente_id: data.cliente.id, fecha_cierre: data.lead.fecha_cierre };
+      dispatch(updateLead(leadActualizado));
+      onSuccess?.(leadActualizado);
       toast.success(
         data.esNuevo
           ? `Cliente "${data.cliente.nombre_razon_social}" creado exitosamente.`

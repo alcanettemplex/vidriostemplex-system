@@ -85,6 +85,10 @@ interface Props {
   userId?: number;
   onClose: () => void;
   inlineMode?: boolean;
+  /** Notifica al padre el lead actualizado, además del dispatch a Redux — para
+   *  padres que no leen el lead desde una lista reactiva del store (ej. MonitorAsesores,
+   *  que obtiene el detalle vía fetch puntual por id). */
+  onLeadUpdate?: (lead: any) => void;
 }
 
 // ─── Catálogos estandarizados ────────────────────────────────────────────────
@@ -99,9 +103,16 @@ const PRODUCTOS = [
 const SEGMENTOS = ['Arquitecto', 'Cliente final', 'Industrial', 'Institucional', 'Intervid'];
 
 // ─── Componente principal ─────────────────────────────────────────────────────
-const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineMode = false }) => {
+const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineMode = false, onLeadUpdate }) => {
   const dispatch = useDispatch();
   const currentUser = useSelector((state: any) => state.auth.user);
+
+  // Actualiza Redux (para vistas con lista reactiva, ej. KanbanBoard) y notifica
+  // al padre si provee un callback (para vistas con fetch puntual, ej. MonitorAsesores).
+  const actualizarLead = (leadActualizado: any) => {
+    dispatch(updateLead(leadActualizado));
+    onLeadUpdate?.(leadActualizado);
+  };
 
   // Estado del timeline
   const [timeline, setTimeline]           = useState<any[]>([]);
@@ -226,7 +237,7 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
       };
 
       const { data } = await apiUpdateLeadDetails(lead.id, payload);
-      dispatch(updateLead(data));
+      actualizarLead(data);
       toast.success('Información actualizada');
       setEditandoInfo(false);
       await recargarTimeline();
@@ -242,7 +253,7 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
     setAsignando(true);
     try {
       const { data } = await apiAssignLeadToUser(lead.id, parseInt(asesorId));
-      dispatch(updateLead(data));
+      actualizarLead(data);
       toast.success('Asesor asignado correctamente');
       await recargarTimeline();
     } catch {
@@ -256,7 +267,7 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
     setRegistrando(true);
     try {
       const { data } = await apiRegisterLeadSeguimiento(lead.id, notaSeguimiento);
-      dispatch(updateLead(data));
+      actualizarLead(data);
       const intentos = data.intentos_seguimiento;
       if (intentos >= 3) {
         toast.info('Lead movido a estado FRÍO por 3 intentos sin respuesta.');
@@ -276,7 +287,7 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
     setMoviendoEstado(true);
     try {
       const { data } = await apiUpdateLeadStatus(lead.id, nuevoEstado, motivo);
-      dispatch(updateLead(data));
+      actualizarLead(data);
       setMotivoPerdidaInline(false);
       setMotivoInput('');
       const etiqueta = ESTADO_INFO[nuevoEstado]?.label || nuevoEstado;
@@ -311,7 +322,7 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
     setVinculando(true);
     try {
       const { data } = await apiVincularODP(lead.id, odp_id);
-      dispatch(updateLead(data));
+      actualizarLead(data);
       setBusquedaODP('');
       setResultados([]);
       toast.success(odp_id ? `Lead vinculado a ODP correctamente` : 'Vínculo con ODP eliminado');
@@ -888,7 +899,13 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
         </div>
       </div>
 
-      {showConvertir && <ConvertirClienteModal lead={lead} onClose={() => setShowConvertir(false)} />}
+      {showConvertir && (
+        <ConvertirClienteModal
+          lead={lead}
+          onClose={() => setShowConvertir(false)}
+          onSuccess={actualizarLead}
+        />
+      )}
 
       {showSolicitarVisita && (
         <SolicitarVisitaModal
@@ -906,7 +923,7 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
           lead={lead}
           onClose={() => setShowCrearODP(false)}
           onSuccess={(leadActualizado, numeroOdp) => {
-            dispatch(updateLead(leadActualizado));
+            actualizarLead(leadActualizado);
             setShowCrearODP(false);
           }}
         />

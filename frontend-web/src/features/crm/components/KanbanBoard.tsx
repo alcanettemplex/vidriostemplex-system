@@ -274,8 +274,15 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
     Object.fromEntries(PIPELINE_STAGES.map(s => [s.id, 1]))
   );
 
-  // Lead seleccionado para panel lateral
-  const [leadSeleccionado, setLeadSeleccionado] = useState<any>(null);
+  // Lead seleccionado para panel lateral — se guarda solo el id y se deriva el
+  // objeto desde `leads` en cada render, para que el panel siempre refleje las
+  // actualizaciones del store (ej. al vincular una ODP) sin quedar con una copia
+  // congelada del momento del clic.
+  const [leadSeleccionadoId, setLeadSeleccionadoId] = useState<number | null>(null);
+  const leadSeleccionado = leadSeleccionadoId != null
+    ? leads.find((l: any) => l.id === leadSeleccionadoId) ?? null
+    : null;
+  const setLeadSeleccionado = (lead: any) => setLeadSeleccionadoId(lead ? lead.id : null);
   const LeadDetalleModal = React.lazy(() => import('./LeadDetalleModal'));
 
   // Dropdown de etapas por tarjeta
