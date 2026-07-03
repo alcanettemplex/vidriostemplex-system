@@ -315,14 +315,22 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                                             <td className="text-left text-[11px] px-1">
                                                 <span>{item?.descripcion || ''}</span>
                                                 {esFaltante && (
-                                                    <span className="text-white text-[8px] font-black bg-amber-500 rounded px-1 ml-1 align-middle">FALTA</span>
+                                                    <span
+                                                        className="text-white text-[8px] font-black bg-amber-500 rounded px-1 ml-1 align-middle"
+                                                        // Estilos inline: la ventana de impresión depende del CDN de Tailwind (carga async, 800ms);
+                                                        // si no llega a tiempo (red/proxy en algunas PCs) las clases no se aplican y el badge desaparece.
+                                                        style={{ backgroundColor: '#f59e0b', color: '#fff', borderRadius: '3px', padding: '0 4px', marginLeft: '4px', fontWeight: 900, fontSize: '8px', verticalAlign: 'middle', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
+                                                    >FALTA</span>
                                                 )}
                                                 {enODC ? (
-                                                    <span className="inline-flex items-center justify-center w-[13px] h-[13px] rounded-full bg-blue-600 ml-1 align-middle">
-                                                        <span className="text-white text-[9px] font-black leading-none">E</span>
+                                                    <span
+                                                        className="inline-flex items-center justify-center w-[13px] h-[13px] rounded-full bg-blue-600 ml-1 align-middle"
+                                                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '13px', height: '13px', borderRadius: '9999px', backgroundColor: '#2563eb', marginLeft: '4px', verticalAlign: 'middle', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
+                                                    >
+                                                        <span className="text-white text-[9px] font-black leading-none" style={{ color: '#fff', fontSize: '9px', fontWeight: 900, lineHeight: 1 }}>E</span>
                                                     </span>
                                                 ) : (item?.exist_perf || item?.estado_compra === 'en_existencia') ? (
-                                                    <span className="font-black text-red-600 text-[12px] ml-1 align-middle">S</span>
+                                                    <span className="font-black text-red-600 text-[12px] ml-1 align-middle" style={{ color: '#dc2626', fontWeight: 900, fontSize: '12px', marginLeft: '4px', verticalAlign: 'middle' }}>S</span>
                                                 ) : null}
                                             </td>
                                             <td className="text-[11px]">{item?.dimension || ''}</td>
