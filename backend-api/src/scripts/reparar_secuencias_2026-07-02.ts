@@ -23,9 +23,8 @@
  *   cd backend-api && npx ts-node src/scripts/reparar_secuencias_2026-07-02.ts
  * ---------------------------------------------------------------------------
  */
-import { Client } from 'pg';
-import * as dotenv from 'dotenv';
-dotenv.config();
+import sequelize from '../config/database';
+import { QueryTypes } from 'sequelize';
 
 interface FilaSerial {
   table_name: string;
@@ -33,23 +32,28 @@ interface FilaSerial {
   column_default: string;
 }
 
+interface SeqValueRow {
+  last_value: string;
+  is_called: boolean;
+}
+
+interface MaxIdRow {
+  maxid: string;
+}
+
 async function run() {
-  const client = new Client({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }, // limitación del pooler de Supabase
-  });
-
-  await client.connect();
-  console.log('Conectado a la BD. Iniciando reparación de secuencias...\n');
-
   try {
-    const { rows } = await client.query<FilaSerial>(`
-      SELECT table_name, column_name, column_default
-      FROM information_schema.columns
-      WHERE table_schema = 'public'
-        AND column_default LIKE 'nextval%'
-      ORDER BY table_name;
-    `);
+    await sequelize.authenticate();
+    console.log('Conectado a la BD. Iniciando reparación de secuencias...\n');
+
+    const rows = await sequelize.query<FilaSerial>(
+      `SELECT table_name, column_name, column_default
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND column_default LIKE 'nextval%'
+       ORDER BY table_name;`,
+      { type: QueryTypes.SELECT },
+    );
 
     console.log(`Columnas serial detectadas: ${rows.length}\n`);
 
@@ -75,29 +79,41 @@ async function run() {
 
       try {
         // Estado previo
-        const prev = await client.query(`SELECT last_value, is_called FROM ${seqQuoted};`);
-        const prevLast = String(prev.rows[0].last_value);
-        const prevCalled = prev.rows[0].is_called;
+        const [prev] = await sequelize.query<SeqValueRow>(
+          `SELECT last_value, is_called FROM ${seqQuoted};`,
+          { type: QueryTypes.SELECT },
+        );
+        const prevLast = String(prev.last_value);
+        const prevCalled = prev.is_called;
 
         // MAX(id) real
-        const maxRes = await client.query(`SELECT COALESCE(MAX(${col}), 0) AS maxid FROM ${tbl};`);
-        const maxid = BigInt(maxRes.rows[0].maxid);
+        const [maxRow] = await sequelize.query<MaxIdRow>(
+          `SELECT COALESCE(MAX(${col}), 0) AS maxid FROM ${tbl};`,
+          { type: QueryTypes.SELECT },
+        );
+        const maxid = BigInt(maxRow.maxid);
 
         // Reajuste: si hay filas -> setval(MAX, true) (próximo = MAX+1);
         //           si vacía   -> setval(1, false)   (próximo = 1)
+        const seqLiteral = seqRaw.replace(/'/g, "''");
         if (maxid > 0n) {
-          await client.query(`SELECT setval('${seqRaw.replace(/'/g, "''")}', $1, true);`, [maxid.toString()]);
+          await sequelize.query(`SELECT setval('${seqLiteral}', :maxid, true);`, {
+            replacements: { maxid: maxid.toString() },
+          });
         } else {
-          await client.query(`SELECT setval('${seqRaw.replace(/'/g, "''")}', 1, false);`);
+          await sequelize.query(`SELECT setval('${seqLiteral}', 1, false);`);
         }
 
         // Restablecer pertenencia (preventivo para futuros dumps / DROP COLUMN)
-        await client.query(`ALTER SEQUENCE ${seqQuoted} OWNED BY ${tbl}.${col};`);
+        await sequelize.query(`ALTER SEQUENCE ${seqQuoted} OWNED BY ${tbl}.${col};`);
 
         // Estado posterior
-        const post = await client.query(`SELECT last_value, is_called FROM ${seqQuoted};`);
-        const postLast = String(post.rows[0].last_value);
-        const postCalled = post.rows[0].is_called;
+        const [post] = await sequelize.query<SeqValueRow>(
+          `SELECT last_value, is_called FROM ${seqQuoted};`,
+          { type: QueryTypes.SELECT },
+        );
+        const postLast = String(post.last_value);
+        const postCalled = post.is_called;
         const proximo = postCalled ? BigInt(postLast) + 1n : BigInt(postLast);
 
         const linea = `${r.table_name} (${seqRaw}) | antes last=${prevLast}/called=${prevCalled} -> ahora last=${postLast}/called=${postCalled} | MAX=${maxid} | próximo=${proximo}`;
@@ -132,7 +148,7 @@ async function run() {
     console.error('Error ejecutando la reparación:', error);
     process.exitCode = 1;
   } finally {
-    await client.end();
+    await sequelize.close();
     console.log('\nConexión cerrada.');
   }
 }
