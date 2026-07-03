@@ -1,7 +1,6 @@
-﻿import React, { useState } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Navbar from '../components/common/Navbar';
-import Sidebar from '../components/common/Sidebar';
+import AppShell from '../components/common/AppShell';
 import ProtectedRoute from '../components/common/ProtectedRoute';
 import RoleRoute from '../components/common/RoleRoute';
 import LoginPage from '../features/auth/LoginPage';
@@ -23,19 +22,22 @@ import RootPage from '../features/root/RootPage';
 import CRMPage from '../features/crm/CRMPage';
 import ManualesPage from '../features/manuales/ManualesPage';
 import InformeEjecutivoPage from '../features/informe-ejecutivo/InformeEjecutivoPage';
+import SupervisionCRMPage from '../features/supervision-crm/SupervisionCRMPage';
 
 const AppRoutes: React.FC = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
   return (
-  <Router>
-    <div className="min-h-screen bg-slate-50">
-      <Navbar onToggleSidebar={() => setSidebarOpen(prev => !prev)} />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="pt-16 md:pl-64 min-h-screen transition-all">
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route element={<ProtectedRoute />}>
+    <Router>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+
+        <Route element={<ProtectedRoute />}>
+          {/* Módulo de pantalla completa — sin Navbar/Sidebar del resto del sistema */}
+          <Route element={<RoleRoute allowedRoles={['admin']} />}>
+            <Route path="/supervision-crm" element={<SupervisionCRMPage />} />
+          </Route>
+
+          {/* Resto de la aplicación — shell estándar (Navbar + Sidebar) */}
+          <Route element={<AppShell />}>
             <Route path="/" element={<DashboardHome />} />
             <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing']} />}>
               <Route path="/configuracion" element={<ConfiguracionPage />} />
@@ -83,10 +85,9 @@ const AppRoutes: React.FC = () => {
             </Route>
             <Route path="/manuales" element={<ManualesPage />} />
           </Route>
-        </Routes>
-      </main>
-    </div>
-  </Router>
+        </Route>
+      </Routes>
+    </Router>
   );
 };
 

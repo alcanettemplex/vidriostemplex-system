@@ -5,6 +5,7 @@ import { Lead, LeadEvento, LeadImagen, Usuario, Cliente, Prospecto, TomaMedidas 
 import ODP from '../models/odp.model';
 import { v2 as cloudinary } from 'cloudinary';
 import '../config/upload'; // garantiza que cloudinary está configurado
+import { diasDesde, calcularAccionSugerida, FECHA_POR_ESTADO } from '../utils/crmSupervision';
 
 
 
@@ -457,8 +458,12 @@ export const getCRMStats = async (req: Request, res: Response) => {
     const user = req.user!;
     const { fecha_desde, fecha_hasta } = req.query;
     const esGlobal = ['admin', 'gerencia', 'root', 'asistente_administrativo', 'marketing', 'jefe_produccion'].includes(user.rol?.toLowerCase());
-    
-    const whereBase: any = esGlobal ? {} : { asesor_id: user.id };
+
+    // Excluye leads "Sin Respuesta": nunca hubo interacción real, contarlos infla el
+    // denominador y deprime artificialmente la tasa de conversión reportada.
+    const whereBase: any = esGlobal
+      ? { respondio: { [Op.ne]: 'No responde' } }
+      : { asesor_id: user.id, respondio: { [Op.ne]: 'No responde' } };
 
     // Extraer rango de fechas para reutilizar en queries de leads y ODP
     let periodStart: Date | null = null;
@@ -690,7 +695,9 @@ export const getCRMStats = async (req: Request, res: Response) => {
       prevEnd.setMonth(prevEnd.getMonth() + 1);
       prevEnd.setDate(0);
       prevEnd.setHours(23, 59, 59, 999);
-      const prevWhere: any = esGlobal ? {} : { asesor_id: user.id };
+      const prevWhere: any = esGlobal
+        ? { respondio: { [Op.ne]: 'No responde' } }
+        : { asesor_id: user.id, respondio: { [Op.ne]: 'No responde' } };
       prevWhere.createdAt = { [Op.between]: [prevStart, prevEnd] };
       const prevLeads = await Lead.findAll({
         where: prevWhere,
@@ -905,7 +912,9 @@ export const getReporteAsesor = async (req: Request, res: Response) => {
       ? parseInt(asesor_id as string)
       : esAdmin ? null : user.id;
 
-    const whereBase: any = asesorIdTarget ? { asesor_id: asesorIdTarget } : {};
+    const whereBase: any = asesorIdTarget
+      ? { asesor_id: asesorIdTarget, respondio: { [Op.ne]: 'No responde' } }
+      : { respondio: { [Op.ne]: 'No responde' } };
     if (fecha_desde && fecha_hasta) {
       const start = new Date(fecha_desde as string);
       const end = new Date(fecha_hasta as string);
@@ -1670,5 +1679,142 @@ export const getMonitorAsesores = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error en getMonitorAsesores:', error);
     res.status(500).json({ error: 'Error del servidor al obtener el monitor' });
+  }
+};
+
+// ─── Módulo Supervisión CRM (exclusivo rol admin) ────────────────────────────
+
+const construirFiltroFecha = (fecha_desde: any, fecha_hasta: any) => {
+  if (!fecha_desde || !fecha_hasta) return null;
+  const start = new Date(fecha_desde as string);
+  const end = new Date(fecha_hasta as string);
+  end.setHours(23, 59, 59, 999);
+  return { [Op.between]: [start, end] };
+};
+
+// GET /api/crm/supervision/resumen — conversión actual vs meta 20% + motivos de pérdida
+export const getSupervisionResumen = async (req: Request, res: Response) => {
+  try {
+    const { fecha_desde, fecha_hasta, asesor_id } = req.query;
+    const where: any = { respondio: { [Op.ne]: 'No responde' } };
+    const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
+    if (rangoFecha) where.createdAt = rangoFecha;
+    if (asesor_id) where.asesor_id = parseInt(asesor_id as string);
+
+    const leads = await Lead.findAll({ where, attributes: ['estado_crm', 'motivo_perdida'] });
+    const total = leads.length;
+    const aprobados = leads.filter((l: any) => l.getDataValue('estado_crm') === 'APROBADO').length;
+    const tasaConversion = total > 0 ? Math.round((aprobados / total) * 1000) / 10 : 0;
+
+    const motivosMap: Record<string, number> = {};
+    leads
+      .filter((l: any) => l.getDataValue('estado_crm') === 'PERDIDO')
+      .forEach((l: any) => {
+        const motivo = l.getDataValue('motivo_perdida') || 'Sin especificar';
+        motivosMap[motivo] = (motivosMap[motivo] || 0) + 1;
+      });
+    const motivos_perdida = Object.entries(motivosMap)
+      .map(([motivo, total]) => ({ motivo, total }))
+      .sort((a, b) => b.total - a.total);
+
+    res.json({
+      meta_conversion: 20,
+      tasa_conversion_actual: tasaConversion,
+      total_leads_reales: total,
+      total_aprobados: aprobados,
+      motivos_perdida,
+    });
+  } catch (error: any) {
+    console.error('Error en getSupervisionResumen:', error);
+    res.status(500).json({ error: 'Error del servidor al calcular el resumen de supervisión' });
+  }
+};
+
+// GET /api/crm/supervision/alto-valor — leads de alto valor sin ODP, cualquier etapa activa
+export const getSupervisionAltoValor = async (req: Request, res: Response) => {
+  try {
+    const { fecha_desde, fecha_hasta, asesor_id, monto_min } = req.query;
+    const umbral = monto_min ? parseFloat(monto_min as string) : 10000000;
+    const ETAPAS_ACTIVAS = ['ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA', 'APROBADO'];
+
+    const where: any = {
+      respondio: { [Op.ne]: 'No responde' },
+      estado_crm: { [Op.in]: ETAPAS_ACTIVAS },
+      odp_id: null,
+      monto_proyectado_cotizacion: { [Op.gte]: umbral },
+    };
+    const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
+    if (rangoFecha) where.createdAt = rangoFecha;
+    if (asesor_id) where.asesor_id = parseInt(asesor_id as string);
+
+    const leads = await Lead.findAll({
+      where,
+      include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
+      order: [['monto_proyectado_cotizacion', 'DESC']],
+    });
+
+    const resultado = leads.map((l: any) => {
+      const data = l.toJSON();
+      const campoFecha = FECHA_POR_ESTADO[data.estado_crm];
+      const dias = diasDesde((campoFecha && data[campoFecha]) || data.createdAt);
+      return {
+        id: data.id,
+        nombre: data.nombre,
+        telefono: data.telefono,
+        estado_crm: data.estado_crm,
+        monto_proyectado_cotizacion: parseFloat(data.monto_proyectado_cotizacion || '0'),
+        asesor_id: data.asesor_id,
+        asesor_nombre: data.asesor?.nombre_completo || 'Sin asignar',
+        dias_en_etapa: dias,
+        accion_sugerida: calcularAccionSugerida({ estado_crm: data.estado_crm, dias, odp_id: data.odp_id }),
+      };
+    });
+
+    res.json({ umbral, total: resultado.length, leads: resultado });
+  } catch (error: any) {
+    console.error('Error en getSupervisionAltoValor:', error);
+    res.status(500).json({ error: 'Error del servidor al obtener leads de alto valor' });
+  }
+};
+
+// GET /api/crm/supervision/seguimiento — cola priorizada de SEGUIMIENTO, todos los asesores
+export const getSupervisionSeguimiento = async (req: Request, res: Response) => {
+  try {
+    const { fecha_desde, fecha_hasta, asesor_id } = req.query;
+    const where: any = {
+      respondio: { [Op.ne]: 'No responde' },
+      estado_crm: 'SEGUIMIENTO',
+    };
+    const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
+    if (rangoFecha) where.createdAt = rangoFecha;
+    if (asesor_id) where.asesor_id = parseInt(asesor_id as string);
+
+    const leads = await Lead.findAll({
+      where,
+      include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
+    });
+
+    const resultado = leads
+      .map((l: any) => {
+        const data = l.toJSON();
+        const dias = diasDesde(data.fecha_seguimiento || data.createdAt);
+        return {
+          id: data.id,
+          nombre: data.nombre,
+          telefono: data.telefono,
+          monto_proyectado_cotizacion: parseFloat(data.monto_proyectado_cotizacion || '0'),
+          intentos_seguimiento: data.intentos_seguimiento,
+          asesor_id: data.asesor_id,
+          asesor_nombre: data.asesor?.nombre_completo || 'Sin asignar',
+          dias_en_etapa: dias,
+          accion_sugerida: calcularAccionSugerida({ estado_crm: 'SEGUIMIENTO', dias, odp_id: data.odp_id }),
+        };
+      })
+      .sort((a, b) => b.dias_en_etapa - a.dias_en_etapa || b.monto_proyectado_cotizacion - a.monto_proyectado_cotizacion);
+
+    res.json({ total: resultado.length, leads: resultado });
+  } catch (error: any) {
+    console.error('Error en getSupervisionSeguimiento:', error);
+    res.status(500).json({ error: 'Error del servidor al obtener la cola de seguimiento' });
   }
 };

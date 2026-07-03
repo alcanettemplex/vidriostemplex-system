@@ -22,6 +22,7 @@ import {
   X,
   BookOpen,
   BarChart2,
+  Crosshair,
 } from 'lucide-react';
 import { TemplexLogo } from '../ui/TemplexLogo';
 
@@ -128,6 +129,13 @@ const MENU_ITEMS_CONFIG = [
     icon: Settings,
     path: '/usuarios',
     allowedRoles: ['admin', 'gerencia'],
+    section: 'admin'
+  },
+  {
+    text: 'Supervisión CRM',
+    icon: Crosshair,
+    path: '/supervision-crm',
+    allowedRoles: ['admin'],
     section: 'admin'
   },
   {
