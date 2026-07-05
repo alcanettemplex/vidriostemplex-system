@@ -28,3 +28,34 @@ export interface SupervisionResumen {
   total_aprobados: number;
   motivos_perdida: MotivoPerdida[];
 }
+
+export type OrigenLineamiento = 'PRIMER_CONTACTO' | 'ALTO_VALOR' | 'SEGUIMIENTO' | 'MANUAL';
+
+export interface LineamientoItem {
+  id: number;
+  lineamiento_id: number;
+  lead_id: number | null;
+  texto_accion: string;
+  prioridad: 'alta' | 'media' | 'baja';
+  origen: OrigenLineamiento;
+  cumplido: boolean;
+  fecha_cumplido: string | null;
+  lead?: { id: number; nombre: string; telefono: string } | null;
+}
+
+export interface Lineamiento {
+  id: number;
+  fecha: string;
+  asesor_id: number;
+  creado_por: number;
+  notas_sesion: string | null;
+  items: LineamientoItem[];
+  asesor?: { id: number; nombre_completo: string };
+}
+
+export interface AdherenciaLineamiento {
+  total_dias: number;
+  total_items: number;
+  cumplidos: number;
+  pct_adherencia: number;
+}

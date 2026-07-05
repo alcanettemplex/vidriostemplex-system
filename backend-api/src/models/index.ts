@@ -36,6 +36,8 @@ import LeadEvento from './lead_evento.model';
 import LeadImagen from './lead_imagen.model';
 import MetaUsuarioMensual from './meta_usuario_mensual.model';
 import FacturaAdicionalODP from './factura_adicional_odp.model';
+import SupervisionLineamiento from './supervision_lineamiento.model';
+import SupervisionLineamientoItem from './supervision_lineamiento_item.model';
 
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
@@ -262,6 +264,19 @@ SalidaAlmacen.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
 InventarioPerfileria.belongsTo(CatalogoProducto, { foreignKey: 'codigo', targetKey: 'codigo', as: 'catalogo' });
 CatalogoProducto.hasMany(InventarioPerfileria, { foreignKey: 'codigo', sourceKey: 'codigo', as: 'piezas' });
 
+// ─── Bloque J: Supervisión CRM — Lineamientos diarios y sesiones de coaching ─
+Usuario.hasMany(SupervisionLineamiento, { foreignKey: 'asesor_id', as: 'lineamientos_recibidos' });
+SupervisionLineamiento.belongsTo(Usuario, { foreignKey: 'asesor_id', as: 'asesor' });
+
+Usuario.hasMany(SupervisionLineamiento, { foreignKey: 'creado_por', as: 'lineamientos_generados' });
+SupervisionLineamiento.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });
+
+SupervisionLineamiento.hasMany(SupervisionLineamientoItem, { foreignKey: 'lineamiento_id', as: 'items' });
+SupervisionLineamientoItem.belongsTo(SupervisionLineamiento, { foreignKey: 'lineamiento_id' });
+
+Lead.hasMany(SupervisionLineamientoItem, { foreignKey: 'lead_id', as: 'items_lineamiento' });
+SupervisionLineamientoItem.belongsTo(Lead, { foreignKey: 'lead_id', as: 'lead' });
+
 // ─── Hooks globales de auditoría ────────────────────────────────────────────
 // Captura INSERT/UPDATE/DELETE en todos los modelos registrados y graba en auditoria_log
 import { getContext } from '../utils/requestContext';
@@ -299,6 +314,8 @@ const MODELOS_AUDITADOS = [
   { model: LeadImagen, tabla: 'lead_imagenes', pk: 'id' },
   { model: MetaUsuarioMensual, tabla: 'metas_usuario_mensual', pk: 'id' },
   { model: FacturaAdicionalODP, tabla: 'facturas_adicionales_odp', pk: 'id' },
+  { model: SupervisionLineamiento, tabla: 'supervision_lineamientos', pk: 'id' },
+  { model: SupervisionLineamientoItem, tabla: 'supervision_lineamiento_items', pk: 'id' },
 ];
 
 function registrarAuditoria(
@@ -384,5 +401,7 @@ export {
   LeadImagen,
   MetaUsuarioMensual,
   FacturaAdicionalODP,
+  SupervisionLineamiento,
+  SupervisionLineamientoItem,
 };
 

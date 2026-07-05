@@ -1,11 +1,14 @@
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
 import sequelize from '../config/database';
-import { Lead, LeadEvento, LeadImagen, Usuario, Cliente, Prospecto, TomaMedidas } from '../models';
+import {
+  Lead, LeadEvento, LeadImagen, Usuario, Cliente, Prospecto, TomaMedidas,
+  SupervisionLineamiento, SupervisionLineamientoItem,
+} from '../models';
 import ODP from '../models/odp.model';
 import { v2 as cloudinary } from 'cloudinary';
 import '../config/upload'; // garantiza que cloudinary está configurado
-import { diasDesde, calcularAccionSugerida, FECHA_POR_ESTADO } from '../utils/crmSupervision';
+import { diasDesde, calcularAccionSugerida, FECHA_POR_ESTADO, hoyBogotaISO } from '../utils/crmSupervision';
 
 
 
@@ -1816,5 +1819,238 @@ export const getSupervisionSeguimiento = async (req: Request, res: Response) => 
   } catch (error: any) {
     console.error('Error en getSupervisionSeguimiento:', error);
     res.status(500).json({ error: 'Error del servidor al obtener la cola de seguimiento' });
+  }
+};
+
+// GET /api/crm/supervision/primer-contacto — leads ASIGNADO sin contactar, cualquier monto
+export const getSupervisionPrimerContacto = async (req: Request, res: Response) => {
+  try {
+    const { fecha_desde, fecha_hasta, asesor_id } = req.query;
+    const where: any = {
+      respondio: { [Op.ne]: 'No responde' },
+      estado_crm: 'ASIGNADO',
+    };
+    const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
+    if (rangoFecha) where.createdAt = rangoFecha;
+    if (asesor_id) where.asesor_id = parseInt(asesor_id as string);
+
+    const leads = await Lead.findAll({
+      where,
+      include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
+    });
+
+    const resultado = leads
+      .map((l: any) => {
+        const data = l.toJSON();
+        const dias = diasDesde(data.fecha_asignado || data.createdAt);
+        return {
+          id: data.id,
+          nombre: data.nombre,
+          telefono: data.telefono,
+          monto_proyectado_cotizacion: parseFloat(data.monto_proyectado_cotizacion || '0'),
+          asesor_id: data.asesor_id,
+          asesor_nombre: data.asesor?.nombre_completo || 'Sin asignar',
+          dias_en_etapa: dias,
+          accion_sugerida: calcularAccionSugerida({ estado_crm: 'ASIGNADO', dias, odp_id: data.odp_id }),
+        };
+      })
+      .sort((a, b) => b.dias_en_etapa - a.dias_en_etapa || b.monto_proyectado_cotizacion - a.monto_proyectado_cotizacion);
+
+    res.json({ total: resultado.length, leads: resultado });
+  } catch (error: any) {
+    console.error('Error en getSupervisionPrimerContacto:', error);
+    res.status(500).json({ error: 'Error del servidor al obtener la cola de primer contacto' });
+  }
+};
+
+// ─── Lineamiento del día + sesión de coaching (trazabilidad, exclusivo admin) ─
+
+const UMBRAL_ALTO_VALOR_DEFAULT = 10000000;
+const ESTADOS_ALTO_VALOR = ['EN_CONTACTO', 'COTIZANDO', 'VISITA_TECNICA', 'APROBADO'];
+
+async function construirItemsUrgentes(asesorId: number, montoMin: number) {
+  const leads = await Lead.findAll({
+    where: {
+      asesor_id: asesorId,
+      respondio: { [Op.ne]: 'No responde' },
+      estado_crm: { [Op.in]: ['ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA', 'APROBADO'] },
+    },
+  });
+
+  const items: { lead_id: number; texto_accion: string; prioridad: string; origen: string }[] = [];
+
+  for (const l of leads as any[]) {
+    const data = l.toJSON();
+    const monto = parseFloat(data.monto_proyectado_cotizacion || '0');
+    const campoFecha = FECHA_POR_ESTADO[data.estado_crm];
+    const dias = diasDesde((campoFecha && data[campoFecha]) || data.createdAt);
+    const accion = calcularAccionSugerida({ estado_crm: data.estado_crm, dias, odp_id: data.odp_id });
+
+    if (data.estado_crm === 'ASIGNADO') {
+      // Todo lead recién asignado entra al lineamiento: la velocidad de respuesta
+      // no depende del monto, es puramente de disciplina de ejecución.
+      items.push({ lead_id: data.id, texto_accion: accion.texto, prioridad: accion.prioridad, origen: 'PRIMER_CONTACTO' });
+    } else if (data.estado_crm === 'SEGUIMIENTO') {
+      if (accion.prioridad !== 'baja') {
+        items.push({ lead_id: data.id, texto_accion: accion.texto, prioridad: accion.prioridad, origen: 'SEGUIMIENTO' });
+      }
+    } else if (ESTADOS_ALTO_VALOR.includes(data.estado_crm)) {
+      const calificaValor = data.estado_crm === 'APROBADO' ? !data.odp_id : true;
+      if (calificaValor && monto >= montoMin && accion.prioridad !== 'baja') {
+        items.push({ lead_id: data.id, texto_accion: accion.texto, prioridad: accion.prioridad, origen: 'ALTO_VALOR' });
+      }
+    }
+  }
+
+  return items;
+}
+
+// POST /api/crm/supervision/lineamiento — genera (o completa) el lineamiento de hoy de un asesor
+export const generarLineamiento = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const user = req.user!;
+    const { asesor_id, monto_min } = req.body;
+    if (!asesor_id) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Debes indicar el asesor para generar su lineamiento del día.' });
+    }
+    const umbral = monto_min ? parseFloat(monto_min) : UMBRAL_ALTO_VALOR_DEFAULT;
+    const fecha = hoyBogotaISO();
+
+    const [lineamiento] = await SupervisionLineamiento.findOrCreate({
+      where: { fecha, asesor_id },
+      defaults: { creado_por: user.id },
+      transaction: t,
+    });
+
+    const candidatos = await construirItemsUrgentes(asesor_id, umbral);
+
+    const existentes = await SupervisionLineamientoItem.findAll({
+      where: { lineamiento_id: lineamiento.getDataValue('id') },
+      attributes: ['lead_id'],
+      transaction: t,
+    });
+    const leadIdsExistentes = new Set(existentes.map((e: any) => e.getDataValue('lead_id')));
+
+    const nuevos = candidatos.filter((c) => !leadIdsExistentes.has(c.lead_id));
+    if (nuevos.length > 0) {
+      await SupervisionLineamientoItem.bulkCreate(
+        nuevos.map((n) => ({ ...n, lineamiento_id: lineamiento.getDataValue('id') })),
+        { transaction: t },
+      );
+    }
+
+    await t.commit();
+
+    const resultado = await SupervisionLineamiento.findByPk(lineamiento.getDataValue('id'), {
+      include: [
+        { model: SupervisionLineamientoItem, as: 'items', include: [{ model: Lead, as: 'lead', attributes: ['id', 'nombre', 'telefono'] }] },
+        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+      ],
+    });
+
+    res.json(resultado);
+  } catch (error: any) {
+    await t.rollback();
+    console.error('Error en generarLineamiento:', error);
+    res.status(500).json({ error: 'No se pudo generar el lineamiento del día. Intenta de nuevo.' });
+  }
+};
+
+// GET /api/crm/supervision/lineamiento?fecha=&asesor_id= — obtiene el lineamiento de un día/asesor
+export const getLineamiento = async (req: Request, res: Response) => {
+  try {
+    const { fecha, asesor_id } = req.query;
+    if (!asesor_id) return res.status(400).json({ error: 'Debes indicar el asesor.' });
+    const fechaConsulta = (fecha as string) || hoyBogotaISO();
+
+    const lineamiento: any = await SupervisionLineamiento.findOne({
+      where: { fecha: fechaConsulta, asesor_id: parseInt(asesor_id as string) },
+      include: [
+        { model: SupervisionLineamientoItem, as: 'items', include: [{ model: Lead, as: 'lead', attributes: ['id', 'nombre', 'telefono'] }] },
+        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+      ],
+    });
+
+    if (!lineamiento) return res.json(null);
+
+    const data = lineamiento.toJSON();
+    const rank: Record<string, number> = { alta: 0, media: 1, baja: 2 };
+    data.items.sort((a: any, b: any) => (rank[a.prioridad] ?? 3) - (rank[b.prioridad] ?? 3));
+
+    res.json(data);
+  } catch (error: any) {
+    console.error('Error en getLineamiento:', error);
+    res.status(500).json({ error: 'No se pudo cargar el lineamiento.' });
+  }
+};
+
+// PATCH /api/crm/supervision/lineamiento/item/:id — marca un ítem cumplido/no cumplido
+export const marcarItemLineamiento = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { cumplido } = req.body;
+    const item = await SupervisionLineamientoItem.findByPk(id);
+    if (!item) return res.status(404).json({ error: 'Ítem de lineamiento no encontrado.' });
+
+    item.set('cumplido', !!cumplido);
+    item.set('fecha_cumplido', cumplido ? new Date() : null);
+    await item.save();
+
+    res.json(item);
+  } catch (error: any) {
+    console.error('Error en marcarItemLineamiento:', error);
+    res.status(500).json({ error: 'No se pudo actualizar el ítem del lineamiento.' });
+  }
+};
+
+// PATCH /api/crm/supervision/lineamiento/:id/notas — guarda las notas de la sesión de coaching
+export const actualizarNotasLineamiento = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { notas_sesion } = req.body;
+    const lineamiento = await SupervisionLineamiento.findByPk(id);
+    if (!lineamiento) return res.status(404).json({ error: 'Lineamiento no encontrado.' });
+
+    lineamiento.set('notas_sesion', notas_sesion ?? null);
+    await lineamiento.save();
+
+    res.json(lineamiento);
+  } catch (error: any) {
+    console.error('Error en actualizarNotasLineamiento:', error);
+    res.status(500).json({ error: 'No se pudieron guardar las notas de la sesión.' });
+  }
+};
+
+// GET /api/crm/supervision/lineamiento/adherencia — % cumplimiento agregado (leading indicator)
+export const getAdherenciaLineamiento = async (req: Request, res: Response) => {
+  try {
+    const { fecha_desde, fecha_hasta, asesor_id } = req.query;
+    const whereLineamiento: any = {};
+    if (fecha_desde && fecha_hasta) {
+      whereLineamiento.fecha = { [Op.between]: [fecha_desde, fecha_hasta] };
+    }
+    if (asesor_id) whereLineamiento.asesor_id = parseInt(asesor_id as string);
+
+    const lineamientos = await SupervisionLineamiento.findAll({
+      where: whereLineamiento,
+      include: [{ model: SupervisionLineamientoItem, as: 'items', attributes: ['id', 'cumplido'] }],
+    });
+
+    let totalItems = 0;
+    let cumplidos = 0;
+    for (const l of lineamientos as any[]) {
+      const items = l.getDataValue('items') || [];
+      totalItems += items.length;
+      cumplidos += items.filter((i: any) => i.getDataValue('cumplido')).length;
+    }
+
+    const pctAdherencia = totalItems > 0 ? Math.round((cumplidos / totalItems) * 100) : 0;
+
+    res.json({ total_dias: lineamientos.length, total_items: totalItems, cumplidos, pct_adherencia: pctAdherencia });
+  } catch (error: any) {
+    console.error('Error en getAdherenciaLineamiento:', error);
+    res.status(500).json({ error: 'No se pudo calcular la adherencia al lineamiento.' });
   }
 };

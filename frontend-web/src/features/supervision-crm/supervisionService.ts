@@ -36,3 +36,27 @@ export const apiGetSupervisionAltoValor = (filtros: FiltrosSupervision, montoMin
 /** Cola priorizada de leads en SEGUIMIENTO, todos los asesores */
 export const apiGetSupervisionSeguimiento = (filtros: FiltrosSupervision) =>
   axios.get(`${API}/api/supervision-crm/seguimiento?${buildParams(filtros)}`, getHeaders());
+
+/** Leads ASIGNADO sin contactar, cualquier monto (radar de velocidad de respuesta) */
+export const apiGetSupervisionPrimerContacto = (filtros: FiltrosSupervision) =>
+  axios.get(`${API}/api/supervision-crm/primer-contacto?${buildParams(filtros)}`, getHeaders());
+
+/** Genera (o completa) el lineamiento de hoy para un asesor */
+export const apiGenerarLineamiento = (asesor_id: number, monto_min?: number) =>
+  axios.post(`${API}/api/supervision-crm/lineamiento`, { asesor_id, monto_min }, getHeaders());
+
+/** Obtiene el lineamiento de un día/asesor (por defecto, el de hoy) */
+export const apiGetLineamiento = (asesor_id: number, fecha?: string) =>
+  axios.get(`${API}/api/supervision-crm/lineamiento?${buildParams({}, { asesor_id, fecha })}`, getHeaders());
+
+/** Marca un ítem del lineamiento como cumplido/no cumplido */
+export const apiMarcarItemLineamiento = (itemId: number, cumplido: boolean) =>
+  axios.patch(`${API}/api/supervision-crm/lineamiento/item/${itemId}`, { cumplido }, getHeaders());
+
+/** Guarda las notas de la sesión de coaching presencial */
+export const apiGuardarNotasLineamiento = (lineamientoId: number, notas_sesion: string) =>
+  axios.patch(`${API}/api/supervision-crm/lineamiento/${lineamientoId}/notas`, { notas_sesion }, getHeaders());
+
+/** % de cumplimiento agregado del lineamiento (leading indicator) */
+export const apiGetAdherenciaLineamiento = (filtros: FiltrosSupervision) =>
+  axios.get(`${API}/api/supervision-crm/lineamiento/adherencia?${buildParams(filtros)}`, getHeaders());

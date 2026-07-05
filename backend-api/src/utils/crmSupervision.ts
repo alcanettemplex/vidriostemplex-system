@@ -8,6 +8,14 @@ export function diasDesde(fecha: Date | string | null | undefined): number {
   return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
 }
 
+// Colombia no observa horario de verano: UTC-5 fijo todo el año. Se calcula
+// así (en vez de `new Date().toISOString()`) para que el "día" del lineamiento
+// no cambie de fecha entre las 7pm y la medianoche hora Bogotá.
+export function hoyBogotaISO(): string {
+  const bogota = new Date(Date.now() - 5 * 60 * 60 * 1000);
+  return bogota.toISOString().split('T')[0];
+}
+
 export const ETAPA_LABEL: Record<string, string> = {
   ASIGNADO: 'Asignado',
   EN_CONTACTO: 'En Contacto',

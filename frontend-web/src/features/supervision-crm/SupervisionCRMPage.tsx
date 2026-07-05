@@ -3,16 +3,20 @@ import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   Crosshair, ArrowLeft, RefreshCw, Gem, Clock3, TrendingDown, Target,
-  Calendar, User, DollarSign,
+  Calendar, User, DollarSign, PhoneCall, CheckCircle2,
 } from 'lucide-react';
 import KPICard from './components/KPICard';
 import LeadRadarPanel from './components/LeadRadarPanel';
 import MotivosPerdidaPanel from './components/MotivosPerdidaPanel';
-import { apiGetSupervisionResumen, apiGetSupervisionAltoValor, apiGetSupervisionSeguimiento } from './supervisionService';
+import LineamientoDelDia from './components/LineamientoDelDia';
+import {
+  apiGetSupervisionResumen, apiGetSupervisionAltoValor, apiGetSupervisionSeguimiento,
+  apiGetSupervisionPrimerContacto, apiGetAdherenciaLineamiento,
+} from './supervisionService';
 import { apiGetAsesores, apiRegisterLeadSeguimiento } from '../crm/crmService';
-import { SupervisionLeadItem, SupervisionResumen } from './types';
+import { SupervisionLeadItem, SupervisionResumen, AdherenciaLineamiento } from './types';
 
-type Tab = 'alto_valor' | 'seguimiento' | 'motivos';
+type Tab = 'primer_contacto' | 'seguimiento' | 'alto_valor' | 'lineamiento' | 'motivos';
 
 const primerDiaMesActual = (): string => {
   const hoy = new Date();
@@ -25,7 +29,7 @@ const fmtCOP = (v: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0, notation: 'compact' }).format(v);
 
 const SupervisionCRMPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<Tab>('alto_valor');
+  const [activeTab, setActiveTab] = useState<Tab>('primer_contacto');
   const [fechaDesde, setFechaDesde] = useState(primerDiaMesActual());
   const [fechaHasta, setFechaHasta] = useState(hoyISO());
   const [asesorId, setAsesorId] = useState<number | undefined>(undefined);
@@ -35,9 +39,13 @@ const SupervisionCRMPage: React.FC = () => {
   const [resumen, setResumen] = useState<SupervisionResumen | null>(null);
   const [altoValor, setAltoValor] = useState<SupervisionLeadItem[]>([]);
   const [seguimiento, setSeguimiento] = useState<SupervisionLeadItem[]>([]);
+  const [primerContacto, setPrimerContacto] = useState<SupervisionLeadItem[]>([]);
+  const [adherencia, setAdherencia] = useState<AdherenciaLineamiento | null>(null);
   const [loadingResumen, setLoadingResumen] = useState(false);
   const [loadingAltoValor, setLoadingAltoValor] = useState(false);
   const [loadingSeguimiento, setLoadingSeguimiento] = useState(false);
+  const [loadingPrimerContacto, setLoadingPrimerContacto] = useState(false);
+  const [loadingAdherencia, setLoadingAdherencia] = useState(false);
 
   const filtros = { fecha_desde: fechaDesde, fecha_hasta: fechaHasta, asesor_id: asesorId };
 
@@ -80,11 +88,39 @@ const SupervisionCRMPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fechaDesde, fechaHasta, asesorId]);
 
+  const cargarPrimerContacto = useCallback(async () => {
+    setLoadingPrimerContacto(true);
+    try {
+      const { data } = await apiGetSupervisionPrimerContacto(filtros);
+      setPrimerContacto(data.leads);
+    } catch {
+      toast.error('No se pudo cargar la cola de primer contacto.');
+    } finally {
+      setLoadingPrimerContacto(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fechaDesde, fechaHasta, asesorId]);
+
+  const cargarAdherencia = useCallback(async () => {
+    setLoadingAdherencia(true);
+    try {
+      const { data } = await apiGetAdherenciaLineamiento(filtros);
+      setAdherencia(data);
+    } catch {
+      setAdherencia(null);
+    } finally {
+      setLoadingAdherencia(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fechaDesde, fechaHasta, asesorId]);
+
   const cargarTodo = useCallback(() => {
     cargarResumen();
     cargarAltoValor();
     cargarSeguimiento();
-  }, [cargarResumen, cargarAltoValor, cargarSeguimiento]);
+    cargarPrimerContacto();
+    cargarAdherencia();
+  }, [cargarResumen, cargarAltoValor, cargarSeguimiento, cargarPrimerContacto, cargarAdherencia]);
 
   useEffect(() => { cargarTodo(); }, [cargarTodo]);
 
@@ -109,6 +145,7 @@ const SupervisionCRMPage: React.FC = () => {
 
   const totalAltoValorMonto = altoValor.reduce((s, l) => s + l.monto_proyectado_cotizacion, 0);
   const seguimientoCriticos = seguimiento.filter(l => l.dias_en_etapa >= 7).length;
+  const primerContactoUrgentes = primerContacto.filter(l => l.accion_sugerida.prioridad === 'alta').length;
   const motivoPrincipal = resumen?.motivos_perdida?.[0];
   const totalPerdidos = resumen?.motivos_perdida?.reduce((s, m) => s + m.total, 0) || 0;
   const pctMotivoPrincipal = motivoPrincipal && totalPerdidos > 0
@@ -135,8 +172,10 @@ const SupervisionCRMPage: React.FC = () => {
           {/* Navegación en píldora */}
           <nav className="hidden md:flex items-center gap-1 bg-white/5 rounded-2xl p-1">
             {([
-              { key: 'alto_valor', label: 'Alto Valor' },
+              { key: 'primer_contacto', label: 'Primer Contacto' },
               { key: 'seguimiento', label: 'Cola Seguimiento' },
+              { key: 'alto_valor', label: 'Alto Valor' },
+              { key: 'lineamiento', label: 'Lineamiento del Día' },
               { key: 'motivos', label: 'Motivos de Pérdida' },
             ] as { key: Tab; label: string }[]).map(t => (
               <button
@@ -171,8 +210,10 @@ const SupervisionCRMPage: React.FC = () => {
         {/* Nav en píldora — mobile */}
         <nav className="flex md:hidden items-center gap-1 bg-white/5 rounded-2xl p-1 mt-3 max-w-[1400px] mx-auto">
           {([
-            { key: 'alto_valor', label: 'Alto Valor' },
+            { key: 'primer_contacto', label: 'Contacto' },
             { key: 'seguimiento', label: 'Seguimiento' },
+            { key: 'alto_valor', label: 'Alto Valor' },
+            { key: 'lineamiento', label: 'Lineamiento' },
             { key: 'motivos', label: 'Pérdidas' },
           ] as { key: Tab; label: string }[]).map(t => (
             <button
@@ -190,13 +231,20 @@ const SupervisionCRMPage: React.FC = () => {
 
       <div className="max-w-[1400px] mx-auto p-6 space-y-6">
         {/* ── KPIs ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
           <KPICard
             label="Conversión actual"
             value={loadingResumen ? '—' : `${resumen?.tasa_conversion_actual ?? 0}%`}
             icon={Target}
             accent="indigo"
             progress={{ current: resumen?.tasa_conversion_actual ?? 0, target: resumen?.meta_conversion ?? 20, unit: '%' }}
+          />
+          <KPICard
+            label="Sin primer contacto"
+            value={loadingPrimerContacto ? '—' : String(primerContacto.length)}
+            sublabel={loadingPrimerContacto ? undefined : `${primerContactoUrgentes} urgente${primerContactoUrgentes !== 1 ? 's' : ''}`}
+            icon={PhoneCall}
+            accent="indigo"
           />
           <KPICard
             label="Alto valor sin ODP"
@@ -211,6 +259,13 @@ const SupervisionCRMPage: React.FC = () => {
             sublabel={loadingSeguimiento ? undefined : `${seguimientoCriticos} crítico${seguimientoCriticos !== 1 ? 's' : ''} (≥7d)`}
             icon={Clock3}
             accent="amber"
+          />
+          <KPICard
+            label="Cumplimiento lineamiento"
+            value={loadingAdherencia ? '—' : `${adherencia?.pct_adherencia ?? 0}%`}
+            sublabel={loadingAdherencia ? undefined : `${adherencia?.cumplidos ?? 0}/${adherencia?.total_items ?? 0} acciones`}
+            icon={CheckCircle2}
+            accent="emerald"
           />
           <KPICard
             label="Motivo principal de pérdida"
@@ -270,11 +325,11 @@ const SupervisionCRMPage: React.FC = () => {
         </div>
 
         {/* ── Contenido activo ── */}
-        {activeTab === 'alto_valor' && (
+        {activeTab === 'primer_contacto' && (
           <LeadRadarPanel
-            leads={altoValor}
-            loading={loadingAltoValor}
-            emptyLabel="No hay leads de alto valor sin ODP en este período/filtro."
+            leads={primerContacto}
+            loading={loadingPrimerContacto}
+            emptyLabel="No hay leads asignados sin contactar en este período/filtro."
           />
         )}
         {activeTab === 'seguimiento' && (
@@ -283,6 +338,19 @@ const SupervisionCRMPage: React.FC = () => {
             loading={loadingSeguimiento}
             emptyLabel="No hay leads estancados en Seguimiento en este período/filtro."
             onRegistrarIntento={handleRegistrarIntento}
+          />
+        )}
+        {activeTab === 'alto_valor' && (
+          <LeadRadarPanel
+            leads={altoValor}
+            loading={loadingAltoValor}
+            emptyLabel="No hay leads de alto valor sin ODP en este período/filtro."
+          />
+        )}
+        {activeTab === 'lineamiento' && (
+          <LineamientoDelDia
+            asesorId={asesorId}
+            asesorNombre={asesores.find(a => a.id === asesorId)?.nombre_completo}
           />
         )}
         {activeTab === 'motivos' && (
