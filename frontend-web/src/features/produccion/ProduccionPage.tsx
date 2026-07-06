@@ -41,6 +41,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ODPMatrixModal from './components/ODPMatrixModal';
 import PrintableSAP from '../odp/components/PrintableSAP';
 import ProgramacionWhatsAppModal from './components/ProgramacionWhatsAppModal';
+import socket from '../../store/socket';
 import API from '../../services/config';
 
 interface Nota {
@@ -468,6 +469,25 @@ const ProduccionPage: React.FC = () => {
             setPanelDetailLoading(false);
         }
     };
+
+    // Refresca el panel de detalle (odpFullDetail) si llega un patch de socket para
+    // la ODP abierta — p.ej. Compras marca/revierte un ítem como "en existencia" y
+    // el imprimible de la SAP debe reflejarlo sin recargar la página. Debounce corto
+    // por si se tocan varios ítems seguidos de la misma ODP.
+    useEffect(() => {
+        if (!panelOdp) return;
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        const handler = ({ accion, id }: { accion: string; id: number }) => {
+            if (accion === 'delete' || id !== panelOdp.id) return;
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => fetchPanelDetail(id), 500);
+        };
+        socket.on('odp_patch', handler);
+        return () => {
+            socket.off('odp_patch', handler);
+            if (debounceTimer) clearTimeout(debounceTimer);
+        };
+    }, [panelOdp?.id]);
 
     const handleSelectOdp = (odp: ODP) => {
         setPanelOdp(odp);

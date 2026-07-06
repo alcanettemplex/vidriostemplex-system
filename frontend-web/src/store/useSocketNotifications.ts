@@ -2,6 +2,7 @@ import { useEffect, Dispatch, SetStateAction } from 'react';
 import socket from '../store/socket';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
+import { clearODPCache } from '../features/odp/odpSlice';
 
 // Mapa de módulo → evento de Redux que dispara el refetch en cada página
 // Cada módulo escucha este evento y recarga sus datos
@@ -38,10 +39,20 @@ export const useSocketNotifications = () => {
       dispatch({ type: DATA_CHANGED_EVENT, payload: data.modulo });
     });
 
+    // Invalida la caché de una ODP puntual (state.odp.cache) cuando llega un patch.
+    // No se mergea el payload del evento: emitirODPPatch usa un include liviano
+    // (SAP sin items) para no pesar el broadcast global, así que mergearlo borraría
+    // datos ya cargados. Invalidar fuerza un refetch limpio vía fetchODPById cuando
+    // el componente que la tenga abierta (p.ej. ODPFichaModal) lo necesite.
+    socket.on('odp_patch', (data: { id: number }) => {
+      dispatch(clearODPCache(data.id));
+    });
+
     return () => {
       socket.off('connect', joinRooms);
       socket.off('notification');
       socket.off('data_changed');
+      socket.off('odp_patch');
     };
   }, [dispatch, user]);
 };

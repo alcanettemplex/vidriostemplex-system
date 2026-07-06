@@ -18,6 +18,7 @@ import PrintableSAP from '../../odp/components/PrintableSAP';
 import PrintableDetSAP from '../../odp/components/PrintableDetSAP';
 import { abrirDocumento as abrirDocumentoPrint } from '../utils/printDocument';
 import { Images } from 'lucide-react';
+import { useDataChangedSocket } from '../../../store/useSocketNotifications';
 
 import API from '../../../services/config';
 
@@ -47,6 +48,10 @@ const InstaladorView: React.FC = () => {
   }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Refresca la asignación si Compras marca/revierte existencia, elimina o edita una ODC —
+  // el imprimible de la SAP mostrado aquí debe reflejarlo sin recargar la pantalla.
+  useDataChangedSocket('compras', cargar);
 
   // ––– Cálculos de Métricas –––
   const metrics = useMemo(() => {

@@ -14,6 +14,7 @@ import PrintableOA from '../../odp/components/PrintableOA';
 import PrintableDetalleTecnico from '../../odp/components/PrintableDetalleTecnico';
 import PrintableSAP from '../../odp/components/PrintableSAP';
 import { abrirDocumento } from '../utils/printDocument';
+import { useDataChangedSocket } from '../../../store/useSocketNotifications';
 
 import API from '../../../services/config';
 
@@ -49,6 +50,10 @@ const ConductorView: React.FC = () => {
   }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Refresca la ruta si Compras marca/revierte existencia, elimina o edita una ODC —
+  // el imprimible de la SAP mostrado aquí debe reflejarlo sin recargar la pantalla.
+  useDataChangedSocket('compras', cargar);
 
   // ––– Cálculos de Métricas –––
   const metrics = useMemo(() => {

@@ -36,6 +36,13 @@ const hayItemsModificadosEnODC = async (odcId: number | string, transaction?: an
   return count > 0;
 };
 
+// Resuelve el odp_id dueño de un SAPItem (vía SAP) para poder emitir emitirODPPatch
+// tras cambios de existencia. Devuelve null si el SAP no existe (no debería pasar).
+const resolverOdpIdDesdeSapId = async (sapId: number, transaction?: any): Promise<number | null> => {
+  const sap = await SAP.findByPk(sapId, { attributes: ['odp_id'], transaction });
+  return sap ? sap.getDataValue('odp_id') : null;
+};
+
 // Inclusión completa para detalle expandido y actualización tras recepción
 const includeItemsTrazabilidad = [
   {
@@ -654,6 +661,13 @@ export const toggleExistencia = async (req: Request, res: Response) => {
     }
     const nuevoEstado = estadoActual === 'en_existencia' ? 'pendiente' : 'en_existencia';
     await item.update({ estado_compra: nuevoEstado });
+
+    const odpId = await resolverOdpIdDesdeSapId(item.getDataValue('sap_id'));
+    import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+    if (odpId) {
+      import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'update')).catch(() => {});
+    }
+
     res.json({ id, estado_compra: nuevoEstado });
   } catch (error: any) {
     res.status(500).json({ error: 'Error al actualizar item', detail: error.message });
@@ -719,8 +733,13 @@ export const dividirPorExistencia = async (req: Request, res: Response) => {
       });
     }
 
+    const odpId = await resolverOdpIdDesdeSapId(original.getDataValue('sap_id'), t);
+
     await t.commit();
     import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+    if (odpId) {
+      import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'update')).catch(() => {});
+    }
     res.status(201).json({ original_id: Number(id), faltante: faltanteItem });
   } catch (error: any) {
     await t.rollback();
@@ -1152,8 +1171,13 @@ export const asignarExistencia = async (req: Request, res: Response) => {
       });
     }
 
+    const odpId = await resolverOdpIdDesdeSapId(item.getDataValue('sap_id'), t);
+
     await t.commit();
     import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+    if (odpId) {
+      import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'update')).catch(() => {});
+    }
     res.json({ ok: true, id: Number(id), estado_compra: 'en_existencia' });
   } catch (error: any) {
     await t.rollback();
@@ -1234,8 +1258,13 @@ export const revertirExistencia = async (req: Request, res: Response) => {
       existencia_piezas: null,
     }, { transaction: t });
 
+    const odpId = await resolverOdpIdDesdeSapId(item.getDataValue('sap_id'), t);
+
     await t.commit();
     import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+    if (odpId) {
+      import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'update')).catch(() => {});
+    }
     res.json({ ok: true, id: Number(id), estado_compra: 'pendiente' });
   } catch (error: any) {
     await t.rollback();
@@ -1291,6 +1320,7 @@ export const eliminarODC = async (req: Request, res: Response) => {
     });
     if (!odc) { await t.rollback(); return res.status(404).json({ error: 'ODC no encontrada' }); }
 
+    const odpId = odc.getDataValue('odp_id');
     const odcItems = (odc as any).items as any[];
     const tieneRecibidos = odc.getDataValue('estado') === 'recibido' || odcItems.some((i: any) => i.recibido === true);
     if (tieneRecibidos) {
@@ -1337,6 +1367,9 @@ export const eliminarODC = async (req: Request, res: Response) => {
 
     await t.commit();
     import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+    if (odpId) {
+      import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'update')).catch(() => {});
+    }
     res.json({ ok: true, eliminado: true });
   } catch (error: any) {
     await t.rollback();
@@ -1380,6 +1413,7 @@ export const editarItemsODC = async (req: Request, res: Response) => {
     });
     if (!odc) { await t.rollback(); return res.status(404).json({ error: 'ODC no encontrada' }); }
 
+    const odpId = odc.getDataValue('odp_id');
     const tipo = odc.getDataValue('tipo');
     if (tipo === 'vidrio') {
       await t.rollback();
@@ -1514,6 +1548,9 @@ export const editarItemsODC = async (req: Request, res: Response) => {
 
     await t.commit();
     import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+    if (odpId) {
+      import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'update')).catch(() => {});
+    }
 
     const actualizada = await OrdenCompra.findByPk(id, {
       include: [
