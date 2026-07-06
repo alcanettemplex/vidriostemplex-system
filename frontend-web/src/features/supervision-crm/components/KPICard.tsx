@@ -5,17 +5,17 @@ interface KPICardProps {
   label: string;
   value: string;
   icon: LucideIcon;
-  accent: 'indigo' | 'violet' | 'rose' | 'amber' | 'emerald';
+  accent: 'blue' | 'purple' | 'red' | 'orange' | 'green';
   sublabel?: string;
   progress?: { current: number; target: number; unit?: string };
 }
 
 const ACCENTS: Record<KPICardProps['accent'], { badge: string; icon: string; bar: string }> = {
-  indigo:  { badge: 'bg-indigo-50',  icon: 'text-indigo-600',  bar: 'bg-indigo-600' },
-  violet:  { badge: 'bg-violet-50',  icon: 'text-violet-600',  bar: 'bg-violet-600' },
-  rose:    { badge: 'bg-rose-50',    icon: 'text-rose-600',    bar: 'bg-rose-500' },
-  amber:   { badge: 'bg-amber-50',   icon: 'text-amber-600',   bar: 'bg-amber-500' },
-  emerald: { badge: 'bg-emerald-50', icon: 'text-emerald-600', bar: 'bg-emerald-500' },
+  blue:   { badge: 'bg-apple-blue/10',   icon: 'text-apple-blue',   bar: 'bg-apple-blue' },
+  purple: { badge: 'bg-apple-purple/10', icon: 'text-apple-purple', bar: 'bg-apple-purple' },
+  red:    { badge: 'bg-apple-red/10',    icon: 'text-apple-red',    bar: 'bg-apple-red' },
+  orange: { badge: 'bg-apple-orange/10', icon: 'text-apple-orange', bar: 'bg-apple-orange' },
+  green:  { badge: 'bg-apple-green/10',  icon: 'text-apple-green',  bar: 'bg-apple-green' },
 };
 
 const KPICard: React.FC<KPICardProps> = ({ label, value, icon: Icon, accent, sublabel, progress }) => {
@@ -23,27 +23,27 @@ const KPICard: React.FC<KPICardProps> = ({ label, value, icon: Icon, accent, sub
   const pct = progress ? Math.min(100, Math.round((progress.current / progress.target) * 100)) : null;
 
   return (
-    <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.05)] p-5 flex flex-col gap-3 min-w-0">
+    <div className="bg-white rounded-[20px] shadow-apple p-5 flex flex-col gap-3 min-w-0">
       <div className="flex items-start justify-between">
-        <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">{label}</span>
-        <div className={`w-9 h-9 rounded-2xl ${colors.badge} flex items-center justify-center shrink-0`}>
+        <span className="text-[11px] font-semibold text-apple-text-tertiary uppercase tracking-widest">{label}</span>
+        <div className={`w-9 h-9 rounded-full ${colors.badge} flex items-center justify-center shrink-0`}>
           <Icon className={`w-4.5 h-4.5 ${colors.icon}`} size={18} />
         </div>
       </div>
 
-      <p className="text-3xl font-extrabold text-slate-800 tracking-tight truncate">{value}</p>
+      <p className="text-4xl font-bold text-apple-text tracking-tight truncate">{value}</p>
 
-      {sublabel && <p className="text-xs text-slate-400 font-medium truncate">{sublabel}</p>}
+      {sublabel && <p className="text-xs text-apple-text-secondary font-medium truncate">{sublabel}</p>}
 
       {progress && pct !== null && (
         <div className="mt-1">
-          <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+          <div className="w-full h-1.5 rounded-full bg-apple-gray overflow-hidden">
             <div
               className={`h-full rounded-full ${colors.bar} transition-all duration-700`}
               style={{ width: `${pct}%` }}
             />
           </div>
-          <p className="text-[11px] font-semibold text-slate-400 mt-1.5">
+          <p className="text-[11px] font-medium text-apple-text-tertiary mt-1.5">
             Meta: {progress.target}{progress.unit || ''} · {pct}% alcanzado
           </p>
         </div>
