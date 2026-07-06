@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
+import ExcelJS from 'exceljs';
 import sequelize from '../config/database';
 import {
   Lead, LeadEvento, LeadImagen, Usuario, Cliente, Prospecto, TomaMedidas,
-  SupervisionLineamiento, SupervisionLineamientoItem,
+  SupervisionLineamiento, SupervisionLineamientoItem, FacturaAdicionalODP,
+  ConfiguracionGlobal,
 } from '../models';
 import ODP from '../models/odp.model';
 import { v2 as cloudinary } from 'cloudinary';
@@ -1695,14 +1697,31 @@ const construirFiltroFecha = (fecha_desde: any, fecha_hasta: any) => {
   return { [Op.between]: [start, end] };
 };
 
+// Calcula el rango [inicio, fin) del período inmediatamente anterior, de la misma
+// duración que [fecha_desde, fecha_hasta] — mismo patrón que dashboard.controller.ts
+// (prev_odps_activas) para poder comparar deltas período-contra-período.
+function calcularPeriodoAnterior(fecha_desde: any, fecha_hasta: any): { prevInicio: Date; prevFin: Date } | null {
+  if (!fecha_desde || !fecha_hasta) return null;
+  const inicio = new Date(fecha_desde as string);
+  const fin = new Date(fecha_hasta as string);
+  fin.setHours(23, 59, 59, 999);
+  const periodoMs = fin.getTime() - inicio.getTime();
+  const prevFin = new Date(inicio.getTime() - 1);
+  const prevInicio = new Date(prevFin.getTime() - periodoMs);
+  return { prevInicio, prevFin };
+}
+
 // GET /api/crm/supervision/resumen — conversión actual vs meta 20% + motivos de pérdida
+// + KPIs financieros/comerciales complementarios (ciclo de venta, leads nuevos,
+// meta de ODPs cerradas, facturación vs meta, % facturadas, cartera pendiente).
 export const getSupervisionResumen = async (req: Request, res: Response) => {
   try {
     const { fecha_desde, fecha_hasta, asesor_id } = req.query;
+    const asesorIdNum = asesor_id ? parseInt(asesor_id as string, 10) : undefined;
     const where: any = { respondio: { [Op.ne]: 'No responde' } };
     const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
     if (rangoFecha) where.createdAt = rangoFecha;
-    if (asesor_id) where.asesor_id = parseInt(asesor_id as string);
+    if (asesorIdNum) where.asesor_id = asesorIdNum;
 
     const leads = await Lead.findAll({ where, attributes: ['estado_crm', 'motivo_perdida'] });
     const total = leads.length;
@@ -1720,16 +1739,155 @@ export const getSupervisionResumen = async (req: Request, res: Response) => {
       .map(([motivo, total]) => ({ motivo, total }))
       .sort((a, b) => b.total - a.total);
 
+    // ─── KPI: Ciclo de venta promedio (días fecha_asignado → fecha_aprobado) ──
+    const whereAprobados: any = {
+      estado_crm: 'APROBADO',
+      fecha_asignado: { [Op.ne]: null },
+    };
+    if (rangoFecha) whereAprobados.fecha_aprobado = rangoFecha;
+    if (asesorIdNum) whereAprobados.asesor_id = asesorIdNum;
+    const leadsAprobadosCiclo = await Lead.findAll({
+      where: whereAprobados,
+      attributes: ['fecha_asignado', 'fecha_aprobado'],
+    });
+    const ciclosDias = leadsAprobadosCiclo
+      .map((l: any) => {
+        const asignado = l.getDataValue('fecha_asignado');
+        const aprobado = l.getDataValue('fecha_aprobado');
+        if (!asignado || !aprobado) return null;
+        return (new Date(aprobado).getTime() - new Date(asignado).getTime()) / (1000 * 60 * 60 * 24);
+      })
+      .filter((d): d is number => d !== null && d >= 0);
+    const ciclo_venta_promedio_dias = ciclosDias.length > 0
+      ? Math.round((ciclosDias.reduce((s, d) => s + d, 0) / ciclosDias.length) * 10) / 10
+      : null;
+
+    // ─── KPI: Leads nuevos del período vs período anterior ────────────────────
+    const whereLeadsNuevos: any = {};
+    if (rangoFecha) whereLeadsNuevos.createdAt = rangoFecha;
+    if (asesorIdNum) whereLeadsNuevos.asesor_id = asesorIdNum;
+    const leads_nuevos_periodo = await Lead.count({ where: whereLeadsNuevos });
+
+    const periodoAnterior = calcularPeriodoAnterior(fecha_desde, fecha_hasta);
+    let leads_nuevos_periodo_anterior = 0;
+    if (periodoAnterior) {
+      const whereAnterior: any = { createdAt: { [Op.between]: [periodoAnterior.prevInicio, periodoAnterior.prevFin] } };
+      if (asesorIdNum) whereAnterior.asesor_id = asesorIdNum;
+      leads_nuevos_periodo_anterior = await Lead.count({ where: whereAnterior });
+    }
+    const leads_nuevos_delta_pct = leads_nuevos_periodo_anterior > 0
+      ? Math.round(((leads_nuevos_periodo - leads_nuevos_periodo_anterior) / leads_nuevos_periodo_anterior) * 100)
+      : 0;
+
+    // ─── KPI: Meta de ODPs cerradas por asesor vs real ────────────────────────
+    const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
+    const metaOdpsCerradasAsesor = Number((config as any)?.meta_odps_cerradas_asesor) || 12;
+
+    const whereCerradas: any = { estado_crm: 'APROBADO', odp_id: { [Op.ne]: null } };
+    if (rangoFecha) whereCerradas.fecha_aprobado = rangoFecha;
+    if (asesorIdNum) whereCerradas.asesor_id = asesorIdNum;
+    const leadsCerrados = await Lead.findAll({ where: whereCerradas, attributes: ['asesor_id'] });
+    const odps_cerradas_real = leadsCerrados.length;
+    const asesoresConCierre = new Set(leadsCerrados.map((l: any) => l.getDataValue('asesor_id'))).size;
+    const meta_odps_cerradas = asesorIdNum
+      ? metaOdpsCerradasAsesor
+      : metaOdpsCerradasAsesor * Math.max(1, asesoresConCierre);
+
+    // ─── KPIs financieros: facturación vs meta, % facturadas, cartera pendiente ─
+    const whereOdpPeriodo: any = { es_garantia: false };
+    if (rangoFecha) whereOdpPeriodo.fecha_creacion = rangoFecha;
+    if (asesorIdNum) whereOdpPeriodo.asesor_id = asesorIdNum;
+
+    const facturacion_periodo = Number(await ODP.sum('valor_total', { where: whereOdpPeriodo }) || 0);
+    const meta_facturacion_periodo = Number((config as any)?.meta_facturacion_mensual) || 120000000;
+
+    const total_odps_periodo = await ODP.count({ where: whereOdpPeriodo });
+    const odps_facturadas_periodo = await ODP.count({ where: { ...whereOdpPeriodo, estado_facturacion: 'FACTURADA' } });
+    const pct_odps_facturadas = total_odps_periodo > 0
+      ? Math.round((odps_facturadas_periodo / total_odps_periodo) * 100)
+      : 0;
+
+    const wherePendiente: any = {
+      es_garantia: false,
+      pendiente: { [Op.gt]: 0 },
+      estado_caja: { [Op.ne]: 'CANCELADO' },
+    };
+    if (asesorIdNum) wherePendiente.asesor_id = asesorIdNum;
+    const monto_pendiente_cobro_total = Number(await ODP.sum('pendiente', { where: wherePendiente }) || 0);
+
     res.json({
       meta_conversion: 20,
       tasa_conversion_actual: tasaConversion,
       total_leads_reales: total,
       total_aprobados: aprobados,
       motivos_perdida,
+      ciclo_venta_promedio_dias,
+      leads_nuevos_periodo,
+      leads_nuevos_delta_pct,
+      meta_odps_cerradas,
+      odps_cerradas_real,
+      facturacion_periodo,
+      meta_facturacion_periodo,
+      pct_odps_facturadas,
+      monto_pendiente_cobro_total,
     });
   } catch (error: any) {
     console.error('Error en getSupervisionResumen:', error);
     res.status(500).json({ error: 'Error del servidor al calcular el resumen de supervisión' });
+  }
+};
+
+// GET /api/crm/supervision/ranking-asesores — leaderboard comercial del período.
+// A diferencia del resto de los endpoints de supervisión, IGNORA el filtro de
+// asesor_id de la página: un ranking por definición compara a todos los asesores.
+export const getRankingAsesores = async (req: Request, res: Response) => {
+  try {
+    const { fecha_desde, fecha_hasta } = req.query;
+    const where: any = {
+      respondio: { [Op.ne]: 'No responde' },
+      asesor_id: { [Op.ne]: null },
+    };
+    const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
+    if (rangoFecha) where.createdAt = rangoFecha;
+
+    const leads = await Lead.findAll({
+      where,
+      attributes: ['asesor_id', 'estado_crm', 'monto_real_venta'],
+      include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
+    });
+
+    const mapa = new Map<number, { asesor_id: number; asesor_nombre: string; total_leads: number; aprobados: number; monto_vendido: number }>();
+    for (const l of leads as any[]) {
+      const data = l.toJSON();
+      const id = data.asesor_id;
+      if (!mapa.has(id)) {
+        mapa.set(id, {
+          asesor_id: id,
+          asesor_nombre: data.asesor?.nombre_completo || 'Sin nombre',
+          total_leads: 0,
+          aprobados: 0,
+          monto_vendido: 0,
+        });
+      }
+      const entry = mapa.get(id)!;
+      entry.total_leads += 1;
+      if (data.estado_crm === 'APROBADO') {
+        entry.aprobados += 1;
+        entry.monto_vendido += parseFloat(data.monto_real_venta || '0');
+      }
+    }
+
+    const ranking = Array.from(mapa.values())
+      .map(e => ({
+        ...e,
+        conversion_pct: e.total_leads > 0 ? Math.round((e.aprobados / e.total_leads) * 1000) / 10 : 0,
+      }))
+      .sort((a, b) => b.monto_vendido - a.monto_vendido);
+
+    res.json({ ranking });
+  } catch (error: any) {
+    console.error('Error en getRankingAsesores:', error);
+    res.status(500).json({ error: 'Error del servidor al calcular el ranking de asesores' });
   }
 };
 
@@ -2052,5 +2210,328 @@ export const getAdherenciaLineamiento = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error en getAdherenciaLineamiento:', error);
     res.status(500).json({ error: 'No se pudo calcular la adherencia al lineamiento.' });
+  }
+};
+
+// ─── Buscador Avanzado (admin) — búsqueda cruzada de ODPs y Leads con filtros ─
+// detallados de facturación/caja/acarreo-instalación (ODP) y pipeline/fuente (Lead).
+// construirWhereBuscador* se comparte entre el endpoint JSON y su export a Excel
+// para no duplicar la lógica de filtros.
+
+const CAMPOS_FECHA_ODP: Record<string, string> = {
+  fecha_factura: 'fecha_factura',
+  fecha_creacion: 'fecha_creacion',
+  fecha_entrega: 'fecha_entrega',
+};
+
+const TOPE_FILAS_EXCEL = 5000;
+
+async function construirWhereBuscadorODP(query: Record<string, any>) {
+  const {
+    fecha_desde, fecha_hasta, campo_fecha, asesor_id, estado_facturacion, estado_caja, acarreo, instalacion, tipo_odp, search,
+    estado_produccion, monto_min, monto_max, incluir_garantias, es_no_conformidad, forma_pago, cartera_vencida,
+  } = query;
+  const where: any = {};
+  // es_garantia se excluye por defecto (comportamiento original); incluir_garantias=true lo levanta.
+  if (incluir_garantias !== 'true') where.es_garantia = false;
+
+  const campoFecha = CAMPOS_FECHA_ODP[campo_fecha as string] || 'fecha_factura';
+  const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
+  if (rangoFecha) where[campoFecha] = rangoFecha;
+
+  if (asesor_id) where.asesor_id = parseInt(asesor_id as string, 10);
+  if (estado_facturacion) where.estado_facturacion = estado_facturacion;
+  if (estado_caja) where.estado_caja = estado_caja;
+  if (acarreo !== undefined) where.acarreo = acarreo === 'true';
+  if (instalacion !== undefined) where.instalacion = instalacion === 'true';
+  if (tipo_odp) where.tipo_odp = tipo_odp;
+  if (estado_produccion) where.estado_produccion = estado_produccion;
+  if (es_no_conformidad !== undefined) where.es_no_conformidad = es_no_conformidad === 'true';
+  if (forma_pago) where.forma_pago = forma_pago;
+
+  if (monto_min || monto_max) {
+    where.valor_total = {
+      ...(monto_min ? { [Op.gte]: parseFloat(monto_min as string) } : {}),
+      ...(monto_max ? { [Op.lte]: parseFloat(monto_max as string) } : {}),
+    };
+  }
+
+  // Cartera vencida: misma definición que el dashboard (getResumenGerencial) —
+  // créditos con FE emitida cuya fecha_factura supera el umbral de días configurado.
+  if (cartera_vencida === 'true') {
+    const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
+    const diasAlertaCartera = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
+    const fechaUmbralCartera = new Date(Date.now() - diasAlertaCartera * 24 * 3600 * 1000);
+    where.forma_pago = 'credito';
+    where.pendiente = { [Op.gt]: 0 };
+    where.factura_electronica = { [Op.ne]: null };
+    where.fecha_factura = { [Op.lt]: fechaUmbralCartera };
+    where.estado_caja = { [Op.ne]: 'CANCELADO' };
+  }
+
+  if (search) {
+    const like = { [Op.iLike]: `%${search}%` };
+    where[Op.or] = [{ numero_odp: like }, { '$cliente.nombre_razon_social$': like }];
+  }
+
+  return where;
+}
+
+const includeBuscadorODP = [
+  { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'fuente'] },
+  { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+  { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['numero_fe', 'fecha_factura'], separate: true },
+  // Sin `limit` aquí: en un include hasMany con separate:true, `limit` topa el total
+  // de filas devueltas entre TODOS los padres de la página, no por-padre — se toma
+  // el primer resultado ya en la capa de mapeo (mapearFilaBuscadorODP).
+  { model: Lead, as: 'leads_origen', attributes: ['fuente_lead'], separate: true },
+];
+
+function mapearFilaBuscadorODP(odp: any) {
+  const data = odp.toJSON ? odp.toJSON() : odp;
+  const leadOrigen = (data.leads_origen || [])[0];
+  const fuente = leadOrigen?.fuente_lead || data.cliente?.fuente || null;
+  return {
+    id: data.id,
+    numero_odp: data.numero_odp,
+    cliente_nombre: data.cliente?.nombre_razon_social || null,
+    fuente,
+    asesor_nombre: data.asesor?.nombre_completo || null,
+    estado_produccion: data.estado_produccion,
+    estado_facturacion: data.estado_facturacion,
+    estado_caja: data.estado_caja,
+    tipo_odp: data.tipo_odp,
+    forma_pago: data.forma_pago,
+    es_no_conformidad: data.es_no_conformidad,
+    valor_total: parseFloat(data.valor_total || '0'),
+    abono: parseFloat(data.abono || '0'),
+    pendiente: parseFloat(data.pendiente || '0'),
+    factura_electronica: data.factura_electronica,
+    fecha_factura: data.fecha_factura,
+    facturas_adicionales: (data.facturas_adicionales || []).map((f: any) => ({ numero_fe: f.numero_fe, fecha_factura: f.fecha_factura })),
+    acarreo: data.acarreo,
+    instalacion: data.instalacion,
+    fecha_entrega: data.fecha_entrega,
+    fecha_creacion: data.fecha_creacion,
+  };
+}
+
+// GET /api/supervision-crm/buscador/odp
+export const getBuscadorODP = async (req: Request, res: Response) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+    const where = await construirWhereBuscadorODP(req.query);
+
+    const { count, rows } = await ODP.findAndCountAll({
+      where,
+      include: includeBuscadorODP,
+      order: [['fecha_creacion', 'DESC']],
+      limit,
+      offset: (page - 1) * limit,
+      distinct: true,
+    });
+
+    const items = rows.map(mapearFilaBuscadorODP);
+    const montoInstaladoPagina = items
+      .filter(i => ['INSTALADA', 'ENTREGADA'].includes(i.estado_produccion))
+      .reduce((s, i) => s + i.valor_total, 0);
+
+    res.json({ total: count, page, limit, monto_instalado_pagina: montoInstaladoPagina, items });
+  } catch (error: any) {
+    console.error('Error en getBuscadorODP:', error);
+    res.status(500).json({ error: 'Error del servidor al buscar ODPs' });
+  }
+};
+
+// GET /api/supervision-crm/buscador/odp/excel
+export const exportarBuscadorODPExcel = async (req: Request, res: Response) => {
+  try {
+    const where = await construirWhereBuscadorODP(req.query);
+    const rows = await ODP.findAll({
+      where,
+      include: includeBuscadorODP,
+      order: [['fecha_creacion', 'DESC']],
+      limit: TOPE_FILAS_EXCEL,
+    });
+    if (rows.length >= TOPE_FILAS_EXCEL) {
+      return res.status(400).json({ error: `Hay más de ${TOPE_FILAS_EXCEL} resultados. Acota el rango de fechas o los filtros antes de exportar.` });
+    }
+
+    const items = rows.map(mapearFilaBuscadorODP);
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('ODPs');
+    ws.columns = [
+      { header: 'ODP', key: 'numero_odp', width: 16 },
+      { header: 'Cliente', key: 'cliente_nombre', width: 30 },
+      { header: 'Fuente', key: 'fuente', width: 16 },
+      { header: 'Asesor', key: 'asesor_nombre', width: 22 },
+      { header: 'Estado Producción', key: 'estado_produccion', width: 18 },
+      { header: 'Facturación', key: 'estado_facturacion', width: 14 },
+      { header: 'Caja', key: 'estado_caja', width: 16 },
+      { header: 'Tipo', key: 'tipo_odp', width: 8 },
+      { header: 'Forma de Pago', key: 'forma_pago', width: 16 },
+      { header: 'Valor Total', key: 'valor_total', width: 16 },
+      { header: 'Abonado', key: 'abono', width: 16 },
+      { header: 'Pendiente', key: 'pendiente', width: 16 },
+      { header: 'FE Principal', key: 'factura_electronica', width: 18 },
+      { header: 'Fecha Factura', key: 'fecha_factura', width: 14 },
+      { header: 'Acarreo', key: 'acarreo', width: 10 },
+      { header: 'Instalación', key: 'instalacion', width: 12 },
+      { header: 'No Conformidad', key: 'es_no_conformidad', width: 14 },
+      { header: 'Fecha Entrega', key: 'fecha_entrega', width: 14 },
+      { header: 'Fecha Creación', key: 'fecha_creacion', width: 14 },
+    ];
+    ws.getRow(1).font = { bold: true };
+    for (const item of items) {
+      ws.addRow({
+        ...item,
+        fecha_factura: item.fecha_factura ? new Date(item.fecha_factura).toLocaleDateString('es-CO') : '',
+        fecha_entrega: item.fecha_entrega ? new Date(item.fecha_entrega).toLocaleDateString('es-CO') : '',
+        fecha_creacion: item.fecha_creacion ? new Date(item.fecha_creacion).toLocaleDateString('es-CO') : '',
+        acarreo: item.acarreo ? 'Sí' : 'No',
+        instalacion: item.instalacion ? 'Sí' : 'No',
+        es_no_conformidad: item.es_no_conformidad ? 'Sí' : 'No',
+      });
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="buscador_odp.xlsx"');
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (error: any) {
+    console.error('Error en exportarBuscadorODPExcel:', error);
+    res.status(500).json({ error: 'Error del servidor al exportar el Excel de ODPs' });
+  }
+};
+
+function construirWhereBuscadorLeads(query: Record<string, any>) {
+  const {
+    fecha_desde, fecha_hasta, asesor_id, estado_crm, fuente_lead, search,
+    segmento, respondio, motivo_perdida, monto_min, monto_max, tiene_odp,
+  } = query;
+  const where: any = {};
+
+  const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
+  if (rangoFecha) where.createdAt = rangoFecha;
+  if (asesor_id) where.asesor_id = parseInt(asesor_id as string, 10);
+  if (estado_crm) where.estado_crm = estado_crm;
+  if (fuente_lead) where.fuente_lead = fuente_lead;
+  if (segmento) where.segmento = segmento;
+  if (respondio) where.respondio = respondio;
+  if (motivo_perdida) where.motivo_perdida = motivo_perdida;
+  if (tiene_odp !== undefined) where.odp_id = tiene_odp === 'true' ? { [Op.ne]: null } : null;
+
+  if (monto_min || monto_max) {
+    where.monto_proyectado_cotizacion = {
+      ...(monto_min ? { [Op.gte]: parseFloat(monto_min as string) } : {}),
+      ...(monto_max ? { [Op.lte]: parseFloat(monto_max as string) } : {}),
+    };
+  }
+
+  if (search) {
+    const like = { [Op.iLike]: `%${search}%` };
+    where[Op.or] = [{ nombre: like }, { telefono: like }];
+  }
+
+  return where;
+}
+
+const includeBuscadorLeads = [
+  { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+  { model: ODP, as: 'odp', attributes: ['id', 'numero_odp'] },
+];
+
+function mapearFilaBuscadorLead(lead: any) {
+  const data = lead.toJSON ? lead.toJSON() : lead;
+  const campoFecha = FECHA_POR_ESTADO[data.estado_crm];
+  const dias = diasDesde((campoFecha && data[campoFecha]) || data.createdAt);
+  return {
+    id: data.id,
+    nombre: data.nombre,
+    telefono: data.telefono,
+    asesor_id: data.asesor_id,
+    asesor_nombre: data.asesor?.nombre_completo || 'Sin asignar',
+    estado_crm: data.estado_crm,
+    dias_en_etapa: dias,
+    fuente_lead: data.fuente_lead,
+    segmento: data.segmento,
+    monto_proyectado_cotizacion: parseFloat(data.monto_proyectado_cotizacion || '0'),
+    monto_real_venta: parseFloat(data.monto_real_venta || '0'),
+    motivo_perdida: data.motivo_perdida,
+    odp_id: data.odp_id,
+    numero_odp: data.odp?.numero_odp || null,
+    createdAt: data.createdAt,
+  };
+}
+
+// GET /api/supervision-crm/buscador/leads
+export const getBuscadorLeads = async (req: Request, res: Response) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+    const where = construirWhereBuscadorLeads(req.query);
+
+    const { count, rows } = await Lead.findAndCountAll({
+      where,
+      include: includeBuscadorLeads,
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset: (page - 1) * limit,
+      distinct: true,
+    });
+
+    res.json({ total: count, page, limit, items: rows.map(mapearFilaBuscadorLead) });
+  } catch (error: any) {
+    console.error('Error en getBuscadorLeads:', error);
+    res.status(500).json({ error: 'Error del servidor al buscar leads' });
+  }
+};
+
+// GET /api/supervision-crm/buscador/leads/excel
+export const exportarBuscadorLeadsExcel = async (req: Request, res: Response) => {
+  try {
+    const where = construirWhereBuscadorLeads(req.query);
+    const rows = await Lead.findAll({
+      where,
+      include: includeBuscadorLeads,
+      order: [['createdAt', 'DESC']],
+      limit: TOPE_FILAS_EXCEL,
+    });
+    if (rows.length >= TOPE_FILAS_EXCEL) {
+      return res.status(400).json({ error: `Hay más de ${TOPE_FILAS_EXCEL} resultados. Acota el rango de fechas o los filtros antes de exportar.` });
+    }
+
+    const items = rows.map(mapearFilaBuscadorLead);
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Leads');
+    ws.columns = [
+      { header: 'Nombre', key: 'nombre', width: 26 },
+      { header: 'Teléfono', key: 'telefono', width: 16 },
+      { header: 'Asesor', key: 'asesor_nombre', width: 22 },
+      { header: 'Etapa', key: 'estado_crm', width: 16 },
+      { header: 'Días en etapa', key: 'dias_en_etapa', width: 12 },
+      { header: 'Fuente', key: 'fuente_lead', width: 16 },
+      { header: 'Segmento', key: 'segmento', width: 18 },
+      { header: 'Monto proyectado', key: 'monto_proyectado_cotizacion', width: 18 },
+      { header: 'Monto real venta', key: 'monto_real_venta', width: 18 },
+      { header: 'Motivo pérdida', key: 'motivo_perdida', width: 20 },
+      { header: 'ODP', key: 'numero_odp', width: 16 },
+      { header: 'Fecha creación', key: 'createdAt', width: 14 },
+    ];
+    ws.getRow(1).font = { bold: true };
+    for (const item of items) {
+      ws.addRow({ ...item, createdAt: item.createdAt ? new Date(item.createdAt).toLocaleDateString('es-CO') : '' });
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="buscador_leads.xlsx"');
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (error: any) {
+    console.error('Error en exportarBuscadorLeadsExcel:', error);
+    res.status(500).json({ error: 'Error del servidor al exportar el Excel de leads' });
   }
 };

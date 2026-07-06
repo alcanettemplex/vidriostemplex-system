@@ -12,7 +12,8 @@ export const obtenerConfiguracion = async (req: Request, res: Response) => {
         meta_facturacion_mensual:   120000000.00,
         meta_ciclo_produccion_dias: 8,
         dias_alerta_odp_estancada:  2,
-        dias_alerta_cartera_vencida: 60
+        dias_alerta_cartera_vencida: 60,
+        meta_odps_cerradas_asesor:  12
       });
     }
 

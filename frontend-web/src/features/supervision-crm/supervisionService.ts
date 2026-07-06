@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 import API from '../../services/config';
+import { FiltrosBuscadorODP, FiltrosBuscadorLeads } from './types';
 
 const getHeaders = () => ({
   headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` }
@@ -25,9 +26,13 @@ const buildParams = (filtros: FiltrosSupervision, extra?: Record<string, string 
   return params.toString();
 };
 
-/** Resumen: conversión actual vs meta 20% + motivos de pérdida del período */
+/** Resumen: conversión actual vs meta 20% + motivos de pérdida del período + KPIs financieros/comerciales */
 export const apiGetSupervisionResumen = (filtros: FiltrosSupervision) =>
   axios.get(`${API}/api/supervision-crm/resumen?${buildParams(filtros)}`, getHeaders());
+
+/** Ranking comercial de asesores del período (ignora el filtro de asesor_id) */
+export const apiGetRankingAsesores = (filtros: Pick<FiltrosSupervision, 'fecha_desde' | 'fecha_hasta'>) =>
+  axios.get(`${API}/api/supervision-crm/ranking-asesores?${buildParams(filtros)}`, getHeaders());
 
 /** Radar de leads de alto valor sin ODP, cualquier etapa activa */
 export const apiGetSupervisionAltoValor = (filtros: FiltrosSupervision, montoMin?: number) =>
@@ -60,3 +65,35 @@ export const apiGuardarNotasLineamiento = (lineamientoId: number, notas_sesion: 
 /** % de cumplimiento agregado del lineamiento (leading indicator) */
 export const apiGetAdherenciaLineamiento = (filtros: FiltrosSupervision) =>
   axios.get(`${API}/api/supervision-crm/lineamiento/adherencia?${buildParams(filtros)}`, getHeaders());
+
+// ─── Buscador Avanzado ────────────────────────────────────────────────────────
+
+const buildParamsGenerico = <T extends object>(filtros: T): string => {
+  const params = new URLSearchParams();
+  Object.entries(filtros).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') params.append(k, String(v));
+  });
+  return params.toString();
+};
+
+/** Búsqueda avanzada de ODPs: facturación, caja, acarreo/instalación, fuente, montos */
+export const apiGetBuscadorODP = (filtros: FiltrosBuscadorODP) =>
+  axios.get(`${API}/api/supervision-crm/buscador/odp?${buildParamsGenerico(filtros)}`, getHeaders());
+
+/** Descarga el Excel de la búsqueda de ODPs con los mismos filtros activos */
+export const apiExportarBuscadorODPExcel = (filtros: FiltrosBuscadorODP) =>
+  axios.get(`${API}/api/supervision-crm/buscador/odp/excel?${buildParamsGenerico(filtros)}`, {
+    ...getHeaders(),
+    responseType: 'blob',
+  });
+
+/** Búsqueda avanzada de Leads: etapa de pipeline, fuente, historial */
+export const apiGetBuscadorLeads = (filtros: FiltrosBuscadorLeads) =>
+  axios.get(`${API}/api/supervision-crm/buscador/leads?${buildParamsGenerico(filtros)}`, getHeaders());
+
+/** Descarga el Excel de la búsqueda de leads con los mismos filtros activos */
+export const apiExportarBuscadorLeadsExcel = (filtros: FiltrosBuscadorLeads) =>
+  axios.get(`${API}/api/supervision-crm/buscador/leads/excel?${buildParamsGenerico(filtros)}`, {
+    ...getHeaders(),
+    responseType: 'blob',
+  });

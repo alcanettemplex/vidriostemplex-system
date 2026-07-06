@@ -135,8 +135,8 @@ const MENU_ITEMS_CONFIG = [
     text: 'Supervisión CRM',
     icon: Crosshair,
     path: '/supervision-crm',
-    allowedRoles: ['admin'],
-    section: 'admin'
+    allowedRoles: ['root'],
+    section: 'sistema'
   },
   {
     text: 'Configuración',

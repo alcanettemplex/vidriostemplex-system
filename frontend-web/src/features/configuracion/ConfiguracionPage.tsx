@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Save, DollarSign, Clock, AlertCircle, TrendingUp, Users } from 'lucide-react';
+import { Settings, Save, DollarSign, Clock, AlertCircle, TrendingUp, Users, Target } from 'lucide-react';
 import API from '../../services/config';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -331,6 +331,25 @@ export const ConfiguracionPage: React.FC = () => {
                 onChange={handleConfigChange}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 font-mono font-medium focus:ring-2 focus:ring-indigo-300 outline-none transition"
               />
+            </div>
+          </div>
+        </section>
+
+        {/* ── METAS COMERCIALES ─────────────────────────────────────────────── */}
+        <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <Target className="w-5 h-5 text-indigo-500" /> Metas Comerciales (Global)
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1">Meta de ODPs Cerradas por Asesor (mensual)</label>
+              <input
+                type="text" inputMode="numeric" name="meta_odps_cerradas_asesor"
+                value={formatCOP(config?.meta_odps_cerradas_asesor ?? '')}
+                onChange={handleConfigChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 font-mono font-medium focus:ring-2 focus:ring-indigo-300 outline-none transition"
+              />
+              <p className="text-xs text-slate-400 mt-1">Usada en el KPI "Meta ODPs cerradas" de Supervisión CRM.</p>
             </div>
           </div>
         </section>

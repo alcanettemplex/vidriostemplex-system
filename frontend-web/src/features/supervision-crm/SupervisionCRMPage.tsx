@@ -1,22 +1,26 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import {
   Crosshair, ArrowLeft, RefreshCw, Gem, Clock3, TrendingDown, Target,
   Calendar, User, DollarSign, PhoneCall, CheckCircle2,
+  Timer, UserPlus, Award, Landmark, Percent, Wallet,
 } from 'lucide-react';
 import KPICard from './components/KPICard';
 import LeadRadarPanel from './components/LeadRadarPanel';
 import MotivosPerdidaPanel from './components/MotivosPerdidaPanel';
 import LineamientoDelDia from './components/LineamientoDelDia';
+import BuscadorAvanzadoPanel from './components/BuscadorAvanzadoPanel';
+import RankingAsesoresPanel from './components/RankingAsesoresPanel';
 import {
   apiGetSupervisionResumen, apiGetSupervisionAltoValor, apiGetSupervisionSeguimiento,
-  apiGetSupervisionPrimerContacto, apiGetAdherenciaLineamiento,
+  apiGetSupervisionPrimerContacto, apiGetAdherenciaLineamiento, apiGetRankingAsesores,
 } from './supervisionService';
 import { apiGetAsesores, apiRegisterLeadSeguimiento } from '../crm/crmService';
-import { SupervisionLeadItem, SupervisionResumen, AdherenciaLineamiento } from './types';
+import { SupervisionLeadItem, SupervisionResumen, AdherenciaLineamiento, RankingAsesorItem } from './types';
 
-type Tab = 'primer_contacto' | 'seguimiento' | 'alto_valor' | 'lineamiento' | 'motivos';
+type Tab = 'primer_contacto' | 'seguimiento' | 'alto_valor' | 'lineamiento' | 'motivos' | 'buscador';
 
 const primerDiaMesActual = (): string => {
   const hoy = new Date();
@@ -41,11 +45,13 @@ const SupervisionCRMPage: React.FC = () => {
   const [seguimiento, setSeguimiento] = useState<SupervisionLeadItem[]>([]);
   const [primerContacto, setPrimerContacto] = useState<SupervisionLeadItem[]>([]);
   const [adherencia, setAdherencia] = useState<AdherenciaLineamiento | null>(null);
+  const [ranking, setRanking] = useState<RankingAsesorItem[]>([]);
   const [loadingResumen, setLoadingResumen] = useState(false);
   const [loadingAltoValor, setLoadingAltoValor] = useState(false);
   const [loadingSeguimiento, setLoadingSeguimiento] = useState(false);
   const [loadingPrimerContacto, setLoadingPrimerContacto] = useState(false);
   const [loadingAdherencia, setLoadingAdherencia] = useState(false);
+  const [loadingRanking, setLoadingRanking] = useState(false);
 
   const filtros = { fecha_desde: fechaDesde, fecha_hasta: fechaHasta, asesor_id: asesorId };
 
@@ -114,13 +120,27 @@ const SupervisionCRMPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fechaDesde, fechaHasta, asesorId]);
 
+  const cargarRanking = useCallback(async () => {
+    setLoadingRanking(true);
+    try {
+      const { data } = await apiGetRankingAsesores({ fecha_desde: fechaDesde, fecha_hasta: fechaHasta });
+      setRanking(data.ranking);
+    } catch {
+      toast.error('No se pudo cargar el ranking de asesores.');
+    } finally {
+      setLoadingRanking(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fechaDesde, fechaHasta]);
+
   const cargarTodo = useCallback(() => {
     cargarResumen();
     cargarAltoValor();
     cargarSeguimiento();
     cargarPrimerContacto();
     cargarAdherencia();
-  }, [cargarResumen, cargarAltoValor, cargarSeguimiento, cargarPrimerContacto, cargarAdherencia]);
+    cargarRanking();
+  }, [cargarResumen, cargarAltoValor, cargarSeguimiento, cargarPrimerContacto, cargarAdherencia, cargarRanking]);
 
   useEffect(() => { cargarTodo(); }, [cargarTodo]);
 
@@ -152,40 +172,45 @@ const SupervisionCRMPage: React.FC = () => {
     ? Math.round((motivoPrincipal.total / totalPerdidos) * 100) : 0;
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", backgroundColor: '#F6F5FC' }}
-    >
+    <div className="min-h-screen bg-apple-bg font-apple">
       {/* ── Barra superior ── */}
-      <header className="bg-[#12102A] px-6 py-4">
+      <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-xl border-b border-apple-hairline px-6 py-4">
         <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-apple-blue flex items-center justify-center shrink-0">
               <Crosshair className="w-5 h-5 text-white" />
             </div>
             <div>
-              <p className="text-white font-extrabold text-sm leading-tight">Supervisión CRM</p>
-              <p className="text-slate-400 text-[11px] font-medium">Centro de control comercial</p>
+              <p className="text-apple-text font-bold text-sm leading-tight">Supervisión CRM</p>
+              <p className="text-apple-text-secondary text-[11px] font-medium">Centro de control comercial</p>
             </div>
           </div>
 
-          {/* Navegación en píldora */}
-          <nav className="hidden md:flex items-center gap-1 bg-white/5 rounded-2xl p-1">
+          {/* Navegación segmentada — estilo iOS */}
+          <nav className="hidden md:flex items-center gap-0.5 bg-apple-gray rounded-xl p-1">
             {([
               { key: 'primer_contacto', label: 'Primer Contacto' },
               { key: 'seguimiento', label: 'Cola Seguimiento' },
               { key: 'alto_valor', label: 'Alto Valor' },
               { key: 'lineamiento', label: 'Lineamiento del Día' },
               { key: 'motivos', label: 'Motivos de Pérdida' },
+              { key: 'buscador', label: 'Buscador Avanzado' },
             ] as { key: Tab; label: string }[]).map(t => (
               <button
                 key={t.key}
                 onClick={() => setActiveTab(t.key)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === t.key ? 'bg-white text-slate-900' : 'text-slate-300 hover:text-white'
+                className={`relative px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  activeTab === t.key ? 'text-apple-text' : 'text-apple-text-secondary hover:text-apple-text'
                 }`}
               >
-                {t.label}
+                {activeTab === t.key && (
+                  <motion.span
+                    layoutId="supervisionSegmentedActive"
+                    className="absolute inset-0 bg-white rounded-lg shadow-sm"
+                    transition={{ type: 'spring', duration: 0.4, bounce: 0.15 }}
+                  />
+                )}
+                <span className="relative z-10">{t.label}</span>
               </button>
             ))}
           </nav>
@@ -193,37 +218,45 @@ const SupervisionCRMPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={cargarTodo}
-              className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+              className="w-9 h-9 rounded-full bg-apple-gray hover:bg-apple-hairline flex items-center justify-center text-apple-text-secondary transition-colors"
               title="Recargar"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
             <Link
               to="/"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-apple-gray hover:bg-apple-hairline text-apple-text text-xs font-semibold transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Salir
             </Link>
           </div>
         </div>
 
-        {/* Nav en píldora — mobile */}
-        <nav className="flex md:hidden items-center gap-1 bg-white/5 rounded-2xl p-1 mt-3 max-w-[1400px] mx-auto">
+        {/* Nav segmentada — mobile */}
+        <nav className="flex md:hidden items-center gap-0.5 bg-apple-gray rounded-xl p-1 mt-3 max-w-[1400px] mx-auto">
           {([
             { key: 'primer_contacto', label: 'Contacto' },
             { key: 'seguimiento', label: 'Seguimiento' },
             { key: 'alto_valor', label: 'Alto Valor' },
             { key: 'lineamiento', label: 'Lineamiento' },
             { key: 'motivos', label: 'Pérdidas' },
+            { key: 'buscador', label: 'Buscador' },
           ] as { key: Tab; label: string }[]).map(t => (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`flex-1 px-3 py-2 rounded-xl text-[11px] font-bold transition-all ${
-                activeTab === t.key ? 'bg-white text-slate-900' : 'text-slate-300'
+              className={`relative flex-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
+                activeTab === t.key ? 'text-apple-text' : 'text-apple-text-secondary'
               }`}
             >
-              {t.label}
+              {activeTab === t.key && (
+                <motion.span
+                  layoutId="supervisionSegmentedActiveMobile"
+                  className="absolute inset-0 bg-white rounded-lg shadow-sm"
+                  transition={{ type: 'spring', duration: 0.4, bounce: 0.15 }}
+                />
+              )}
+              <span className="relative z-10">{t.label}</span>
             </button>
           ))}
         </nav>
@@ -236,7 +269,7 @@ const SupervisionCRMPage: React.FC = () => {
             label="Conversión actual"
             value={loadingResumen ? '—' : `${resumen?.tasa_conversion_actual ?? 0}%`}
             icon={Target}
-            accent="indigo"
+            accent="blue"
             progress={{ current: resumen?.tasa_conversion_actual ?? 0, target: resumen?.meta_conversion ?? 20, unit: '%' }}
           />
           <KPICard
@@ -244,63 +277,112 @@ const SupervisionCRMPage: React.FC = () => {
             value={loadingPrimerContacto ? '—' : String(primerContacto.length)}
             sublabel={loadingPrimerContacto ? undefined : `${primerContactoUrgentes} urgente${primerContactoUrgentes !== 1 ? 's' : ''}`}
             icon={PhoneCall}
-            accent="indigo"
+            accent="blue"
           />
           <KPICard
             label="Alto valor sin ODP"
             value={loadingAltoValor ? '—' : String(altoValor.length)}
             sublabel={loadingAltoValor ? undefined : `${fmtCOP(totalAltoValorMonto)} en juego`}
             icon={Gem}
-            accent="violet"
+            accent="purple"
           />
           <KPICard
             label="Estancados en seguimiento"
             value={loadingSeguimiento ? '—' : String(seguimiento.length)}
             sublabel={loadingSeguimiento ? undefined : `${seguimientoCriticos} crítico${seguimientoCriticos !== 1 ? 's' : ''} (≥7d)`}
             icon={Clock3}
-            accent="amber"
+            accent="orange"
           />
           <KPICard
             label="Cumplimiento lineamiento"
             value={loadingAdherencia ? '—' : `${adherencia?.pct_adherencia ?? 0}%`}
             sublabel={loadingAdherencia ? undefined : `${adherencia?.cumplidos ?? 0}/${adherencia?.total_items ?? 0} acciones`}
             icon={CheckCircle2}
-            accent="emerald"
+            accent="green"
           />
           <KPICard
             label="Motivo principal de pérdida"
             value={loadingResumen ? '—' : (motivoPrincipal ? `${pctMotivoPrincipal}%` : '—')}
             sublabel={loadingResumen ? undefined : (motivoPrincipal?.motivo || 'Sin pérdidas en el período')}
             icon={TrendingDown}
-            accent="rose"
+            accent="red"
           />
         </div>
 
+        {/* ── KPIs financieros y comerciales complementarios ── */}
+        <div>
+          <p className="text-xs font-semibold text-apple-text-tertiary uppercase tracking-widest mb-3">Indicadores Financieros y Comerciales</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
+            <KPICard
+              label="Ciclo de venta promedio"
+              value={loadingResumen ? '—' : (resumen?.ciclo_venta_promedio_dias != null ? `${resumen.ciclo_venta_promedio_dias}d` : '—')}
+              icon={Timer}
+              accent="blue"
+            />
+            <KPICard
+              label="Leads nuevos del período"
+              value={loadingResumen ? '—' : String(resumen?.leads_nuevos_periodo ?? 0)}
+              sublabel={loadingResumen ? undefined : `${(resumen?.leads_nuevos_delta_pct ?? 0) >= 0 ? '+' : ''}${resumen?.leads_nuevos_delta_pct ?? 0}% vs período anterior`}
+              icon={UserPlus}
+              accent="purple"
+            />
+            <KPICard
+              label="Meta ODPs cerradas"
+              value={loadingResumen ? '—' : String(resumen?.odps_cerradas_real ?? 0)}
+              icon={Award}
+              accent="orange"
+              progress={{ current: resumen?.odps_cerradas_real ?? 0, target: resumen?.meta_odps_cerradas ?? 12 }}
+            />
+            <KPICard
+              label="Facturación vs meta"
+              value={loadingResumen ? '—' : fmtCOP(resumen?.facturacion_periodo ?? 0)}
+              sublabel={loadingResumen ? undefined : `Meta: ${fmtCOP(resumen?.meta_facturacion_periodo ?? 120000000)} · ${Math.min(100, Math.round(((resumen?.facturacion_periodo ?? 0) / (resumen?.meta_facturacion_periodo || 1)) * 100))}% alcanzado`}
+              icon={Landmark}
+              accent="green"
+            />
+            <KPICard
+              label="% ODPs facturadas"
+              value={loadingResumen ? '—' : `${resumen?.pct_odps_facturadas ?? 0}%`}
+              icon={Percent}
+              accent="blue"
+            />
+            <KPICard
+              label="Pendiente de cobro"
+              value={loadingResumen ? '—' : fmtCOP(resumen?.monto_pendiente_cobro_total ?? 0)}
+              icon={Wallet}
+              accent="red"
+            />
+          </div>
+        </div>
+
+        {/* ── Ranking de asesores ── */}
+        <RankingAsesoresPanel ranking={ranking} loading={loadingRanking} disabled={!!asesorId} />
+
         {/* ── Filtros ── */}
-        <div className="flex flex-wrap items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-          <div className="flex items-center gap-2 pr-3 border-r border-slate-100">
-            <Calendar className="w-4 h-4 text-slate-400" />
+        <div className="flex flex-wrap items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-apple">
+          <div className="flex items-center gap-2 pr-3 border-r border-apple-hairline">
+            <Calendar className="w-4 h-4 text-apple-text-tertiary" />
             <input
               type="date"
               value={fechaDesde}
               onChange={e => setFechaDesde(e.target.value)}
-              className="text-xs font-bold text-slate-600 outline-none bg-transparent"
+              className="text-xs font-semibold text-apple-text outline-none bg-transparent"
             />
-            <span className="text-slate-300">→</span>
+            <span className="text-apple-text-tertiary">→</span>
             <input
               type="date"
               value={fechaHasta}
               onChange={e => setFechaHasta(e.target.value)}
-              className="text-xs font-bold text-slate-600 outline-none bg-transparent"
+              className="text-xs font-semibold text-apple-text outline-none bg-transparent"
             />
           </div>
 
-          <div className="flex items-center gap-2 pr-3 border-r border-slate-100">
-            <User className="w-4 h-4 text-slate-400" />
+          <div className="flex items-center gap-2 pr-3 border-r border-apple-hairline">
+            <User className="w-4 h-4 text-apple-text-tertiary" />
             <select
               value={asesorId ?? ''}
               onChange={e => setAsesorId(e.target.value ? parseInt(e.target.value) : undefined)}
-              className="text-xs font-bold text-slate-600 outline-none bg-transparent cursor-pointer"
+              className="text-xs font-semibold text-apple-text outline-none bg-transparent cursor-pointer"
             >
               <option value="">Todos los asesores</option>
               {asesores.map(a => (
@@ -311,14 +393,14 @@ const SupervisionCRMPage: React.FC = () => {
 
           {activeTab === 'alto_valor' && (
             <div className="flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-slate-400" />
-              <span className="text-xs font-bold text-slate-400">Monto mínimo</span>
+              <DollarSign className="w-4 h-4 text-apple-text-tertiary" />
+              <span className="text-xs font-semibold text-apple-text-secondary">Monto mínimo</span>
               <input
                 type="number"
                 step={1000000}
                 value={montoMin}
                 onChange={e => setMontoMin(parseFloat(e.target.value) || 0)}
-                className="text-xs font-bold text-slate-600 outline-none bg-transparent w-28"
+                className="text-xs font-semibold text-apple-text outline-none bg-transparent w-28"
               />
             </div>
           )}
@@ -355,6 +437,9 @@ const SupervisionCRMPage: React.FC = () => {
         )}
         {activeTab === 'motivos' && (
           <MotivosPerdidaPanel motivos={resumen?.motivos_perdida || []} loading={loadingResumen} />
+        )}
+        {activeTab === 'buscador' && (
+          <BuscadorAvanzadoPanel fechaDesde={fechaDesde} fechaHasta={fechaHasta} asesorId={asesorId} />
         )}
       </div>
     </div>

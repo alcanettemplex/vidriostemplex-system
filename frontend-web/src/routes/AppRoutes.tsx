@@ -32,7 +32,7 @@ const AppRoutes: React.FC = () => {
 
         <Route element={<ProtectedRoute />}>
           {/* Módulo de pantalla completa — sin Navbar/Sidebar del resto del sistema */}
-          <Route element={<RoleRoute allowedRoles={['admin']} />}>
+          <Route element={<RoleRoute allowedRoles={['root']} />}>
             <Route path="/supervision-crm" element={<SupervisionCRMPage />} />
           </Route>
 
