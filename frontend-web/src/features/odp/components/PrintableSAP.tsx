@@ -71,7 +71,7 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
     const allItems: any[] = sapData?.items || [];
     const odcs:    any[] = sapData?.ordenes_compra || [];
 
-    // IDs de SAPItems ya en cualquier ODC → badge E
+    // IDs de SAPItems ya en cualquier ODC → badge C
     const itemsEnODC = new Set(
         odcs.flatMap((odc: any) => (odc.items || []).map((it: any) => it.sap_item_id))
     );
@@ -338,12 +338,7 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                                                     >FALTA</span>
                                                 )}
                                                 {enODC ? (
-                                                    <span
-                                                        className="inline-flex items-center justify-center w-[13px] h-[13px] rounded-full bg-blue-600 ml-1 align-middle"
-                                                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '13px', height: '13px', borderRadius: '9999px', backgroundColor: '#2563eb', marginLeft: '4px', verticalAlign: 'middle', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
-                                                    >
-                                                        <span className="text-white text-[9px] font-black leading-none" style={{ color: '#fff', fontSize: '9px', fontWeight: 900, lineHeight: 1 }}>E</span>
-                                                    </span>
+                                                    <span className="font-black text-red-600 text-[12px] ml-1 align-middle" style={{ color: '#dc2626', fontWeight: 900, fontSize: '12px', marginLeft: '4px', verticalAlign: 'middle' }}>C</span>
                                                 ) : (item?.exist_perf || item?.estado_compra === 'en_existencia') ? (
                                                     <span className="font-black text-red-600 text-[12px] ml-1 align-middle" style={{ color: '#dc2626', fontWeight: 900, fontSize: '12px', marginLeft: '4px', verticalAlign: 'middle' }}>S</span>
                                                 ) : null}
