@@ -391,6 +391,7 @@ export const getLeads = async (req: Request, res: Response) => {
     const user = req.user!;
     const { fecha_desde, fecha_hasta, vista } = req.query;
     const esSinRespuesta = vista === 'sin_respuesta';
+    const esPipeline = vista === 'pipeline';
     const esAdminOGerencia = ['admin', 'gerencia', 'root', 'asistente_administrativo', 'marketing', 'jefe_produccion'].includes(user.rol?.toLowerCase());
 
     const whereClause: any = esAdminOGerencia
@@ -423,9 +424,23 @@ export const getLeads = async (req: Request, res: Response) => {
         });
       }
 
-      whereClause.createdAt = {
-        [Op.between]: [start, end]
-      };
+      const filtroFecha = { [Op.between]: [start, end] };
+
+      if (esPipeline) {
+        // Pipeline: las etapas activas se muestran siempre completas (un lead
+        // recuperado o reasignado no debe desaparecer solo porque su createdAt
+        // original quedó fuera del mes seleccionado). PERDIDO y FRIO ya son
+        // estados cerrados sin acción pendiente: sí se acotan al periodo para
+        // no acumular el histórico completo en cada carga del tablero.
+        whereClause[Op.and] = [
+          { [Op.or]: [
+            { estado_crm: { [Op.notIn]: ['PERDIDO', 'FRIO'] } },
+            { createdAt: filtroFecha },
+          ] },
+        ];
+      } else {
+        whereClause.createdAt = filtroFecha;
+      }
     }
 
     const leads = await Lead.findAll({
