@@ -93,6 +93,13 @@ function diasSinActividad(lead: any): number {
   return Math.floor((Date.now() - new Date(fuente).getTime()) / (1000 * 60 * 60 * 24));
 }
 
+// ─── Texto de último contacto/movimiento (siempre visible, no solo alerta) ────
+function formatearUltimoMovimiento(dias: number): string {
+  if (dias <= 0) return 'Hoy';
+  if (dias === 1) return 'Ayer';
+  return `Hace ${dias}d`;
+}
+
 // ─── Prioridad automática ──────────────────────────────────────────────────────
 type Prioridad = 'urgente' | 'normal';
 
@@ -215,6 +222,7 @@ const TablaFila: React.FC<{
       <td className="px-4 py-3">
         <PrioridadBadge prioridad={prioridad} />
         {prioridad === 'normal' && <span className="text-[10px] text-slate-400">{fecha}</span>}
+        <p className="text-[10px] text-slate-400 mt-0.5">🕐 Últ. mov: {formatearUltimoMovimiento(diasSinActividad(lead))}</p>
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5">
@@ -614,6 +622,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                         {monto && (
                           <span className="text-[9px] font-bold text-emerald-700">💰 {monto}</span>
                         )}
+                        <span className="text-[9px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-full border border-slate-200">
+                          🕐 Últ. mov: {formatearUltimoMovimiento(diasSinActividad(lead))}
+                        </span>
                         {!['APROBADO','PERDIDO','FRIO'].includes(lead.estado_crm) && diasSinActividad(lead) >= 3 && (
                           <span className="text-[9px] font-black text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full border border-orange-200">
                             ⏱ {diasSinActividad(lead)}d sin actividad

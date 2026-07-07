@@ -22,6 +22,18 @@ const FECHA_POR_ETAPA: Record<string, string> = {
   COTIZANDO: 'fecha_cotizando', SEGUIMIENTO: 'fecha_seguimiento', VISITA_TECNICA: 'fecha_visita_tecnica',
 };
 
+// ─── Texto de último contacto/movimiento (misma lógica que KanbanBoard.tsx) ───
+function diasSinActividad(lead: any): number {
+  const fuente = lead.ultima_actividad || lead.updatedAt || lead.createdAt;
+  if (!fuente) return 0;
+  return Math.floor((Date.now() - new Date(fuente).getTime()) / (1000 * 60 * 60 * 24));
+}
+function formatearUltimoMovimiento(dias: number): string {
+  if (dias <= 0) return 'Hoy';
+  if (dias === 1) return 'Ayer';
+  return `Hace ${dias}d`;
+}
+
 const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool }) => {
   const [showDetalle, setShowDetalle] = useState(false);
   const esUrgente = (() => {
@@ -140,6 +152,10 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
                 Asig. {fechaAsignado}
               </div>
             )}
+            <div className="flex items-center gap-1 text-[11px] text-slate-400 font-medium">
+              <Clock className="w-2.5 h-2.5" />
+              Últ. mov: {formatearUltimoMovimiento(diasSinActividad(lead))}
+            </div>
           </div>
           {['EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA'].includes(stageId) && (
             <div className={`flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded border ${
