@@ -412,29 +412,42 @@ export const updateODC = async (req: Request, res: Response) => {
     // Al marcar como recibida: pasar SAPItems de esta ODC a en_existencia y limpiar modificado
     if (estado === 'recibido' && estadoAnterior !== 'recibido') {
       const odcItems = await ODCItem.findAll({ where: { odc_id: id } });
-      const sapItemIds = odcItems.map((i: any) => i.getDataValue('sap_item_id'));
+      const sapItemIds = odcItems.map((i: any) => i.getDataValue('sap_item_id')).filter(Boolean);
       if (sapItemIds.length > 0) {
         await SAPItem.update(
           { estado_compra: 'en_existencia', modificado: false, datos_anteriores: null },
           { where: { id: { [Op.in]: sapItemIds } } }
         );
       }
-    }
 
-    // Notificar cuando se marca como recibida
-    if (estado === 'recibido' && estadoAnterior !== 'recibido') {
-      const sap = (odc as any).sap;
-      const odp = sap?.ODP;
-      if (odp) {
-        import('../utils/notificaciones').then(({ notificarCambioEstadoODP }) => {
-          notificarCambioEstadoODP({
-            numero_odp: odp.numero_odp,
-            odp_id: odp.id,
-            asesor_id: odp.asesor_id,
-            estado_nuevo: odp.estado_produccion,
-            mensaje: `ODC ${odc.getDataValue('numero_odc')} recibida — proveedor: ${proveedor || odc.getDataValue('proveedor')}`,
-          });
-        }).catch(err => console.error('Error notificación ODC recibida:', err));
+      // Resolver el odp_id dueño: la cabecera de la ODC (sap_id/odp_id) casi siempre
+      // es null para ODCs de perfilería (createODC las crea así) — la trazabilidad real
+      // es ODCItem.sap_item_id → SAPItem.sap_id → SAP.odp_id, igual que en recibirItems().
+      if (sapItemIds.length > 0) {
+        const sapItemConSap = await SAPItem.findOne({
+          where: { id: { [Op.in]: sapItemIds } },
+          include: [{ model: SAP, attributes: ['id', 'odp_id'] }],
+        });
+        const sapDataN = (sapItemConSap as any)?.SAP ?? (sapItemConSap as any)?.dataValues?.SAP;
+        const odpIdNotif: number | null = sapDataN?.odp_id ?? sapDataN?.getDataValue?.('odp_id') ?? null;
+
+        if (odpIdNotif) {
+          const odpNotif = await ODP.findByPk(odpIdNotif, { attributes: ['id', 'numero_odp', 'asesor_id', 'estado_produccion'] });
+          if (odpNotif) {
+            import('../utils/notificaciones').then(({ notificarCambioEstadoODP }) => {
+              notificarCambioEstadoODP({
+                numero_odp: odpNotif.getDataValue('numero_odp'),
+                odp_id: odpNotif.getDataValue('id'),
+                asesor_id: odpNotif.getDataValue('asesor_id'),
+                estado_nuevo: odpNotif.getDataValue('estado_produccion'),
+                mensaje: `ODC ${odc.getDataValue('numero_odc')} recibida — proveedor: ${proveedor || odc.getDataValue('proveedor')}`,
+              });
+            }).catch(err => console.error('Error notificación ODC recibida:', err));
+          }
+          // Sin esto, el badge C→E y el sombreado azul del imprimible SAP solo se
+          // verían tras F5 en cualquier ODPFichaModal ya abierto.
+          import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpIdNotif, 'update')).catch(() => {});
+        }
       }
     }
 
@@ -500,6 +513,9 @@ export const recibirItems = async (req: Request, res: Response) => {
     const todosRecibidos = todosLosItems.length > 0 &&
       todosLosItems.every((it: any) => it.getDataValue('recibido') === true);
 
+    // odp_id afectado, para notificar en tiempo real tras el commit (badge C→E del imprimible SAP)
+    let odpIdNotificar: number | null = null;
+
     if (todosRecibidos) {
       // ODC completa → estado recibido + SAPItems a en_existencia
       await odc.update({ estado: 'recibido', fecha_recepcion: new Date() }, { transaction: t });
@@ -521,6 +537,7 @@ export const recibirItems = async (req: Request, res: Response) => {
         });
         const sapData = (sapItem as any)?.SAP ?? (sapItem as any)?.dataValues?.SAP;
         const odpId: number | null = sapData?.odp_id ?? sapData?.getDataValue?.('odp_id') ?? null;
+        odpIdNotificar = odpId;
         if (odpId) {
           await ODP.update(
             { chk_accesorios: true },
@@ -534,6 +551,12 @@ export const recibirItems = async (req: Request, res: Response) => {
     }
 
     await t.commit();
+
+    // Notificar en tiempo real: sin esto, el badge C→E y el sombreado azul del imprimible
+    // SAP solo se verían tras F5 en cualquier ODPFichaModal ya abierto.
+    if (odpIdNotificar) {
+      import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpIdNotificar!, 'update')).catch(() => {});
+    }
 
     // Retornar ODC actualizada
     const updated = await OrdenCompra.findByPk(id, {
