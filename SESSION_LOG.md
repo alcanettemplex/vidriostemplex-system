@@ -63,3 +63,23 @@ Tras cualquier `pg_dump`/restore o migración de cuenta de Supabase, correr:
 ### Pendientes
 - Verificación visual del imprimible SAP en la PC de compras (caso 5).
 - Confirmar en producción caso 4 (subir imagen lead); si persiste tras el fix de secuencias, revisar formato/credenciales Cloudinary (causa secundaria, no bloqueante).
+
+## 2026-07-07 — Fix: garantías activas no aparecían en tab NC/Garantías (Producción)
+
+### Problema reportado
+El módulo Control de Taller, pestaña "NC / Garantías", mostraba (0) a pesar de existir garantías activas (G-0003 EN_ESPERA, G-0004 MEDICION).
+
+### Causa raíz — regresión
+`GET /api/odp/nc-garantias` (`getNcGarantias`) filtraba solo `es_no_conformidad: true`. El commit original `af118d2` (11-may) usaba `Op.or` con `es_garantia: true`; el refactor de egress `09e174e` (28-jun, ítem M5: unificación getGarantias/getNcGarantias en `buscarODPsEspeciales`) perdió la condición de garantías. Como `crearGarantia` setea `es_garantia: true` sin `es_no_conformidad`, las garantías nunca entraban en la respuesta.
+
+### Fix aplicado (commit ce77ebf)
+- `odp.controller.ts:193` — restaurado `{ [Op.or]: [{ es_no_conformidad: true }, { es_garantia: true }] }`.
+- `ProduccionPage.tsx:134` — `ESTADOS_NC_ACTIVOS` ahora incluye `PEDIDO_PROVEEDOR` (antes una NC/garantía desaparecía del tab al pasar por ese estado). `activeStates` (tablero principal y botón "marcar listo") intacto.
+
+### Verificación
+- E2E con token efímero contra backend local: endpoint devuelve 20 registros (4 garantías + 16 NC). G-0003 y G-0004 visibles en el tab (estados activos de taller); G-0001/G-0002 en LISTO_INSTALar quedan fuera por diseño del filtro frontend.
+- Backend reinició sin errores de tipos; frontend typecheck "No issues found".
+
+### Notas
+- Impacto egress despreciable (~2-4 filas más en respuesta ya limitada a 100).
+- Scripts sin commitear de sesión anterior siguen untracked: `fix_fecha_corte_importacion_2026-07-06.js`, `importar_buscador_leads_2026-07-06.js`.
