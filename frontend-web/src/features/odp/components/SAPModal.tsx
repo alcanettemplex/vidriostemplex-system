@@ -17,6 +17,7 @@ interface SAPItem {
   und: string;
   cantidad: number | string;
   observacion?: string;
+  es_faltante?: boolean;
 }
 
 interface SAP {
@@ -648,6 +649,9 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
   const [mode, setMode] = useState<'list' | 'create-choose' | 'selector' | 'editor' | 'view'>('list');
   const [editingSap, setEditingSap] = useState<SAP | null>(null);
   const [items, setItems] = useState<SAPItem[]>([emptyItem(0)]);
+  // Faltantes (cobertura parcial de existencia): no se editan desde el SAP —
+  // se muestran como solo lectura y el backend los protege de edición/borrado
+  const [itemsFaltantes, setItemsFaltantes] = useState<SAPItem[]>([]);
   const [notas, setNotas] = useState('');
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -712,13 +716,16 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
 
   const handleEditar = (sap: SAP) => {
     setEditingSap(sap);
-    setItems(sap.items.length > 0 ? sap.items : [emptyItem(0)]);
+    const editables = sap.items.filter(i => !i.es_faltante);
+    setItemsFaltantes(sap.items.filter(i => i.es_faltante));
+    setItems(editables.length > 0 ? editables : [emptyItem(0)]);
     setNotas(sap.notas || '');
     setMode('editor');
   };
 
   const abrirEditor = (itemsIniciales?: SAPItem[]) => {
     setItems(itemsIniciales || [emptyItem(0)]);
+    setItemsFaltantes([]);
     setNotas('');
     setEditingSap(null);
     setMode('editor');
@@ -868,6 +875,28 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                 <TablaEditable items={items} onChange={setItems} canEdit={true} />
               </div>
+
+              {itemsFaltantes.length > 0 && (
+                <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3">
+                  <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1.5">
+                    Faltantes gestionados por Compras (solo lectura)
+                  </p>
+                  <div className="space-y-1">
+                    {itemsFaltantes.map(f => (
+                      <div key={f.id} className="flex items-center gap-2 text-xs text-slate-600">
+                        <span className="font-black text-slate-700 w-5">{f.item}</span>
+                        <span className="text-white text-[9px] font-black bg-amber-500 rounded px-1">FALTA</span>
+                        <span className="font-bold">{f.codigo}</span>
+                        <span>{f.descripcion}</span>
+                        <span className="text-slate-400">· {f.cantidad} {f.und} · {f.dimension}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-amber-600 mt-1.5">
+                    Estos ítems se crearon al cubrir parcialmente con existencia de perfilería. Se administran desde Compras → Pendientes y heredan la letra de su ítem original.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Observaciones / Notas</label>

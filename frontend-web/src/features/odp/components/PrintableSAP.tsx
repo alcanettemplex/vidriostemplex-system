@@ -55,6 +55,15 @@ const fmtCant = (v: any): string => {
     return n % 1 === 0 ? String(Math.round(n)) : String(n);
 };
 
+const BadgeFalta = () => (
+    <span
+        className="text-white text-[8px] font-black bg-amber-500 rounded px-1 ml-1 align-middle"
+        // Estilos inline: la ventana de impresión depende del CDN de Tailwind (carga async, 800ms);
+        // si no llega a tiempo (red/proxy en algunas PCs) las clases no se aplican y el badge desaparece.
+        style={{ backgroundColor: '#f59e0b', color: '#fff', borderRadius: '3px', padding: '0 4px', marginLeft: '4px', fontWeight: 900, fontSize: '8px', verticalAlign: 'middle', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
+    >FALTA</span>
+);
+
 /** Genera la letra de display para un índice 0-based en la cuadrícula del imprimible */
 const letraDeIndice = (idx: number): string => {
     const abc = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -115,11 +124,26 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
         if (!existente) {
             itemPorIndice[indice] = { ...it };
         } else if (it.es_faltante || existente.es_faltante) {
-            // Cobertura parcial legítima: unificar en una sola fila
-            if (it.exist_perf) existente.exist_perf = it.exist_perf;
-            if (it.es_faltante) { existente.es_faltante = true; existente.id = it.id; }
-            if (it.cantidad > 0) existente.cantidad = it.cantidad;
-            if (it.estado_compra === 'en_odc') existente.estado_compra = it.estado_compra;
+            // Cobertura parcial legítima (original + faltante de dividirPorExistencia): unificar
+            // en una sola fila donde el ORIGINAL manda en CANT/código/dimensión/exist_perf y cada
+            // faltante aporta su cantidad/dimensión al badge FALTA de la columna EXIS. PERF.
+            const original = it.es_faltante ? existente : it;
+            const faltante = it.es_faltante ? it : existente;
+            const merged: any = { ...original };
+            merged.es_faltante = true;
+            merged.exist_perf = [original.exist_perf, faltante.exist_perf].filter(Boolean).join(' / ') || null;
+            merged.faltantes = [
+                ...(original.faltantes || []),
+                ...(faltante.faltantes || []),
+                { cantidad: faltante.cantidad, dimension: faltante.dimension },
+            ];
+            // id de la fila = faltante aún activo (pendiente/en_odc): es el registro que se
+            // asigna a las ODC, y los badges C/E se detectan por id contra odc.items.
+            merged.idFaltanteActivo = faltante.idFaltanteActivo
+                ?? original.idFaltanteActivo
+                ?? (faltante.es_faltante && faltante.estado_compra !== 'en_existencia' ? faltante.id : undefined);
+            if (merged.idFaltanteActivo) merged.id = merged.idFaltanteActivo;
+            itemPorIndice[indice] = merged;
         } else {
             // Colisión de letra entre ítems distintos (dato corrupto): no ocultar
             itemPorIndice[siguienteIndiceLibre()] = { ...it };
@@ -329,14 +353,6 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                                             <td className="text-[11px]">{item?.codigo || ''}</td>
                                             <td className="text-left text-[11px] px-1">
                                                 <span>{item?.descripcion || ''}</span>
-                                                {esFaltante && (
-                                                    <span
-                                                        className="text-white text-[8px] font-black bg-amber-500 rounded px-1 ml-1 align-middle"
-                                                        // Estilos inline: la ventana de impresión depende del CDN de Tailwind (carga async, 800ms);
-                                                        // si no llega a tiempo (red/proxy en algunas PCs) las clases no se aplican y el badge desaparece.
-                                                        style={{ backgroundColor: '#f59e0b', color: '#fff', borderRadius: '3px', padding: '0 4px', marginLeft: '4px', fontWeight: 900, fontSize: '8px', verticalAlign: 'middle', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
-                                                    >FALTA</span>
-                                                )}
                                                 {enODC ? (
                                                     <span className="font-black text-red-600 text-[12px] ml-1 align-middle" style={{ color: '#dc2626', fontWeight: 900, fontSize: '12px', marginLeft: '4px', verticalAlign: 'middle' }}>{enODCRecibida ? 'E' : 'C'}</span>
                                                 ) : (item?.exist_perf || item?.estado_compra === 'en_existencia') ? (
@@ -344,7 +360,17 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                                                 ) : null}
                                             </td>
                                             <td className="text-[11px]">{item?.dimension || ''}</td>
-                                            <td className="text-[11px]">{item?.exist_perf || ''}</td>
+                                            <td className="text-[11px]">
+                                                {item?.exist_perf || ''}
+                                                {/* Faltante sin par (original eliminado): badge solo, sus datos ya están en las columnas */}
+                                                {esFaltante && !item?.faltantes?.length && <BadgeFalta />}
+                                                {(item?.faltantes || []).map((f: any, i: number) => (
+                                                    <span key={i} style={{ whiteSpace: 'nowrap' }}>
+                                                        <BadgeFalta />
+                                                        <span style={{ marginLeft: '2px' }}>{[fmtCant(f.cantidad), f.dimension].filter(Boolean).join(' - ')}</span>
+                                                    </span>
+                                                ))}
+                                            </td>
                                             <td className="text-[11px]">{item?.gasto_perf || ''}</td>
                                             <td className="text-left text-[11px] px-1">{item?.observacion || ''}</td>
                                         </tr>

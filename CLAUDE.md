@@ -100,10 +100,11 @@ Ante un error inesperado durante ejecución:
 
 ## Commits
 
-- **Frecuencia:** Un commit al final de la sesión o funcionalidad completa
+- **REGLA PRINCIPAL:** NUNCA hacer commit ni push por iniciativa propia. El usuario solicita distintas modificaciones a lo largo de la sesión y solo cuando él lo indique explícitamente ("haz commit", "sube los cambios", etc.) se ejecuta commit + push.
+- Los cambios quedan en el working tree hasta recibir esa orden — así el usuario puede pedir varios ajustes y agruparlos en un solo commit cuando decida.
 - **Mensajes:** Formato convencional automático (`feat/fix/perf/chore: descripción`)
 - **Seguridad:** Antes de cada commit, verificar que ningún secreto (tokens, URLs, passwords) esté hardcodeado en archivos staged
-- **Push:** Automático después del commit (salvo indicación contraria)
+- **Push:** Junto con el commit, solo cuando el usuario lo ordene
 
 ---
 

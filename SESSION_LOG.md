@@ -83,3 +83,28 @@ El módulo Control de Taller, pestaña "NC / Garantías", mostraba (0) a pesar d
 ### Notas
 - Impacto egress despreciable (~2-4 filas más en respuesta ya limitada a 100).
 - Scripts sin commitear de sesión anterior siguen untracked: `fix_fecha_corte_importacion_2026-07-06.js`, `importar_buscador_leads_2026-07-06.js`.
+
+## 2026-07-07 (2) — Imprimible SAP: faltantes deterministas + herencia de re-letrado
+
+### Problema 1 — dimensión faltante pisaba la original en el imprimible
+Al dividir por existencia (Compras → Pendientes), el imprimible SAP fusionaba original+faltante pero sin fusionar `dimension`: ganaba el registro que llegara primero de la API (sin ORDER BY, orden físico de PG). Verificado con SAP-7844 fila H.
+
+**Fix (`PrintableSAP.tsx`):** merge determinista — el ORIGINAL manda siempre en CANT/código/dimensión/exist_perf; cada faltante aporta cantidad+dimensión a un badge FALTA en la columna EXIS. PERF. (fusionado con el texto de piezas). Badge movido de Descripción a EXIS. PERF. Componente `BadgeFalta` con estilos inline (lección CDN). Fallback para faltante sin par (badge solo, p.ej. fila R de SAP-7844 cuyo original fue re-letrado a B en una edición antigua).
+
+### Problema 2 — el par original/faltante se rompía al editar el SAP
+Editar ítems del SAP re-letraba el original sin que el faltante lo siguiera (causa raíz de la fila R huérfana), y los faltantes eran editables/borrables desde SAPModal.
+
+**Fix (`sap.controller.ts` updateSAP):**
+- Herencia de re-letrado en cascada vía `existencia_piezas.faltante_id` (updates por instancia → auditados), con guard anti-ciclo y de sap_id.
+- Faltantes nunca se eliminan desde la edición del SAP; ediciones entrantes sobre ellos se ignoran; `es_faltante`/`existencia_piezas` no se pisan desde el formulario.
+
+**Fix (`SAPModal.tsx`):** al editar, los faltantes salen de la tabla editable y se muestran en panel ámbar de solo lectura.
+
+### Verificación
+- Simulación del merge con datos reales (ambos órdenes de llegada → resultado idéntico).
+- E2E real: SAP desechable con cadena original→f1→f2 (letra A) → PUT re-letrando a C → los 3 en C, ningún faltante borrado. Limpieza total incluida (datos + auditoría), sin tocar el consecutivo SAP.
+- Typecheck frontend limpio; backend reinició sin errores.
+
+### Notas
+- Pares antiguos sin snapshot (pre-rework existencias, p.ej. SAP-7844) no se auto-reparan — decisión: se deja así, ya está en producción.
+- CLAUDE.md: nueva regla de commits — solo commit+push cuando el usuario lo ordene explícitamente.

@@ -120,12 +120,23 @@ export const updateSAP = async (req: Request, res: Response) => {
         items.filter((i: any) => i.id).map((i: any) => Number(i.id))
       );
 
+      // Letra previa de cada ítem: al final del procesamiento se comparan con las nuevas
+      // para propagar el re-letrado a los faltantes vinculados (existencia_piezas.faltante_id)
+      const letrasAnteriores = new Map<number, string>(
+        existingItems.map((ei: any) => [ei.getDataValue('id'), ei.getDataValue('item')])
+      );
+
       // Procesar cada ítem entrante
       for (const item of items) {
         const itemId = item.id ? Number(item.id) : null;
 
         if (itemId && existingMap.has(itemId)) {
           const existing = existingMap.get(itemId);
+
+          // Los ítems faltantes se gestionan desde Compras (dividir/revertir) y su letra
+          // la dicta la herencia del original: se ignoran ediciones llegadas del formulario SAP
+          if (existing.getDataValue('es_faltante')) continue;
+
           const tieneODC = Array.isArray(existing.odc_items) && existing.odc_items.length > 0;
 
           if (tieneODC) {
@@ -162,8 +173,10 @@ export const updateSAP = async (req: Request, res: Response) => {
             }, { transaction: t });
           } else {
             // Ítem no vinculado a ODC: actualizar normalmente y limpiar flags
+            // (es_faltante/existencia_piezas nunca se pisan desde el formulario)
+            const { es_faltante: _ef, existencia_piezas: _ep, ...datosEditables } = item;
             await existing.update({
-              ...item,
+              ...datosEditables,
               sap_id: Number(id),
               modificado: false,
               datos_anteriores: null,
@@ -171,7 +184,7 @@ export const updateSAP = async (req: Request, res: Response) => {
           }
         } else {
           // Ítem nuevo: crear
-          const { id: _ignore, ...itemSinId } = item;
+          const { id: _ignore, es_faltante: _ef, existencia_piezas: _ep, ...itemSinId } = item;
           await SAPItem.create({
             ...itemSinId,
             sap_id: Number(id),
@@ -185,10 +198,29 @@ export const updateSAP = async (req: Request, res: Response) => {
       for (const [existingId, existing] of existingMap) {
         if (!incomingIds.has(existingId)) {
           const tieneODC = Array.isArray(existing.odc_items) && existing.odc_items.length > 0;
-          if (!tieneODC) {
+          const esFaltante = existing.getDataValue('es_faltante') === true;
+          if (!tieneODC && !esFaltante) {
             await existing.destroy({ transaction: t });
           }
-          // Si tiene ODC activa: no se puede eliminar, se deja intacto
+          // Si tiene ODC activa o es un faltante (gestionado por Compras): se deja intacto
+        }
+      }
+
+      // Herencia de re-letrado: si la letra de un original cambió, sus faltantes vinculados
+      // (existencia_piezas.faltante_id) heredan la nueva letra en cascada, para que el par
+      // siga compartiendo letra y fusionándose en el imprimible de la SAP.
+      const visitados = new Set<number>();
+      for (const [existingId, existing] of existingMap) {
+        if (existing.getDataValue('es_faltante')) continue;
+        const letraNueva = existing.getDataValue('item');
+        if (letrasAnteriores.get(existingId) === letraNueva) continue;
+        let faltanteId: number | null = existing.getDataValue('existencia_piezas')?.faltante_id ?? null;
+        while (faltanteId && !visitados.has(faltanteId)) {
+          visitados.add(faltanteId);
+          const faltante = await SAPItem.findOne({ where: { id: faltanteId, sap_id: Number(id) }, transaction: t });
+          if (!faltante) break;
+          await faltante.update({ item: letraNueva }, { transaction: t });
+          faltanteId = faltante.getDataValue('existencia_piezas')?.faltante_id ?? null;
         }
       }
     }
