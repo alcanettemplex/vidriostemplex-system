@@ -190,7 +190,7 @@ const buscarODPsEspeciales = async (where: any, req: Request, res: Response) => 
 };
 
 export const getNcGarantias = async (req: Request, res: Response) => {
-  return buscarODPsEspeciales({ es_no_conformidad: true } as any, req, res);
+  return buscarODPsEspeciales({ [Op.or]: [{ es_no_conformidad: true }, { es_garantia: true }] } as any, req, res);
 };
 
 export const getGarantias = async (req: Request, res: Response) => {

@@ -131,7 +131,7 @@ const activeStates = [
     'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS'
 ];
 
-const ESTADOS_NC_ACTIVOS = [...activeStates];
+const ESTADOS_NC_ACTIVOS = [...activeStates, 'PEDIDO_PROVEEDOR'];
 
 const ESTADO_ORDEN: Record<string, number> = {
     EN_ESPERA: 0, VISITA_TECNICA: 1, MEDICION: 2,
