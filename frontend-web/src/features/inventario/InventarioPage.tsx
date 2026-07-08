@@ -55,7 +55,7 @@ const InventarioPage: React.FC = () => {
 
   // Edición inline
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editValues, setEditValues] = useState<{ ubicacion: string; mm: string }>({ ubicacion: '', mm: '' });
+  const [editValues, setEditValues] = useState<{ ubicacion: string; mm: string; codigo: string }>({ ubicacion: '', mm: '', codigo: '' });
 
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
@@ -146,7 +146,7 @@ const InventarioPage: React.FC = () => {
 
   const startEdit = (item: PerfilItem) => {
     setEditingId(item.id);
-    setEditValues({ ubicacion: item.ubicacion || '', mm: String(item.mm) });
+    setEditValues({ ubicacion: item.ubicacion || '', mm: String(item.mm), codigo: item.codigo || '' });
   };
 
   const cancelEdit = () => setEditingId(null);
@@ -156,6 +156,7 @@ const InventarioPage: React.FC = () => {
       await axios.patch(`${API}/api/inventario-perfileria/${id}`, {
         ubicacion: editValues.ubicacion || null,
         mm: parseFloat(editValues.mm),
+        codigo: editValues.codigo.trim().toUpperCase() || null,
       }, { headers });
       setEditingId(null);
       loadItems();
@@ -316,7 +317,28 @@ const InventarioPage: React.FC = () => {
                   {items.map(item => (
                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-2.5 text-slate-400 font-mono text-xs">{item.consecutivo}</td>
-                      <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">{item.codigo || '—'}</td>
+                      <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">
+                        {editingId === item.id ? (
+                          <div>
+                            <input
+                              type="text"
+                              value={editValues.codigo}
+                              onChange={e => setEditValues(v => ({ ...v, codigo: e.target.value.toUpperCase() }))}
+                              placeholder="Ej: MOS0501"
+                              className="w-28 border border-indigo-300 rounded px-2 py-0.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                            />
+                            {editValues.codigo.trim() && (
+                              catalogoMap[editValues.codigo.trim()] ? (
+                                <p className="text-[10px] font-sans font-medium text-emerald-600 mt-0.5">{catalogoMap[editValues.codigo.trim()]}</p>
+                              ) : (
+                                <p className="text-[10px] font-sans font-medium text-amber-600 mt-0.5">No está en catálogo</p>
+                              )
+                            )}
+                          </div>
+                        ) : (
+                          item.codigo || '—'
+                        )}
+                      </td>
                       <td className="px-4 py-2.5 text-slate-500 text-sm">{catalogoMap[item.codigo] || '—'}</td>
                       <td className="px-4 py-2.5">
                         {editingId === item.id ? (

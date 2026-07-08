@@ -108,3 +108,19 @@ Editar ítems del SAP re-letraba el original sin que el faltante lo siguiera (ca
 ### Notas
 - Pares antiguos sin snapshot (pre-rework existencias, p.ej. SAP-7844) no se auto-reparan — decisión: se deja así, ya está en producción.
 - CLAUDE.md: nueva regla de commits — solo commit+push cuando el usuario lo ordene explícitamente.
+
+## 2026-07-07 (3) — Inventario perfilería: corrección de datos + edición de código en UI
+
+### Corrección de datos (script one-off ejecutado)
+- Consecutivo 10789: código PEP0301 → MOS0501 (pieza física era PERFIL MOSQUITERO).
+- Consecutivo 10812: restaurado con PERF001 (6000 mm, C1) — había sido ingresado hoy con ANG0301 y eliminado a las 14:07. PERF001 = "PERFILERIA ESPECIAL", existe en catálogo.
+- Script: `fix_inventario_10789_10812_2026-07-07.ts` — idempotente, transaccional, vía modelos Sequelize para que quede en auditoría (verificado: UPDATE e INSERT registrados en auditoria_log).
+
+### Feature: edición de código desde la UI de inventario
+Antes el endpoint PATCH solo aceptaba mm/ubicación — corregir un código requería script.
+- **Backend** (`inventario_perfileria.controller.ts` updateInventarioItem): acepta `codigo` opcional, trim + MAYÚSCULAS, vacío → null. Sin validación dura contra catálogo (existen códigos legítimos fuera de él: JAM0201, SIL0204, "SIN CODIGO").
+- **Frontend** (`InventarioPage.tsx`): celda CÓDIGO editable inline (mayúsculas automáticas) con feedback en vivo vía catalogoMap: nombre del producto en verde si existe en catálogo, aviso ámbar "No está en catálogo" si no (advierte, no bloquea).
+- RBAC sin cambios (PATCH ya era admin/gerencia/compras). Auditoría automática por update de instancia.
+
+### Verificación
+E2E con pieza desechable (consecutivo 99999) + limpieza total: minúsculas→MAYÚSCULAS ✅, vacío→null ✅, PATCH solo mm/ubicación no toca código ✅. Typecheck frontend limpio.

@@ -67,7 +67,7 @@ export const getInventarioStats = async (_req: Request, res: Response) => {
 export const updateInventarioItem = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { ubicacion, mm } = req.body;
+    const { ubicacion, mm, codigo } = req.body;
 
     const item = await InventarioPerfileria.findByPk(id);
     if (!item) return res.status(404).json({ error: 'Perfil no encontrado' });
@@ -75,6 +75,8 @@ export const updateInventarioItem = async (req: Request, res: Response) => {
     const updates: any = {};
     if (ubicacion !== undefined) updates.ubicacion = ubicacion;
     if (mm !== undefined) updates.mm = mm;
+    // Sin validación contra catálogo: existen códigos legítimos fuera de él (JAM0201, SIL0204...)
+    if (codigo !== undefined) updates.codigo = String(codigo).trim().toUpperCase() || null;
 
     await item.update(updates);
     res.json(item);
