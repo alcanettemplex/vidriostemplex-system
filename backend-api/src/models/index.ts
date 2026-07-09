@@ -363,6 +363,20 @@ for (const { model, tabla, pk } of MODELOS_AUDITADOS) {
   });
 }
 
+// ─── Denormalización: mantener leads.ultima_actividad ────────────────────────
+// Cada evento nuevo en la bitácora del lead actualiza su "última actividad".
+// hooks:false evita disparar el afterUpdate de auditoría de Lead (sería ruido:
+// es un campo derivado, no un cambio de negocio). Respeta la transacción del
+// create original para no dejar el lead inconsistente si esa transacción falla.
+LeadEvento.addHook('afterCreate', 'sync_lead_ultima_actividad', async (evento: any, options: any) => {
+  try {
+    await Lead.update(
+      { ultima_actividad: evento.getDataValue('createdAt') },
+      { where: { id: evento.getDataValue('lead_id') }, transaction: options?.transaction, hooks: false }
+    );
+  } catch { /* no interrumpir la creación del evento por un fallo en la denormalización */ }
+});
+
 export {
   sequelize,
   AuditoriaLog,

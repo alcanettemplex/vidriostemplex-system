@@ -19,6 +19,13 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteBusqueda, setClienteBusqueda] = useState('');
   const [dropdownAbierto, setDropdownAbierto] = useState(false);
+  // Cliente elegido: fuente de verdad independiente de los resultados de búsqueda.
+  // Se deriva NO de `clientes` (que se vacía al limpiar la búsqueda), sino de este estado.
+  const [clienteSel, setClienteSel] = useState<Cliente | null>(
+    prospecto?.cliente
+      ? { id: prospecto.cliente.id, nombre_razon_social: prospecto.cliente.nombre_razon_social, telefono: null, celular: null, email: null }
+      : null
+  );
   // 'nuevo' | 'existente'
   const [tipo, setTipo] = useState<'nuevo' | 'existente'>(prospecto?.cliente_id ? 'existente' : 'nuevo');
   const [contactoDiferente, setContactoDiferente] = useState(
@@ -55,6 +62,11 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
   useEffect(() => {
     setTipo(prospecto?.cliente_id ? 'existente' : 'nuevo');
     setContactoDiferente(!!(prospecto?.nombre_contacto && prospecto?.cliente_id));
+    setClienteSel(
+      prospecto?.cliente
+        ? { id: prospecto.cliente.id, nombre_razon_social: prospecto.cliente.nombre_razon_social, telefono: null, celular: null, email: null }
+        : null
+    );
     setForm({
       cliente_id: prospecto?.cliente_id || '',
       nombre_contacto: prospecto?.nombre_contacto || '',
@@ -67,15 +79,13 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
 
   const set = (k: string, v: string) => setForm(prev => ({ ...prev, [k]: v }));
 
-  // Al seleccionar cliente existente, precargar teléfono/email del cliente
-  const handleSelectCliente = (id: string) => {
-    set('cliente_id', id);
-    if (!contactoDiferente && id) {
-      const c = clientes.find(c => String(c.id) === id);
-      if (c) {
-        set('telefono_contacto', c.telefono || c.celular || '');
-        set('email_contacto', c.email || '');
-      }
+  // Al seleccionar cliente existente, guardar el objeto completo y precargar teléfono/email
+  const handleSelectCliente = (c: Cliente) => {
+    setClienteSel(c);
+    set('cliente_id', String(c.id));
+    if (!contactoDiferente) {
+      set('telefono_contacto', c.telefono || c.celular || '');
+      set('email_contacto', c.email || '');
     }
   };
 
@@ -114,8 +124,6 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
       toast.error(e.response?.data?.error || 'Error al guardar');
     } finally { setLoading(false); }
   };
-
-  const clienteSeleccionado = clientes.find(c => String(c.id) === String(form.cliente_id));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
@@ -218,7 +226,7 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
                 <div className="relative">
                   <input
                     type="text"
-                    value={dropdownAbierto ? clienteBusqueda : (clienteSeleccionado?.nombre_razon_social || clienteBusqueda)}
+                    value={dropdownAbierto ? clienteBusqueda : (clienteSel?.nombre_razon_social || clienteBusqueda)}
                     onChange={e => { setClienteBusqueda(e.target.value); setDropdownAbierto(true); }}
                     onFocus={() => { setClienteBusqueda(''); setDropdownAbierto(true); }}
                     placeholder="Buscar cliente..."
@@ -236,7 +244,7 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
                             <button
                               key={c.id}
                               type="button"
-                              onClick={() => { handleSelectCliente(String(c.id)); setClienteBusqueda(''); setDropdownAbierto(false); }}
+                              onClick={() => { handleSelectCliente(c); setClienteBusqueda(''); setDropdownAbierto(false); }}
                               className="w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
                             >
                               <span className="block font-medium">{c.nombre_razon_social}</span>
@@ -254,12 +262,12 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
               </div>
 
               {/* Datos del cliente seleccionado */}
-              {clienteSeleccionado && (
+              {clienteSel && (
                 <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs text-indigo-700 space-y-0.5">
-                  {(clienteSeleccionado.telefono || clienteSeleccionado.celular) && (
-                    <p>📞 {clienteSeleccionado.telefono || clienteSeleccionado.celular}</p>
+                  {(clienteSel.telefono || clienteSel.celular) && (
+                    <p>📞 {clienteSel.telefono || clienteSel.celular}</p>
                   )}
-                  {clienteSeleccionado.email && <p>✉️ {clienteSeleccionado.email}</p>}
+                  {clienteSel.email && <p>✉️ {clienteSel.email}</p>}
                 </div>
               )}
 
@@ -273,10 +281,10 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
                       setContactoDiferente(e.target.checked);
                       if (!e.target.checked) {
                         // Restaurar datos del cliente
-                        if (clienteSeleccionado) {
+                        if (clienteSel) {
                           set('nombre_contacto', '');
-                          set('telefono_contacto', clienteSeleccionado.telefono || clienteSeleccionado.celular || '');
-                          set('email_contacto', clienteSeleccionado.email || '');
+                          set('telefono_contacto', clienteSel.telefono || clienteSel.celular || '');
+                          set('email_contacto', clienteSel.email || '');
                         }
                       }
                     }}

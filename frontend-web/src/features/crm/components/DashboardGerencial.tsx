@@ -338,7 +338,7 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha
           label="Clientes Nuevos"
           value={String(nuevos_clientes + nuevos_prospectos)}
           sub={`CRM: ${nuevos_clientes} · Prospectos: ${nuevos_prospectos} · Recurrentes: ${clientes_recurrentes}`}
-          tooltip="Suma de clientes nuevos captados por dos vías: leads CRM aprobados (${nuevos_clientes}) y prospectos formales convertidos a ODP (${nuevos_prospectos}). No incluye clientes recurrentes que ya existían en el sistema."
+          tooltip={`Suma de clientes nuevos captados por dos vías: leads CRM aprobados (${nuevos_clientes}) y prospectos formales convertidos a ODP (${nuevos_prospectos}). No incluye clientes recurrentes que ya existían en el sistema.`}
           icon={<IconUserCheck size={16} className="text-rose-600" />}
           accentColor="bg-rose-50" borderColor="border-l-rose-400"
         />

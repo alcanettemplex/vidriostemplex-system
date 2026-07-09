@@ -237,7 +237,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
   const isMultiODP = odpsInfo.length > 1;
   // legacy compat + fallback a odp directo
   const odp = odc.sap?.ODP ?? odc.odp;
-  const estadoProd = odp?.estado_produccion || odpsInfo[0] && '' || '';
+  const estadoProd = odp?.estado_produccion || '';
   const est = ODC_ESTADO_STYLE[odc.estado] || ODC_ESTADO_STYLE['pendiente'];
 
   const handleGuardarEdicion = async () => {

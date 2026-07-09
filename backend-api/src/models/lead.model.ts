@@ -75,6 +75,13 @@ Lead.init({
     type: DataTypes.INTEGER,
     allowNull: true, // Se llena cuando se solicita visita técnica desde CRM
   },
+  // Denormalización: último evento registrado en lead_eventos (o createdAt si no hay
+  // eventos). Mantenida por hook LeadEvento.afterCreate en models/index.ts. Se usa
+  // para filtrar/ordenar el tablero CRM por "última actividad" sin subquery por fila.
+  ultima_actividad: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
 }, {
   sequelize,
   modelName: 'Lead',

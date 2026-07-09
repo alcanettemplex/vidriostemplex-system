@@ -427,15 +427,17 @@ export const getLeads = async (req: Request, res: Response) => {
       const filtroFecha = { [Op.between]: [start, end] };
 
       if (esPipeline) {
-        // Pipeline: las etapas activas se muestran siempre completas (un lead
-        // recuperado o reasignado no debe desaparecer solo porque su createdAt
-        // original quedó fuera del mes seleccionado). PERDIDO y FRIO ya son
-        // estados cerrados sin acción pendiente: sí se acotan al periodo para
-        // no acumular el histórico completo en cada carga del tablero.
+        // Pipeline: las etapas en gestión activa (NUEVO→VISITA_TECNICA) se muestran
+        // siempre completas (un lead recuperado o reasignado no debe desaparecer solo
+        // porque su actividad quedó fuera del mes). PERDIDO, FRIO y APROBADO son
+        // estados terminales/cerrados: se acotan al período por su ÚLTIMA ACTIVIDAD
+        // (columna denormalizada leads.ultima_actividad, fallback a createdAt) para no
+        // acumular el histórico completo en cada carga del tablero.
+        const ultimaActividad = sequelize.literal(`COALESCE("Lead"."ultima_actividad", "Lead"."createdAt")`);
         whereClause[Op.and] = [
           { [Op.or]: [
-            { estado_crm: { [Op.notIn]: ['PERDIDO', 'FRIO'] } },
-            { createdAt: filtroFecha },
+            { estado_crm: { [Op.notIn]: ['PERDIDO', 'FRIO', 'APROBADO'] } },
+            sequelize.where(ultimaActividad, Op.between, [start, end]),
           ] },
         ];
       } else {
@@ -445,16 +447,13 @@ export const getLeads = async (req: Request, res: Response) => {
 
     const leads = await Lead.findAll({
       where: whereClause,
-      attributes: {
-        include: [
-          [sequelize.literal(`(SELECT MAX("createdAt") FROM "lead_eventos" WHERE "lead_eventos"."lead_id" = "Lead"."id")`), 'ultima_actividad']
-        ]
-      },
+      // ultima_actividad ya es columna del modelo (mantenida por hook); se incluye por defecto.
       include: [
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
         { model: Usuario, as: 'captador', attributes: ['id', 'nombre_completo'] },
+        { model: ODP, as: 'odp', attributes: ['id', 'numero_odp'] },
       ],
-      order: [['createdAt', 'DESC']],
+      order: [['ultima_actividad', 'DESC']],
     });
 
     res.json(leads);

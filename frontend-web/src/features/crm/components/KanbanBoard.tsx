@@ -13,6 +13,8 @@ import { fetchLeadsStart, fetchLeadsSuccess, fetchLeadsFailure, updateLead } fro
 import { apiGetLeads, apiUpdateLeadStatus, apiAssignLeadToMe } from '../crmService';
 import LeadCard from './LeadCard';
 import MotivoPerdidaModal from './MotivoPerdidaModal';
+import CrearODPModal from './CrearODPModal';
+import ODPFichaModal from '../../odp/components/ODPFichaModal';
 import { useDataChangedSocket } from '../../../store/useSocketNotifications';
 
 // ─── Etapas del pipeline ─────────────────────────────────────────────────────
@@ -129,9 +131,10 @@ function sortByPriority(leads: any[]): any[] {
     const pa = calcularPrioridad(a) === 'urgente' ? 0 : 1;
     const pb = calcularPrioridad(b) === 'urgente' ? 0 : 1;
     if (pa !== pb) return pa - pb;
-    // Secundario: fecha_asignado DESC (más reciente primero)
-    const fa = a.fecha_asignado ? new Date(a.fecha_asignado).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
-    const fb = b.fecha_asignado ? new Date(b.fecha_asignado).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+    // Secundario: último movimiento/contacto más reciente primero
+    // (misma fuente que diasSinActividad: última actividad de la bitácora)
+    const fa = new Date(a.ultima_actividad || a.updatedAt || a.createdAt || 0).getTime();
+    const fb = new Date(b.ultima_actividad || b.updatedAt || b.createdAt || 0).getTime();
     return fb - fa;
   });
 }
@@ -297,6 +300,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
   const [dropdownOpenId, setDropdownOpenId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
+  // ODP vinculada en tarjetas de etapa APROBADO: ver ficha / crear ODP
+  const [odpFichaId, setOdpFichaId] = useState<number | null>(null);
+  const [crearOdpLead, setCrearOdpLead] = useState<any | null>(null);
+  // Filtro contextual: mostrar solo leads APROBADO sin ODP vinculada
+  const [soloSinOdp, setSoloSinOdp] = useState(false);
+
   useEffect(() => {
     if (dropdownOpenId === null) return;
     const close = (e: MouseEvent) => {
@@ -327,6 +336,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
   useDataChangedSocket('crm', fetchLeads);
+
+  // Al salir de la etapa Aprobados, desactivar el filtro "solo sin ODP"
+  useEffect(() => { if (columnaActiva !== 'APROBADO') setSoloSinOdp(false); }, [columnaActiva]);
 
   // ─── Filtrado central ────────────────────────────────────────────────────────
   const filtrarLeads = (leads: any[], extras: { stageId?: string } = {}) => {
@@ -463,7 +475,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
 
   // ─── Vista Pipeline Horizontal (Tipo Stepper) ──────────────────────────────────
   const renderPipelineHorizontal = () => {
-    const colLeads = sortByPriority(filtrarLeads(leads, { stageId: columnaActiva }));
+    const colLeadsBase = sortByPriority(filtrarLeads(leads, { stageId: columnaActiva }));
+    // Conteo de aprobados sin ODP (siempre sobre la base, no depende del toggle)
+    const sinOdpCount = columnaActiva === 'APROBADO' ? colLeadsBase.filter((l: any) => !l.odp).length : 0;
+    const colLeads = (columnaActiva === 'APROBADO' && soloSinOdp)
+      ? colLeadsBase.filter((l: any) => !l.odp)
+      : colLeadsBase;
     const pageSize = pagina[columnaActiva] * CARDS_POR_PAGINA;
     const leadsVisible = colLeads.slice(0, pageSize);
     const hayMas = colLeads.length > pageSize;
@@ -551,6 +568,23 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                     {colLeads.filter(l => calcularPrioridad(l) === 'urgente').length} urgente(s)
                   </span>
                 )}
+                {/* Filtro contextual: solo aprobados sin ODP vinculada */}
+                {columnaActiva === 'APROBADO' && sinOdpCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSoloSinOdp(v => !v)}
+                    title={soloSinOdp ? 'Quitar filtro' : 'Ver solo leads sin ODP vinculada'}
+                    className={`text-xs font-black flex items-center gap-1 px-2.5 py-1 rounded-full border transition ${
+                      soloSinOdp
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                        : 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100'
+                    }`}
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    {soloSinOdp ? `SIN ODP · ${sinOdpCount}` : `${sinOdpCount} sin ODP`}
+                    {soloSinOdp && <X className="w-3 h-3" />}
+                  </button>
+                )}
               </div>
             );
           })()}
@@ -591,6 +625,30 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                         <p className="text-sm font-bold text-slate-800 truncate">{lead.nombre || 'Sin nombre'}</p>
                         <PrioridadBadge prioridad={prioridad} />
                       </div>
+                      {/* ODP vinculada — solo etapa APROBADO */}
+                      {lead.estado_crm === 'APROBADO' && (
+                        <div className="mt-1">
+                          {lead.odp ? (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setOdpFichaId(lead.odp.id); }}
+                              title="Ver ODP vinculada"
+                              className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 hover:bg-emerald-100 transition"
+                            >
+                              <CheckCircle className="w-3 h-3" /> {lead.odp.numero_odp}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setCrearOdpLead(lead); }}
+                              title="Crear y vincular ODP a este lead"
+                              className="inline-flex items-center gap-1 text-[10px] font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-300 hover:bg-rose-100 transition animate-pulse"
+                            >
+                              <AlertTriangle className="w-3 h-3" /> SIN ODP VINCULADA
+                            </button>
+                          )}
+                        </div>
+                      )}
                       {/* Teléfono — prominente */}
                       <p className="text-sm font-black text-slate-700 font-mono tracking-wide mt-0.5">
                         {lead.telefono || '—'}
@@ -766,6 +824,18 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
           </div>
         )}
         </div>
+
+        {/* Modales ODP (tarjetas etapa APROBADO) */}
+        {odpFichaId != null && (
+          <ODPFichaModal odpId={odpFichaId} onClose={() => setOdpFichaId(null)} />
+        )}
+        {crearOdpLead && (
+          <CrearODPModal
+            lead={crearOdpLead}
+            onClose={() => setCrearOdpLead(null)}
+            onSuccess={() => { setCrearOdpLead(null); fetchLeads(); }}
+          />
+        )}
       </div>
     );
   };
