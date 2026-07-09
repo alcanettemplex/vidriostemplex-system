@@ -9,3 +9,7 @@ build/
 .claude/
 
 documentation/*.XLS
+
+# Scripts one-off ya ejecutados (no versionados)
+backend-api/src/scripts/fix_fecha_corte_importacion_2026-07-06.js
+backend-api/src/scripts/importar_buscador_leads_2026-07-06.js
