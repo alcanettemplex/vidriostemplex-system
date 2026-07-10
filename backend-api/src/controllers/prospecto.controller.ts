@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Prospecto, Cliente, Usuario, TomaMedidas, ODP, ODPItem, CotizacionCaptura } from '../models';
+import { Prospecto, Cliente, Usuario, TomaMedidas, ODP, ODPItem, CotizacionCaptura, Lead, LeadEvento } from '../models';
 import sequelize from '../config/database';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 
@@ -304,6 +304,33 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
 
     // Marcar prospecto como aprobado y vincularlo a la ODP
     await prospecto.update({ estado: 'aprobado', odp_id, fecha_gestion: new Date() }, { transaction: t });
+
+    // ── Sincronizar el/los Lead(s) de origen (CRM) ────────────────────────────
+    // Un prospecto puede haber nacido de un lead vía "solicitar visita técnica"
+    // (lead.prospecto_id). Al aprobar el prospecto, el negocio se cierra: el lead
+    // debe reflejar APROBADO y heredar la ODP/cliente para no quedar colgado en
+    // VISITA_TECNICA (esto además corrige la tasa de conversión del CRM y evita el
+    // falso positivo "aprobado sin ODP"). Va DENTRO de la transacción: la
+    // aprobación del prospecto y la sincronización del lead son atómicas.
+    // Prospectos creados directamente en /prospectos (sin lead) → findAll = [] → no-op.
+    const leadsVinculados = await Lead.findAll({ where: { prospecto_id: Number(id) }, transaction: t });
+    for (const lead of leadsVinculados) {
+      await lead.update({
+        estado_crm: 'APROBADO',
+        odp_id,
+        cliente_id: lead.getDataValue('cliente_id') || cliente_id_final,
+        fecha_aprobado: lead.getDataValue('fecha_aprobado') || new Date(),
+        fecha_cierre: lead.getDataValue('fecha_cierre') || new Date(),
+        monto_real_venta: Number(valor_total) > 0 ? valor_total : lead.getDataValue('monto_proyectado_cotizacion'),
+      }, { transaction: t });
+
+      await LeadEvento.create({
+        tipo: 'CONVERSION',
+        detalle_texto: `Prospecto ${prospecto.getDataValue('numero_prospecto')} aprobado → ODP ${numero_odp} generada y vinculada automáticamente.`,
+        lead_id: lead.getDataValue('id'),
+        creado_por: userId,
+      }, { transaction: t });
+    }
 
     // Migrar capturas de cotización del prospecto a la ODP (prospecto_id se mantiene para historial)
     await CotizacionCaptura.update(

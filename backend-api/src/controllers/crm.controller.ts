@@ -550,13 +550,21 @@ export const getCRMStats = async (req: Request, res: Response) => {
     let negociosPorFuente: { fuente: string; count: number; monto: number }[] = [];
     if (periodStart && periodEnd) {
       const whereODP = { fecha_creacion: { [Op.between]: [periodStart, periodEnd] } };
-      const [odpsConProspectoData, totalOdpsData] = await Promise.all([
+      // Un negocio que nació como lead en el CRM se acredita a la vía CRM (nuevos_clientes,
+      // vía leads APROBADO), aunque haya usado el sub-flujo de visita técnica (prospecto).
+      // Por eso las ODPs con lead vinculado se EXCLUYEN de nuevos_prospectos y de recurrentes:
+      // así el mismo negocio no se cuenta dos veces en "Clientes captados".
+      const SUBQ_ODPS_CON_LEAD = '(SELECT odp_id FROM leads WHERE odp_id IS NOT NULL)';
+      const [odpsConProspectoData, totalOdpsData, odpsConLeadData] = await Promise.all([
         ODP.findAll({
           attributes: [
             [sequelize.fn('COUNT', sequelize.col('ODP.id')), 'count'],
             [sequelize.fn('SUM', sequelize.col('valor_total')), 'monto'],
           ],
-          where: whereODP,
+          where: {
+            ...whereODP,
+            [Op.and]: [sequelize.literal(`"ODP"."id" NOT IN ${SUBQ_ODPS_CON_LEAD}`)],
+          },
           include: [{ model: Prospecto, as: 'prospecto', required: true, attributes: [] }],
           raw: true,
         }),
@@ -568,15 +576,30 @@ export const getCRMStats = async (req: Request, res: Response) => {
           where: whereODP,
           raw: true,
         }),
+        ODP.findAll({
+          attributes: [
+            [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+            [sequelize.fn('SUM', sequelize.col('valor_total')), 'monto'],
+          ],
+          where: {
+            ...whereODP,
+            [Op.and]: [sequelize.literal(`id IN ${SUBQ_ODPS_CON_LEAD}`)],
+          },
+          raw: true,
+        }),
       ]);
       const rowCon = (odpsConProspectoData[0] as any) ?? {};
       const rowTotal = (totalOdpsData[0] as any) ?? {};
+      const rowLead = (odpsConLeadData[0] as any) ?? {};
       nuevosProspectos = parseInt(rowCon.count ?? '0', 10);
       montoNuevosProspectos = parseFloat(rowCon.monto ?? '0');
       const totalCount = parseInt(rowTotal.count ?? '0', 10);
       const totalMonto = parseFloat(rowTotal.monto ?? '0');
-      clientesRecurrentes = Math.max(0, totalCount - nuevosProspectos);
-      montoClientesRecurrentes = Math.max(0, totalMonto - montoNuevosProspectos);
+      const odpsConLeadCount = parseInt(rowLead.count ?? '0', 10);
+      const odpsConLeadMonto = parseFloat(rowLead.monto ?? '0');
+      // Recurrentes = ODPs directas: ni prospecto puro ni lead detrás.
+      clientesRecurrentes = Math.max(0, totalCount - nuevosProspectos - odpsConLeadCount);
+      montoClientesRecurrentes = Math.max(0, totalMonto - montoNuevosProspectos - odpsConLeadMonto);
 
       // Distribución por fuente: ODPs (negocios) del período según la fuente de su cliente.
       // LEFT JOIN para no perder ninguna ODP → la suma cuadra con el total de ODPs del período.
