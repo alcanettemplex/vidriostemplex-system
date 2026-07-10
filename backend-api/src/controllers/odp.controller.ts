@@ -29,6 +29,7 @@ import Produccion from '../models/produccion.model';
 import ProgramacionInstalacion from '../models/programacion_instalacion.model';
 import { z } from 'zod';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
+import { generarNumeroODP } from '../utils/generarNumeroODP';
 
 const odpItemSchema = z.object({
   item: z.string().nullable().optional(),
@@ -443,18 +444,7 @@ export const createODP = async (req: Request, res: Response) => {
       try {
         // Generar número consecutivo según tipo (ODP-XXXX / OA-XXXX)
         const prefijo = data.tipo_odp === 'OA' ? 'OA' : 'ODP';
-        const lastODP = await ODP.findOne({
-          where: { numero_odp: { [require('sequelize').Op.like]: `${prefijo}-%` } },
-          order: [[sequelize.literal("CAST(SPLIT_PART(numero_odp, '-', 2) AS INTEGER)"), 'DESC']],
-          attributes: ['numero_odp'],
-          transaction: t,
-        });
-        let nextODPNum = 1;
-        if (lastODP) {
-          const parts = lastODP.getDataValue('numero_odp').split('-');
-          nextODPNum = parseInt(parts[parts.length - 1]) + 1;
-        }
-        const generatedNumeroODP = `${prefijo}-${String(nextODPNum).padStart(4, '0')}`;
+        const generatedNumeroODP = await generarNumeroODP(prefijo, t);
 
         // Derivar estado inicial si no viene explícito desde el frontend
         const estadoInicial = data.estado_produccion

@@ -11,6 +11,8 @@ import ODP from '../models/odp.model';
 import { v2 as cloudinary } from 'cloudinary';
 import '../config/upload'; // garantiza que cloudinary está configurado
 import { diasDesde, calcularAccionSugerida, FECHA_POR_ESTADO, hoyBogotaISO } from '../utils/crmSupervision';
+import { withUniqueRetry } from '../utils/withUniqueRetry';
+import { generarNumeroODP } from '../utils/generarNumeroODP';
 
 
 
@@ -547,6 +549,8 @@ export const getCRMStats = async (req: Request, res: Response) => {
     let clientesRecurrentes = 0;
     let montoNuevosProspectos = 0;
     let montoClientesRecurrentes = 0;
+    let nuevosCRM = 0;            // ODPs del período originadas en un lead (vía CRM)
+    let montoNuevosCRM = 0;
     let negociosPorFuente: { fuente: string; count: number; monto: number }[] = [];
     if (periodStart && periodEnd) {
       const whereODP = { fecha_creacion: { [Op.between]: [periodStart, periodEnd] } };
@@ -595,11 +599,11 @@ export const getCRMStats = async (req: Request, res: Response) => {
       montoNuevosProspectos = parseFloat(rowCon.monto ?? '0');
       const totalCount = parseInt(rowTotal.count ?? '0', 10);
       const totalMonto = parseFloat(rowTotal.monto ?? '0');
-      const odpsConLeadCount = parseInt(rowLead.count ?? '0', 10);
-      const odpsConLeadMonto = parseFloat(rowLead.monto ?? '0');
+      nuevosCRM = parseInt(rowLead.count ?? '0', 10);
+      montoNuevosCRM = parseFloat(rowLead.monto ?? '0');
       // Recurrentes = ODPs directas: ni prospecto puro ni lead detrás.
-      clientesRecurrentes = Math.max(0, totalCount - nuevosProspectos - odpsConLeadCount);
-      montoClientesRecurrentes = Math.max(0, totalMonto - montoNuevosProspectos - odpsConLeadMonto);
+      clientesRecurrentes = Math.max(0, totalCount - nuevosProspectos - nuevosCRM);
+      montoClientesRecurrentes = Math.max(0, totalMonto - montoNuevosProspectos - montoNuevosCRM);
 
       // Distribución por fuente: ODPs (negocios) del período según la fuente de su cliente.
       // LEFT JOIN para no perder ninguna ODP → la suma cuadra con el total de ODPs del período.
@@ -820,8 +824,10 @@ export const getCRMStats = async (req: Request, res: Response) => {
       convertidos_a_cliente: convertidos,
       nuevos_clientes: nuevosClientes,
       nuevos_prospectos: nuevosProspectos,
+      nuevos_crm: nuevosCRM,
       clientes_recurrentes: clientesRecurrentes,
       monto_nuevos_clientes: montoNuevosProspectos,
+      monto_nuevos_crm: montoNuevosCRM,
       monto_clientes_recurrentes: montoClientesRecurrentes,
       negocios_por_fuente: negociosPorFuente,
       leads_con_odp: leadsConOdp,
@@ -1197,32 +1203,25 @@ export const crearODPDesdeLead = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Se requiere cliente_id o teléfono para crear la ODP' });
     }
 
-    // Generar número ODP consecutivo
-    const lastODP = await ODP.findOne({
-      where: { numero_odp: { [Op.like]: 'ODP-%' } },
-      order: [[sequelize.literal("CAST(SPLIT_PART(numero_odp, '-', 2) AS INTEGER)"), 'DESC']],
-      attributes: ['numero_odp'],
+    // Generar y crear la ODP con número consecutivo. withUniqueRetry: ante colisión
+    // del UNIQUE numero_odp se regenera el número y se reintenta el INSERT.
+    let numero_odp = '';
+    const odp = await withUniqueRetry(async () => {
+      numero_odp = await generarNumeroODP('ODP');
+      return ODP.create({
+        numero_odp,
+        cliente_id: clienteIdFinal,
+        asesor_id: lead.getDataValue('asesor_id') || user.id,
+        estado_produccion: 'EN_ESPERA',
+        estado_facturacion: 'PENDIENTE',
+        estado_caja: 'PENDIENTE',
+        fecha_creacion: new Date().toISOString().split('T')[0],
+        descripcion_pedido: lead.getDataValue('descripcion_contexto') || lead.getDataValue('producto_interes') || `Lead CRM #${id}`,
+        tipo_servicio: lead.getDataValue('producto_interes') || null,
+        valor_total: parseFloat(lead.getDataValue('monto_real_venta') || lead.getDataValue('monto_proyectado_cotizacion') || '0'),
+        forma_pago: 'CONTADO',
+      } as any);
     });
-    let next = 1;
-    if (lastODP) {
-      const parts = lastODP.getDataValue('numero_odp').split('-');
-      next = parseInt(parts[parts.length - 1]) + 1;
-    }
-    const numero_odp = `ODP-${next.toString()}`;
-
-    const odp = await ODP.create({
-      numero_odp,
-      cliente_id: clienteIdFinal,
-      asesor_id: lead.getDataValue('asesor_id') || user.id,
-      estado_produccion: 'EN_ESPERA',
-      estado_facturacion: 'PENDIENTE',
-      estado_caja: 'PENDIENTE',
-      fecha_creacion: new Date().toISOString().split('T')[0],
-      descripcion_pedido: lead.getDataValue('descripcion_contexto') || lead.getDataValue('producto_interes') || `Lead CRM #${id}`,
-      tipo_servicio: lead.getDataValue('producto_interes') || null,
-      valor_total: parseFloat(lead.getDataValue('monto_real_venta') || lead.getDataValue('monto_proyectado_cotizacion') || '0'),
-      forma_pago: 'CONTADO',
-    } as any);
 
     await lead.update({ odp_id: odp.getDataValue('id') });
 

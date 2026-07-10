@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Prospecto, Cliente, Usuario, TomaMedidas, ODP, ODPItem, CotizacionCaptura, Lead, LeadEvento } from '../models';
 import sequelize from '../config/database';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
+import { generarNumeroODP } from '../utils/generarNumeroODP';
 
 const generarNumeroProspecto = async (): Promise<string> => {
   const last = await Prospecto.findOne({
@@ -237,21 +238,7 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
       : prospecto.getDataValue('descripcion') || '';
     const cantidad_total = servicios.reduce((acc: number, s: any) => acc + (Number(s.cantidad) || 0), 0) || 1;
 
-    // Generar número ODP consecutivo sin año
-    const { ODP: ODPModel, sequelize: seq } = await import('../models');
-    const { Op } = require('sequelize');
-    const lastODP = await ODPModel.findOne({
-      where: { numero_odp: { [Op.like]: 'ODP-%' } },
-      order: [[seq.literal("CAST(SPLIT_PART(numero_odp, '-', 2) AS INTEGER)"), 'DESC']],
-      attributes: ['numero_odp'],
-      transaction: t,
-    });
-    let nextODP = 1;
-    if (lastODP) {
-      const parts = lastODP.getDataValue('numero_odp').split('-');
-      nextODP = parseInt(parts[parts.length - 1]) + 1;
-    }
-    const numero_odp = `ODP-${nextODP.toString()}`;
+    const { ODP: ODPModel } = await import('../models');
 
     // Datos de contacto de instalación: prioridad → body → TM → prospecto
     const tmPrincipal = tms[0];
@@ -264,32 +251,41 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
     const tmPendiente = tms.some((tm: any) => ['solicitada', 'programada'].includes(tm.estado));
     const estadoInicialProspecto = tmRealizada ? 'MEDICION' : tmPendiente ? 'VISITA_TECNICA' : 'EN_ESPERA';
 
-    const odp = await ODPModel.create({
-      numero_odp,
-      cliente_id: cliente_id_final,
-      asesor_id: asesor_id_body || userId,
-      estado_produccion: estadoInicialProspecto,
-      tipo_servicio,
-      descripcion_pedido,
-      servicios_detalle: servicios.length > 0 ? servicios : null,
-      cantidad_total,
-      fecha_entrega: fecha_entrega || null,
-      valor_total: valor_total || 0,
-      forma_pago,
-      observaciones,
-      nombre_recibe: nombre_recibe_final,
-      telefono_recibe: telefono_recibe_final,
-      cargo_recibe: cargo_recibe || null,
-      direccion_instalacion: direccion_final,
-      matizado: matizado || false,
-      pelicula: pelicula || false,
-      acarreo: acarreo || false,
-      instalacion: instalacion || false,
-      huacal: huacal || false,
-      carton: carton || false,
-      proveedor_vidrio: proveedor_vidrio || null,
-      numero_pedido_proveedor: numero_pedido_proveedor || null,
-    }, { transaction: t });
+    // Crear la ODP con número consecutivo. Savepoint + withUniqueRetry: ante colisión
+    // del UNIQUE numero_odp se regenera dentro de la misma transacción `t` (rollback
+    // solo al savepoint), sin abortar la aprobación completa del prospecto.
+    let numero_odp = '';
+    const odp = await withUniqueRetry(async () =>
+      sequelize.transaction({ transaction: t }, async (sp) => {
+        numero_odp = await generarNumeroODP('ODP', sp);
+        return ODPModel.create({
+          numero_odp,
+          cliente_id: cliente_id_final,
+          asesor_id: asesor_id_body || userId,
+          estado_produccion: estadoInicialProspecto,
+          tipo_servicio,
+          descripcion_pedido,
+          servicios_detalle: servicios.length > 0 ? servicios : null,
+          cantidad_total,
+          fecha_entrega: fecha_entrega || null,
+          valor_total: valor_total || 0,
+          forma_pago,
+          observaciones,
+          nombre_recibe: nombre_recibe_final,
+          telefono_recibe: telefono_recibe_final,
+          cargo_recibe: cargo_recibe || null,
+          direccion_instalacion: direccion_final,
+          matizado: matizado || false,
+          pelicula: pelicula || false,
+          acarreo: acarreo || false,
+          instalacion: instalacion || false,
+          huacal: huacal || false,
+          carton: carton || false,
+          proveedor_vidrio: proveedor_vidrio || null,
+          numero_pedido_proveedor: numero_pedido_proveedor || null,
+        }, { transaction: sp });
+      }),
+    );
 
     const odp_id = odp.getDataValue('id');
 

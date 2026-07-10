@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
-import { Op } from 'sequelize';
 import { z } from 'zod';
-import { NoConformidad, ODP, ODPItem, Usuario, Cliente, HistorialEstadoODP, sequelize } from '../models';
+import { NoConformidad, ODP, ODPItem, Usuario, Cliente, HistorialEstadoODP } from '../models';
+import { generarNumeroODP } from '../utils/generarNumeroODP';
+import { withUniqueRetry } from '../utils/withUniqueRetry';
 
 const updateNCSchema = z.object({
   estado: z.enum(['ABIERTO', 'EN_PROCESO', 'CERRADO']).optional(),
@@ -59,42 +60,32 @@ export const createNoConformidad = async (req: Request, res: Response) => {
     const count = await NoConformidad.count();
     const numero_reporte = `NC-${(count + 1).toString().padStart(4, '0')}`;
 
-    // 4. Generar número de la nueva ODP de reproceso
-    const lastOdp: any = await ODP.findOne({
-      where: { numero_odp: { [Op.like]: 'ODP-%' } },
-      order: [[sequelize.literal("CAST(SPLIT_PART(numero_odp, '-', 2) AS INTEGER)"), 'DESC']],
-      attributes: ['numero_odp'],
-    });
-    let nextNum = 1;
-    if (lastOdp) {
-      const parts = lastOdp.numero_odp.split('-');
-      nextNum = parseInt(parts[parts.length - 1]) + 1;
-    }
-    const nuevoNumeroOdp = `ODP-${nextNum.toString()}`;
-
-    // 5. Crear la nueva ODP de reproceso (hereda datos del cliente original)
-    const nuevaOdp: any = await ODP.create({
-      numero_odp: nuevoNumeroOdp,
-      cliente_id: odp.cliente_id,
-      asesor_id: odp.asesor_id,
-      estado_produccion: 'MEDICION',
-      estado_facturacion: 'PENDIENTE',
-      estado_caja: 'CANCELADO',
-      fecha_entrega: null,
-      nombre_recibe: odp.nombre_recibe,
-      telefono_recibe: odp.telefono_recibe,
-      tipo_servicio: odp.tipo_servicio,
-      descripcion_pedido: `[REPROCESO ${numero_reporte}] Ref: ${odp.numero_odp}`,
-      direccion_instalacion: odp.direccion_instalacion,
-      observaciones: `No Conformidad ${numero_reporte} - ${causa || tipo_error}`,
-      forma_pago: odp.forma_pago,
-      cantidad_total: items_solucion?.length || 1,
-      instalacion: odp.instalacion,
-      acarreo: odp.acarreo,
-      es_garantia: false,
-      es_no_conformidad: true,
-      odp_padre_id: odp.id,
-    });
+    // 4-5. Crear la nueva ODP de reproceso (hereda datos del cliente original) con
+    // número consecutivo blindado contra colisión concurrente (helper + reintento).
+    const nuevaOdp: any = await withUniqueRetry(async () =>
+      ODP.create({
+        numero_odp: await generarNumeroODP('ODP'),
+        cliente_id: odp.cliente_id,
+        asesor_id: odp.asesor_id,
+        estado_produccion: 'MEDICION',
+        estado_facturacion: 'PENDIENTE',
+        estado_caja: 'CANCELADO',
+        fecha_entrega: null,
+        nombre_recibe: odp.nombre_recibe,
+        telefono_recibe: odp.telefono_recibe,
+        tipo_servicio: odp.tipo_servicio,
+        descripcion_pedido: `[REPROCESO ${numero_reporte}] Ref: ${odp.numero_odp}`,
+        direccion_instalacion: odp.direccion_instalacion,
+        observaciones: `No Conformidad ${numero_reporte} - ${causa || tipo_error}`,
+        forma_pago: odp.forma_pago,
+        cantidad_total: items_solucion?.length || 1,
+        instalacion: odp.instalacion,
+        acarreo: odp.acarreo,
+        es_garantia: false,
+        es_no_conformidad: true,
+        odp_padre_id: odp.id,
+      }),
+    );
 
     // 6. Crear los ítems de solución en la nueva ODP
     if (items_solucion && items_solucion.length > 0) {
@@ -165,7 +156,7 @@ export const createNoConformidad = async (req: Request, res: Response) => {
     });
 
     res.status(201).json({
-      message: `No Conformidad ${numero_reporte} creada exitosamente. Nueva ODP de reproceso: ${nuevoNumeroOdp}`,
+      message: `No Conformidad ${numero_reporte} creada exitosamente. Nueva ODP de reproceso: ${nuevaOdp.numero_odp}`,
       no_conformidad: nc,
       nueva_odp: nuevaOdp
     });

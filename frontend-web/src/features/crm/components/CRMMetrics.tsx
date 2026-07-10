@@ -414,12 +414,18 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta }
     por_estado = {}, por_motivo_perdida = {}, por_producto = {},
     por_fuente = {}, por_segmento = {}, tiempos_promedio_horas = {},
     stats_por_asesor = [],
-    nuevos_prospectos: nuevos_clientes = 0, clientes_recurrentes = 0,
-    monto_nuevos_clientes = 0, monto_clientes_recurrentes = 0,
+    nuevos_prospectos = 0, nuevos_crm = 0, clientes_recurrentes = 0,
+    monto_nuevos_clientes = 0, monto_nuevos_crm = 0, monto_clientes_recurrentes = 0,
     negocios_por_fuente = [],
     por_semana = [], vs_anterior = null,
     leads_aprobados_sin_odp_detalle = [],
   } = stats;
+
+  // "Nuevos" agrupa las dos vías de captación de clientes nuevos: prospectos formales
+  // directos (sin CRM) + negocios originados en un lead del CRM. Así la tarjeta vuelve a
+  // cuadrar con el total de ODPs del período (nuevos + recurrentes = total).
+  const nuevos_clientes = nuevos_prospectos + nuevos_crm;
+  const monto_nuevos_total = monto_nuevos_clientes + monto_nuevos_crm;
 
   // Listas derivadas
   const fuentesList   = Object.entries(por_fuente).map(([f, c]) => ({ fuente: f, count: c as number })).sort((a, b) => b.count - a.count);
@@ -758,7 +764,7 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta }
             </div>
             <div className="flex items-center">
               <h3 className="font-bold text-slate-800 text-base">Clientes Nuevos vs Recurrentes</h3>
-              <InfoTooltip text="'Nuevos' = ODPs del período creadas desde un Prospecto formal (primer contacto de un cliente que no estaba en el sistema). 'Recurrentes' = ODPs de clientes que ya existían y volvieron a comprar. Mide cuánto crece la base nueva vs cuánto se fideliza la existente." />
+              <InfoTooltip text="'Nuevos' = ODPs del período de clientes nuevos captados por cualquier vía (leads del CRM o prospectos formales). 'Recurrentes' = ODPs de clientes que ya existían y volvieron a comprar. La suma cuadra con el total de ODPs del período." />
             </div>
           </div>
           {(nuevos_clientes + clientes_recurrentes) === 0 ? (
@@ -794,10 +800,10 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta }
                   <p className="text-xs text-slate-400 font-bold mt-0.5">
                     {Math.round((nuevos_clientes / (nuevos_clientes + clientes_recurrentes)) * 100)}% del total
                   </p>
-                  {monto_nuevos_clientes > 0 && (
-                    <p className="text-xs font-bold text-emerald-700 mt-1">{fmtCOP(monto_nuevos_clientes, true)}</p>
+                  {monto_nuevos_total > 0 && (
+                    <p className="text-xs font-bold text-emerald-700 mt-1">{fmtCOP(monto_nuevos_total, true)}</p>
                   )}
-                  <p className="text-[11px] text-emerald-600 font-medium mt-1">ODPs con prospecto</p>
+                  <p className="text-[11px] text-emerald-600 font-medium mt-1">Clientes nuevos (CRM + prospectos)</p>
                 </div>
                 <div className="bg-blue-50 rounded-xl p-3 border border-blue-100">
                   <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Recurrentes</p>
@@ -808,7 +814,7 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta }
                   {monto_clientes_recurrentes > 0 && (
                     <p className="text-xs font-bold text-blue-700 mt-1">{fmtCOP(monto_clientes_recurrentes, true)}</p>
                   )}
-                  <p className="text-[11px] text-blue-600 font-medium mt-1">ODPs sin prospecto</p>
+                  <p className="text-[11px] text-blue-600 font-medium mt-1">Clientes que ya existían</p>
                 </div>
               </div>
             </div>
