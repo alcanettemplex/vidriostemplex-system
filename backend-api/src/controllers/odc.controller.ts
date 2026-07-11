@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { OrdenCompra, ODCItem, SAP, SAPItem, ODP, ODPItem, Cliente, Usuario, InventarioPerfileria } from '../models';
+import { OrdenCompra, ODCItem, SAP, SAPItem, ODP, ODPItem, Cliente, Usuario, InventarioPerfileria, PedidoPV } from '../models';
 import sequelize from '../config/database';
 import { Op } from 'sequelize';
 
@@ -798,6 +798,23 @@ export const getODCItems = async (req: Request, res: Response) => {
   }
 };
 
+// Devuelve el Set de odp_id que tienen al menos un Pedido PV en estado PENDIENTE
+// y sin ningún ítem asignado todavía (es decir, sigue esperando en "Por Gestionar").
+// Mientras exista uno así, esa ODP no debe revelar vidrios sueltos en Compras.
+const odpsConPedidoPVSinProcesar = async (odpIds: number[]): Promise<Set<number>> => {
+  if (odpIds.length === 0) return new Set();
+  const pedidos = await PedidoPV.findAll({
+    where: { odp_id: { [Op.in]: odpIds }, estado: 'PENDIENTE' },
+    include: [{ model: ODPItem, as: 'items_asignados', attributes: ['id'], required: false }],
+  });
+  const resultado = new Set<number>();
+  for (const p of pedidos) {
+    const asignados: any[] = (p as any).items_asignados || [];
+    if (asignados.length === 0) resultado.add(p.getDataValue('odp_id'));
+  }
+  return resultado;
+};
+
 // GET /compras/vidrios — ODPs con ítems de vidrio pendientes (vista por ODP, backward compat)
 export const getVidriosPorGestionar = async (req: Request, res: Response) => {
   try {
@@ -817,6 +834,10 @@ export const getVidriosPorGestionar = async (req: Request, res: Response) => {
 
     const resultado: any[] = [];
 
+    // ODPs con al menos un Pedido PV todavía sin procesar (pendiente, sin ítems asignados aún) —
+    // mientras exista uno así, ningún vidrio de esa ODP debe verse en Compras.
+    const odpsConPedidoSinProcesar = await odpsConPedidoPVSinProcesar(odps.map((o) => o.getDataValue('id')));
+
     for (const odp of odps) {
       const todosItems: any[] = (odp as any).items || [];
       const proveedor_vidrio = odp.getDataValue('proveedor_vidrio');
@@ -829,7 +850,8 @@ export const getVidriosPorGestionar = async (req: Request, res: Response) => {
         itemsParaCompras = todosItems;
       } else {
         const algunAsignado = todosItems.some((it: any) => it.pedido_pv_id !== null);
-        if (algunAsignado) {
+        const hayPedidoSinProcesar = odpsConPedidoSinProcesar.has(odp.getDataValue('id'));
+        if (algunAsignado && !hayPedidoSinProcesar) {
           itemsParaCompras = todosItems.filter((it: any) => it.pedido_pv_id === null);
         }
       }
@@ -869,6 +891,8 @@ export const getVidriosPanel = async (req: Request, res: Response) => {
 
     const itemsPlanos: any[] = [];
 
+    const odpsConPedidoSinProcesar = await odpsConPedidoPVSinProcesar(odps.map((o) => o.getDataValue('id')));
+
     for (const odp of odps) {
       const todosItems: any[] = (odp as any).items || [];
       const proveedor_vidrio = odp.getDataValue('proveedor_vidrio');
@@ -880,7 +904,8 @@ export const getVidriosPanel = async (req: Request, res: Response) => {
         itemsParaCompras = todosItems;
       } else {
         const algunAsignado = todosItems.some((it: any) => it.pedido_pv_id !== null);
-        if (algunAsignado) {
+        const hayPedidoSinProcesar = odpsConPedidoSinProcesar.has(odp.getDataValue('id'));
+        if (algunAsignado && !hayPedidoSinProcesar) {
           itemsParaCompras = todosItems.filter((it: any) => it.pedido_pv_id === null);
         }
       }

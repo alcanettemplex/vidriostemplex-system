@@ -332,14 +332,22 @@ const PedidosPVPage: React.FC = () => {
   useEffect(() => { cargarDatos(); cargarPorGestionar(); }, [cargarDatos, cargarPorGestionar]);
   useDataChangedSocket('pedidos_pv', cargarDatos);
 
+  // ─── Pedidos ya gestionados (excluye los que aún están en "Por Gestionar") ──
+  // Un pedido SISTEMA está "por gestionar" mientras siga PENDIENTE y sin ítems
+  // asignados (mismo criterio que el backend en getPorGestionar). Esos viven solo
+  // en la pestaña "Por Gestionar"; la pestaña "Gestión PV" y sus KPIs los excluyen
+  // para que ambas pestañas sean excluyentes.
+  const estaPorGestionar = (p: PedidoPV) => p.estado === 'PENDIENTE' && (p.items_asignados?.length ?? 0) === 0;
+  const pedidosGestionados = pedidosSistema.filter(p => !estaPorGestionar(p));
+
   // ─── Proveedores y asesores únicos (para filtros) ─────────────────────────
 
-  const proveedoresUnicos = Array.from(new Set(pedidosSistema.map(p => p.proveedor).filter(Boolean)));
-  const asesoresUnicos = Array.from(new Set(pedidosSistema.map(p => p.asesor_iniciales || p.creador?.nombre_completo || '').filter(Boolean)));
+  const proveedoresUnicos = Array.from(new Set(pedidosGestionados.map(p => p.proveedor).filter(Boolean)));
+  const asesoresUnicos = Array.from(new Set(pedidosGestionados.map(p => p.asesor_iniciales || p.creador?.nombre_completo || '').filter(Boolean)));
 
   // ─── Filtrado Gestión PV ──────────────────────────────────────────────────
 
-  const pedidosFiltrados = pedidosSistema.filter(p => {
+  const pedidosFiltrados = pedidosGestionados.filter(p => {
     const q = busqueda.toLowerCase();
     const matchBusqueda = !busqueda || (
       p.numero_pedido.toLowerCase().includes(q) ||
@@ -376,13 +384,13 @@ const PedidosPVPage: React.FC = () => {
 
   // ─── KPIs ─────────────────────────────────────────────────────────────────
 
-  const total = pedidosSistema.length;
+  const total = pedidosGestionados.length;
   const kpis = {
     total,
-    verificados: pedidosSistema.filter(p => p.estado === 'VERIFICADO').length,
-    enTransito: pedidosSistema.filter(p => ['ENVIADO', 'CONFIRMADO_PROVEEDOR'].includes(p.estado)).length,
-    conRetraso: pedidosSistema.filter(p => p.dias_diferencia !== null && p.dias_diferencia < 0).length,
-    metraje: pedidosSistema.reduce((acc, p) => acc + toFloat(p.metraje_venta), 0).toFixed(2),
+    verificados: pedidosGestionados.filter(p => p.estado === 'VERIFICADO').length,
+    enTransito: pedidosGestionados.filter(p => ['ENVIADO', 'CONFIRMADO_PROVEEDOR'].includes(p.estado)).length,
+    conRetraso: pedidosGestionados.filter(p => p.dias_diferencia !== null && p.dias_diferencia < 0).length,
+    metraje: pedidosGestionados.reduce((acc, p) => acc + toFloat(p.metraje_venta), 0).toFixed(2),
   };
 
   const pct = (n: number) => total > 0 ? `${Math.round(n / total * 100)}% del total` : '0%';
@@ -391,10 +399,10 @@ const PedidosPVPage: React.FC = () => {
 
   const abrirModalCrear = async () => {
     const [{ data: odpsData }, { data: numData }] = await Promise.all([
-      axios.get(`${API}/api/odp`, { headers }),
+      axios.get(`${API}/api/odp`, { headers, params: { limit: 200 } }),
       axios.get(`${API}/api/pedidos-pv/siguiente-numero`, { headers }),
     ]);
-    setOdps(odpsData);
+    setOdps(odpsData.rows);
     setSiguienteNumero(numData.siguiente);
     setPasoCrear(1);
     setItemsNuevos([]);
@@ -1416,14 +1424,20 @@ const PedidosPVPage: React.FC = () => {
           {modalGestionar && (() => {
             const odp = modalGestionar.odp;
             const items: any[] = odp?.items || [];
-            const itemsLibres = items.filter((it: any) => !it.pedido_pv_id || it.pedido_pv_id === modalGestionar.id);
+            // Ocultar del modal los ítems que ya siguieron la ruta de Compras (en una ODC o en
+            // existencia): no pueden asignarse a un Pedido PV. Los "En otro PV" sí se mantienen
+            // visibles como referencia (mismo flujo de Pedidos PV, pedido hermano).
+            const estaEnCompras = (it: any) => it.estado_compra === 'en_odc' || it.estado_compra === 'en_existencia';
+            const itemsVisibles = items.filter((it: any) => !estaEnCompras(it));
+            const itemsEnCompras = items.length - itemsVisibles.length;
+            const itemsLibres = itemsVisibles.filter((it: any) => !it.pedido_pv_id || it.pedido_pv_id === modalGestionar.id);
             const bloques = Math.ceil(itemsSeleccionados.length / 12);
             return (
               <Stack gap={2} mt={1}>
                 <Box display="flex" gap={2} flexWrap="wrap">
                   <Typography variant="body2"><strong>Cliente:</strong> {odp?.cliente?.nombre_razon_social || '—'}</Typography>
                   <Typography variant="body2"><strong>Proveedor:</strong> {modalGestionar.proveedor}</Typography>
-                  <Typography variant="body2"><strong>Ítems totales ODP:</strong> {items.length}</Typography>
+                  <Typography variant="body2"><strong>Ítems totales ODP:</strong> {items.length}{itemsEnCompras > 0 && ` · ${itemsEnCompras} en compras (ocultos)`}</Typography>
                 </Box>
 
                 {itemsSeleccionados.length > 12 && (
@@ -1432,8 +1446,12 @@ const PedidosPVPage: React.FC = () => {
                   </Alert>
                 )}
 
-                {items.length === 0 ? (
-                  <Alert severity="warning">Esta ODP no tiene ítems de vidrio registrados.</Alert>
+                {itemsVisibles.length === 0 ? (
+                  <Alert severity="warning">
+                    {items.length === 0
+                      ? 'Esta ODP no tiene ítems de vidrio registrados.'
+                      : 'Todos los ítems de vidrio de esta ODP ya están gestionados en Compras.'}
+                  </Alert>
                 ) : (
                   <Paper variant="outlined" sx={{ overflow: 'hidden', borderRadius: 2 }}>
                     <Table size="small">
@@ -1458,7 +1476,7 @@ const PedidosPVPage: React.FC = () => {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {items.map((it: any, idx: number) => {
+                        {itemsVisibles.map((it: any, idx: number) => {
                           const enOtroPV = it.pedido_pv_id !== null && it.pedido_pv_id !== modalGestionar.id;
                           const seleccionado = !enOtroPV && itemsSeleccionados.includes(it.id);
                           const extras = itemsExtras[it.id] || { dt: '', obsType: '', customObs: '' };
@@ -1542,8 +1560,8 @@ const PedidosPVPage: React.FC = () => {
 
                 <Typography variant="caption" color="text.secondary">
                   {itemsSeleccionados.length} de {itemsLibres.length} ítems disponibles seleccionados
-                  {items.length !== itemsLibres.length && (
-                    <span style={{ color: '#9e9e9e' }}> · {items.length - itemsLibres.length} ya asignados a otro pedido</span>
+                  {itemsVisibles.length !== itemsLibres.length && (
+                    <span style={{ color: '#9e9e9e' }}> · {itemsVisibles.length - itemsLibres.length} ya asignados a otro pedido</span>
                   )}
                 </Typography>
               </Stack>

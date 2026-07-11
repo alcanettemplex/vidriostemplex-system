@@ -59,6 +59,9 @@ const odpSchema = z.object({
 });
 
 type ItemFormValues = {
+    id?: number;                    // presente en ítems existentes (edición); ausente = ítem nuevo
+    pedido_pv_id?: number | null;   // si != null, el vidrio ya está en un Pedido PV → protegido
+    estado_compra?: string;         // 'en_odc' | 'en_existencia' → ya en Compras → protegido
     tipo_vidrio?: string;
     color?: string;
     espesor: string;
@@ -194,7 +197,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
 
     const { fields: itemFields, append: appendItem, remove: removeItem } = useFieldArray({
         control,
-        name: 'items'
+        name: 'items',
+        keyName: 'rhfKey', // no usar 'id' como key interno: colisiona con el id de negocio del ítem
     });
 
     const valorTotalRaw = useWatch({ control, name: 'valor_total' }) || 0;
@@ -334,8 +338,15 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
             const token = sessionStorage.getItem('token');
             const { requiere_visita_tecnica, es_no_conformidad, ...rest } = data;
             const sinItems = itemFields.length === 0;
+            // Adjuntar el id de negocio a cada vidrio existente para la edición incremental del
+            // backend. itemFields conserva el id original por posición; los ítems nuevos no tienen id.
+            const itemsConId = data.items.map((it, idx) => {
+                const original = itemFields[idx] as ItemFormValues | undefined;
+                return original?.id ? { ...it, id: original.id } : it;
+            });
             const payload = {
                 ...rest,
+                items: itemsConId,
                 ...(requiereClienteFuente && clienteFuente ? { cliente_fuente: clienteFuente } : {}),
                 cantidad_total: data.servicios_detalle.reduce((acc, curr) => acc + curr.cantidad, 0),
                 tipo_servicio: data.servicios_detalle[0].tipo_servicio,
@@ -978,13 +989,16 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
 
                                 <div className="space-y-4">
                                     <AnimatePresence>
-                                        {itemFields.map((field, index) => (
+                                        {itemFields.map((field, index) => {
+                                            // Vidrio "comprometido": ya está en un Pedido PV o en Compras → no editable ni eliminable.
+                                            const comprometido = field.pedido_pv_id != null || field.estado_compra === 'en_odc' || field.estado_compra === 'en_existencia';
+                                            return (
                                             <motion.div
                                                 initial={{ opacity: 0, height: 0 }}
                                                 animate={{ opacity: 1, height: 'auto' }}
                                                 exit={{ opacity: 0, height: 0 }}
-                                                key={field.id}
-                                                className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-wrap lg:flex-nowrap gap-4 items-start"
+                                                key={field.rhfKey}
+                                                className="relative bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-wrap lg:flex-nowrap gap-4 items-start"
                                             >
                                                 <ColorField index={index} register={register} control={control} />
                                                 <div className="w-1/2 lg:w-1/12">
@@ -1090,8 +1104,21 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                         <Trash2 className="w-5 h-5" />
                                                     </button>
                                                 </div>
+                                                {/* Vidrio comprometido (en Pedido PV o Compras): overlay invisible que conserva
+                                                    la estética original y avisa solo cuando el usuario intenta editar/eliminar. */}
+                                                {comprometido && (
+                                                    <div
+                                                        className="absolute inset-0 z-10 rounded-xl cursor-not-allowed"
+                                                        title="Ya está en un Pedido PV o en Compras — no editable aquí"
+                                                        onClick={() => toast.info(
+                                                            'Este vidrio ya está en un Pedido PV o en una orden de compra: no se puede editar ni eliminar desde aquí. Gestiona ese cambio en Pedidos PV / Compras.',
+                                                            { toastId: `pv-lock-${field.id ?? index}` }
+                                                        )}
+                                                    />
+                                                )}
                                             </motion.div>
-                                        ))}
+                                            );
+                                        })}
                                     </AnimatePresence>
                                 </div>
 

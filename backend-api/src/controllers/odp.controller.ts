@@ -32,6 +32,8 @@ import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { generarNumeroODP } from '../utils/generarNumeroODP';
 
 const odpItemSchema = z.object({
+  // id del ítem existente (para edición incremental en updateODP). Ausente = ítem nuevo.
+  id: z.coerce.number().int().positive().optional(),
   item: z.string().nullable().optional(),
   color: z.string().nullable().optional(),
   espesor: z.coerce.string().nullable().optional(),
@@ -717,27 +719,94 @@ export const updateODP = async (req: Request, res: Response) => {
     // para que ODPItem.count() refleje el conteo final real y no un estado intermedio
     // (destroy sin bulkCreate) que daría itemCount=0 e induciría un disparo incorrecto.
     if (data.items && Array.isArray(data.items)) {
-      await ODPItem.destroy({ where: { odp_id: id }, transaction });
+      const itemsEntrantes = data.items;
 
-      if (data.items.length > 0) {
-        const nuevosItems = data.items.map(item => ({
-          ...item,
-          odp_id: id
-        }));
-        await ODPItem.bulkCreate(nuevosItems, { transaction });
+      // Campos que el formulario puede editar. Se excluyen a propósito los vínculos/estado
+      // protegidos (pedido_pv_id, estado_compra, dt, observaciones_pv): esos se preservan en
+      // los UPDATE y toman su valor por defecto en los CREATE.
+      const camposEditables = (it: any) => ({
+        item: it.item ?? null,
+        color: it.color ?? null,
+        espesor: it.espesor ?? null,
+        cantidad: it.cantidad ?? 1,
+        ancho_mm: it.ancho_mm ?? null,
+        alto_mm: it.alto_mm ?? null,
+        tipo_vidrio: it.tipo_vidrio ?? null,
+        pelicula: it.pelicula ?? false,
+        matizado: it.matizado ?? false,
+        carton: it.carton ?? false,
+        huacal: it.huacal ?? false,
+        accesorios: it.accesorios ?? null,
+        pulidos: it.pulidos ?? null,
+        pulidos_h: it.pulidos_h ?? null,
+        perforaciones: it.perforaciones ?? 0,
+        boquetes: it.boquetes ?? 0,
+        descuentos: it.descuentos ?? null,
+        otros: it.otros ?? null,
+        mts_pt_a: it.mts_pt_a ?? null,
+        mts_pt_h: it.mts_pt_h ?? null,
+        prod: it.prod ?? null,
+        verificacion_prod: it.verificacion_prod ?? false,
+      });
 
-        // Si la ODP estaba en EN_ESPERA y ahora tiene ítems de vidrio, avanzar a MEDICION
-        const estadoActualOdp = odp.getDataValue('estado_produccion');
-        if (estadoActualOdp === 'EN_ESPERA' && !data.estado_produccion) {
-          await odp.update({ estado_produccion: 'MEDICION' }, { transaction });
-          await HistorialEstadoODP.create({
-            odp_id: id,
-            estado_anterior: 'EN_ESPERA',
-            estado_nuevo: 'MEDICION',
-            usuario_id: req.user?.id,
-            fecha: new Date(),
-          }, { transaction });
+      const itemsBD = await ODPItem.findAll({ where: { odp_id: id }, transaction });
+      // Un vidrio está "comprometido" si ya sigue la ruta de Pedido PV o la de Compras:
+      // no debe poder editarse ni quitarse desde la edición de la ODP.
+      const estaComprometido = (it: any) =>
+        it.getDataValue('pedido_pv_id') !== null ||
+        ['en_odc', 'en_existencia'].includes(it.getDataValue('estado_compra'));
+
+      const idsEntrantes = new Set(
+        itemsEntrantes.filter((i: any) => i.id).map((i: any) => Number(i.id))
+      );
+
+      // Protección: ningún vidrio comprometido puede quitarse desde aquí.
+      const comprometidosAusentes = itemsBD.filter(
+        (it) => estaComprometido(it) && !idsEntrantes.has(it.getDataValue('id'))
+      );
+      if (comprometidosAusentes.length > 0) {
+        await transaction.rollback();
+        const nums = comprometidosAusentes.map((it) => `#${it.getDataValue('id')}`).join(', ');
+        const esUno = comprometidosAusentes.length === 1;
+        return res.status(409).json({
+          error: `No se puede quitar ${esUno ? 'el vidrio' : 'los vidrios'} ${nums}: ya ${esUno ? 'está' : 'están'} en un Pedido PV o en una orden de compra. Gestiona ese cambio desde Pedidos PV / Compras.`,
+        });
+      }
+
+      const mapBD = new Map(itemsBD.map((it) => [it.getDataValue('id'), it]));
+
+      // UPDATE (vidrios libres) / CREATE (nuevos). Los comprometidos se preservan intactos,
+      // conservando su identidad, su vínculo con el Pedido PV y su estado de compra.
+      for (const entrante of itemsEntrantes) {
+        const itemId = entrante.id ? Number(entrante.id) : null;
+        const itBD = itemId ? mapBD.get(itemId) : null;
+        if (itBD) {
+          if (estaComprometido(itBD)) continue; // protegido: no se toca
+          await itBD.update(camposEditables(entrante), { transaction });
+        } else {
+          await ODPItem.create({ ...camposEditables(entrante), odp_id: id }, { transaction });
         }
+      }
+
+      // DELETE solo los vidrios libres que el usuario quitó del formulario (por instancia → audita).
+      const libresAEliminar = itemsBD.filter(
+        (it) => !estaComprometido(it) && !idsEntrantes.has(it.getDataValue('id'))
+      );
+      for (const it of libresAEliminar) {
+        await it.destroy({ transaction });
+      }
+
+      // Si la ODP estaba en EN_ESPERA y ahora tiene ítems de vidrio, avanzar a MEDICION
+      const estadoActualOdp = odp.getDataValue('estado_produccion');
+      if (itemsEntrantes.length > 0 && estadoActualOdp === 'EN_ESPERA' && !data.estado_produccion) {
+        await odp.update({ estado_produccion: 'MEDICION' }, { transaction });
+        await HistorialEstadoODP.create({
+          odp_id: id,
+          estado_anterior: 'EN_ESPERA',
+          estado_nuevo: 'MEDICION',
+          usuario_id: req.user?.id,
+          fecha: new Date(),
+        }, { transaction });
       }
     }
 

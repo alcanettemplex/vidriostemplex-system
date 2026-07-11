@@ -466,7 +466,7 @@ export const getPorGestionar = async (_req: Request, res: Response) => {
               as: 'items',
               attributes: ['id', 'item', 'color', 'espesor', 'cantidad', 'ancho_mm', 'alto_mm',
                 'tipo_vidrio', 'pulidos', 'pulidos_h', 'perforaciones', 'boquetes',
-                'descuentos', 'otros', 'mts_pt_a', 'mts_pt_h', 'accesorios', 'pedido_pv_id', 'prod', 'dt', 'observaciones_pv'],
+                'descuentos', 'otros', 'mts_pt_a', 'mts_pt_h', 'accesorios', 'pedido_pv_id', 'estado_compra', 'prod', 'dt', 'observaciones_pv'],
               separate: true,
               order: [['id', 'ASC']],
             },
@@ -630,6 +630,17 @@ export const asignarItems = async (req: Request, res: Response) => {
     if (itemsValidos !== odp_item_ids.length) {
       await t.rollback();
       return res.status(400).json({ error: 'Uno o más ítems no pertenecen a la ODP de este pedido' });
+    }
+
+    // Blindaje: ningún ítem que ya siguió la ruta de Compras (en una ODC o en existencia)
+    // puede reasignarse a un Pedido PV. Evita "robar" un vidrio ya comprado/recibido.
+    const enCompras = await ODPItem.count({
+      where: { id: odp_item_ids, estado_compra: { [Op.in]: ['en_odc', 'en_existencia'] } },
+      transaction: t,
+    });
+    if (enCompras > 0) {
+      await t.rollback();
+      return res.status(409).json({ error: 'Uno o más ítems seleccionados ya están gestionados en Compras (orden de compra o existencia) y no pueden asignarse a un Pedido PV.' });
     }
 
     // Desasignar todos los ítems previos de este pedido y sus extensiones
