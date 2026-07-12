@@ -270,6 +270,7 @@ const SupervisionCRMPage: React.FC = () => {
             value={loadingResumen ? '—' : `${resumen?.tasa_conversion_actual ?? 0}%`}
             icon={Target}
             accent="blue"
+            description="Porcentaje de leads del período que terminaron como venta ganada (APROBADO) sobre el total de leads trabajados. Mide la efectividad global del equipo comercial convirtiendo contactos en clientes."
             progress={{ current: resumen?.tasa_conversion_actual ?? 0, target: resumen?.meta_conversion ?? 20, unit: '%' }}
           />
           <KPICard
@@ -278,6 +279,7 @@ const SupervisionCRMPage: React.FC = () => {
             sublabel={loadingPrimerContacto ? undefined : `${primerContactoUrgentes} urgente${primerContactoUrgentes !== 1 ? 's' : ''}`}
             icon={PhoneCall}
             accent="blue"
+            description="Leads ya asignados a un asesor que todavía no han sido contactados. Alerta sobre leads muriendo en el olvido antes de siquiera intentarlo."
           />
           <KPICard
             label="Alto valor sin ODP"
@@ -285,6 +287,7 @@ const SupervisionCRMPage: React.FC = () => {
             sublabel={loadingAltoValor ? undefined : `${fmtCOP(totalAltoValorMonto)} en juego`}
             icon={Gem}
             accent="purple"
+            description="Leads con cotización proyectada alta que siguen en pipeline activo pero aún no se han convertido en ODP. Señala oportunidades grandes en riesgo de perderse por falta de seguimiento."
           />
           <KPICard
             label="Estancados en seguimiento"
@@ -292,6 +295,7 @@ const SupervisionCRMPage: React.FC = () => {
             sublabel={loadingSeguimiento ? undefined : `${seguimientoCriticos} crítico${seguimientoCriticos !== 1 ? 's' : ''} (≥7d)`}
             icon={Clock3}
             accent="orange"
+            description="Leads en etapa SEGUIMIENTO que llevan tiempo sin avanzar. 'Crítico' marca los que llevan 7 días o más sin resolverse, riesgo alto de enfriarse."
           />
           <KPICard
             label="Cumplimiento lineamiento"
@@ -299,6 +303,7 @@ const SupervisionCRMPage: React.FC = () => {
             sublabel={loadingAdherencia ? undefined : `${adherencia?.cumplidos ?? 0}/${adherencia?.total_items ?? 0} acciones`}
             icon={CheckCircle2}
             accent="green"
+            description="Porcentaje de tareas asignadas en el Lineamiento del Día (coaching diario a asesores) que fueron marcadas como cumplidas. Mide si los asesores ejecutan las instrucciones de supervisión, no solo el resultado de ventas."
           />
           <KPICard
             label="Motivo principal de pérdida"
@@ -306,6 +311,7 @@ const SupervisionCRMPage: React.FC = () => {
             sublabel={loadingResumen ? undefined : (motivoPrincipal?.motivo || 'Sin pérdidas en el período')}
             icon={TrendingDown}
             accent="red"
+            description="La causa más repetida entre los leads marcados como PERDIDO en el período, y qué porcentaje del total de pérdidas representa. Ayuda a enfocar el problema raíz de las ventas perdidas."
           />
         </div>
 
@@ -318,6 +324,7 @@ const SupervisionCRMPage: React.FC = () => {
               value={loadingResumen ? '—' : (resumen?.ciclo_venta_promedio_dias != null ? `${resumen.ciclo_venta_promedio_dias}d` : '—')}
               icon={Timer}
               accent="blue"
+              description="Días promedio que tarda un lead en pasar de 'asignado a un asesor' a 'aprobado como venta'. Mide la velocidad del proceso comercial."
             />
             <KPICard
               label="Leads nuevos del período"
@@ -325,12 +332,14 @@ const SupervisionCRMPage: React.FC = () => {
               sublabel={loadingResumen ? undefined : `${(resumen?.leads_nuevos_delta_pct ?? 0) >= 0 ? '+' : ''}${resumen?.leads_nuevos_delta_pct ?? 0}% vs período anterior`}
               icon={UserPlus}
               accent="purple"
+              description="Leads nuevos que entraron al pipeline en el rango de fechas, comparado contra el mismo tamaño de período inmediatamente anterior. Mide el flujo de entrada, no la calidad de cierre."
             />
             <KPICard
               label="Meta ODPs cerradas"
               value={loadingResumen ? '—' : String(resumen?.odps_cerradas_real ?? 0)}
               icon={Award}
               accent="orange"
+              description="Ventas (ODP) cerradas en el período frente a la meta esperada (meta individual por asesor × asesores con al menos un cierre). Mide cumplimiento de cuota en volumen de negocios, no en dinero."
               progress={{ current: resumen?.odps_cerradas_real ?? 0, target: resumen?.meta_odps_cerradas ?? 12 }}
             />
             <KPICard
@@ -339,18 +348,21 @@ const SupervisionCRMPage: React.FC = () => {
               sublabel={loadingResumen ? undefined : `Meta: ${fmtCOP(resumen?.meta_facturacion_periodo ?? 120000000)} · ${Math.min(100, Math.round(((resumen?.facturacion_periodo ?? 0) / (resumen?.meta_facturacion_periodo || 1)) * 100))}% alcanzado`}
               icon={Landmark}
               accent="green"
+              description="Valor total de las ODP creadas en el período (sin garantías) comparado contra la meta mensual de facturación configurada. KPI de ingresos objetivo vs. real."
             />
             <KPICard
               label="% ODPs facturadas"
               value={loadingResumen ? '—' : `${resumen?.pct_odps_facturadas ?? 0}%`}
               icon={Percent}
               accent="blue"
+              description="De todas las ODP creadas en el período, qué porcentaje ya pasó a estado FACTURADA. Mide qué tan rápido se está facturando lo vendido."
             />
             <KPICard
               label="Pendiente de cobro"
               value={loadingResumen ? '—' : fmtCOP(resumen?.monto_pendiente_cobro_total ?? 0)}
               icon={Wallet}
               accent="red"
+              description="Cartera viva actual (no filtrada por fecha): suma de lo que los clientes aún deben sobre ODP no canceladas y no-garantía."
             />
           </div>
         </div>

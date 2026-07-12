@@ -1,5 +1,5 @@
 import React from 'react';
-import { LucideIcon } from 'lucide-react';
+import { LucideIcon, Info } from 'lucide-react';
 
 interface KPICardProps {
   label: string;
@@ -7,6 +7,7 @@ interface KPICardProps {
   icon: LucideIcon;
   accent: 'blue' | 'purple' | 'red' | 'orange' | 'green';
   sublabel?: string;
+  description?: string;
   progress?: { current: number; target: number; unit?: string };
 }
 
@@ -18,14 +19,21 @@ const ACCENTS: Record<KPICardProps['accent'], { badge: string; icon: string; bar
   green:  { badge: 'bg-apple-green/10',  icon: 'text-apple-green',  bar: 'bg-apple-green' },
 };
 
-const KPICard: React.FC<KPICardProps> = ({ label, value, icon: Icon, accent, sublabel, progress }) => {
+const KPICard: React.FC<KPICardProps> = ({ label, value, icon: Icon, accent, sublabel, description, progress }) => {
   const colors = ACCENTS[accent];
   const pct = progress ? Math.min(100, Math.round((progress.current / progress.target) * 100)) : null;
 
   return (
     <div className="bg-white rounded-[20px] shadow-apple p-5 flex flex-col gap-3 min-w-0">
       <div className="flex items-start justify-between">
-        <span className="text-[11px] font-semibold text-apple-text-tertiary uppercase tracking-widest">{label}</span>
+        <span className="flex items-center gap-1 text-[11px] font-semibold text-apple-text-tertiary uppercase tracking-widest">
+          {label}
+          {description && (
+            <span title={description} className="shrink-0 cursor-help">
+              <Info className="w-3 h-3 text-apple-text-tertiary/70" />
+            </span>
+          )}
+        </span>
         <div className={`w-9 h-9 rounded-full ${colors.badge} flex items-center justify-center shrink-0`}>
           <Icon className={`w-4.5 h-4.5 ${colors.icon}`} size={18} />
         </div>
