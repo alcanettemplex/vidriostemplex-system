@@ -474,6 +474,87 @@ export const getLeads = async (req: Request, res: Response) => {
   }
 };
 
+// A partir de esta fecha, Métricas deja de ser un reporte puramente "cohorte de leads
+// nacidos en el período" (ver decisión de negocio 2026-07-12): la población de leads
+// pasa a usar el mismo criterio que la pestaña Pipeline (etapas activas siempre
+// incluidas; etapas terminales acotadas por última actividad), y tasa_conversion suma
+// además prospectos aprobados sin lead de origen y ODPs 100% directas (clientes
+// recurrentes). Períodos anteriores conservan el comportamiento histórico intacto.
+const METRICAS_CRM_V2_CUTOFF = new Date('2026-07-01');
+
+// Mismo patrón que getLeads (vista=pipeline): etapas activas siempre visibles; las
+// terminales (PERDIDO/FRIO/APROBADO) se acotan al período por última actividad, no por
+// fecha de creación — un negocio cerrado hace meses pero tocado este mes sigue contando
+// como "cerrado en este período".
+function whereLeadsPipeline(periodStart: Date, periodEnd: Date) {
+  const ultimaActividad = sequelize.literal(`COALESCE("Lead"."ultima_actividad", "Lead"."createdAt")`);
+  return [
+    { [Op.or]: [
+      { estado_crm: { [Op.notIn]: ['PERDIDO', 'FRIO', 'APROBADO'] } },
+      sequelize.where(ultimaActividad, Op.between, [periodStart, periodEnd]),
+    ] },
+  ];
+}
+
+interface TasaConversionInput {
+  periodStart: Date;
+  periodEnd: Date;
+  esGlobal: boolean;
+  asesorId: number;
+  totalLeads: number;
+  aprobadosLeads: number;
+  nuevosProspectosPeriodo?: number;
+  clientesRecurrentesPeriodo?: number;
+}
+
+async function calcularTasaConversion(input: TasaConversionInput): Promise<number> {
+  const { periodStart, totalLeads, aprobadosLeads } = input;
+
+  if (periodStart < METRICAS_CRM_V2_CUTOFF) {
+    return totalLeads > 0 ? Math.round((aprobadosLeads / totalLeads) * 100) : 0;
+  }
+
+  const { periodEnd, esGlobal, asesorId } = input;
+  let { nuevosProspectosPeriodo, clientesRecurrentesPeriodo } = input;
+
+  if (nuevosProspectosPeriodo === undefined || clientesRecurrentesPeriodo === undefined) {
+    const whereODPScoped: any = { fecha_creacion: { [Op.between]: [periodStart, periodEnd] } };
+    if (!esGlobal) whereODPScoped.asesor_id = asesorId;
+    const SUBQ_ODPS_CON_LEAD = '(SELECT odp_id FROM leads WHERE odp_id IS NOT NULL)';
+
+    const [totalCount, conProspectoData, conLead] = await Promise.all([
+      ODP.count({ where: whereODPScoped }),
+      ODP.findAll({
+        attributes: [[sequelize.fn('COUNT', sequelize.col('ODP.id')), 'count']],
+        where: { ...whereODPScoped, [Op.and]: [sequelize.literal(`"ODP"."id" NOT IN ${SUBQ_ODPS_CON_LEAD}`)] },
+        include: [{ model: Prospecto, as: 'prospecto', required: true, attributes: [] }],
+        raw: true,
+      }),
+      ODP.count({ where: { ...whereODPScoped, [Op.and]: [sequelize.literal(`id IN ${SUBQ_ODPS_CON_LEAD}`)] } }),
+    ]);
+    const conProspecto = parseInt((conProspectoData[0] as any)?.count ?? '0', 10);
+
+    nuevosProspectosPeriodo = conProspecto;
+    clientesRecurrentesPeriodo = Math.max(0, totalCount - conProspecto - conLead);
+  }
+
+  // Prospectos creados en el período sin lead vinculado (cualquier estado): son
+  // "oportunidades" que no pasan por Lead, así que se suman al denominador para que
+  // el % siga midiendo conversión sobre una población coherente con lo que cuenta.
+  const SUBQ_PROSPECTOS_CON_LEAD = '(SELECT prospecto_id FROM leads WHERE prospecto_id IS NOT NULL)';
+  const whereProspectoDirecto: any = {
+    fecha_creacion: { [Op.between]: [periodStart, periodEnd] },
+    [Op.and]: [sequelize.literal(`id NOT IN ${SUBQ_PROSPECTOS_CON_LEAD}`)],
+  };
+  if (!esGlobal) whereProspectoDirecto.asesor_id = asesorId;
+  const prospectosDirectosPeriodo = await Prospecto.count({ where: whereProspectoDirecto });
+
+  const numerador = aprobadosLeads + nuevosProspectosPeriodo + clientesRecurrentesPeriodo;
+  const denominador = totalLeads + prospectosDirectosPeriodo + clientesRecurrentesPeriodo;
+
+  return denominador > 0 ? Math.round((numerador / denominador) * 100) : 0;
+}
+
 export const getCRMStats = async (req: Request, res: Response) => {
   try {
     const user = req.user!;
@@ -492,9 +573,13 @@ export const getCRMStats = async (req: Request, res: Response) => {
     if (fecha_desde && fecha_hasta) {
       periodStart = new Date(fecha_desde as string);
       periodEnd = new Date(fecha_hasta as string);
-      periodEnd.setHours(23, 59, 59, 999);
+      // setUTCHours (no setHours): fecha_desde/fecha_hasta llegan como "YYYY-MM-DD" y se
+      // parsean en medianoche UTC. Mutar con setters de hora LOCAL en un servidor con TZ
+      // distinto de UTC desfasa el límite del período varias horas (llegó a excluir casi
+      // todo el último día del rango) — ver TECH_DEBT 2026-07-12.
+      periodEnd.setUTCHours(23, 59, 59, 999);
 
-      const diffMeses = (periodEnd.getFullYear() - periodStart.getFullYear()) * 12 + (periodEnd.getMonth() - periodStart.getMonth());
+      const diffMeses = (periodEnd.getUTCFullYear() - periodStart.getUTCFullYear()) * 12 + (periodEnd.getUTCMonth() - periodStart.getUTCMonth());
       if (diffMeses > 4) {
         return res.status(400).json({
           error: 'Rango demasiado amplio',
@@ -502,7 +587,11 @@ export const getCRMStats = async (req: Request, res: Response) => {
         });
       }
 
-      whereBase.createdAt = { [Op.between]: [periodStart, periodEnd] };
+      if (periodStart >= METRICAS_CRM_V2_CUTOFF) {
+        whereBase[Op.and] = whereLeadsPipeline(periodStart, periodEnd);
+      } else {
+        whereBase.createdAt = { [Op.between]: [periodStart, periodEnd] };
+      }
     }
 
     const leads = await Lead.findAll({
@@ -553,7 +642,13 @@ export const getCRMStats = async (req: Request, res: Response) => {
     let montoNuevosCRM = 0;
     let negociosPorFuente: { fuente: string; count: number; monto: number }[] = [];
     if (periodStart && periodEnd) {
-      const whereODP = { fecha_creacion: { [Op.between]: [periodStart, periodEnd] } };
+      const whereODP: any = { fecha_creacion: { [Op.between]: [periodStart, periodEnd] } };
+      // Scoped por asesor cuando no es vista gerencial: antes este bloque mostraba
+      // "Clientes Captados" de toda la empresa incluso en el tablero personal de un
+      // asesor individual (inconsistente con el resto del payload, que sí está scoped
+      // por whereBase). DashboardGerencial.tsx es exclusivo de roles esGlobal, así que
+      // este filtro no le afecta.
+      if (!esGlobal) whereODP.asesor_id = user.id;
       // Un negocio que nació como lead en el CRM se acredita a la vía CRM (nuevos_clientes,
       // vía leads APROBADO), aunque haya usado el sub-flujo de visita técnica (prospecto).
       // Por eso las ODPs con lead vinculado se EXCLUYEN de nuevos_prospectos y de recurrentes:
@@ -712,39 +807,26 @@ export const getCRMStats = async (req: Request, res: Response) => {
         };
       });
 
-    // Distribución semanal de leads creados en el período
-    const porSemana: { semana: string; count: number }[] = [];
-    if (periodStart && periodEnd) {
-      let cur = new Date(periodStart);
-      let semNum = 1;
-      while (cur <= periodEnd) {
-        const wStart = new Date(cur);
-        const wEnd = new Date(cur);
-        wEnd.setDate(wEnd.getDate() + 6);
-        if (wEnd > periodEnd) wEnd.setTime(periodEnd.getTime());
-        const cnt = leads.filter((l: any) => {
-          const d = new Date(l.getDataValue('createdAt'));
-          return d >= wStart && d <= wEnd;
-        }).length;
-        porSemana.push({ semana: `Sem ${semNum}`, count: cnt });
-        cur.setDate(cur.getDate() + 7);
-        semNum++;
-      }
-    }
-
     // Comparativo vs período anterior (mes anterior al seleccionado)
     let vsAnterior: any = null;
     if (periodStart) {
+      // setUTC*/getUTC* (no setMonth/getMonth locales): periodStart ya está en medianoche
+      // UTC — mezclar aritmética local con un valor UTC desfasaba "mes anterior" varias
+      // horas, llegando a devolver una ventana casi vacía en vez del mes completo.
       const prevStart = new Date(periodStart);
-      prevStart.setMonth(prevStart.getMonth() - 1);
+      prevStart.setUTCMonth(prevStart.getUTCMonth() - 1);
       const prevEnd = new Date(prevStart);
-      prevEnd.setMonth(prevEnd.getMonth() + 1);
-      prevEnd.setDate(0);
-      prevEnd.setHours(23, 59, 59, 999);
+      prevEnd.setUTCMonth(prevEnd.getUTCMonth() + 1);
+      prevEnd.setUTCDate(0);
+      prevEnd.setUTCHours(23, 59, 59, 999);
       const prevWhere: any = esGlobal
         ? { respondio: { [Op.ne]: 'No responde' } }
         : { asesor_id: user.id, respondio: { [Op.ne]: 'No responde' } };
-      prevWhere.createdAt = { [Op.between]: [prevStart, prevEnd] };
+      if (prevStart >= METRICAS_CRM_V2_CUTOFF) {
+        prevWhere[Op.and] = whereLeadsPipeline(prevStart, prevEnd);
+      } else {
+        prevWhere.createdAt = { [Op.between]: [prevStart, prevEnd] };
+      }
       const prevLeads = await Lead.findAll({
         where: prevWhere,
         attributes: ['estado_crm', 'monto_proyectado_cotizacion', 'monto_real_venta']
@@ -755,9 +837,13 @@ export const getCRMStats = async (req: Request, res: Response) => {
       const prevMontoReal = prevLeads
         .filter((l: any) => l.getDataValue('estado_crm') === 'APROBADO')
         .reduce((s: number, l: any) => s + parseFloat(l.getDataValue('monto_real_venta') || '0'), 0);
+      const prevTasaConversion = await calcularTasaConversion({
+        periodStart: prevStart, periodEnd: prevEnd, esGlobal, asesorId: user.id,
+        totalLeads: prevTotal, aprobadosLeads: prevAprobados,
+      });
       vsAnterior = {
         total: prevTotal,
-        tasa_conversion: prevTotal > 0 ? Math.round((prevAprobados / prevTotal) * 100) : 0,
+        tasa_conversion: prevTasaConversion,
         ticket_promedio_proyectado: prevTotal > 0 ? prevMontoProyectado / prevTotal : 0,
         monto_real_aprobados: prevMontoReal,
       };
@@ -766,6 +852,13 @@ export const getCRMStats = async (req: Request, res: Response) => {
     const msToHours = (ms: number) => Math.round(ms / (1000 * 60 * 60));
 
     const aprobados = porEstado['APROBADO'] || 0;
+    const tasaConversionActual = (periodStart && periodEnd)
+      ? await calcularTasaConversion({
+          periodStart, periodEnd, esGlobal, asesorId: user.id,
+          totalLeads: total, aprobadosLeads: aprobados,
+          nuevosProspectosPeriodo: nuevosProspectos, clientesRecurrentesPeriodo: clientesRecurrentes,
+        })
+      : (total > 0 ? Math.round((aprobados / total) * 100) : 0);
     const statsPorAsesor: any[] = [];
     if (esGlobal) {
       const asesores = await Usuario.findAll({
@@ -814,7 +907,7 @@ export const getCRMStats = async (req: Request, res: Response) => {
       monto_total_real: montoTotalReal,
       monto_real_aprobados: montoRealAprobados,
       ticket_promedio_proyectado: total > 0 ? (montoTotalProyectado / total) : 0,
-      tasa_conversion: total > 0 ? Math.round((aprobados / total) * 100) : 0,
+      tasa_conversion: tasaConversionActual,
       tiempos_promedio_horas: {
         asignacion: tiempos.nuevo_a_asignado.conta > 0 ? msToHours(Math.max(0, tiempos.nuevo_a_asignado.suma / tiempos.nuevo_a_asignado.conta)) : 0,
         contacto: tiempos.asignado_a_contacto.conta > 0 ? msToHours(Math.max(0, tiempos.asignado_a_contacto.suma / tiempos.asignado_a_contacto.conta)) : 0,
@@ -834,7 +927,6 @@ export const getCRMStats = async (req: Request, res: Response) => {
       leads_aprobados_sin_odp: leadsAprobadosSinOdp,
       tiempo_promedio_cierre_dias: cerradosConFecha > 0 ? Math.round(sumaDiasCierre / cerradosConFecha) : 0,
       stats_por_asesor: statsPorAsesor.sort((a,b) => b.tasa_conversion - a.tasa_conversion),
-      por_semana: porSemana,
       vs_anterior: vsAnterior,
       leads_aprobados_sin_odp_detalle: leadsAprobadosSinOdpDetalle,
     });

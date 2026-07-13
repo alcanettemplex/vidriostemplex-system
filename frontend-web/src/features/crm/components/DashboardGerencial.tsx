@@ -79,23 +79,34 @@ const MiniKPI: React.FC<MiniKPIProps> = ({ label, value, icon, bg, desc, tooltip
   </div>
 );
 
-// ─── Donut de eficiencia ──────────────────────────────────────────────────────
-const DonutChart: React.FC<{ pct: number; color: string }> = ({ pct, color }) => {
+// ─── Origen de Negocio (donut de composición + lista) ─────────────────────────
+// Paleta categórica validada (orden fijo, slots 1-3 — 6 checks del skill de
+// dataviz). A diferencia de un donut decorativo, aquí las 3 categorías SÍ suman
+// el total de negocios del período (CRM + Prospectos + Recurrentes = total ODPs),
+// así que la composición proporcional real es la codificación correcta.
+const ORIGEN_COLORS = ['#2a78d6', '#1baf7a', '#eda100'];
+const OrigenDonut: React.FC<{ items: { pct: number }[] }> = ({ items }) => {
   const r = 52, circ = 2 * Math.PI * r;
-  const dash = (pct / 100) * circ;
+  let offset = circ / 4;
   return (
     <svg width="130" height="130" viewBox="0 0 130 130">
       <circle cx="65" cy="65" r={r} fill="none" stroke="#EEF0F8" strokeWidth="14" />
-      <circle
-        cx="65" cy="65" r={r} fill="none"
-        stroke={color} strokeWidth="14"
-        strokeDasharray={`${dash} ${circ}`}
-        strokeDashoffset={circ / 4}
-        strokeLinecap="round"
-        style={{ transition: 'stroke-dasharray 1s ease-in-out' }}
-      />
-      <text x="65" y="60" textAnchor="middle" fontSize="18" fontWeight="900" fill="#1e293b">{pct}%</text>
-      <text x="65" y="76" textAnchor="middle" fontSize="8" fontWeight="700" fill="#94a3b8" letterSpacing="1">TASA ÉXITO</text>
+      {items.map((item, i) => {
+        const dash = (item.pct / 100) * circ;
+        const seg = (
+          <circle key={i} cx="65" cy="65" r={r} fill="none"
+            stroke={ORIGEN_COLORS[i % ORIGEN_COLORS.length]} strokeWidth="14"
+            strokeDasharray={`${dash} ${circ - dash}`}
+            strokeDashoffset={-offset + circ / 4}
+            strokeLinecap="butt"
+            style={{ transition: 'stroke-dasharray 1s ease-in-out' }}
+          />
+        );
+        offset += dash;
+        return seg;
+      })}
+      <text x="65" y="58" textAnchor="middle" fontSize="9" fontWeight="700" fill="#94a3b8" letterSpacing="1">TOTAL</text>
+      <text x="65" y="76" textAnchor="middle" fontSize="20" fontWeight="700" fill="#1e293b">100%</text>
     </svg>
   );
 };
@@ -259,7 +270,8 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha
 
   const {
     total = 0, monto_total_proyectado = 0, tasa_conversion = 0,
-    nuevos_clientes = 0, nuevos_prospectos = 0, clientes_recurrentes = 0,
+    nuevos_clientes = 0, nuevos_prospectos = 0, nuevos_crm = 0, clientes_recurrentes = 0,
+    monto_nuevos_crm = 0, monto_nuevos_clientes: monto_nuevos_prospectos = 0, monto_clientes_recurrentes = 0,
     leads_con_odp = 0, leads_aprobados_sin_odp = 0,
     monto_real_aprobados = 0,
     tiempo_promedio_cierre_dias = 0,
@@ -285,7 +297,17 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha
   const pctPerdidos  = total > 0 ? (perdidos  / total) * 100 : 0;
   const pctActivos   = total > 0 ? (activos   / total) * 100 : 0;
 
-  const donutColor = tasa_conversion >= 30 ? '#10b981' : tasa_conversion >= 15 ? '#f59e0b' : '#6366f1';
+  // Origen de negocio: los 3 canales suman el total de ODPs del período.
+  const totalOrigen = nuevos_crm + nuevos_prospectos + clientes_recurrentes;
+  const origenItems = [
+    { label: 'Vía CRM (Leads)', count: nuevos_crm, monto: monto_nuevos_crm, icon: <IconLeads size={13} className="text-white" /> },
+    { label: 'Prospectos directos', count: nuevos_prospectos, monto: monto_nuevos_prospectos, icon: <IconUserCheck size={13} className="text-white" /> },
+    { label: 'Clientes recurrentes', count: clientes_recurrentes, monto: monto_clientes_recurrentes, icon: <RefreshCw size={13} className="text-white" /> },
+  ].map((o, i) => ({
+    ...o,
+    color: ORIGEN_COLORS[i % ORIGEN_COLORS.length],
+    pct: totalOrigen > 0 ? Math.round((o.count / totalOrigen) * 100) : 0,
+  }));
 
   return (
     <div className="space-y-5 pb-10">
@@ -320,8 +342,8 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha
         <KPIStitch
           label="Éxito Comercial"
           value={`${tasa_conversion}%`}
-          sub={`${aprobados} leads aprobados de ${total} registrados`}
-          tooltip="Porcentaje de leads que cerraron como APROBADO sobre el total del período. Verde ≥30%, amarillo ≥15%, azul <15%. Una tasa saludable para este sector es superior al 20%."
+          sub="Incluye leads del CRM, prospectos directos y clientes recurrentes del período"
+          tooltip="Porcentaje de negocio cerrado sobre el total de oportunidades del período: leads del CRM, prospectos gestionados directo y clientes recurrentes. Verde ≥30%, amarillo ≥15%, azul <15%. Una tasa saludable para este sector es superior al 20%."
           icon={<IconTarget size={16} className="text-emerald-600" />}
           accentColor="bg-emerald-50" borderColor="border-l-emerald-500"
           trend={tasa_conversion} trendLabel={`${tasa_conversion}% de conversión`}
@@ -329,8 +351,8 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha
         <KPIStitch
           label="Leads Ingresados"
           value={String(total)}
-          sub="Total de leads registrados en el período seleccionado"
-          tooltip="Cantidad total de leads creados en el período (mes/año seleccionado). Incluye todos los estados: activos, aprobados, perdidos, fríos y sin respuesta. Es el volumen bruto de oportunidades captadas."
+          sub="Total de leads del período seleccionado"
+          tooltip="Cantidad total de leads del período: incluye los que siguen activos en el pipeline (sin importar cuándo entraron) más los que se cerraron —aprobados, perdidos o enfriados— durante el período. Es el volumen bruto de oportunidades gestionadas."
           icon={<IconLeads size={16} className="text-violet-600" />}
           accentColor="bg-violet-50" borderColor="border-l-violet-500"
         />
@@ -516,40 +538,37 @@ const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha
           </div>
         </div>
 
-        {/* Eficiencia Global */}
+        {/* Origen de Negocio */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col items-center justify-center gap-4">
           <div className="w-full flex items-center justify-between mb-2">
             <div className="flex items-center">
               <div>
-                <h3 className="font-black text-slate-800 text-sm">Eficiencia Global</h3>
-                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Tasa de éxito del equipo en el período</p>
+                <h3 className="font-black text-slate-800 text-sm">Origen de Negocio</h3>
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Composición de ODPs del período por canal</p>
               </div>
-              <InfoTooltip text="Porcentaje de leads que cerraron como APROBADO sobre el total. Verde ≥30% (excelente), amarillo ≥15% (aceptable), azul <15% (requiere atención). El Lead Velocity Index muestra cuántos días tarda en promedio cerrar un negocio." />
+              <InfoTooltip text="De dónde nacieron los negocios (ODPs) del período: leads que llegaron por el CRM, prospectos gestionados directo por un asesor, o clientes recurrentes que ya existían. Las 3 vías suman el 100% del negocio del período — mismos datos que 'Clientes Nuevos vs Recurrentes'." />
             </div>
-            <span className={`text-[10px] font-black px-2 py-1 rounded-full ${tasa_conversion >= 20 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-              {tasa_conversion >= 20 ? '✓ En meta' : '⚠ Mejorable'}
+            <span className="text-[10px] font-black px-2 py-1 rounded-full bg-slate-50 text-slate-500">
+              {totalOrigen} ODPs
             </span>
           </div>
-          <DonutChart pct={tasa_conversion} color={donutColor} />
-          <div className="w-full space-y-2 text-xs">
-            <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
-              <div className="flex items-center">
-                <span className="text-slate-500 font-bold">Conversión Lead → Venta</span>
-                <InfoTooltip text="Leads APROBADO ÷ Total leads × 100. Mide cuántas oportunidades se convierten en negocios reales." />
+          <OrigenDonut items={origenItems} />
+          <div className="w-full space-y-1">
+            {origenItems.map(o => (
+              <div key={o.label} className="flex items-center gap-3 py-1.5 border-b border-slate-50 last:border-b-0">
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: o.color }}
+                >
+                  {o.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-slate-600 truncate">{o.label}</p>
+                  <p className="text-[10px] text-slate-400 font-medium">{o.count} · {fmtCOP(o.monto, true)}</p>
+                </div>
+                <span className="text-sm font-black text-slate-700">{o.pct}%</span>
               </div>
-              <span className={`font-black ${tasa_conversion > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                {tasa_conversion.toFixed(2)}%
-              </span>
-            </div>
-            <div className="flex items-center justify-between py-1.5">
-              <div className="flex items-center">
-                <span className="text-slate-500 font-bold">Lead Velocity Index</span>
-                <InfoTooltip text="Días promedio desde que se registra el lead hasta que se cierra como APROBADO. Mide la velocidad del ciclo de venta. Cuanto menor, más ágil es el equipo." />
-              </div>
-              <span className={`font-black ${tiempo_promedio_cierre_dias > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>
-                {tiempo_promedio_cierre_dias > 0 ? `${tiempo_promedio_cierre_dias}d` : 'N/A'}
-              </span>
-            </div>
+            ))}
           </div>
         </div>
       </div>
