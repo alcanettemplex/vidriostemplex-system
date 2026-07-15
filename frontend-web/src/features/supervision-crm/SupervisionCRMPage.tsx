@@ -270,7 +270,7 @@ const SupervisionCRMPage: React.FC = () => {
             value={loadingResumen ? '—' : `${resumen?.tasa_conversion_actual ?? 0}%`}
             icon={Target}
             accent="blue"
-            description="Porcentaje de leads del período que terminaron como venta ganada (APROBADO) sobre el total de leads trabajados. Mide la efectividad global del equipo comercial convirtiendo contactos en clientes."
+            description="Porcentaje de negocio cerrado sobre el total de oportunidades del período: leads del CRM, prospectos gestionados directo y clientes recurrentes. Mide la efectividad global del equipo comercial convirtiendo contactos en clientes."
             progress={{ current: resumen?.tasa_conversion_actual ?? 0, target: resumen?.meta_conversion ?? 20, unit: '%' }}
           />
           <KPICard
@@ -417,6 +417,12 @@ const SupervisionCRMPage: React.FC = () => {
             </div>
           )}
         </div>
+
+        {(activeTab === 'primer_contacto' || activeTab === 'seguimiento' || activeTab === 'alto_valor') && (
+          <p className="text-[11px] text-apple-text-tertiary font-medium -mt-2 px-1">
+            Esta cola muestra leads en etapa activa: no se acota por fecha de creación, el filtro de fechas no la afecta.
+          </p>
+        )}
 
         {/* ── Contenido activo ── */}
         {activeTab === 'primer_contacto' && (

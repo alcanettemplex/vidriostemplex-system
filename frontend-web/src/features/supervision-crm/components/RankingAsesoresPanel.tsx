@@ -20,6 +20,12 @@ const RankingAsesoresPanel: React.FC<Props> = ({ ranking, loading, disabled }) =
         <Trophy className="w-4 h-4 text-apple-orange" />
         <span className="text-xs font-bold text-apple-text uppercase tracking-wider">Ranking de Asesores</span>
         <span className="text-[10px] text-apple-text-tertiary font-medium ml-1">(siempre todos, ignora el filtro de asesor)</span>
+        <span
+          className="text-[10px] text-apple-text-tertiary font-medium ml-auto"
+          title="El % de conversión incluye leads del CRM, prospectos directos y clientes recurrentes gestionados por el asesor — no solo los leads listados."
+        >
+          % incluye prospectos y recurrentes
+        </span>
       </div>
 
       {disabled ? (

@@ -5,7 +5,7 @@ import sequelize from '../config/database';
 import {
   Lead, LeadEvento, LeadImagen, Usuario, Cliente, Prospecto, TomaMedidas,
   SupervisionLineamiento, SupervisionLineamientoItem, FacturaAdicionalODP,
-  ConfiguracionGlobal,
+  ConfiguracionGlobal, MetaUsuarioMensual,
 } from '../models';
 import ODP from '../models/odp.model';
 import { v2 as cloudinary } from 'cloudinary';
@@ -1821,7 +1821,11 @@ const construirFiltroFecha = (fecha_desde: any, fecha_hasta: any) => {
   if (!fecha_desde || !fecha_hasta) return null;
   const start = new Date(fecha_desde as string);
   const end = new Date(fecha_hasta as string);
-  end.setHours(23, 59, 59, 999);
+  // setUTCHours (no setHours): fecha_desde/fecha_hasta llegan como "YYYY-MM-DD" y se
+  // parsean en medianoche UTC. Mutar con setters de hora LOCAL en un servidor con TZ
+  // distinto de UTC desfasa el límite del período — mismo bug corregido en getCRMStats
+  // (ver TECH_DEBT 2026-07-12).
+  end.setUTCHours(23, 59, 59, 999);
   return { [Op.between]: [start, end] };
 };
 
@@ -1832,11 +1836,27 @@ function calcularPeriodoAnterior(fecha_desde: any, fecha_hasta: any): { prevInic
   if (!fecha_desde || !fecha_hasta) return null;
   const inicio = new Date(fecha_desde as string);
   const fin = new Date(fecha_hasta as string);
-  fin.setHours(23, 59, 59, 999);
+  fin.setUTCHours(23, 59, 59, 999);
   const periodoMs = fin.getTime() - inicio.getTime();
   const prevFin = new Date(inicio.getTime() - 1);
   const prevInicio = new Date(prevFin.getTime() - periodoMs);
   return { prevInicio, prevFin };
+}
+
+// Meses (mes/año, UTC) que toca el rango [periodStart, periodEnd] — usado para sumar
+// metas mensuales por asesor. Mismo criterio que generateMonthList en dashboard.controller.ts.
+function mesesEnRango(periodStart: Date, periodEnd: Date): { mes: number; anio: number }[] {
+  const meses: { mes: number; anio: number }[] = [];
+  let m = periodStart.getUTCMonth() + 1;
+  let y = periodStart.getUTCFullYear();
+  const mFin = periodEnd.getUTCMonth() + 1;
+  const yFin = periodEnd.getUTCFullYear();
+  while (y < yFin || (y === yFin && m <= mFin)) {
+    meses.push({ mes: m, anio: y });
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+  return meses;
 }
 
 // GET /api/crm/supervision/resumen — conversión actual vs meta 20% + motivos de pérdida
@@ -1848,13 +1868,36 @@ export const getSupervisionResumen = async (req: Request, res: Response) => {
     const asesorIdNum = asesor_id ? parseInt(asesor_id as string, 10) : undefined;
     const where: any = { respondio: { [Op.ne]: 'No responde' } };
     const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
-    if (rangoFecha) where.createdAt = rangoFecha;
     if (asesorIdNum) where.asesor_id = asesorIdNum;
+
+    let periodStart: Date | null = null;
+    let periodEnd: Date | null = null;
+    if (rangoFecha) {
+      periodStart = new Date(fecha_desde as string);
+      periodEnd = new Date(fecha_hasta as string);
+      periodEnd.setUTCHours(23, 59, 59, 999);
+    }
+
+    // Población unificada con Pipeline/Métricas CRM (jul-2026): etapas activas siempre
+    // visibles, terminales (PERDIDO/FRIO/APROBADO) acotadas por última actividad, no por
+    // fecha de creación. Períodos anteriores al corte conservan el criterio histórico.
+    if (periodStart && periodEnd) {
+      if (periodStart >= METRICAS_CRM_V2_CUTOFF) {
+        where[Op.and] = whereLeadsPipeline(periodStart, periodEnd);
+      } else {
+        where.createdAt = rangoFecha;
+      }
+    }
 
     const leads = await Lead.findAll({ where, attributes: ['estado_crm', 'motivo_perdida'] });
     const total = leads.length;
     const aprobados = leads.filter((l: any) => l.getDataValue('estado_crm') === 'APROBADO').length;
-    const tasaConversion = total > 0 ? Math.round((aprobados / total) * 1000) / 10 : 0;
+    const tasaConversion = (periodStart && periodEnd)
+      ? await calcularTasaConversion({
+          periodStart, periodEnd, esGlobal: !asesorIdNum, asesorId: asesorIdNum ?? 0,
+          totalLeads: total, aprobadosLeads: aprobados,
+        })
+      : (total > 0 ? Math.round((aprobados / total) * 100) : 0);
 
     const motivosMap: Record<string, number> = {};
     leads
@@ -1927,7 +1970,19 @@ export const getSupervisionResumen = async (req: Request, res: Response) => {
     if (asesorIdNum) whereOdpPeriodo.asesor_id = asesorIdNum;
 
     const facturacion_periodo = Number(await ODP.sum('valor_total', { where: whereOdpPeriodo }) || 0);
-    const meta_facturacion_periodo = Number((config as any)?.meta_facturacion_mensual) || 120000000;
+
+    // Meta real = suma de metas individuales por asesor (metas_usuario_mensual) de los
+    // meses que toca el período — mismo patrón que dashboard.controller.ts (getGeneralData
+    // y el panel de ventas). El campo plano configuracion_global.meta_facturacion_mensual
+    // solo se usa como último recurso si no hay metas individuales cargadas ese mes.
+    let meta_facturacion_periodo = Number((config as any)?.meta_facturacion_mensual) || 120000000;
+    if (periodStart && periodEnd) {
+      const monthList = mesesEnRango(periodStart, periodEnd);
+      const metaWhere: any = { [Op.or]: monthList.map(m => ({ anio: m.anio, mes: m.mes })) };
+      if (asesorIdNum) metaWhere.usuario_id = asesorIdNum;
+      const sumaMetasAsesores = await MetaUsuarioMensual.sum('meta_facturacion', { where: metaWhere });
+      if (sumaMetasAsesores) meta_facturacion_periodo = Number(sumaMetasAsesores);
+    }
 
     const total_odps_periodo = await ODP.count({ where: whereOdpPeriodo });
     const odps_facturadas_periodo = await ODP.count({ where: { ...whereOdpPeriodo, estado_facturacion: 'FACTURADA' } });
@@ -1976,7 +2031,19 @@ export const getRankingAsesores = async (req: Request, res: Response) => {
       asesor_id: { [Op.ne]: null },
     };
     const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
-    if (rangoFecha) where.createdAt = rangoFecha;
+
+    let periodStart: Date | null = null;
+    let periodEnd: Date | null = null;
+    if (rangoFecha) {
+      periodStart = new Date(fecha_desde as string);
+      periodEnd = new Date(fecha_hasta as string);
+      periodEnd.setUTCHours(23, 59, 59, 999);
+      if (periodStart >= METRICAS_CRM_V2_CUTOFF) {
+        where[Op.and] = whereLeadsPipeline(periodStart, periodEnd);
+      } else {
+        where.createdAt = rangoFecha;
+      }
+    }
 
     const leads = await Lead.findAll({
       where,
@@ -2005,11 +2072,20 @@ export const getRankingAsesores = async (req: Request, res: Response) => {
       }
     }
 
-    const ranking = Array.from(mapa.values())
-      .map(e => ({
-        ...e,
-        conversion_pct: e.total_leads > 0 ? Math.round((e.aprobados / e.total_leads) * 1000) / 10 : 0,
-      }))
+    const entries = Array.from(mapa.values());
+    // Fórmula ampliada (igual que Conversión actual de Resumen y Métricas CRM): suma
+    // prospectos directos y clientes recurrentes propios de cada asesor al numerador/
+    // denominador. Se calcula en paralelo por asesor para no encadenar N rondas secuenciales.
+    const conversiones = (periodStart && periodEnd)
+      ? await Promise.all(entries.map(e => calcularTasaConversion({
+          periodStart: periodStart as Date, periodEnd: periodEnd as Date,
+          esGlobal: false, asesorId: e.asesor_id,
+          totalLeads: e.total_leads, aprobadosLeads: e.aprobados,
+        })))
+      : entries.map(e => e.total_leads > 0 ? Math.round((e.aprobados / e.total_leads) * 100) : 0);
+
+    const ranking = entries
+      .map((e, i) => ({ ...e, conversion_pct: conversiones[i] }))
       .sort((a, b) => b.monto_vendido - a.monto_vendido);
 
     res.json({ ranking });
@@ -2020,9 +2096,12 @@ export const getRankingAsesores = async (req: Request, res: Response) => {
 };
 
 // GET /api/crm/supervision/alto-valor — leads de alto valor sin ODP, cualquier etapa activa
+// No filtra por fecha de creación: son leads en etapa activa, siempre visibles bajo el
+// criterio unificado con Pipeline/Métricas CRM (ver getSupervisionResumen) — un lead
+// asignado hace meses que sigue sin contactar debe seguir apareciendo aquí.
 export const getSupervisionAltoValor = async (req: Request, res: Response) => {
   try {
-    const { fecha_desde, fecha_hasta, asesor_id, monto_min } = req.query;
+    const { asesor_id, monto_min } = req.query;
     const umbral = monto_min ? parseFloat(monto_min as string) : 10000000;
     const ETAPAS_ACTIVAS = ['ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA', 'APROBADO'];
 
@@ -2032,8 +2111,6 @@ export const getSupervisionAltoValor = async (req: Request, res: Response) => {
       odp_id: null,
       monto_proyectado_cotizacion: { [Op.gte]: umbral },
     };
-    const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
-    if (rangoFecha) where.createdAt = rangoFecha;
     if (asesor_id) where.asesor_id = parseInt(asesor_id as string);
 
     const leads = await Lead.findAll({
@@ -2067,15 +2144,14 @@ export const getSupervisionAltoValor = async (req: Request, res: Response) => {
 };
 
 // GET /api/crm/supervision/seguimiento — cola priorizada de SEGUIMIENTO, todos los asesores
+// No filtra por fecha de creación: mismo criterio que getSupervisionAltoValor.
 export const getSupervisionSeguimiento = async (req: Request, res: Response) => {
   try {
-    const { fecha_desde, fecha_hasta, asesor_id } = req.query;
+    const { asesor_id } = req.query;
     const where: any = {
       respondio: { [Op.ne]: 'No responde' },
       estado_crm: 'SEGUIMIENTO',
     };
-    const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
-    if (rangoFecha) where.createdAt = rangoFecha;
     if (asesor_id) where.asesor_id = parseInt(asesor_id as string);
 
     const leads = await Lead.findAll({
@@ -2109,15 +2185,14 @@ export const getSupervisionSeguimiento = async (req: Request, res: Response) => 
 };
 
 // GET /api/crm/supervision/primer-contacto — leads ASIGNADO sin contactar, cualquier monto
+// No filtra por fecha de creación: mismo criterio que getSupervisionAltoValor.
 export const getSupervisionPrimerContacto = async (req: Request, res: Response) => {
   try {
-    const { fecha_desde, fecha_hasta, asesor_id } = req.query;
+    const { asesor_id } = req.query;
     const where: any = {
       respondio: { [Op.ne]: 'No responde' },
       estado_crm: 'ASIGNADO',
     };
-    const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
-    if (rangoFecha) where.createdAt = rangoFecha;
     if (asesor_id) where.asesor_id = parseInt(asesor_id as string);
 
     const leads = await Lead.findAll({
