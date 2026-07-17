@@ -8,7 +8,9 @@ import {
 } from 'recharts';
 import DonutChart from '../charts/DonutChart';
 import CarteraVencidaModal from './CarteraVencidaModal';
+import PedidosFacturadosModal from './PedidosFacturadosModal';
 import ODPFichaModal from '../../../features/odp/components/ODPFichaModal';
+import { PeriodParams } from '../hooks/useDashboardData';
 
 const fmtM = (n: number) => {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -79,14 +81,20 @@ const MonthlyTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data, isLoading }) => {
+export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: PeriodParams }> = ({ data, isLoading, period }) => {
+  const [criterioKPI, setCriterioKPI]     = useState<'creadas_facturadas' | 'facturadas_rango'>('creadas_facturadas');
+  const rawConFacturaSeleccionado = criterioKPI === 'creadas_facturadas'
+    ? (data?.facturado_con_factura || 0)
+    : (data?.facturado_rango || 0);
+
   const odpsActivas          = useCountUp(data?.odps_activas || 0);
   const facturadoMes         = useCountUp(data?.facturado_mes || 0);
-  const facturadoConFactura  = useCountUp(data?.facturado_con_factura || 0);
+  const facturadoConFactura  = useCountUp(rawConFacturaSeleccionado);
   const carteraVenc          = useCountUp(data?.cartera_vencida_total || 0);
   const totalRecaudado       = useCountUp(data?.total_abonado || 0);
-  const [openCartera, setOpenCartera] = useState(false);
-  const [fichaId, setFichaId]         = useState<number | null>(null);
+  const [openCartera, setOpenCartera]     = useState(false);
+  const [openFacturados, setOpenFacturados] = useState<'creadas_facturadas' | 'facturadas_rango' | null>(null);
+  const [fichaId, setFichaId]             = useState<number | null>(null);
 
   if (isLoading) {
     return (
@@ -135,13 +143,18 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
   const recaudadoIva     = recaudadoConIva - recaudadoConIva / (1 + IVA_RATE);
   const recaudadoBase    = rawRecaudado - recaudadoIva;
 
-  // Lógica de desglose para la nueva tarjeta de Pedidos Facturados (con factura electrónica)
-  const rawConFactura      = data?.facturado_con_factura || 0;
-  const conFacturaOA       = data?.facturado_con_factura_oa || 0;
+  // Lógica de desglose para la tarjeta de Pedidos Facturados, según el criterio seleccionado
+  const rawConFactura      = rawConFacturaSeleccionado;
+  const conFacturaOA       = criterioKPI === 'creadas_facturadas'
+    ? (data?.facturado_con_factura_oa || 0)
+    : (data?.facturado_rango_oa || 0);
   const conFacturaConIva   = rawConFactura - conFacturaOA;
   const conFacturaIva      = conFacturaConIva - conFacturaConIva / (1 + IVA_RATE);
   const conFacturaBase     = rawConFactura - conFacturaIva;
   const conFacturaPct      = rawFacturado > 0 ? Math.min((rawConFactura / rawFacturado) * 100, 100) : 0;
+  const conFacturaSubtitulo = criterioKPI === 'creadas_facturadas'
+    ? 'Órdenes creadas en el período que ya cuentan con factura electrónica'
+    : 'Órdenes facturadas dentro del período, sin importar cuándo fueron creadas';
 
   return (
     <div className="space-y-3">
@@ -198,8 +211,22 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
         <motion.div custom={2} variants={cardVar} initial="hidden" animate="visible"
           className="bg-white border border-slate-200 rounded-2xl p-5 relative overflow-hidden"
           whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(99,102,241,0.12)' }}>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Pedidos Facturados</p>
-          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Órdenes creadas en el período que ya cuentan con factura electrónica</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Pedidos Facturados</p>
+          </div>
+          <div className="flex gap-1 mt-1 mb-1.5">
+            <button type="button"
+              onClick={() => setCriterioKPI('creadas_facturadas')}
+              className={`text-[9px] px-2 py-0.5 rounded-full font-semibold transition-colors ${criterioKPI === 'creadas_facturadas' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+              Creadas y facturadas
+            </button>
+            <button type="button"
+              onClick={() => setCriterioKPI('facturadas_rango')}
+              className={`text-[9px] px-2 py-0.5 rounded-full font-semibold transition-colors ${criterioKPI === 'facturadas_rango' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+              Todas facturadas (rango)
+            </button>
+          </div>
+          <p className="text-[9px] text-slate-400 leading-tight mb-2">{conFacturaSubtitulo}</p>
           <p className="text-[34px] font-semibold text-indigo-600 leading-none tabular-nums">{fmtM(facturadoConFactura)}</p>
           <div className="mt-2.5 mb-2 border-t border-slate-100 pt-2 space-y-1">
             <div className="flex justify-between text-[11px]">
@@ -216,6 +243,10 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
               {Math.round((rawConFactura / rawFacturado) * 100)}% del ingresado
             </p>
           )}
+          <p className="text-[10px] text-indigo-400 cursor-pointer hover:text-indigo-600 mt-1.5"
+            onClick={() => setOpenFacturados(criterioKPI)}>
+            Ver detalle →
+          </p>
           <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-100">
             <motion.div className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-b-2xl"
               initial={{ width: 0 }}
@@ -400,6 +431,14 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean }> = ({ data
       </div>
 
       {openCartera && <CarteraVencidaModal onClose={() => setOpenCartera(false)} onVerODP={setFichaId} />}
+      {openFacturados && (
+        <PedidosFacturadosModal
+          modo={openFacturados}
+          period={period}
+          onClose={() => setOpenFacturados(null)}
+          onVerODP={setFichaId}
+        />
+      )}
       {fichaId && <ODPFichaModal odpId={fichaId} onClose={() => setFichaId(null)} />}
     </div>
   );

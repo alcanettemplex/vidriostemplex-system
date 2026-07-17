@@ -37,7 +37,7 @@ interface ODP {
     tiene_dano_instalacion?: boolean;
 }
 
-type SortField = 'numero_odp' | 'cliente' | 'asesor' | 'estado_produccion' | 'estado_caja' | 'fecha_entrega' | 'fecha_creacion';
+type SortField = 'numero_odp' | 'cliente' | 'asesor' | 'estado_produccion' | 'estado_caja' | 'fecha_entrega' | 'fecha_creacion' | 'fecha_listo_instalar' | 'valor_total' | 'abono' | 'pendiente';
 type SortDir = 'asc' | 'desc';
 
 const ESTADOS_PRODUCCION = [
@@ -400,17 +400,24 @@ const ODPListPage: React.FC = () => {
     });
 
     // Aplicar ordenamiento
+    const CAMPOS_NUMERICOS: SortField[] = ['valor_total', 'abono', 'pendiente'];
     const sorted = [...filtered].sort((a, b) => {
+        if (CAMPOS_NUMERICOS.includes(sortField)) {
+            const numA = Number((a as any)[sortField]) || 0;
+            const numB = Number((b as any)[sortField]) || 0;
+            return sortDir === 'asc' ? numA - numB : numB - numA;
+        }
         let valA: string = '';
         let valB: string = '';
         switch (sortField) {
-            case 'numero_odp':       valA = a.numero_odp; valB = b.numero_odp; break;
-            case 'cliente':          valA = a.cliente?.nombre_razon_social || ''; valB = b.cliente?.nombre_razon_social || ''; break;
-            case 'asesor':           valA = a.asesor?.nombre_completo || ''; valB = b.asesor?.nombre_completo || ''; break;
-            case 'estado_produccion':valA = a.estado_produccion; valB = b.estado_produccion; break;
-            case 'estado_caja':      valA = a.estado_caja; valB = b.estado_caja; break;
-            case 'fecha_entrega':    valA = a.fecha_entrega || ''; valB = b.fecha_entrega || ''; break;
-            case 'fecha_creacion':   valA = (a as any).fecha_creacion || ''; valB = (b as any).fecha_creacion || ''; break;
+            case 'numero_odp':          valA = a.numero_odp; valB = b.numero_odp; break;
+            case 'cliente':             valA = a.cliente?.nombre_razon_social || ''; valB = b.cliente?.nombre_razon_social || ''; break;
+            case 'asesor':              valA = a.asesor?.nombre_completo || ''; valB = b.asesor?.nombre_completo || ''; break;
+            case 'estado_produccion':   valA = a.estado_produccion; valB = b.estado_produccion; break;
+            case 'estado_caja':         valA = a.estado_caja; valB = b.estado_caja; break;
+            case 'fecha_entrega':       valA = a.fecha_entrega || ''; valB = b.fecha_entrega || ''; break;
+            case 'fecha_creacion':      valA = (a as any).fecha_creacion || ''; valB = (b as any).fecha_creacion || ''; break;
+            case 'fecha_listo_instalar':valA = (a as any).fecha_listo_instalar || ''; valB = (b as any).fecha_listo_instalar || ''; break;
         }
         return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
     });
@@ -614,7 +621,9 @@ const ODPListPage: React.FC = () => {
                                     <span className="flex items-center">Estado Taller <SortIcon field="estado_produccion" sortField={sortField} sortDir={sortDir} /></span>
                                 </th>
                                 {activeTab === 'listas' && (
-                                    <th className="px-4 py-3 font-medium whitespace-nowrap">Fecha Liberado</th>
+                                    <th className={thClass} onClick={() => handleSort('fecha_listo_instalar')}>
+                                        <span className="flex items-center whitespace-nowrap">Fecha Liberado <SortIcon field="fecha_listo_instalar" sortField={sortField} sortDir={sortDir} /></span>
+                                    </th>
                                 )}
                                 {isGarantiaTab ? (
                                     <>
@@ -628,9 +637,15 @@ const ODPListPage: React.FC = () => {
                                         <th className={thClass} onClick={() => handleSort('estado_caja')}>
                                             <span className="flex items-center">Caja <SortIcon field="estado_caja" sortField={sortField} sortDir={sortDir} /></span>
                                         </th>
-                                        <th className="px-4 py-3 font-medium text-right whitespace-nowrap">Total</th>
-                                        <th className="px-4 py-3 font-medium text-right whitespace-nowrap">Abono</th>
-                                        <th className="px-4 py-3 font-medium text-right whitespace-nowrap">Restante</th>
+                                        <th className={`${thClass} text-right`} onClick={() => handleSort('valor_total')}>
+                                            <span className="flex items-center justify-end whitespace-nowrap">Total <SortIcon field="valor_total" sortField={sortField} sortDir={sortDir} /></span>
+                                        </th>
+                                        <th className={`${thClass} text-right`} onClick={() => handleSort('abono')}>
+                                            <span className="flex items-center justify-end whitespace-nowrap">Abono <SortIcon field="abono" sortField={sortField} sortDir={sortDir} /></span>
+                                        </th>
+                                        <th className={`${thClass} text-right`} onClick={() => handleSort('pendiente')}>
+                                            <span className="flex items-center justify-end whitespace-nowrap">Restante <SortIcon field="pendiente" sortField={sortField} sortDir={sortDir} /></span>
+                                        </th>
                                         <th className={thClass} onClick={() => handleSort('fecha_entrega')}>
                                             <span className="flex items-center">Listo Material <SortIcon field="fecha_entrega" sortField={sortField} sortDir={sortDir} /></span>
                                         </th>

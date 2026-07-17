@@ -148,7 +148,7 @@ export const GerenciaDashboard: React.FC = () => {
         <AnimatePresence mode="wait">
           {activeTab === 'general' && (
             <motion.div key="pt-gen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <PanelGeneral data={general} isLoading={loading.general} />
+              <PanelGeneral data={general} isLoading={loading.general} period={period} />
             </motion.div>
           )}
           {activeTab === 'ventas' && (

@@ -114,6 +114,25 @@ export const getGeneralData = async (req: Request, res: Response) => {
       }) || 0
     );
 
+    // Pedidos facturados en el rango (por fecha_factura, sin importar cuándo se creó la ODP)
+    const facturado_rango = Number(
+      await ODP.sum('valor_total', {
+        where: {
+          fecha_factura: { [Op.between]: [firstDay, lastDay] },
+          estado_facturacion: 'FACTURADA'
+        }
+      }) || 0
+    );
+    const facturado_rango_oa = Number(
+      await ODP.sum('valor_total', {
+        where: {
+          fecha_factura: { [Op.between]: [firstDay, lastDay] },
+          estado_facturacion: 'FACTURADA',
+          tipo_odp: 'OA'
+        }
+      }) || 0
+    );
+
     // Cartera vencida: créditos con FE emitida cuya fecha_factura supera el umbral de días (sin filtro de período)
     const carteraItems = await ODP.findAll({
       where: {
@@ -224,6 +243,8 @@ export const getGeneralData = async (req: Request, res: Response) => {
       facturado_mes_oa,
       facturado_con_factura,
       facturado_con_factura_oa,
+      facturado_rango,
+      facturado_rango_oa,
       total_abonado: Number(abonos),
       total_abonado_oa,
       cartera_vencida_total,
@@ -762,6 +783,42 @@ export const getCarteraVencida = async (_req: Request, res: Response) => {
     return res.json({ items: result, total, clientes_unicos, umbral_dias: diasAlerta });
   } catch (error: any) {
     console.error('Error getCarteraVencida:', error);
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+// ─── 6b. PEDIDOS FACTURADOS (modal detalle desde tarjeta KPI) ────────────────
+export const getPedidosFacturados = async (req: Request, res: Response) => {
+  try {
+    const { firstDay, lastDay } = parsePeriod(req);
+    const modo = req.query.modo === 'facturadas_rango' ? 'facturadas_rango' : 'creadas_facturadas';
+
+    const where = modo === 'facturadas_rango'
+      ? { fecha_factura: { [Op.between]: [firstDay, lastDay] }, estado_facturacion: 'FACTURADA' }
+      : { fecha_creacion: { [Op.between]: [firstDay, lastDay] }, factura_electronica: { [Op.ne]: null } };
+
+    const items = await ODP.findAll({
+      where,
+      include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
+      attributes: ['id', 'numero_odp', 'fecha_creacion', 'fecha_factura', 'valor_total', 'estado_caja'],
+      order: [['fecha_creacion', 'DESC']],
+    });
+
+    const result = items.map(o => ({
+      id:              o.getDataValue('id'),
+      numero_odp:      o.getDataValue('numero_odp'),
+      fecha_creacion:  o.getDataValue('fecha_creacion'),
+      fecha_factura:   o.getDataValue('fecha_factura'),
+      valor_total:     Number(o.getDataValue('valor_total')),
+      estado_caja:     o.getDataValue('estado_caja'),
+      cliente_nombre:  (o as any).cliente?.nombre_razon_social || 'Sin cliente',
+    }));
+
+    const total = result.reduce((acc, r) => acc + r.valor_total, 0);
+
+    return res.json({ items: result, total, count: result.length, modo });
+  } catch (error: any) {
+    console.error('Error getPedidosFacturados:', error);
     return res.status(500).json({ error: error.message });
   }
 };

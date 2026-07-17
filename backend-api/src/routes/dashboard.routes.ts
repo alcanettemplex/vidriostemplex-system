@@ -7,7 +7,8 @@ import {
   getEquipoData,
   getAlertas,
   getCotizacionesData,
-  getCarteraVencida
+  getCarteraVencida,
+  getPedidosFacturados
 } from '../controllers/dashboard.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
@@ -24,5 +25,6 @@ router.get('/equipo', authMiddleware, requireRole(...DASHBOARD_ROLES), getEquipo
 router.get('/alertas',       authMiddleware, requireRole(...DASHBOARD_ROLES), getAlertas);
 router.get('/cotizaciones', authMiddleware, requireRole('admin', 'gerencia', 'root'), getCotizacionesData);
 router.get('/cartera-vencida', authMiddleware, requireRole(...DASHBOARD_ROLES), getCarteraVencida);
+router.get('/pedidos-facturados', authMiddleware, requireRole(...DASHBOARD_ROLES), getPedidosFacturados);
 
 export default router;
