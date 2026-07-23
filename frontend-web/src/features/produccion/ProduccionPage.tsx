@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
@@ -133,6 +133,11 @@ const activeStates = [
 
 const ESTADOS_NC_ACTIVOS = [...activeStates, 'PEDIDO_PROVEEDOR'];
 
+// Estados que el tablero de producción realmente muestra. Se pide al backend solo estas
+// ODP (excluye PROGRAMADA/INSTALADA, que esta página nunca renderiza) para no descargar
+// cientos de órdenes históricas que luego se descartan en el cliente — optimización egress.
+const ESTADOS_PRODUCCION_VISIBLES = [...activeStates, 'LISTO_INSTALAR', 'PAUSADA', 'ENTREGADA'];
+
 const ESTADO_ORDEN: Record<string, number> = {
     EN_ESPERA: 0, VISITA_TECNICA: 1, MEDICION: 2,
     ALUMINIO_CORTADO: 3, VIDRIO_RECIBIDO: 4, ACCESORIOS_SEPARADOS: 5,
@@ -195,13 +200,18 @@ const ProduccionPage: React.FC = () => {
     const [mainTab, setMainTab]           = useState<'activas' | 'pedido_mano' | 'nc_garantias' | 'pausadas'>('activas');
     const [manoSubTab, setManoSubTab]     = useState<'listos' | 'espera_pago' | 'entregadas'>('listos');
 
-    const [activeOdps, setActiveOdps]     = useState<ODP[]>([]);
-    const [readyOdps, setReadyOdps]       = useState<ODP[]>([]);
-    const [despachoOdps, setDespachoOdps] = useState<ODP[]>([]);
-    const [manoOdps, setManoOdps]         = useState<ODP[]>([]);
-    const [entregadasOdps, setEntregadasOdps] = useState<ODP[]>([]);
+    // Array maestro (fuente única de verdad) + NC/Garantías (endpoint aparte).
+    const [odps, setOdps]                       = useState<ODP[]>([]);
     const [ncGarantiasOdps, setNcGarantiasOdps] = useState<ODP[]>([]);
-    const [pausadasOdps, setPausadasOdps]       = useState<ODP[]>([]);
+
+    // Buckets derivados de `odps`: se recalculan solos cuando el socket parchea el maestro,
+    // permitiendo que una ODP se mueva de columna sin re-descargar la lista completa.
+    const activeOdps     = useMemo(() => odps.filter(o => activeStates.includes(o.estado_produccion)), [odps]);
+    const pausadasOdps   = useMemo(() => odps.filter(o => o.estado_produccion === 'PAUSADA'), [odps]);
+    const readyOdps      = useMemo(() => odps.filter(o => o.estado_produccion === 'LISTO_INSTALAR'), [odps]);
+    const despachoOdps   = useMemo(() => readyOdps.filter(o => o.instalacion || o.acarreo), [readyOdps]);
+    const manoOdps       = useMemo(() => readyOdps.filter(o => !o.instalacion && !o.acarreo), [readyOdps]);
+    const entregadasOdps = useMemo(() => odps.filter(o => o.estado_produccion === 'ENTREGADA' && !o.instalacion && !o.acarreo), [odps]);
 
     const [loading, setLoading]           = useState(true);
     const [searchTerm, setSearchTerm]     = useState('');
@@ -243,22 +253,23 @@ const ProduccionPage: React.FC = () => {
             const token = sessionStorage.getItem('token');
             const headers = { Authorization: `Bearer ${token}` };
             const [res, resNcG] = await Promise.all([
-                axios.get(`${API}/api/odp?limit=1000`, { headers }),
+                axios.get(`${API}/api/odp`, {
+                    headers,
+                    params: { limit: 1000, estados: ESTADOS_PRODUCCION_VISIBLES },
+                    // Serializa el array como estados=A&estados=B (sin corchetes), igual que ODPListPage.
+                    paramsSerializer: (p) => {
+                        const sp = new URLSearchParams();
+                        Object.entries(p).forEach(([key, val]) => {
+                            if (Array.isArray(val)) val.forEach((v: string) => sp.append(key, v));
+                            else sp.append(key, String(val));
+                        });
+                        return sp.toString();
+                    },
+                }),
                 axios.get(`${API}/api/odp/nc-garantias`, { headers }),
             ]);
             const data: ODP[] = Array.isArray(res.data) ? res.data : (res.data.rows || []);
-            const allPausadas = data.filter(o => o.estado_produccion === 'PAUSADA');
-            const allActive = data.filter(o => activeStates.includes(o.estado_produccion));
-            const allReady  = data.filter(o => o.estado_produccion === 'LISTO_INSTALAR');
-            const allEntregadas = data.filter(o =>
-                o.estado_produccion === 'ENTREGADA' && !o.instalacion && !o.acarreo
-            );
-            setActiveOdps(allActive);
-            setPausadasOdps(allPausadas);
-            setReadyOdps(allReady);
-            setDespachoOdps(allReady.filter(o => o.instalacion || o.acarreo));
-            setManoOdps(allReady.filter(o => !o.instalacion && !o.acarreo));
-            setEntregadasOdps(allEntregadas);
+            setOdps(data);
             setNcGarantiasOdps(resNcG.data);
         } catch (error) {
             console.error(error);
@@ -277,15 +288,14 @@ const ProduccionPage: React.FC = () => {
         setPrintSap(null);
     }, [mainTab]);
 
-    // Sync panelOdp when data refreshes
+    // Sync panelOdp when data refreshes / socket patch
     useEffect(() => {
         if (!panelOdp) return;
-        const all = [...activeOdps, ...pausadasOdps, ...despachoOdps, ...manoOdps, ...entregadasOdps, ...ncGarantiasOdps];
-        const updated = all.find(o => o.id === panelOdp.id);
+        const updated = odps.find(o => o.id === panelOdp.id) || ncGarantiasOdps.find(o => o.id === panelOdp.id);
         if (updated) setPanelOdp(updated);
         else setPanelOdp(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeOdps, pausadasOdps, despachoOdps, manoOdps, entregadasOdps, ncGarantiasOdps]);
+    }, [odps, ncGarantiasOdps]);
 
     const fetchNotes = async (odpId: number) => {
         try {
@@ -327,7 +337,7 @@ const ProduccionPage: React.FC = () => {
                 { color_taller: color },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            fetchData(true);
+            // La lista se actualiza vía socket (odp_patch); no se re-descarga.
         } catch (error: any) {
             toast.error(error.response?.data?.error || 'Error al guardar color');
         }
@@ -353,7 +363,7 @@ const ProduccionPage: React.FC = () => {
                 { [field]: newValue },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            fetchData(true);
+            // La lista se actualiza vía socket (odp_patch); no se re-descarga.
             toast.success('Proceso actualizado');
         } catch (error: any) {
             toast.error(error.response?.data?.error || 'Error al actualizar');
@@ -370,7 +380,7 @@ const ProduccionPage: React.FC = () => {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             toast.success(`${odp.numero_odp} marcada como Entregada`);
-            fetchData(true);
+            // La lista se actualiza vía socket (odp_patch); no se re-descarga.
         } catch (error: any) {
             toast.error(error.response?.data?.error || 'Error al actualizar');
         } finally {
@@ -432,7 +442,7 @@ const ProduccionPage: React.FC = () => {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             toast.success(`${panelOdp.numero_odp} marcada como Listo para Instalar`);
-            fetchData(true);
+            // La lista se actualiza vía socket (odp_patch); no se re-descarga.
             setPanelOdp(null);
             setPanelDetail(null);
         } catch (error: any) {
@@ -469,6 +479,46 @@ const ProduccionPage: React.FC = () => {
             setPanelDetailLoading(false);
         }
     };
+
+    // Patch incremental del tablero por socket: reemplaza el refetch total de la lista tras
+    // cada acción. El backend emite 'odp_patch' con la ODP completa (mismo shape que getODPs)
+    // en cada create/update/delete, e io.emit la reparte a TODOS los clientes incluido el
+    // emisor. Así el tablero se actualiza en vivo entre usuarios y sin re-descargar la lista.
+    useEffect(() => {
+        const handler = ({ accion, id, odp }: { accion: 'create' | 'update' | 'delete'; id: number; odp?: any }) => {
+            if (accion === 'delete') {
+                setOdps(prev => prev.filter(o => o.id !== id));
+                setNcGarantiasOdps(prev => prev.filter(o => o.id !== id));
+                return;
+            }
+            if (!odp) return;
+            // Maestro: upsert si la ODP es visible en el tablero; si dejó de serlo (p. ej. pasó
+            // a PROGRAMADA/INSTALADA vía rutas), se retira. Cubre también el re-ingreso a un
+            // estado visible desde uno excluido por el filtro de la carga inicial.
+            setOdps(prev => {
+                const visible = !odp.es_garantia && ESTADOS_PRODUCCION_VISIBLES.includes(odp.estado_produccion);
+                const idx = prev.findIndex(o => o.id === id);
+                if (visible) {
+                    if (idx === -1) return [odp, ...prev];
+                    const next = prev.slice();
+                    next[idx] = odp;
+                    return next;
+                }
+                return idx === -1 ? prev : prev.filter(o => o.id !== id);
+            });
+            // NC/Garantías (endpoint aparte): la membresía solo cambia al crear; en update se
+            // parcha donde exista para reflejar cambios de estado sin re-fetchear.
+            setNcGarantiasOdps(prev => {
+                const idx = prev.findIndex(o => o.id === id);
+                if (accion === 'create') {
+                    return (odp.es_no_conformidad || odp.es_garantia) && idx === -1 ? [odp, ...prev] : prev;
+                }
+                return idx === -1 ? prev : prev.map(o => o.id === id ? odp : o);
+            });
+        };
+        socket.on('odp_patch', handler);
+        return () => { socket.off('odp_patch', handler); };
+    }, []);
 
     // Refresca el panel de detalle (odpFullDetail) si llega un patch de socket para
     // la ODP abierta — p.ej. Compras marca/revierte un ítem como "en existencia" y
