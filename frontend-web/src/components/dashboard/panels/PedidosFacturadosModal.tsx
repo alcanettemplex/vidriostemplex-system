@@ -29,8 +29,8 @@ const MODO_CONFIG: Record<string, { titulo: string; criterio: string }> = {
     criterio: 'ODPs creadas dentro del período seleccionado que ya cuentan con factura electrónica (mismo criterio que el número de la tarjeta)',
   },
   facturadas_rango: {
-    titulo: 'Pedidos Facturados — Todas las facturadas en el rango',
-    criterio: 'ODPs cuya fecha de factura electrónica cae dentro del período seleccionado, sin importar cuándo fueron creadas',
+    titulo: 'Pedidos Facturados — Facturas emitidas en el rango',
+    criterio: 'Cada factura electrónica (principal o adicional) cuya fecha cae en el período, con su monto real. La suma coincide con el KPI.',
   },
 };
 
@@ -42,6 +42,9 @@ interface FacturadoItem {
   valor_total: number;
   estado_caja: string;
   cliente_nombre: string;
+  // Solo en modo 'facturadas_rango' (una fila por factura): datos de la FE.
+  numero_fe?: string | null;
+  tipo_fe?: string; // 'Principal' | 'Adicional'
 }
 
 type SortField = 'numero_odp' | 'cliente_nombre' | 'fecha_creacion' | 'fecha_factura' | 'estado_caja' | 'valor_total';
@@ -177,6 +180,11 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
                             >
                               {item.numero_odp}
                             </span>
+                            {modo === 'facturadas_rango' && item.numero_fe && (
+                              <div style={{ fontSize: 10, color: '#64748b', fontFamily: 'monospace', marginTop: 2 }}>
+                                FE-{item.numero_fe}{item.tipo_fe === 'Adicional' ? ' · adic.' : ''}
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell sx={{ fontSize: 13, maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {item.cliente_nombre}

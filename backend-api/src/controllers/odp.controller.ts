@@ -151,7 +151,7 @@ export const getODPs = async (req: Request, res: Response) => {
         { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
         { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
         { model: SAP, as: 'saps', attributes: ['id'], separate: true },
-        { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura'], separate: true },
+        { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura', 'monto'], separate: true },
       ],
       order: [['fecha_creacion', 'DESC']],
       limit,
@@ -298,7 +298,7 @@ export const getODP = async (req: Request, res: Response) => {
         },
         {
           model: FacturaAdicionalODP, as: 'facturas_adicionales',
-          attributes: ['id', 'numero_fe', 'fecha_factura', 'url_documento_factura'],
+          attributes: ['id', 'numero_fe', 'fecha_factura', 'url_documento_factura', 'monto'],
           separate: true, order: [['id', 'ASC']],
         },
         {
@@ -626,6 +626,19 @@ export const updateODP = async (req: Request, res: Response) => {
       if (!odp.getDataValue('chk_vidrio') && !data.chk_vidrio) {
          await transaction.rollback();
          return res.status(400).json({ error: 'No se puede procesar (película/matizado/huacal/cartón) sin haber recibido el vidrio primero.' });
+      }
+    }
+
+    // No permitir bajar el valor_total por debajo de lo ya facturado (principal + adicionales)
+    if (data.valor_total !== undefined) {
+      const nuevoTotal = Number(data.valor_total) || 0;
+      const montoPrincipal = Number(odp.getDataValue('monto_factura_principal')) || 0;
+      const sumAdic = Number(await FacturaAdicionalODP.sum('monto', { where: { odp_id: odp.getDataValue('id') } })) || 0;
+      const yaFacturado = montoPrincipal + sumAdic;
+      if (yaFacturado > 0 && nuevoTotal < yaFacturado - 0.01) {
+        return res.status(400).json({
+          error: `No se puede fijar el valor total (${nuevoTotal.toLocaleString('es-CO')}) por debajo de lo ya facturado en esta ODP (${yaFacturado.toLocaleString('es-CO')}).`,
+        });
       }
     }
 
@@ -1317,6 +1330,8 @@ export const facturarODP = async (req: Request, res: Response) => {
       estado_facturacion: z.enum(['PENDIENTE', 'FACTURADA']),
       factura_electronica: z.string().min(1, 'Número de FE requerido').optional(),
       fecha_factura: z.string().optional(),
+      // Monto facturado en la FE principal. Si no viene, se asume el valor_total de la ODP.
+      monto_factura: z.number().positive('El monto de la factura debe ser mayor a 0').optional(),
     });
     const data = facturacionSchema.parse(req.body);
 
@@ -1335,10 +1350,24 @@ export const facturarODP = async (req: Request, res: Response) => {
         await transaction.rollback();
         return res.status(400).json({ error: 'El número de FE es obligatorio para marcar como Facturada' });
       }
+
+      // Monto de la FE principal: por defecto el valor_total; validado contra el tope
+      // (principal + adicionales no puede superar el valor_total de la ODP).
+      const valorTotal = Number(odp.getDataValue('valor_total')) || 0;
+      const sumAdicionales = Number(await FacturaAdicionalODP.sum('monto', { where: { odp_id: id }, transaction })) || 0;
+      const montoFE = data.monto_factura != null ? data.monto_factura : valorTotal;
+      if (montoFE + sumAdicionales > valorTotal + 0.01) {
+        await transaction.rollback();
+        return res.status(400).json({
+          error: `El monto de la factura (${montoFE.toLocaleString('es-CO')}) sumado a las facturas adicionales (${sumAdicionales.toLocaleString('es-CO')}) supera el valor total de la ODP (${valorTotal.toLocaleString('es-CO')}).`,
+        });
+      }
+
       updates.factura_electronica = data.factura_electronica;
       updates.fecha_factura = data.fecha_factura
         ? new Date(data.fecha_factura + 'T12:00:00.000Z')
         : null;
+      updates.monto_factura_principal = montoFE;
 
       // Calcular vencimiento a 30 días para ODPs de crédito
       if (data.fecha_factura && odp.getDataValue('forma_pago') === 'credito') {
@@ -1347,9 +1376,18 @@ export const facturarODP = async (req: Request, res: Response) => {
         updates.fecha_vencimiento_credito = fechaFe.toISOString().split('T')[0];
       }
     } else {
-      // Al revertir a PENDIENTE se limpia la FE
+      // Al revertir a PENDIENTE: no se permite si existen FE adicionales (dejarían montos
+      // huérfanos). Se deben eliminar primero.
+      const numAdicionales = await FacturaAdicionalODP.count({ where: { odp_id: id }, transaction });
+      if (numAdicionales > 0) {
+        await transaction.rollback();
+        return res.status(400).json({
+          error: 'No se puede revertir la factura principal mientras existan facturas adicionales. Elimínalas primero.',
+        });
+      }
       updates.factura_electronica = null;
       updates.fecha_factura = null;
+      updates.monto_factura_principal = null;
     }
 
     await odp.update(updates, { transaction });
@@ -1376,10 +1414,11 @@ export const agregarFacturaAdicional = async (req: Request, res: Response) => {
     const schema = z.object({
       numero_fe: z.string().min(1, 'Número de FE requerido'),
       fecha_factura: z.string().optional(),
+      monto: z.number().positive('El monto de la factura debe ser mayor a 0'),
     }).strict();
     const data = schema.parse(req.body);
 
-    const odp = await ODP.findByPk(id, { attributes: ['id', 'factura_electronica', 'estado_facturacion'] });
+    const odp = await ODP.findByPk(id, { attributes: ['id', 'factura_electronica', 'estado_facturacion', 'valor_total', 'monto_factura_principal'] });
     if (!odp) return res.status(404).json({ error: 'ODP no encontrada' });
 
     // Debe existir la FE principal antes de agregar adicionales
@@ -1392,10 +1431,22 @@ export const agregarFacturaAdicional = async (req: Request, res: Response) => {
       return res.status(400).json({ error: `Una ODP admite máximo ${MAX_FACTURAS_ADICIONALES + 1} facturas electrónicas (1 principal + ${MAX_FACTURAS_ADICIONALES} adicionales).` });
     }
 
+    // Validar que el monto no supere el saldo pendiente por facturar
+    const valorTotal = Number(odp.getDataValue('valor_total')) || 0;
+    const montoPrincipal = Number(odp.getDataValue('monto_factura_principal')) || 0;
+    const sumAdicionales = Number(await FacturaAdicionalODP.sum('monto', { where: { odp_id: id } })) || 0;
+    const saldo = valorTotal - montoPrincipal - sumAdicionales;
+    if (data.monto > saldo + 0.01) {
+      return res.status(400).json({
+        error: `El monto (${data.monto.toLocaleString('es-CO')}) supera el saldo restante por facturar (${saldo.toLocaleString('es-CO')}).`,
+      });
+    }
+
     const factura = await FacturaAdicionalODP.create({
       odp_id: Number(id),
       numero_fe: data.numero_fe.trim(),
       fecha_factura: data.fecha_factura ? new Date(data.fecha_factura + 'T12:00:00.000Z') : null,
+      monto: data.monto,
       creado_por: req.user?.id ?? null,
     });
 

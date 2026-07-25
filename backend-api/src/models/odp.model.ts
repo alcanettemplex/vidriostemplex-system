@@ -41,6 +41,9 @@ ODP.init({
   forma_pago: { type: DataTypes.STRING(50) },
   numero_cotizacion: { type: DataTypes.STRING(50), allowNull: true },
   valor_total: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0 },
+  // Monto facturado en la FE principal (default = valor_total al facturar, editable).
+  // Independiente de abono/pendiente (que son caja/cobros, no facturación).
+  monto_factura_principal: { type: DataTypes.DECIMAL(15, 2), allowNull: true },
   abono: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0 },
   pendiente: { type: DataTypes.DECIMAL(15, 2), defaultValue: 0 },
   foto_instalacion_url: { type: DataTypes.STRING(1000) },

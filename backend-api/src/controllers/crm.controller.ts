@@ -13,6 +13,7 @@ import '../config/upload'; // garantiza que cloudinary está configurado
 import { diasDesde, calcularAccionSugerida, FECHA_POR_ESTADO, hoyBogotaISO } from '../utils/crmSupervision';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { generarNumeroODP } from '../utils/generarNumeroODP';
+import { whereTieneFacturaEnRango } from '../utils/facturacion';
 
 
 
@@ -2440,7 +2441,16 @@ async function construirWhereBuscadorODP(query: Record<string, any>) {
 
   const campoFecha = CAMPOS_FECHA_ODP[campo_fecha as string] || 'fecha_factura';
   const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
-  if (rangoFecha) where[campoFecha] = rangoFecha;
+  if (rangoFecha) {
+    if (campoFecha === 'fecha_factura') {
+      // Filtro por presencia de FE (principal o adicional) en el rango, consistente con el
+      // KPI Pedidos Facturados y el Informe Ejecutivo (monto real por factura).
+      const [start, end] = (rangoFecha as any)[Op.between];
+      where[Op.and] = [...(where[Op.and] || []), whereTieneFacturaEnRango(start, end)];
+    } else {
+      where[campoFecha] = rangoFecha;
+    }
+  }
 
   if (asesor_id) where.asesor_id = parseInt(asesor_id as string, 10);
   if (estado_facturacion) where.estado_facturacion = estado_facturacion;

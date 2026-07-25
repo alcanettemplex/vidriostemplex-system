@@ -17,6 +17,7 @@ import {
   Cotizacion
 } from '../models';
 import sequelize from '../config/database';
+import { sqlFacturadoEnRango } from '../utils/facturacion';
 
 // ─── Helpers de periodo ───────────────────────────────────────────────────────
 
@@ -114,24 +115,18 @@ export const getGeneralData = async (req: Request, res: Response) => {
       }) || 0
     );
 
-    // Pedidos facturados en el rango (por fecha_factura, sin importar cuándo se creó la ODP)
-    const facturado_rango = Number(
-      await ODP.sum('valor_total', {
-        where: {
-          fecha_factura: { [Op.between]: [firstDay, lastDay] },
-          estado_facturacion: 'FACTURADA'
-        }
-      }) || 0
+    // Pedidos facturados en el rango: SUMA de los montos de cada FE (principal + adicionales)
+    // cuya fecha cae en el período — contablemente exacto (ingreso reconocido por FE emitida).
+    const [frRow]: any = await sequelize.query(
+      `SELECT ${sqlFacturadoEnRango(firstDay, lastDay)} AS total`,
+      { type: QueryTypes.SELECT }
     );
-    const facturado_rango_oa = Number(
-      await ODP.sum('valor_total', {
-        where: {
-          fecha_factura: { [Op.between]: [firstDay, lastDay] },
-          estado_facturacion: 'FACTURADA',
-          tipo_odp: 'OA'
-        }
-      }) || 0
+    const facturado_rango = Number(frRow?.total) || 0;
+    const [froRow]: any = await sequelize.query(
+      `SELECT ${sqlFacturadoEnRango(firstDay, lastDay, { soloOA: true })} AS total`,
+      { type: QueryTypes.SELECT }
     );
+    const facturado_rango_oa = Number(froRow?.total) || 0;
 
     // Cartera vencida: créditos con FE emitida cuya fecha_factura supera el umbral de días (sin filtro de período)
     const carteraItems = await ODP.findAll({
@@ -793,26 +788,49 @@ export const getPedidosFacturados = async (req: Request, res: Response) => {
     const { firstDay, lastDay } = parsePeriod(req);
     const modo = req.query.modo === 'facturadas_rango' ? 'facturadas_rango' : 'creadas_facturadas';
 
-    const where = modo === 'facturadas_rango'
-      ? { fecha_factura: { [Op.between]: [firstDay, lastDay] }, estado_facturacion: 'FACTURADA' }
-      : { fecha_creacion: { [Op.between]: [firstDay, lastDay] }, factura_electronica: { [Op.ne]: null } };
+    let result: any[];
 
-    const items = await ODP.findAll({
-      where,
-      include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
-      attributes: ['id', 'numero_odp', 'fecha_creacion', 'fecha_factura', 'valor_total', 'estado_caja'],
-      order: [['fecha_creacion', 'DESC']],
-    });
-
-    const result = items.map(o => ({
-      id:              o.getDataValue('id'),
-      numero_odp:      o.getDataValue('numero_odp'),
-      fecha_creacion:  o.getDataValue('fecha_creacion'),
-      fecha_factura:   o.getDataValue('fecha_factura'),
-      valor_total:     Number(o.getDataValue('valor_total')),
-      estado_caja:     o.getDataValue('estado_caja'),
-      cliente_nombre:  (o as any).cliente?.nombre_razon_social || 'Sin cliente',
-    }));
+    if (modo === 'facturadas_rango') {
+      // Una fila por FE (principal + adicionales) cuya fecha cae en el rango. El monto de
+      // cada FE es su aporte real; la suma coincide con el KPI facturado_rango.
+      result = await sequelize.query(`
+        SELECT o.id AS id, o.numero_odp, o.fecha_creacion, o.estado_caja,
+               c.nombre_razon_social AS cliente_nombre,
+               'Principal' AS tipo_fe, o.factura_electronica AS numero_fe,
+               o.fecha_factura AS fecha_factura, COALESCE(o.monto_factura_principal, 0) AS valor_total
+          FROM odp o JOIN clientes c ON c.id = o.cliente_id
+         WHERE o.estado_facturacion = 'FACTURADA' AND o.factura_electronica IS NOT NULL
+           AND o.fecha_factura BETWEEN :a AND :b
+        UNION ALL
+        SELECT o.id, o.numero_odp, o.fecha_creacion, o.estado_caja,
+               c.nombre_razon_social, 'Adicional' AS tipo_fe, fa.numero_fe,
+               fa.fecha_factura, COALESCE(fa.monto, 0) AS valor_total
+          FROM facturas_adicionales_odp fa
+          JOIN odp o ON o.id = fa.odp_id
+          JOIN clientes c ON c.id = o.cliente_id
+         WHERE o.estado_facturacion = 'FACTURADA' AND fa.fecha_factura BETWEEN :a AND :b
+         ORDER BY fecha_factura DESC
+      `, { replacements: { a: firstDay, b: lastDay }, type: QueryTypes.SELECT });
+      result = result.map((r: any) => ({ ...r, valor_total: Number(r.valor_total) }));
+    } else {
+      // ODPs creadas en el período que ya cuentan con FE. Mantiene el valor_total (decisión
+      // de negocio: mide el valor de lo vendido y facturado ese mes).
+      const items = await ODP.findAll({
+        where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] }, factura_electronica: { [Op.ne]: null } },
+        include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
+        attributes: ['id', 'numero_odp', 'fecha_creacion', 'fecha_factura', 'valor_total', 'estado_caja'],
+        order: [['fecha_creacion', 'DESC']],
+      });
+      result = items.map(o => ({
+        id:             o.getDataValue('id'),
+        numero_odp:     o.getDataValue('numero_odp'),
+        fecha_creacion: o.getDataValue('fecha_creacion'),
+        fecha_factura:  o.getDataValue('fecha_factura'),
+        valor_total:    Number(o.getDataValue('valor_total')),
+        estado_caja:    o.getDataValue('estado_caja'),
+        cliente_nombre: (o as any).cliente?.nombre_razon_social || 'Sin cliente',
+      }));
+    }
 
     const total = result.reduce((acc, r) => acc + r.valor_total, 0);
 

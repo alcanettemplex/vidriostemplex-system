@@ -5,6 +5,7 @@ import {
   RutaODP, NoConformidad, Prospecto, Pago, MetaUsuarioMensual
 } from '../models';
 import sequelize from '../config/database';
+import { whereTieneFacturaEnRango, sqlFacturadoEnRango } from '../utils/facturacion';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ export const getResumen = async (req: Request, res: Response) => {
     ] = await Promise.all([
       ODP.count({ where: { ...rangoFecha, ...asesorFiltro } }),
       ODP.count({ where: { ...prevRango, ...asesorFiltro } }),
-      ODP.count({ where: { fecha_factura: { [Op.between]: [desde, hasta] }, estado_facturacion: 'FACTURADA', ...asesorFiltro } }),
+      ODP.count({ where: { estado_facturacion: 'FACTURADA', ...asesorFiltro, [Op.and]: whereTieneFacturaEnRango(desde, hasta) } }),
       Prospecto.count({ where: { fecha_creacion: { [Op.between]: [desde, hasta] }, ...asesorFiltro } }),
       Prospecto.count({ where: { fecha_creacion: { [Op.between]: [desde, hasta] }, odp_id: { [Op.ne]: null }, ...asesorFiltro } }),
       NoConformidad.count({ where: { estado: { [Op.in]: ['ABIERTO', 'EN_PROCESO'] } } }),
@@ -442,7 +443,8 @@ export const getFinanciero = async (req: Request, res: Response) => {
       total_pendiente_activo,
       proyeccion_valor,
     ] = await Promise.all([
-      ODP.sum('valor_total', { where: { fecha_factura: { [Op.between]: [desde, hasta] }, estado_facturacion: 'FACTURADA', ...asesorFiltro } }),
+      sequelize.query(`SELECT ${sqlFacturadoEnRango(desde, hasta, { asesorId })} AS total`, { type: QueryTypes.SELECT })
+        .then((r: any) => Number(r[0]?.total) || 0),
       Pago.sum('monto',      { where: { fecha: { [Op.between]: [desde, hasta] } } }),
       ODP.sum('pendiente',   { where: { estado_produccion: { [Op.notIn]: ['ENTREGADA'] }, estado_caja: { [Op.ne]: 'CANCELADO' }, pendiente: { [Op.gt]: 0 }, ...asesorFiltro } }),
       ODP.sum('valor_total', { where: { estado_produccion: { [Op.in]: ['LISTO_INSTALAR', 'PROGRAMADA'] }, estado_caja: { [Op.ne]: 'CANCELADO' }, ...asesorFiltro } }),

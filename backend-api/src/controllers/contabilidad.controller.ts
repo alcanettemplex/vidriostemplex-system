@@ -177,11 +177,11 @@ export const getContabilidadODPs = async (req: Request, res: Response) => {
 
     const { count, rows } = await ODP.findAndCountAll({
       where,
-      attributes: ['id', 'numero_odp', 'cliente_id', 'asesor_id', 'valor_total', 'abono', 'pendiente', 'estado_caja', 'estado_facturacion', 'factura_electronica', 'fecha_factura', 'fecha_creacion', 'tipo_odp', 'fecha_vencimiento_credito', 'estado_produccion'],
+      attributes: ['id', 'numero_odp', 'cliente_id', 'asesor_id', 'valor_total', 'monto_factura_principal', 'abono', 'pendiente', 'estado_caja', 'estado_facturacion', 'factura_electronica', 'fecha_factura', 'fecha_creacion', 'tipo_odp', 'fecha_vencimiento_credito', 'estado_produccion'],
       include: [
         { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento'] },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
-        { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura'], separate: true },
+        { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura', 'monto'], separate: true },
       ],
       order: [['fecha_creacion', 'DESC']],
       limit,

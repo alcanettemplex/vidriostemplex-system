@@ -11,6 +11,7 @@ FacturaAdicionalODP.init(
     odp_id: { type: DataTypes.INTEGER, allowNull: false },
     numero_fe: { type: DataTypes.STRING(100), allowNull: false },
     fecha_factura: { type: DataTypes.DATE, allowNull: true },
+    monto: { type: DataTypes.DECIMAL(15, 2), allowNull: true },
     url_documento_factura: { type: DataTypes.STRING(255), allowNull: true },
     creado_por: { type: DataTypes.INTEGER, allowNull: true },
     creado_en: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },

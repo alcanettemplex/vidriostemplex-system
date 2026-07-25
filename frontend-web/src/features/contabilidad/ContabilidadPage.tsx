@@ -17,6 +17,12 @@ import API from '../../services/config';
 const getToken = () => sessionStorage.getItem('token');
 const headers = () => ({ Authorization: `Bearer ${getToken()}` });
 const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
+// Formato de miles para inputs de monto (ej: "4.123.548"). Solo enteros (COP sin centavos).
+const formatMiles = (input: string | number) => {
+  const digits = String(input).replace(/\D/g, '');
+  return digits ? Number(digits).toLocaleString('es-CO') : '';
+};
+const parseMiles = (val: string) => Number(String(val).replace(/\D/g, '')) || 0;
 const fmtFecha = (f: string | null | undefined) => {
   if (!f) return '—';
   try {
@@ -81,11 +87,11 @@ const ContabilidadPage: React.FC = () => {
   // ─── Modal FE (nueva o edición) ──────────────────────────────────────────
   const [fichaOdpId, setFichaOdpId] = useState<number | null>(null);
   const [showFeModal, setShowFeModal] = useState(false);
-  const [feTarget, setFeTarget] = useState<{ id: number; numero_odp: string; facturada: boolean } | null>(null);
-  const [feForm, setFeForm] = useState({ numero_fe: '', fecha_fe: '' });
+  const [feTarget, setFeTarget] = useState<{ id: number; numero_odp: string; facturada: boolean; valor_total: number } | null>(null);
+  const [feForm, setFeForm] = useState({ numero_fe: '', fecha_fe: '', monto: '' });
   // Facturas electrónicas adicionales (2ª/3ª) de la ODP en edición
   const [feAdicionales, setFeAdicionales] = useState<any[]>([]);
-  const [nuevaAdic, setNuevaAdic] = useState({ numero_fe: '', fecha_fe: '' });
+  const [nuevaAdic, setNuevaAdic] = useState({ numero_fe: '', fecha_fe: '', monto: '' });
   const [addingAdic, setAddingAdic] = useState(false);
   const [submittingFe, setSubmittingFe] = useState(false);
 
@@ -194,30 +200,35 @@ const ContabilidadPage: React.FC = () => {
   };
 
   const abrirFeModal = (odp: any) => {
-    setFeTarget({ id: odp.id, numero_odp: odp.numero_odp, facturada: !!odp.factura_electronica });
+    setFeTarget({ id: odp.id, numero_odp: odp.numero_odp, facturada: !!odp.factura_electronica, valor_total: Number(odp.valor_total) || 0 });
     setFeForm({
       numero_fe: odp.factura_electronica || '',
       fecha_fe: odp.fecha_factura ? odp.fecha_factura.split('T')[0] : new Date().toISOString().split('T')[0],
+      // Monto de la FE principal: precargado con lo ya facturado o, si es nueva, el valor_total.
+      monto: formatMiles(Math.round(Number(odp.monto_factura_principal != null ? odp.monto_factura_principal : (odp.valor_total || 0)))),
     });
     setFeAdicionales(odp.facturas_adicionales || []);
-    setNuevaAdic({ numero_fe: '', fecha_fe: '' });
+    setNuevaAdic({ numero_fe: '', fecha_fe: '', monto: '' });
     setShowFeModal(true);
   };
 
   const handleAddAdicional = async () => {
     if (!feTarget) return;
     if (!nuevaAdic.numero_fe.trim()) { toast.error('Ingresa el número de la factura adicional'); return; }
+    const montoAdic = parseMiles(nuevaAdic.monto);
+    if (!montoAdic || montoAdic <= 0) { toast.error('Ingresa el monto de la factura adicional'); return; }
     setAddingAdic(true);
     try {
       const res = await axios.post(`${API}/api/odp/${feTarget.id}/facturas-adicionales`, {
         numero_fe: nuevaAdic.numero_fe.trim(),
+        monto: montoAdic,
         ...(nuevaAdic.fecha_fe ? { fecha_factura: nuevaAdic.fecha_fe } : {}),
       }, { headers: headers() });
       const nueva = res.data;
       setFeAdicionales(prev => [...prev, nueva]);
       setOdps(prev => prev.map(o => o.id === feTarget.id
         ? { ...o, facturas_adicionales: [...(o.facturas_adicionales || []), nueva] } : o));
-      setNuevaAdic({ numero_fe: '', fecha_fe: '' });
+      setNuevaAdic({ numero_fe: '', fecha_fe: '', monto: '' });
       toast.success('Factura adicional agregada');
     } catch (e: any) { toast.error(e.response?.data?.error || 'Error al agregar la factura'); }
     finally { setAddingAdic(false); }
@@ -247,26 +258,29 @@ const ContabilidadPage: React.FC = () => {
     if (!feTarget) return;
     if (!feForm.numero_fe.trim()) { toast.error('Ingresa el número de factura electrónica'); return; }
     if (!feForm.fecha_fe) { toast.error('Ingresa la fecha de la factura'); return; }
+    const montoFe = parseMiles(feForm.monto);
+    if (!montoFe || montoFe <= 0) { toast.error('Ingresa un monto de factura válido'); return; }
     setSubmittingFe(true);
     try {
       await axios.patch(`${API}/api/odp/${feTarget.id}/facturar`, {
         estado_facturacion: 'FACTURADA',
         factura_electronica: feForm.numero_fe.trim(),
         fecha_factura: feForm.fecha_fe,
+        monto_factura: montoFe,
       }, { headers: headers() });
       setOdps(prev => prev.map(o => o.id === feTarget.id
-        ? { ...o, estado_facturacion: 'FACTURADA', factura_electronica: feForm.numero_fe.trim(), fecha_factura: feForm.fecha_fe }
+        ? { ...o, estado_facturacion: 'FACTURADA', factura_electronica: feForm.numero_fe.trim(), fecha_factura: feForm.fecha_fe, monto_factura_principal: montoFe }
         : o));
       toast.success('Factura registrada correctamente');
       setShowFeModal(false);
       setFeTarget(null);
-    } catch { toast.error('Error al registrar factura'); } finally { setSubmittingFe(false); }
+    } catch (e: any) { toast.error(e.response?.data?.error || 'Error al registrar factura'); } finally { setSubmittingFe(false); }
   };
 
   // ─── Handler nuevo pago ──────────────────────────────────────────────────
   const handlePagoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pagoForm.odp_id || !pagoForm.monto || Number(pagoForm.monto) <= 0) {
+    if (!pagoForm.odp_id || !pagoForm.monto || parseMiles(pagoForm.monto) <= 0) {
       toast.error('Selecciona una ODP y un monto válido.'); return;
     }
     if (pagoForm.metodo_pago === 'Transferencia' && !pagoForm.banco) {
@@ -276,8 +290,8 @@ const ContabilidadPage: React.FC = () => {
     try {
       const payload = {
         odp_id: Number(pagoForm.odp_id),
-        monto: Number(pagoForm.monto),
-        diferencia: Number(pagoForm.diferencia) || 0,
+        monto: parseMiles(pagoForm.monto),
+        diferencia: parseMiles(pagoForm.diferencia) || 0,
         metodo_pago: pagoForm.metodo_pago === 'Transferencia' ? pagoForm.banco : pagoForm.metodo_pago,
         referencia_pago: pagoForm.referencia_pago || undefined,
         observaciones: pagoForm.observaciones || undefined,
@@ -299,7 +313,7 @@ const ContabilidadPage: React.FC = () => {
     setEditPagoTarget(pago);
     const esBanco = BANCOS_COLOMBIA.includes(pago.metodo_pago);
     setEditPagoForm({
-      monto: String(pago.monto),
+      monto: formatMiles(Math.round(Number(pago.monto) || 0)),
       metodo_pago: esBanco ? 'Transferencia' : pago.metodo_pago,
       banco: esBanco ? pago.metodo_pago : '',
       referencia_pago: pago.referencia_pago || '',
@@ -312,7 +326,7 @@ const ContabilidadPage: React.FC = () => {
   const handleEditPagoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editPagoTarget) return;
-    if (!editPagoForm.monto || Number(editPagoForm.monto) <= 0) {
+    if (!editPagoForm.monto || parseMiles(editPagoForm.monto) <= 0) {
       toast.error('Ingresa un monto válido'); return;
     }
     if (editPagoForm.metodo_pago === 'Transferencia' && !editPagoForm.banco) {
@@ -321,7 +335,7 @@ const ContabilidadPage: React.FC = () => {
     setSubmittingEdit(true);
     try {
       const payload = {
-        monto: Number(editPagoForm.monto),
+        monto: parseMiles(editPagoForm.monto),
         metodo_pago: editPagoForm.metodo_pago === 'Transferencia' ? editPagoForm.banco : editPagoForm.metodo_pago,
         referencia_pago: editPagoForm.referencia_pago || null,
         observaciones: editPagoForm.observaciones || null,
@@ -341,19 +355,19 @@ const ContabilidadPage: React.FC = () => {
   // ─── Handler editar total ODP ───────────────────────────────────────────
   const abrirEditTotal = (odp: any) => {
     setEditTotalTarget(odp);
-    setNewTotal(String(odp.valor_total || ''));
+    setNewTotal(formatMiles(Math.round(Number(odp.valor_total) || 0)));
     setShowEditTotalModal(true);
   };
 
   const handleEditTotalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editTotalTarget || !newTotal || Number(newTotal) < 0) {
+    if (!editTotalTarget || !newTotal || parseMiles(newTotal) < 0) {
       toast.error('Ingresa un monto válido'); return;
     }
     setSubmittingTotal(true);
     try {
       await axios.put(`${API}/api/odp/${editTotalTarget.id}`, {
-        valor_total: Number(newTotal),
+        valor_total: parseMiles(newTotal),
       }, { headers: headers() });
       toast.success('Monto total actualizado');
       setShowEditTotalModal(false);
@@ -1177,7 +1191,10 @@ const ContabilidadPage: React.FC = () => {
       </div>
 
       {/* ═══ MODAL FE ════════════════════════════════════════════════════════ */}
-      {showFeModal && feTarget && (
+      {showFeModal && feTarget && (() => {
+        const sumAdicionales = feAdicionales.reduce((s: number, f: any) => s + (Number(f.monto) || 0), 0);
+        const saldoRestante = feTarget.valor_total - parseMiles(feForm.monto) - sumAdicionales;
+        return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
             className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
@@ -1202,6 +1219,19 @@ const ContabilidadPage: React.FC = () => {
                 <input type="date" value={feForm.fecha_fe} onChange={e => setFeForm(p => ({ ...p, fecha_fe: e.target.value }))}
                   required className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Monto facturado *</label>
+                <input type="text" inputMode="numeric" value={feForm.monto}
+                  onChange={e => setFeForm(p => ({ ...p, monto: formatMiles(e.target.value) }))} required
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                <p className="text-[11px] text-slate-500 mt-1">Valor total de la ODP: <span className="font-semibold">{fmt(feTarget.valor_total)}</span></p>
+              </div>
+
+              {/* Contador de saldo restante por facturar (valor_total − principal − adicionales) */}
+              <div className={`rounded-lg px-3 py-2 text-sm flex items-center justify-between border ${saldoRestante < -0.01 ? 'bg-rose-50 border-rose-200 text-rose-700' : saldoRestante > 0.01 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}>
+                <span className="font-semibold uppercase text-[11px] tracking-wide">Saldo por facturar</span>
+                <span className="font-bold">{fmt(saldoRestante)}</span>
+              </div>
 
               {/* Facturas electrónicas adicionales (solo si la ODP ya tiene FE principal) */}
               {feTarget.facturada && (
@@ -1218,6 +1248,7 @@ const ContabilidadPage: React.FC = () => {
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="font-mono text-xs font-bold text-emerald-700">FE-{f.numero_fe}</span>
                             {f.fecha_factura && <span className="text-[11px] text-slate-400">{fmtFecha(f.fecha_factura)}</span>}
+                            <span className="text-[11px] font-semibold text-slate-600">{fmt(Number(f.monto) || 0)}</span>
                           </div>
                           <button type="button" onClick={() => handleDeleteAdicional(f.id)}
                             title="Eliminar factura adicional"
@@ -1230,16 +1261,22 @@ const ContabilidadPage: React.FC = () => {
                   )}
 
                   {feAdicionales.length < 2 ? (
-                    <div className="flex items-end gap-2">
-                      <div className="flex-1">
+                    <div className="flex flex-wrap items-end gap-2">
+                      <div className="flex-1 min-w-[110px]">
                         <label className="block text-[10px] font-semibold text-slate-500 mb-0.5 uppercase">FE No.</label>
                         <input value={nuevaAdic.numero_fe} onChange={e => setNuevaAdic(p => ({ ...p, numero_fe: e.target.value }))}
                           placeholder="Ej: 2024-002"
                           className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                       </div>
-                      <div className="w-32">
+                      <div className="w-28">
                         <label className="block text-[10px] font-semibold text-slate-500 mb-0.5 uppercase">Fecha</label>
                         <input type="date" value={nuevaAdic.fecha_fe} onChange={e => setNuevaAdic(p => ({ ...p, fecha_fe: e.target.value }))}
+                          className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                      </div>
+                      <div className="w-24">
+                        <label className="block text-[10px] font-semibold text-slate-500 mb-0.5 uppercase">Monto</label>
+                        <input type="text" inputMode="numeric" value={nuevaAdic.monto}
+                          onChange={e => setNuevaAdic(p => ({ ...p, monto: formatMiles(e.target.value) }))} placeholder="0"
                           className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                       </div>
                       <button type="button" onClick={handleAddAdicional} disabled={addingAdic}
@@ -1264,7 +1301,8 @@ const ContabilidadPage: React.FC = () => {
             </form>
           </motion.div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ═══ MODAL REGISTRAR PAGO ════════════════════════════════════════════ */}
       {showPagoModal && (
@@ -1308,14 +1346,14 @@ const ContabilidadPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Monto (COP) *</label>
-                  <input type="number" value={pagoForm.monto} onChange={e => setPagoForm(p => ({ ...p, monto: e.target.value }))}
-                    placeholder="0" min="1" required
+                  <input type="text" inputMode="numeric" value={pagoForm.monto} onChange={e => setPagoForm(p => ({ ...p, monto: formatMiles(e.target.value) }))}
+                    placeholder="0" required
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Diferencia (COP)</label>
-                  <input type="number" value={pagoForm.diferencia} onChange={e => setPagoForm(p => ({ ...p, diferencia: e.target.value }))}
-                    placeholder="0" min="0"
+                  <input type="text" inputMode="numeric" value={pagoForm.diferencia} onChange={e => setPagoForm(p => ({ ...p, diferencia: formatMiles(e.target.value) }))}
+                    placeholder="0"
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 shadow-sm" />
                   <p className="text-[10px] text-slate-400 mt-1">Descuento adicional (no cuenta en abono estadístico)</p>
                 </div>
@@ -1396,9 +1434,9 @@ const ContabilidadPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Monto (COP) *</label>
-                  <input type="number" value={editPagoForm.monto}
-                    onChange={e => setEditPagoForm(p => ({ ...p, monto: e.target.value }))}
-                    placeholder="0" min="1" required
+                  <input type="text" inputMode="numeric" value={editPagoForm.monto}
+                    onChange={e => setEditPagoForm(p => ({ ...p, monto: formatMiles(e.target.value) }))}
+                    placeholder="0" required
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm" />
                 </div>
                 <div>
@@ -1481,7 +1519,7 @@ const ContabilidadPage: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Nuevo Valor Total (COP) *</label>
-                <input type="number" value={newTotal} onChange={e => setNewTotal(e.target.value)} required
+                <input type="text" inputMode="numeric" value={newTotal} onChange={e => setNewTotal(formatMiles(e.target.value))} required
                   className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm" />
                 <p className="text-[10px] text-slate-400 mt-2 italic px-1">Este cambio afectará el cálculo del saldo pendiente de la orden.</p>
               </div>
