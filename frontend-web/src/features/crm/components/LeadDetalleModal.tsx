@@ -17,6 +17,7 @@ import {
   apiUpdateLeadDetails,
   apiSearchODPs,
   apiVincularODP,
+  apiGetLeadById,
 } from '../crmService';
 import { updateLead } from '../crmSlice';
 import ConvertirClienteModal from './ConvertirClienteModal';
@@ -107,10 +108,17 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
   const dispatch = useDispatch();
   const currentUser = useSelector((state: any) => state.auth.user);
 
+  // El listado del CRM entrega los textos largos (mensaje_entrada / descripcion_contexto)
+  // recortados a preview. Aquí se refetcha el lead COMPLETO por id para mostrarlos y
+  // editarlos íntegros; sin esto, guardar desde el textarea sobrescribiría el texto con
+  // el preview truncado. Arranca con el prop y se enriquece cuando llega el detalle.
+  const [leadDetalle, setLeadDetalle] = useState<any>(lead);
+
   // Actualiza Redux (para vistas con lista reactiva, ej. KanbanBoard) y notifica
   // al padre si provee un callback (para vistas con fetch puntual, ej. MonitorAsesores).
   const actualizarLead = (leadActualizado: any) => {
     dispatch(updateLead(leadActualizado));
+    setLeadDetalle(leadActualizado);
     onLeadUpdate?.(leadActualizado);
   };
 
@@ -214,6 +222,21 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
         .finally(() => setCargandoA(false));
     }
   }, [lead.id, puedeAsignarManual]);
+
+  // Refetch del lead completo (textos largos íntegros). El listado los trae en preview;
+  // sin esto, el textarea de edición partiría del texto truncado y lo guardaría cortado.
+  useEffect(() => {
+    let vivo = true;
+    apiGetLeadById(lead.id)
+      .then(({ data }) => {
+        if (!vivo) return;
+        setLeadDetalle(data);
+        // Re-sincroniza el formulario con el texto íntegro (evita persistir el preview).
+        setFormData(prev => ({ ...prev, descripcion_contexto: data.descripcion_contexto ?? '' }));
+      })
+      .catch(() => { /* si falla, se conserva el preview del listado */ });
+    return () => { vivo = false; };
+  }, [lead.id]);
 
   // ─── Handlers ────────────────────────────────────────────────────────────
   const recargarTimeline = async () => {
@@ -623,10 +646,10 @@ const LeadDetalleModal: React.FC<Props> = ({ lead, rol, userId, onClose, inlineM
                   <span className="text-[10px] font-black text-emerald-600 uppercase block mb-1">Monto Proyectado</span>
                   <p className="text-xl font-black text-emerald-800">{formatCOP(lead.monto_proyectado_cotizacion)}</p>
                 </div>
-                {lead.descripcion_contexto && (
+                {leadDetalle.descripcion_contexto && (
                   <div className="col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
                     <span className="text-[10px] font-black text-slate-500 uppercase block mb-1">Descripción / Contexto</span>
-                    <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">{lead.descripcion_contexto}</p>
+                    <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">{leadDetalle.descripcion_contexto}</p>
                   </div>
                 )}
               </div>

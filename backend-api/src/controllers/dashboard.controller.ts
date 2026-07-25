@@ -8,7 +8,6 @@ import {
   RutaODP,
   RutaInstalacion,
   Vehiculo,
-  EvidenciaInstalacion,
   ODPItem,
   ConfiguracionGlobal,
   MetaUsuarioMensual,
@@ -614,13 +613,46 @@ export const getEquipoData = async (req: Request, res: Response) => {
       };
     });
 
-    // Carga instaladores
-    const instaladores    = await Usuario.findAll({ where: { rol: 'instalador' } });
-    const carga_instaladores = await Promise.all(instaladores.map(async (u) => {
-      const instas    = await EvidenciaInstalacion.count({ where: { instalador_id: u.getDataValue('id') } });
-      const evidencias = await EvidenciaInstalacion.count({ where: { instalador_id: u.getDataValue('id') } });
-      return { instalador_id: u.getDataValue('id'), nombre: (u as any).nombre_completo, instalaciones_mes: instas, con_evidencia: evidencias, sin_evidencia: Math.max(0, instas - evidencias) };
-    }));
+    // Carga instaladores — instalaciones completadas del período por instalador y su
+    // cobertura de evidencia. Antes se hacían DOS counts idénticos por instalador en un
+    // loop (N+1 + consulta duplicada → ~20k llamadas), y sin_evidencia daba SIEMPRE 0
+    // (con_evidencia == instalaciones_mes, badge fijo en "Fotos OK"). Ahora un solo
+    // GROUP BY cruza las ruta_odp completadas del período (vía ruta_instaladores) con
+    // las evidencias subidas por ese instalador para esa ODP. La forma de salida es
+    // idéntica: el frontend (PanelEquipo) no cambia.
+    const instaladores = await Usuario.findAll({ where: { rol: 'instalador' } });
+    const [cargaRows] = await sequelize.query(`
+      SELECT ri.instalador_id,
+             COUNT(DISTINCT ro.odp_id)                                    AS instalaciones_mes,
+             COUNT(DISTINCT ro.odp_id) FILTER (WHERE ev.id IS NOT NULL)   AS con_evidencia
+        FROM ruta_odp ro
+        JOIN ruta_instaladores ri ON ri.ruta_id = ro.ruta_id
+        LEFT JOIN evidencias_instalacion ev
+               ON ev.odp_id = ro.odp_id AND ev.instalador_id = ri.instalador_id
+       WHERE ro.estado = 'completada'
+         AND ro.fin_instalacion IS NOT NULL
+         AND ro.fin_instalacion >= :firstDay
+       GROUP BY ri.instalador_id
+    `, { replacements: { firstDay } }) as any[];
+
+    const cargaByInst = new Map<number, { instalaciones_mes: number; con_evidencia: number }>(
+      (cargaRows as any[]).map((r: any) => [Number(r.instalador_id), {
+        instalaciones_mes: Number(r.instalaciones_mes) || 0,
+        con_evidencia:     Number(r.con_evidencia) || 0,
+      }])
+    );
+
+    const carga_instaladores = instaladores.map((u) => {
+      const id = u.getDataValue('id');
+      const c  = cargaByInst.get(id) || { instalaciones_mes: 0, con_evidencia: 0 };
+      return {
+        instalador_id:     id,
+        nombre:            (u as any).nombre_completo,
+        instalaciones_mes: c.instalaciones_mes,
+        con_evidencia:     c.con_evidencia,
+        sin_evidencia:     Math.max(0, c.instalaciones_mes - c.con_evidencia),
+      };
+    });
 
     // Rendimiento instaladores
     const [rendimientoRows] = await sequelize.query(`

@@ -147,7 +147,11 @@ export const getODPs = async (req: Request, res: Response) => {
       include: [
         { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento', 'telefono', 'celular', 'email', 'direccion'] },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
-        { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
+        // El listado (tablero/panel/matriz) no pinta estas columnas grandes del ítem;
+        // solo el flujo Pedido PV las usa y ese trae los ítems por su propio endpoint.
+        // Se excluyen aquí para adelgazar el egress sin cambiar nada visible. El detalle
+        // (getODP) sí las trae completas.
+        { model: ODPItem, as: 'items', attributes: { exclude: ['accesorios', 'observaciones_pv', 'dt', 'mts_pt_a', 'mts_pt_h'] }, separate: true, order: [['id', 'ASC']] },
         { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
         { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
         { model: SAP, as: 'saps', attributes: ['id'], separate: true },
@@ -177,7 +181,8 @@ const buscarODPsEspeciales = async (where: any, req: Request, res: Response) => 
       include: [
         { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento', 'telefono', 'celular', 'email', 'direccion'] },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
-        { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
+        // Mismo criterio que getODPs: se excluyen columnas grandes no usadas en estas vistas.
+        { model: ODPItem, as: 'items', attributes: { exclude: ['accesorios', 'observaciones_pv', 'dt', 'mts_pt_a', 'mts_pt_h'] }, separate: true, order: [['id', 'ASC']] },
         { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp', 'fecha_entrega'] },
         { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
         { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },

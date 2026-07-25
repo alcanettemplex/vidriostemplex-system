@@ -15,7 +15,19 @@ import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { generarNumeroODP } from '../utils/generarNumeroODP';
 import { whereTieneFacturaEnRango } from '../utils/facturacion';
 
-
+// Preview de los textos largos del Lead para LISTADOS. El tablero/monitor/radar solo
+// muestran 1-2 líneas de estos campos (TEXT), así que se traen recortados a 160 caracteres
+// en lugar de completos. El texto íntegro se obtiene en el detalle (getLeadById), que el
+// frontend refetcha al abrir el panel — de lo contrario, editar desde una versión truncada
+// sobrescribiría el texto completo. Reduce el egress de las consultas de listado del CRM.
+const LEAD_PREVIEW_LEN = 160;
+const attrsLeadListado: any = {
+  include: [
+    [sequelize.fn('LEFT', sequelize.col('Lead.mensaje_entrada'), LEAD_PREVIEW_LEN), 'mensaje_entrada'],
+    [sequelize.fn('LEFT', sequelize.col('Lead.descripcion_contexto'), LEAD_PREVIEW_LEN), 'descripcion_contexto'],
+  ],
+  exclude: ['mensaje_entrada', 'descripcion_contexto'],
+};
 
 export const createLead = async (req: Request, res: Response) => {
   try {
@@ -451,6 +463,7 @@ export const getLeads = async (req: Request, res: Response) => {
     const leads = await Lead.findAll({
       where: whereClause,
       // ultima_actividad ya es columna del modelo (mantenida por hook); se incluye por defecto.
+      attributes: attrsLeadListado,
       include: [
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
         { model: Usuario, as: 'captador', attributes: ['id', 'nombre_completo'] },
@@ -597,6 +610,7 @@ export const getCRMStats = async (req: Request, res: Response) => {
 
     const leads = await Lead.findAll({
       where: whereBase,
+      attributes: attrsLeadListado,
       include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }]
     });
 
@@ -2116,6 +2130,7 @@ export const getSupervisionAltoValor = async (req: Request, res: Response) => {
 
     const leads = await Lead.findAll({
       where,
+      attributes: attrsLeadListado,
       include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
       order: [['monto_proyectado_cotizacion', 'DESC']],
     });
@@ -2157,6 +2172,7 @@ export const getSupervisionSeguimiento = async (req: Request, res: Response) => 
 
     const leads = await Lead.findAll({
       where,
+      attributes: attrsLeadListado,
       include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
     });
 
@@ -2198,6 +2214,7 @@ export const getSupervisionPrimerContacto = async (req: Request, res: Response) 
 
     const leads = await Lead.findAll({
       where,
+      attributes: attrsLeadListado,
       include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
     });
 
