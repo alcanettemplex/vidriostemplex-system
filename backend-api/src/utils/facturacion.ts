@@ -18,6 +18,15 @@ import { literal } from 'sequelize';
  *
  * `desde`/`hasta` provienen de fechas ya parseadas del servidor (no input crudo), por lo
  * que interpolarlas como ISO no supone riesgo de inyección.
+ *
+ * El COALESCE del monto principal cae en `valor_total` como red de seguridad: si una ODP
+ * facturada quedara sin `monto_factura_principal`, `SUM` ignoraría el NULL y esa FE
+ * desaparecería del KPI en silencio. El `WHERE` ya exige `factura_electronica IS NOT NULL`,
+ * así que el fallback solo aplica a facturas reales.
+ *
+ * OJO — esto es una red, no la solución: `updateODP` (el formulario general de ODP) permite
+ * marcar `estado_facturacion`/`factura_electronica` sin setear el monto, así que sigue
+ * generando NULLs. Ver TECH_DEBT.md 2026-07-26.
  */
 export const sqlFacturadoEnRango = (
   desde: Date | string,
@@ -33,7 +42,7 @@ export const sqlFacturadoEnRango = (
   return `
     COALESCE((
       SELECT SUM(t.monto) FROM (
-        SELECT o.monto_factura_principal AS monto
+        SELECT COALESCE(o.monto_factura_principal, o.valor_total) AS monto
           FROM odp o
          WHERE o.estado_facturacion = 'FACTURADA'
            AND o.factura_electronica IS NOT NULL

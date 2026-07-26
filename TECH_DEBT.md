@@ -108,3 +108,28 @@ Imports de iconos (`lucide-react`, `tabler-icons`) y variables/funciones sin usa
 **Cómo se detectó:** Salida completa de `npm start` (react-scripts/CRA con ESLint plugin integrado) al levantar el entorno local el 2026-07-08.
 
 **Estimación:** 30-40 min para los `no-unused-vars`/`no-useless-escape`/`unicode-bom` (mecánico, bajo riesgo). 2-3 h para revisar los 11 `exhaustive-deps` caso por caso (requiere entender cada flujo de datos antes de agregar la dependencia). Resolución incremental: limpiar cada archivo cuando se vuelva a tocar por otra tarea, en vez de un barrido masivo no relacionado.
+
+---
+
+## 2026-07-26 — `updateODP` factura sin registrar `monto_factura_principal`
+
+**Severidad:** Alta (corrompe el KPI de facturación en silencio)
+
+**Descripción:**
+Existen **dos rutas** para marcar una ODP como facturada y solo una mantiene el monto de la FE:
+
+- `facturarODP` (`PATCH /odp/:id/facturar`, modal de Contabilidad) — setea `monto_factura_principal` (default `valor_total`), valida el tope `principal + Σadicionales ≤ valor_total` y limpia el monto al revertir a PENDIENTE. **Correcto.**
+- `updateODP` (`PUT /odp/:id`, formulario general de ODP) — `odpSchema` (`odp.controller.ts` ~línea 67) acepta `estado_facturacion`, `factura_electronica` y `fecha_factura`, y los persiste con `odp.update(data)` **sin tocar `monto_factura_principal`**. La ODP queda FACTURADA con monto NULL.
+
+Impacto: `sqlFacturadoEnRango` (`utils/facturacion.ts`) suma con `SUM`, que **ignora los NULL sin error**. Cada ODP facturada por esta vía desaparecía del KPI aportando $0. Se mitigó con `COALESCE(monto_factura_principal, valor_total)` en el helper y en `getPedidosFacturados`, pero eso es una red de seguridad: el fallback adivina el monto (asume FE por el total), y esa suposición ya resultó equivocada una vez — ver abajo.
+
+**Cómo se detectó:** El usuario reportó que el KPI de julio no sumaba unas FE adicionales recién capturadas. Al auditar aparecieron 3 ODPs facturadas el 24-jul con monto NULL ($223.740.481 fuera del KPI). La primera hipótesis —ventana de carrera del despliegue de `2d95d57`— **era incorrecta**: el registro de `auditoria_log` de ODP-24000 muestra un UPDATE (24-jul 21:02) que pasó `PENDIENTE → FACTURADA` con `factura_electronica='7332'` dejando el monto NULL, patrón que solo produce la ruta de `updateODP`.
+
+**Riesgo de la mitigación actual:** al aplicar `monto = valor_total` a esas 3 ODPs, ODP-24000 (LABORATORIOS ECAR SA, $220.754.096, en `PROGRAMADA` y sin abono) infló el KPI de julio a $430.768.658. Se dejó su FE en **0 explícito** (no NULL, que con el COALESCE volvería a contar el total) a la espera de confirmación de contabilidad. ODP-24031 y ODP-24120 quedaron con `monto = valor_total`, también pendientes de confirmar.
+
+**Opciones (requiere decisión del usuario):**
+1. **Alinear `updateODP`** — si el payload marca FACTURADA con FE y el monto está vacío, asignar `valor_total − Σadicionales`, y limpiarlo al revertir a PENDIENTE. Replica el default de `facturarODP`; aditivo, no cambia flujos. ~30 min.
+2. **Cerrar la ruta** — quitar `estado_facturacion`/`factura_electronica`/`fecha_factura` de `odpSchema` para que facturar sea exclusivo del modal de Contabilidad. Más limpio conceptualmente (una sola puerta de entrada), pero cambia el comportamiento del formulario de ODP y hay que verificar quién factura hoy por ahí. ~1 h + validación con usuarios.
+3. **Restricción en BD** — `CHECK (estado_facturacion <> 'FACTURADA' OR factura_electronica IS NULL OR monto_factura_principal IS NOT NULL)`. Garantía a prueba de futuras rutas, pero rompería con error 500 crudo cualquier flujo que hoy no setea el monto; hacerlo solo **después** de 1 o 2.
+
+**Estimación:** 30 min (opción 1) a 1 h (opción 2). Recomendada la 1 por ser aditiva y no alterar cómo trabaja el equipo hoy.

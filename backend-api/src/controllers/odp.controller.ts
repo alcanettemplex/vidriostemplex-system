@@ -27,6 +27,7 @@ import {
 import Pago from '../models/pago.model';
 import Produccion from '../models/produccion.model';
 import ProgramacionInstalacion from '../models/programacion_instalacion.model';
+import { invalidarCacheRespuesta } from '../utils/cacheMemoria';
 import { z } from 'zod';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { generarNumeroODP } from '../utils/generarNumeroODP';
@@ -709,8 +710,16 @@ export const updateODP = async (req: Request, res: Response) => {
     if ((data as any).fecha_entrega === '') delete (data as any).fecha_entrega;
     if ((data as any).fecha_factura === '') delete (data as any).fecha_factura;
 
+    // El valor_total alimenta los KPIs de facturado; si cambia hay que purgar la caché del
+    // dashboard tras el commit. Se captura ANTES del update porque `odp.update()` muta el
+    // modelo en memoria (mismo motivo que `proveedorAnterior` más abajo).
+    const valorTotalAnterior = Number(odp.getDataValue('valor_total')) || 0;
+
     // Actualizar campos de la ODP (incluyendo los booleanos, JSONs, y observaciones nuevas)
     await odp.update(data as any, { transaction });
+
+    const cambioValorTotal =
+      data.valor_total !== undefined && (Number(data.valor_total) || 0) !== valorTotalAnterior;
 
     // ─── Avance de estado por checks de taller (Control Taller) ───
     // Al activar un check de etapa, el estado refleja ese último check marcado.
@@ -854,6 +863,7 @@ export const updateODP = async (req: Request, res: Response) => {
       // Si el PedidoPV del vidrio aún no ha llegado, no puede transicionar a LISTO_INSTALAR
       if (pvPendienteCount > 0) {
         await transaction.commit();
+        if (cambioValorTotal) invalidarCacheKPIs();
         return res.status(200).json(await ODP.findByPk(id));
       }
       const needsEnsamble = !!updatedOdp.getDataValue('tiene_aluminio');
@@ -939,6 +949,7 @@ export const updateODP = async (req: Request, res: Response) => {
     }
 
     await transaction.commit();
+    if (cambioValorTotal) invalidarCacheKPIs();
 
     // ─── Auto-crear PedidoPV si proveedor_vidrio se asigna por primera vez en edición ───
     // Usar proveedorAnterior (capturado antes del update) porque odp.update() muta el modelo en memoria
@@ -1326,6 +1337,16 @@ export const actualizarEstadoCaja = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Los KPIs del dashboard se sirven de una caché en memoria con TTL de 30 min
+ * (`cacheRespuesta` en dashboard.routes). Ese desfase es aceptable para métricas de solo
+ * lectura, pero NO cuando el usuario acaba de editar un monto facturado y espera verlo
+ * reflejado: hasta que venciera el TTL, el dashboard seguía mostrando la foto anterior.
+ * Por eso toda escritura que altere el facturado purga las entradas del dashboard.
+ * Coste: un único recálculo en la siguiente carga, solo tras un cambio real.
+ */
+const invalidarCacheKPIs = (): void => invalidarCacheRespuesta('/api/dashboard');
+
 // ─── Registrar / actualizar factura electrónica (contabilidad, admin, gerencia) ───
 export const facturarODP = async (req: Request, res: Response) => {
   const transaction = await sequelize.transaction();
@@ -1397,6 +1418,7 @@ export const facturarODP = async (req: Request, res: Response) => {
 
     await odp.update(updates, { transaction });
     await transaction.commit();
+    invalidarCacheKPIs();
 
     const odpActualizada = await ODP.findByPk(id);
     res.json(odpActualizada);
@@ -1454,6 +1476,7 @@ export const agregarFacturaAdicional = async (req: Request, res: Response) => {
       monto: data.monto,
       creado_por: req.user?.id ?? null,
     });
+    invalidarCacheKPIs();
 
     res.status(201).json(factura);
   } catch (error: any) {
@@ -1471,6 +1494,8 @@ export const eliminarFacturaAdicional = async (req: Request, res: Response) => {
     if (!factura) return res.status(404).json({ error: 'Factura adicional no encontrada' });
 
     await factura.destroy();
+    invalidarCacheKPIs();
+
     res.json({ ok: true });
   } catch (error: any) {
     console.error('Error al eliminar factura adicional:', error);

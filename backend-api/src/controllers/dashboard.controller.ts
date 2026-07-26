@@ -829,7 +829,8 @@ export const getPedidosFacturados = async (req: Request, res: Response) => {
         SELECT o.id AS id, o.numero_odp, o.fecha_creacion, o.estado_caja,
                c.nombre_razon_social AS cliente_nombre,
                'Principal' AS tipo_fe, o.factura_electronica AS numero_fe,
-               o.fecha_factura AS fecha_factura, COALESCE(o.monto_factura_principal, 0) AS valor_total
+               o.fecha_factura AS fecha_factura,
+               COALESCE(o.monto_factura_principal, o.valor_total) AS valor_total
           FROM odp o JOIN clientes c ON c.id = o.cliente_id
          WHERE o.estado_facturacion = 'FACTURADA' AND o.factura_electronica IS NOT NULL
            AND o.fecha_factura BETWEEN :a AND :b
