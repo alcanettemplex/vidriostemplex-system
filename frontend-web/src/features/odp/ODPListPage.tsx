@@ -178,6 +178,8 @@ const ODPListPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<{ rows: ODP[], count: number, page: number, totalPages: number } | null>(null);
+    // Total de ODPs completadas: lo informa el backend porque el listado ya no las trae.
+    const [countCompletadas, setCountCompletadas] = useState<number>(0);
     const [activeTab, setActiveTab] = useState<'activas' | 'visita' | 'listas' | 'completadas' | 'con_dano' | 'garantia'>('activas');
     const [garantiaSubTab, setGarantiaSubTab] = useState<'activas' | 'realizadas'>('activas');
     const [garantias, setGarantias] = useState<ODP[]>([]);
@@ -225,10 +227,17 @@ const ODPListPage: React.FC = () => {
         try {
             const token = sessionStorage.getItem('token');
             const baseUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
-            const params: Record<string, any> = { page: 1, limit: 200 };
+            // Las ODPs terminadas no se piden aquí: son ~78% del total y la tab
+            // Completadas usa su propio buscador server-side. Traerlas empujaba a las
+            // ODPs en curso más antiguas fuera del corte de 200, dejándolas invisibles
+            // en todas las tabs. El backend conserva las que tienen daño pendiente.
+            const params: Record<string, any> = { page: 1, limit: 200, excluir_completadas: true };
 
             const res = await axios.get(`${baseUrl}/api/odp`, { params, headers: { Authorization: `Bearer ${token}` } });
             setTabData(prev => ({ ...prev, [tab]: res.data }));
+            if (typeof res.data.count_completadas === 'number') {
+                setCountCompletadas(res.data.count_completadas);
+            }
         } catch (error) {
             console.error('Error fetching ODPs', error);
         } finally {
@@ -392,7 +401,6 @@ const ODPListPage: React.FC = () => {
             odp.cliente.nombre_razon_social.toLowerCase().includes(searchQuery.toLowerCase());
         const matchAsesor = !filterAsesor || odp.asesor?.nombre_completo === filterAsesor;
         const matchEstado = !filterEstado || odp.estado_produccion === filterEstado;
-        const fecha = new Date(odp.fecha_creacion);
         const fechaListo = odp.fecha_entrega ? new Date(odp.fecha_entrega) : null;
         const matchMes = !filterMes || (fechaListo && (fechaListo.getMonth() + 1) === parseInt(filterMes));
         const matchAnio = !filterAnio || (fechaListo && fechaListo.getFullYear() === parseInt(filterAnio));
@@ -459,7 +467,7 @@ const ODPListPage: React.FC = () => {
                         { key: 'activas',     label: 'Activas',              icon: <FileText className="w-4 h-4" />,      badge: odpsActivas.length },
                         { key: 'visita',      label: 'Visita Técnica',       icon: <Ruler className="w-4 h-4" />,         badge: odpsVisita.length || undefined },
                         { key: 'listas',      label: 'Listas para instalar', icon: <Truck className="w-4 h-4" />,         badge: odpsListas.length || undefined },
-                        { key: 'completadas', label: 'Completadas',          icon: <CheckCircle2 className="w-4 h-4" />,  badge: odpsCompletadas.length || undefined },
+                        { key: 'completadas', label: 'Completadas',          icon: <CheckCircle2 className="w-4 h-4" />,  badge: countCompletadas || undefined },
                         { key: 'con_dano',    label: 'Con Daños',            icon: <AlertTriangle className="w-4 h-4" />, badge: odpsConDano.length || undefined },
                         { key: 'garantia',    label: 'Garantías',            icon: <Shield className="w-4 h-4" />,        badge: garantias.length || undefined },
                     ]}

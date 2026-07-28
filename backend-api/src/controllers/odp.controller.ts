@@ -113,6 +113,12 @@ const odpSchema = z.object({
   items: z.array(odpItemSchema).optional()
 });
 
+// Estados terminales de una ODP. El listado del módulo ODP puede excluirlos
+// (?excluir_completadas=true) porque la tab "Completadas" se alimenta de su propio
+// buscador server-side, no del listado. Debe coincidir con ESTADOS_COMPLETADAS de
+// frontend-web/src/features/odp/ODPListPage.tsx.
+const ESTADOS_COMPLETADAS = ['ENTREGADA', 'INSTALADA'];
+
 export const getODPs = async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -124,6 +130,7 @@ export const getODPs = async (req: Request, res: Response) => {
       ? (Array.isArray(estadosRaw) ? estadosRaw as string[] : [estadosRaw as string])
       : undefined;
     const search = req.query.search as string | undefined;
+    const excluirCompletadas = req.query.excluir_completadas === 'true';
 
     const whereClause: any = { es_garantia: false };
 
@@ -132,6 +139,21 @@ export const getODPs = async (req: Request, res: Response) => {
       whereClause.estado_produccion = { [Op.in]: estados };
     } else if (estado) {
       whereClause.estado_produccion = estado;
+    } else if (excluirCompletadas) {
+      // Las ODPs terminadas (~78% del total) se consultan por el buscador server-side
+      // de la tab Completadas, así que el listado de tabs no necesita traerlas. Sin esto
+      // el frontend pedía las 200 más recientes y repartía en tabs del lado del cliente,
+      // dejando fuera del corte a las ODPs en curso más antiguas: quedaban invisibles en
+      // TODAS las tabs (caso ODP-24000, ver SESSION_LOG 2026-07-27).
+      // Excepción: una ODP con daño de instalación pendiente sigue en curso aunque su
+      // estado sea INSTALADA/ENTREGADA — la tab "Con Daños" la muestra con prioridad
+      // sobre cualquier otra, así que debe seguir llegando al listado.
+      whereClause[Op.and] = [{
+        [Op.or]: [
+          { estado_produccion: { [Op.notIn]: ESTADOS_COMPLETADAS } },
+          { tiene_dano_instalacion: true },
+        ],
+      }];
     }
 
     if (search) {
@@ -164,11 +186,27 @@ export const getODPs = async (req: Request, res: Response) => {
       distinct: true,
     });
 
+    // Al excluir las completadas, el frontend ya no puede contarlas para el badge de
+    // su tab. Se devuelve el total aquí con un COUNT sin includes (barato). Se cuentan
+    // solo las que realmente caen en esa tab: las que tienen daño pendiente pertenecen
+    // a "Con Daños", igual que en la segmentación del cliente.
+    let count_completadas: number | undefined;
+    if (excluirCompletadas) {
+      count_completadas = await ODP.count({
+        where: {
+          es_garantia: false,
+          estado_produccion: { [Op.in]: ESTADOS_COMPLETADAS },
+          [Op.or]: [{ tiene_dano_instalacion: false }, { tiene_dano_instalacion: null }],
+        },
+      });
+    }
+
     res.json({
       rows,
       count,
       page,
       totalPages: Math.ceil(count / limit),
+      ...(count_completadas !== undefined && { count_completadas }),
     });
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener ODPs' });
