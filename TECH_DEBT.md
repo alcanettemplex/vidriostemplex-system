@@ -4,6 +4,50 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-07-27 — Aprobar prospecto marca sus TMs como `convertida` aunque la visita no se haya realizado
+
+**Severidad:** Media
+
+**Descripción:**
+`backend-api/src/controllers/prospecto.controller.ts` (bloque "Vincular todas las TMs del prospecto a la ODP") ejecuta al aprobar un prospecto:
+
+```ts
+await TomaMedidas.update({ odp_id, estado: 'convertida' }, { where: { id: { [OpTM.in]: tms.map(...) } }, transaction: t });
+```
+
+Marca **todas** las TMs del prospecto como `convertida` sin verificar su estado previo. Como `getTMPanel` agrupa `realizada` + `convertida` en el panel "Realizadas", una TM que seguía `solicitada`/`programada` (visita nunca hecha, sin fotos) salta al panel de completadas y desaparece del flujo operativo del jefe de producción: no se puede programar, ni editar, ni eliminar (`updateTM`/`deleteTM` solo aceptan `solicitada`/`programada`), y en el panel Realizadas no hay botón "Retornar" — solo existe para `programada`.
+
+Esto contradice la definición del propio sistema en `frontend-web/src/utils/tmEstado.ts:2`: *"convertida = prospecto convertido a ODP **después de visita realizada**"*.
+
+**Cómo se detectó:** caso real TM-0178 (2026-07-27). Quedó en `convertida` sin fotos (`medidas_json = []`, `croquis_url = NULL`) mientras su ODP-24201 seguía en `VISITA_TECNICA` con `chk_medicion = false` — el resto del sistema era coherente con "visita pendiente"; solo el estado de la TM mentía. Corregida con el script one-off `backend-api/src/scripts/fix_tm_0178_2026-07-27.ts`.
+
+**Alcance de la inconsistencia en datos:** 4 TMs históricas en `convertida` sin fotos (TM-0015, TM-0048, TM-0107, TM-0178). Las 3 primeras tienen sus ODPs ya INSTALADA/ENTREGADA con `chk_medicion = true` — histórico cerrado, no vale la pena tocarlas. Solo TM-0178 estaba en un flujo vivo.
+
+**Efecto colateral en auditoría:** ese `TomaMedidas.update({...}, { where })` es un update masivo, así que **no dispara los hooks de instancia** y el salto a `convertida` no queda registrado en `auditoria_log` (ver deuda 2026-07-02). En el caso TM-0178 el rastro se interrumpe justo en el cambio que causó el problema.
+
+**Fix propuesto:** separar en dos updates dentro de la misma transacción — las TMs ya en `realizada` pasan a `convertida`; las que estén en `solicitada`/`programada` solo heredan `odp_id` y conservan su estado. Alternativa complementaria: agregar botón "Retornar" en el panel Realizadas para TMs sin fotos y ampliar `retornarTM` para aceptarlas.
+
+**Estimación:** 15 min el fix en `prospecto.controller.ts`; +30 min si se agrega también el botón "Retornar" en `TomaMedidasPage.tsx` + backend. No requiere migración de BD.
+
+---
+
+## 2026-07-27 — `auditoria_log.usuario_nombre` queda siempre NULL
+
+**Severidad:** Baja
+
+**Descripción:**
+El middleware de contexto de auditoría en `backend-api/src/app.ts:67-80` intenta poblar `userName` leyendo `decoded?.nombre_completo` del JWT, pero `auth.controller.ts:63-67` firma el token solo con `{ id, rol }`. El campo nunca existe en el payload, así que `usuario_nombre` se graba `NULL` en todos los registros.
+
+**Medición (2026-07-27):** de 2.378 registros de `auditoria_log` de los últimos 7 días, 2.218 tienen `usuario_id` poblado y **solo 1** tiene `usuario_nombre` — y ese único es el escrito manualmente por el script `fix_tm_0178_2026-07-27.ts`.
+
+**Impacto:** la trazabilidad no se pierde (`usuario_id` sí se registra y es la referencia dura), pero cualquier vista que muestre el nombre directamente desde `auditoria_log` sin hacer JOIN con `usuarios` sale vacía. Verificar cómo lo resuelve hoy el tab Auditoría del panel ROOT.
+
+**Fix propuesto:** agregar `nombre_completo` al payload del JWT en `auth.controller.ts`. Ojo: los tokens ya emitidos (8h de vigencia) seguirían sin el campo hasta que expiren, y el tamaño del token crece ligeramente. Alternativa sin tocar el JWT: resolver el nombre por JOIN al leer la auditoría, y dejar de escribir la columna denormalizada.
+
+**Estimación:** 10 min (JWT) o 20 min (JOIN en lectura + limpieza del campo).
+
+---
+
 ## 2026-07-10 — Drift RBAC: roles `auxiliar_produccion` y `taller` fuera del ENUM de Sequelize
 
 **Severidad:** Alta
@@ -16,6 +60,8 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 **Cómo se detectó:** Auditoría forense completa del sistema para actualizar `CLAUDE.md` (2026-07-10). `git log -p` sobre `usuario.model.ts` reconstruyó la secuencia: creación con `auxiliar_produccion` (2026-03-08) → se agrega `taller` (2026-03-11) → se remueven ambos + `gerente` en refactor RBAC (2026-04-05, mismo día que `fix_bd.js` borró físicamente esos usuarios) → CHECK CONSTRAINT los reincorpora una semana después (2026-04-12, `fix_constraint.ts`) sin sincronizar el modelo.
 
 **Alcance conocido:** `usuario.model.ts` (ENUM a corregir), verificar también `ROLES_VALIDOS` en `server.ts` y el tipo `RolUsuario` en `rbacMiddleware.ts` para que las 5 listas de roles del sistema queden consistentes.
+
+**Avance parcial 2026-07-27:** se agregó `auxiliar_produccion` al tipo `RolUsuario` de `rbacMiddleware.ts` (era requisito para que compilara el `requireRole` ampliado del inventario). Falta todavía el ENUM de `usuario.model.ts` y el rol `taller` en ambos sitios — el riesgo principal de la deuda (crear/editar usuarios con esos roles) sigue vigente. Dato de contexto: hoy **no existe ningún usuario con rol `auxiliar_produccion` ni `taller`** en la BD de producción (verificado 2026-07-27), así que la deuda no está causando fallos activos; conviene confirmar con el usuario si ambos roles siguen vigentes antes de completar el fix.
 
 **Estimación:** 15-20 min — agregar `auxiliar_produccion` y `taller` al ENUM de `usuario.model.ts` y a las listas menores; no requiere migración de BD (el CHECK CONSTRAINT ya los acepta). Confirmar con el usuario si ambos roles siguen vigentes en el negocio antes de tocar (podría ser que `taller` sea un rol descontinuado a propósito).
 

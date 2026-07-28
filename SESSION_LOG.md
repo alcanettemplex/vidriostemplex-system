@@ -275,3 +275,149 @@ El `POST /prospectos` de la prueba de no-regresión con rol admin **creó un pro
 
 ### Estado
 1 usuario `marketing` activo en producción (id 68, `redes`): los cambios le aplican en el próximo despliegue, incluida la pérdida del acceso por URL a contabilidad, configuración y clientes.
+
+---
+
+## 2026-07-27 — TM-0178: retorno de "Realizadas" a "Solicitadas" + causa raíz documentada
+
+### Solicitud
+El usuario reportó que la TM-0178 aparecía en el panel "Realizadas" del módulo Toma de Medidas y quería devolverla a "Solicitadas".
+
+### Diagnóstico
+Consulta directa a Supabase reveló que el caso no era lo que la UI sugería:
+- Estado real: **`convertida`**, no `realizada`. El panel "Realizadas" agrupa ambos (`toma_medidas.controller.ts`, `getTMPanel`).
+- **Sin fotos**: `medidas_json = []`, `croquis_url = NULL` — la visita nunca se realizó.
+- ODP-24201 (id 427) en `VISITA_TECNICA` con `chk_medicion = false` → la ODP nunca avanzó. Todo el sistema era coherente con "visita pendiente"; solo el estado de la TM mentía.
+- `fecha_visita = 2026-07-27`, prospecto 158.
+
+**Causa raíz:** al aprobar el prospecto, `prospecto.controller.ts` marca **todas** las TMs del prospecto como `convertida` sin verificar si la visita se realizó. La TM quedó atrapada: en el panel Realizadas no hay botón "Retornar" (solo existe para `programada`) y `updateTM`/`deleteTM` rechazan estados distintos de `solicitada`/`programada`.
+
+### Cambio ejecutado
+**`backend-api/src/scripts/fix_tm_0178_2026-07-27.ts`** (nuevo, one-off, ya ejecutado) — `toma_medidas(id=199)`: `estado → 'solicitada'`, `fecha_visita → NULL`, `hora_visita → NULL`.
+
+Decisiones de diseño del script:
+- **Guardas de aborto** antes de escribir: TM inexistente, estado distinto de `convertida`/`realizada` (idempotencia ante doble corrida), o presencia de fotos/croquis (perderlas no era decisión automatizable).
+- **Modelo Sequelize en vez de raw SQL**, para que disparen los hooks de auditoría — a diferencia del precedente `fix_tm_0116.ts`.
+- Envuelto en `requestContext.run()` con `usuario_nombre: 'SCRIPT fix_tm_0178_2026-07-27'` y `userId: null`: trazable como mantenimiento sin atribuir el cambio a una persona real.
+- **No se tocó** `odp_id` (427) — necesario para que al subir la foto `uploadFotoTM` avance la ODP a MEDICION —, ni `prospecto_id`, ni la ODP-24201, ni el prospecto 158.
+
+Alcance decidido con el usuario: **solo TM-0178**. Se descartó por ahora corregir la causa raíz y agregar botón "Retornar" en el panel Realizadas; ambas quedaron documentadas en `TECH_DEBT.md`.
+
+### Verificación (post-ejecución, contra Supabase)
+- TM-0178 aparece en `solicitadas` (2 TMs) y **ya no** en `realizada`/`convertida`.
+- ODP-24201 **no** se duplica como "ODP sin TM": el filtro de `getTMPanel` excluye solo ODPs sin ninguna TM, y la TM sigue vinculada (`num_tms = 1`).
+- ODP-24201 sin cambios: `VISITA_TECNICA`, `chk_medicion = false`.
+- `auditoria_log` id 25213: UPDATE sobre `toma_medidas` 199, `convertida → solicitada`.
+- `npx tsc --noEmit` backend: limpio.
+
+### Hallazgos colaterales (documentados en TECH_DEBT.md, no corregidos)
+1. **Causa raíz del `convertida` prematuro** (severidad media). Además, el update masivo que lo provoca no dispara hooks de instancia, así que ese salto de estado **no quedó en `auditoria_log`** — el rastro se corta justo en el cambio que originó el problema. 4 TMs históricas comparten la inconsistencia (TM-0015, TM-0048, TM-0107, TM-0178); las 3 primeras tienen ODPs ya ENTREGADA/INSTALADA con `chk_medicion = true`, histórico cerrado.
+2. **`auditoria_log.usuario_nombre` siempre NULL** (severidad baja). `app.ts` lee `decoded.nombre_completo` del JWT, pero `auth.controller.ts` firma el token solo con `{ id, rol }`. De 2.378 registros de los últimos 7 días, 2.218 tienen `usuario_id` y solo 1 tiene nombre (el escrito por este script). La trazabilidad dura no se pierde; el campo denormalizado sí.
+
+### Estado
+Cambios en working tree, sin commit (pendiente orden explícita). El usuario solo debe pulsar "Actualizar" en el panel de Toma de Medidas para ver la TM en Solicitadas.
+
+---
+
+## 2026-07-27 (b) — Inventario Perfilería: búsqueda por descripción + acceso de jefe/auxiliar de producción
+
+### Solicitud
+Ampliar el buscador de la vista Lista (que hoy cubre `#`, código y ubicación) para que también busque por descripción.
+
+### Contexto técnico
+La "Descripción" **no es un campo de `inventario_perfileria`**: es `catalogo_productos.nombre`, cruzado por `codigo` (`InventarioPerfileria.belongsTo(CatalogoProducto, { foreignKey: 'codigo', targetKey: 'codigo', as: 'catalogo' })`). Hasta ahora el frontend la pintaba desde una caché de catálogo en cliente.
+
+Eso obligaba a resolverlo en backend: la lista está **paginada server-side** (649 piezas, LIMIT 200 = 4 páginas), así que un filtro en cliente solo habría mirado la página cargada, devolviendo resultados incompletos sin ningún error visible.
+
+Se descartó buscar también en `catalogo_productos.descripcion` (decisión del usuario): solo 31 de 1.243 productos lo tienen lleno y su contenido no se muestra en pantalla, así que habría producido filas cuya Descripción visible no contiene lo buscado.
+
+### Cambios
+
+**`backend-api/src/controllers/inventario_perfileria.controller.ts`** — `getInventario`: tercera condición en el `Op.or` apuntando a `$catalogo.nombre$` con `Op.iLike`, e include del catálogo **solo cuando hay `search`**.
+- `attributes: []` — el JOIN filtra pero no trae columnas: la respuesta JSON no cambia y el **egress se mantiene idéntico** (verificado: los ítems siguen trayendo solo `id, consecutivo, codigo, mm, ubicacion, fecha_corte, creado_en`).
+- `required: false` (LEFT JOIN) — las piezas con código fuera del catálogo (3 de 280) siguen apareciendo al buscar por código o ubicación; con INNER JOIN habrían desaparecido.
+- `subQuery: false` — sin esto Sequelize envuelve en subconsulta y el WHERE no ve el JOIN ("missing FROM-clause entry").
+- Include condicional: sin búsqueda, la consulta queda idéntica a la anterior.
+- El conteo no se infla: `belongsTo` + índice `catalogo_productos_codigo_unique` (confirmado en `pg_indexes`) ⇒ cada pieza cruza con un producto como máximo.
+
+**`backend-api/src/routes/inventario_perfileria.routes.ts`** — los 3 GET pasan a usar la constante `LECTURA_INVENTARIO`, que suma `jefe_produccion` y `auxiliar_produccion`. Motivo: `AppRoutes.tsx` ya les daba acceso a `/inventario`, así que cargaban la página y recibían 403 con el toast genérico "Error al cargar inventario". Confirmado por el usuario que deben verlo. El CRUD (POST/PATCH/DELETE) **no** se amplió.
+
+**`backend-api/src/middlewares/rbacMiddleware.ts`** — `auxiliar_produccion` agregado al tipo `RolUsuario` (requisito para compilar el `requireRole` de arriba). Avance parcial del drift RBAC 2026-07-10, anotado en `TECH_DEBT.md`.
+
+**`frontend-web/src/features/inventario/InventarioPage.tsx`** — placeholder → "Buscar #, código, descripción o ubicación...". Nada más: `search` ya viajaba al backend con debounce de 400 ms.
+
+### Verificación (backend levantado en puerto 3005 contra Supabase, JWT firmado por rol)
+El puerto 3001 estaba ocupado por otra instancia del usuario (PID 16768); se levantó la de pruebas en 3005 en vez de matarla.
+
+- **14/14 términos** con el mismo total que un SQL de referencia independiente (LEFT JOIN manual): `mosquitero` 4, `perfil` 11, `zoc` 10, `P-01` 55, `vidrio` 21, `U57` 9, `752` 1, `10946` 1, `MOSQUITERO MATE` 2, `a` 625, y varios con 0.
+- Sin búsqueda → 649 piezas, 200 por página: idéntico al comportamiento previo.
+- Payload sin objeto `catalogo` → egress intacto.
+- No regresión: búsqueda por código, por código parcial, por ubicación y por consecutivo numérico siguen funcionando.
+- Paginación con búsqueda: sin solapamiento entre páginas, `total` estable.
+- `search` + filtro de ubicación combinados: OK.
+- **RBAC 9/9**: `jefe_produccion` y `auxiliar_produccion` → 200 (antes 403), incluidos `/stats` y `/export`; `produccion`, `compras`, `marketing` → 200 sin cambios; `instalador` y `contabilidad` → 403, siguen bloqueados.
+- `tsc --noEmit` backend y frontend: limpios.
+
+### Nota sobre un falso fallo
+La primera pasada marcó FAIL en la búsqueda numérica: el caso de prueba usaba el consecutivo 100, que **no existe** (el rango real es 752–10946). Repetida con consecutivos reales (752 y 10946): PASS. El código nunca estuvo mal; el test sí.
+
+### Estado
+Cambios en working tree, sin commit. Junto con la corrección de TM-0178 de la sesión anterior.
+
+---
+
+## 2026-07-27 (c) — ODP-24000 invisible en "Listas para instalar": el listado no filtraba por estado
+
+### Síntoma reportado
+La ODP-24000 estaba en LISTO_INSTALAR pero no aparecía en la tab "Listas para instalar" del módulo ODP.
+
+### Causa raíz
+El listado **no filtra por estado en el servidor**. `fetchTabData` (ODPListPage.tsx) pedía `GET /api/odp?page=1&limit=200` —sin filtro— y **después** repartía las filas entre tabs con `.filter()` en el cliente. `getODPs` ordena por `fecha_creacion DESC` y topa el limit en 200 (`Math.min(200, ...)`).
+
+Con 380 ODPs no-garantía, la ODP-24000 (creada 2026-05-20) ocupaba la **posición 218**: nunca llegaba al navegador, así que no podía aparecer en ninguna tab. Tampoco la rescataba el buscador: en esa tab filtra solo lo ya cargado; el único buscador server-side es el de "Completadas", que fuerza `estados=INSTALADA,ENTREGADA`. La ODP era **inalcanzable desde el módulo**.
+
+**No era un caso aislado — 4 ODPs invisibles:** ODP-24017 (PROGRAMADA, pos 201), ODP-24000 (LISTO_INSTALAR, 218), ODP-23982 (LISTO_INSTALAR, 236), ODP-23925 (PAUSADA, 296). Y empeoraba solo: cada ODP nueva empujaba el corte y hundía una más.
+
+**Efecto secundario del mismo diseño:** los badges de las tabs se calculaban sobre esas 200 filas, así que el de "Completadas" mostraba 121 cuando había 296.
+
+### Solución aplicada (opción A de 3 evaluadas)
+Excluir del listado las ODPs terminadas, que son ~78% del total (296 de 380) y ya se consultan por el buscador server-side de su propia tab. Quedan 84 ODPs en curso: caben con margen amplio y el bug desaparece.
+
+Se descartó **subir el límite** (el backend topa en 200, sube el egress y el problema vuelve en meses) y se pospuso el **filtrado real por tab en el servidor** (diseño correcto a futuro, pero toca tabs, paginación, contadores y el hook de socket-patch: mucha más superficie de regresión).
+
+**`backend-api/src/controllers/odp.controller.ts`** — `getODPs` acepta `?excluir_completadas=true`:
+```ts
+whereClause[Op.and] = [{ [Op.or]: [
+  { estado_produccion: { [Op.notIn]: ESTADOS_COMPLETADAS } },
+  { tiene_dano_instalacion: true },
+]}];
+```
+- Constante `ESTADOS_COMPLETADAS = ['ENTREGADA','INSTALADA']` ahora también en backend (debe seguir espejada con la del frontend).
+- **La excepción del daño es indispensable:** las 2 ODPs con `tiene_dano_instalacion=true` están en estado INSTALADA. Excluir por estado a secas habría **vaciado la tab "Con Daños"** — regresión detectada al revisar los datos antes de escribir el filtro, no después.
+- Es aditivo: sin el parámetro el endpoint se comporta igual que antes. `estado`/`estados` explícitos siguen teniendo prioridad.
+- Devuelve `count_completadas` (COUNT sin includes, barato) para el badge, contando solo las que caen en esa tab (excluye las que tienen daño, igual que la segmentación del cliente).
+
+**`frontend-web/src/features/odp/ODPListPage.tsx`**
+- `fetchTabData` manda `excluir_completadas: true`.
+- Nuevo estado `countCompletadas`, alimentado por la respuesta; el badge de "Completadas" lo usa en vez de contar filas locales (pasa de 121 a 296, el número real).
+- Limpieza de paso: eliminada la variable muerta `fecha` en el filtro (warning preexistente de ESLint). Archivo ahora sin warnings.
+
+### Verificación (backend en puerto 3005 contra Supabase, JWT admin)
+- `excluir_completadas=true` → **count 84, rows 84**: todas las ODPs en curso llegan, nada queda fuera del corte.
+- Las 4 antes invisibles ahora presentes: ODP-24000, ODP-24017, ODP-23982, ODP-23925.
+- Las 2 con daño (INSTALADA) preservadas: ODP-24037, ODP-23958.
+- Ninguna completada sin daño se cuela en el listado (0 encontradas).
+- Segmentación replicando el filtro del frontend: Activas 49, Visita 1, **Listas 32** (antes 29), Con Daños 2 (antes 1).
+- `count_completadas` = 296 ✓.
+- **No regresión (5/5):** sin el parámetro → count 380 y sin campo extra; tab Completadas (`?estados=`) → 298; búsqueda server-side "24000" la encuentra; `estado` explícito gana sobre la exclusión (24); paginación coherente (84 → 2 páginas de 50).
+- **Egress: −50,7%** por carga del módulo (659,3 KB → 324,9 KB), medido sobre el payload real de `rows`.
+- `tsc --noEmit` backend y frontend limpios; ESLint del archivo tocado sin warnings.
+
+### Nota de proceso
+La primera corrida de pruebas dio falsos negativos: `TaskStop` cerró el shell pero **no el proceso node nieto**, así que el puerto 3005 seguía ocupado por la instancia anterior (código viejo) y el server nuevo moría con EADDRINUSE mientras las pruebas pegaban contra el viejo. Se detectó por la incoherencia (`count 380` con el parámetro puesto). Lección: tras `TaskStop` de un servidor, verificar el puerto y matar el PID explícitamente.
+
+### Pendiente
+Filtrado real por tab en el servidor (opción B) si el volumen de ODPs en curso se acerca a 200. Hoy hay 84.
+
+### Estado
+Cambios en working tree, sin commit.
