@@ -12,6 +12,7 @@ export type RolUsuario =
   | 'jefe_produccion'
   | 'asesor_comercial'
   | 'produccion'
+  | 'auxiliar_produccion'
   | 'instalador'
   | 'conductor'
   | 'contabilidad'

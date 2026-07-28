@@ -6,6 +6,7 @@ export const getInventario = async (req: Request, res: Response) => {
   try {
     const { codigo, ubicacion, search, page = '1', limit = '100' } = req.query as Record<string, string>;
     const where: any = {};
+    const include: any[] = [];
 
     if (codigo) where.codigo = codigo;
     if (ubicacion) where.ubicacion = ubicacion;
@@ -13,16 +14,35 @@ export const getInventario = async (req: Request, res: Response) => {
       const conditions: any[] = [
         { codigo: { [Op.iLike]: `%${search}%` } },
         { ubicacion: { [Op.iLike]: `%${search}%` } },
+        // La descripción no vive en esta tabla: es catalogo_productos.nombre, cruzado
+        // por `codigo`. Se busca contra el catálogo para que el filtro cubra TODO el
+        // inventario y no solo la página cargada (la lista está paginada server-side).
+        { '$catalogo.nombre$': { [Op.iLike]: `%${search}%` } },
       ];
       const searchNum = parseInt(search, 10);
       if (!isNaN(searchNum)) conditions.push({ consecutivo: searchNum });
       where[Op.or as any] = conditions;
+
+      // JOIN solo cuando hay búsqueda: la carga normal del módulo queda idéntica.
+      // attributes: [] → el JOIN filtra pero no trae columnas, así que la respuesta
+      // no cambia y el egress se mantiene igual (el frontend ya resuelve la
+      // descripción con su caché de catálogo).
+      // required: false → LEFT JOIN, para que las piezas con código fuera del
+      // catálogo sigan apareciendo al buscar por código o ubicación.
+      include.push({ model: CatalogoProducto, as: 'catalogo', attributes: [], required: false });
     }
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     const { count, rows } = await InventarioPerfileria.findAndCountAll({
       where,
+      include,
+      // Necesario para que `$catalogo.nombre$` sea resoluble junto con LIMIT/OFFSET:
+      // sin esto Sequelize envuelve en una subconsulta donde el JOIN no es visible
+      // desde el WHERE y Postgres responde "missing FROM-clause entry".
+      // El conteo no se infla: la asociación es belongsTo y catalogo_productos.codigo
+      // es UNIQUE, así que cada pieza cruza con un producto como máximo.
+      subQuery: false,
       order: [['consecutivo', 'ASC']],
       limit: parseInt(limit),
       offset,
