@@ -8,6 +8,7 @@ import IngresarPerfilModal from './IngresarPerfilModal';
 import { getCatalogoCached } from '../../services/listasCache';
 
 import API from '../../services/config';
+import { useSoloLectura } from '../../utils/permisos';
 
 interface PerfilItem {
   id: number;
@@ -36,6 +37,8 @@ type ViewMode = 'lista' | 'resumen' | 'reporte';
 const InventarioPage: React.FC = () => {
   const user = useSelector((state: any) => state.auth.user);
   const isAdmin = user?.rol === 'admin';
+  // Roles de solo lectura (marketing): consultan el inventario sin editar ni eliminar.
+  const soloLectura = useSoloLectura();
 
   const [items, setItems] = useState<PerfilItem[]>([]);
   const [stats, setStats] = useState<StatItem[]>([]);
@@ -235,12 +238,12 @@ const InventarioPage: React.FC = () => {
           >
             <Download className="w-4 h-4" /> Exportar Excel
           </button>
-          <button
+          {!soloLectura && (<button
             onClick={() => setShowIngresoModal(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm shadow-indigo-200"
           >
             <PackagePlus className="w-4 h-4" /> Ingresar Perfilería
-          </button>
+          </button>)}
           <button
             onClick={() => setViewMode('lista')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all ${viewMode === 'lista' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
@@ -381,7 +384,7 @@ const InventarioPage: React.FC = () => {
                               <X className="w-4 h-4" />
                             </button>
                           </div>
-                        ) : (
+                        ) : soloLectura ? null : (
                           <div className="flex items-center justify-center gap-1">
                             <button onClick={() => startEdit(item)} className="p-1 rounded hover:bg-indigo-100 text-indigo-500">
                               <Edit2 className="w-3.5 h-3.5" />

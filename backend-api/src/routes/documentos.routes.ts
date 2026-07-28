@@ -21,7 +21,7 @@ router.post('/cotizacion', authMiddleware, requireRole('admin', 'gerencia', 'ase
 router.put('/cotizacion/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), updateCotizacion);
 
 // TM routes
-router.get('/tm/panel', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'), getTMPanel);
+router.get('/tm/panel', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo', 'marketing'), getTMPanel);
 router.get('/tm/sin-odp', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial'), getTMsSinODP);
 router.get('/tm/odp/:odp_id', authMiddleware, getTMsByODP);
 router.post('/tm', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'asesor_comercial'), createTM);

@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import ODCModal, { SAPItemConContexto } from './components/ODCModal';
 import ODCVidriosModal, { ODPItemConContexto } from './components/ODCVidriosModal';
 import ODCSinSAPModal from './components/ODCSinSAPModal';
+import { useSoloLectura } from '../../utils/permisos';
 import PrintableODC from './components/PrintableODC';
 import ODPFichaModal from '../odp/components/ODPFichaModal';
 import FolderTabs from '../../components/FolderTabs';
@@ -1151,6 +1152,8 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
 // ─── Componente principal ────────────────────────────────────────────────────
 
 const ComprasPage: React.FC = () => {
+  // Roles de solo lectura (marketing): consultan Compras sin poder crear ni editar ODC.
+  const soloLectura = useSoloLectura();
   const [tab, setTab] = useState<'pendientes' | 'seguimiento' | 'recibidas' | 'vidrios' | 'existencia'>('pendientes');
   const [fichaOdpId, setFichaOdpId] = useState<number | null>(null);
   const [itemsPendientes, setItemsPendientes] = useState<SAPItemConContexto[]>([]);
@@ -1574,6 +1577,7 @@ const ComprasPage: React.FC = () => {
                       )}
                     </div>
                     <div className="flex items-center gap-2">
+                      {!soloLectura && (<>
                       <button
                         onClick={() => setMostrarModalSinSAP(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition shadow-sm"
@@ -1587,6 +1591,7 @@ const ComprasPage: React.FC = () => {
                       >
                         <Plus className="w-4 h-4" /> Crear ODC ({seleccionados.size})
                       </button>
+                      </>)}
                     </div>
                   </div>
 
@@ -1711,7 +1716,7 @@ const ComprasPage: React.FC = () => {
                                     {item.SAP?.ODP?.asesor?.nombre_completo || '—'}
                                   </td>
                                   <td className="px-3 py-2 text-center w-16" onClick={e => e.stopPropagation()}>
-                                    <button
+                                    {!soloLectura && (<button
                                       title="Marcar como en existencia"
                                       onClick={async (e) => {
                                         e.stopPropagation();
@@ -1725,7 +1730,7 @@ const ComprasPage: React.FC = () => {
                                       className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition border border-emerald-200"
                                     >
                                       <Package className="w-4 h-4" />
-                                    </button>
+                                    </button>)}
                                   </td>
                                 </tr>
                               );
@@ -1764,7 +1769,7 @@ const ComprasPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="grid gap-4">
-                  {lista.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} onEstadoCambiado={refreshTrasRecibida} onFichaOdp={setFichaOdpId} />)}
+                  {lista.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} onEstadoCambiado={refreshTrasRecibida} onFichaOdp={setFichaOdpId} soloLectura={soloLectura} />)}
                 </div>
               );
             })()}
@@ -1778,7 +1783,7 @@ const ComprasPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="grid gap-4">
-                  {odcsRecibidas.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} onFichaOdp={setFichaOdpId} />)}
+                  {odcsRecibidas.map(odc => <ODCCard key={odc.id} odc={odc} onActualizar={refresh} onFichaOdp={setFichaOdpId} soloLectura={soloLectura} />)}
                 </div>
               );
             })()}
@@ -1855,13 +1860,13 @@ const ComprasPage: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <button
+                    {!soloLectura && (<button
                       onClick={() => setMostrarModalVidrios(true)}
                       disabled={seleccionadosVidrios.size === 0}
                       className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white text-sm font-bold rounded-xl hover:bg-cyan-700 transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <Plus className="w-4 h-4" /> Crear ODC ({seleccionadosVidrios.size})
-                    </button>
+                    </button>)}
                   </div>
 
                   {/* Tabla agrupada por tipo_vidrio */}
@@ -2063,14 +2068,14 @@ const ComprasPage: React.FC = () => {
                                 <td className="px-3 py-2 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => item.SAP?.ODP?.id && setFichaOdpId(item.SAP.ODP.id)}>{item.SAP?.ODP?.numero_odp || '—'}</td>
                                 <td className="px-3 py-2 text-slate-500 truncate max-w-[200px]">{item.SAP?.ODP?.cliente?.nombre_razon_social || '—'}</td>
                                 <td className="px-3 py-2 text-center">
-                                  <button
+                                  {!soloLectura && (<button
                                     onClick={() => revertirPerfileriaExistencia(item.id)}
                                     disabled={revirtiendoExist === item.id}
                                     title="Revertir — devolver a Pendientes"
                                     className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 transition border border-amber-200 disabled:opacity-50"
                                   >
                                     <RotateCcw className="w-3.5 h-3.5" />
-                                  </button>
+                                  </button>)}
                                 </td>
                               </tr>
                             ))}
@@ -2153,7 +2158,7 @@ const ComprasPage: React.FC = () => {
       )}
 
       {/* Modal crear ODC sin SAP (consumibles) */}
-      {mostrarModalSinSAP && (
+      {!soloLectura && mostrarModalSinSAP && (
         <ODCSinSAPModal
           onClose={() => setMostrarModalSinSAP(false)}
           onRefresh={refresh}
@@ -2161,7 +2166,7 @@ const ComprasPage: React.FC = () => {
       )}
 
       {/* Modal crear ODC consolidada */}
-      {mostrarModal && seleccionados.size > 0 && (
+      {!soloLectura && mostrarModal && seleccionados.size > 0 && (
         <ODCModal
           items={itemsPendientes.filter(i => seleccionados.has(i.id))}
           onClose={() => setMostrarModal(false)}
@@ -2170,7 +2175,7 @@ const ComprasPage: React.FC = () => {
       )}
 
       {/* Modal crear ODC de vidrios (multi-ODP, agrupado por tipo_vidrio) */}
-      {mostrarModalVidrios && seleccionadosVidrios.size > 0 && (
+      {!soloLectura && mostrarModalVidrios && seleccionadosVidrios.size > 0 && (
         <ODCVidriosModal
           items={vidriosFlat.filter(i => seleccionadosVidrios.has(i.id))}
           onClose={() => setMostrarModalVidrios(false)}

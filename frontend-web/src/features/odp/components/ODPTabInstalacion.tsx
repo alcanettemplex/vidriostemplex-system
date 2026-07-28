@@ -26,7 +26,7 @@ const TabInstalacion: React.FC<{ odp: any; onOpenLightbox: (src: string) => void
   const token = sessionStorage.getItem('token');
 
   const isOwner = currentUser?.id === odp.asesor_id;
-  const puedeRevisar = isOwner || ['admin', 'gerencia', 'produccion', 'jefe_produccion'].includes(currentUser?.rol);
+  const puedeRevisar = currentUser?.rol !== 'marketing' && (isOwner || ['admin', 'gerencia', 'produccion', 'jefe_produccion'].includes(currentUser?.rol));
 
   const handleRevisarDano = async () => {
     if (!window.confirm('¿Marcar el daño como revisado? La ODP saldrá del tab "Con Daños".')) return;

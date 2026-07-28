@@ -43,6 +43,7 @@ import PrintableSAP from '../odp/components/PrintableSAP';
 import ProgramacionWhatsAppModal from './components/ProgramacionWhatsAppModal';
 import socket from '../../store/socket';
 import API from '../../services/config';
+import { useSoloLectura } from '../../utils/permisos';
 
 interface Nota {
     id: number;
@@ -243,6 +244,8 @@ const ProduccionPage: React.FC = () => {
     // Role check
     const authUser = useSelector((state: any) => state.auth.user);
     const userRol: string = (authUser?.rol || authUser?.role || '').toLowerCase();
+    // Roles de solo lectura (marketing): consultan el tablero sin tocar checks, notas ni colores.
+    const soloLectura = useSoloLectura();
     const puedeMarcarEntregada = ['compras', 'produccion', 'admin', 'jefe_produccion', 'gerencia', 'root'].includes(userRol);
     const puedePV = ['compras', 'produccion', 'jefe_produccion', 'admin', 'gerencia', 'root'].includes(userRol);
     const puedeMarcarListo = ['compras', 'produccion', 'jefe_produccion', 'admin', 'gerencia', 'root'].includes(userRol);
@@ -311,6 +314,7 @@ const ProduccionPage: React.FC = () => {
     };
 
     const handleAddNote = async (odpId: number) => {
+        if (soloLectura) return;
         const text = newNotes[odpId]?.trim();
         if (!text) return;
         try {
@@ -329,6 +333,7 @@ const ProduccionPage: React.FC = () => {
     };
 
     const handleSetColor = async (odpId: number, color: string | null) => {
+        if (soloLectura) return;
         setColorPicker(null);
         try {
             const token = sessionStorage.getItem('token');
@@ -344,6 +349,7 @@ const ProduccionPage: React.FC = () => {
     };
 
     const toggleCheck = async (odp: ODP, field: string) => {
+        if (soloLectura) return;
         if (isColLocked(odp, field)) {
             toast.warning('Esta tarea requiere que el vidrio haya sido recibido primero.');
             return;
@@ -924,7 +930,7 @@ const ProduccionPage: React.FC = () => {
                                 </div>
                             ))}
                         </div>
-                        <div className="relative">
+                        {!soloLectura && (<div className="relative">
                             <textarea
                                 rows={2}
                                 className="w-full p-3 pr-10 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 resize-none bg-white transition-all"
@@ -944,7 +950,7 @@ const ProduccionPage: React.FC = () => {
                             >
                                 <Plus className="w-3.5 h-3.5" />
                             </button>
-                        </div>
+                        </div>)}
                     </div>
                 </div>
             </div>
@@ -1010,8 +1016,8 @@ const ProduccionPage: React.FC = () => {
                                     <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                                         {/* Círculo de color / selector */}
                                         <button
-                                            title="Resaltar ODP"
-                                            onClick={e => {
+                                            title={soloLectura ? 'Color de taller' : 'Resaltar ODP'}
+                                            onClick={soloLectura ? undefined : e => {
                                                 e.stopPropagation();
                                                 const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                                                 setColorPicker({ odpId: odp.id, top: rect.bottom + 6, left: rect.left });
@@ -1058,7 +1064,7 @@ const ProduccionPage: React.FC = () => {
                                     );
                                     return (
                                         <td key={col.key} className="px-2 py-3 text-center"
-                                            onClick={e => { e.stopPropagation(); toggleCheck(odp, col.key); }}>
+                                            onClick={soloLectura ? undefined : e => { e.stopPropagation(); toggleCheck(odp, col.key); }}>
                                             <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border-2 transition-all mx-auto
                                                 ${checked ? 'bg-emerald-50 border-emerald-400 text-emerald-600'
                                                 : locked  ? 'bg-slate-50 border-slate-100 cursor-not-allowed'

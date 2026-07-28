@@ -161,6 +161,8 @@ Hija con `odp_padre_id` + `es_no_conformidad: true`. Padre → PAUSADA. Se react
 
 **Patrón:** `authMiddleware → rbacMiddleware → controller`
 
+**Solo lectura global:** `authMiddleware` corta con 403 cualquier método distinto de GET/HEAD/OPTIONS para los roles del Set `ROLES_SOLO_LECTURA` (hoy: `marketing`). Se resuelve ahí —y no ruta por ruta— porque varias rutas de escritura no declaran `requireRole` (quedaron abiertas a cualquier autenticado): el control por método las cubre todas, incluidas las que se agreguen después. Al sumar un rol de solo lectura, agregarlo también a `ROLES_SOLO_LECTURA` en `frontend-web/src/utils/permisos.ts` para que la UI oculte los controles.
+
 **Módulos clave:**
 - **SAP:** `SAP → SAPItem → OrdenCompra (ODC) → ODCItem`
 - **PedidoPV:** auto-generado al crear ODP con `proveedor_vidrio`. Base 6733. >12 ítems → extensiones `-1,-2...`
@@ -303,6 +305,7 @@ asistente_administrativo | marketing
 Existen además dos listas más, menores: `ROLES_VALIDOS` en `server.ts` (12, incluye `auxiliar_produccion`, no incluye `marketing`/`gerente`/`taller`) y el tipo `RolUsuario` en `rbacMiddleware.ts` (solo para autocompletado TS, no bloquea nada en runtime).
 
 - `conductor` — exclusivo rutas de instalación (`/api/rutas`)
+- `marketing` — **solo lectura** (2026-07-27). Consulta 11 módulos: dashboard, prospectos, ODP, CRM, producción, toma de medidas, instalaciones, compras, inventario perfilería, pedidos PV y facturas vs salidas. **No** accede a contabilidad, configuración ni clientes. No puede escribir en ningún endpoint (ver "Solo lectura global" en Arquitectura Backend). En el frontend, `esSoloLectura()`/`useSoloLectura()` de `utils/permisos.ts` ocultan los controles; el interceptor de `services/httpInterceptors.ts` traduce el 403 a un aviso legible
 - `root` — id=30, usuario ROOT. Solo sección "Sistema" en sidebar. Al agregar rol nuevo: (1) ALTER TYPE enum_usuarios_rol, (2) DROP + recrear CHECK CONSTRAINT `usuarios_rol_check`, **(3) actualizar el ENUM en `usuario.model.ts`, `ROLES_VALIDOS` en `server.ts` y el tipo `RolUsuario` en `rbacMiddleware.ts`** — el drift de `auxiliar_produccion`/`taller` ocurrió por saltarse este último paso.
 
 ---

@@ -39,11 +39,14 @@ const AppRoutes: React.FC = () => {
           {/* Resto de la aplicación — shell estándar (Navbar + Sidebar) */}
           <Route element={<AppShell />}>
             <Route path="/" element={<DashboardHome />} />
-            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia']} />}>
               <Route path="/configuracion" element={<ConfiguracionPage />} />
             </Route>
-            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'asesor_comercial', 'jefe_produccion', 'asistente_administrativo']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'asistente_administrativo']} />}>
               <Route path="/clientes" element={<ClientesListPage />} />
+            </Route>
+            {/* Prospectos separado de Clientes: 'marketing' consulta prospectos pero no clientes. */}
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'asesor_comercial', 'jefe_produccion', 'asistente_administrativo']} />}>
               <Route path="/prospectos" element={<ProspectosPage />} />
             </Route>
             <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras', 'produccion', 'asistente_administrativo']} />}>
@@ -55,7 +58,7 @@ const AppRoutes: React.FC = () => {
             <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion', 'asistente_administrativo']} />}>
               <Route path="/produccion" element={<ProduccionPage />} />
             </Route>
-            <Route element={<RoleRoute allowedRoles={['admin', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'marketing', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo']} />}>
               <Route path="/toma-medidas" element={<TomaMedidasPage />} />
             </Route>
             <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'jefe_produccion', 'instalador', 'conductor', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo']} />}>
@@ -64,7 +67,7 @@ const AppRoutes: React.FC = () => {
             <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'compras', 'jefe_produccion']} />}>
               <Route path="/compras" element={<ComprasPage />} />
             </Route>
-            <Route element={<RoleRoute allowedRoles={['admin', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'marketing', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras']} />}>
               <Route path="/inventario" element={<InventarioPage />} />
             </Route>
             <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras', 'asistente_administrativo']} />}>
@@ -73,7 +76,7 @@ const AppRoutes: React.FC = () => {
             <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'contabilidad', 'compras', 'produccion']} />}>
               <Route path="/facturas-salidas" element={<FacturasSalidasPage />} />
             </Route>
-            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'contabilidad', 'asistente_administrativo']} />}>
+            <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'contabilidad', 'asistente_administrativo']} />}>
               <Route path="/contabilidad" element={<ContabilidadPage />} />
             </Route>
             <Route element={<RoleRoute allowedRoles={['admin']} />}>

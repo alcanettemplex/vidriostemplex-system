@@ -19,6 +19,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import API from '../../services/config';
+import { useSoloLectura } from '../../utils/permisos';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -298,6 +299,8 @@ const PedidosPVPage: React.FC = () => {
   const [savingGestionar, setSavingGestionar] = useState(false);
 
   const puedeCrear = user?.puede_gestionar_pv;
+  // Roles de solo lectura (marketing): consultan los pedidos sin crear ni editar.
+  const soloLectura = useSoloLectura();
   const puedeGestionar = ['produccion', 'auxiliar_produccion', 'compras', 'admin', 'jefe_produccion'].includes(user?.rol);
   const puedeEnviar = ['asesor_comercial', 'admin', 'gerencia'].includes(user?.rol);
 
@@ -424,6 +427,7 @@ const PedidosPVPage: React.FC = () => {
   };
 
   const crearPedido = async () => {
+    if (soloLectura) return;
     try {
       if (itemsNuevos.length > 0) {
         await axios.post(`${API}/api/odp/${formCrear.odp_id}/items`, { items: itemsNuevos }, { headers });
@@ -529,6 +533,7 @@ const PedidosPVPage: React.FC = () => {
   };
 
   const actualizarCampo = async (id: number, field: string, value: unknown) => {
+    if (soloLectura) return;
     setSavingField({ id, field });
     try {
       await axios.patch(`${API}/api/pedidos-pv/${id}`, { [field]: value }, { headers });
@@ -619,7 +624,7 @@ const PedidosPVPage: React.FC = () => {
         </Box>
         <Stack direction="row" gap={1}>
           <IconButton onClick={cargarDatos} size="small"><Refresh /></IconButton>
-          {puedeCrear && (
+          {puedeCrear && !soloLectura && (
             <Button variant="contained" startIcon={<Add />} onClick={abrirModalCrear} sx={{ borderRadius: 2 }}>
               Nuevo pedido
             </Button>
@@ -982,7 +987,7 @@ const PedidosPVPage: React.FC = () => {
                               {asignados > 0 && <>&nbsp;·&nbsp; <strong>{asignados} ya asignado{asignados !== 1 ? 's' : ''}</strong></>}
                             </Typography>
                           </Box>
-                          <Button
+                          {!soloLectura && (<Button
                             variant="contained"
                             size="small"
                             onClick={() => {
@@ -994,7 +999,7 @@ const PedidosPVPage: React.FC = () => {
                             sx={{ borderRadius: 2, whiteSpace: 'nowrap' }}
                           >
                             Asignar ítems
-                          </Button>
+                          </Button>)}
                         </Stack>
                       </Paper>
                     );

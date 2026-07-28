@@ -662,7 +662,7 @@ const ChipsFechas: React.FC<{
 
 const TomaMedidasPage: React.FC = () => {
   const authUser = useSelector((state: any) => state.auth?.user);
-  const isReadOnly = authUser?.rol === 'asistente_administrativo';
+  const isReadOnly = ['asistente_administrativo', 'marketing'].includes(authUser?.rol);
   const canEditDelete = ['admin', 'asesor_comercial', 'gerencia', 'produccion', 'jefe_produccion'].includes(authUser?.rol);
 
   const hoy = useMemo(() => hoyEnBogota(), []);

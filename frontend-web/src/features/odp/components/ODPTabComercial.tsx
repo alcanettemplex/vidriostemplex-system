@@ -5,6 +5,7 @@ import SAPModal from './SAPModal';
 import CotizacionCapturas from './CotizacionCapturas';
 import API from '../../../services/config';
 import axios from 'axios';
+import { useSoloLectura } from '../../../utils/permisos';
 
 const estadoCotColor: Record<string, string> = {
   enviada: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -14,6 +15,8 @@ const estadoCotColor: Record<string, string> = {
 };
 
 const TabComercial: React.FC<{ odp: any; onRefresh: () => void }> = ({ odp, onRefresh }) => {
+  // Roles de solo lectura (marketing): pueden consultar los SAP, no crearlos.
+  const soloLectura = useSoloLectura();
   const [sapModalOpen, setSapModalOpen] = useState(false);
   const saps = odp.saps || [];
   const cots = odp.cotizaciones || [];
@@ -25,14 +28,14 @@ const TabComercial: React.FC<{ odp: any; onRefresh: () => void }> = ({ odp, onRe
           <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 flex items-center gap-2">
             <Package className="w-4 h-4 text-indigo-600" /> Solicitudes de Accesorios y Perfilería (SAP)
           </h3>
-          {saps.length === 0 ? (
+          {saps.length === 0 ? (soloLectura ? null : (
             <button
               onClick={() => setSapModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow-sm"
             >
               <Plus className="w-3.5 h-3.5" /> Gestionar SAP
             </button>
-          ) : (
+          )) : (
             <button
               onClick={() => setSapModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-slate-100 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition"

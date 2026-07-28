@@ -280,7 +280,7 @@ const DetalleModal: React.FC<{
 
 const ProspectosPage: React.FC = () => {
   const authUser = useSelector((state: any) => state.auth?.user);
-  const isReadOnly = authUser?.rol === 'asistente_administrativo';
+  const isReadOnly = ['asistente_administrativo', 'marketing'].includes(authUser?.rol);
 
   const [prospectos, setProspectos] = useState<Prospecto[]>([]);
   const [loading, setLoading] = useState(true);

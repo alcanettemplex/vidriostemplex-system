@@ -183,3 +183,95 @@ Asignar `monto = valor_total` a las 3 ODPs llevó julio a $430.768.658; el usuar
 ### Notas
 - Los montos que capturó el usuario cuadran exactos con el `valor_total` de ambas ODPs (ODP-23997 y ODP-24066) — el reparto entre meses ya funciona como se diseñó.
 - **Lección:** migración y despliegue no son atómicos; un backfill previo al deploy deja huecos en las filas escritas durante la ventana. `SUM` con NULL no falla, resta en silencio.
+
+---
+
+## 2026-07-27 — Accesos directos a FE y abonos desde la ficha de la ODP (tab Imprimir)
+
+### Requerimiento
+Desde Contabilidad → Estado Caja, al abrir una ODP se llega a `ODPFichaModal`. El usuario pidió que en la tab **Imprimir ODP** aparezcan los dos controles que hoy solo existen en esa fila de la tabla —**FE No./Fecha** y **Registrar Abono**— para roles con acceso a su CRUD, sin tener que volver a la tabla. Alcance explícito: *"prácticamente como un acceso directo a los modales solicitados"*.
+
+### Decisiones tomadas con el usuario (antes de tocar código)
+- **Ubicación:** solo la tab Imprimir (se descartó header del modal y tab Financiero).
+- **CRUD de abonos:** completo — registrar, editar y eliminar, vía un modal "Abonos (n)" para no contaminar el área imprimible.
+- **Roles:** `admin`, `contabilidad`, `gerencia` — alineado con el RBAC del backend, sin asimetría con lo que ya pueden hacer en `/contabilidad`.
+- **Arquitectura:** extraer los modales inline de `ContabilidadPage` a componentes compartidos (una sola fuente de verdad) en vez de duplicarlos.
+- **Visibilidad:** replicar las reglas de la tabla — FE oculto en OA y garantías, Registrar Abono oculto si `estado_caja = CANCELADO`, lista de abonos siempre visible.
+- **Fuera de alcance:** selector de Estado Caja y edición de Monto Total siguen solo en la tabla.
+
+### Backend
+**1. `utils/notificaciones.ts` — bug latente corregido.** `getODPListaIncludes` decía en su comentario *"debe coincidir exactamente con getODPs"* pero le faltaba `facturas_adicionales`, que `getODPs` sí incluye (`odp.controller.ts:159`). Consecuencia previa a este cambio: cualquier `emitirODPPatch` sobre una ODP con FE adicionales reemplazaba la fila de Contabilidad con un objeto sin ese array — el badge `+N` desaparecía y el modal FE abría con la lista de adicionales vacía.
+
+**2. `emitirODPPatch(id,'update')` agregado en 6 controladores** que antes no emitían nada: `facturarODP`, `agregarFacturaAdicional`, `eliminarFacturaAdicional` (`odp.controller.ts`) y `registrarPago`, `editarPago`, `eliminarPago` (`contabilidad.controller.ts`). El hook global (`App.tsx` → `useSocketNotifications`) hace `clearODPCache(id)` al recibirlo, así la ficha se recarga sola y las tablas en vivo se parchean sin refetch de lista.
+
+En `editarPago`/`eliminarPago` se **conservó** el `emitirCambio('contabilidad')` existente: cubre la tab "Pagos Recientes", que el patch por ODP no alcanza. Redundancia consciente.
+
+**Sin cambios de BD, migraciones ni RBAC** — los endpoints ya autorizaban `admin, gerencia, contabilidad` y `GET /api/odp/:id` ya devolvía `monto_factura_principal`, `abono`, `pendiente`, `facturas_adicionales` y `pagos`.
+
+### Frontend
+**Nuevos — `features/contabilidad/components/`:**
+- `contabilidad.utils.ts` — `fmt`, `fmtFecha`, `formatMiles`, `parseMiles`, `calcPendiente`, `headers`, `BANCOS_COLOMBIA`, `METODOS_PAGO`, `puedeGestionarCobros`.
+- `FacturaElectronicaModal.tsx` — FE principal + saldo por facturar + CRUD de adicionales.
+- `AbonoFormModal.tsx` — unifica los dos modales casi idénticos que había (registrar / editar); la prop `pago` gobierna el modo.
+- `ConfirmarEliminarAbonoModal.tsx`.
+- `AbonosODPModal.tsx` — listado de abonos de una ODP con editar/eliminar y totales (solo lo usa la ficha).
+
+**Modificados:**
+- `ContabilidadPage.tsx` — consume los componentes. **1578 → 1058 líneas (−520 netas: +52/−572)**, comportamiento idéntico: los `setOdps` optimistas pasaron a los callbacks `onSaved`/`onAdicionalesChange`, y el refresco tras abono (`fetchOdps` + `fetchResumen`) se centralizó en `refrescarTrasAbono`.
+- `ODPTabImprimir.tsx` — barra con `[FE ✎] [Registrar Abono] [Abonos (n)]` a la izquierda de IMPRIMIR. Los modales se montan **fuera de `#printable-area`** para que su HTML no entre en la ventana de impresión.
+- `ODPFichaModal.tsx` — pasa `currentUser` al tab (una línea).
+
+### Decisión técnica: refresco por socket, sin `onRefresh`
+Desde la ficha no se llama a ningún refetch manual tras guardar. El backend emite `odp_patch`, el hook global limpia la cache Redux de esa ODP y `ODPFichaModal` la recarga sola. Se descartó añadir un `onRefresh()` explícito porque dispararía un segundo GET de detalle redundante casi simultáneo. **Egress: ~1 query puntual por acción, cero refetch de listas de 500 ODPs.**
+
+### Verificación
+- `tsc --noEmit` backend: limpio.
+- `tsc --noEmit` frontend: limpio.
+- Build CRA de producción: OK (`main.ee656f5f.js`, 867.34 kB gzip).
+- ESLint sobre los archivos tocados: 0 errores. Los warnings que quedan son preexistentes (iconos sin usar en `ODPFichaModal`, `token` en los `useEffect` de `ODPTabImprimir`, `canSeeOA` en el `useCallback` de `ContabilidadPage`). Los 5 componentes nuevos: 0 warnings.
+- Sin referencias huérfanas tras el refactor (grep de los 22 identificadores eliminados).
+- **Pendiente de prueba manual dirigida** (no hay tests automatizados): los 4 flujos en `/contabilidad` (registrar FE, agregar/eliminar FE adicional, registrar abono, editar/eliminar abono) y los 3 accesos directos desde la ficha.
+
+### Nota
+`npm run build` del frontend no corre en cmd.exe: el script usa sintaxis POSIX (`CI=false ... && cp`). Desde Git Bash funciona.
+
+### Documentado, no corregido
+Deuda técnica del CDN de Tailwind en los 5 flujos de impresión → `TECH_DEBT.md` (2026-07-27). Decisión del usuario: solo documentar en esta pasada.
+
+---
+
+## 2026-07-27 (2) — Rol Marketing: acceso de solo lectura a 11 módulos
+
+### Requerimiento
+Que el rol `marketing` (etiquetado "Marketing (Solo Lectura CRM)") pueda **ver** Dashboard, Prospectos, Órdenes ODP, CRM & Leads, Producción, Toma de Medidas, Instalaciones, Compras, Inventario Perfilería, Pedidos PV y Facturas vs Salidas — sin crear, editar ni eliminar nada.
+
+### Hallazgos de la auditoría previa
+1. **Marketing ya tenía acceso por URL a 3 módulos no solicitados**: `/contabilidad`, `/configuracion` y `/clientes` estaban en `AppRoutes` aunque no aparecían en el menú. Agujero preexistente.
+2. **"Solo lectura" no existía en el backend**: ~16 endpoints de escritura sin `requireRole` (prospectos ×4, pedidos-pv ×3, no-conformidad, notas-producción, capturas-cotización ×3, imágenes det-SAP ×2, odp revisar-daño y garantía) eran invocables por **cualquier** autenticado.
+3. **Al revés, 4 módulos de la lista daban 403 en lectura**: instalaciones (`LECTURA_GESTION`), inventario, toma-medidas (`/tm/panel`) y facturas-salidas (`PUEDE_VER`).
+4. **Sockets sin cambios**: `emitirEvento` usa `io.emit` global, así que marketing recibe `data_changed` y `odp_patch` pese a no estar en `ROLES_VALIDOS` de `server.ts`.
+
+### Backend
+**Barrera central en `middlewares/authMiddleware.ts`** — tras resolver `req.user`, si el rol está en `ROLES_SOLO_LECTURA` y el método no es GET/HEAD/OPTIONS → 403 con mensaje contextual por módulo (deducido de `req.originalUrl`). Se eligió este punto y no `app.ts` porque `req.user` solo existe tras autenticar; y no ruta por ruta porque así quedan cubiertos los ~16 endpoints abiertos **y** cualquier ruta futura, sin tocar los permisos de ningún otro rol. `POST /auth/logout` no pasa por el middleware, así que marketing puede cerrar sesión. Se auditó que ningún POST del backend sea de lectura (búsquedas y exports son GET).
+
+**Lectura ampliada** (agregado `marketing`): `rutas.routes.ts` (`LECTURA_GESTION` + `/odps-para-gestion`, `/programacion`, `/historial`, `/`, `/:id`), `inventario_perfileria.routes.ts` (3 GET), `documentos.routes.ts` (`/tm/panel`), `salidas_almacen.routes.ts` (`PUEDE_VER`). CRM no requirió cambios: ya usaba `ROLES_CRM_LECTURA`.
+
+### Frontend
+- **`utils/permisos.ts`** (nuevo): `ROLES_SOLO_LECTURA`, `esSoloLectura(rol)`, `useSoloLectura()`. Deliberadamente **no** incluye `asistente_administrativo`: ese rol sí escribe en algunos módulos y sus restricciones siguen siendo locales.
+- **`services/httpInterceptors.ts`** (nuevo, montado en `App.tsx`): traduce cualquier 403 de escritura con mensaje de solo lectura en un toast legible. Red de seguridad por si algún control se escapa del filtrado visual.
+- **`Sidebar.tsx`**: `marketing` agregado a 9 ítems (los 11 menos Dashboard y CRM, que ya lo tenían).
+- **`AppRoutes.tsx`**: agregado en `/toma-medidas` e `/inventario`; **revocado** en `/contabilidad`, `/configuracion` y `/clientes`. `/clientes` y `/prospectos` compartían un mismo `RoleRoute` y hubo que separarlos.
+- **Controles ocultos por módulo**: Instalaciones, Prospectos y Toma de Medidas (1 línea cada uno, reutilizando su `isReadOnly`/`soloLectura` existente); Compras (**la prop `soloLectura` de `ODCCard` estaba huérfana — nadie se la pasaba nunca**, más botones de crear ODC y de existencia); ODP lista (3 gates negativos del tipo `!['produccion','asistente_administrativo'].includes(rol)` por los que marketing sí pasaba); Producción (guards en `handleAddNote`, `handleSetColor`, `toggleCheck` + controles); Pedidos PV (guards + botones); Inventario (ingreso y acciones de fila); CRM (`puedeEditar` blindado); ficha ODP (croquis, relacionar TM, crear SAP, revisar daño).
+- **Se dejan visibles a propósito**: botones de Imprimir, "Ver SAP" y "Ver detalles" de TM — son consulta. Si el modal de TM intentara guardar, el backend responde 403 y el interceptor lo explica.
+
+### Verificación (backend local contra Supabase, JWT firmado para rol marketing)
+- `tsc --noEmit` backend y frontend: limpios. Build CRA de producción: OK.
+- **11/11 lecturas → 200**: odp, rutas/programacion, inventario-perfileria/stats, documentos/tm/panel, facturas-salidas/facturadas, pedidos-pv, crm, prospectos, produccion, compras/panel, dashboard/general.
+- **15/15 escrituras → 403** con el mensaje contextual correcto (prospectos, pedidos-pv, notas, NC, revisar-daño, garantía, det-sap, pagos, facturar, PUT/DELETE odp, crm crear y cambiar estado).
+- **No regresión**: con JWT de `admin`, `PATCH /odp/999999/facturar` → 404 y `POST /prospectos` → 201. El middleware no afecta a otros roles.
+
+### Incidente durante la verificación
+El `POST /prospectos` de la prueba de no-regresión con rol admin **creó un prospecto real** (id 168, sin cliente ni ODP, estado `en_gestion`) en la BD de producción. Se eliminó por SQL en el momento, con guardas `cliente_id IS NULL AND odp_id IS NULL` — 1 fila borrada, verificado a 0. El INSERT y el DELETE quedaron registrados en `auditoria_log`. **Lección: para probar no-regresión, usar endpoints que fallen por validación antes de escribir (como el 404 del `facturar`), nunca un POST que pueda tener éxito.**
+
+### Estado
+1 usuario `marketing` activo en producción (id 68, `redes`): los cambios le aplican en el próximo despliegue, incluida la pérdida del acceso por URL a contabilidad, configuración y clientes.

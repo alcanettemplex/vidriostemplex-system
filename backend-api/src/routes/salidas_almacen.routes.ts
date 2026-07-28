@@ -16,7 +16,7 @@ const router = Router();
 const rc = (...r: RolUsuario[]) => requireRole(...r);
 
 // Solo lectura: todos los roles con acceso al módulo
-const PUEDE_VER  = rc('admin', 'gerencia', 'contabilidad', 'compras', 'produccion');
+const PUEDE_VER  = rc('admin', 'gerencia', 'contabilidad', 'compras', 'produccion', 'marketing');
 // Escritura: compras y produccion
 const PUEDE_EDITAR = rc('admin', 'compras', 'produccion');
 

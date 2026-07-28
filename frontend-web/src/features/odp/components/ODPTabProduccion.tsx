@@ -9,6 +9,7 @@ import { Badge, getTmEstado, tmVisitaRealizada } from './ODPFichaModal.utils';
 import Lightbox, { useLightbox } from '../../../components/ui/Lightbox';
 import TMModal from './TMModal';
 import API from '../../../services/config';
+import { esSoloLectura } from '../../../utils/permisos';
 
 const chks = (odp: any) => [
   { key: 'chk_medicion',   label: 'Toma de Medidas',   icon: <Ruler className="w-4 h-4" />,         aplica: (odp.tomas_medidas?.length ?? 0) > 0 },
@@ -155,7 +156,9 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
   const items = chks(odp);
   const completados = items.filter(c => odp[c.key]).length;
   const tms = odp.tomas_medidas || [];
-  const canSolicitarTM = currentUser && ['asesor_comercial', 'jefe_produccion', 'admin', 'gerencia'].includes(currentUser.rol);
+  // Roles de solo lectura (marketing): consultan la ficha sin subir croquis ni vincular TM.
+  const soloLectura = esSoloLectura(currentUser?.rol);
+  const canSolicitarTM = !soloLectura && currentUser && ['asesor_comercial', 'jefe_produccion', 'admin', 'gerencia'].includes(currentUser.rol);
 
   const handleSolicitarTM = async () => {
     if (!window.confirm(`¿Solicitar toma de medidas para ${odp.numero_odp}? La ODP pasará a estado VISITA TÉCNICA.`)) return;
@@ -266,7 +269,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
     }
   };
 
-  const canUploadSAP = currentUser && ['asesor_comercial', 'jefe_produccion', 'admin', 'gerencia', 'contabilidad'].includes(currentUser.rol);
+  const canUploadSAP = !soloLectura && currentUser && ['asesor_comercial', 'jefe_produccion', 'admin', 'gerencia', 'contabilidad'].includes(currentUser.rol);
 
   return (
     <div className="p-6 space-y-6">
@@ -309,7 +312,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
           <div
             className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl p-4 min-h-[160px] relative overflow-hidden group focus:outline-none focus:border-indigo-400"
             tabIndex={0}
-            onPaste={handleCroquisPaste}
+            onPaste={soloLectura ? undefined : handleCroquisPaste}
           >
             {odp.croquis_url ? (
               <>
@@ -336,7 +339,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
                   >
                     <Printer className="w-3.5 h-3.5" /> Imprimir
                   </button>
-                  <label className="cursor-pointer bg-white text-slate-900 px-3 py-2 rounded-lg font-bold text-xs shadow-xl flex items-center gap-1.5 hover:scale-105 transition-transform">
+                  {!soloLectura && (<><label className="cursor-pointer bg-white text-slate-900 px-3 py-2 rounded-lg font-bold text-xs shadow-xl flex items-center gap-1.5 hover:scale-105 transition-transform">
                     <Camera className="w-3.5 h-3.5" /> Cambiar
                     <input type="file" className="hidden" accept="image/*" onChange={handleCroquisUpload} />
                   </label>
@@ -346,7 +349,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
                     className="bg-white text-slate-900 px-3 py-2 rounded-lg font-bold text-xs shadow-xl flex items-center gap-1.5 hover:scale-105 transition-transform"
                   >
                     <ClipboardList className="w-3.5 h-3.5" /> Pegar
-                  </button>
+                  </button></>)}
                 </div>
               </>
             ) : (
@@ -356,7 +359,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
                 </div>
                 <p className="text-slate-500 text-xs font-bold mb-3 uppercase tracking-wider">Aún no hay un dibujo técnico</p>
                 <div className="flex flex-col items-center gap-2">
-                  <label className="cursor-pointer bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-black text-xs shadow-lg shadow-indigo-600/20 flex items-center gap-2 hover:bg-indigo-700 transition">
+                  {!soloLectura && (<><label className="cursor-pointer bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-black text-xs shadow-lg shadow-indigo-600/20 flex items-center gap-2 hover:bg-indigo-700 transition">
                     {uploading ? 'SUBIENDO...' : 'SUBIR CROQUIS'}
                     <input type="file" className="hidden" accept="image/*" onChange={handleCroquisUpload} disabled={uploading} />
                   </label>
@@ -367,7 +370,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
                     className="bg-slate-100 text-slate-700 px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-slate-200 transition border border-slate-200"
                   >
                     <ClipboardList className="w-3.5 h-3.5" /> Pegar desde portapapeles
-                  </button>
+                  </button></>)}
                 </div>
               </div>
             )}
@@ -394,12 +397,12 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
                 {solicitandoTM ? 'Solicitando...' : 'Solicitar TM'}
               </button>
             )}
-            <button
+            {!soloLectura && (<button
               onClick={handleAbrirRelacionar}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition"
             >
               <ExternalLink className="w-3.5 h-3.5" /> Relacionar TM existente
-            </button>
+            </button>)}
           </div>
         )}
 

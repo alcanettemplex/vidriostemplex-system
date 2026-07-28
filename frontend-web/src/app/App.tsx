@@ -7,6 +7,9 @@ import store from '../store/store';
 import theme from '../theme/theme';
 import AppRoutes from '../routes/AppRoutes';
 import { useSocketNotifications } from '../store/useSocketNotifications';
+import { instalarInterceptores } from '../services/httpInterceptors';
+
+instalarInterceptores();
 
 const AppRoot: React.FC = () => {
   useSocketNotifications();

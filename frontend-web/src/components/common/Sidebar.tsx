@@ -51,14 +51,14 @@ const MENU_ITEMS_CONFIG = [
     text: 'Prospectos',
     icon: UserPlus,
     path: '/prospectos',
-    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'asistente_administrativo'],
+    allowedRoles: ['admin', 'marketing', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'asistente_administrativo'],
     section: 'comercial'
   },
   {
     text: 'Órdenes (ODP)',
     icon: FileText,
     path: '/odp',
-    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras', 'produccion', 'asistente_administrativo'],
+    allowedRoles: ['admin', 'marketing', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras', 'produccion', 'asistente_administrativo'],
     section: 'comercial'
   },
   {
@@ -72,49 +72,49 @@ const MENU_ITEMS_CONFIG = [
     text: 'Producción',
     icon: Wrench,
     path: '/produccion',
-    allowedRoles: ['admin', 'gerencia', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion', 'asistente_administrativo'],
+    allowedRoles: ['admin', 'marketing', 'gerencia', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion', 'asistente_administrativo'],
     section: 'produccion'
   },
   {
     text: 'Toma de Medidas',
     icon: Ruler,
     path: '/toma-medidas',
-    allowedRoles: ['admin', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'],
+    allowedRoles: ['admin', 'marketing', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'],
     section: 'produccion'
   },
   {
     text: 'Instalaciones',
     icon: Truck,
     path: '/instalaciones',
-    allowedRoles: ['admin', 'gerencia', 'jefe_produccion', 'instalador', 'conductor', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'],
+    allowedRoles: ['admin', 'marketing', 'gerencia', 'jefe_produccion', 'instalador', 'conductor', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'],
     section: 'produccion'
   },
   {
     text: 'Compras',
     icon: ShoppingCart,
     path: '/compras',
-    allowedRoles: ['admin', 'gerencia', 'compras', 'jefe_produccion'],
+    allowedRoles: ['admin', 'marketing', 'gerencia', 'compras', 'jefe_produccion'],
     section: 'logistica'
   },
   {
     text: 'Inventario Perfilería',
     icon: Package,
     path: '/inventario',
-    allowedRoles: ['admin', 'gerencia', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras'],
+    allowedRoles: ['admin', 'marketing', 'gerencia', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras'],
     section: 'logistica'
   },
   {
     text: 'Pedidos PV',
     icon: GlassWater,
     path: '/pedidos-pv',
-    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras', 'asistente_administrativo'],
+    allowedRoles: ['admin', 'marketing', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras', 'asistente_administrativo'],
     section: 'logistica'
   },
   {
     text: 'Facturas vs Salidas',
     icon: PackageCheck,
     path: '/facturas-salidas',
-    allowedRoles: ['admin', 'gerencia', 'contabilidad', 'compras', 'produccion'],
+    allowedRoles: ['admin', 'marketing', 'gerencia', 'contabilidad', 'compras', 'produccion'],
     section: 'logistica'
   },
   {

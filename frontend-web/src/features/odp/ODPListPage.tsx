@@ -441,7 +441,7 @@ const ODPListPage: React.FC = () => {
                     <h1 className="text-2xl font-bold text-slate-900">Órdenes de Producción</h1>
                     <p className="text-slate-500 text-sm mt-1">Gestiona los pedidos y su flujo por planta</p>
                 </div>
-                {userRole !== 'asistente_administrativo' && (
+                {!['asistente_administrativo', 'marketing'].includes(userRole) && (
                 <button
                     onClick={() => setShowAsignarAsesor(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm font-medium"
@@ -809,7 +809,7 @@ const ODPListPage: React.FC = () => {
                                                     <CheckCircle2 className="w-4 h-4" />
                                                 </button>
                                                 )}
-                                                {!['produccion','asistente_administrativo'].includes(userRole) && odp.estado_produccion !== 'ENTREGADA' && (
+                                                {!['produccion','asistente_administrativo','marketing'].includes(userRole) && odp.estado_produccion !== 'ENTREGADA' && (
                                                 <button
                                                     onClick={() => setEditingOdp(odp)}
                                                     className="text-slate-400 hover:text-emerald-600 transition p-1.5 hover:bg-emerald-50 rounded"
@@ -827,7 +827,7 @@ const ODPListPage: React.FC = () => {
                                                     <Printer className="w-4 h-4" />
                                                 </button>
                                                 )}
-                                                {!['produccion','asistente_administrativo'].includes(userRole) && (
+                                                {!['produccion','asistente_administrativo','marketing'].includes(userRole) && (
                                                 <ActionsMenu
                                                     odp={odp}
                                                     userRole={userRole}
