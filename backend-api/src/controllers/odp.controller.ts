@@ -1419,6 +1419,9 @@ export const facturarODP = async (req: Request, res: Response) => {
     await odp.update(updates, { transaction });
     await transaction.commit();
     invalidarCacheKPIs();
+    // Sincroniza tablas en vivo (Contabilidad, listados) y la ficha ODP: el hook global
+    // limpia la cache Redux de esta ODP al recibir el patch.
+    import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(Number(id), 'update')).catch(() => {});
 
     const odpActualizada = await ODP.findByPk(id);
     res.json(odpActualizada);
@@ -1477,6 +1480,7 @@ export const agregarFacturaAdicional = async (req: Request, res: Response) => {
       creado_por: req.user?.id ?? null,
     });
     invalidarCacheKPIs();
+    import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(Number(id), 'update')).catch(() => {});
 
     res.status(201).json(factura);
   } catch (error: any) {
@@ -1495,6 +1499,7 @@ export const eliminarFacturaAdicional = async (req: Request, res: Response) => {
 
     await factura.destroy();
     invalidarCacheKPIs();
+    import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(Number(id), 'update')).catch(() => {});
 
     res.json({ ok: true });
   } catch (error: any) {

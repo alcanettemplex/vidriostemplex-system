@@ -14,44 +14,13 @@ import {
 import { useDataChangedSocket, useODPSocketPatch } from '../../store/useSocketNotifications';
 
 import API from '../../services/config';
-const getToken = () => sessionStorage.getItem('token');
-const headers = () => ({ Authorization: `Bearer ${getToken()}` });
-const fmt = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
-// Formato de miles para inputs de monto (ej: "4.123.548"). Solo enteros (COP sin centavos).
-const formatMiles = (input: string | number) => {
-  const digits = String(input).replace(/\D/g, '');
-  return digits ? Number(digits).toLocaleString('es-CO') : '';
-};
-const parseMiles = (val: string) => Number(String(val).replace(/\D/g, '')) || 0;
-const fmtFecha = (f: string | null | undefined) => {
-  if (!f) return '—';
-  try {
-    // Extraer YYYY-MM-DD del string ISO para evitar el offset UTC→Bogotá (UTC-5)
-    // que convierte medianoche UTC al día anterior en Colombia.
-    const datePart = typeof f === 'string' ? f.substring(0, 10) : '';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
-      const [y, m, d] = datePart.split('-').map(Number);
-      return new Date(y, m - 1, d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
-    }
-    return new Date(f).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'America/Bogota' });
-  } catch { return f; }
-};
-
-const BANCOS_COLOMBIA = [
-  'Bancolombia', 'Nequi', 'Davivienda', 'Banco de Bogotá', 'BBVA', 'Scotiabank Colpatria',
-  'Banco Popular', 'Banco de Occidente', 'AV Villas', 'Banco Caja Social', 'Banco Agrario',
-  'Citibank', 'Banco Falabella', 'Banco Pichincha', 'Banco Serfinanza', 'Itaú', 'Banco GNB Sudameris',
-  'Banco Finandina', 'Banco Mundo Mujer', 'Lulo Bank', 'Movii', 'Rappipay', 'Otro',
-];
-
-const METODOS_PAGO = ['Efectivo', 'Tarjeta', 'Transferencia'];
+// Helpers y modales compartidos: los mismos que consume la ficha de la ODP.
+import { headers, fmt, fmtFecha, formatMiles, parseMiles, calcPendiente } from './components/contabilidad.utils';
+import FacturaElectronicaModal from './components/FacturaElectronicaModal';
+import AbonoFormModal from './components/AbonoFormModal';
+import ConfirmarEliminarAbonoModal from './components/ConfirmarEliminarAbonoModal';
 
 type Tab = 'estado_caja' | 'pagos' | 'cartera' | 'completado' | 'oa';
-
-const emptyPagoForm = () => ({
-  odp_id: '', monto: '', diferencia: '0', metodo_pago: 'Transferencia', banco: '', referencia_pago: '', observaciones: '',
-  fecha: new Date().toISOString().split('T')[0],
-});
 
 const ContabilidadPage: React.FC = () => {
   const authUser = useSelector((state: any) => state.auth?.user);
@@ -78,42 +47,20 @@ const ContabilidadPage: React.FC = () => {
   const [totalPaginasPagos, setTotalPaginasPagos] = useState(1);
   const [loadingResumen, setLoadingResumen] = useState(true);
 
-  // ─── Modal nuevo pago ────────────────────────────────────────────────────
-  const [showPagoModal, setShowPagoModal] = useState(false);
-  const [odpFija, setOdpFija] = useState(false);
-  const [pagoForm, setPagoForm] = useState(emptyPagoForm());
-  const [submitting, setSubmitting] = useState(false);
-
-  // ─── Modal FE (nueva o edición) ──────────────────────────────────────────
+  // ─── Modales compartidos: FE y abonos ────────────────────────────────────
+  // Cada estado guarda el objetivo (ODP o pago); el formulario vive dentro del componente.
   const [fichaOdpId, setFichaOdpId] = useState<number | null>(null);
-  const [showFeModal, setShowFeModal] = useState(false);
-  const [feTarget, setFeTarget] = useState<{ id: number; numero_odp: string; facturada: boolean; valor_total: number } | null>(null);
-  const [feForm, setFeForm] = useState({ numero_fe: '', fecha_fe: '', monto: '' });
-  // Facturas electrónicas adicionales (2ª/3ª) de la ODP en edición
-  const [feAdicionales, setFeAdicionales] = useState<any[]>([]);
-  const [nuevaAdic, setNuevaAdic] = useState({ numero_fe: '', fecha_fe: '', monto: '' });
-  const [addingAdic, setAddingAdic] = useState(false);
-  const [submittingFe, setSubmittingFe] = useState(false);
-
-  // ─── Modal editar pago ───────────────────────────────────────────────────
-  const [showEditPagoModal, setShowEditPagoModal] = useState(false);
-  const [editPagoTarget, setEditPagoTarget] = useState<any>(null);
-  const [editPagoForm, setEditPagoForm] = useState({
-    monto: '', metodo_pago: 'Transferencia', banco: '', referencia_pago: '', observaciones: '',
-    fecha: new Date().toISOString().split('T')[0],
-  });
-  const [submittingEdit, setSubmittingEdit] = useState(false);
+  const [feTarget, setFeTarget] = useState<any | null>(null);
+  const [showAbonoModal, setShowAbonoModal] = useState(false);
+  const [abonoOdpFija, setAbonoOdpFija] = useState<any | null>(null);
+  const [pagoEnEdicion, setPagoEnEdicion] = useState<any | null>(null);
+  const [pagoAEliminar, setPagoAEliminar] = useState<any | null>(null);
 
   // ─── Modal editar total ODP ─────────────────────────────────────────────
   const [showEditTotalModal, setShowEditTotalModal] = useState(false);
   const [editTotalTarget, setEditTotalTarget] = useState<any>(null);
   const [newTotal, setNewTotal] = useState('');
   const [submittingTotal, setSubmittingTotal] = useState(false);
-
-  // ─── Modal eliminar pago ─────────────────────────────────────────────────
-  const [showDeletePagoModal, setShowDeletePagoModal] = useState(false);
-  const [deletePagoTarget, setDeletePagoTarget] = useState<any>(null);
-  const [submittingDelete, setSubmittingDelete] = useState(false);
 
   // ─── Ordenamiento tabla Estado Caja ─────────────────────────────────────
   const [sortCol, setSortCol] = useState<string | null>(null);
@@ -199,51 +146,8 @@ const ContabilidadPage: React.FC = () => {
     } catch { toast.error('Error al actualizar estado'); }
   };
 
-  const abrirFeModal = (odp: any) => {
-    setFeTarget({ id: odp.id, numero_odp: odp.numero_odp, facturada: !!odp.factura_electronica, valor_total: Number(odp.valor_total) || 0 });
-    setFeForm({
-      numero_fe: odp.factura_electronica || '',
-      fecha_fe: odp.fecha_factura ? odp.fecha_factura.split('T')[0] : new Date().toISOString().split('T')[0],
-      // Monto de la FE principal: precargado con lo ya facturado o, si es nueva, el valor_total.
-      monto: formatMiles(Math.round(Number(odp.monto_factura_principal != null ? odp.monto_factura_principal : (odp.valor_total || 0)))),
-    });
-    setFeAdicionales(odp.facturas_adicionales || []);
-    setNuevaAdic({ numero_fe: '', fecha_fe: '', monto: '' });
-    setShowFeModal(true);
-  };
-
-  const handleAddAdicional = async () => {
-    if (!feTarget) return;
-    if (!nuevaAdic.numero_fe.trim()) { toast.error('Ingresa el número de la factura adicional'); return; }
-    const montoAdic = parseMiles(nuevaAdic.monto);
-    if (!montoAdic || montoAdic <= 0) { toast.error('Ingresa el monto de la factura adicional'); return; }
-    setAddingAdic(true);
-    try {
-      const res = await axios.post(`${API}/api/odp/${feTarget.id}/facturas-adicionales`, {
-        numero_fe: nuevaAdic.numero_fe.trim(),
-        monto: montoAdic,
-        ...(nuevaAdic.fecha_fe ? { fecha_factura: nuevaAdic.fecha_fe } : {}),
-      }, { headers: headers() });
-      const nueva = res.data;
-      setFeAdicionales(prev => [...prev, nueva]);
-      setOdps(prev => prev.map(o => o.id === feTarget.id
-        ? { ...o, facturas_adicionales: [...(o.facturas_adicionales || []), nueva] } : o));
-      setNuevaAdic({ numero_fe: '', fecha_fe: '', monto: '' });
-      toast.success('Factura adicional agregada');
-    } catch (e: any) { toast.error(e.response?.data?.error || 'Error al agregar la factura'); }
-    finally { setAddingAdic(false); }
-  };
-
-  const handleDeleteAdicional = async (facturaId: number) => {
-    if (!feTarget) return;
-    try {
-      await axios.delete(`${API}/api/odp/${feTarget.id}/facturas-adicionales/${facturaId}`, { headers: headers() });
-      setFeAdicionales(prev => prev.filter(f => f.id !== facturaId));
-      setOdps(prev => prev.map(o => o.id === feTarget.id
-        ? { ...o, facturas_adicionales: (o.facturas_adicionales || []).filter((f: any) => f.id !== facturaId) } : o));
-      toast.success('Factura adicional eliminada');
-    } catch (e: any) { toast.error(e.response?.data?.error || 'Error al eliminar'); }
-  };
+  // Abrir el modal de FE: el formulario y el CRUD de adicionales viven en el componente.
+  const abrirFeModal = (odp: any) => setFeTarget(odp);
 
   const handleFacturacionChange = (odp: any, nuevoEstado: string) => {
     if (nuevoEstado === 'FACTURADA') {
@@ -253,104 +157,8 @@ const ContabilidadPage: React.FC = () => {
     }
   };
 
-  const handleFeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!feTarget) return;
-    if (!feForm.numero_fe.trim()) { toast.error('Ingresa el número de factura electrónica'); return; }
-    if (!feForm.fecha_fe) { toast.error('Ingresa la fecha de la factura'); return; }
-    const montoFe = parseMiles(feForm.monto);
-    if (!montoFe || montoFe <= 0) { toast.error('Ingresa un monto de factura válido'); return; }
-    setSubmittingFe(true);
-    try {
-      await axios.patch(`${API}/api/odp/${feTarget.id}/facturar`, {
-        estado_facturacion: 'FACTURADA',
-        factura_electronica: feForm.numero_fe.trim(),
-        fecha_factura: feForm.fecha_fe,
-        monto_factura: montoFe,
-      }, { headers: headers() });
-      setOdps(prev => prev.map(o => o.id === feTarget.id
-        ? { ...o, estado_facturacion: 'FACTURADA', factura_electronica: feForm.numero_fe.trim(), fecha_factura: feForm.fecha_fe, monto_factura_principal: montoFe }
-        : o));
-      toast.success('Factura registrada correctamente');
-      setShowFeModal(false);
-      setFeTarget(null);
-    } catch (e: any) { toast.error(e.response?.data?.error || 'Error al registrar factura'); } finally { setSubmittingFe(false); }
-  };
-
-  // ─── Handler nuevo pago ──────────────────────────────────────────────────
-  const handlePagoSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pagoForm.odp_id || !pagoForm.monto || parseMiles(pagoForm.monto) <= 0) {
-      toast.error('Selecciona una ODP y un monto válido.'); return;
-    }
-    if (pagoForm.metodo_pago === 'Transferencia' && !pagoForm.banco) {
-      toast.error('Selecciona el banco para transferencias.'); return;
-    }
-    setSubmitting(true);
-    try {
-      const payload = {
-        odp_id: Number(pagoForm.odp_id),
-        monto: parseMiles(pagoForm.monto),
-        diferencia: parseMiles(pagoForm.diferencia) || 0,
-        metodo_pago: pagoForm.metodo_pago === 'Transferencia' ? pagoForm.banco : pagoForm.metodo_pago,
-        referencia_pago: pagoForm.referencia_pago || undefined,
-        observaciones: pagoForm.observaciones || undefined,
-        fecha: pagoForm.fecha || undefined,
-      };
-      await axios.post(`${API}/api/contabilidad/pagos`, payload, { headers: headers() });
-      toast.success('Pago registrado correctamente');
-      setShowPagoModal(false);
-      setPagoForm(emptyPagoForm());
-      fetchOdps();
-      fetchResumen();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error al registrar pago');
-    } finally { setSubmitting(false); }
-  };
-
-  // ─── Handler editar pago ─────────────────────────────────────────────────
-  const abrirEditPago = (pago: any) => {
-    setEditPagoTarget(pago);
-    const esBanco = BANCOS_COLOMBIA.includes(pago.metodo_pago);
-    setEditPagoForm({
-      monto: formatMiles(Math.round(Number(pago.monto) || 0)),
-      metodo_pago: esBanco ? 'Transferencia' : pago.metodo_pago,
-      banco: esBanco ? pago.metodo_pago : '',
-      referencia_pago: pago.referencia_pago || '',
-      observaciones: pago.observaciones || '',
-      fecha: pago.fecha ? new Date(pago.fecha).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-    });
-    setShowEditPagoModal(true);
-  };
-
-  const handleEditPagoSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editPagoTarget) return;
-    if (!editPagoForm.monto || parseMiles(editPagoForm.monto) <= 0) {
-      toast.error('Ingresa un monto válido'); return;
-    }
-    if (editPagoForm.metodo_pago === 'Transferencia' && !editPagoForm.banco) {
-      toast.error('Selecciona el banco'); return;
-    }
-    setSubmittingEdit(true);
-    try {
-      const payload = {
-        monto: parseMiles(editPagoForm.monto),
-        metodo_pago: editPagoForm.metodo_pago === 'Transferencia' ? editPagoForm.banco : editPagoForm.metodo_pago,
-        referencia_pago: editPagoForm.referencia_pago || null,
-        observaciones: editPagoForm.observaciones || null,
-        fecha: editPagoForm.fecha || null,
-      };
-      await axios.put(`${API}/api/contabilidad/pagos/${editPagoTarget.id}`, payload, { headers: headers() });
-      toast.success('Pago actualizado correctamente');
-      setShowEditPagoModal(false);
-      setEditPagoTarget(null);
-      fetchOdps();
-      fetchResumen();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error al editar pago');
-    } finally { setSubmittingEdit(false); }
-  };
+  // Abrir el modal de abono con la ODP ya fijada (botón "Registrar Abono" de las tablas).
+  const abrirAbonoDeODP = (odp: any) => { setAbonoOdpFija(odp); setShowAbonoModal(true); };
 
   // ─── Handler editar total ODP ───────────────────────────────────────────
   const abrirEditTotal = (odp: any) => {
@@ -377,30 +185,10 @@ const ContabilidadPage: React.FC = () => {
     } finally { setSubmittingTotal(false); }
   };
 
-  // ─── Handler eliminar pago ───────────────────────────────────────────────
-  const handleDeletePago = async () => {
-    if (!deletePagoTarget) return;
-    setSubmittingDelete(true);
-    try {
-      await axios.delete(`${API}/api/contabilidad/pagos/${deletePagoTarget.id}`, { headers: headers() });
-      toast.success('Pago eliminado. El estado de la ODP fue recalculado.');
-      setShowDeletePagoModal(false);
-      setDeletePagoTarget(null);
-      fetchOdps();
-      fetchResumen();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error al eliminar pago');
-    } finally { setSubmittingDelete(false); }
-  };
+  // Refresco tras cualquier alta/edición/borrado de abono (mismo comportamiento previo).
+  const refrescarTrasAbono = () => { fetchOdps(); fetchResumen(); };
 
   // ─── Datos derivados ─────────────────────────────────────────────────────
-  // Usa el pendiente almacenado en BD (ya descuenta diferencia/retención).
-  // Fallback a valor_total-abono solo si pendiente no está disponible (ODPs antiguas).
-  const calcPendiente = (o: any) =>
-    o.pendiente != null
-      ? Number(o.pendiente)
-      : Math.max(0, Number(o.valor_total || 0) - Number(o.abono || 0));
-
   const diasParaVencer = (o: any): number | null => {
     if (o.estado_caja !== 'CREDITO_APROBADO' || !o.fecha_vencimiento_credito) return null;
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
@@ -505,10 +293,6 @@ const ContabilidadPage: React.FC = () => {
   const pendFactura = resumen?.pendientes_factura ?? odps.filter(o => o.estado_facturacion === 'PENDIENTE' && !o.factura_electronica).length;
   const carteraVencida = resumen?.cartera_vencida || '$0';
 
-  const requiereBancoActual = pagoForm.metodo_pago === 'Transferencia';
-  const requiereReciboActual = pagoForm.metodo_pago !== 'Efectivo';
-  const requiereBancoEdit = editPagoForm.metodo_pago === 'Transferencia';
-
   const TABS = [
     ...(!isAsistenteAdmin ? [
       { key: 'estado_caja' as Tab, label: 'Estado Caja', icon: <Banknote className="w-4 h-4" />, badge: odps.length - odpsCompletadas.length },
@@ -534,7 +318,7 @@ const ContabilidadPage: React.FC = () => {
         </div>
         {(!isReadOnly || canPayOA) && (
         <button
-          onClick={() => { setOdpFija(false); setPagoForm(p => ({ ...p, odp_id: '' })); setShowPagoModal(true); }}
+          onClick={() => { setAbonoOdpFija(null); setShowAbonoModal(true); }}
           className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-md shadow-emerald-200 hover:bg-emerald-700 transition-all hover:-translate-y-0.5"
         >
           <Plus className="w-5 h-5" /> Registrar Pago
@@ -763,7 +547,7 @@ const ContabilidadPage: React.FC = () => {
                       <td className="px-4 py-4">
                         {!isReadOnly && odp.estado_caja !== 'CANCELADO' && (
                           <button
-                            onClick={() => { setOdpFija(true); setPagoForm(p => ({ ...p, odp_id: String(odp.id), monto: '' })); setShowPagoModal(true); }}
+                            onClick={() => abrirAbonoDeODP(odp)}
                             className="text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-all flex items-center gap-1 whitespace-nowrap"
                           >
                             <Banknote className="w-3.5 h-3.5" /> Registrar Abono
@@ -832,14 +616,14 @@ const ContabilidadPage: React.FC = () => {
                           <div className="flex items-center gap-1">
                             {!isReadOnly && (<>
                             <button
-                              onClick={() => abrirEditPago(pago)}
+                              onClick={() => setPagoEnEdicion(pago)}
                               title="Editar pago"
                               className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => { setDeletePagoTarget(pago); setShowDeletePagoModal(true); }}
+                              onClick={() => setPagoAEliminar(pago)}
                               title="Eliminar pago"
                               className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
                             >
@@ -1173,7 +957,7 @@ const ContabilidadPage: React.FC = () => {
                       <td className="px-4 py-4">
                         {canPayOA && odp.estado_caja !== 'CANCELADO' && (
                           <button
-                            onClick={() => { setOdpFija(true); setPagoForm(p => ({ ...p, odp_id: String(odp.id), monto: '' })); setShowPagoModal(true); }}
+                            onClick={() => abrirAbonoDeODP(odp)}
                             className="text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-all flex items-center gap-1 whitespace-nowrap"
                           >
                             <Banknote className="w-3.5 h-3.5" /> Registrar Abono
@@ -1190,310 +974,32 @@ const ContabilidadPage: React.FC = () => {
         )}
       </div>
 
-      {/* ═══ MODAL FE ════════════════════════════════════════════════════════ */}
-      {showFeModal && feTarget && (() => {
-        const sumAdicionales = feAdicionales.reduce((s: number, f: any) => s + (Number(f.monto) || 0), 0);
-        const saldoRestante = feTarget.valor_total - parseMiles(feForm.monto) - sumAdicionales;
-        return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
-            <div className="flex justify-between items-center px-6 py-5 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <FileCheck className="w-5 h-5 text-emerald-600" /> Factura Electrónica
-              </h2>
-              <button onClick={() => { setShowFeModal(false); setFeTarget(null); }} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleFeSubmit} className="p-6 space-y-4">
-              <p className="text-sm text-slate-600">ODP: <span className="font-bold text-indigo-700">{feTarget.numero_odp}</span></p>
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">FE No. *</label>
-                <input value={feForm.numero_fe} onChange={e => setFeForm(p => ({ ...p, numero_fe: e.target.value }))}
-                  placeholder="Ej: 2024-001" required
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Fecha Factura *</label>
-                <input type="date" value={feForm.fecha_fe} onChange={e => setFeForm(p => ({ ...p, fecha_fe: e.target.value }))}
-                  required className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Monto facturado *</label>
-                <input type="text" inputMode="numeric" value={feForm.monto}
-                  onChange={e => setFeForm(p => ({ ...p, monto: formatMiles(e.target.value) }))} required
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-                <p className="text-[11px] text-slate-500 mt-1">Valor total de la ODP: <span className="font-semibold">{fmt(feTarget.valor_total)}</span></p>
-              </div>
-
-              {/* Contador de saldo restante por facturar (valor_total − principal − adicionales) */}
-              <div className={`rounded-lg px-3 py-2 text-sm flex items-center justify-between border ${saldoRestante < -0.01 ? 'bg-rose-50 border-rose-200 text-rose-700' : saldoRestante > 0.01 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}>
-                <span className="font-semibold uppercase text-[11px] tracking-wide">Saldo por facturar</span>
-                <span className="font-bold">{fmt(saldoRestante)}</span>
-              </div>
-
-              {/* Facturas electrónicas adicionales (solo si la ODP ya tiene FE principal) */}
-              {feTarget.facturada && (
-                <div className="pt-3 border-t border-slate-100">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-xs font-bold text-slate-600 uppercase">Facturas adicionales</label>
-                    <span className="text-[10px] text-slate-400">{feAdicionales.length}/2 · máx. 3 FE por ODP</span>
-                  </div>
-
-                  {feAdicionales.length > 0 && (
-                    <div className="space-y-1.5 mb-2">
-                      {feAdicionales.map((f: any) => (
-                        <div key={f.id} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="font-mono text-xs font-bold text-emerald-700">FE-{f.numero_fe}</span>
-                            {f.fecha_factura && <span className="text-[11px] text-slate-400">{fmtFecha(f.fecha_factura)}</span>}
-                            <span className="text-[11px] font-semibold text-slate-600">{fmt(Number(f.monto) || 0)}</span>
-                          </div>
-                          <button type="button" onClick={() => handleDeleteAdicional(f.id)}
-                            title="Eliminar factura adicional"
-                            className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {feAdicionales.length < 2 ? (
-                    <div className="flex flex-wrap items-end gap-2">
-                      <div className="flex-1 min-w-[110px]">
-                        <label className="block text-[10px] font-semibold text-slate-500 mb-0.5 uppercase">FE No.</label>
-                        <input value={nuevaAdic.numero_fe} onChange={e => setNuevaAdic(p => ({ ...p, numero_fe: e.target.value }))}
-                          placeholder="Ej: 2024-002"
-                          className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-                      </div>
-                      <div className="w-28">
-                        <label className="block text-[10px] font-semibold text-slate-500 mb-0.5 uppercase">Fecha</label>
-                        <input type="date" value={nuevaAdic.fecha_fe} onChange={e => setNuevaAdic(p => ({ ...p, fecha_fe: e.target.value }))}
-                          className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-                      </div>
-                      <div className="w-24">
-                        <label className="block text-[10px] font-semibold text-slate-500 mb-0.5 uppercase">Monto</label>
-                        <input type="text" inputMode="numeric" value={nuevaAdic.monto}
-                          onChange={e => setNuevaAdic(p => ({ ...p, monto: formatMiles(e.target.value) }))} placeholder="0"
-                          className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-                      </div>
-                      <button type="button" onClick={handleAddAdicional} disabled={addingAdic}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition disabled:opacity-50">
-                        <Plus className="w-3.5 h-3.5" /> Agregar
-                      </button>
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-slate-400 italic">Límite alcanzado (3 facturas en total).</p>
-                  )}
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { setShowFeModal(false); setFeTarget(null); }}
-                  className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">Cancelar</button>
-                <button type="submit" disabled={submittingFe}
-                  className="flex-1 py-2.5 font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition shadow-md shadow-emerald-200 disabled:opacity-50">
-                  {submittingFe ? 'Guardando...' : 'Guardar Factura'}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-        );
-      })()}
-
-      {/* ═══ MODAL REGISTRAR PAGO ════════════════════════════════════════════ */}
-      {showPagoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200">
-            <div className="flex justify-between items-center px-6 py-5 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
-                <div className="p-2 bg-emerald-50 rounded-lg">
-                  <DollarSign className="w-5 h-5 text-emerald-600" />
-                </div>
-                Registrar Pago
-              </h2>
-              <button onClick={() => setShowPagoModal(false)} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handlePagoSubmit} className="p-6 space-y-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">ODP *</label>
-                {odpFija ? (
-                  <div className="w-full border border-indigo-100 bg-indigo-50/30 rounded-xl px-4 py-3.5 text-[13px] font-bold text-indigo-900 shadow-sm leading-relaxed">
-                    {(() => {
-                      const pool = isAsistenteAdmin ? odpsOA : odps;
-                      const o = pool.find((x: any) => String(x.id) === pagoForm.odp_id);
-                      return o ? `${o.numero_odp} — ${o.cliente?.nombre_razon_social} — Pendiente: ${fmt(calcPendiente(o))}` : pagoForm.odp_id;
-                    })()}
-                  </div>
-                ) : (
-                  <select value={pagoForm.odp_id} onChange={e => setPagoForm(p => ({ ...p, odp_id: e.target.value }))} required
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm">
-                    <option value="">-- Seleccionar ODP con pendiente --</option>
-                    {(isAsistenteAdmin ? odpsOAPendientes : odpsPendientes).map((o: any) => (
-                      <option key={o.id} value={o.id}>
-                        {o.numero_odp} — {o.cliente?.nombre_razon_social} — Pendiente: {fmt(calcPendiente(o))}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Monto (COP) *</label>
-                  <input type="text" inputMode="numeric" value={pagoForm.monto} onChange={e => setPagoForm(p => ({ ...p, monto: formatMiles(e.target.value) }))}
-                    placeholder="0" required
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Diferencia (COP)</label>
-                  <input type="text" inputMode="numeric" value={pagoForm.diferencia} onChange={e => setPagoForm(p => ({ ...p, diferencia: formatMiles(e.target.value) }))}
-                    placeholder="0"
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 shadow-sm" />
-                  <p className="text-[10px] text-slate-400 mt-1">Descuento adicional (no cuenta en abono estadístico)</p>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Fecha Pago *</label>
-                <input type="date" value={pagoForm.fecha} onChange={e => setPagoForm(p => ({ ...p, fecha: e.target.value }))}
-                  required
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Forma de Pago *</label>
-                <select value={pagoForm.metodo_pago} onChange={e => setPagoForm(p => ({ ...p, metodo_pago: e.target.value, banco: '' }))}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm">
-                  {METODOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Banco *</label>
-                <select value={pagoForm.banco} onChange={e => setPagoForm(p => ({ ...p, banco: e.target.value }))}
-                  required={requiereBancoActual} disabled={!requiereBancoActual}
-                  className={`w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm ${!requiereBancoActual ? 'bg-slate-50 opacity-50' : ''}`}>
-                  <option value="">-- Seleccionar banco --</option>
-                  {BANCOS_COLOMBIA.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Recibo No.</label>
-                <input value={pagoForm.referencia_pago} onChange={e => setPagoForm(p => ({ ...p, referencia_pago: e.target.value }))}
-                  placeholder="Número de recibo o comprobante"
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Observaciones</label>
-                <textarea value={pagoForm.observaciones} onChange={e => setPagoForm(p => ({ ...p, observaciones: e.target.value }))}
-                  placeholder="Notas adicionales..." rows={2}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none shadow-sm" />
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => setShowPagoModal(false)}
-                  className="flex-1 py-3.5 font-bold text-slate-600 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition shadow-sm">Cancelar</button>
-                <button type="submit" disabled={submitting}
-                  className="flex-1 py-3.5 font-bold text-white bg-emerald-600 rounded-2xl hover:bg-emerald-700 transition shadow-lg shadow-emerald-200 disabled:opacity-50">
-                  {submitting ? 'Guardando...' : 'Registrar Pago'}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
+      {/* ═══ MODALES COMPARTIDOS: FE Y ABONOS ══════════════════════ */}
+      {/* Los mismos componentes que consume la ficha de la ODP. */}
+      {feTarget && (
+        <FacturaElectronicaModal
+          odp={feTarget}
+          onClose={() => setFeTarget(null)}
+          onSaved={(patch) => setOdps(prev => prev.map(o => o.id === patch.id ? { ...o, ...patch } : o))}
+          onAdicionalesChange={(odpId, facturas) => setOdps(prev => prev.map(o => o.id === odpId ? { ...o, facturas_adicionales: facturas } : o))}
+        />
       )}
 
-      {/* ═══ MODAL EDITAR PAGO ═══════════════════════════════════════════════ */}
-      {showEditPagoModal && editPagoTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200">
-            <div className="flex justify-between items-center px-6 py-5 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
-                <div className="p-2 bg-indigo-50 rounded-lg">
-                  <Pencil className="w-5 h-5 text-indigo-600" />
-                </div>
-                Editar Pago
-              </h2>
-              <button onClick={() => { setShowEditPagoModal(false); setEditPagoTarget(null); }}
-                className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleEditPagoSubmit} className="p-6 space-y-5">
-              <div className="w-full border border-slate-100 bg-slate-50/50 rounded-xl px-4 py-3 text-[13px] font-bold text-slate-700 leading-relaxed shadow-sm">
-                ODP: <span className="text-indigo-700">{editPagoTarget.odp?.numero_odp || `ODP-${editPagoTarget.odp_id}`}</span>
-                <span className="ml-3 text-slate-400 font-medium">Original: {fmtFecha(editPagoTarget.fecha)}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Monto (COP) *</label>
-                  <input type="text" inputMode="numeric" value={editPagoForm.monto}
-                    onChange={e => setEditPagoForm(p => ({ ...p, monto: formatMiles(e.target.value) }))}
-                    placeholder="0" required
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Fecha Pago *</label>
-                  <input type="date" value={editPagoForm.fecha}
-                    onChange={e => setEditPagoForm(p => ({ ...p, fecha: e.target.value }))}
-                    required
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Forma de Pago *</label>
-                <select value={editPagoForm.metodo_pago}
-                  onChange={e => setEditPagoForm(p => ({ ...p, metodo_pago: e.target.value, banco: '' }))}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm">
-                  {METODOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
+      {showAbonoModal && (
+        <AbonoFormModal
+          odpFija={abonoOdpFija}
+          odpsDisponibles={isAsistenteAdmin ? odpsOAPendientes : odpsPendientes}
+          onClose={() => { setShowAbonoModal(false); setAbonoOdpFija(null); }}
+          onSaved={refrescarTrasAbono}
+        />
+      )}
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Banco *</label>
-                <select value={editPagoForm.banco}
-                  onChange={e => setEditPagoForm(p => ({ ...p, banco: e.target.value }))}
-                  required={requiereBancoEdit} disabled={!requiereBancoEdit}
-                  className={`w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm ${!requiereBancoEdit ? 'bg-slate-50 opacity-50' : ''}`}>
-                  <option value="">-- Seleccionar banco --</option>
-                  {BANCOS_COLOMBIA.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Recibo No.</label>
-                <input value={editPagoForm.referencia_pago}
-                  onChange={e => setEditPagoForm(p => ({ ...p, referencia_pago: e.target.value }))}
-                  placeholder="Número de recibo o comprobante"
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Observaciones</label>
-                <textarea value={editPagoForm.observaciones}
-                  onChange={e => setEditPagoForm(p => ({ ...p, observaciones: e.target.value }))}
-                  placeholder="Notas adicionales..." rows={2}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none shadow-sm" />
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => { setShowEditPagoModal(false); setEditPagoTarget(null); }}
-                  className="flex-1 py-3.5 font-bold text-slate-600 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition shadow-sm">Cancelar</button>
-                <button type="submit" disabled={submittingEdit}
-                  className="flex-1 py-3.5 font-bold text-white bg-indigo-600 rounded-2xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 disabled:opacity-50">
-                  {submittingEdit ? 'Guardando...' : 'Guardar Cambios'}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
+      {pagoEnEdicion && (
+        <AbonoFormModal
+          pago={pagoEnEdicion}
+          onClose={() => setPagoEnEdicion(null)}
+          onSaved={refrescarTrasAbono}
+        />
       )}
 
       {/* ═══ MODAL EDITAR TOTAL ODP ════════════════════════════════════════ */}
@@ -1536,38 +1042,12 @@ const ContabilidadPage: React.FC = () => {
         </div>
       )}
 
-      {/* ═══ MODAL ELIMINAR PAGO ═════════════════════════════════════════════ */}
-      {showDeletePagoModal && deletePagoTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-slate-200 p-6">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="p-3 bg-rose-50 rounded-2xl flex-shrink-0">
-                <Trash2 className="w-6 h-6 text-rose-600" />
-              </div>
-              <div>
-                <h3 className="font-extrabold text-slate-900 text-lg">¿Eliminar este pago?</h3>
-                <p className="text-sm text-slate-500 mt-1 leading-relaxed">
-                  Pago de <span className="font-bold text-slate-800">{fmt(Number(deletePagoTarget.monto))}</span> en{' '}
-                  <span className="font-bold text-indigo-700">{deletePagoTarget.odp?.numero_odp || `ODP-${deletePagoTarget.odp_id}`}</span>.
-                </p>
-              </div>
-            </div>
-            <p className="text-xs text-slate-400 mb-6 bg-slate-50 p-3 rounded-lg border border-slate-100 italic">
-              Esta acción es irreversible y el saldo pendiente de la ODP será recalculado automáticamente.
-            </p>
-            <div className="flex gap-4">
-              <button onClick={() => { setShowDeletePagoModal(false); setDeletePagoTarget(null); }}
-                className="flex-1 py-3 font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition">
-                No, cancelar
-              </button>
-              <button onClick={handleDeletePago} disabled={submittingDelete}
-                className="flex-1 py-3 font-bold text-white bg-rose-600 rounded-xl hover:bg-rose-700 transition shadow-lg shadow-rose-200 disabled:opacity-50">
-                {submittingDelete ? 'Eliminando...' : 'Sí, eliminar'}
-              </button>
-            </div>
-          </motion.div>
-        </div>
+      {pagoAEliminar && (
+        <ConfirmarEliminarAbonoModal
+          pago={pagoAEliminar}
+          onClose={() => setPagoAEliminar(null)}
+          onDeleted={refrescarTrasAbono}
+        />
       )}
 
       {fichaOdpId && <ODPFichaModal odpId={fichaOdpId} onClose={() => setFichaOdpId(null)} />}

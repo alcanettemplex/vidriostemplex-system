@@ -133,3 +133,33 @@ Impacto: `sqlFacturadoEnRango` (`utils/facturacion.ts`) suma con `SUM`, que **ig
 3. **Restricción en BD** — `CHECK (estado_facturacion <> 'FACTURADA' OR factura_electronica IS NULL OR monto_factura_principal IS NOT NULL)`. Garantía a prueba de futuras rutas, pero rompería con error 500 crudo cualquier flujo que hoy no setea el monto; hacerlo solo **después** de 1 o 2.
 
 **Estimación:** 30 min (opción 1) a 1 h (opción 2). Recomendada la 1 por ser aditiva y no alterar cómo trabaja el equipo hoy.
+
+---
+
+## 2026-07-27 — La impresión de documentos depende de un CDN externo (`cdn.tailwindcss.com`)
+
+**Severidad:** Media
+
+**Descripción:**
+Todos los flujos de impresión abren una ventana nueva con `window.open` y le inyectan `<script src="https://cdn.tailwindcss.com"></script>` para darle estilos al documento. Si el CDN no responde (sin internet en el taller, bloqueo de red, caída del servicio), el documento sale **sin ningún estilo**: tablas sin bordes, sin márgenes, sin colores de fondo.
+
+Es innecesario: el proyecto compila Tailwind localmente (`tailwindcss ^3.4.19`, `postcss.config.js`, `@tailwind base/components/utilities` en `src/index.css`, `content: ["./src/**/*.{js,jsx,ts,tsx}"]`). Como los printables viven bajo `src/`, sus clases **ya están en el CSS del bundle** que el navegador tiene cargado. Se sale a la red a buscar algo que ya está en memoria.
+
+Peor: el CDN carga Tailwind con la **configuración por defecto**, sin `tailwind.config.js`, así que ninguna clase del theme extendido (`apple-*`, `shadow-apple`) existe en la ventana de impresión aunque sí exista en pantalla.
+
+**Segundo defecto, en el mismo código:** el disparo de `print()` se hace con un `setTimeout` ciego —800 ms en `ODPTabImprimir`, 600 ms en `printDocument.ts`— en vez de esperar la carga real del CSS. Es una carrera: en un equipo lento o con el CDN frío, el diálogo de impresión aparece antes de que los estilos estén aplicados.
+
+**Alcance conocido (5 sitios):**
+- `frontend-web/src/features/odp/components/ODPTabImprimir.tsx:57`
+- `frontend-web/src/features/compras/ComprasPage.tsx:394`
+- `frontend-web/src/features/pedidos-pv/PedidosPVPage.tsx:588`
+- `frontend-web/src/features/instalaciones/components/InstaladorView.tsx:96`
+- `frontend-web/src/features/instalaciones/utils/printDocument.ts:13`
+
+**Solución propuesta (ya investigada, no implementada):** un helper `frontend-web/src/utils/printWindow.ts` que (1) serialice las `cssRules` de `document.styleSheets` a un `<style>` inline en la ventana nueva —cero red, y si alguna hoja fuera cross-origin y lanzara `SecurityError`, caer a clonar el `<link href>` absoluto—, (2) conserve los estilos de impresión propios de cada sitio (`@page`, `.excel-table`, `.sap-page`, `print-color-adjust`), y (3) reemplace el `setTimeout` por espera real de carga, dejando el timeout solo como red de seguridad. Los 5 sitios pasarían a consumirlo; `printDocument.ts` quedaría absorbido.
+
+**Riesgo de corregirlo:** pasar del Tailwind del CDN al compilado **puede mover detalles visuales** en documentos que la empresa imprime a diario (talonario, garantía, OP, SAP, det. técnico, det. SAP, no conformidad, OA). No es un cambio invisible: exige revisar a ojo los 9 printables de la ficha ODP más los de compras, pedidos PV e instalador. Por eso conviene hacerlo como cambio aislado, nunca mezclado con otro trabajo sobre esas pantallas.
+
+**Cómo se detectó:** Análisis previo a agregar los accesos directos de facturación en `ODPTabImprimir` (2026-07-27). El usuario decidió documentarlo y no tocarlo en esa pasada.
+
+**Estimación:** 2-3 h — 1 h el helper y la migración de los 5 sitios, el resto verificación visual de cada formato impreso.

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  FileText, Package, Ruler, Images, Shield, AlertCircle, Printer
+  FileText, Package, Ruler, Images, Shield, AlertCircle, Printer, Banknote, FileCheck, Pencil
 } from 'lucide-react';
 import axios from 'axios';
 import PrintableTalonario from './PrintableTalonario';
@@ -11,11 +11,15 @@ import PrintableOA from './PrintableOA';
 import PrintableDetalleTecnico from './PrintableDetalleTecnico';
 import PrintableDetSAP from './PrintableDetSAP';
 import PrintableSAP from './PrintableSAP';
+import FacturaElectronicaModal from '../../contabilidad/components/FacturaElectronicaModal';
+import AbonoFormModal from '../../contabilidad/components/AbonoFormModal';
+import AbonosODPModal from '../../contabilidad/components/AbonosODPModal';
+import { fmtFecha, puedeGestionarCobros } from '../../contabilidad/components/contabilidad.utils';
 import API from '../../../services/config';
 
 type FormatId = 'compra' | 'op' | 'tecnico' | 'det_sap' | 'garantia' | 'noconformidad' | 'sap';
 
-const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
+const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUser }) => {
   const tieneNC = (odp?.no_conformidades?.length || 0) > 0;
   const tieneGarantias = (odp?.garantias?.length || 0) > 0;
   const esGarantia = !!odp?.es_garantia;
@@ -26,6 +30,21 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
   const [garantiaIndex, setGarantiaIndex] = useState(0);
   const [detSapImagenes, setDetSapImagenes] = useState<any[]>([]);
   const [ncOrigenData, setNcOrigenData] = useState<any>(null);
+
+  // ─── Accesos directos a facturación y abonos (mismos modales que Contabilidad) ──
+  // Visibilidad replicada de la tabla Estado Caja: las OA no se facturan, las garantías
+  // no se cobran y una caja ya CANCELADA no admite abonos nuevos.
+  const [showFeModal, setShowFeModal] = useState(false);
+  const [showAbonoModal, setShowAbonoModal] = useState(false);
+  const [showAbonosModal, setShowAbonosModal] = useState(false);
+
+  const puedeCobros = puedeGestionarCobros(currentUser?.rol);
+  const esOA = odp?.tipo_odp === 'OA';
+  const puedeFacturar = puedeCobros && !esOA && !esGarantia;
+  const puedeRegistrarAbono = puedeCobros && !esGarantia && odp?.estado_caja !== 'CANCELADO';
+  const totalAbonos = odp?.pagos?.length || 0;
+  const puedeVerAbonos = puedeCobros && totalAbonos > 0;
+  const hayAccesosDirectos = puedeFacturar || puedeRegistrarAbono || puedeVerAbonos;
 
   const token = sessionStorage.getItem('token');
 
@@ -137,9 +156,52 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
             </div>
         )}
 
-        <button onClick={handlePrint} className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white font-black text-xs rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30">
-          <Printer className="w-3 h-3" /> IMPRIMIR
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {hayAccesosDirectos && (
+            <div className="flex flex-wrap items-center gap-2 pr-2 mr-1 border-r border-slate-200">
+              {puedeFacturar && (
+                <button onClick={() => setShowFeModal(true)}
+                  title={odp?.factura_electronica ? 'Editar factura electrónica' : 'Registrar factura electrónica'}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition ${
+                    odp?.factura_electronica
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}>
+                  <FileCheck className="w-3.5 h-3.5" />
+                  {odp?.factura_electronica ? (
+                    <span className="font-mono">
+                      FE-{odp.factura_electronica}
+                      {odp.fecha_factura && <span className="ml-1 font-sans font-medium opacity-70">· {fmtFecha(odp.fecha_factura)}</span>}
+                      {odp.facturas_adicionales?.length > 0 && (
+                        <span className="ml-1 font-sans text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-100 px-1 rounded">
+                          +{odp.facturas_adicionales.length}
+                        </span>
+                      )}
+                    </span>
+                  ) : 'Registrar FE'}
+                  <Pencil className="w-3 h-3 opacity-60" />
+                </button>
+              )}
+              {puedeRegistrarAbono && (
+                <button onClick={() => setShowAbonoModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition">
+                  <Banknote className="w-3.5 h-3.5" /> Registrar Abono
+                </button>
+              )}
+              {puedeVerAbonos && (
+                <button onClick={() => setShowAbonosModal(true)}
+                  title="Ver, editar o eliminar los abonos de esta ODP"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition">
+                  Abonos
+                  <span className="text-[10px] font-black bg-slate-200 text-slate-700 px-1.5 rounded-full">{totalAbonos}</span>
+                </button>
+              )}
+            </div>
+          )}
+          <button onClick={handlePrint} className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white font-black text-xs rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30">
+            <Printer className="w-3 h-3" /> IMPRIMIR
+          </button>
+        </div>
       </div>
 
       <div className="p-8 overflow-y-auto flex-1 flex flex-col items-center justify-start" id="printable-area">
@@ -159,6 +221,23 @@ const TabImprimir: React.FC<{ odp: any }> = ({ odp }) => {
         )}
         {selectedFormat === 'sap' && <PrintableSAP odp={odp} sap={odp?.saps?.[0]} />}
       </div>
+
+      {/* Modales de Contabilidad — fuera de #printable-area para que no entren en la impresión.
+          Tras guardar no se refresca a mano: el backend emite odp_patch y el hook global
+          limpia la cache Redux de esta ODP, que se recarga sola. */}
+      {showFeModal && (
+        <FacturaElectronicaModal odp={odp} onClose={() => setShowFeModal(false)} />
+      )}
+      {showAbonoModal && (
+        <AbonoFormModal odpFija={odp} onClose={() => setShowAbonoModal(false)} />
+      )}
+      {showAbonosModal && (
+        <AbonosODPModal
+          odp={odp}
+          puedeRegistrar={puedeRegistrarAbono}
+          onClose={() => setShowAbonosModal(false)}
+        />
+      )}
     </div>
   );
 };

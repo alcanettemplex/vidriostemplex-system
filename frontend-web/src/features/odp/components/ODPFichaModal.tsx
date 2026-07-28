@@ -280,7 +280,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                   {activeTab === 'instalacion' && <TabInstalacion odp={odp} onOpenLightbox={openLightbox} currentUser={currentUser} onRefresh={fetchODP} />}
                   {activeTab === 'financiero'  && <TabFinanciero odp={odp} />}
                   {activeTab === 'historial'   && <TabHistorial odp={odp} onOpenLightbox={openLightbox} />}
-                  {activeTab === 'imprimir'    && <TabImprimir odp={odp} />}
+                  {activeTab === 'imprimir'    && <TabImprimir odp={odp} currentUser={currentUser} />}
                 </motion.div>
               </AnimatePresence>
               <Lightbox src={lightboxSrc} onClose={closeLightbox} />

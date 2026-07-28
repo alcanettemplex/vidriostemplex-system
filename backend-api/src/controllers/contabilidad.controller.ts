@@ -311,6 +311,10 @@ export const registrarPago = async (req: Request, res: Response) => {
 
     await t.commit();
 
+    // Patch de la ODP: actualiza tablas en vivo (Contabilidad, listados) y limpia la cache
+    // Redux de la ficha para que refleje el nuevo abono/pendiente/estado_caja.
+    import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(Number(data.odp_id), 'update')).catch(() => {});
+
     // Notificación por socket
     import('../server')
       .then(({ io }) => {
@@ -376,7 +380,10 @@ export const editarPago = async (req: Request, res: Response) => {
     const financiero = await recalcularFinanciero(odp_id, t);
 
     await t.commit();
+    // emitirCambio refresca la tab "Pagos Recientes"; emitirODPPatch actualiza la fila de la
+    // ODP y la ficha sin refetch de lista. Ambos son necesarios: cubren superficies distintas.
     import('../server').then(({ emitirCambio }) => emitirCambio('contabilidad')).catch(() => {});
+    import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odp_id, 'update')).catch(() => {});
     res.json({ message: 'Pago actualizado', pago, odp_actualizada: financiero });
   } catch (error: any) {
     try { await t.rollback(); } catch (_) { /* ya hecho */ }
@@ -409,6 +416,7 @@ export const eliminarPago = async (req: Request, res: Response) => {
 
     await t.commit();
     import('../server').then(({ emitirCambio }) => emitirCambio('contabilidad')).catch(() => {});
+    import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odp_id, 'update')).catch(() => {});
     res.json({ message: 'Pago eliminado', odp_actualizada: financiero });
   } catch (error: any) {
     try { await t.rollback(); } catch (_) { /* ya hecho */ }
