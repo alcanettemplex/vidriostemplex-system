@@ -421,3 +421,62 @@ Filtrado real por tab en el servidor (opción B) si el volumen de ODPs en curso 
 
 ### Estado
 Cambios en working tree, sin commit.
+
+---
+
+## 2026-07-28 — Limpieza de Pedidos PV basura (6958 y 6889) + causa raíz de ODPs borradas fuera de la app
+
+### Solicitudes
+1. Levantar los servicios en local.
+2. Verificar qué número de Pedido PV tenía la ODP-24129 → **6958**.
+3. Que esa ODP no tuviera ningún Pedido PV.
+4. Verificar por qué el PV 6889 aparecía sin ODP → y eliminarlo.
+
+### Contexto: no existe forma de borrar un PV desde la aplicación
+`pedido_pv.routes.ts` expone `POST /` y los PUT de gestión, pero **ningún endpoint DELETE**. Ambas eliminaciones se hicieron con scripts one-off, operando **por instancia Sequelize** (no SQL crudo) para que los hooks de `MODELOS_AUDITADOS` registraran el borrado.
+
+### Caso 1 — PV 6958 de la ODP-24129 (id 6)
+PV `PENDIENTE`, origen SISTEMA, sin ítems asignados; la ODP tampoco tenía ítems.
+
+Se eliminó el PV **y** se limpiaron `odp.proveedor_vidrio` y `odp.numero_pedido_proveedor`. Lo segundo es indispensable: `updateODP` auto-crea un PV cuando `data.proveedor_vidrio && !proveedorAnterior`, así que dejar el proveedor con valor permitía que una edición que lo borrara y lo reasignara **regenerara el pedido**. Además `updateODP` hace `if (!data.numero_pedido_proveedor) delete data.numero_pedido_proveedor` — el formulario no puede limpiar ese campo, solo un script.
+
+Efecto de negocio: el helper `odpsConPedidoPVSinProcesar` (odc.controller.ts) oculta los vidrios de una ODP en Compras mientras exista un PV PENDIENTE sin procesar. Al borrarlo, la ODP pasa a la ruta de Compras — sin efecto visible hoy porque no tiene ítems.
+
+Script: `backend-api/src/scripts/2026-07-28_eliminar_pedidopv_6958_odp24129.ts`
+
+### Caso 2 — PV 6889 huérfano (`odp_id IS NULL`)
+**Causa raíz reconstruida desde `auditoria_log`:**
+- `2026-06-02 13:38:28.583` — se crea ODP id=**255**, número ODP-24037 (log 11584).
+- `13:38:28.852` — auto-create genera el **PV 6889** (id 388) con `odp_id=255` (log 11585).
+- `14:14:53` — último UPDATE de la 255: seguía viva (log 11598).
+- `18:07:23` — se crea ODP id=**256** con el **mismo número ODP-24037** y su propio PV 6890.
+- **No existe registro `DELETE` de la ODP 255.**
+
+La ODP 255 se borró **con SQL directo en Supabase**, no por `deleteODP`: (1) `deleteODP` usa `odp.destroy()` por instancia, que sí audita, y (2) elimina explícitamente los PedidoPV (`odp.controller.ts:1173`), así que el 6889 no habría sobrevivido. La FK `pedido_pv_odp_id_fkey` es `ON DELETE SET NULL`, de modo que el PV perdió el vínculo en vez de borrarse.
+
+Era visible en "Por Gestionar" porque `getPorGestionar` filtra por estado/origen y hace **LEFT JOIN** con ODP (include sin `required: true`), así que muestra PVs sin ODP.
+
+Script: `backend-api/src/scripts/2026-07-28_eliminar_pedidopv_6889_huerfano.ts` (con guarda extra: aborta si el PV dejó de estar huérfano).
+
+### Hallazgo abierto — ODPs borradas fuera de la aplicación
+Huecos de id en `odp` **sin `DELETE` en auditoría**: **227** (ODP-24010), **255** (ODP-24037) y **325**. Las borradas vía app (78, 116) sí tienen registro. Evade auditoría y deja el cascade a medias (la FK sola solo hace `SET NULL`). Los dos PVs basura eran síntomas de esto. **Sin resolver — requiere decisión sobre la práctica de borrar en la consola de Supabase.**
+
+### Trampa detectada: el hook de auditoría es fire-and-forget
+`registrarAuditoria()` (models/index.ts) llama `AuditoriaLog.create()` **sin `await` y con `.catch()` silencioso**. Un script que cierre la conexión o haga `process.exit()` de inmediato **pierde el registro** y la mutación queda sin rastro. Ambos scripts esperan y verifican que la fila exista antes de salir, y envuelven la lógica en `requestContext.run({...})` para que `usuario_nombre` no quede en NULL (`getContext()` devuelve nulls fuera de un request HTTP). Aplica a **cualquier script futuro que mute datos**.
+
+### Verificación (consultas crudas independientes del output de los scripts)
+- PV 6958 y 6889: ambos ausentes; `pedido_pv` 277 → **275**.
+- `WHERE odp_id IS NULL` → **0 huérfanos** en todo el sistema (era 1).
+- ODP-24129: `proveedor_vidrio` y `numero_pedido_proveedor` en NULL, 0 PVs.
+- ODP-24037 (id 256) intacta con su PV 6890 VERIFICADO.
+- Barrido de integridad sobre las 26 columnas `odp_id` del esquema: **0 registros apuntando a una ODP inexistente**. Los `odp_id NULL` de `leads` (1678), `prospectos` (77), `ordenes_compra`/`odc_items` y `toma_medidas` (59) son normales por diseño, no huérfanos.
+- `MAX(numero_base)` = 7013 sin cambios: ninguno de los dos era el máximo, así que la numeración futura no se altera (quedan huecos en 6889 y 6958).
+- Auditoría: logs **25584** (DELETE pedido_pv 3), **25585** (UPDATE odp 6), **25586** (DELETE pedido_pv 388), los tres atribuidos al script y con snapshot completo. `pedido_pv` está en `TABLAS_AUDITABLES` → **revertibles desde panel ROOT → Auditoría**.
+
+### Pendiente
+- Decidir qué hacer con la práctica de borrar ODPs por SQL directo (origen del problema).
+- Revisar si las ODPs 227 y 325 dejaron restos (el barrido global no encontró más huérfanos, pero no se verificaron puntualmente).
+- 5 ODPs con el mismo patrón que la 24129 (PV PENDIENTE sin ítems): ODP-24168 (6987), ODP-24199 (7003), ODP-24201 (7005), ODP-24202 (7006), ODP-24211 (7012). **No tocadas** — dos están en MEDICION y VISITA_TECNICA, probablemente sí necesitan su PV.
+
+### Estado
+Scripts ya ejecutados contra Supabase. No volver a correr (son idempotentes: detectan que el registro no existe y salen sin escribir).
