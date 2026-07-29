@@ -366,18 +366,31 @@ export const updateAlerta = async (req: Request, res: Response) => {
 };
 
 // ─── BACKUP ──────────────────────────────────────────────────────────────────
-export const descargarBackup = async (_req: Request, res: Response) => {
+export const descargarBackup = async (req: Request, res: Response) => {
   try {
+    // `auditoria_log` es bitácora, no datos de negocio reconstruibles, y pesa 22,7 MB de
+    // los ~24 MB de la base: incluirla hacía que cada click descargara el 95% de la BD
+    // desde Supabase. Se excluye por defecto y se pide con ?incluir_auditoria=true.
+    const incluirAuditoria = req.query.incluir_auditoria === 'true';
+    const TABLAS_EXCLUIDAS_POR_DEFECTO = ['auditoria_log'];
+
     const tablas: any[] = await sequelize.query(
       `SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`,
       { type: QueryTypes.SELECT }
     );
 
     let sql = `-- Backup Vidrios Templex — ${new Date().toISOString()}\n`;
-    sql += `-- Generado automáticamente. Restaurar en PostgreSQL compatible.\n\n`;
+    sql += `-- Generado automáticamente. Restaurar en PostgreSQL compatible.\n`;
+    sql += incluirAuditoria
+      ? `-- Incluye la bitácora de auditoría (backup completo).\n\n`
+      : `-- Sin la bitácora de auditoría. Para incluirla: ?incluir_auditoria=true\n\n`;
     sql += `SET client_encoding = 'UTF8';\nBEGIN;\n\n`;
 
     for (const { tablename } of tablas) {
+      if (!incluirAuditoria && TABLAS_EXCLUIDAS_POR_DEFECTO.includes(tablename)) {
+        sql += `-- Tabla ${tablename} omitida (bitácora). Usa ?incluir_auditoria=true para incluirla.\n\n`;
+        continue;
+      }
       try {
         const rows: any[] = await sequelize.query(
           `SELECT * FROM "${tablename}"`,

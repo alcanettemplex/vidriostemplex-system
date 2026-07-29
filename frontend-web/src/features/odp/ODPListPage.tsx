@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppDispatch } from '../../store/store';
+import { fetchODPById } from './odpSlice';
 import { useODPSocketPatch } from '../../store/useSocketNotifications';
 import { toast } from 'react-toastify';
 import {
@@ -173,7 +175,13 @@ const SortIcon: React.FC<{ field: SortField; sortField: SortField; sortDir: Sort
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 const ODPListPage: React.FC = () => {
-    const [tabData, setTabData] = useState<Record<string, { rows: ODP[], count: number, page: number, totalPages: number }>>({});
+    // Un único listado para todas las tabs no-especiales: la consulta al backend era
+    // idéntica para 'activas' | 'visita' | 'listas' | 'con_dano' (la segmentación es
+    // client-side), pero se guardaba y refetcheaba por tab, así que cambiar de pestaña
+    // volvía a descargar las mismas ~200 ODPs. Ahora se carga una vez y el socket la
+    // mantiene viva. Las tabs 'completadas' (buscador server-side) y 'garantia'
+    // (endpoint propio) conservan su fuente de datos.
+    const [listado, setListado] = useState<{ rows: ODP[], count: number, page: number, totalPages: number } | null>(null);
     const [tabPage, setTabPage] = useState<Record<string, number>>({ activas: 1, visita: 1, listas: 1, con_dano: 1, garantia: 1 });
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -208,6 +216,30 @@ const ODPListPage: React.FC = () => {
 
     const user = useSelector((state: any) => state.auth.user);
     const userRole = (user?.rol || user?.role)?.toLowerCase() || '';
+    const dispatch = useDispatch<AppDispatch>();
+
+    // El listado trae un perfil ligero (sin descripcion_pedido, direccion_instalacion,
+    // servicios_detalle, datos de contacto ni ítems). Todo lo que se abra a partir de una
+    // fila y necesite esos campos debe pedir el detalle completo por id:
+    //   · ODPForm  — reenvía en el PUT todo lo que recibe, así que abrirlo con el objeto
+    //     del listado BORRARÍA esos campos al guardar (mismo bug que hubo con
+    //     descripcion_contexto en el CRM, resuelto así en LeadDetalleModal).
+    //   · COTModal — usa descripcion_pedido, direccion_instalacion e items.
+    //   · TMModal  — usa direccion_instalacion, tipo_servicio, datos de quien recibe y tomas_medidas.
+    // SAPModal solo usa id/numero_odp/cliente, pero pasa por el mismo camino para que no
+    // haya dos formas de abrir un modal desde la tabla.
+    const [cargandoDetalle, setCargandoDetalle] = useState<number | null>(null);
+    const abrirConDetalle = useCallback(async (odpId: number, aplicar: (odp: ODP) => void) => {
+        setCargandoDetalle(odpId);
+        try {
+            const completa = await dispatch(fetchODPById(odpId)).unwrap();
+            aplicar(completa);
+        } catch {
+            toast.error('No se pudo cargar la ODP. Verifica tu conexión e intenta de nuevo.');
+        } finally {
+            setCargandoDetalle(null);
+        }
+    }, [dispatch]);
 
     const fetchGarantias = useCallback(async () => {
         try {
@@ -221,8 +253,7 @@ const ODPListPage: React.FC = () => {
         }
     }, []);
 
-    const fetchTabData = useCallback(async (tab: string, _pageNum?: number) => {
-        if (tab === 'completadas' || tab === 'garantia') return;
+    const fetchListado = useCallback(async () => {
         setLoading(true);
         try {
             const token = sessionStorage.getItem('token');
@@ -231,10 +262,14 @@ const ODPListPage: React.FC = () => {
             // Completadas usa su propio buscador server-side. Traerlas empujaba a las
             // ODPs en curso más antiguas fuera del corte de 200, dejándolas invisibles
             // en todas las tabs. El backend conserva las que tienen daño pendiente.
-            const params: Record<string, any> = { page: 1, limit: 200, excluir_completadas: true };
+            //
+            // `vista: 'lista'` pide el perfil ligero: solo las columnas que esta tabla
+            // pinta, sin los includes de ítems/pagos/TM/SAP/facturas que aquí nunca se
+            // leían. La ficha y la edición traen el detalle completo por id.
+            const params: Record<string, any> = { page: 1, limit: 200, excluir_completadas: true, vista: 'lista' };
 
             const res = await axios.get(`${baseUrl}/api/odp`, { params, headers: { Authorization: `Bearer ${token}` } });
-            setTabData(prev => ({ ...prev, [tab]: res.data }));
+            setListado(res.data);
             if (typeof res.data.count_completadas === 'number') {
                 setCountCompletadas(res.data.count_completadas);
             }
@@ -280,29 +315,32 @@ const ODPListPage: React.FC = () => {
         }
     }, [searchQuery, activeTab]);
 
+    // Carga inicial: una sola vez por sesión de página. Antes ambas llamadas colgaban del
+    // efecto de `activeTab`, así que cada clic en una pestaña redescargaba el listado
+    // completo y las garantías aunque los datos ya estuvieran en memoria.
     useEffect(() => {
+        fetchListado();
         fetchGarantias();
+    }, [fetchListado, fetchGarantias]);
+
+    // Las tabs que no se alimentan del listado apagan el spinner al entrar.
+    useEffect(() => {
         if (activeTab === 'completadas') {
             setSearchResults(null);
             setLoading(false);
-            return;
-        }
-        if (activeTab !== 'garantia') {
-            fetchTabData(activeTab);
-        } else {
+        } else if (activeTab === 'garantia') {
             setLoading(false);
         }
-    }, [activeTab, fetchTabData, fetchGarantias]);
+    }, [activeTab]);
 
     const setOdpsWrapper = useCallback((value: React.SetStateAction<ODP[]>) => {
-        setTabData(prev => {
-            const curr = prev[activeTab];
-            if (!curr) return prev;
-            const newRows = typeof value === 'function' ? value(curr.rows) : value;
-            const diff = newRows.length - curr.rows.length;
-            return { ...prev, [activeTab]: { ...curr, rows: newRows, count: curr.count + diff, totalPages: Math.ceil((curr.count + diff) / 50) } };
+        setListado(prev => {
+            if (!prev) return prev;
+            const newRows = typeof value === 'function' ? value(prev.rows) : value;
+            const diff = newRows.length - prev.rows.length;
+            return { ...prev, rows: newRows, count: prev.count + diff, totalPages: Math.ceil((prev.count + diff) / 50) };
         });
-    }, [activeTab]);
+    }, []);
 
     useODPSocketPatch({ setOdps: setOdpsWrapper, setGarantias });
 
@@ -319,7 +357,7 @@ const ODPListPage: React.FC = () => {
                 { headers: { Authorization: `Bearer ${tkn}` } }
             );
             toast.success(`${odp.numero_odp} — Visita técnica solicitada`);
-            fetchTabData(activeTab, tabPage[activeTab] || 1);
+            fetchListado();
         } catch {
             toast.error('Error al solicitar visita técnica');
         }
@@ -334,7 +372,7 @@ const ODPListPage: React.FC = () => {
                 { headers: { Authorization: `Bearer ${tkn}` } }
             );
             toast.success(`${odp.numero_odp} — Liberada para producción`);
-            fetchTabData(activeTab, tabPage[activeTab] || 1);
+            fetchListado();
         } catch (err: any) {
             toast.error(err.response?.data?.error || 'Error al liberar ODP');
         }
@@ -346,11 +384,9 @@ const ODPListPage: React.FC = () => {
             await axios.delete(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setTabData(prev => {
-                const curr = prev[activeTab];
-                if (!curr) return prev;
-                return { ...prev, [activeTab]: { ...curr, rows: curr.rows.filter(o => o.id !== id), count: Math.max(0, curr.count - 1) } };
-            });
+            setListado(prev => prev
+                ? { ...prev, rows: prev.rows.filter(o => o.id !== id), count: Math.max(0, prev.count - 1) }
+                : prev);
             setDeletingOdp(null);
         } catch {
             toast.error('Error al eliminar ODP');
@@ -373,7 +409,7 @@ const ODPListPage: React.FC = () => {
     // Filas actuales según tab activo
     const currentRows = activeTab === 'completadas' ? (searchResults?.rows || [])
         : activeTab === 'garantia' ? (garantiaSubTab === 'realizadas' ? garantiasRealizadas : garantiasActivas)
-        : (tabData[activeTab]?.rows || []);
+        : (listado?.rows || []);
 
     // Listas de asesores y años únicos para filtros
     const asesoresUnicos = Array.from(new Set(currentRows.map(o => o.asesor?.nombre_completo).filter(Boolean)));
@@ -819,9 +855,10 @@ const ODPListPage: React.FC = () => {
                                                 )}
                                                 {!['produccion','asistente_administrativo','marketing'].includes(userRole) && odp.estado_produccion !== 'ENTREGADA' && (
                                                 <button
-                                                    onClick={() => setEditingOdp(odp)}
-                                                    className="text-slate-400 hover:text-emerald-600 transition p-1.5 hover:bg-emerald-50 rounded"
-                                                    title="Editar"
+                                                    onClick={() => abrirConDetalle(odp.id, setEditingOdp)}
+                                                    disabled={cargandoDetalle === odp.id}
+                                                    className="text-slate-400 hover:text-emerald-600 transition p-1.5 hover:bg-emerald-50 rounded disabled:opacity-40 disabled:cursor-wait"
+                                                    title={cargandoDetalle === odp.id ? 'Cargando ODP…' : 'Editar'}
                                                 >
                                                     <Edit3 className="w-4 h-4" />
                                                 </button>
@@ -839,9 +876,9 @@ const ODPListPage: React.FC = () => {
                                                 <ActionsMenu
                                                     odp={odp}
                                                     userRole={userRole}
-                                                    onSap={() => setSapOdp(odp)}
-                                                    onCot={() => setCotOdp(odp)}
-                                                    onTm={() => setTmOdp(odp)}
+                                                    onSap={() => abrirConDetalle(odp.id, setSapOdp)}
+                                                    onCot={() => abrirConDetalle(odp.id, setCotOdp)}
+                                                    onTm={() => abrirConDetalle(odp.id, setTmOdp)}
                                                     onVisita={() => handleSolicitarVisita(odp)}
                                                     onDelete={() => setDeletingOdp(odp)}
                                                 />
@@ -936,7 +973,7 @@ const ODPListPage: React.FC = () => {
                         asesorId={editingOdp ? undefined : asesorParaODP}
                         tipoOdp={editingOdp ? undefined : tipoOdp}
                         onClose={() => { setIsFormOpen(false); setEditingOdp(null); setAsesorParaODP(null); setTipoOdp('ODP'); }}
-                        onSuccess={() => { setIsFormOpen(false); setEditingOdp(null); setAsesorParaODP(null); setTipoOdp('ODP'); fetchTabData(activeTab, tabPage[activeTab] || 1); }}
+                        onSuccess={() => { setIsFormOpen(false); setEditingOdp(null); setAsesorParaODP(null); setTipoOdp('ODP'); fetchListado(); }}
                     />
                 )}
                 {selectedOdpDetail !== null && (

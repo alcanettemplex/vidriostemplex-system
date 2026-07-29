@@ -1,5 +1,16 @@
 import { Usuario } from '../models';
 import { emitirNotificacion, emitirEvento } from '../server';
+import { invalidarCacheRespuesta } from './cacheMemoria';
+
+/**
+ * Invalida la caché de respuesta de los listados de ODP.
+ *
+ * Se engancha en `emitirODPPatch` y `notificarCambioEstadoODP` a propósito: son los dos
+ * puntos por los que ya pasa toda escritura de ODP (17 llamadas en 3 controladores), así
+ * que cubre también los endpoints que se agreguen después. Salpicar la llamada endpoint
+ * por endpoint sería fácil de olvidar y dejaría la lista servida desde una foto vieja.
+ */
+const invalidarCacheListadosODP = (): void => invalidarCacheRespuesta('/api/odp');
 
 const ESTADO_LABELS: Record<string, string> = {
   EN_ESPERA:            'En Espera',
@@ -41,6 +52,9 @@ const getODPListaIncludes = async (): Promise<any[]> => {
  * debe recibir ambos setters — ver project_odp_patch_riesgo.md en memoria.
  */
 export const emitirODPPatch = async (id: number, accion: 'create' | 'update' | 'delete') => {
+  // Antes de cualquier retorno: quien escribe invalida, así el siguiente GET del listado
+  // (o un F5) lee datos frescos en vez de la foto cacheada.
+  invalidarCacheListadosODP();
   try {
     if (accion === 'delete') {
       emitirEvento('odp_patch', { accion: 'delete', id });
@@ -66,6 +80,9 @@ export const notificarCambioEstadoODP = async (params: {
   estado_nuevo: string;
   mensaje?: string;
 }) => {
+  // Cubre las rutas de instalación, que cambian el estado de la ODP sin pasar por
+  // emitirODPPatch: sin esto el listado podría servir el estado anterior hasta el TTL.
+  invalidarCacheListadosODP();
   try {
     const { numero_odp, odp_id, asesor_id, estado_nuevo, mensaje } = params;
     const label = ESTADO_LABELS[estado_nuevo] || estado_nuevo;

@@ -1,19 +1,49 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, getNcGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha, getHistorialODP, agregarFacturaAdicional, eliminarFacturaAdicional } from '../controllers/odp.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { uploadConfig } from '../config/upload';
+import { cacheRespuesta } from '../utils/cacheMemoria';
 
 const router = Router();
 
+// Caché de listados: los GET de lista son el mayor consumidor de egress del sistema
+// (la tabla `odp` se devolvía completa ~195 veces/día). Con 13 usuarios concurrentes
+// mirando el mismo tablero, esto colapsa las cargas repetidas en una sola lectura.
+//
+// Seguro por diseño: getODPs NO filtra por `req.user` — todos ven el mismo conjunto —
+// y la clave de caché es método+URL, así que los perfiles (`?vista=`), los filtros de
+// estado y la paginación no se mezclan entre sí.
+//
+// La frescura no depende del TTL: toda escritura de ODP invalida la caché desde
+// `emitirODPPatch`/`notificarCambioEstadoODP` (ver utils/notificaciones.ts), y los
+// cambios en vivo siguen llegando por socket. El TTL es solo la red de seguridad.
+const TTL_LISTADOS_ODP = 90_000;
+
+/**
+ * Igual que `cacheRespuesta`, pero deja pasar las búsquedas sin cachear.
+ *
+ * El store es un Map acotado por número de entradas, no por peso. Los listados pesan
+ * cientos de KB, mientras que cada término de búsqueda produce una clave distinta que
+ * casi nunca se repite: cachearlas llenaría el store de entradas de un solo uso y
+ * terminaría desalojando justo las que sí se comparten entre los 13 usuarios.
+ */
+const cacheListados = (ttlMs: number) => {
+  const middleware = cacheRespuesta(ttlMs);
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (req.query.search) { next(); return; }
+    middleware(req, res, next);
+  };
+};
+
 // Lectura: todos los autenticados
-router.get('/', authMiddleware, getODPs);
+router.get('/', authMiddleware, cacheListados(TTL_LISTADOS_ODP), getODPs);
 
 // Rutas con segmento fijo — deben ir ANTES de /:id para no ser capturadas por ese patrón
 router.get('/carga-por-fecha', authMiddleware, getCargaPorMes);
 router.get('/carga-por-fecha/:fecha', authMiddleware, getCargaPorFecha);
-router.get('/garantias/all', authMiddleware, getGarantias);
-router.get('/nc-garantias', authMiddleware, getNcGarantias);
+router.get('/garantias/all', authMiddleware, cacheListados(TTL_LISTADOS_ODP), getGarantias);
+router.get('/nc-garantias', authMiddleware, cacheListados(TTL_LISTADOS_ODP), getNcGarantias);
 
 router.get('/:id/historial', authMiddleware, getHistorialODP);
 router.get('/:id', authMiddleware, getODP);

@@ -480,3 +480,74 @@ Huecos de id en `odp` **sin `DELETE` en auditoría**: **227** (ODP-24010), **255
 
 ### Estado
 Scripts ya ejecutados contra Supabase. No volver a correr (son idempotentes: detectan que el registro no existe y salen sin escribir).
+
+---
+
+## 2026-07-28 (b) — Egress Supabase: diagnóstico por bytes y Fase 1 de recorte
+
+### Solicitud
+Bajar el egress de Supabase a una meta de **150 MB/día** (plan Free, cuota 5 GB/mes) con 13 usuarios activos de 8am a 5pm. El consumo real seguía en **250–350 MB/día** pese a las optimizaciones del 24-jul.
+
+### Diagnóstico: medir bytes, no tiempo ni filas
+
+Se midió `pg_stat_statements` **agregado** (no el top 25, que fragmentaba la misma consulta en decenas de formas por la cardinalidad variable del `IN`) cruzado con `pg_column_size` real de cada tabla. 28 días acumulados desde 2026-06-30: 7,38 M filas devueltas en 475 k llamadas.
+
+**La tabla `odp` es ~65% del egress.** Tiene **392 filas** y pesa 0,58 MB, pero devuelve **76.477 filas/día** — leerla completa 195 veces al día. Y su fila es gorda: **924 B en 60 columnas**, de los cuales cinco campos de texto son el 76%:
+
+| Columna | Bytes/fila |
+|---|---|
+| `servicios_detalle` | 289 |
+| `descripcion_pedido` | 234 |
+| `croquis_url` | 109 |
+| `direccion_instalacion` | 38 |
+| `observaciones` | 30 |
+
+Tres causas verificadas en código, no supuestas:
+1. El listado pedía las 60 columnas.
+2. **`ODPListPage` descargaba cinco includes que no usa** (`items`, `pagos`, `tomas_medidas`, `saps`, `facturas_adicionales`) para 200 ODPs: cero referencias en todo el archivo.
+3. **`fetchTabData` ignoraba el parámetro `tab`**: mandaba los mismos params para las 4 tabs no-especiales (la segmentación es client-side) y colgaba del efecto de `activeTab` junto con `fetchGarantias()`. Navegar entre pestañas multiplicaba ×4–6 el mismo payload.
+
+### Dos hipótesis descartadas con números
+
+- **`SELECT * FROM "auditoria_log"`** (3 llamadas, 64.014 filas): es el botón **Backup** de ROOT (`root.controller.ts:383`), no la pestaña Auditoría, que sí pagina. Pero la fila pesa **931 B**, no 2–5 KB → ~57 MB en 28 días ≈ **0,7%**. Tres eventos puntuales no explican una curva diaria sostenida.
+- **El detalle de ODP con 15+ JOINs**: 19.205 filas ÷ 2.238 llamadas = **8,6 filas por llamada** ≈ 0,7 MB/día. Encarece CPU, no egress.
+- **`pg_timezone_names`** (#1 por `total_exec_time`, 143 ms × 242): **no la emite el ERP** — verificado que ni `sequelize` ni `pg` la contienen en `node_modules`. La emite el **dashboard de Supabase Studio**, igual que `pg_available_extensions`. 289.432 filas de ~20 B ≈ 0,2 MB/día. Lección: **`total_exec_time` mide CPU, el egress se aproxima por filas × ancho de fila**.
+
+### Cambios
+
+**Backend**
+- `odp.controller.ts` — `?vista=lista|produccion` en `getODPs` y `buscarODPsEspeciales`, vía `construirVistaODP()`. **Sin el parámetro la respuesta es idéntica a la histórica**, así que `PedidosPVPage` (que sí usa `odp.items` en su modal de crear) sigue igual. `lista` = allowlist de 18 columnas planas y ningún include separate; `produccion` = `exclude` de 8 columnas, con `items` reducido a 7 campos y sin `pagos`/`facturas_adicionales`.
+- `notificaciones.ts` — `invalidarCacheListadosODP()` enganchado en `emitirODPPatch` y `notificarCambioEstadoODP`. Se eligieron esos dos puntos porque **ya pasa por ahí toda escritura de ODP** (17 llamadas en 3 controladores), así que cubre también los endpoints que se agreguen después.
+- `odp.routes.ts` — `cacheListados(90 s)` en `GET /`, `/garantias/all` y `/nc-garantias`. Envuelve a `cacheRespuesta` **dejando pasar las búsquedas sin cachear**: el store se acota por número de entradas, no por peso, y cada término de búsqueda es una clave de un solo uso que desalojaría las entradas compartidas entre los 13 usuarios.
+- `root.controller.ts` — `descargarBackup` excluye `auditoria_log` salvo `?incluir_auditoria=true`.
+
+**Frontend**
+- `ODPListPage.tsx` — un único estado `listado` en vez de `tabData` por tab; carga una vez al montar; `fetchGarantias` en su propio efecto. Pide `vista: 'lista'`.
+- `ODPListPage.tsx` — `abrirConDetalle(id, setter)` refetchea por id (`fetchODPById`) antes de abrir **ODPForm, SAPModal, COTModal y TMModal**. **Imprescindible**: `ODPForm` reenvía en el `PUT` todo lo que recibe, así que abrirlo con el objeto ligero del listado habría **borrado** `descripcion_pedido`, `servicios_detalle` e `items` al guardar — el mismo bug que ocurrió con `descripcion_contexto` en el CRM. `COTModal` y `TMModal` además leen `direccion_instalacion`, `tipo_servicio` y los datos de quien recibe.
+- `ProduccionPage.tsx` — `vista: 'produccion'` en el listado y en `nc-garantias`.
+
+### Resultado medido (bytes HTTP reales contra la BD de producción)
+
+| Endpoint | Antes | Después | Δ |
+|---|---|---|---|
+| ODPListPage (200 ODPs) | 336,8 KB | **64,5 KB** | **−81%** |
+| Producción (tablero) | 652,0 KB | **416,2 KB** | **−36%** |
+| `nc-garantias` | 58,0 KB | **43,3 KB** | **−25%** |
+| Backup ROOT | — | — | **−32,7 MB por click** |
+
+A eso se suma el recorte de **frecuencia**: ODPListPage pasa de 4–6 cargas por sesión a 1, y la caché colapsa las cargas concurrentes (2ª llamada: 1518 ms → 15 ms, `X-Cache: HIT`).
+
+### Verificación ejecutada
+- `tsc --noEmit` backend y frontend: **EXIT 0**. `npm run build` backend: **EXIT 0**.
+- Payloads medidos contra la BD real (tabla de arriba), no estimados.
+- Caché: `MISS → HIT → (invalidar) → MISS` con contador de lecturas confirmando que la 2ª no consulta la BD.
+- Búsquedas (`?search=`): confirmado que **nunca** entran al store.
+- Perfil `produccion`: los 9 `chk_*`, `descripcion_pedido`, `direccion_instalacion`, `observaciones`, `tipo_servicio`, `color_taller`, `tiene_aluminio`, `odp_padre_id` presentes; `servicios_detalle`/`croquis_url`/`nombre_recibe` ausentes; `items` con 7 campos, `tomas_medidas` y `saps` presentes, `pagos` ausente.
+- Detalle por id (`GET /api/odp/:id`): conserva los 9 campos que `ODPForm` reenvía + los 28 campos del ítem → **editar no puede borrar datos**.
+- Backup: 10,92 MB, sin un solo `INSERT INTO "auditoria_log"`.
+
+### Pendiente de verificación manual (requiere navegador)
+Recorrer las 6 pestañas de ODP y confirmar badges/orden/paginación; **editar una ODP con `descripcion_pedido`, `servicios_detalle` e ítems, guardar y confirmar que los tres sobreviven**; tablero de Producción (checks, panel de cristales, ODPMatrixModal) y liveness entre dos navegadores; modal de crear en Pedidos PV.
+
+### Nota de entorno
+`npm run build` de `frontend-web` **no corre en Windows**: el script es `CI=false react-scripts build`, sintaxis POSIX que cmd.exe no interpreta (falla con `"CI" no se reconoce`). Es **preexistente**, ajeno a estos cambios. Alternativa que sí funciona: `CI=false npx react-scripts build` desde Git Bash.

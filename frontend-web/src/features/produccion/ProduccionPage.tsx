@@ -258,7 +258,11 @@ const ProduccionPage: React.FC = () => {
             const [res, resNcG] = await Promise.all([
                 axios.get(`${API}/api/odp`, {
                     headers,
-                    params: { limit: 1000, estados: ESTADOS_PRODUCCION_VISIBLES },
+                    // `vista: 'produccion'` excluye las columnas de texto que el tablero no
+                    // pinta (servicios_detalle y croquis_url son el 43% de la fila) y los
+                    // includes de pagos/facturas. Conserva descripcion_pedido y los datos
+                    // que ODPMatrixModal lee del objeto del listado.
+                    params: { limit: 1000, estados: ESTADOS_PRODUCCION_VISIBLES, vista: 'produccion' },
                     // Serializa el array como estados=A&estados=B (sin corchetes), igual que ODPListPage.
                     paramsSerializer: (p) => {
                         const sp = new URLSearchParams();
@@ -269,7 +273,7 @@ const ProduccionPage: React.FC = () => {
                         return sp.toString();
                     },
                 }),
-                axios.get(`${API}/api/odp/nc-garantias`, { headers }),
+                axios.get(`${API}/api/odp/nc-garantias`, { headers, params: { vista: 'produccion' } }),
             ]);
             const data: ODP[] = Array.isArray(res.data) ? res.data : (res.data.rows || []);
             setOdps(data);

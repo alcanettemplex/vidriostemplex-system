@@ -209,3 +209,51 @@ Peor: el CDN carga Tailwind con la **configuración por defecto**, sin `tailwind
 **Cómo se detectó:** Análisis previo a agregar los accesos directos de facturación en `ODPTabImprimir` (2026-07-27). El usuario decidió documentarlo y no tocarlo en esa pasada.
 
 **Estimación:** 2-3 h — 1 h el helper y la migración de los 5 sitios, el resto verificación visual de cada formato impreso.
+
+---
+
+## 2026-07-28 — Hallazgos de la auditoría de egress (no corregidos en la Fase 1)
+
+Detectados al medir `pg_stat_statements` agregado + `pg_column_size` contra la BD de producción. Ninguno se tocó: quedaron fuera del alcance acordado (Fase 1 quirúrgica sobre la tabla `odp`).
+
+### 1. `password_hash` viaja en consultas de listado de usuarios — **seguridad, severidad media**
+
+`SELECT "id", "username", "password_hash", "rol", … FROM "usuarios"` aparece con **971 llamadas / 22.241 filas** acumuladas. El hash de contraseña se transfiere en consultas que solo necesitan nombre y rol (selectores de asesor, includes de `asesor`, etc.).
+
+No es un fallo explotable por sí solo —el hash no sale al cliente si el `toJSON()` lo omite— pero amplía innecesariamente la superficie: cualquier `console.log`, traza de error o log de query lo expone.
+
+**Solución:** `defaultScope` en `usuario.model.ts` con `attributes: { exclude: ['password_hash'] }` y un scope explícito `withPassword` para el login. Requiere revisar `auth.controller.ts`, que sí lo necesita.
+
+**Estimación:** 45 min, con prueba de login obligatoria.
+
+### 2. Tres endpoints traen la tabla `salidas_almacen` completa para un `NOT IN` en JavaScript — **egress, severidad baja**
+
+`SELECT "odp_id" FROM "salidas_almacen"` sin `WHERE`: **149.060 filas en 595 llamadas** (250 filas por llamada, la tabla entera).
+
+- `salidas_almacen.controller.ts:20` (`getFacturadas`)
+- `salidas_almacen.controller.ts:75` (`getOAPendientes`)
+- `salidas_almacen.controller.ts:122` (`getNcSinSalida`)
+
+Los tres hacen el mismo patrón: traer todos los `odp_id` con salida y filtrarlos en memoria con `Op.notIn`. Son 8 B por fila, así que el impacto en bytes es marginal (~0,05 MB/día), pero el patrón escala mal: crece linealmente con el histórico de salidas y ya está en 250 filas por llamada.
+
+**Solución:** `NOT EXISTS` (o `Op.notIn` con subquery `Sequelize.literal`) para que el filtrado ocurra en Postgres.
+
+**Estimación:** 1 h las tres, con verificación de que los conteos de las pestañas no cambian.
+
+### 3. `npm run build` de `frontend-web` no funciona en Windows — **DX, severidad baja**
+
+El script es `CI=false react-scripts build && cp build/index.html build/404.html`: sintaxis POSIX (prefijo de variable de entorno inline + `cp`) que **cmd.exe y PowerShell no interpretan**. Falla con `"CI" no se reconoce como un comando interno o externo`.
+
+En un shell POSIX (Git Bash) sí corre. El build de Cloudflare Pages corre en Linux, así que **producción no está afectada** — el problema es solo local, y es una trampa silenciosa: `npm run build` puede terminar con exit 0 sin haber construido nada.
+
+**Solución:** `cross-env CI=false react-scripts build` + reemplazar `cp` por un `node -e` con `fs.copyFileSync`, o mover ambas cosas a un script de Node. Requiere agregar `cross-env` (dependencia de desarrollo) o resolverlo sin dependencias nuevas.
+
+**Estimación:** 20 min.
+
+### 4. Desarrollo local apuntando a la BD de producción — **egress, severidad a evaluar**
+
+`server.ts:143` ejecuta `sequelize.sync({ alter: false })` cuando `NODE_ENV !== 'production'`. Cada reinicio de `nodemon` reintrospecta el esquema completo (`information_schema`, `pg_type`, `pg_timezone_names`: 1.196 filas y 143 ms solo esta última).
+
+No es la fuga actual —registró Δ0 llamadas en el período medido, o sea que no hubo desarrollo local en esos días— pero **cada sesión de `npm run dev` consume de la misma cuota de 5 GB que usa la empresa en producción**, y además opera sobre datos reales.
+
+**Solución a evaluar con el usuario:** base de datos de desarrollo separada, o al menos condicionar el `sync()` a una variable explícita (`SYNC_SCHEMA=true`) en vez de deducirlo de `NODE_ENV`.

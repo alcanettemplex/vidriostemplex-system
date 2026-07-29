@@ -119,6 +119,83 @@ const odpSchema = z.object({
 // frontend-web/src/features/odp/ODPListPage.tsx.
 const ESTADOS_COMPLETADAS = ['ENTREGADA', 'INSTALADA'];
 
+// ─── Perfiles de vista del listado (optimización de egress) ──────────────────
+// Medido 2026-07-28 contra la BD real: la fila de `odp` pesa ~924 B y el 76% son cinco
+// columnas de texto (servicios_detalle 289 B, descripcion_pedido 234 B, croquis_url
+// 109 B, direccion_instalacion 38 B, observaciones 30 B). La tabla tiene 392 filas pero
+// se devuelven ~76.500 filas/día — equivale a leerla completa 195 veces al día, y era
+// ~65% del egress total. Mandar a cada pantalla solo lo que pinta es la palanca mayor.
+//
+// `?vista` es OPCIONAL: sin el parámetro la respuesta es idéntica a la histórica, así
+// que los consumidores no migrados (PedidosPVPage) siguen funcionando sin cambios.
+
+// Vista "lista" (ODPListPage): solo columnas planas. Verificado que ese archivo no
+// referencia NINGUNO de los cinco includes `separate` (items, pagos, tomas_medidas,
+// saps, facturas_adicionales): los pedía y los descartaba. El detalle y la edición
+// pasan por getODP, que sigue devolviendo todo.
+const ATTRS_ODP_LISTA = [
+  'id', 'numero_odp', 'cliente_id', 'asesor_id',
+  'estado_produccion', 'estado_facturacion', 'estado_caja',
+  'fecha_creacion', 'fecha_entrega', 'fecha_listo_instalar',
+  'valor_total', 'abono', 'pendiente',
+  'sin_items', 'tiene_dano_instalacion', 'tipo_odp', 'es_no_conformidad', 'odp_padre_id',
+];
+
+// Vista "produccion" (tablero Kanban): necesita casi todas las columnas planas, porque
+// ODPMatrixModal recibe el objeto del listado y pinta descripcion_pedido,
+// direccion_instalacion, observaciones y tipo_servicio. Se excluyen solo las que ninguna
+// vista del tablero toca; servicios_detalle y croquis_url solas son el 43% de la fila.
+const EXCLUDE_ODP_PRODUCCION = [
+  'servicios_detalle', 'croquis_url', 'url_documento_factura', 'observacion_autorizacion',
+  'foto_instalacion_url', 'nombre_recibe', 'telefono_recibe', 'cargo_recibe',
+];
+
+/**
+ * Construye `attributes` + `include` según el perfil pedido en `?vista`.
+ * Sin vista reconocida devuelve exactamente la forma histórica del endpoint.
+ */
+const construirVistaODP = (vista?: string) => {
+  const includeBase: any[] = [
+    { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento', 'telefono', 'celular', 'email', 'direccion'] },
+    { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
+  ];
+
+  if (vista === 'lista') {
+    return { attributes: ATTRS_ODP_LISTA as any, include: includeBase };
+  }
+
+  if (vista === 'produccion') {
+    return {
+      attributes: { exclude: EXCLUDE_ODP_PRODUCCION } as any,
+      include: [
+        ...includeBase,
+        // El tablero solo pinta estas 5 medidas del ítem (panel de cristales) y usa
+        // `items.length` para el check de vidrio. No usa pagos ni facturas_adicionales.
+        { model: ODPItem, as: 'items', attributes: ['id', 'odp_id', 'cantidad', 'tipo_vidrio', 'espesor', 'ancho_mm', 'alto_mm'], separate: true, order: [['id', 'ASC']] },
+        { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'odp_id', 'numero_tm', 'croquis_url'], separate: true },
+        { model: SAP, as: 'saps', attributes: ['id', 'odp_id'], separate: true },
+      ],
+    };
+  }
+
+  // Forma histórica (sin `?vista`).
+  return {
+    attributes: undefined as any,
+    include: [
+      ...includeBase,
+      // El listado (tablero/panel/matriz) no pinta estas columnas grandes del ítem;
+      // solo el flujo Pedido PV las usa y ese trae los ítems por su propio endpoint.
+      // Se excluyen aquí para adelgazar el egress sin cambiar nada visible. El detalle
+      // (getODP) sí las trae completas.
+      { model: ODPItem, as: 'items', attributes: { exclude: ['accesorios', 'observaciones_pv', 'dt', 'mts_pt_a', 'mts_pt_h'] }, separate: true, order: [['id', 'ASC']] },
+      { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
+      { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
+      { model: SAP, as: 'saps', attributes: ['id'], separate: true },
+      { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura', 'monto'], separate: true },
+    ],
+  };
+};
+
 export const getODPs = async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -165,21 +242,12 @@ export const getODPs = async (req: Request, res: Response) => {
       ];
     }
 
+    const vistaODP = construirVistaODP(req.query.vista as string | undefined);
+
     const { count, rows } = await ODP.findAndCountAll({
       where: whereClause,
-      include: [
-        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento', 'telefono', 'celular', 'email', 'direccion'] },
-        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
-        // El listado (tablero/panel/matriz) no pinta estas columnas grandes del ítem;
-        // solo el flujo Pedido PV las usa y ese trae los ítems por su propio endpoint.
-        // Se excluyen aquí para adelgazar el egress sin cambiar nada visible. El detalle
-        // (getODP) sí las trae completas.
-        { model: ODPItem, as: 'items', attributes: { exclude: ['accesorios', 'observaciones_pv', 'dt', 'mts_pt_a', 'mts_pt_h'] }, separate: true, order: [['id', 'ASC']] },
-        { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
-        { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
-        { model: SAP, as: 'saps', attributes: ['id'], separate: true },
-        { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura', 'monto'], separate: true },
-      ],
+      ...(vistaODP.attributes ? { attributes: vistaODP.attributes } : {}),
+      include: vistaODP.include,
       order: [['fecha_creacion', 'DESC']],
       limit,
       offset: (page - 1) * limit,
@@ -215,18 +283,26 @@ export const getODPs = async (req: Request, res: Response) => {
 
 const buscarODPsEspeciales = async (where: any, req: Request, res: Response) => {
   try {
+    // El tablero de Producción pide `?vista=produccion` para no arrastrar las columnas
+    // de texto ni los pagos que no pinta. ODPListPage no manda vista → forma histórica.
+    const vistaODP = construirVistaODP(req.query.vista as string | undefined);
+    const esProduccion = req.query.vista === 'produccion';
+
     const odps = await ODP.findAll({
       where,
-      include: [
-        { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento', 'telefono', 'celular', 'email', 'direccion'] },
-        { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
-        // Mismo criterio que getODPs: se excluyen columnas grandes no usadas en estas vistas.
-        { model: ODPItem, as: 'items', attributes: { exclude: ['accesorios', 'observaciones_pv', 'dt', 'mts_pt_a', 'mts_pt_h'] }, separate: true, order: [['id', 'ASC']] },
-        { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp', 'fecha_entrega'] },
-        { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
-        { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
-        { model: SAP, as: 'saps', attributes: ['id'], separate: true },
-      ],
+      ...(vistaODP.attributes ? { attributes: vistaODP.attributes } : {}),
+      include: esProduccion
+        ? vistaODP.include
+        : [
+          { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento', 'telefono', 'celular', 'email', 'direccion'] },
+          { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo', 'username'] },
+          // Mismo criterio que getODPs: se excluyen columnas grandes no usadas en estas vistas.
+          { model: ODPItem, as: 'items', attributes: { exclude: ['accesorios', 'observaciones_pv', 'dt', 'mts_pt_a', 'mts_pt_h'] }, separate: true, order: [['id', 'ASC']] },
+          { model: ODP, as: 'odp_padre', attributes: ['id', 'numero_odp', 'fecha_entrega'] },
+          { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'referencia_pago', 'observaciones', 'fecha'], separate: true, order: [['fecha', 'ASC']] },
+          { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'], separate: true },
+          { model: SAP, as: 'saps', attributes: ['id'], separate: true },
+        ],
       order: [['fecha_creacion', 'DESC']],
       limit: 100,
     });
