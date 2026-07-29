@@ -169,9 +169,16 @@ const construirVistaODP = (vista?: string) => {
       attributes: { exclude: EXCLUDE_ODP_PRODUCCION } as any,
       include: [
         ...includeBase,
-        // El tablero solo pinta estas 5 medidas del ítem (panel de cristales) y usa
-        // `items.length` para el check de vidrio. No usa pagos ni facturas_adicionales.
-        { model: ODPItem, as: 'items', attributes: ['id', 'odp_id', 'cantidad', 'tipo_vidrio', 'espesor', 'ancho_mm', 'alto_mm'], separate: true, order: [['id', 'ASC']] },
+        // Las 5 primeras las pinta el panel de cristales y `items.length` alimenta el
+        // check de vidrio; las 5 siguientes son columnas de ODPMatrixModal, que recibe
+        // el objeto del listado y se imprime — sin ellas la matriz sale con las
+        // columnas Pulidos/Perf./Boq./Descuentos/Otros vacías.
+        // No se traen pagos ni facturas_adicionales: el tablero no los referencia.
+        {
+          model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']],
+          attributes: ['id', 'odp_id', 'cantidad', 'tipo_vidrio', 'espesor', 'ancho_mm', 'alto_mm',
+            'pulidos', 'perforaciones', 'boquetes', 'descuentos', 'otros'],
+        },
         { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'odp_id', 'numero_tm', 'croquis_url'], separate: true },
         { model: SAP, as: 'saps', attributes: ['id', 'odp_id'], separate: true },
       ],
