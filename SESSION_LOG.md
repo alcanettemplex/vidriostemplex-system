@@ -551,3 +551,16 @@ Recorrer las 6 pestañas de ODP y confirmar badges/orden/paginación; **editar u
 
 ### Nota de entorno
 `npm run build` de `frontend-web` **no corre en Windows**: el script es `CI=false react-scripts build`, sintaxis POSIX que cmd.exe no interpreta (falla con `"CI" no se reconoce`). Es **preexistente**, ajeno a estos cambios. Alternativa que sí funciona: `CI=false npx react-scripts build` desde Git Bash.
+
+### Apéndice — regresión en la matriz de taller y retiro del formato
+
+**Regresión introducida y corregida el mismo día (commits `dba64ee` → `e9490ac`).** El include de `items` del perfil `vista=produccion` se derivó de los campos que pinta el panel de cristales (`cantidad`, `tipo_vidrio`, `espesor`, `ancho_mm`, `alto_mm`), pero `ODPMatrixModal` recibía el objeto del listado y usaba cinco columnas más: `pulidos`, `perforaciones`, `boquetes`, `descuentos` y `otros`. La matriz imprimible habría salido con esas cuatro columnas vacías — y son **instrucciones de fabricación**, no adorno: un cristal cortado sin su perforación o con el canto equivocado se rehace.
+
+**Causa del fallo de verificación:** al derivar las columnas del perfil se revisaron los campos de `odp` que consume ese modal, pero no los de la asociación `items`. **Regla para la próxima vez: al recortar un include hay que enumerar los campos de la entidad anidada en cada componente que la reciba, no solo los de la entidad principal.**
+
+**Decisión posterior del usuario:** el enlace "Ficha completa →" del panel de Cristales no se usa. Se retiró el formato completo:
+- Eliminado `frontend-web/src/features/produccion/components/ODPMatrixModal.tsx` (223 líneas), su import, el estado `selectedODPDetail` y el enlace del panel.
+- Con eso quedaron sin consumidor 9 campos del perfil `produccion`: `descripcion_pedido`, `direccion_instalacion`, `observaciones` y `tipo_servicio` de la ODP, más los 5 acabados del ítem. Todos excluidos.
+- Verificado que `ProgramacionWhatsAppModal` usa cuatro de esos campos pero los obtiene de **su propio endpoint** (`/api/rutas/programacion`), no del listado.
+
+**Efecto:** el tablero de Producción pasa de 439,8 KB a **337,8 KB** por carga — **−48% frente a los 652,0 KB originales**, contra el −33% que tenía antes de este retiro.

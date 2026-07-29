@@ -141,13 +141,19 @@ const ATTRS_ODP_LISTA = [
   'sin_items', 'tiene_dano_instalacion', 'tipo_odp', 'es_no_conformidad', 'odp_padre_id',
 ];
 
-// Vista "produccion" (tablero Kanban): necesita casi todas las columnas planas, porque
-// ODPMatrixModal recibe el objeto del listado y pinta descripcion_pedido,
-// direccion_instalacion, observaciones y tipo_servicio. Se excluyen solo las que ninguna
-// vista del tablero toca; servicios_detalle y croquis_url solas son el 43% de la fila.
+// Vista "produccion" (tablero Kanban): conserva las columnas planas que el tablero pinta
+// —sobre todo los chk_*, las banderas de acabado y color_taller— y excluye los textos
+// largos, que allí no se muestran. `servicios_detalle` y `descripcion_pedido` solas son
+// el 57% de la fila.
+//
+// Los 4 campos de texto del final se conservaban únicamente para ODPMatrixModal, que
+// recibía el objeto del listado; al retirarse ese formato (2026-07-28) dejaron de tener
+// consumidor. ProgramacionWhatsAppModal también los usa, pero los obtiene de su propio
+// endpoint (/api/rutas/programacion), no de aquí.
 const EXCLUDE_ODP_PRODUCCION = [
   'servicios_detalle', 'croquis_url', 'url_documento_factura', 'observacion_autorizacion',
   'foto_instalacion_url', 'nombre_recibe', 'telefono_recibe', 'cargo_recibe',
+  'descripcion_pedido', 'direccion_instalacion', 'observaciones', 'tipo_servicio',
 ];
 
 /**
@@ -169,16 +175,12 @@ const construirVistaODP = (vista?: string) => {
       attributes: { exclude: EXCLUDE_ODP_PRODUCCION } as any,
       include: [
         ...includeBase,
-        // Las 5 primeras las pinta el panel de cristales y `items.length` alimenta el
-        // check de vidrio; las 5 siguientes son columnas de ODPMatrixModal, que recibe
-        // el objeto del listado y se imprime — sin ellas la matriz sale con las
-        // columnas Pulidos/Perf./Boq./Descuentos/Otros vacías.
+        // Estas 5 medidas son las que pinta el panel de cristales, y `items.length`
+        // alimenta el check de vidrio. Los acabados (pulidos, perforaciones, boquetes,
+        // descuentos, otros) se traían para ODPMatrixModal; al retirarse ese formato
+        // ya no tienen consumidor en el tablero.
         // No se traen pagos ni facturas_adicionales: el tablero no los referencia.
-        {
-          model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']],
-          attributes: ['id', 'odp_id', 'cantidad', 'tipo_vidrio', 'espesor', 'ancho_mm', 'alto_mm',
-            'pulidos', 'perforaciones', 'boquetes', 'descuentos', 'otros'],
-        },
+        { model: ODPItem, as: 'items', attributes: ['id', 'odp_id', 'cantidad', 'tipo_vidrio', 'espesor', 'ancho_mm', 'alto_mm'], separate: true, order: [['id', 'ASC']] },
         { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'odp_id', 'numero_tm', 'croquis_url'], separate: true },
         { model: SAP, as: 'saps', attributes: ['id', 'odp_id'], separate: true },
       ],

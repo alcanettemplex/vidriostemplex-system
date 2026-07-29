@@ -38,7 +38,6 @@ import {
     PauseCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import ODPMatrixModal from './components/ODPMatrixModal';
 import PrintableSAP from '../odp/components/PrintableSAP';
 import ProgramacionWhatsAppModal from './components/ProgramacionWhatsAppModal';
 import socket from '../../store/socket';
@@ -218,7 +217,6 @@ const ProduccionPage: React.FC = () => {
     const [searchTerm, setSearchTerm]     = useState('');
     const [fichaOdpId, setFichaOdpId]     = useState<number | null>(null);
     const [selectedQR, setSelectedQR]     = useState<string | null>(null);
-    const [selectedODPDetail, setSelectedODPDetail] = useState<ODP | null>(null);
     const [filterType, setFilterType]     = useState<string>('TODAS');
     const [sortBy, setSortBy]             = useState<'fecha' | 'numero' | 'estado'>('fecha');
     const [sortDir, setSortDir]           = useState<'asc' | 'desc'>('asc');
@@ -259,9 +257,9 @@ const ProduccionPage: React.FC = () => {
                 axios.get(`${API}/api/odp`, {
                     headers,
                     // `vista: 'produccion'` excluye las columnas de texto que el tablero no
-                    // pinta (servicios_detalle y croquis_url son el 43% de la fila) y los
-                    // includes de pagos/facturas. Conserva descripcion_pedido y los datos
-                    // que ODPMatrixModal lee del objeto del listado.
+                    // pinta (servicios_detalle y descripcion_pedido solas son el 57% de la
+                    // fila) y los includes de pagos/facturas. El detalle completo se pide
+                    // por id al abrir el panel (fetchPanelDetail) o la ficha.
                     params: { limit: 1000, estados: ESTADOS_PRODUCCION_VISIBLES, vista: 'produccion' },
                     // Serializa el array como estados=A&estados=B (sin corchetes), igual que ODPListPage.
                     paramsSerializer: (p) => {
@@ -690,15 +688,7 @@ const ProduccionPage: React.FC = () => {
                     {/* Cristales */}
                     {(panelOdp.items?.length || 0) > 0 && (
                         <div>
-                            <div className="flex justify-between items-center mb-2">
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cristales</h4>
-                                <button
-                                    onClick={() => setSelectedODPDetail(panelOdp)}
-                                    className="text-[10px] font-black text-indigo-600 hover:text-indigo-700 uppercase"
-                                >
-                                    Ficha completa →
-                                </button>
-                            </div>
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cristales</h4>
                             <div className="space-y-1.5">
                                 {panelOdp.items.map((item, i) => (
                                     <div key={i} className="flex justify-between items-center text-xs p-2 rounded-lg bg-slate-50">
@@ -1598,10 +1588,6 @@ const ProduccionPage: React.FC = () => {
                     </div>
                 )}
             </AnimatePresence>
-
-            {selectedODPDetail && (
-                <ODPMatrixModal onClose={() => setSelectedODPDetail(null)} odp={selectedODPDetail} />
-            )}
 
             {/* Modal SAP */}
             {printSap && (
