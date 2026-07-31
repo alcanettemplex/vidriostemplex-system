@@ -136,7 +136,12 @@ const ESTADOS_NC_ACTIVOS = [...activeStates, 'PEDIDO_PROVEEDOR'];
 // Estados que el tablero de producción realmente muestra. Se pide al backend solo estas
 // ODP (excluye PROGRAMADA/INSTALADA, que esta página nunca renderiza) para no descargar
 // cientos de órdenes históricas que luego se descartan en el cliente — optimización egress.
-const ESTADOS_PRODUCCION_VISIBLES = [...activeStates, 'LISTO_INSTALAR', 'PAUSADA', 'ENTREGADA'];
+//
+// ENTREGADA se retiró el 2026-07-30: eran 284 ODPs (el 79% del universo pedido) para
+// alimentar solo una sub-pestaña de histórico, y desbordaban el tope de 200 filas que
+// aplica getODPs — el tablero perdía en silencio ODP-24000, ODP-23982 y ODP-23925.
+// El histórico de entregas se consulta desde el módulo ODP, tab Completadas.
+const ESTADOS_PRODUCCION_VISIBLES = [...activeStates, 'LISTO_INSTALAR', 'PAUSADA'];
 
 const ESTADO_ORDEN: Record<string, number> = {
     EN_ESPERA: 0, VISITA_TECNICA: 1, MEDICION: 2,
@@ -198,7 +203,7 @@ const getPaymentInfo = (odp: ODP): { label: string; cls: string } => {
 
 const ProduccionPage: React.FC = () => {
     const [mainTab, setMainTab]           = useState<'activas' | 'pedido_mano' | 'nc_garantias' | 'pausadas'>('activas');
-    const [manoSubTab, setManoSubTab]     = useState<'listos' | 'espera_pago' | 'entregadas'>('listos');
+    const [manoSubTab, setManoSubTab]     = useState<'listos' | 'espera_pago'>('listos');
 
     // Array maestro (fuente única de verdad) + NC/Garantías (endpoint aparte).
     const [odps, setOdps]                       = useState<ODP[]>([]);
@@ -211,7 +216,6 @@ const ProduccionPage: React.FC = () => {
     const readyOdps      = useMemo(() => odps.filter(o => o.estado_produccion === 'LISTO_INSTALAR'), [odps]);
     const despachoOdps   = useMemo(() => readyOdps.filter(o => o.instalacion || o.acarreo), [readyOdps]);
     const manoOdps       = useMemo(() => readyOdps.filter(o => !o.instalacion && !o.acarreo), [readyOdps]);
-    const entregadasOdps = useMemo(() => odps.filter(o => o.estado_produccion === 'ENTREGADA' && !o.instalacion && !o.acarreo), [odps]);
 
     const [loading, setLoading]           = useState(true);
     const [searchTerm, setSearchTerm]     = useState('');
@@ -582,9 +586,7 @@ const ProduccionPage: React.FC = () => {
 
     const pagoOkOdps     = manoOdps.filter(o => isPagoOk(o));
     const esperaPagoOdps = manoOdps.filter(o => !isPagoOk(o));
-    const currentManoOdps = manoSubTab === 'listos' ? pagoOkOdps
-        : manoSubTab === 'espera_pago' ? esperaPagoOdps
-        : entregadasOdps;
+    const currentManoOdps = manoSubTab === 'listos' ? pagoOkOdps : esperaPagoOdps;
 
     if (loading) return (
         <div className="p-8 text-center text-slate-500 font-bold">Cargando Tablero de Taller...</div>
@@ -1290,7 +1292,6 @@ const ProduccionPage: React.FC = () => {
                         {[
                             { id: 'listos',      label: 'Listo para entregar', count: pagoOkOdps.length,     color: 'emerald' },
                             { id: 'espera_pago', label: 'En espera de pago',   count: esperaPagoOdps.length, color: 'amber'   },
-                            { id: 'entregadas',  label: 'Entregadas',           count: entregadasOdps.length, color: 'slate'   },
                         ].map(tab => (
                             <button
                                 key={tab.id}
@@ -1312,9 +1313,7 @@ const ProduccionPage: React.FC = () => {
                         <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                             <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
                                 <Inbox className="w-4 h-4 text-indigo-500" />
-                                {manoSubTab === 'listos'      ? 'Listas para entregar'
-                                : manoSubTab === 'espera_pago' ? 'En espera de pago'
-                                : 'Entregadas'}
+                                {manoSubTab === 'listos' ? 'Listas para entregar' : 'En espera de pago'}
                                 <span className="text-slate-400">({currentManoOdps.length})</span>
                             </h2>
                         </div>
@@ -1332,10 +1331,8 @@ const ProduccionPage: React.FC = () => {
                                             <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">ODP / Cliente</th>
                                             <th className="px-4 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Entrega</th>
                                             <th className="px-4 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Pago</th>
-                                            {manoSubTab === 'entregadas' ? null : (
-                                                <th className="px-4 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[80px]">Estado caja</th>
-                                            )}
-                                            {(manoSubTab === 'listos' || manoSubTab === 'espera_pago') && puedeMarcarEntregada && (
+                                            <th className="px-4 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[80px]">Estado caja</th>
+                                            {puedeMarcarEntregada && (
                                                 <th className="px-4 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Acción</th>
                                             )}
                                         </tr>
@@ -1375,14 +1372,12 @@ const ProduccionPage: React.FC = () => {
                                                             {payInfo.label}
                                                         </span>
                                                     </td>
-                                                    {manoSubTab === 'entregadas' ? null : (
-                                                        <td className="px-4 py-3 text-center">
-                                                            <span className="text-[9px] text-slate-500 font-medium">
-                                                                {odp.estado_caja || '—'}
-                                                            </span>
-                                                        </td>
-                                                    )}
-                                                    {(manoSubTab === 'listos' || manoSubTab === 'espera_pago') && puedeMarcarEntregada && (
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className="text-[9px] text-slate-500 font-medium">
+                                                            {odp.estado_caja || '—'}
+                                                        </span>
+                                                    </td>
+                                                    {puedeMarcarEntregada && (
                                                         <td className="px-4 py-3 text-center">
                                                             {manoSubTab === 'listos' && (
                                                                 <button

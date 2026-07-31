@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback, useRef } from 'react';
+﻿import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useDataChangedSocket } from '../../store/useSocketNotifications';
 import axios from 'axios';
 import ODPFichaModal from '../odp/components/ODPFichaModal';
@@ -265,6 +265,10 @@ const PedidosPVPage: React.FC = () => {
   const [pasoCrear, setPasoCrear] = useState(1);
   const [itemsNuevos, setItemsNuevos] = useState<any[]>([]);
   const [busquedaOdp, setBusquedaOdp] = useState('');
+  // Resultados traídos de la base cuando el texto no coincide con ninguna ODP en curso
+  // (ODPs ya entregadas o demasiado antiguas para entrar en la carga inicial).
+  const [odpsRemotas, setOdpsRemotas] = useState<any[]>([]);
+  const [buscandoOdp, setBuscandoOdp] = useState(false);
 
   const [modalEnviar, setModalEnviar] = useState<PedidoPV | null>(null);
   const [formEnviar, setFormEnviar] = useState({ fecha_entrega_prometida: '', confirmado_proveedor: false });
@@ -402,15 +406,56 @@ const PedidosPVPage: React.FC = () => {
 
   const abrirModalCrear = async () => {
     const [{ data: odpsData }, { data: numData }] = await Promise.all([
-      axios.get(`${API}/api/odp`, { headers, params: { limit: 200 } }),
+      // `vista: 'lista'` pide el perfil ligero (aquí solo se pintan número y cliente):
+      // sin él llegaban ítems, pagos, tomas de medidas, SAP y facturas anidados —
+      // 665 KB para dos campos de texto. `excluir_completadas` deja las ODPs en curso,
+      // que antes competían con las entregadas por el corte de 200 y quedaban fuera
+      // las más antiguas (caso ODP-24000, posición 228 de 390). Las entregadas siguen
+      // alcanzables por el buscador contra la base, más abajo.
+      axios.get(`${API}/api/odp`, { headers, params: { limit: 200, vista: 'lista', excluir_completadas: true } }),
       axios.get(`${API}/api/pedidos-pv/siguiente-numero`, { headers }),
     ]);
     setOdps(odpsData.rows);
     setSiguienteNumero(numData.siguiente);
     setPasoCrear(1);
     setItemsNuevos([]);
+    setOdpsRemotas([]);
     setModalCrear(true);
   };
+
+  // Coincidencia de una ODP con el texto del buscador (número o razón social).
+  const odpCoincide = (o: any, q: string) =>
+    o.numero_odp?.toLowerCase().includes(q) || o.cliente?.nombre_razon_social?.toLowerCase().includes(q);
+
+  // Buscador contra la base: solo se dispara si el texto no encuentra nada entre las
+  // ODPs en curso ya cargadas. Así el uso normal no genera ni una petición extra, y las
+  // ODPs entregadas o antiguas (fuera del corte inicial) siguen siendo alcanzables.
+  useEffect(() => {
+    if (!modalCrear) return;
+    const q = busquedaOdp.trim().toLowerCase();
+    if (q.length < 3) { setOdpsRemotas([]); return; }
+    if (odps.some(o => odpCoincide(o, q))) { setOdpsRemotas([]); return; }
+
+    const t = setTimeout(async () => {
+      setBuscandoOdp(true);
+      try {
+        const { data } = await axios.get(`${API}/api/odp`, {
+          headers, params: { search: q, limit: 20, vista: 'lista' },
+        });
+        setOdpsRemotas(data.rows || []);
+      } catch { setOdpsRemotas([]); }
+      finally { setBuscandoOdp(false); }
+    }, 450);
+    return () => clearTimeout(t);
+  }, [busquedaOdp, modalCrear, odps]); // eslint-disable-line
+
+  // Lista del selector: las en curso que coinciden + las remotas que no estén ya.
+  const odpsSelector = useMemo(() => {
+    const q = busquedaOdp.trim().toLowerCase();
+    const base = odps.filter((o: any) => !q || odpCoincide(o, q));
+    const ids = new Set(base.map((o: any) => o.id));
+    return [...base, ...odpsRemotas.filter((o: any) => !ids.has(o.id))];
+  }, [odps, odpsRemotas, busquedaOdp]); // eslint-disable-line
 
   const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Gris', 'Azul', 'Verde', 'Mate', 'Otro'];
   const PROVEEDORES_PV = ['Vitelsa', 'Templacol', 'Vidplex', 'Otros'];
@@ -423,6 +468,7 @@ const PedidosPVPage: React.FC = () => {
     setPasoCrear(1);
     setItemsNuevos([]);
     setBusquedaOdp('');
+    setOdpsRemotas([]);
     setFormCrear({ odp_id: '', proveedor: '', sufijo: '', fecha_entrega_prometida: '', metraje_venta: '', espesor_vidrio: '', observaciones: '' });
   };
 
@@ -1126,21 +1172,37 @@ const PedidosPVPage: React.FC = () => {
                 size="small" fullWidth placeholder="Buscar ODP por número o cliente..."
                 value={busquedaOdp}
                 onChange={(e) => setBusquedaOdp(e.target.value)}
-                InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 16, color: 'text.secondary' }} /></InputAdornment> }}
+                helperText={
+                  buscandoOdp ? 'Buscando en el histórico...'
+                    : odpsRemotas.length ? `${odpsRemotas.length} resultado${odpsRemotas.length > 1 ? 's' : ''} del histórico (ODPs ya entregadas)`
+                    : `${odps.length} ODPs en curso — escribe para buscar en el histórico`
+                }
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 16, color: 'text.secondary' }} /></InputAdornment>,
+                  endAdornment: buscandoOdp ? <InputAdornment position="end"><CircularProgress size={14} /></InputAdornment> : undefined,
+                }}
               />
               <FormControl fullWidth size="small">
                 <InputLabel>ODP *</InputLabel>
                 <Select value={formCrear.odp_id} label="ODP *"
                   onChange={(e) => setFormCrear(f => ({ ...f, odp_id: String(e.target.value) }))}>
-                  {odps
-                    .filter((o: any) => {
-                      const q = busquedaOdp.toLowerCase();
-                      return !q || o.numero_odp?.toLowerCase().includes(q) || o.cliente?.nombre_razon_social?.toLowerCase().includes(q);
-                    })
-                    .map((o: any) => (
+                  {odpsSelector.length === 0 && (
+                    <MenuItem disabled value="">
+                      <Typography fontSize={12} color="text.secondary">
+                        {busquedaOdp.trim().length >= 3 ? 'Sin coincidencias' : 'Escribe al menos 3 caracteres para buscar en el histórico'}
+                      </Typography>
+                    </MenuItem>
+                  )}
+                  {odpsSelector.map((o: any) => (
                       <MenuItem key={o.id} value={o.id}>
                         <Stack>
-                          <Typography fontSize={13} fontWeight={700}>{o.numero_odp}</Typography>
+                          <Stack direction="row" alignItems="center" gap={0.75}>
+                            <Typography fontSize={13} fontWeight={700}>{o.numero_odp}</Typography>
+                            {['ENTREGADA', 'INSTALADA'].includes(o.estado_produccion) && (
+                              <Chip label={o.estado_produccion === 'ENTREGADA' ? 'Entregada' : 'Instalada'}
+                                size="small" sx={{ height: 16, fontSize: 9, fontWeight: 700 }} />
+                            )}
+                          </Stack>
                           <Typography fontSize={11} color="text.secondary">{o.cliente?.nombre_razon_social ?? ''}</Typography>
                         </Stack>
                       </MenuItem>
