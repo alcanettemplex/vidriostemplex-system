@@ -524,6 +524,8 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
         {mainTab === 'agenda' && (
           <AgendaTab
             odpsListos={odps.listos}
+            odpsEsperaPago={odps.espera_pago}
+            odpsEsperaFactura={odps.espera_factura}
             readOnly={readOnly}
             onVerODP={setSelectedOdpId}
             onCrearRutaDia={handleCrearRutaDia}

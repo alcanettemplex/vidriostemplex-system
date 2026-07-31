@@ -4,21 +4,13 @@ import { z } from 'zod';
 import { AgendaInstalacion, ODP, Cliente, sequelize } from '../models';
 
 // ─── Elegibilidad ─────────────────────────────────────────────────────────────
-// Una ODP solo puede agendarse si está LISTO_INSTALAR, requiere servicio
-// (instalación/acarreo), tiene pago y factura OK, y no está ya en una ruta activa.
-// Replica la lógica de la pestaña "Listo para instalar" de rutas.controller.
-
-const cumplePago = (o: any) =>
-  ['CANCELADO', 'CREDITO_APROBADO'].includes(o.estado_caja) ||
-  o.autorizacion_especial_despacho === true ||
-  o.forma_pago === 'credito' ||
-  o.es_garantia === true;
-
-const cumpleFactura = (o: any) =>
-  o.estado_facturacion === 'FACTURADA' ||
-  o.es_garantia === true ||
-  o.es_no_conformidad === true ||
-  o.forma_pago === 'credito';
+// La agenda es planeación tentativa: acepta las tres pestañas que ya están
+// fabricadas — "Listo para instalar", "Espera de pago" y "Espera de factura" —
+// para que el jefe pueda reservarles un día mientras se resuelve el cobro o la
+// factura. Por eso aquí NO se valida pago ni factura.
+//
+// Programar la ruta real sigue exigiendo ambas cosas: esa validación vive en
+// validarElegibilidadProgramacion() de rutas.controller y no se toca.
 
 const requiereServicio = (o: any) => o.instalacion === true || o.acarreo === true;
 
@@ -39,17 +31,11 @@ const estaEnRutaActiva = async (odpId: number): Promise<boolean> => {
 // Carga la ODP y valida elegibilidad. Devuelve { ok, motivo }.
 const validarElegible = async (odpId: number): Promise<{ ok: boolean; motivo?: string }> => {
   const odp = (await ODP.findByPk(odpId, {
-    attributes: [
-      'id', 'numero_odp', 'estado_produccion', 'estado_caja', 'estado_facturacion',
-      'autorizacion_especial_despacho', 'forma_pago', 'es_garantia', 'es_no_conformidad',
-      'instalacion', 'acarreo',
-    ],
+    attributes: ['id', 'estado_produccion', 'instalacion', 'acarreo'],
   })) as any;
   if (!odp) return { ok: false, motivo: 'La ODP no existe' };
   if (odp.estado_produccion !== 'LISTO_INSTALAR') return { ok: false, motivo: 'La ODP no está lista para instalar' };
   if (!requiereServicio(odp)) return { ok: false, motivo: 'La ODP no requiere instalación ni acarreo' };
-  if (!cumplePago(odp)) return { ok: false, motivo: 'La ODP no tiene el pago aprobado' };
-  if (!cumpleFactura(odp)) return { ok: false, motivo: 'La ODP no tiene factura electrónica' };
   if (await estaEnRutaActiva(odpId)) return { ok: false, motivo: 'La ODP ya está asignada a una ruta' };
   return { ok: true };
 };

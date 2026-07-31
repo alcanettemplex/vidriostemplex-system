@@ -39,10 +39,45 @@ const formatRango = (inicio: Date): string => {
   return `${f(inicio)} — ${f(fin)}`;
 };
 
+// ─── Condiciones de la bandeja ────────────────────────────────────────────────
+// La agenda es planeación tentativa, así que admite las tres pestañas ya fabricadas.
+// Solo 'listo' puede convertirse en ruta; las otras dos se reservan un día mientras
+// se resuelve el cobro o la factura.
+
+type Condicion = 'listo' | 'pago' | 'factura';
+
+const COND_META: Record<Condicion, { label: string; corto: string; chip: string; chipOff: string; badge: string; punto: string }> = {
+  listo: {
+    label: 'Listo para instalar', corto: 'Listo',
+    chip: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    chipOff: 'bg-white text-slate-400 border-slate-200',
+    badge: 'bg-emerald-100 text-emerald-700',
+    punto: 'bg-emerald-500',
+  },
+  pago: {
+    label: 'Espera de pago', corto: 'Pago',
+    chip: 'bg-amber-100 text-amber-700 border-amber-200',
+    chipOff: 'bg-white text-slate-400 border-slate-200',
+    badge: 'bg-amber-100 text-amber-700',
+    punto: 'bg-amber-500',
+  },
+  factura: {
+    label: 'Espera de factura', corto: 'Factura',
+    chip: 'bg-orange-100 text-orange-700 border-orange-200',
+    chipOff: 'bg-white text-slate-400 border-slate-200',
+    badge: 'bg-orange-100 text-orange-700',
+    punto: 'bg-orange-500',
+  },
+};
+
+const ORDEN_COND: Condicion[] = ['listo', 'pago', 'factura'];
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
   odpsListos: any[];                         // odps.listos del JefeView (cada una puede traer .agenda)
+  odpsEsperaPago?: any[];                    // odps.espera_pago — agendables, no programables
+  odpsEsperaFactura?: any[];                 // odps.espera_factura — agendables, no programables
   readOnly?: boolean;
   onVerODP: (id: number) => void;            // abre ODPFichaModal
   onCrearRutaDia: (odps: any[], fecha: string) => void; // abre ProgramarRutaModal precargado
@@ -51,7 +86,10 @@ interface Props {
 
 // ─── Componente ─────────────────────────────────────────────────────────────────
 
-const AgendaTab: React.FC<Props> = ({ odpsListos, readOnly = false, onVerODP, onCrearRutaDia, onAgendaChange }) => {
+const AgendaTab: React.FC<Props> = ({
+  odpsListos, odpsEsperaPago = [], odpsEsperaFactura = [],
+  readOnly = false, onVerODP, onCrearRutaDia, onAgendaChange,
+}) => {
   const token = sessionStorage.getItem('token');
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
@@ -62,6 +100,7 @@ const AgendaTab: React.FC<Props> = ({ odpsListos, readOnly = false, onVerODP, on
   const [busqueda, setBusqueda] = useState('');
   const [pickerDia, setPickerDia] = useState<string | null>(null); // fecha con el dropdown "+ ODP" abierto
   const [notaEdit, setNotaEdit] = useState<{ id: number; valor: string } | null>(null);
+  const [filtros, setFiltros] = useState<Record<Condicion, boolean>>({ listo: true, pago: true, factura: true });
   const pickerRef = useRef<HTMLDivElement | null>(null);
 
   const desde = fmt(inicio);
@@ -102,11 +141,47 @@ const AgendaTab: React.FC<Props> = ({ odpsListos, readOnly = false, onVerODP, on
   // ── Datos derivados ──
   const q = busqueda.toLowerCase().trim();
 
+  // Las tres listas unificadas y anotadas con su condición. Se deduplica por id
+  // dando prioridad a 'listo': una ODP puede cumplir dos condiciones a la vez
+  // (p. ej. garantía con caja pendiente) y no debe aparecer repetida.
+  const odpsConCondicion = useMemo(() => {
+    const vistos = new Set<number>();
+    const out: { odp: any; condicion: Condicion }[] = [];
+    const fuentes: [Condicion, any[]][] = [
+      ['listo', odpsListos],
+      ['pago', odpsEsperaPago],
+      ['factura', odpsEsperaFactura],
+    ];
+    for (const [condicion, lista] of fuentes) {
+      for (const odp of lista || []) {
+        if (vistos.has(odp.id)) continue;
+        vistos.add(odp.id);
+        out.push({ odp, condicion });
+      }
+    }
+    return out;
+  }, [odpsListos, odpsEsperaPago, odpsEsperaFactura]);
+
+  // Condición por ODP, para pintar el badge también en las ya agendadas.
+  const condicionPorOdp = useMemo(() => {
+    const m = new Map<number, Condicion>();
+    for (const { odp, condicion } of odpsConCondicion) m.set(odp.id, condicion);
+    return m;
+  }, [odpsConCondicion]);
+
+  // Conteo por condición antes de aplicar los chips (los chips muestran su propio total).
+  const conteoPorCondicion = useMemo(() => {
+    const c: Record<Condicion, number> = { listo: 0, pago: 0, factura: 0 };
+    for (const { odp, condicion } of odpsConCondicion) if (!odp.agenda) c[condicion]++;
+    return c;
+  }, [odpsConCondicion]);
+
   const odpsSinAgendar = useMemo(
-    () => odpsListos
-      .filter((o: any) => !o.agenda)
-      .filter((o: any) => !q || o.numero_odp?.toLowerCase().includes(q) || o.cliente?.nombre_razon_social?.toLowerCase().includes(q)),
-    [odpsListos, q]
+    () => odpsConCondicion
+      .filter(({ odp }) => !odp.agenda)
+      .filter(({ condicion }) => filtros[condicion])
+      .filter(({ odp }) => !q || odp.numero_odp?.toLowerCase().includes(q) || odp.cliente?.nombre_razon_social?.toLowerCase().includes(q)),
+    [odpsConCondicion, filtros, q]
   );
 
   const dias = useMemo(() => Array.from({ length: 7 }, (_, i) => fmt(addDias(inicio, i))), [inicio]);
@@ -159,6 +234,33 @@ const AgendaTab: React.FC<Props> = ({ odpsListos, readOnly = false, onVerODP, on
     } catch (e: any) { toast.error(e.response?.data?.error || 'No se pudo guardar la nota'); }
   };
 
+  // ── Crear ruta desde un día ──
+  // Un día puede mezclar condiciones, pero programar ruta sigue exigiendo pago y
+  // factura OK. Se filtra aquí (el modal precarga sin revalidar) y se avisa qué quedó
+  // fuera, para que el jefe no crea que la ruta salió con todo el día.
+  const crearRutaDelDia = (items: any[], fecha: string) => {
+    const candidatas = items.map((e: any) => e.odp).filter(Boolean);
+    const elegibles = candidatas.filter((o: any) => condicionPorOdp.get(o.id) === 'listo');
+    const excluidas = candidatas.filter((o: any) => condicionPorOdp.get(o.id) !== 'listo');
+
+    if (!elegibles.length) {
+      toast.warn(
+        `Ninguna ODP de este día puede programarse todavía: ${excluidas
+          .map((o: any) => `${o.numero_odp} (${COND_META[condicionPorOdp.get(o.id) ?? 'pago'].label.toLowerCase()})`)
+          .join(', ')}`
+      );
+      return;
+    }
+    if (excluidas.length) {
+      toast.info(
+        `${excluidas.length} ODP${excluidas.length > 1 ? 's quedaron fuera' : ' quedó fuera'} de la ruta: ${excluidas
+          .map((o: any) => `${o.numero_odp} (${COND_META[condicionPorOdp.get(o.id) ?? 'pago'].label.toLowerCase()})`)
+          .join(', ')}`
+      );
+    }
+    onCrearRutaDia(elegibles, fecha);
+  };
+
   // ── Drag & Drop ──
   const onDragEnd = async (result: DropResult) => {
     const { source, destination, draggableId } = result;
@@ -208,6 +310,7 @@ const AgendaTab: React.FC<Props> = ({ odpsListos, readOnly = false, onVerODP, on
   const FilaAgenda = (e: any, index: number) => {
     const odp = e.odp;
     const editandoNota = notaEdit?.id === e.id;
+    const cond = odp?.id ? condicionPorOdp.get(odp.id) : undefined;
     return (
       <Draggable draggableId={`entry:${e.id}`} index={index} isDragDisabled={readOnly}>
         {(prov, snap) => (
@@ -234,6 +337,11 @@ const AgendaTab: React.FC<Props> = ({ odpsListos, readOnly = false, onVerODP, on
                 {odp?.numero_odp}
               </button>
               <span className="text-xs text-slate-600 truncate">{odp?.cliente?.nombre_razon_social}</span>
+              {cond && (
+                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide flex-shrink-0 ${COND_META[cond].badge}`} title={COND_META[cond].label}>
+                  {COND_META[cond].corto}
+                </span>
+              )}
               {odp?.direccion_instalacion && (
                 <span className="text-[11px] text-slate-400 truncate hidden md:flex items-center gap-0.5 flex-shrink min-w-0">
                   <MapPin className="w-2.5 h-2.5 flex-shrink-0" /> {odp.direccion_instalacion}
@@ -316,10 +424,31 @@ const AgendaTab: React.FC<Props> = ({ odpsListos, readOnly = false, onVerODP, on
           {/* Bandeja: ODPs listas sin agendar */}
           <div className="w-60 flex-shrink-0 sticky top-2">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col max-h-[78vh]">
-              <div className="px-3 py-2.5 border-b border-slate-100 flex items-center gap-2">
-                <Inbox className="w-4 h-4 text-slate-400" />
-                <span className="text-xs font-bold uppercase tracking-wide text-slate-600">Sin agendar</span>
-                <span className="ml-auto px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs font-bold">{odpsSinAgendar.length}</span>
+              <div className="px-3 py-2.5 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <Inbox className="w-4 h-4 text-slate-400" />
+                  <span className="text-xs font-bold uppercase tracking-wide text-slate-600">Sin agendar</span>
+                  <span className="ml-auto px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs font-bold">{odpsSinAgendar.length}</span>
+                </div>
+                {/* Chips: filtran la bandeja e identifican la condición de cada ODP */}
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {ORDEN_COND.map((c) => {
+                    const activo = filtros[c];
+                    const meta = COND_META[c];
+                    return (
+                      <button
+                        key={c}
+                        onClick={() => setFiltros(prev => ({ ...prev, [c]: !prev[c] }))}
+                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-bold transition-all ${activo ? meta.chip : meta.chipOff}`}
+                        title={activo ? `Ocultar "${meta.label}"` : `Mostrar "${meta.label}"`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${activo ? meta.punto : 'bg-slate-300'}`} />
+                        {meta.corto}
+                        <span className={activo ? '' : 'text-slate-300'}>{conteoPorCondicion[c]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <Droppable droppableId="bandeja" isDropDisabled={readOnly}>
                 {(prov, snap) => (
@@ -329,9 +458,13 @@ const AgendaTab: React.FC<Props> = ({ odpsListos, readOnly = false, onVerODP, on
                     className={`flex-1 overflow-y-auto p-2 space-y-1.5 min-h-[120px] transition-colors ${snap.isDraggingOver ? 'bg-indigo-50/40' : ''}`}
                   >
                     {odpsSinAgendar.length === 0 ? (
-                      <p className="text-[11px] text-slate-400 text-center py-8">{q ? 'Sin resultados' : 'Todo lo listo ya está agendado 🎉'}</p>
+                      <p className="text-[11px] text-slate-400 text-center py-8">
+                        {q ? 'Sin resultados'
+                          : ORDEN_COND.some(c => !filtros[c]) ? 'Sin ODPs con los filtros activos'
+                          : 'Todo lo listo ya está agendado 🎉'}
+                      </p>
                     ) : (
-                      odpsSinAgendar.map((o: any, i: number) => (
+                      odpsSinAgendar.map(({ odp: o, condicion }, i: number) => (
                         <Draggable key={o.id} draggableId={`odp:${o.id}`} index={i} isDragDisabled={readOnly}>
                           {(p, s) => (
                             <div
@@ -342,9 +475,14 @@ const AgendaTab: React.FC<Props> = ({ odpsListos, readOnly = false, onVerODP, on
                                 s.isDragging ? 'shadow-lg ring-2 ring-indigo-200' : 'border-slate-200 shadow-sm hover:border-indigo-200'
                               }`}
                             >
-                              <button onClick={() => onVerODP(o.id)} className="text-xs font-bold text-slate-800 hover:text-indigo-600 hover:underline underline-offset-2">
-                                {o.numero_odp}
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button onClick={() => onVerODP(o.id)} className="text-xs font-bold text-slate-800 hover:text-indigo-600 hover:underline underline-offset-2">
+                                  {o.numero_odp}
+                                </button>
+                                <span className={`ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide flex-shrink-0 ${COND_META[condicion].badge}`} title={COND_META[condicion].label}>
+                                  {COND_META[condicion].corto}
+                                </span>
+                              </div>
                               <p className="text-[10px] text-slate-500 truncate">{o.cliente?.nombre_razon_social}</p>
                             </div>
                           )}
@@ -367,7 +505,6 @@ const AgendaTab: React.FC<Props> = ({ odpsListos, readOnly = false, onVerODP, on
               const items = entriesPorDia[fecha] || [];
               const esHoy = fecha === HOY_STR;
               const fechaObj = new Date(`${fecha}T00:00:00`);
-              const candidatasRuta = items.map((e: any) => e.odp).filter(Boolean);
               const nombreDia = fechaObj.toLocaleDateString('es-CO', { weekday: 'long' });
               const fechaCorta = fechaObj.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
               return (
@@ -393,13 +530,18 @@ const AgendaTab: React.FC<Props> = ({ odpsListos, readOnly = false, onVerODP, on
                           </button>
                           {pickerDia === fecha && odpsSinAgendar.length > 0 && (
                             <div className="absolute top-full mt-1 right-0 z-30 w-60 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto py-1">
-                              {odpsSinAgendar.map((o: any) => (
+                              {odpsSinAgendar.map(({ odp: o, condicion }) => (
                                 <button
                                   key={o.id}
                                   onClick={() => { setPickerDia(null); colocar(o.id, fecha); }}
                                   className="w-full text-left px-2.5 py-1.5 hover:bg-indigo-50 transition-colors"
                                 >
-                                  <span className="text-xs font-bold text-slate-800">{o.numero_odp}</span>
+                                  <span className="flex items-center gap-1.5">
+                                    <span className="text-xs font-bold text-slate-800">{o.numero_odp}</span>
+                                    <span className={`ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${COND_META[condicion].badge}`}>
+                                      {COND_META[condicion].corto}
+                                    </span>
+                                  </span>
                                   <span className="block text-[10px] text-slate-500 truncate">{o.cliente?.nombre_razon_social}</span>
                                 </button>
                               ))}
@@ -409,7 +551,7 @@ const AgendaTab: React.FC<Props> = ({ odpsListos, readOnly = false, onVerODP, on
                         {/* Crear ruta del día */}
                         {items.length > 0 && (
                           <button
-                            onClick={() => onCrearRutaDia(candidatasRuta, fecha)}
+                            onClick={() => crearRutaDelDia(items, fecha)}
                             className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[11px] font-bold hover:bg-indigo-700 transition-all"
                           >
                             <Route className="w-3 h-3" /> Crear ruta

@@ -183,17 +183,25 @@ export const getODPsParaGestion = async (_req: Request, res: Response) => {
         ],
         order: [['fecha_entrega', 'ASC']],
       }),
-      // Pestaña 2: producción lista pero sin pago (excluye crédito, que ya puede instalarse)
+      // Pestaña 2: producción lista pero sin pago (excluye crédito, que ya puede instalarse).
+      // Las garantías quedan fuera: no se cobran al cliente, así que PAGO_OK las da por
+      // aprobadas y su lugar es "Listo para instalar" — sin esta exclusión aparecían en
+      // ambas pestañas a la vez e inflaban los dos contadores.
+      // Incluye su entrada de agenda para que la bandeja no la muestre dos veces.
       ODP.findAll({
         where: {
           estado_produccion: 'LISTO_INSTALAR',
           estado_caja: { [Op.in]: ['PENDIENTE', 'ABONADO'] },
           autorizacion_especial_despacho: false,
           forma_pago: { [Op.ne]: 'credito' },
+          es_garantia: { [Op.or]: [{ [Op.ne]: true }, { [Op.is]: null }] },
           ...excluirEnRuta,
           ...REQUIERE_SERVICIO,
         },
-        include: INCLUDE_ODP_BASICO,
+        include: [
+          ...INCLUDE_ODP_BASICO,
+          { model: AgendaInstalacion, as: 'agenda', attributes: ['id', 'fecha_tentativa', 'orden'], required: false },
+        ],
         order: [['fecha_entrega', 'ASC']],
       }),
       // Pestaña 3: pago OK pero producción aún no lista
@@ -218,7 +226,11 @@ export const getODPsParaGestion = async (_req: Request, res: Response) => {
           ...excluirEnRuta,
           [Op.and as any]: [PAGO_OK, REQUIERE_SERVICIO],
         },
-        include: INCLUDE_ODP_BASICO,
+        // Incluye su entrada de agenda para que la bandeja no la muestre dos veces.
+        include: [
+          ...INCLUDE_ODP_BASICO,
+          { model: AgendaInstalacion, as: 'agenda', attributes: ['id', 'fecha_tentativa', 'orden'], required: false },
+        ],
         order: [['fecha_entrega', 'ASC']],
       }),
     ]);
