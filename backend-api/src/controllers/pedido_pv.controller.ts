@@ -60,6 +60,17 @@ const INCLUDE_COMPLETO = [
 
 // ─── Helper: avanzar ODP a VIDRIO_RECIBIDO si todos los PV están verificados ──
 
+// Estados en los que la ODP ya pasó VIDRIO_RECIBIDO (o está fuera del flujo normal):
+// escribirle ese estado sería un RETROCESO. Pasa cuando se agrega un pedido PV a una
+// ODP que ya estaba lista: al verificarlo, la ODP volvía de LISTO_INSTALAR a
+// VIDRIO_RECIBIDO y desaparecía de Instalaciones. Se conserva el chk_vidrio, que sí
+// es información válida. (El valor 'VERIFICADO' que había aquí no existe como estado
+// de ODP —es un estado de PedidoPV— así que nunca protegió nada.)
+const ESTADOS_POSTERIORES_A_VIDRIO = [
+  'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR',
+  'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA',
+];
+
 const verificarAvanceODP = async (odp_id: number, usuario_id: number) => {
   const pedidos = await PedidoPV.findAll({ where: { odp_id } });
   const todosVerificados = pedidos.every(
@@ -71,7 +82,11 @@ const verificarAvanceODP = async (odp_id: number, usuario_id: number) => {
   if (!odp) return;
 
   const estadoActual = odp.getDataValue('estado_produccion');
-  if (estadoActual === 'VIDRIO_RECIBIDO' || estadoActual === 'VERIFICADO') return;
+  if (ESTADOS_POSTERIORES_A_VIDRIO.includes(estadoActual)) {
+    // La ODP ya avanzó más allá: solo se marca el check, sin tocar el estado.
+    if (!odp.getDataValue('chk_vidrio')) await odp.update({ chk_vidrio: true });
+    return;
+  }
 
   await odp.update({ chk_vidrio: true, estado_produccion: 'VIDRIO_RECIBIDO' });
 
