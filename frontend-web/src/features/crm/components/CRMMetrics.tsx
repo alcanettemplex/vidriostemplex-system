@@ -5,7 +5,7 @@ import {
 import { apiGetCRMStats } from '../crmService';
 import {
   IconDollar, IconCheck, IconGlobe, IconBarChart,
-  IconPackage, IconPercent, IconSparkles, IconActivity, IconTarget
+  IconPackage, IconPercent, IconActivity, IconTarget
 } from './CRMIcons';
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -267,7 +267,6 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta }
     tasa_conversion = 0, ticket_promedio_proyectado = 0,
     por_estado = {}, por_motivo_perdida = {}, por_producto = {},
     por_fuente = {}, por_segmento = {},
-    stats_por_asesor = [],
     nuevos_prospectos = 0, nuevos_crm = 0, clientes_recurrentes = 0,
     monto_nuevos_clientes = 0, monto_nuevos_crm = 0, monto_clientes_recurrentes = 0,
     negocios_por_fuente = [],
@@ -690,55 +689,6 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta }
           leads={leads_aprobados_sin_odp_detalle as LeadSinODP[]}
           onClose={() => setSinOdpModal(false)}
         />
-      )}
-
-      {/* ── Ranking Asesores (solo vista global) ── */}
-      {esVistaGlobal && stats_por_asesor.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
-              <IconSparkles size={16} className="text-amber-500" />
-            </div>
-            <div className="flex items-center">
-              <h3 className="font-semibold text-slate-800 text-base tracking-tight">Ranking Comercial</h3>
-              <InfoTooltip text="Comparativo de desempeño por asesor en el período, ordenado por tasa de conversión. El monto gestionado es la suma de montos proyectados de todos sus leads. Verde ≥30%, naranja 15-29%, rojo &lt;15%. Solo visible para roles con acceso global." />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {stats_por_asesor.map((a: any, idx: number) => {
-              const initials = a.nombre.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
-              const avColors = ['from-indigo-400 to-violet-500', 'from-emerald-400 to-teal-500', 'from-amber-400 to-orange-500', 'from-rose-400 to-pink-500', 'from-blue-400 to-cyan-500'];
-              const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null;
-              return (
-                <div key={a.id} className="bg-slate-50 rounded-lg p-4 border border-slate-200 hover:border-slate-300 flex items-center gap-4 transition-all">
-                  <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${avColors[idx % avColors.length]} flex items-center justify-center font-semibold text-white text-sm flex-shrink-0 shadow-md`}>
-                    {initials}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      {medal && <span className="text-sm">{medal}</span>}
-                      <p className="font-bold text-slate-800 text-base truncate">{a.nombre}</p>
-                    </div>
-                    <p className="text-xs text-slate-400 font-bold">{a.total} leads asignados</p>
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <div className="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${a.tasa_conversion}%`, backgroundColor: '#5e6ad2' }} />
-                      </div>
-                      <span className={`text-xs font-semibold ${a.tasa_conversion >= 30 ? 'text-emerald-600' : a.tasa_conversion >= 15 ? 'text-amber-500' : 'text-rose-500'}`}>
-                        {a.tasa_conversion}% conv.
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-semibold text-slate-700">{fmtCOP(a.monto_gestionado, true)}</p>
-                    <p className="text-xs font-bold text-emerald-600 mt-1">{a.aprobados} aprobados</p>
-                    <p className="text-xs font-bold text-rose-500">{a.perdidos} perdidos</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       )}
     </div>
   );
