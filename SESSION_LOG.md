@@ -661,3 +661,62 @@ No se tocó el backend: el 403 es el comportamiento deseado. El cambio es que la
 **Sin backend, sin BD, sin impacto en egress:** el dato ya viajaba y se descartaba. El tipo `SAPItemConContexto` ya declaraba `asesor: { id, nombre_completo }` (línea 30) y `GET /api/compras/panel` ya lo incluye (`odc.controller.ts:234`).
 
 **Verificación:** `tsc --noEmit` **EXIT 0**; dev server "No issues found". Contra la BD real vía el endpoint: **28 de 28 ítems pendientes (100%) traen asesor**, de 5 personas — Bryam Arrubla (22), Alejandro Ardila (2), Nataly Londoño Arias (2), Alba Lucia Castro (1), Paola González (1); nombres de 13 a 20 caracteres, holgados para `w-40`. Validación estructural de la tabla: **8 `<th>` = 8 `<td>`**, sin descuadre de columnas.
+
+---
+
+## 2026-08-01 — Impresión: el fix del 31-jul funcionaba en local y fallaba en producción
+
+**Síntoma reportado:** la Orden de Producción sigue saliendo sin formato al imprimir, pero **solo desde producción**; en local se ve correcta. Sospecha inicial del usuario: que el commit del 31-jul no se hubiera subido o desplegado.
+
+### Hipótesis del deploy: descartada con evidencia
+
+`origin/main` y `HEAD` local coinciden en `57cc0a2`, sin commits pendientes. Verificado además contra el sitio real: el bundle `main.b205253d.js` de `vidriostemplex-system.pages.dev` **contiene** el toast nuevo («Habilita las ventanas emergentes para este sitio»), `afterprint` y `base href`, y **no contiene** `cdn.tailwindcss.com` ni `PrintableOP`. El build local reprodujo incluso el mismo hash de CSS (`main.0ba20770.css`) que está desplegado. El código nuevo estaba en producción.
+
+### Causa raíz — se cambió el origen del CSS, no el momento del `print()`
+
+El fix del 31-jul sustituyó el CDN de Tailwind por un clon del `outerHTML` de las hojas de la app. Eso se comporta distinto en cada entorno:
+
+- **`npm start`:** webpack inyecta el CSS como `<style>` **inline**; clonar el `outerHTML` copia las reglas dentro del HTML → se aplican de forma síncrona. Siempre funciona.
+- **Producción:** el CSS es `<link href="/static/css/main.*.css">` de **124 KB**; el clon copia solo la **referencia** y la ventana debe descargarla.
+
+Y en `printWindow.ts:88-89` el disparo era:
+
+```js
+if (win.document.readyState === 'complete') imprimir();
+else win.addEventListener('load', imprimir);
+```
+
+Una ventana `about:blank` **ya reporta `readyState === 'complete'`**, y tras el `document.write()`/`close()` síncrono lo sigue reportando: se tomaba siempre la rama inmediata y se imprimía antes de que la hoja existiera. El `load` que sí habría esperado el CSS nunca llegaba a registrarse.
+
+**Reproducción determinista** (Brave headless + servidor local que sirve el CSS con 150 ms de retardo, replicando el `<link>` de producción):
+
+```
+[ANTES ] readyState tras document.close(): "complete"
+[ANTES ] print() disparado por: rama readyState==="complete" (inmediata)
+[ANTES ] font-size de .text-xs: 16px   (correcto = 12px)  -> SIN FORMATO
+[DESPUES] font-size de .text-xs: 12px                     -> CON formato
+```
+
+### Cambio (un solo archivo: `frontend-web/src/utils/printWindow.ts`)
+
+Se deja de clonar y de descargar: se leen las reglas que el navegador **ya tiene en memoria** (`document.styleSheets` → `cssRules`, accesible por ser del mismo origen) y se incrustan inline, respetando el orden del documento para no alterar la cascada.
+
+- `recolectarEstilos()` — una pieza por hoja, en orden. Cada hoja en su `try/catch`: si es cross-origin y `cssRules` lanza `SecurityError`, se conserva su `<link>` original como respaldo.
+- `neutralizarCierre()` — escapa `</` por si alguna regla contiene `</style>` dentro de un `content:`.
+- `esperarImagenes()` — sustituye la comprobación de `readyState`. El CSS ya viaja incrustado, así que lo único que puede faltar es el logo; se espera a que las imágenes terminen (cargadas o fallidas), manteniendo el respaldo de 4 s.
+
+Comprobado antes de inlinear que el CSS de producción **no contiene ninguna `url()`**, de modo que no hay rutas relativas que se rompan al sacar las reglas de su archivo.
+
+### Verificación ejecutada
+
+- `tsc --noEmit` **EXIT 0** · build de producción **EXIT 0**.
+- Contra el **CSS real descargado de producción** (124 KB): `.text-xs` pasa de 16px (sin formato) a **12px**; **1520 de 1520 reglas** presentes en el documento destino; el bloque **`@media print` se preserva** (origen 1 = destino 1) — crítico porque ahí vive `@page`. Coste: 126,2 KB serializados en **18,6 ms**.
+- Barrido de puntos de impresión: los 5 que usan el helper quedan cubiertos sin tocarlos (firma intacta). `Lightbox` y el croquis de `ODPTabProduccion` abren ventana pero solo con una imagen y estilos propios inline; `COTModal`, `TMModal` y `ProduccionPage` imprimen la página actual vía `@media print`. Ninguno sufre este bug.
+
+### Lección
+
+El fix del 31-jul se validó en local, donde el modo de entrega del CSS **oculta** la clase de fallo. Cuando un cambio depende de cómo el bundler entrega los assets, probarlo en `npm start` no es prueba: hay que servir el `build/` de producción. Anotado también que `npm run build` en Windows puede devolver exit 0 sin construir — usar `CI=false npx react-scripts build` desde Git Bash.
+
+### Nota
+
+En el comentario del código queda anotado que en producción emotion (MUI) inserta sus reglas por CSSOM dejando los `<style>` vacíos, con lo que clonar `outerHTML` tampoco copiaba nada de MUI; el cambio también lo cubre, pero **eso es razonamiento, no medición** — lo verificado es el Tailwind del `<link>`.
