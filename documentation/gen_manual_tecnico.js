@@ -619,9 +619,9 @@ const doc = new Document({
           ['TMModal.tsx', 'Toma de Medidas (dos momentos: antes y despu\u00E9s de ODP)'],
           ['SAPModal.tsx', 'Modal de solicitud de perfilar\u00EDa'],
           ['COTModal.tsx', 'Modal de cotizaci\u00F3n'],
-          ['PrintableOP.tsx', 'PDF de Orden de Producci\u00F3n (window.print())'],
           ['PrintableSAP.tsx', 'PDF de SAP (window.print())'],
-          ['PrintableProduccion.tsx', 'PDF de hoja de producci\u00F3n (window.print())'],
+          ['PrintableProduccion.tsx', 'Orden de Producci\u00F3n: ficha ODP, Instalador y Conductor'],
+          ['PrintableTalonario.tsx', 'Orden de Compra Cliente (window.print())'],
         ],
         [3200, 6160]
       ),

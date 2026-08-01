@@ -13,6 +13,7 @@ import FolderTabs from '../../components/FolderTabs';
 
 import { useDataChangedSocket } from '../../store/useSocketNotifications';
 
+import { abrirVentanaImpresion } from '../../utils/printWindow';
 import API from '../../services/config';
 
 // ─── Tipos ─────────────────────────────────────────────────────────────────
@@ -387,24 +388,18 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
   const handleImprimir = () => {
     const area = document.getElementById(`odc-print-area-${odc.id}`);
     if (!area) return;
-    const win = window.open('', '_blank', 'width=900,height=700');
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head>
-      <meta charset="utf-8"/>
-      <title>ODC ${odc.numero_odc}</title>
-      <script src="https://cdn.tailwindcss.com"><\/script>
-      <style>
+    abrirVentanaImpresion({
+      titulo: `ODC ${odc.numero_odc}`,
+      contenidoHtml: area.innerHTML,
+      estilos: `
         @page { size: letter portrait; margin: 8mm; }
-        body { margin: 0; padding: 0; font-family: sans-serif; }
+        body { font-family: sans-serif; }
         .odc-table { width: 100%; border-collapse: collapse; }
         .odc-table th, .odc-table td { border: 1px solid #cbd5e1; padding: 3px 6px; font-size: 10px; }
-        .odc-table th { background-color: #1e293b; color: white; font-weight: bold; text-align: left; text-transform: uppercase; letter-spacing: 0.05em; }
-        .odc-table tr:nth-child(even) { background-color: #f8fafc; }
-      </style>
-    </head><body>${area.innerHTML}</body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 800);
+        .odc-table th { background-color: #1e293b; color: white; font-weight: bold; text-align: left; text-transform: uppercase; letter-spacing: 0.05em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .odc-table tr:nth-child(even) { background-color: #f8fafc; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      `,
+    });
   };
 
   const hayItemsParciales = odc.estado === 'pendiente' && odc.items.some(it => it.recibido);

@@ -41,9 +41,15 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                 .fs-7 { font-size: 7px; }
 
                 @media print {
+                    @page { size: letter portrait; margin: 4mm; }
+                    body, html { margin: 0 !important; padding: 0 !important; }
                     .produccion-page { page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     .produccion-page:last-child { page-break-after: avoid; }
                     .print-container { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    /* En pantalla el bloque simula una hoja (21.5cm x 29cm). Al
+                       imprimir manda @page: 29cm es alto A4 y sobre una Carta
+                       (27.94cm) desbordaba, sacando una hoja extra en blanco. */
+                    .print-root { width: 100% !important; min-height: unset !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
                 }
                 `}
             </style>
@@ -63,9 +69,9 @@ const PrintableProduccion: React.FC<PrintableProduccionProps> = ({ odp }) => {
                 return (
                     <div
                         key={pageIdx}
-                        className="produccion-page block shadow-xl print:shadow-none w-[21.5cm] min-h-[29cm] bg-white text-black font-sans text-[10px] mx-auto overflow-hidden mb-6 print:mb-0"
+                        className="produccion-page print-root block shadow-xl print:shadow-none w-[21.5cm] min-h-[29cm] print:min-h-0 bg-white text-black font-sans text-[10px] mx-auto overflow-hidden print:overflow-visible mb-6 print:mb-0"
                     >
-                        <div className="print-container p-2">
+                        <div className="print-container p-2 print:p-0">
 
                             {/* ---------- CABECERA ---------- */}
                             {pageIdx === 0 ? (

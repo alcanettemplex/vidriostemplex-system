@@ -307,17 +307,22 @@ const PrintableSAP: React.FC<PrintableSAPProps> = ({ odp, sap }) => {
                 .sap-table th { font-weight: bold; text-align: center; background-color: #f0f0f0; }
                 .thick-b { border-bottom: 2px solid #000 !important; }
                 @media print {
+                    @page { size: letter portrait; margin: 4mm; }
+                    body, html { margin: 0 !important; padding: 0 !important; }
                     .sap-page { page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                     .sap-page:last-child { page-break-after: avoid; }
+                    /* min-h de 29cm es alto A4: sobre Carta desbordaba y sacaba
+                       una hoja extra en blanco. La hoja la define @page. */
+                    .print-root { width: 100% !important; min-height: unset !important; box-shadow: none !important; margin: 0 !important; overflow: visible !important; }
                 }
             `}</style>
 
             {indicesPorPagina.map((indices, paginaIdx) => (
                 <div
                     key={paginaIdx}
-                    className="sap-page block w-[21.5cm] min-h-[29cm] bg-white shadow-xl print:shadow-none text-black font-sans text-[14px] mx-auto overflow-hidden mb-6 print:mb-0"
+                    className="sap-page print-root block w-[21.5cm] min-h-[29cm] print:min-h-0 bg-white shadow-xl print:shadow-none text-black font-sans text-[14px] mx-auto overflow-hidden print:overflow-visible mb-6 print:mb-0"
                 >
-                    <div className="print-container p-2">
+                    <div className="print-container p-2 print:p-0">
 
                         {/* Cabecera idéntica en todas las hojas */}
                         <Cabecera esContinuacion={paginaIdx > 0} />

@@ -65,6 +65,10 @@ const PrintableOA: React.FC<PrintableOAProps> = ({ odp }) => {
           @page { size: letter portrait; margin: 5mm; }
           body, html { margin: 0 !important; padding: 0 !important; }
           .page-break { page-break-after: always; }
+          /* El ancho de 21.5cm es para la vista en pantalla; con los márgenes
+             de @page no cabe en una Carta y el navegador reescalaba la hoja.
+             Lleva !important porque el ancho va como estilo inline. */
+          .print-root { width: 100% !important; margin: 0 !important; padding: 0 !important; }
         }
       `}</style>
 
@@ -72,7 +76,7 @@ const PrintableOA: React.FC<PrintableOAProps> = ({ odp }) => {
         <div
           key={pageIdx}
           style={{ width: '21.5cm', background: '#fff', padding: '8px', margin: '0 auto' }}
-          className={pageIdx < paginas.length - 1 ? 'page-break' : ''}
+          className={`print-root ${pageIdx < paginas.length - 1 ? 'page-break' : ''}`}
         >
           {/* ── CABECERA ── */}
           <table style={{ ...tableStyle, marginBottom: '4px' }}>

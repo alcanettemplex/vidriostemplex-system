@@ -12,7 +12,7 @@ const PrintableNoConformidad: React.FC<PrintableNoConformidadProps> = ({ data, o
     const checkIcon = (type: string) => (data?.tipo_error === type ? 'X' : '');
 
     return (
-        <div className="block print:block shadow-xl print:shadow-none w-[21.5cm] min-h-[29cm] bg-white text-black font-sans text-[11px] mx-auto overflow-hidden">
+        <div className="print-root block print:block shadow-xl print:shadow-none w-[21.5cm] min-h-[29cm] print:min-h-0 bg-white text-black font-sans text-[11px] mx-auto overflow-hidden print:overflow-visible">
             <style>
                 {`
                 .excel-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
@@ -20,7 +20,12 @@ const PrintableNoConformidad: React.FC<PrintableNoConformidadProps> = ({ data, o
                 .gray-bg { background-color: #f3f4f6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                 
                 @media print {
+                    @page { size: letter portrait; margin: 5mm; }
+                    body, html { margin: 0 !important; padding: 0 !important; }
                     .print-container { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    /* min-h de 29cm es alto A4: sobre Carta desbordaba y sacaba
+                       una hoja extra en blanco. La hoja la define @page. */
+                    .print-root { width: 100% !important; min-height: unset !important; box-shadow: none !important; margin: 0 !important; overflow: visible !important; }
                 }
                 `}
             </style>

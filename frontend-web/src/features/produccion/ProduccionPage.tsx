@@ -184,6 +184,29 @@ const isColApplicable = (odp: ODP, key: string): boolean => {
     }
 };
 
+/**
+ * Motivo por el que una etapa no aplica a esta ODP. Es el espejo de isColApplicable:
+ * si allá se cambia una regla, hay que actualizar el mensaje correspondiente aquí.
+ *
+ * Existe porque la celda no aplicable se pintaba como un «—» sin onClick: el clic
+ * burbujeaba al <tr>, abría el panel de detalle y el operario lo reportaba como que
+ * el tablero "no marca". La regla de negocio no cambia — solo deja de ser muda.
+ */
+const getMotivoNoAplica = (odp: ODP, key: string): string => {
+    switch (key) {
+        case 'chk_medicion':   return 'Medición no aplica: esta ODP no tiene una toma de medidas registrada.';
+        case 'chk_corte':      return 'Aluminio no aplica: esta ODP no está marcada como que lleva aluminio.';
+        case 'chk_vidrio':     return 'Vidrio no aplica: esta ODP todavía no tiene vidrios cargados.';
+        case 'chk_accesorios': return 'Herrajes no aplica: esta ODP no tiene un SAP asociado.';
+        case 'chk_ensamble':   return 'Ensamble no aplica: esta ODP no está marcada como que lleva aluminio.';
+        case 'chk_matizado':   return 'Matizado no aplica: esta ODP no tiene marcada esa opción en su ficha.';
+        case 'chk_pelicula':   return 'Película no aplica: esta ODP no tiene marcada esa opción en su ficha.';
+        case 'chk_huacal':     return 'Huacal no aplica: esta ODP no tiene marcada esa opción en su ficha.';
+        case 'chk_carton':     return 'Cartón no aplica: esta ODP no tiene marcada esa opción en su ficha.';
+        default:               return 'Esta etapa no aplica a la ODP.';
+    }
+};
+
 const isColLocked = (odp: ODP, key: string): boolean => {
     return ['chk_pelicula', 'chk_matizado', 'chk_huacal', 'chk_carton'].includes(key) && !odp.chk_vidrio;
 };
@@ -248,6 +271,12 @@ const ProduccionPage: React.FC = () => {
     const userRol: string = (authUser?.rol || authUser?.role || '').toLowerCase();
     // Roles de solo lectura (marketing): consultan el tablero sin tocar checks, notas ni colores.
     const soloLectura = useSoloLectura();
+    // Espejo del requireRole de PUT /api/odp/:id (odp.routes.ts): quien no esté en esta lista
+    // recibe 403 del backend al tocar un check o el color. Se refleja en la UI para no ofrecer
+    // acciones condenadas a fallar. `asistente_administrativo` entra al tablero solo a consultar
+    // —sí puede dejar notas, porque POST /api/notas-produccion no exige rol.
+    const puedeEditarTaller = !soloLectura &&
+        ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion'].includes(userRol);
     const puedeMarcarEntregada = ['compras', 'produccion', 'admin', 'jefe_produccion', 'gerencia', 'root'].includes(userRol);
     const puedePV = ['compras', 'produccion', 'jefe_produccion', 'admin', 'gerencia', 'root'].includes(userRol);
     const puedeMarcarListo = ['compras', 'produccion', 'jefe_produccion', 'admin', 'gerencia', 'root'].includes(userRol);
@@ -338,8 +367,14 @@ const ProduccionPage: React.FC = () => {
         }
     };
 
+    /** Un solo aviso para todos los puntos de edición del tablero, sin apilar duplicados. */
+    const avisarSinEdicion = () => toast.info(
+        'Tu rol puede consultar el tablero de producción, pero no modificar las etapas ni el color.',
+        { toastId: 'sin-edicion-taller' }
+    );
+
     const handleSetColor = async (odpId: number, color: string | null) => {
-        if (soloLectura) return;
+        if (!puedeEditarTaller) { avisarSinEdicion(); return; }
         setColorPicker(null);
         try {
             const token = sessionStorage.getItem('token');
@@ -355,7 +390,7 @@ const ProduccionPage: React.FC = () => {
     };
 
     const toggleCheck = async (odp: ODP, field: string) => {
-        if (soloLectura) return;
+        if (!puedeEditarTaller) { avisarSinEdicion(); return; }
         if (isColLocked(odp, field)) {
             toast.warning('Esta tarea requiere que el vidrio haya sido recibido primero.');
             return;
@@ -1012,9 +1047,10 @@ const ProduccionPage: React.FC = () => {
                                     <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                                         {/* Círculo de color / selector */}
                                         <button
-                                            title={soloLectura ? 'Color de taller' : 'Resaltar ODP'}
-                                            onClick={soloLectura ? undefined : e => {
+                                            title={puedeEditarTaller ? 'Resaltar ODP' : 'Color de taller (solo consulta)'}
+                                            onClick={e => {
                                                 e.stopPropagation();
+                                                if (!puedeEditarTaller) { avisarSinEdicion(); return; }
                                                 const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                                                 setColorPicker({ odpId: odp.id, top: rect.bottom + 6, left: rect.left });
                                             }}
@@ -1053,17 +1089,26 @@ const ProduccionPage: React.FC = () => {
                                     const app     = isColApplicable(odp, col.key);
                                     const locked  = isColLocked(odp, col.key);
                                     const checked = !!(odp as any)[col.key];
-                                    if (!app) return (
-                                        <td key={col.key} className="px-2 py-3 text-center">
-                                            <span className="text-slate-200 text-sm select-none">—</span>
-                                        </td>
-                                    );
+                                    // Etapa no aplicable: sigue sin poder marcarse, pero ahora dice por qué
+                                    // en vez de dejar que el clic abra el panel de detalle del <tr>.
+                                    if (!app) {
+                                        const motivo = getMotivoNoAplica(odp, col.key);
+                                        return (
+                                            <td key={col.key} className="px-2 py-3 text-center cursor-help"
+                                                title={motivo}
+                                                onClick={e => { e.stopPropagation(); toast.info(motivo, { toastId: `noaplica-${odp.id}-${col.key}` }); }}>
+                                                <span className="text-slate-200 text-sm select-none">—</span>
+                                            </td>
+                                        );
+                                    }
                                     return (
                                         <td key={col.key} className="px-2 py-3 text-center"
-                                            onClick={soloLectura ? undefined : e => { e.stopPropagation(); toggleCheck(odp, col.key); }}>
+                                            title={puedeEditarTaller ? undefined : 'Solo consulta: tu rol no modifica las etapas'}
+                                            onClick={e => { e.stopPropagation(); toggleCheck(odp, col.key); }}>
                                             <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border-2 transition-all mx-auto
                                                 ${checked ? 'bg-emerald-50 border-emerald-400 text-emerald-600'
                                                 : locked  ? 'bg-slate-50 border-slate-100 cursor-not-allowed'
+                                                : !puedeEditarTaller ? 'bg-white border-slate-200 text-slate-300 cursor-help'
                                                 : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer'}`}>
                                                 {locked   ? <Lock className="w-4 h-4 text-slate-300" />
                                                 : checked  ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />

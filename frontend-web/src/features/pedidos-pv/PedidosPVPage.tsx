@@ -15,6 +15,7 @@ import {
   HourglassEmpty, Cancel, TableChart, Tune, Print,
 } from '@mui/icons-material';
 import PrintablePedidoVitelsa from './components/PrintablePedidoVitelsa';
+import { abrirVentanaImpresion } from '../../utils/printWindow';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -631,27 +632,23 @@ const PedidosPVPage: React.FC = () => {
     setTimeout(() => {
       const area = document.getElementById('printable-pedido-pv');
       if (!area) return;
-      const win = window.open('', '_blank', 'width=1100,height=800');
-      if (!win) return;
-      win.document.write(`<!DOCTYPE html><html><head>
-        <meta charset="utf-8"/>
-        <title>Pedido PV ${printData.pedido.numero_pedido} — ${printData.pedido.proveedor}</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <style>
-          @page { size: A4 portrait; margin: 5mm; }
-          body { margin: 0; padding: 0; font-family: sans-serif; }
+      abrirVentanaImpresion({
+        titulo: `Pedido PV ${printData.pedido.numero_pedido} — ${printData.pedido.proveedor}`,
+        contenidoHtml: area.innerHTML,
+        ancho: 1100,
+        alto: 800,
+        estilos: `
+          @page { size: letter portrait; margin: 5mm; }
+          body { font-family: sans-serif; }
           .pv-t { width: 100%; border-collapse: collapse; }
           .pv-t td, .pv-t th { border: 1px solid #000; padding: 2px 4px; vertical-align: middle; }
-          .pv-t th { font-weight: bold; text-align: center; background-color: #efefef; }
+          .pv-t th { font-weight: bold; text-align: center; background-color: #efefef; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .pv-outer { border: 2px solid #000 !important; }
           .pv-bold { font-weight: bold; }
           .pv-center { text-align: center; }
           .pv-color { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        </style>
-      </head><body>${area.innerHTML}</body></html>`);
-      win.document.close();
-      win.focus();
-      setTimeout(() => { win.print(); win.close(); }, 800);
+        `,
+      });
     }, 150);
   }, [printData]);
 

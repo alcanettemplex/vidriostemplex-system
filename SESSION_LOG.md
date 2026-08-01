@@ -564,3 +564,100 @@ Recorrer las 6 pestañas de ODP y confirmar badges/orden/paginación; **editar u
 - Verificado que `ProgramacionWhatsAppModal` usa cuatro de esos campos pero los obtiene de **su propio endpoint** (`/api/rutas/programacion`), no del listado.
 
 **Efecto:** el tablero de Producción pasa de 439,8 KB a **337,8 KB** por carga — **−48% frente a los 652,0 KB originales**, contra el −33% que tenía antes de este retiro.
+
+---
+
+## 2026-07-31 — Imprimibles: causa raíz del "formato incorrecto" y unificación de la Orden de Producción
+
+### Síntoma reportado
+Varios usuarios: "los imprimibles no están en el formato correcto". El dato que resolvió el caso lo dio el usuario: **se ve bien en el tab Imprimir, pero al dar clic en IMPRIMIR cambia el formato**; a una asesora le sale bien y a él no; y **con su mismo usuario le sale bien en la PC de casa y mal en la del trabajo**. Mismo código, mismos datos, mismo rol → el factor era la **red**, no las plantillas.
+
+### Causa raíz
+Los 5 puntos de impresión abrían una ventana nueva con `window.open` + `document.write` e inyectaban Tailwind desde **`https://cdn.tailwindcss.com`**, disparando `window.print()` con un **`setTimeout` fijo de 800 ms**. Esa ventana **no hereda el CSS de la app**. Si el CDN no respondía dentro de esos 800 ms (red corporativa que lo bloquea, proxy, caché fría), el documento se imprimía **sin estilos**: los bordes de tabla sobrevivían porque iban en un `<style>` incrustado, pero todo el maquetado (`flex`, anchos, tamaños) se perdía.
+
+Dos fallos secundarios del mismo diseño:
+- La ventana nace como `about:blank`, así que **`/assets/images/logotemplex.png` (el logo) no resolvía** de forma fiable.
+- `min-h-[29cm]` es **alto A4** dentro de una hoja **Carta** (27,94 cm) → **hoja extra en blanco** en cada impresión. Solo `PrintableTalonario` lo neutralizaba.
+
+### Cambios
+
+**Nuevo `frontend-web/src/utils/printWindow.ts`** — helper único `abrirVentanaImpresion()`:
+- **Clona los `<style>` y `<link rel=stylesheet>` que la app ya tiene cargados** (en prod `/static/css/main.*.css`, en dev los `<style>` de webpack). Mismo origen: sin dependencia de internet.
+- Inyecta **`<base href="{origin}/">`** → el logo y los assets resuelven siempre.
+- Imprime en el evento **`load`** (espera CSS **e imágenes**), con respaldo de 4 s; ya no a ciegas.
+- Cierra en **`afterprint`**, no por temporizador → deja de cortar el diálogo de impresión.
+- Si el navegador bloquea el popup, avisa con un toast en vez de fallar en silencio.
+
+**Migrados los 5 puntos:** `ODPTabImprimir.tsx`, `ComprasPage.tsx`, `PedidosPVPage.tsx`, `InstaladorView.tsx` y `instalaciones/utils/printDocument.ts` — este último era el más expuesto: no llevaba **ningún** `<style>` propio, así que sin CDN salía como texto plano.
+
+**Hoja a Carta** (decisión del usuario: todo Carta, ignorando el A4 apaisado que declara `ORDENES AZULES.xlsx` y el Legal de `FORMATO DE GARANTIA.xlsx`). Se generalizó la receta que ya funcionaba en `PrintableTalonario` — en `@media print`: `width: 100%` y `min-height: unset` — a `PrintableProduccion`, `PrintableGarantia`, `PrintableNoConformidad`, `PrintableDetalleTecnico`, `PrintableDetSAP`, `PrintableSAP` y `PrintableOA`. Los seis primeros **no declaraban `@page`**. `PedidosPVPage` pasó de `A4` a `letter`.
+
+**Unificación de la Orden de Producción (a pedido del usuario).** Existían **dos** componentes para el mismo documento:
+- `PrintableProduccion.tsx` → botón OP de la ficha ODP. Columna `VERIFICACIÓN`, **sin precios** (fiel a `Orden de Produccion.xlsx`).
+- `PrintableOP.tsx` → OP de `InstaladorView` y `ConductorView`. Columna `VALOR` + `SUBTOTAL/IVA/VALOR TOTAL` + `FORMA DE PAGO`, es decir **mostraba el precio de venta al instalador y al conductor**, pese a rotular en el pie "SECCIÓN EXCLUSIVA PARA PRODUCCIÓN Y DESPACHO".
+
+`InstaladorView` y `ConductorView` ahora apuntan a `PrintableProduccion`. **`PrintableOP.tsx` eliminado** (440 líneas, ya sin referencias). No se pierde información: `PROVEEDOR VIDRIO` y `PEDIDO N°` ya estaban en `PrintableProduccion` dentro de la grilla inferior (`PEDIDO EXTERNO`). Sí cambia la paginación: de 10 ítems por hoja a 10 en la primera y 18 en las siguientes.
+
+### Lo que NO se tocó — y por qué
+El usuario aportó capturas de su Ord. Compra y su OP reales. **Su formato ya es el correcto** y no coincide con ninguna de las dos plantillas de `Formatos/`: es una evolución de ambas (sin la columna `PLAN`, con `SUBTOTAL/IVA/TOTAL`, con una columna `PROV` que ninguna plantilla oficial tiene). Se descartó la fase de "alinear contra las plantillas Excel de 2021": habría roto un formato en uso. **Columnas, totales, textos y el pie `VTS-2026-003` quedan intactos.**
+
+**Corrección a un diagnóstico previo dado en esta sesión:** se afirmó que el talonario "no imprime ningún total"; es falso — `PrintableTalonario.tsx:233-251` sí genera SUBTOTAL/IVA/VALOR TOTAL. El error salió de opinar sobre un tramo del archivo que no se había leído.
+
+### Verificación ejecutada
+- `npx tsc --noEmit` frontend: **EXIT 0**.
+- `CI=false npx react-scripts build` (Git Bash): **OK**. Bundle **−3,69 kB** por el retiro de `PrintableOP`.
+- `grep` confirma **cero** referencias a `cdn.tailwindcss.com` fuera del comentario que documenta el porqué.
+- Confirmado en el CSS compilado (`main.0ba20770.css`) que las clases de los imprimibles (`21.5cm`, `29cm`, `27.9cm`, `print:min-h-0`, `print:overflow-visible`, `flex`, `w-1/3`) **están presentes** → al clonar el stylesheet, la ventana de impresión tiene el mismo Tailwind que la pantalla.
+- Verificado que el warning `Unexpected Unicode BOM` de `PedidosPVPage.tsx` es **preexistente** (mismos bytes en HEAD).
+
+### Pendiente de verificación manual (requiere navegador e impresora)
+Imprimir de verdad cada formato **desde la PC del trabajo**, que es donde fallaba: Ord. Compra, OP, Det. Técnico, Det. SAP, Garantía, No Conformidad y SAP; ODC en Compras; Pedido PV; y OP/Det. Técnico/SAP/Det. SAP desde Instalador y Conductor. Confirmar en cada uno: **estilos correctos, logo visible y sin hoja extra en blanco**.
+
+### Hallazgos documentados, NO corregidos (a la espera de decisión)
+- `PrintableNoConformidad.tsx:85` imprime `ODC (Solicitud): {odp.numero_odp}` — **repite el número de ODP en el campo ODC**. La plantilla oficial lleva ahí el ODC y su proveedor (`ODC: 3995 VITELSA S. A`), y además tiene un campo `FE` que el componente no reproduce.
+- `Formatos/FORMATO DE MANTENIMIENTOS.xlsx` ("ORDEN DE SERVICIO DE MANTENIMIENTO", con consecutivo propio) **no tiene imprimible en el sistema**.
+- La ventana de impresión sigue clonando el `<link>` a Google Fonts (`Plus Jakarta Sans`). Es externo, pero si no carga solo cambia la tipografía, no el maquetado; el respaldo de 4 s evita que cuelgue.
+
+### Apéndice — Control de Taller: el clic que no marcaba
+
+**Reporte:** "en Producción, al dar clic en cambiar color o en un check (medición, aluminio, vidrio…) no lo está realizando".
+
+**Descartado primero** (con datos reales, no por lectura): no era el recorte de egress — se pidió `GET /api/odp?vista=produccion` con un token de `jefe_produccion` y **todos** los campos que necesita `isColApplicable` llegan (`tiene_aluminio`, `matizado`, `pelicula`, `huacal`, `carton`, `chk_*`, `color_taller`, más `items`, `tomas_medidas` y `saps`). Tampoco era el esquema (`odpSchema` acepta los 9 `chk_*` y `color_taller`) ni el socket (`emitirODPPatch` hace `findByPk` sin `attributes`, devuelve la fila completa).
+
+**Causa real:** en `ProduccionPage.tsx` la celda de una etapa **no aplicable** se pintaba como un `—` **sin `onClick`**. Como el `<tr>` sí tiene `onClick={() => handleSelectOdp(odp)}`, el clic **burbujeaba y abría el panel de detalle** en vez de marcar. Para el operario eso es exactamente "hice clic y no marcó".
+
+**Magnitud medida sobre las 100 ODPs del tablero:** de 900 celdas, **665 (73,9%) no respondían**; **14 ODPs no tenían ni una sola celda marcable** — las mismas que en la captura del usuario salían con todo `—` (ODP-24221, 24215, 24211, 24181, 24177, 24129, OA-3836 y 7 ENTREGADAS). El motivo en todas: `items=0, tomas_medidas=0, saps=0` y las cuatro banderas de acabado en `false`.
+
+**Corrección (decisión del usuario: explicar, no permitir):** nueva función `getMotivoNoAplica(odp, key)` — espejo de `isColApplicable` — y la celda `—` pasa a tener `title` + `onClick` con `stopPropagation()` que muestra el motivo concreto por toast (`toastId` por ODP+columna para no apilar duplicados si se insiste). **Ninguna regla de negocio cambió**: lo que no se podía marcar sigue sin poder marcarse. Efecto secundario buscado: el clic en una celda `—` ya no abre el panel de detalle; el resto de la fila sí lo sigue abriendo.
+
+**Verificación:** `tsc --noEmit` **EXIT 0**; dev server "No issues found". Validación contra las 100 ODPs reales: de las **665** celdas mudas, **665 reciben el motivo correcto**, 0 incoherentes y 0 cayeron al mensaje genérico. Cobertura por columna: cartón 100, huacal 99, matizado 98, película 86, corte 71, ensamble 71, medición 65, herrajes 41, vidrio 34.
+
+**Sin probar end-to-end a propósito:** el backend local apunta a **Supabase de producción** y marcar un `chk_*` dispara la transición automática de estado (`odp.controller.ts:998-1050`), que podría pasar una ODP real a `LISTO_INSTALAR` y emitir sockets. Queda pendiente que el taller confirme si en una ODP **con** ítems (p. ej. ODP-24182 u ODP-24190) el marcado funciona; si ahí también falla, hay una segunda causa aún no identificada.
+
+**Hallazgo aparte, NO corregido (a la espera de decisión):** `asistente_administrativo` (1 usuario activo) entra al tablero por `AppRoutes.tsx:58` pero el backend le rechaza **todo** con 403 — ni checks ni color — porque no está en el `requireRole` de `odp.routes.ts:55`. A `root` le pasa lo mismo: falta en ese `requireRole` y en el `esAdminOGerencia` de `odp.controller.ts:726`. Confirmado además que **no existen usuarios con rol `auxiliar_produccion` ni `taller`** en la BD, así que el drift de RBAC documentado en `CLAUDE.md` no afecta a nadie hoy.
+
+**Permisos del tablero — `asistente_administrativo` (decisión del usuario: no debe poder marcar).**
+
+Al mapear las 8 escrituras del tablero se confirmó que **5 ya estaban correctamente ocultas** para ese rol: los flags `puedeMarcarEntregada`, `puedePV` y `puedeMarcarListo` (`ProduccionPage.tsx:280-282`) no lo incluyen y sí se aplican en el render (líneas 698, 800, 810, 1365, 1410). El alcance real era menor de lo estimado en el plan: solo **checks y color** quedaban expuestos, bloqueados únicamente por `soloLectura`, que cubre `marketing` pero no a este rol.
+
+Agregado el flag `puedeEditarTaller`, **espejo del `requireRole` de `PUT /api/odp/:id`**: `['admin','gerencia','asesor_comercial','jefe_produccion','produccion']`, con `!soloLectura` por delante. Sustituye a `soloLectura` en `toggleCheck` y `handleSetColor`, y en el render del check y del selector de color. En vez de dejar el control muerto, ambos avisan por toast (`avisarSinEdicion`, con `toastId` único): «Tu rol puede consultar el tablero de producción, pero no modificar las etapas ni el color.» El cursor pasa a `cursor-help` y el `title` lo anticipa al pasar el mouse.
+
+**Las notas siguen habilitadas** para el rol: `POST /api/notas-produccion` (`nota_produccion.routes.ts:8`) no declara `requireRole`, así que el backend sí las acepta; `handleAddNote` conserva su guard por `soloLectura` (solo frena a `marketing`).
+
+No se tocó el backend: el 403 es el comportamiento deseado. El cambio es que la UI deja de ofrecer acciones condenadas a fallar.
+
+**Verificación:** `tsc --noEmit` **EXIT 0**; dev server "No issues found". Script que cruza los roles reales de la BD contra el `requireRole` del backend y el nuevo flag: **6 roles activos, 0 desalineados** — `admin`(3), `gerencia`(1), `jefe_produccion`(1) y `produccion`(1) editan y el backend los acepta; `asistente_administrativo`(1) y `marketing`(1) solo consultan de forma coherente. `taller` y `auxiliar_produccion`, sin usuarios hoy, también quedan coherentes (UI=consulta / backend=403) si algún día se crean.
+
+**Nota de proceso:** el apéndice anterior se escribió por error en `frontend-web/SESSION_LOG.md` porque el `Set-Location` del build dejó el cwd desplazado y el heredoc usó ruta relativa. Se movió el contenido a la raíz y se eliminó el archivo duplicado. Reincidencia de lo anotado en `memory/feedback_cwd_rutas_absolutas.md`: **usar siempre rutas absolutas también en los heredoc de Bash**, no solo en Write/Edit/Read.
+
+### Apéndice — Compras: columna Asesor en el modal «Nueva ODC Consolidada»
+
+**Petición:** agregar la columna del asesor de la ODP al modal de ODC consolidada.
+
+**Archivo correcto identificado sin ambigüedad** (el módulo tiene tres modales parecidos): `ODCModal.tsx` es «Nueva ODC Consolidada»; los otros son `ODCSinSAPModal` («Nueva ODC sin SAP») y `ODCVidriosModal` («Nueva ODC de Vidrios»). Este último **ya tenía** la columna Asesor, así que se replicó su patrón en vez de inventar uno nuevo.
+
+**Cambio (solo UI, un archivo):** columna `ASESOR` como última de la tabla de detalle —después de `CLIENTE`, igual que en el modal de Vidrios—, con `item.SAP?.ODP?.asesor?.nombre_completo`, mismo estilo (`text-slate-400 text-[10px] truncate max-w-[160px]`, `w-40` en el `th`), fallback `—` y `title` para ver el nombre completo si se trunca. La tabla queda: DIMENSIÓN · CANT. · UND · OBSERV. · SAP · ODP · CLIENTE · ASESOR.
+
+**Sin backend, sin BD, sin impacto en egress:** el dato ya viajaba y se descartaba. El tipo `SAPItemConContexto` ya declaraba `asesor: { id, nombre_completo }` (línea 30) y `GET /api/compras/panel` ya lo incluye (`odc.controller.ts:234`).
+
+**Verificación:** `tsc --noEmit` **EXIT 0**; dev server "No issues found". Contra la BD real vía el endpoint: **28 de 28 ítems pendientes (100%) traen asesor**, de 5 personas — Bryam Arrubla (22), Alejandro Ardila (2), Nataly Londoño Arias (2), Alba Lucia Castro (1), Paola González (1); nombres de 13 a 20 caracteres, holgados para `w-40`. Validación estructural de la tabla: **8 `<th>` = 8 `<td>`**, sin descuadre de columnas.

@@ -8,7 +8,7 @@ interface PrintableDetSAPProps {
 
 const PrintableDetSAP: React.FC<PrintableDetSAPProps> = ({ odp, imagenes = [] }) => {
   return (
-    <div className="block print:block w-[21.5cm] min-h-[29cm] bg-white shadow-xl print:shadow-none text-black font-sans text-[10px] mx-auto overflow-hidden">
+    <div className="print-root block print:block w-[21.5cm] min-h-[29cm] print:min-h-0 bg-white shadow-xl print:shadow-none text-black font-sans text-[10px] mx-auto overflow-hidden print:overflow-visible">
       <style>
         {`
         .excel-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
@@ -16,7 +16,12 @@ const PrintableDetSAP: React.FC<PrintableDetSAPProps> = ({ odp, imagenes = [] })
         .excel-table th { font-weight: bold; text-align: center; }
 
         @media print {
+            @page { size: letter portrait; margin: 5mm; }
+            body, html { margin: 0 !important; padding: 0 !important; }
             .print-container { -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 0 !important; }
+            /* min-h de 29cm es alto A4: sobre Carta desbordaba y sacaba una
+               hoja extra en blanco. La hoja la define @page. */
+            .print-root { width: 100% !important; min-height: unset !important; box-shadow: none !important; margin: 0 !important; overflow: visible !important; }
         }
         `}
       </style>

@@ -9,7 +9,7 @@ import {
   History, Calendar, TrendingUp, Star, Award,
   Target, Zap, Flag, Search
 } from 'lucide-react';
-import PrintableOP from '../../odp/components/PrintableOP';
+import PrintableProduccion from '../../odp/components/PrintableProduccion';
 import PrintableOA from '../../odp/components/PrintableOA';
 import PrintableDetalleTecnico from '../../odp/components/PrintableDetalleTecnico';
 import PrintableSAP from '../../odp/components/PrintableSAP';
@@ -415,7 +415,9 @@ const StopItem = ({ stop, idx, registrarLlegada, abrirDocumento, abrirMapa, enCu
       </div>
 
       <div className="hidden">
-        <div id={`print-op-${odp?.id}`}>{odp?.tipo_odp === 'OA' ? <PrintableOA odp={odp} /> : <PrintableOP odp={odp} />}</div>
+        {/* Mismo componente que la ficha ODP: antes usaba PrintableOP, que
+            mostraba VALOR, SUBTOTAL/IVA/TOTAL y FORMA DE PAGO al conductor. */}
+        <div id={`print-op-${odp?.id}`}>{odp?.tipo_odp === 'OA' ? <PrintableOA odp={odp} /> : <PrintableProduccion odp={odp} />}</div>
         <div id={`print-tec-${odp?.id}`}><PrintableDetalleTecnico odp={odp} /></div>
         {sap && <div id={`print-sap-${odp?.id}`}><PrintableSAP odp={odp} sap={sap} /></div>}
       </div>

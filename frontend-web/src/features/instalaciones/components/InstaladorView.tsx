@@ -11,12 +11,13 @@ import {
 } from 'lucide-react';
 import ReportarEntregaModal from './ReportarEntregaModal';
 import ReportarDanoModal from './ReportarDanoModal';
-import PrintableOP from '../../odp/components/PrintableOP';
+import PrintableProduccion from '../../odp/components/PrintableProduccion';
 import PrintableOA from '../../odp/components/PrintableOA';
 import PrintableDetalleTecnico from '../../odp/components/PrintableDetalleTecnico';
 import PrintableSAP from '../../odp/components/PrintableSAP';
 import PrintableDetSAP from '../../odp/components/PrintableDetSAP';
 import { abrirDocumento as abrirDocumentoPrint } from '../utils/printDocument';
+import { abrirVentanaImpresion } from '../../../utils/printWindow';
 import { Images } from 'lucide-react';
 import { useDataChangedSocket } from '../../../store/useSocketNotifications';
 
@@ -91,12 +92,19 @@ const InstaladorView: React.FC = () => {
         const { data } = await axios.get(`${API}/api/detalle-sap-imagenes?odp_id=${odp.id}`, { headers });
         const el = document.getElementById(`print-det-sap-${odp.id}`);
         if (!el) { toast.error('Documento Det. SAP no disponible'); return; }
-        const win = window.open('', '_blank', 'width=950,height=800');
-        if (!win) return;
-        win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Det. SAP ${odp.numero_odp}</title><script src="https://cdn.tailwindcss.com"><\/script><style>@page{size:letter portrait;margin:4mm}body{margin:0;padding:0;font-family:sans-serif}.excel-table{width:100%;border-collapse:collapse;border:2px solid #000}.excel-table th,.excel-table td{border:1px solid #000;padding:2px 4px}.excel-table th{font-weight:bold;text-align:center}</style></head><body>${el.innerHTML}</body></html>`);
-        win.document.close();
-        win.focus();
-        setTimeout(() => { win.print(); win.close(); }, 800);
+        abrirVentanaImpresion({
+          titulo: `Det. SAP ${odp.numero_odp}`,
+          contenidoHtml: el.innerHTML,
+          ancho: 950,
+          alto: 800,
+          estilos: `
+            @page { size: letter portrait; margin: 4mm; }
+            body { font-family: sans-serif; }
+            .excel-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
+            .excel-table th, .excel-table td { border: 1px solid #000; padding: 2px 4px; }
+            .excel-table th { font-weight: bold; text-align: center; }
+          `,
+        });
       } catch { toast.error('Error al cargar Det. SAP'); }
       return;
     }
@@ -481,7 +489,9 @@ const TaskCard = ({ item, onIniciar, onFinalizar, onReportarDano, onPausar, abri
       </div>
 
       <div className="hidden">
-        <div id={`print-op-${odp?.id}`}>{odp?.tipo_odp === 'OA' ? <PrintableOA odp={odp} /> : <PrintableOP odp={odp} />}</div>
+        {/* Mismo componente que la ficha ODP: antes usaba PrintableOP, que
+            mostraba VALOR, SUBTOTAL/IVA/TOTAL y FORMA DE PAGO al instalador. */}
+        <div id={`print-op-${odp?.id}`}>{odp?.tipo_odp === 'OA' ? <PrintableOA odp={odp} /> : <PrintableProduccion odp={odp} />}</div>
         <div id={`print-tec-${odp?.id}`}><PrintableDetalleTecnico odp={odp} /></div>
         {sap && <div id={`print-sap-${odp?.id}`}><PrintableSAP odp={odp} sap={sap} /></div>}
         <div id={`print-det-sap-${odp?.id}`}><PrintableDetSAP odp={odp} imagenes={[]} /></div>

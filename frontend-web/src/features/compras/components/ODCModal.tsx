@@ -160,6 +160,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
                         <th className="px-4 py-1.5 text-left w-28">SAP</th>
                         <th className="px-4 py-1.5 text-left w-28">ODP</th>
                         <th className="px-4 py-1.5 text-left">CLIENTE</th>
+                        <th className="px-4 py-1.5 text-left w-40">ASESOR</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -190,6 +191,9 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
                           <td className="px-4 py-1.5 font-bold text-indigo-600">{item.SAP?.numero_sap || '—'}</td>
                           <td className="px-4 py-1.5 font-bold text-slate-700">{item.SAP?.ODP?.numero_odp || '—'}</td>
                           <td className="px-4 py-1.5 text-slate-600 truncate max-w-[180px]">{item.SAP?.ODP?.cliente?.nombre_razon_social || '—'}</td>
+                          <td className="px-4 py-1.5 text-slate-400 text-[10px] truncate max-w-[160px]" title={item.SAP?.ODP?.asesor?.nombre_completo || ''}>
+                            {item.SAP?.ODP?.asesor?.nombre_completo || '—'}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
