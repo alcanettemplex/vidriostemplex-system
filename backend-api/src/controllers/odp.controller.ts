@@ -343,7 +343,9 @@ export const getODP = async (req: Request, res: Response) => {
           attributes: ['id', 'numero_odp', 'fecha_entrega'],
           include: [{
             model: RutaODP, as: 'ruta_odps',
-            attributes: ['id', 'estado'],
+            separate: true,
+            order: [['id', 'ASC']],
+            attributes: ['id', 'odp_id', 'estado'],
             include: [{
               model: RutaInstalacion, as: 'ruta',
               attributes: ['id'],
@@ -354,8 +356,25 @@ export const getODP = async (req: Request, res: Response) => {
             }],
           }],
         },
+        // Desde aquí, TODAS las colecciones hasMany llevan `separate: true`.
+        //
+        // Sin él, Sequelize resolvía no_conformidades × saps × sap_items × cotizaciones ×
+        // tomas_medidas × evidencias × ruta_odps × notas_produccion × garantias en un
+        // ÚNICO JOIN. Medido el 2026-08-02: la mediana es inofensiva (9 filas), pero 14
+        // ODPs superan las 50 y el peor caso llega a 320 filas. Como `ruta_odps` trae
+        // `firma_receptor` (base64 de ~12,6 KB), esas 320 filas repetían la misma imagen:
+        // 4,1 MB leídos de la BD para devolver 60 KB al navegador, y 3,3 s de espera.
+        //
+        // El JSON no cambia —Sequelize ya deduplicaba en memoria—, que es justo lo que
+        // hacía invisible el problema mirando solo el payload HTTP.
+        //
+        // El `order` explícito es obligatorio: `separate` cambia el orden interno de cada
+        // colección (sin ORDER BY lo decide el plan del optimizador) y de estos datos
+        // salen documentos impresos.
         {
           model: NoConformidad, as: 'no_conformidades',
+          separate: true,
+          order: [['id', 'ASC']],
           include: [
             { model: Usuario, as: 'usuario_reporta', attributes: ['id', 'nombre_completo'] },
             { model: ODP, as: 'nueva_odp', attributes: ['id', 'numero_odp', 'estado_produccion'] }
@@ -363,28 +382,40 @@ export const getODP = async (req: Request, res: Response) => {
         },
         {
           model: SAP, as: 'saps',
+          separate: true,
           include: [
-            { model: SAPItem, as: 'items' },
+            { model: SAPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
             { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
           ],
           order: [['fecha_creacion', 'DESC']],
         },
         {
           model: Cotizacion, as: 'cotizaciones',
+          separate: true,
+          order: [['id', 'ASC']],
           include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
         },
         {
           model: TomaMedidas, as: 'tomas_medidas',
-          attributes: ['id', 'numero_tm', 'estado', 'fecha_creacion', 'fecha_visita', 'direccion', 'observaciones', 'medidas_json', 'realizado_por'],
+          separate: true,
+          order: [['id', 'ASC']],
+          attributes: ['id', 'odp_id', 'numero_tm', 'estado', 'fecha_creacion', 'fecha_visita', 'direccion', 'observaciones', 'medidas_json', 'realizado_por'],
           include: [{ model: Usuario, as: 'realizador', attributes: ['id', 'nombre_completo'] }],
         },
         {
           model: EvidenciaInstalacion, as: 'evidencias',
+          separate: true,
+          order: [['id', 'ASC']],
           include: [{ model: Usuario, as: 'instalador', attributes: ['id', 'nombre_completo'] }],
         },
         {
           model: RutaODP, as: 'ruta_odps',
-          attributes: ['id', 'estado', 'fecha_programada', 'inicio_instalacion', 'fin_instalacion', 'firma_receptor', 'datos_receptor', 'foto_evidencia_url', 'gps_finalizacion', 'descripcion_dano', 'foto_dano_url', 'motivo_pausa'],
+          separate: true,
+          order: [['id', 'ASC']],
+          // `odp_id` es necesario para que `separate` agrupe las filas por ODP.
+          // `firma_receptor` se conserva: ODPTabInstalacion la muestra en el tab
+          // Instalación. Con `separate` viaja una vez por parada, no una por fila.
+          attributes: ['id', 'odp_id', 'estado', 'fecha_programada', 'inicio_instalacion', 'fin_instalacion', 'firma_receptor', 'datos_receptor', 'foto_evidencia_url', 'gps_finalizacion', 'descripcion_dano', 'foto_dano_url', 'motivo_pausa'],
           include: [
             {
               model: RutaInstalacion, as: 'ruta',
@@ -406,6 +437,8 @@ export const getODP = async (req: Request, res: Response) => {
         {
           model: NotaProduccion,
           as: 'notas_produccion',
+          separate: true,
+          order: [['id', 'ASC']],
           include: [{ model: Usuario, as: 'usuario', attributes: ['nombre_completo'] }]
         },
         {
@@ -438,7 +471,9 @@ export const getODP = async (req: Request, res: Response) => {
             { model: Cliente, as: 'cliente' },
             {
               model: RutaODP, as: 'ruta_odps',
-              attributes: ['id', 'estado'],
+              separate: true,
+              order: [['id', 'ASC']],
+              attributes: ['id', 'odp_id', 'estado'],
               include: [{
                 model: RutaInstalacion, as: 'ruta',
                 attributes: ['id'],
