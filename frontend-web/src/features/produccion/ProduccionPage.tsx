@@ -1138,7 +1138,7 @@ const ProduccionPage: React.FC = () => {
 
     return (
         <>
-        <div className="p-4 md:p-6 max-w-[1700px] mx-auto space-y-4 text-slate-900">
+        <div className="p-4 md:p-6 w-full space-y-4 text-slate-900">
 
             {/* ── Header ── */}
             <div className="flex justify-between items-center">

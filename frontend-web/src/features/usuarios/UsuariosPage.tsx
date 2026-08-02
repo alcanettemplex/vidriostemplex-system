@@ -90,7 +90,7 @@ const UsuariosPage: React.FC = () => {
   const getRolConfig = (rol: string) => ROLES.find(r => r.value === rol) || { label: rol, color: 'bg-slate-100 text-slate-700' };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 w-full space-y-6">
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3"><Users className="w-8 h-8 text-indigo-600" />Gestión de Usuarios</h1>

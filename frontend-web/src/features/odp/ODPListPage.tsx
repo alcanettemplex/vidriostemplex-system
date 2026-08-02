@@ -478,7 +478,7 @@ const ODPListPage: React.FC = () => {
     const isGarantiaTab = activeTab === 'garantia';
 
     return (
-        <div className="p-6 max-w-7xl mx-auto">
+        <div className="p-6 w-full">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
