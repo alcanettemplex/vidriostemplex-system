@@ -726,41 +726,104 @@ export const getEquipoData = async (req: Request, res: Response) => {
 };
 
 // ─── 5. PESTAÑA ALERTAS ─────────────────────────────────────────────────────
+// Devuelve un array plano de alertas, ordenado de más a menos urgente.
+//
+// Reescrito el 2026-08-02 por tres motivos medidos:
+//
+// 1. EGRESS. Las dos consultas usaban `ODP.findAll` sin `attributes` y con el include
+//    de `Cliente` completo: leían 35,6 KB de la BD para devolver 2,4 KB (15× de
+//    desperdicio), y este es el único endpoint del dashboard SIN `cacheRespuesta`,
+//    así que cada carga golpeaba la base. Ahora se piden solo las columnas usadas.
+//
+// 2. OCULTABA INFORMACIÓN. Los `limit: 10` y `limit: 5` hacían invisibles 25 de las
+//    40 alertas reales, entre ellas 19 clientes en mora que suman cientos de millones.
+//    El tope se elimina: el volumen es de decenas de filas de 6 columnas.
+//
+// 3. EL TEXTO ENGAÑABA. Todas se emitían como 'critico' con el mensaje "vence pronto",
+//    incluso las 14 que ya estaban VENCIDAS. Ahora la severidad se deriva del atraso
+//    real y el frontend puede ordenar y colorear por urgencia.
+//
+// Los días se calculan en SQL con `::date`: `fecha_entrega` es DataTypes.DATE, que en
+// Postgres es TIMESTAMPTZ, y restar fechas en JS introduce desfases de zona horaria.
 export const getAlertas = async (_req: Request, res: Response) => {
   try {
-    const alerts: any[] = [];
-    const today = new Date();
-    const alertThreshold = new Date(today.getTime() + (2 * 24 * 3600 * 1000));
+    const config = await ConfiguracionGlobal.findOne({
+      where: { id: 1 },
+      attributes: ['dias_alerta_cartera_vencida'],
+    });
+    const diasAlertaCartera = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
 
-    const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
-    const diasAlertaCartera  = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
-    const fechaUmbralCartera = new Date(today.getTime() - diasAlertaCartera * 24 * 3600 * 1000);
+    // dias_atraso > 0 ⇒ ya venció hace N días · = 0 ⇒ vence hoy · < 0 ⇒ le quedan N días
+    const produccion: any[] = await sequelize.query(
+      `SELECT o.id, o.numero_odp, o.estado_produccion,
+              o.fecha_entrega::date                        AS fecha,
+              (CURRENT_DATE - o.fecha_entrega::date)::int  AS dias_atraso,
+              c.nombre_razon_social                        AS cliente_nombre
+         FROM odp o
+         LEFT JOIN clientes c ON c.id = o.cliente_id
+        WHERE o.fecha_entrega::date <= CURRENT_DATE + 2
+          AND o.estado_produccion NOT IN ('ENTREGADA', 'INSTALADA', 'LISTO_INSTALAR')
+        ORDER BY o.fecha_entrega ASC`,
+      { type: QueryTypes.SELECT }
+    );
 
-    const proximasSinAvance = await ODP.findAll({
-      where: { fecha_entrega: { [Op.lte]: alertThreshold }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'LISTO_INSTALAR'] } },
-      limit: 10
-    });
-    proximasSinAvance.forEach(o => {
-      alerts.push({ tipo: 'critico', categoria: 'produccion', titulo: 'ODP próxima a vencer sin avance', mensaje: `ODP ${o.getDataValue('numero_odp')} vence pronto y sigue en estado ${o.getDataValue('estado_produccion')}.`, odp_id: o.getDataValue('id'), accion: 'Ver ODP' });
+    const alerts: any[] = produccion.map((o: any) => ({
+      id: `prod-${o.id}`,
+      // Vencida es crítico; vence hoy es alto; le quedan 1-2 días es medio.
+      tipo: o.dias_atraso > 0 ? 'critico' : o.dias_atraso === 0 ? 'alto' : 'medio',
+      categoria: 'produccion',
+      referencia: o.numero_odp,
+      estado: o.estado_produccion,
+      dias: o.dias_atraso,
+      fecha: o.fecha,
+      cliente_nombre: o.cliente_nombre,
+      odp_id: o.id,
+    }));
+
+    // Cartera: se conserva el criterio original (fecha_entrega, no fecha_factura) para
+    // no alterar la regla de negocio. getCarteraVencida usa fecha_factura — son vistas
+    // distintas y unificarlas es una decisión aparte.
+    const cartera: any[] = await sequelize.query(
+      `SELECT o.id, o.numero_odp, o.cliente_id,
+              o.pendiente::float8                          AS pendiente,
+              (CURRENT_DATE - o.fecha_entrega::date)::int  AS dias_mora,
+              c.nombre_razon_social                        AS cliente_nombre
+         FROM odp o
+         LEFT JOIN clientes c ON c.id = o.cliente_id
+        WHERE o.forma_pago = 'credito'
+          AND o.pendiente > 0
+          AND o.fecha_entrega::date < CURRENT_DATE - :dias
+          AND o.estado_caja <> 'CANCELADO'
+        ORDER BY o.pendiente DESC`,
+      { replacements: { dias: diasAlertaCartera }, type: QueryTypes.SELECT }
+    );
+
+    cartera.forEach((o: any) => {
+      // Mismos cortes de riesgo que usa getCarteraVencida, para no dar dos lecturas
+      // distintas del mismo dato en pantallas distintas.
+      const tipo = o.dias_mora > diasAlertaCartera * 2 ? 'critico'
+        : o.dias_mora > diasAlertaCartera * 1.5 ? 'alto' : 'medio';
+      alerts.push({
+        id: `cart-${o.id}`,
+        tipo,
+        categoria: 'cartera',
+        referencia: o.numero_odp,
+        dias: o.dias_mora,
+        monto: o.pendiente,
+        cliente_nombre: o.cliente_nombre || 'Sin cliente',
+        cliente_id: o.cliente_id,
+        odp_id: o.id,
+        umbral_dias: diasAlertaCartera,
+      });
     });
 
-    // Cartera crítica — créditos que superaron el umbral configurado
-    const carteraCritica = await ODP.findAll({
-      where: {
-        forma_pago:   'credito',
-        pendiente:    { [Op.gt]: 0 },
-        fecha_entrega:{ [Op.lt]: fechaUmbralCartera },
-        estado_caja:  { [Op.ne]: 'CANCELADO' }
-      },
-      include: [{ model: Cliente, as: 'cliente' }],
-      limit: 5
-    });
-    carteraCritica.forEach(o => {
-      alerts.push({ tipo: 'critico', categoria: 'cartera', titulo: 'Cartera vencida crítica', mensaje: `${(o as any).cliente?.nombre_razon_social} tiene deuda de $${o.getDataValue('pendiente')} a más de ${diasAlertaCartera} días.`, cliente_id: o.getDataValue('cliente_id'), accion: 'Ver cliente' });
-    });
+    // Más urgente primero: por severidad y, dentro de ella, por días.
+    const peso: Record<string, number> = { critico: 3, alto: 2, medio: 1 };
+    alerts.sort((a, b) => (peso[b.tipo] - peso[a.tipo]) || (b.dias - a.dias));
 
     res.json(alerts);
   } catch (error: any) {
+    console.error('getAlertas:', error.message);
     res.status(500).json({ error: error.message });
   }
 };
