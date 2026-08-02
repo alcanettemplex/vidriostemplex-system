@@ -720,3 +720,55 @@ El fix del 31-jul se validó en local, donde el modo de entrega del CSS **oculta
 ### Nota
 
 En el comentario del código queda anotado que en producción emotion (MUI) inserta sus reglas por CSSOM dejando los `<style>` vacíos, con lo que clonar `outerHTML` tampoco copiaba nada de MUI; el cambio también lo cubre, pero **eso es razonamiento, no medición** — lo verificado es el Tailwind del `<link>`.
+
+## 2026-08-01 — Ancho full width en 9 módulos, marca de factura anticipada y retiro de PEDIDO_PROVEEDOR
+
+### 1. Layout: espacios laterales desperdiciados
+
+**Diagnóstico.** El contenedor raíz de cada página limitaba el contenido con `max-w-* mx-auto`. En 1920px el `<main>` dispone de 1616px útiles (1920 − 256 de sidebar − 48 de padding), pero `max-w-7xl` recortaba a 1280px: ~168px muertos por lado, ~500px en 2560px. Convivían cinco criterios distintos sin unificar (`max-w-4xl`, `5xl`, `7xl`, `[1600px]`, `[1700px]`, y CRM sin límite).
+
+**Cambio (commits `52072c1` y `fecb174`).** Contenedor raíz a `w-full`, conservando el padding original, en: ODP, contabilidad, inventario, facturas vs salidas, prospectos, usuarios, producción, dashboard (`GerenciaDashboard`) e instalaciones (`JefeView`).
+
+**Excluidos a propósito:** `InstaladorView` y `ConductorView` siguen en `max-w-5xl` — son pantallas de campo que instaladores y conductores usan desde el celular; el límite no se activa en móvil y estirarlas en escritorio deforma las tarjetas de tarea. Clientes, configuración, manuales, toma de medidas, ROOT e informe ejecutivo quedaron sin tocar por decisión del usuario.
+
+**Nota de rastreo:** el dashboard no vive en `features/` sino en `components/dashboard/`. `DashboardHome` solo enruta por rol; el contenedor real está en `GerenciaDashboard`. Se verificó que ninguno de los 6 paneles (`PanelGeneral`, `PanelVentas`, `PanelProduccion`, `PanelEquipo`, `PanelAlertas`, `PanelCotizaciones`) ni `AgendaTab` tienen contenedor limitante propio que anulara el cambio.
+
+### 2. Facturas vs Salidas: marca de "factura anticipada" (commit `a664c4d`)
+
+**Objetivo.** Identificar ODPs facturadas que aún no llegan a `LISTO_INSTALAR`, es decir cuya FE se emitió antes de que el producto estuviera listo.
+
+**Backend.** `getFacturadas` (`salidas_almacen.controller.ts`) expone `estado_produccion` en `attributes`. Sin include ni JOIN nuevo; el impacto de egress es de ~80 bytes por request sobre un endpoint que hoy devuelve 4 filas.
+
+**Frontend (`FacturasSalidasPage.tsx`).** Set `ESTADOS_PRE_LISTO` + helper `esFacturaAnticipada`, columna "Estado Producción" reusando el `BadgeEstado` existente, badge ámbar, fila resaltada con barra lateral, KPI clickeable que filtra, y chip "Solo anticipadas" con contador integrado al botón Limpiar. La grid de KPIs pasó a responsive (`2 → 3 → 6`).
+
+**Decisiones de diseño.** `PAUSADA` se excluye: está fuera de la secuencia y una ODP puede pausarse por NC *después* de haber estado lista, así que marcarla daría falsos positivos. La marca es derivada del estado actual, no persistida — desaparece sola cuando la ODP avanza, sin columna nueva ni migración.
+
+**Dos trampas esquivadas:**
+- El filtro se aplica **antes** del bloque de búsqueda de `facturadasFiltradas`. Ese bloque hace `return` temprano; colocar el nuevo filtro después lo habría anulado en cuanto se escribiera algo en el buscador.
+- El contador se calcula sobre el universo del período (`anticipadasDelPeriodo`), no sobre la lista ya filtrada, para que no se congele en sí mismo al activar el chip.
+
+**Verificación contra Supabase (solo lectura).** De las 4 ODPs facturadas sin SA: ODP-24213 (MEDICION), ODP-24200 (ALUMINIO_CORTADO) y ODP-24168 (EN_ESPERA) son anticipadas; ODP-24000 (LISTO_INSTALAR) no. Universo global de 310 facturadas: 4 en estados pre-listo y 2 en PAUSADA.
+
+### 3. Retiro de `PEDIDO_PROVEEDOR` del código
+
+**Hallazgo que corrigió un diagnóstico inicial equivocado.** Se reportó como "estado fantasma" por no estar en el ENUM de Sequelize. La consulta a Supabase mostró lo contrario: **sí existe en el ENUM de Postgres** (posición 3) y **4 registros de `historial_estados_odp` lo referencian**. El desincronizado era el modelo, no el frontend — mismo patrón de drift que `auxiliar_produccion`/`taller`.
+
+**Decisión del usuario:** el seguimiento al proveedor lo cubren Compras y Pedidos PV, así que el estado no vuelve al flujo de producción.
+
+**Cambio.** Eliminada la constante `ESTADOS_NC_ACTIVOS` de `ProduccionPage.tsx:134` (quedaba idéntica a `activeStates`) y sustituida por `activeStates` en el filtro de `ncOdps`, con comentario explicativo. Esa línea se había añadido el 2026-07-07 (`ce77ebf`) como defensa preventiva; con 0 ODPs en ese estado, era innecesaria.
+
+**No se toca la BD:** eliminar un valor de un ENUM en PG obliga a recrear el tipo y rompería los 4 registros históricos. Documentado en `TECH_DEBT.md` 2026-08-01 y `CLAUDE.md`.
+
+### Verificación ejecutada
+
+- `tsc --noEmit` en frontend y backend: **exit 0** en cada paso.
+- Consultas de solo lectura contra Supabase para validar la regla de negocio y el estado real del ENUM (scripts temporales, eliminados tras usarse).
+- Barrido de `max-w-* mx-auto` en los módulos tocados: los restantes son modales, truncados de celda y párrafos centrados en empty states — correctos e intactos.
+- Diff escaneado en busca de secretos antes de cada commit: limpio.
+
+### Pendientes
+
+- **Redeploy del backend**: hasta que el contenedor Docker se actualice, la columna Estado Producción saldrá vacía y el KPI de anticipadas en 0. El frontend en Cloudflare Pages se reconstruye solo desde `main`.
+- `getFacturadas` trae todo el histórico de facturadas sin SA y filtra el mes en el navegador — candidato a optimización de egress.
+- Red de seguridad opcional: warning del backend al detectar ODPs en estados fuera de `ESTADOS_PRODUCCION_VISIBLES`, ante ediciones manuales en Supabase.
+- Siguen sin commitear los 3 scripts del 31-jul: `2026-07-31_contexto_pico.ts`, `2026-07-31_egress_por_tabla.ts`, `2026-07-31_rutas_actividad.ts`.

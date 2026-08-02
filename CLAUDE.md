@@ -140,10 +140,12 @@ Modelo: `backend-api/src/models/odp.model.ts`. **Sin timestamps** (`timestamps: 
 
 ### Estados de Producción
 ```
-EN_ESPERA → VISITA_TECNICA → MEDICION → PEDIDO_PROVEEDOR → ALUMINIO_CORTADO
+EN_ESPERA → VISITA_TECNICA → MEDICION → ALUMINIO_CORTADO
 → VIDRIO_RECIBIDO → ACCESORIOS_SEPARADOS → LISTO_INSTALAR → PROGRAMADA
 → INSTALADA → ENTREGADA | PAUSADA
 ```
+
+⚠️ **`PEDIDO_PROVEEDOR` existe en el ENUM de Postgres (posición 3) pero NO se usa.** No está en el ENUM de Sequelize (`odp.model.ts`) —lo que impide asignarlo desde el backend— ni lo referencia ya ningún archivo del código (retirado de `ESTADOS_NC_ACTIVOS` el 2026-08-01). El seguimiento al proveedor vive en Compras y Pedidos PV. El valor permanece en la BD porque 4 registros de `historial_estados_odp` lo referencian; eliminarlo obligaría a recrear el tipo. Si una ODP llegara a ese estado por edición directa en Supabase, **desaparecería del tablero de Producción** (no está en `ESTADOS_PRODUCCION_VISIBLES` ni en `activeStates`). Ver `TECH_DEBT.md` 2026-08-01.
 
 ### Estados Facturación / Caja
 - Facturación: `PENDIENTE → FACTURADA`

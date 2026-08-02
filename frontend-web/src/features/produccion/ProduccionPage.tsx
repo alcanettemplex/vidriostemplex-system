@@ -131,8 +131,6 @@ const activeStates = [
     'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS'
 ];
 
-const ESTADOS_NC_ACTIVOS = [...activeStates, 'PEDIDO_PROVEEDOR'];
-
 // Estados que el tablero de producción realmente muestra. Se pide al backend solo estas
 // ODP (excluye PROGRAMADA/INSTALADA, que esta página nunca renderiza) para no descargar
 // cientos de órdenes históricas que luego se descartan en el cliente — optimización egress.
@@ -615,8 +613,12 @@ const ProduccionPage: React.FC = () => {
         return sortDir === 'asc' ? cmp : -cmp;
     });
 
+    // Las NC/Garantía activas usan los mismos estados que una ODP normal.
+    // PEDIDO_PROVEEDOR se retiró el 2026-08-01: el seguimiento al proveedor vive en
+    // Compras y Pedidos PV, no en el tablero de producción. El valor sobrevive en el
+    // ENUM de Postgres como legado (4 registros en historial_estados_odp lo referencian).
     const ncOdps = ncGarantiasOdps
-        .filter(o => ESTADOS_NC_ACTIVOS.includes(o.estado_produccion))
+        .filter(o => activeStates.includes(o.estado_produccion))
         .sort((a, b) => new Date(a.fecha_creacion || 0).getTime() - new Date(b.fecha_creacion || 0).getTime());
 
     const pagoOkOdps     = manoOdps.filter(o => isPagoOk(o));

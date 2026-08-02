@@ -4,6 +4,29 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-08-01 — `PEDIDO_PROVEEDOR`: valor huérfano en el ENUM de Postgres
+
+**Severidad:** Baja (resuelta en código, permanece como nota de BD)
+
+**Descripción:**
+`PEDIDO_PROVEEDOR` existe en el ENUM `enum_odp_estado_produccion` de Postgres, en la posición 3 (entre `MEDICION` y `ALUMINIO_CORTADO`), pero **no** está en el ENUM de Sequelize de `backend-api/src/models/odp.model.ts`. Mismo patrón de drift que el de roles `auxiliar_produccion`/`taller` (ver 2026-07-10): alguien lo removió del modelo y nadie lo sincronizó de vuelta.
+
+**Estado verificado en Supabase (2026-08-01):**
+- Presente en el ENUM de PG: **sí** (12 valores en total).
+- CHECK CONSTRAINT sobre `estado_produccion`: **ninguno** — solo manda el ENUM.
+- ODPs actualmente en ese estado: **0**.
+- Registros en `historial_estados_odp` que lo referencian: **4** — el estado sí se usó en el pasado.
+
+**Decisión (2026-08-01):** el seguimiento al proveedor lo cubren los módulos de Compras y Pedidos PV, así que el estado no vuelve al flujo de producción. Se retiró la única referencia que quedaba en el código: `ESTADOS_NC_ACTIVOS` en `frontend-web/src/features/produccion/ProduccionPage.tsx:134`, que se eliminó por quedar idéntica a `activeStates`. Esa línea se había agregado el 2026-07-07 (commit `ce77ebf`) como defensa preventiva para que una NC/garantía no desapareciera del tab al pasar por ese estado; con 0 ODPs usándolo, la defensa era innecesaria.
+
+**Por qué NO se elimina de la BD:** quitar un valor de un ENUM en Postgres obliga a recrear el tipo completo, y los 4 registros históricos de `historial_estados_odp` que lo referencian se romperían. El valor queda como dato histórico inerte. El ENUM de Sequelize sin el valor actúa además como guardarraíl: impide asignarlo desde el backend.
+
+**Riesgo residual:** una ODP editada **directamente en Supabase** hacia ese estado sería aceptada por la BD (el ENUM lo permite, no hay CHECK) y quedaría **invisible en el tablero de Producción** — no aparece en `ESTADOS_PRODUCCION_VISIBLES`, así que ni siquiera se pide al backend, y no tiene columna en el Kanban ni posición en `ESTADO_ORDEN`. Es el mismo tipo de pérdida silenciosa que el caso `ENTREGADA`/tope de 200 filas (2026-07-30).
+
+**Fix pendiente opcional:** que el backend registre un warning al detectar ODPs en estados fuera de `ESTADOS_PRODUCCION_VISIBLES`, como red de seguridad ante ediciones manuales en BD. **Estimación:** 20 min. No planificado.
+
+---
+
 ## 2026-07-27 — Aprobar prospecto marca sus TMs como `convertida` aunque la visita no se haya realizado
 
 **Severidad:** Media
