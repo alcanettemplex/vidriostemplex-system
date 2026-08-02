@@ -64,7 +64,7 @@ export const GerenciaDashboard: React.FC = () => {
   ] as const;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto min-h-screen bg-slate-50">
+    <div className="p-4 sm:p-6 lg:p-8 w-full min-h-screen bg-slate-50">
 
       {/* ─── HEADER ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-6">
