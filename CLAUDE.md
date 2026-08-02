@@ -348,7 +348,7 @@ Existen además dos listas más, menores: `ROLES_VALIDOS` en `server.ts` (12, in
 1. No hay tests automatizados en backend ni frontend. Verificación mediante compilación + pruebas manuales dirigidas.
 2. Scripts one-off en `backend-api/src/scripts/` — ya ejecutados, no correr con `npm run dev`.
 3. `puede_gestionar_pv` en modelo Usuario — debe estar en Sequelize o `toJSON()` no lo incluye en el login.
-4. `configuracion_global`: `meta_facturacion_mensual`=120M COP, `meta_odps_cerradas_asesor`=12, `dias_alerta_cartera_vencida`=60.
+4. `configuracion_global` (fila `id=1`): **la BD es la fuente de verdad, no este documento.** Sus valores se editan desde `/configuracion` y cambian sin previo aviso, así que nunca hardcodear ninguno ni asumir el que aparezca aquí — leerlo siempre del modelo. Los números que este archivo listaba (`meta_facturacion_mensual`=120M, `dias_alerta_cartera_vencida`=60) ya estaban desactualizados el 2026-08-02: los reales eran 5.000.000 y 30. Los `defaultValue` de `configuracion.model.ts` (60 días de cartera, entre otros) solo aplican al crear la fila; el `|| 60` que acompaña a cada lectura es un respaldo por si la fila no existe.
 5. "cotizaciones" en conversación = `COTModal` dentro de la ODP, NO el módulo `CotizacionesPage.tsx` (sin ruta montada en `AppRoutes.tsx` — huérfano, ver Arquitectura Frontend).
 6. `ordenes_compra.tipo`: `'perfileria'|'vidrio'`. ODC vidrio: `sap_id=null`, usa `odc_items.odp_item_id`.
 7. Al agregar nuevas tablas auditables, agregar el nombre al Set `TABLAS_AUDITABLES` en `root.controller.ts`.

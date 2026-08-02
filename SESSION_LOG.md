@@ -772,3 +772,204 @@ En el comentario del código queda anotado que en producción emotion (MUI) inse
 - `getFacturadas` trae todo el histórico de facturadas sin SA y filtra el mes en el navegador — candidato a optimización de egress.
 - Red de seguridad opcional: warning del backend al detectar ODPs en estados fuera de `ESTADOS_PRODUCCION_VISIBLES`, ante ediciones manuales en Supabase.
 - Siguen sin commitear los 3 scripts del 31-jul: `2026-07-31_contexto_pico.ts`, `2026-07-31_egress_por_tabla.ts`, `2026-07-31_rutas_actividad.ts`.
+
+## 2026-08-01 — Egress: `ruta_odp` era el 46% del consumo. Ejecutado el plan que quedó pendiente el 31-jul
+
+Continuación del diagnóstico cerrado el 31-jul, que quedó documentado pero **sin ejecutar**. Se verificó primero que el código siguiera intacto: los cuatro defectos estaban tal cual.
+
+### Medición de partida
+
+Delta de 25 h con `2026-07-31_egress_por_tabla.ts`: **46,5 MB** totales, de los que `ruta_odp` se lleva **21,6 MB (46%)** con solo 139 llamadas — 18,9 filas por llamada sobre una tabla de 337 filas. El rol de conexión confirma que es el ERP (`postgres` 98,2%), no el Studio de Supabase.
+
+Tres defectos encadenados, todos medidos:
+
+1. **Producto cartesiano.** `INCLUDE_RUTA_COMPLETA` anidaba `pagos`, `cotizaciones`, `tomas_medidas` y `saps→sap_items→ordenes_compra→odc_items` sin `separate`, en un único JOIN. Sobre el histórico completo: **3.053 filas de `ruta_odp` en vez de 337 (9,1×)**; en la asignación de un instalador, **57 en vez de 5 (11,4×)**.
+2. **`firma_receptor` en cada fila duplicada.** TEXT base64 que ocupa **2.790 kB de los 2.843 kB de la tabla (98%)**: la fila pasa de **8.639 B a 163 B** al excluirla. Ningún consumidor de rutas la muestra — la única pantalla que la pinta es `ODPTabInstalacion`, alimentada por `GET /api/odp/:id`, que la incluye por su cuenta y no se tocó.
+3. **`getMiRutaConductor` sin filtro.** Calculaba `const hoy` y **nunca lo usaba**: devolvía todo el histórico con el include pesado. Un conductor con **161 rutas completadas y CERO activas** descargaba **2.523 KB en 5.870 ms** para pintar un tab vacío — y `ConductorView` reengancha esa carga a `useDataChangedSocket('compras')`, repitiéndola con cada movimiento en Compras.
+
+**Coste combinado de una lectura completa: 25,2 MB → 0,05 MB (480×).**
+
+### Decisión sobre el filtro: por estado, no por fecha
+
+El usuario eligió "solo rutas de hoy + en curso". Se implementó filtrando por **estado** (`NOT IN cancelada, completada`) y no por `fecha_programada = CURRENT_DATE`, porque `rutas_instalacion` no tiene campo de fecha propio —vive en `ruta_odp.fecha_programada`— y el filtro estricto por fecha haría desaparecer una ruta de ayer que quedó sin cerrar, dejando al conductor sin forma de finalizarla. El ahorro es el mismo: hay **7 rutas activas en las 310 del sistema**.
+
+Para no vaciar los tabs *Rutas Realizadas* y *Mi Rendimiento*, el histórico se movió a un endpoint propio de carga diferida y las métricas pasaron a calcularse con `COUNT` en SQL.
+
+### Cambios
+
+**`rutas.controller.ts`**
+- `INCLUDE_RUTA_COMPLETA`: `separate: true` en las 7 colecciones anidadas + `exclude: ['firma_receptor']`.
+- `INCLUDE_RUTA_CONDUCTOR_HISTORIAL` (nuevo): payload ligero para las tarjetas del historial, sin items/SAP/ODC/pagos.
+- `getMiRutaConductor`: devuelve `{ activas, metricas }` en vez del histórico completo.
+- `getMiHistorialConductor` (nuevo): histórico paginado (`limit` 50, tope 200).
+- `createRuta` / `updateRuta`: responden con `INCLUDE_RUTA_LISTA`. **53,6 KB → 3,1 KB (−94%)**.
+- `getMiAsignacion` y `getAsignacionInstalador`: mismo `separate` + exclusión de firma.
+
+**`rutas.routes.ts`** — `GET /mi-ruta-conductor/historial` (rol `conductor`), declarada antes de `/:id`.
+
+**`ConductorView.tsx`** — consume el shape nuevo, carga el historial solo al abrir su tab y lo invalida tras un refresco; métricas desde el backend; los `<Printable*>` ocultos dejan de renderizarse en el historial, donde no hay botón que los abra.
+
+### El `order` explícito no es cosmético
+
+La primera pasada del gate **falló**: el JSON de 3 de 5 rutas difería. No era pérdida de datos sino **orden** — sin `ORDER BY`, la secuencia dentro de cada colección la decidía el plan del optimizador, y cambia al pasar de un JOIN a una subconsulta. Como `PrintableSAP` lista esos ítems, se declaró `order: [['id','ASC']]` en todas las colecciones ahora `separate`. El orden anterior tampoco estaba garantizado; ahora sí lo está.
+
+### Verificación ejecutada
+
+- `tsc --noEmit` **EXIT 0** en backend y frontend.
+- **Equivalencia de JSON** en las 5 rutas con más paradas (peor caso del cartesiano): contenido **idéntico** campo a campo tras normalizar, y orden **determinista** en todas las colecciones anidadas. Las únicas claves nuevas son las FK (`odp_id`) que `separate` obliga a pedir.
+- **Métricas**: el `COUNT` SQL coincide exactamente con el cálculo JS anterior — `{totalRutas:161, rutasTerminadas:161, rutasMes:1, totalParadas:173, paradasLlegadas:160}`.
+- **End-to-end HTTP** contra la BD real, con JWT por rol: `mi-ruta-conductor` **120 bytes / 0,31 s** (antes 2.523 KB / 5,87 s); `historial` 48,6 KB con todos los campos que la tarjeta necesita y sin firma; `rutas/75` 24,4 KB con las 7 colecciones pobladas (items, pagos, saps, 6 sap_items); `rutas` (listado del jefe, no tocado) sin cambios; `mi-asignacion` del instalador 48 con sus 5 paradas y conteos por colección **idénticos** a los del include anterior.
+- **RBAC**: conductor→`/mi-asignacion` y instalador→`/mi-ruta-conductor/historial` devuelven **403**. El routing de `/:id` sigue intacto.
+- **No se ejecutó ningún POST/PUT de ruta**: escribiría en la BD de producción (nueva ruta, ODPs a PROGRAMADA, auditoría y sockets). En su lugar se reprodujo la consulta exacta que el controlador hace tras el commit, comprobando que la respuesta trae los campos que `ProgramarRutaModal` leería. Ese modal, de hecho, **descarta la respuesta** (`await axios.post(...)` sin leer `.data`) y ningún otro cliente la consume — verificado en `frontend-web` y `mobile-app`.
+
+### Riesgo y despliegue
+
+Sin cambios de BD, sin migración, sin dependencias nuevas. El único efecto visible: el conductor ve su historial al entrar al tab en lugar de instantáneamente. **Backend y frontend deben desplegarse juntos**: `ConductorView` espera `{activas, metricas}` y la versión anterior del backend devuelve un array.
+
+### Pendientes
+
+- Commit + push (a la espera de orden del usuario) y **medir el egress 24-48 h después del deploy** con `2026-07-31_egress_por_tabla.ts`, que ya dejó snapshot.
+- `salidas_almacen`: **82.603 filas/día en 310 llamadas (4,4 MB)** — `getFacturadas` trae todo el histórico y filtra el mes en el navegador. Queda como siguiente candidato.
+- Siguen sin commitear los 3 scripts del 31-jul y `2026-08-01_leads_inactivos.ts`.
+
+### Decisión: el historial del conductor se queda en 50 rutas
+
+Se le planteó al usuario que el tab *Rutas Realizadas* pasa a mostrar las **últimas 50** en vez de las 161, con la consecuencia de que **el buscador de ese tab solo alcanza esas 50** (antes recorría todo el histórico). Se ofrecieron tres salidas —subir el tope a 200, botón "Cargar más" con el `offset` que el endpoint ya acepta, o mover la búsqueda al backend— y la decisión fue **dejarlo como está**.
+
+No es un descuido pendiente de arreglo: es el comportamiento acordado. Las métricas no se ven afectadas (se calculan con `COUNT` en SQL sobre el total, no sobre las 50 cargadas). Si en el futuro se quiere ampliar, el backend ya soporta `?limit=` (tope 200) y `?offset=` sin tocar nada más.
+
+## 2026-08-02 — Egress: `salidas_almacen` se descargaba entera 3 veces por carga de página
+
+Siguiente candidato tras el trabajo en rutas. Anotado como pendiente desde el 2026-08-01.
+
+### Causa raíz: un anti-patrón repetido en tres endpoints
+
+`getFacturadas`, `getOAPendientes` y `getNcSinSalida` resolvían "ODPs que aún no tienen salida de almacén" así:
+
+```ts
+const conSalida = await SalidaAlmacen.findAll({ attributes: ['odp_id'], raw: true });
+where.id = { [Op.notIn]: conSalida.map(s => s.odp_id) };
+```
+
+Es decir, **descargaban la tabla completa** para armar un `NOT IN` en memoria. Como `FacturasSalidasPage` pide los 5 endpoints en un `Promise.all` en cada carga, el coste por carga era **3 × 342 = 1.026 filas solo para construir los filtros**, más las 342 de `/con-salida` y `/con-salida-oa`: **1.710 filas**. Con ~60 cargas al día eso da ≈82.000 filas, que coincide con las **82.603 filas / 310 llamadas / 4,4 MB** que midió el diagnóstico — el modelo queda confirmado.
+
+Lo desproporcionado: `/facturadas` responde con **4 ODPs** y `/nc` con **0**. Se leían 342 filas para devolver 4.
+
+### Cambio
+
+Una sola constante en `salidas_almacen.controller.ts`, usada por los tres endpoints:
+
+```ts
+const SIN_SALIDA_ALMACEN = literal(
+  'NOT EXISTS (SELECT 1 FROM salidas_almacen sa WHERE sa.odp_id = "ODP"."id")'
+);
+```
+
+**`NOT EXISTS` y no `NOT IN` a propósito:** si `odp_id` llegara a contener un NULL, un `NOT IN` devolvería siempre cero filas y los tres tabs se vaciarían sin error visible. Hoy la columna es `NOT NULL` y no hay nulos, pero esta forma es inmune por construcción.
+
+`"ODP"."id"` es el alias que Sequelize asigna a la tabla principal en `ODP.findAll` (viene de `modelName: 'ODP'`), no el nombre real de la tabla (`odp`).
+
+### Verificación ejecutada
+
+- `tsc --noEmit` **EXIT 0**.
+- **Equivalencia contra el método anterior**, ejecutando ambos sobre la misma BD: `/facturadas` 4 = 4 y `/oa-pendientes` 3 = 3 con **JSON idéntico**; `/nc` 0 = 0.
+- **`/nc` con 0 resultados no prueba el alias**, y es el endpoint delicado porque incluye un self-join (`odp_padre`). Se forzó un caso no vacío quitando el filtro de estado: de **18 NC totales, 16 ya tienen SA**; el filtro nuevo devuelve exactamente las **2 restantes** y **0 con SA se colaron**. El alias resuelve correctamente pese al self-join.
+- **End-to-end HTTP** con JWT de admin: los 5 endpoints responden 200 con los mismos conteos que antes del cambio (4, 3, 0, 322, 20).
+- Sin imports muertos: `SalidaAlmacen` y `Op` siguen en uso; 0 restos del patrón anterior.
+
+**Resultado: 1.026 filas por carga → 0.** Egress estimado de la página: 4,4 → ~1,8 MB/día.
+
+### Propuesta B, analizada y NO ejecutada
+
+Se probó también filtrar el mes en el backend (`/con-salida` devuelve 322 salidas y el navegador descarta casi todas con `mesCorrecto()`). Resultó **equivalente en los 6 meses probados** y llevaría la carga a ~105 filas (−94% sobre el total), pero exige cambiar el contrato, refetchear al cambiar de mes y cachear por mes en el frontend. **El usuario optó por aplicar solo A.**
+
+**Trampa registrada durante esa prueba:** la primera pasada falló en junio y mayo por 1 registro, y la causa estaba **en el script de prueba**, no en la propuesta: se usó `new Date('2026-06-01')`, que Node interpreta como UTC y en Colombia (UTC−5) retrocede al 31 de mayo. El frontend usa `parseISO` de date-fns, que lo trata como fecha **local**. `fecha_sa` es `DATEONLY`, así que en la BD no hay zona horaria implicada. Al replicar la semántica correcta, coincidió en todos los meses.
+
+### Pendientes
+
+- Commit + push (a la espera de orden) y medir el egress tras el deploy.
+- Propuesta B disponible si se quiere el 94%.
+- Instaladores (`getMiAsignacion`): analizado el 2026-08-01, margen real ~2,6 MB/día (5,6%). El 71% del payload está bloqueado porque los 5 printables consumen esos campos. El margen está en la frecuencia: `emitirCambio('compras')` es un `io.emit` **global** y hace refetchear a los 9 instaladores y al conductor ante cambios que no les afectan (23 escrituras/día de media, picos de 55).
+- **Hallazgo sin relación con el egress:** los printables referencian `odp.cliente?.ruc_rut` y esa columna **no existe** en el modelo `Cliente` — sale siempre vacía en los documentos impresos. Probablemente debería ser `numero_documento`.
+
+## 2026-08-02 — Dashboard/Alertas: el panel ocultaba 25 alertas y describía mal las que mostraba
+
+Partió de una propuesta del usuario —eliminar el tab por desuso— que al medirla resultó ser la forma más cara de ahorrar: el ahorro se conseguía igual con `attributes` selectivos, sin perder la función. Se optó por arreglarlo.
+
+### Tres defectos, todos medidos
+
+1. **Egress.** Las dos consultas de `getAlertas` usaban `ODP.findAll` sin `attributes` y con el include de `Cliente` completo: **35,6 KB leídos de la BD para devolver 2,4 KB** (15× de desperdicio). Agravante: `/alertas` es **el único de los 6 endpoints del dashboard sin `cacheRespuesta`** (se excluyó el 24-jul "por frescura"), así que cada carga golpeaba la base. Y `useDashboardData.fetchAll()` pide los 6 **al montar, sea cual sea el tab activo**, más un `setInterval` cada 60 min — o sea que el endpoint se consultaba aunque nadie abriera la pestaña. Eliminar solo el tab visual habría ahorrado **cero**.
+
+2. **Ocultaba información.** Los `limit: 10` y `limit: 5` hacían invisibles **25 de las 40 alertas reales**: 6 ODPs fuera de plazo y **19 clientes en mora**. El badge decía 15. La cartera vencida real asciende a **$298.755.321** y solo se veían 5 clientes.
+
+3. **El texto engañaba.** El backend emitía todo como `critico` con el mensaje "vence pronto", **incluidas las 14 ODPs que ya estaban vencidas** —una de ellas hacía 83 días—. No había forma de distinguir lo vencido de lo que aún tenía margen.
+
+**Bug adicional encontrado:** el botón "Ver cliente" de las alertas de cartera no hacía nada. El handler exigía `alerta.odp_id` y esas alertas solo traían `cliente_id`.
+
+### Backend — `getAlertas` reescrito
+
+Dos consultas raw con columnas selectivas, sin `limit`, y los días calculados en SQL con `::date` (`fecha_entrega` es `DataTypes.DATE` → `TIMESTAMPTZ`; restar fechas en JS habría reintroducido el desfase de zona horaria). Severidad derivada del atraso real: vencida → `critico`, vence hoy → `alto`, 1-2 días → `medio`. Para cartera se reutilizan los cortes de riesgo de `getCarteraVencida` (2× y 1,5× el umbral) para no dar dos lecturas distintas del mismo dato. Se conserva el criterio original de `fecha_entrega` (no `fecha_factura`) para no alterar la regla de negocio. La respuesta sigue siendo un **array plano**, así que `alertasCriticas` en `GerenciaDashboard` no requirió cambios.
+
+### Frontend — `PanelAlertas` rediseñado
+
+Barra de resumen (total · vencidas · producción · en mora · monto en riesgo), agrupación colapsable por categoría y **filas de una línea** en lugar de tarjetas de ~70 px. Punto de color por severidad, plazo en lenguaje natural ("vencida hace 12 días", "vence mañana"), montos con formato COP y botón "Ver" que ahora funciona en las 40 (el backend envía `odp_id` también en cartera). El escalonado de la animación se acotó a 0,3 s: con 40 filas, un delay por índice sin tope dejaba las últimas en blanco varios segundos.
+
+### Resultado medido
+
+| | Antes | Después |
+|---|---|---|
+| Leído de la BD | 35,6 KB | **5,4 KB** (−85%) |
+| Por fila | 2.430 B | **139 B** (−94%) |
+| Alertas mostradas | 15 de 40 | **40 de 40** |
+| Severidad | todo `critico` | 21 crítico · 3 alto · 16 medio |
+| Botón funcional | 25 de 40 | **40 de 40** |
+
+### Verificación ejecutada
+
+- `tsc --noEmit` **EXIT 0** en backend y frontend.
+- **HTTP real** con JWT: 200, 7.811 bytes, 40 alertas — 16 producción + 24 cartera, $298.755.321 en riesgo, `odp_id` presente en 40/40.
+- Sin imports muertos: `Cliente`, `Op`, `QueryTypes` y `ODP` siguen en uso en el controlador.
+
+**Nota para el usuario:** el badge del tab cuenta alertas críticas, así que pasa de 15 a **21**, mientras el panel muestra 40 en total. Es coherente (el badge señala lo urgente), pero si se prefiere que muestre el total, es una línea en `GerenciaDashboard.tsx:39`.
+
+## 2026-08-02 — ODPFichaModal: el detalle de ODP repetía la firma hasta 320 veces
+
+Consulta del usuario: "¿ODPFichaModal consume mucho egress?". La auditoría del 2026-07-28 lo había descartado ("8,6 filas/llamada, encarece CPU no egress"). Ese promedio era correcto — lo que no se vio entonces fue **la distribución**.
+
+### Medición
+
+`getODP` tiene ~15 includes; cinco usaban `separate` y **ocho no** (`no_conformidades`, `saps→items`, `cotizaciones`, `tomas_medidas`, `evidencias`, `notas_produccion`, `ruta_odps`, más los `ruta_odps` anidados de `odp_padre` y `garantias`). Se resolvían en un JOIN único.
+
+| ODP | Filas del JOIN | Firma leída | Payload HTTP | Tiempo |
+|---|---|---|---|---|
+| ODP-23931 | **320** | **4.235 KB** | 60 KB | 3,32 s |
+| ODP-24112 | 300 | 1.712 KB | 46 KB | 2,25 s |
+| ODP-23957 | 128 | 0 KB | 25 KB | 1,88 s |
+| ODP-23925 | 1 | 0 KB | 5,9 KB | 0,60 s |
+
+Mediana de 9 filas, pero **14 ODPs superan las 50** y el peor caso llega a 320. Como `ruta_odps` trae `firma_receptor` (base64, ~12,6 KB de media), esas 320 filas repetían la misma imagen: **4,1 MB leídos de la base para devolver 60 KB** — cerca del 9% del egress diario en un solo clic.
+
+**Por qué se había pasado por alto:** el payload HTTP es de 60 KB porque **Sequelize deduplica en memoria**. Mirando solo el JSON el problema es invisible; hay que contar las filas que devuelve Postgres. Es la misma trampa que ya había aparecido en `getMiAsignacion`.
+
+### Cambio
+
+`separate: true` + `order` explícito en las ocho asociaciones (todas verificadas `hasMany` en `models/index.ts`), incluidos los dos `ruta_odps` anidados. Se añadió `odp_id` a los `attributes` de `ruta_odps` y `tomas_medidas`, que `separate` necesita para agrupar. `salida_almacen` (`hasOne`) y `odp_padre` (`belongsTo`) quedan intactos: no admiten `separate`. `garantias` ya lo tenía.
+
+`firma_receptor` se conserva —`ODPTabInstalacion` la muestra en el tab Instalación—, pero ahora viaja una vez por parada en lugar de una vez por fila del producto cartesiano.
+
+### Resultado medido
+
+| | Antes | Después |
+|---|---|---|
+| Filas devueltas (ODP-23931) | 320 | **48** (−85%) |
+| Bytes de firma leídos | 4.235 KB | **26,5 KB** (−99%) |
+| Tiempo de respuesta | 3,32 s | **1,64 s** (−51%) |
+| ODP-24112 | 2,25 s | 1,30 s |
+| Abrir las 403 fichas una vez | 22,47 MB | **2,72 MB** |
+
+### Verificación ejecutada
+
+- `tsc --noEmit` **EXIT 0**.
+- **Equivalencia de JSON** en las 4 ODPs medidas (incluido el peor caso): **contenido idéntico** tras normalizar, con los mismos conteos en las 11 colecciones (`items`, `saps`, `cotizaciones`, `tomas_medidas`, `evidencias`, `ruta_odps`, `notas_produccion`, `no_conformidades`, `garantias`, `pagos`, `historial_estados`). La única diferencia es el `odp_id` que `separate` obliga a pedir.
+- **HTTP real** con JWT: 200 en las 4, con payloads equivalentes (61.435 vs 61.396 bytes en ODP-23931 — la diferencia son los `odp_id` añadidos).
+- Confirmado que el `scope: { es_garantia: true }` de la asociación `garantias` se sigue aplicando.
