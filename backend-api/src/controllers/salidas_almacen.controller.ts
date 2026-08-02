@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
-import { Op } from 'sequelize';
+import { Op, literal } from 'sequelize';
 import { ODP, Cliente, Usuario, NoConformidad, FacturaAdicionalODP } from '../models';
 import SalidaAlmacen from '../models/salida_almacen.model';
 
@@ -13,17 +13,29 @@ const INCLUDE_ODP = [
   { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
 ];
 
+// "Esta ODP todavía no tiene salida de almacén", resuelto dentro de Postgres.
+//
+// Los tres endpoints de pendientes (facturadas, OA y NC) hacían antes lo mismo:
+// `SalidaAlmacen.findAll({ attributes: ['odp_id'] })` para armar un `Op.notIn` en
+// memoria. Eso descargaba la tabla ENTERA —342 filas hoy— tres veces por carga de
+// la página, para responder con 4, 3 y 0 registros respectivamente. Medido el
+// 2026-08-01: 1.026 filas por carga solo para construir estos filtros, ~60 cargas
+// al día. Con la subconsulta, Postgres resuelve la exclusión y no devuelve nada.
+//
+// `NOT EXISTS` y no `NOT IN` a propósito: si `odp_id` llegara a contener un NULL,
+// un `NOT IN` devolvería SIEMPRE cero filas y los tres tabs se vaciarían sin error
+// visible. Hoy la columna es NOT NULL y no hay nulos, pero esta forma es inmune.
+//
+// `"ODP"."id"` es el alias que Sequelize da a la tabla principal en `ODP.findAll`
+// (viene de `modelName: 'ODP'`), no el nombre real de la tabla (`odp`).
+const SIN_SALIDA_ALMACEN = literal(
+  'NOT EXISTS (SELECT 1 FROM salidas_almacen sa WHERE sa.odp_id = "ODP"."id")'
+);
+
 // ─── GET: ODPs facturadas SIN salida de almacén ───────────────────────────────
 export const getFacturadas = async (_req: Request, res: Response) => {
   try {
-    // IDs de ODPs que ya tienen SA
-    const conSalida = await SalidaAlmacen.findAll({ attributes: ['odp_id'], raw: true }) as any[];
-    const idsConSalida = conSalida.map((s: any) => s.odp_id);
-
-    const where: any = { estado_facturacion: 'FACTURADA' };
-    if (idsConSalida.length) {
-      where.id = { [Op.notIn]: idsConSalida };
-    }
+    const where: any = { estado_facturacion: 'FACTURADA', [Op.and]: [SIN_SALIDA_ALMACEN] };
 
     const odps = await ODP.findAll({
       where,
@@ -74,11 +86,7 @@ export const getConSalida = async (_req: Request, res: Response) => {
 // ─── GET: OAs sin salida de almacén registrada ────────────────────────────────
 export const getOAPendientes = async (_req: Request, res: Response) => {
   try {
-    const conSalida = await SalidaAlmacen.findAll({ attributes: ['odp_id'], raw: true }) as any[];
-    const idsConSalida = conSalida.map((s: any) => s.odp_id);
-
-    const where: any = { tipo_odp: 'OA' };
-    if (idsConSalida.length) where.id = { [Op.notIn]: idsConSalida };
+    const where: any = { tipo_odp: 'OA', [Op.and]: [SIN_SALIDA_ALMACEN] };
 
     const oas = await ODP.findAll({
       where,
@@ -121,16 +129,11 @@ export const getConSalidaOA = async (_req: Request, res: Response) => {
 // ─── GET: NC (es_no_conformidad=true) en estado INSTALADA/ENTREGADA SIN salida ─
 export const getNcSinSalida = async (_req: Request, res: Response) => {
   try {
-    const conSalida = await SalidaAlmacen.findAll({ attributes: ['odp_id'], raw: true }) as any[];
-    const idsConSalida = conSalida.map((s: any) => s.odp_id);
-
     const where: any = {
       es_no_conformidad: true,
       estado_produccion: { [Op.in]: ['INSTALADA', 'ENTREGADA'] },
+      [Op.and]: [SIN_SALIDA_ALMACEN],
     };
-    if (idsConSalida.length) {
-      where.id = { [Op.notIn]: idsConSalida };
-    }
 
     const odps = await ODP.findAll({
       where,
