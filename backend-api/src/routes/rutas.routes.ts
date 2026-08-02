@@ -20,6 +20,7 @@ import {
   pausarInstalacion,
   reportarDano,
   getMiRutaConductor,
+  getMiHistorialConductor,
   iniciarRutaConductor,
   llegadaConductor,
   terminarRutaConductor,
@@ -72,7 +73,10 @@ router.post('/ruta-odp/:id/finalizar', requireRole('instalador', 'produccion', '
 router.post('/ruta-odp/:id/pausar', requireRole('instalador', 'jefe_produccion', 'admin', 'gerencia', 'produccion'), pausarInstalacion);
 router.post('/ruta-odp/:id/reportar-dano', requireRole('instalador'), uploadConfig.single('foto_dano'), reportarDano);
 
-// Conductor: su ruta
+// Conductor: su ruta.
+// El historial va antes que '/:id' —y como sub-ruta estática— para que Express no lo
+// capture como parámetro; devuelve payload ligero y se pide solo al abrir su tab.
+router.get('/mi-ruta-conductor/historial', requireRole('conductor'), getMiHistorialConductor);
 router.get('/mi-ruta-conductor', requireRole('conductor'), getMiRutaConductor);
 router.post('/:id/iniciar-ruta', requireRole('conductor'), iniciarRutaConductor);
 router.post('/:id/terminar-ruta', requireRole('conductor'), terminarRutaConductor);

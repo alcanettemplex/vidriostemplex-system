@@ -48,6 +48,25 @@ const INCLUDE_RUTA_LISTA = async (): Promise<any[]> => [
   },
 ];
 
+// Detalle: trae los documentos de la ODP (items, SAP, ODC) porque el conductor y el
+// instalador imprimen la Orden de Producción, el Detalle Técnico y la SAP desde aquí.
+//
+// Dos decisiones de egress, medidas el 2026-08-01 (ver SESSION_LOG):
+//
+// 1) `separate: true` en TODAS las colecciones anidadas bajo la ODP. Sin él, Sequelize
+//    resuelve pagos × cotizaciones × tomas_medidas × saps × sap_items × ordenes_compra ×
+//    odc_items en un ÚNICO JOIN: un producto cartesiano que devolvía 28 filas de
+//    `ruta_odp` para una ruta de 4 paradas (7×), y cada fila repetida arrastraba la
+//    firma. El JSON resultante es idéntico —Sequelize ya deduplicaba en memoria—, así
+//    que esto no cambia la respuesta, solo deja de pedirle filas repetidas a Postgres.
+//    Requisito: los includes con `attributes` explícitos deben incluir su FK (`odp_id`,
+//    `sap_id`, `odc_id`), porque con `separate` Sequelize agrupa los hijos por esa clave.
+//
+// 2) `firma_receptor` excluida: es el 98% del peso de `ruta_odp` (2.790 kB de 2.843 kB,
+//    TEXT base64 de ~13 KB por firma) y NINGÚN consumidor de estos endpoints la muestra.
+//    La única pantalla que la pinta es ODPTabInstalacion, que se alimenta de
+//    `GET /api/odp/:id` — ese endpoint la incluye por su cuenta (odp.controller.ts) y no
+//    se toca aquí.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const INCLUDE_RUTA_COMPLETA = async (): Promise<any[]> => [
   { model: Vehiculo, as: 'vehiculo', attributes: ['id', 'placa', 'tipo'] },
@@ -63,26 +82,64 @@ const INCLUDE_RUTA_COMPLETA = async (): Promise<any[]> => [
     model: RutaODP, as: 'ruta_odps',
     separate: true,
     order: [['orden', 'ASC']],
+    attributes: { exclude: ['firma_receptor'] },
     include: [
       {
         model: ODP, as: 'odp',
         include: [
           { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'telefono'] },
           { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+          // El `order: id ASC` es obligatorio aquí, no cosmético: sin ORDER BY, el orden
+          // de estas colecciones lo decidía el plan del optimizador y cambia al pasar de
+          // un JOIN a una subconsulta. Declararlo mantiene los documentos impresos
+          // (PrintableSAP lista estos ítems) estables entre cargas, algo que el JOIN
+          // anterior tampoco garantizaba. Verificado: mismo contenido, orden determinista.
           { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
-          { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'fecha', 'observaciones'] },
-          { model: Cotizacion, as: 'cotizaciones', attributes: ['id', 'numero_cot', 'valor_total', 'estado', 'fecha_creacion'] },
-          { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'numero_tm', 'croquis_url'] },
+          { model: Pago, as: 'pagos', separate: true, order: [['id', 'ASC']], attributes: ['id', 'odp_id', 'monto', 'metodo_pago', 'fecha', 'observaciones'] },
+          { model: Cotizacion, as: 'cotizaciones', separate: true, order: [['id', 'ASC']], attributes: ['id', 'odp_id', 'numero_cot', 'valor_total', 'estado', 'fecha_creacion'] },
+          { model: TomaMedidas, as: 'tomas_medidas', separate: true, order: [['id', 'ASC']], attributes: ['id', 'odp_id', 'numero_tm', 'croquis_url'] },
           {
             model: SAP, as: 'saps',
+            separate: true,
+            order: [['id', 'ASC']],
             include: [
-              { model: SAPItem, as: 'items' },
-              { 
+              { model: SAPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
+              {
                 model: OrdenCompra, as: 'ordenes_compra',
-                include: [{ model: ODCItem, as: 'items' }]
+                separate: true,
+                order: [['id', 'ASC']],
+                include: [{ model: ODCItem, as: 'items', separate: true, order: [['id', 'ASC']] }]
               }
             ]
           },
+        ],
+      },
+    ],
+  },
+];
+
+// Historial del conductor: tarjetas de "Rutas Realizadas". No imprime documentos
+// (`abrirDocumento` llega undefined en ese tab), así que no necesita items/SAP/ODC/pagos.
+// Campos verificados uno a uno contra RutaCard y StopItem de ConductorView.tsx.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const INCLUDE_RUTA_CONDUCTOR_HISTORIAL = (): any[] => [
+  { model: Vehiculo, as: 'vehiculo', attributes: ['id', 'placa'] },
+  {
+    model: Usuario, as: 'instaladores',
+    attributes: ['id'],
+    through: { attributes: [] },
+  },
+  {
+    model: RutaODP, as: 'ruta_odps',
+    separate: true,
+    order: [['orden', 'ASC']],
+    attributes: ['id', 'ruta_id', 'odp_id', 'orden', 'estado', 'llegada_conductor'],
+    include: [
+      {
+        model: ODP, as: 'odp',
+        attributes: ['id', 'numero_odp', 'cliente_id', 'direccion_instalacion', 'descripcion_pedido'],
+        include: [
+          { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
         ],
       },
     ],
@@ -441,7 +498,12 @@ export const createRuta = async (req: Request, res: Response) => {
       }).catch(() => {});
     }
 
-    const includes = await INCLUDE_RUTA_COMPLETA();
+    // Payload de listado, no de detalle: ProgramarRutaModal descarta esta respuesta
+    // (hace `await axios.post(...)` sin leer `.data` y llama a onSaved()), y ningún otro
+    // cliente la consume — verificado en frontend-web y mobile-app. Devolver el include
+    // completo costaba ~21 MB por creación de ruta para nada. Se conserva un objeto ruta
+    // válido —con vehículo, personal y paradas— por si algún consumidor futuro lo lee.
+    const includes = await INCLUDE_RUTA_LISTA();
     const rutaCompleta = await RutaInstalacion.findByPk(rutaId, { include: includes });
     res.status(201).json(rutaCompleta);
   } catch (e: any) {
@@ -525,7 +587,8 @@ export const updateRuta = async (req: Request, res: Response) => {
     }
 
     await t.commit();
-    const includes = await INCLUDE_RUTA_COMPLETA();
+    // Igual que en createRuta: el modal descarta esta respuesta. Ver nota allí.
+    const includes = await INCLUDE_RUTA_LISTA();
     const rutaActualizada = await RutaInstalacion.findByPk(id, { include: includes });
     res.json(rutaActualizada);
   } catch (e: any) {
@@ -615,11 +678,16 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
     const ids = rutaIds.map((r: any) => r.ruta_id);
 
     // Paso 1 SQL: solo en_curso y pendiente, descarta pausada/con_dano/completada
+    // `separate: true` y la exclusión de `firma_receptor` responden al mismo defecto que
+    // INCLUDE_RUTA_COMPLETA (ver la nota extensa allí): sin separate, las colecciones de
+    // la ODP se resolvían en un único JOIN cartesiano. El instalador imprime los mismos
+    // documentos que el conductor, así que los datos que llegan son idénticos.
     const candidatos = await RutaODP.findAll({
       where: {
         ruta_id: { [Op.in]: ids },
         estado: { [Op.in]: ['en_curso', 'pendiente'] },
       },
+      attributes: { exclude: ['firma_receptor'] },
       include: [
         {
           model: RutaInstalacion, as: 'ruta',
@@ -636,17 +704,23 @@ export const getMiAsignacion = async (req: Request, res: Response) => {
           include: [
             { model: Cliente, as: 'cliente' },
             { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
+            // `order` explícito por el mismo motivo que en INCLUDE_RUTA_COMPLETA:
+            // el instalador imprime la SAP y sus ítems deben salir siempre igual.
             { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
-            { model: Pago, as: 'pagos' },
-            { model: Cotizacion, as: 'cotizaciones' },
-            { model: TomaMedidas, as: 'tomas_medidas' },
+            { model: Pago, as: 'pagos', separate: true, order: [['id', 'ASC']] },
+            { model: Cotizacion, as: 'cotizaciones', separate: true, order: [['id', 'ASC']] },
+            { model: TomaMedidas, as: 'tomas_medidas', separate: true, order: [['id', 'ASC']] },
             {
               model: SAP, as: 'saps',
+              separate: true,
+              order: [['id', 'ASC']],
               include: [
-                { model: SAPItem, as: 'items' },
+                { model: SAPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
                 {
                   model: OrdenCompra, as: 'ordenes_compra',
-                  include: [{ model: ODCItem, as: 'items' }]
+                  separate: true,
+                  order: [['id', 'ASC']],
+                  include: [{ model: ODCItem, as: 'items', separate: true, order: [['id', 'ASC']] }]
                 }
               ]
             },
@@ -892,25 +966,88 @@ export const reportarDano = async (req: Request, res: Response) => {
 
 // ─── CONDUCTOR: Mi ruta ───────────────────────────────────────────────────────
 
+// Devuelve SOLO las rutas activas + las métricas ya agregadas en SQL.
+//
+// Antes traía todo el histórico con el include completo: medido el 2026-08-01, un
+// conductor con 161 rutas completadas y CERO activas descargaba 2.523 KB en 5.870 ms
+// para pintar un tab "Asignación Activa" vacío. Y `ConductorView` reengancha esta carga
+// a `useDataChangedSocket('compras')`, así que cada movimiento en Compras la repetía.
+//
+// El filtro es por ESTADO, no por `fecha_programada = hoy`: `rutas_instalacion` no tiene
+// fecha propia (vive en `ruta_odp.fecha_programada`), y filtrar por fecha estricta haría
+// desaparecer una ruta de ayer que quedó sin cerrar, dejando al conductor sin forma de
+// finalizarla. Por estado el ahorro es el mismo —7 rutas activas en todo el sistema— sin
+// ese riesgo operativo.
+//
+// Las métricas se calculan con COUNT en el servidor en vez de contar 161 rutas en el
+// navegador; el histórico se pide aparte, al abrir su tab (getMiHistorialConductor).
 export const getMiRutaConductor = async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
 
     const includes = await INCLUDE_RUTA_COMPLETA();
-    const rutas = await RutaInstalacion.findAll({
+    const activas = await RutaInstalacion.findAll({
       where: {
         conductor_id: user.id,
-        estado: { [Op.ne]: 'cancelada' },
+        estado: { [Op.notIn]: ['cancelada', 'completada'] },
       },
       include: includes,
       order: [['creado_en', 'DESC']],
     });
-    res.json(rutas);
+
+    // Mismos números que calculaba el frontend sobre el array completo:
+    // totalRutas/rutasTerminadas excluyen canceladas; efectividad = paradas con llegada
+    // registrada sobre el total de paradas; rutasMes usa el mes calendario en curso.
+    const [m]: any[] = await sequelize.query(
+      `SELECT
+         count(DISTINCT r.id)::int                                             AS total_rutas,
+         count(DISTINCT r.id) FILTER (WHERE r.estado = 'completada')::int      AS rutas_terminadas,
+         count(DISTINCT r.id) FILTER (
+           WHERE date_trunc('month', r.creado_en) = date_trunc('month', CURRENT_DATE)
+         )::int                                                                AS rutas_mes,
+         count(ro.id)::int                                                     AS total_paradas,
+         count(ro.id) FILTER (WHERE ro.llegada_conductor IS NOT NULL)::int     AS paradas_llegadas
+       FROM rutas_instalacion r
+       LEFT JOIN ruta_odp ro ON ro.ruta_id = r.id
+       WHERE r.conductor_id = :uid AND r.estado <> 'cancelada'`,
+      { replacements: { uid: user.id }, type: QueryTypes.SELECT }
+    );
+
+    res.json({
+      activas,
+      metricas: {
+        totalRutas: m.total_rutas,
+        rutasTerminadas: m.rutas_terminadas,
+        rutasMes: m.rutas_mes,
+        totalParadas: m.total_paradas,
+        paradasLlegadas: m.paradas_llegadas,
+      },
+    });
   } catch (e: any) {
     console.error('getMiRutaConductor FULL ERROR:', e);
     res.status(500).json({ error: 'Error al obtener rutas', details: e.message });
+  }
+};
+
+// Tab "Rutas Realizadas" del conductor: carga diferida y con payload ligero.
+// Se pide solo al abrir el tab, no en el arranque de la pantalla.
+export const getMiHistorialConductor = async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const offset = Number(req.query.offset) || 0;
+
+    const rutas = await RutaInstalacion.findAll({
+      where: { conductor_id: user.id, estado: 'completada' },
+      include: INCLUDE_RUTA_CONDUCTOR_HISTORIAL(),
+      order: [['creado_en', 'DESC']],
+      limit,
+      offset,
+    });
+    res.json(rutas);
+  } catch (e: any) {
+    console.error('getMiHistorialConductor:', e.message);
+    res.status(500).json({ error: 'Error al obtener el historial de rutas' });
   }
 };
 
@@ -1038,6 +1175,9 @@ export const getAsignacionInstalador = async (req: Request, res: Response) => {
         ruta_id: { [Op.in]: ids },
         estado: { [Op.in]: ['pendiente', 'en_curso', 'pausada', 'con_dano'] },
       },
+      // Vista de gestión del jefe: no muestra la firma del receptor. Ver nota en
+      // INCLUDE_RUTA_COMPLETA sobre por qué se excluye y sobre `separate`.
+      attributes: { exclude: ['firma_receptor'] },
       include: [
         {
           model: RutaInstalacion, as: 'ruta',
@@ -1055,7 +1195,7 @@ export const getAsignacionInstalador = async (req: Request, res: Response) => {
             { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'telefono'] },
             { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
             { model: ODPItem, as: 'items', separate: true, order: [['id', 'ASC']] },
-            { model: Pago, as: 'pagos', attributes: ['id', 'monto', 'metodo_pago', 'fecha'] },
+            { model: Pago, as: 'pagos', separate: true, order: [['id', 'ASC']], attributes: ['id', 'odp_id', 'monto', 'metodo_pago', 'fecha'] },
           ],
         },
       ],

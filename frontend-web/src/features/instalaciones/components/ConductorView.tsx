@@ -28,7 +28,15 @@ const ConductorView: React.FC = () => {
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
+  // Rutas ACTIVAS (payload completo: de aquí salen los imprimibles OP/Técnico/SAP).
+  // El histórico ya no viene en esta carga — un conductor con 161 rutas completadas
+  // descargaba 2,5 MB en cada refresco para pintar un tab que suele estar vacío.
   const [rutas, setRutas] = useState<any[]>([]);
+  // Métricas agregadas en el servidor (COUNT), no calculadas sobre el histórico completo.
+  const [metricas, setMetricas] = useState<any>(null);
+  // Historial: carga diferida, se pide al abrir su tab y se conserva en memoria.
+  const [historial, setHistorial] = useState<any[] | null>(null);
+  const [cargandoHistorial, setCargandoHistorial] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'hoy' | 'historial' | 'metricas'>('hoy');
   const [iniciando, setIniciando] = useState<number | null>(null);
@@ -40,10 +48,14 @@ const ConductorView: React.FC = () => {
     setLoading(true);
     try {
       const { data } = await axios.get(`${API}/api/rutas/mi-ruta-conductor`, { headers });
-      setRutas(Array.isArray(data) ? data : []);
-    } catch (e: any) { 
+      setRutas(Array.isArray(data?.activas) ? data.activas : []);
+      setMetricas(data?.metricas ?? null);
+      // Una ruta recién finalizada pasa al histórico: se invalida para que el tab lo
+      // vuelva a pedir en vez de mostrar una foto vieja.
+      setHistorial(null);
+    } catch (e: any) {
       const msg = e.response?.data?.details || 'Error al cargar tus rutas';
-      toast.error(msg); 
+      toast.error(msg);
       setRutas([]);
     }
     finally { setLoading(false); }
@@ -51,27 +63,44 @@ const ConductorView: React.FC = () => {
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  const cargarHistorial = useCallback(async () => {
+    setCargandoHistorial(true);
+    try {
+      const { data } = await axios.get(`${API}/api/rutas/mi-ruta-conductor/historial`, { headers });
+      setHistorial(Array.isArray(data) ? data : []);
+    } catch {
+      toast.error('Error al cargar el historial de rutas');
+      setHistorial([]);
+    }
+    finally { setCargandoHistorial(false); }
+  }, []);
+
+  // Se dispara solo al entrar al tab y solo si aún no está en memoria.
+  useEffect(() => {
+    if (activeTab === 'historial' && historial === null && !cargandoHistorial) cargarHistorial();
+  }, [activeTab, historial, cargandoHistorial, cargarHistorial]);
+
   // Refresca la ruta si Compras marca/revierte existencia, elimina o edita una ODC —
   // el imprimible de la SAP mostrado aquí debe reflejarlo sin recargar la pantalla.
   useDataChangedSocket('compras', cargar);
 
-  // ––– Cálculos de Métricas –––
+  // ––– Métricas –––
+  // Mismos números de antes, pero contados en SQL. El fallback a 0 evita que las
+  // tarjetas parpadeen con NaN durante la primera carga.
   const metrics = useMemo(() => {
-    const totalParadas = rutas.reduce((acc, r) => acc + (r.ruta_odps?.length || 0), 0);
-    const paradasLlegadas = rutas.reduce((acc, r) => acc + (r.ruta_odps?.filter((s:any) => s.llegada_conductor).length || 0), 0);
-    const efecCount = rutas.filter(r => r.estado === 'completada').length;
-
+    const totalParadas = metricas?.totalParadas ?? 0;
+    const paradasLlegadas = metricas?.paradasLlegadas ?? 0;
     const efectividad = totalParadas > 0 ? Math.round((paradasLlegadas / totalParadas) * 100) : 100;
-    
+
     return {
-      totalRutas: rutas.length,
-      rutasTerminadas: efecCount,
+      totalRutas: metricas?.totalRutas ?? 0,
+      rutasTerminadas: metricas?.rutasTerminadas ?? 0,
       totalParadas,
       efectividad,
-      rutasMes: rutas.filter(r => r.creado_en && new Date(r.creado_en).getMonth() === new Date().getMonth()).length,
+      rutasMes: metricas?.rutasMes ?? 0,
       insignia: efectividad > 90 ? 'Master del Volante' : 'Conductor Profesional'
     };
-  }, [rutas]);
+  }, [metricas]);
 
   // ––– Handlers –––
   const handleIniciarRuta = async (rutaId: number) => {
@@ -201,8 +230,8 @@ const ConductorView: React.FC = () => {
             <div className="grid grid-cols-1 gap-8">
               {(() => {
                 const q = busqueda.toLowerCase().trim();
+                // El backend ya excluye completadas y canceladas de `activas`.
                 const items = rutas
-                  .filter(r => r.estado !== 'completada')
                   .filter(r => !q ||
                     r.ruta_odps?.some((ro: any) =>
                       ro.odp?.numero_odp?.toLowerCase().includes(q) ||
@@ -231,10 +260,14 @@ const ConductorView: React.FC = () => {
 
           {activeTab === 'historial' && (
             <div className="grid grid-cols-1 gap-8">
-              {(() => {
+              {cargandoHistorial || historial === null ? (
+                <div className="flex items-center justify-center gap-3 py-16 text-slate-400">
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  <span className="text-xs font-black uppercase tracking-widest">Cargando historial…</span>
+                </div>
+              ) : (() => {
                 const q = busqueda.toLowerCase().trim();
-                const items = rutas
-                  .filter(r => r.estado === 'completada')
+                const items = historial
                   .filter(r => !q ||
                     r.ruta_odps?.some((ro: any) =>
                       ro.odp?.numero_odp?.toLowerCase().includes(q) ||
@@ -414,13 +447,18 @@ const StopItem = ({ stop, idx, registrarLlegada, abrirDocumento, abrirMapa, enCu
         )}
       </div>
 
-      <div className="hidden">
-        {/* Mismo componente que la ficha ODP: antes usaba PrintableOP, que
-            mostraba VALOR, SUBTOTAL/IVA/TOTAL y FORMA DE PAGO al conductor. */}
-        <div id={`print-op-${odp?.id}`}>{odp?.tipo_odp === 'OA' ? <PrintableOA odp={odp} /> : <PrintableProduccion odp={odp} />}</div>
-        <div id={`print-tec-${odp?.id}`}><PrintableDetalleTecnico odp={odp} /></div>
-        {sap && <div id={`print-sap-${odp?.id}`}><PrintableSAP odp={odp} sap={sap} /></div>}
-      </div>
+      {/* Solo donde hay botones que los abran: en el tab Historial `abrirDocumento` no
+          llega, y ese payload es ligero (sin items ni SAP), así que estos imprimibles
+          saldrían vacíos y solo costarían DOM. */}
+      {abrirDocumento && (
+        <div className="hidden">
+          {/* Mismo componente que la ficha ODP: antes usaba PrintableOP, que
+              mostraba VALOR, SUBTOTAL/IVA/TOTAL y FORMA DE PAGO al conductor. */}
+          <div id={`print-op-${odp?.id}`}>{odp?.tipo_odp === 'OA' ? <PrintableOA odp={odp} /> : <PrintableProduccion odp={odp} />}</div>
+          <div id={`print-tec-${odp?.id}`}><PrintableDetalleTecnico odp={odp} /></div>
+          {sap && <div id={`print-sap-${odp?.id}`}><PrintableSAP odp={odp} sap={sap} /></div>}
+        </div>
+      )}
     </div>
   );
 };
