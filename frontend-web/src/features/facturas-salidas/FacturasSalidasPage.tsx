@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import ODPFichaModal from '../odp/components/ODPFichaModal';
 import FolderTabs from '../../components/FolderTabs';
 import {
-  FileCheck, Warehouse, Plus, Pencil, Trash2, X, RefreshCw, Search, Package, AlertTriangle,
+  FileCheck, Warehouse, Plus, Pencil, Trash2, X, RefreshCw, Search, Package, AlertTriangle, Zap,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -40,6 +40,36 @@ const BadgeEstado = ({ estado }: { estado: string }) => {
   return <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${e.cls}`}>{e.label}</span>;
 };
 
+/**
+ * Estados anteriores a LISTO_INSTALAR en la secuencia de producción.
+ * Una ODP facturada que aún está en alguno de ellos es una "factura anticipada":
+ * se emitió la FE antes de que el producto estuviera listo para instalar.
+ *
+ * PAUSADA queda fuera a propósito: está fuera de la secuencia y una ODP puede
+ * pausarse por No Conformidad DESPUÉS de haber estado lista o instalada, así que
+ * marcarla generaría falsos positivos.
+ */
+const ESTADOS_PRE_LISTO = new Set([
+  'EN_ESPERA',
+  'VISITA_TECNICA',
+  'MEDICION',
+  'ALUMINIO_CORTADO',
+  'VIDRIO_RECIBIDO',
+  'ACCESORIOS_SEPARADOS',
+]);
+
+const esFacturaAnticipada = (estadoProduccion?: string | null) =>
+  !!estadoProduccion && ESTADOS_PRE_LISTO.has(estadoProduccion);
+
+const BadgeAnticipada = () => (
+  <span
+    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide bg-amber-100 text-amber-800 border border-amber-300"
+    title="Facturada antes de estar lista para instalar"
+  >
+    <Zap className="w-3 h-3" /> Factura anticipada
+  </span>
+);
+
 type Tab = 'facturadas' | 'oa' | 'nc' | 'con_salida';
 type SubTabConSalida = 'odps' | 'oa';
 
@@ -58,6 +88,7 @@ interface ODPFacturada {
   facturas_adicionales?: { id: number; numero_fe: string; fecha_factura: string | null }[];
   valor_total: number | null;
   estado_caja: string | null;
+  estado_produccion: string;
   cliente: { id: number; nombre_razon_social: string };
 }
 
@@ -131,6 +162,7 @@ const FacturasSalidasPage: React.FC = () => {
   const [busquedaConSalida,    setBusquedaConSalida]    = useState('');
   const [busquedaConSalidaOA,  setBusquedaConSalidaOA]  = useState('');
   const [filtroCajaFacturadas, setFiltroCajaFacturadas] = useState('');
+  const [soloAnticipadas,      setSoloAnticipadas]      = useState(false);
 
   const [modalSA,    setModalSA]    = useState<ModalSAState | null>(null);
   const [fichaOdpId, setFichaOdpId] = useState<number | null>(null);
@@ -228,6 +260,8 @@ const FacturasSalidasPage: React.FC = () => {
   const facturadasFiltradas = facturadas.filter(o => {
     if (!mesCorrecto(o.fecha_factura)) return false;
     if (filtroCajaFacturadas && o.estado_caja !== filtroCajaFacturadas) return false;
+    // Va antes del bloque de búsqueda: ese hace return temprano y saltaría este filtro.
+    if (soloAnticipadas && !esFacturaAnticipada(o.estado_produccion)) return false;
     if (busquedaFacturadas) {
       const q = busquedaFacturadas.toLowerCase();
       return (
@@ -294,6 +328,11 @@ const FacturasSalidasPage: React.FC = () => {
     return true;
   });
 
+  // Universo de anticipadas del período (independiente del chip, para no autoanularse el contador)
+  const anticipadasDelPeriodo = facturadas.filter(
+    o => mesCorrecto(o.fecha_factura) && esFacturaAnticipada(o.estado_produccion)
+  );
+
   const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const anios = Array.from({ length: 4 }, (_, i) => hoy.getFullYear() - i);
 
@@ -307,7 +346,7 @@ const FacturasSalidasPage: React.FC = () => {
   const prefijo = modalSA?.esOA ? 'SFV-' : 'SA-';
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 w-full space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -333,7 +372,7 @@ const FacturasSalidasPage: React.FC = () => {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
           <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
             <FileCheck className="w-5 h-5 text-blue-600" />
@@ -343,6 +382,24 @@ const FacturasSalidasPage: React.FC = () => {
             <p className="text-2xl font-black text-blue-700">{facturadas.length}</p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => { setTab('facturadas'); setSoloAnticipadas(v => !v); }}
+          title="Facturadas que aún no llegan a Listo Instalar — clic para filtrar"
+          className={`text-left rounded-xl p-4 flex items-center gap-3 shadow-sm border transition ${
+            soloAnticipadas
+              ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-300'
+              : 'bg-white border-slate-200 hover:border-amber-300'
+          }`}
+        >
+          <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
+            <Zap className="w-5 h-5 text-amber-600" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Anticipadas</p>
+            <p className="text-2xl font-black text-amber-700">{anticipadasDelPeriodo.length}</p>
+          </div>
+        </button>
         <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
           <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
             <Package className="w-5 h-5 text-indigo-600" />
@@ -414,8 +471,25 @@ const FacturasSalidasPage: React.FC = () => {
                   <option value="CANCELADO">Cancelado</option>
                   <option value="CREDITO_APROBADO">Crédito aprobado</option>
                 </select>
-                {(busquedaFacturadas || filtroCajaFacturadas) && (
-                  <button onClick={() => { setBusquedaFacturadas(''); setFiltroCajaFacturadas(''); }}
+                <button
+                  onClick={() => setSoloAnticipadas(v => !v)}
+                  title="Mostrar solo ODPs facturadas que aún no llegan a Listo Instalar"
+                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg border transition ${
+                    soloAnticipadas
+                      ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                      : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50'
+                  }`}
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  Solo anticipadas
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                    soloAnticipadas ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {anticipadasDelPeriodo.length}
+                  </span>
+                </button>
+                {(busquedaFacturadas || filtroCajaFacturadas || soloAnticipadas) && (
+                  <button onClick={() => { setBusquedaFacturadas(''); setFiltroCajaFacturadas(''); setSoloAnticipadas(false); }}
                     className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-100 transition bg-white">
                     <X className="w-3.5 h-3.5" /> Limpiar
                   </button>
@@ -425,22 +499,34 @@ const FacturasSalidasPage: React.FC = () => {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      {['ODP', 'Cliente', 'Fecha Factura', 'N° Factura Electrónica', 'Valor Total', puedeEditar ? 'Acción' : ''].filter(Boolean).map(h => (
+                      {['ODP', 'Cliente', 'Estado Producción', 'Fecha Factura', 'N° Factura Electrónica', 'Valor Total', puedeEditar ? 'Acción' : ''].filter(Boolean).map(h => (
                         <th key={h} className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {facturadasFiltradas.length === 0 ? (
-                      <tr><td colSpan={puedeEditar ? 6 : 5} className="px-5 py-12 text-center text-slate-400">
+                      <tr><td colSpan={puedeEditar ? 7 : 6} className="px-5 py-12 text-center text-slate-400">
                         <FileCheck className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                        <p>No hay ODPs facturadas para el período seleccionado</p>
+                        <p>{soloAnticipadas
+                          ? 'No hay facturas anticipadas en el período seleccionado'
+                          : 'No hay ODPs facturadas para el período seleccionado'}</p>
                       </td></tr>
-                    ) : facturadasFiltradas.map(odp => (
+                    ) : facturadasFiltradas.map(odp => {
+                      const anticipada = esFacturaAnticipada(odp.estado_produccion);
+                      return (
                       <motion.tr key={odp.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                        className="hover:bg-slate-50 transition-colors">
+                        className={`transition-colors ${anticipada
+                          ? 'bg-amber-50/40 hover:bg-amber-50 border-l-4 border-l-amber-400'
+                          : 'hover:bg-slate-50'}`}>
                         <td className="px-5 py-4 font-mono font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => setFichaOdpId(odp.id)}>{odp.numero_odp}</td>
                         <td className="px-5 py-4 text-slate-700">{odp.cliente?.nombre_razon_social || '—'}</td>
+                        <td className="px-5 py-4">
+                          <div className="flex flex-col items-start gap-1">
+                            <BadgeEstado estado={odp.estado_produccion} />
+                            {anticipada && <BadgeAnticipada />}
+                          </div>
+                        </td>
                         <td className="px-5 py-4 text-slate-600">{fmtFecha(odp.fecha_factura)}</td>
                         <td className="px-5 py-4">
                           {odp.factura_electronica
@@ -464,7 +550,8 @@ const FacturasSalidasPage: React.FC = () => {
                           </td>
                         )}
                       </motion.tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -31,7 +31,9 @@ export const getFacturadas = async (_req: Request, res: Response) => {
         ...INCLUDE_ODP,
         { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura'], separate: true },
       ],
-      attributes: ['id', 'numero_odp', 'fecha_factura', 'factura_electronica', 'valor_total', 'estado_caja'],
+      // estado_produccion se usa en el frontend para marcar "factura anticipada"
+      // (facturada pero aún sin llegar a LISTO_INSTALAR).
+      attributes: ['id', 'numero_odp', 'fecha_factura', 'factura_electronica', 'valor_total', 'estado_caja', 'estado_produccion'],
       order: [['fecha_factura', 'DESC']],
     });
 
