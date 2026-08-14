@@ -70,3 +70,31 @@ Error
     at async Lead.findAll (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\model.js:1824:21)
     at async getLeads (C:\Users\User\Desktop\vidrios-templex-system\backend-api\src\controllers\crm.controller.ts:390:19)
 
+[2026-08-02T14:29:24.575Z] GET_LEADS_ERROR: getaddrinfo ENOTFOUND aws-1-us-west-2.pooler.supabase.com
+SequelizeHostNotFoundError: getaddrinfo ENOTFOUND aws-1-us-west-2.pooler.supabase.com
+    at Client._connectionCallback (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\postgres\connection-manager.js:187:24)
+    at Client._handleErrorWhileConnecting (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\pg\lib\client.js:379:19)
+    at Client._handleErrorEvent (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\pg\lib\client.js:389:19)
+    at Connection.emit (node:events:508:28)
+    at Connection.emit (node:domain:489:12)
+    at Socket.reportStreamError (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\pg\lib\connection.js:56:12)
+    at Socket.emit (node:events:508:28)
+    at Socket.emit (node:domain:489:12)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:89:21)
+
+[2026-08-02T14:29:24.589Z] GET_LEADS_ERROR: getaddrinfo ENOTFOUND aws-1-us-west-2.pooler.supabase.com
+SequelizeHostNotFoundError: getaddrinfo ENOTFOUND aws-1-us-west-2.pooler.supabase.com
+    at Client._connectionCallback (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\sequelize\src\dialects\postgres\connection-manager.js:187:24)
+    at Client._handleErrorWhileConnecting (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\pg\lib\client.js:379:19)
+    at Client._handleErrorEvent (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\pg\lib\client.js:389:19)
+    at Connection.emit (node:events:508:28)
+    at Connection.emit (node:domain:489:12)
+    at Socket.reportStreamError (C:\Users\User\Desktop\vidrios-templex-system\backend-api\node_modules\pg\lib\connection.js:56:12)
+    at Socket.emit (node:events:508:28)
+    at Socket.emit (node:domain:489:12)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:89:21)
+
