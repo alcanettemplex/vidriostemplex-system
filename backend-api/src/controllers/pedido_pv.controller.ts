@@ -605,7 +605,7 @@ export const generarExcelPedidoPV = async (req: Request, res: Response) => {
     cellEntrega.alignment = alignCenter;
 
     const buffer = await wb.xlsx.writeBuffer();
-    const filename = `VITELSA-${numeroPedido}.xlsx`;
+    const filename = `PEDIDO VITELSA #${numeroPedido}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(Buffer.from(buffer));
