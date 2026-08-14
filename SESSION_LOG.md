@@ -973,3 +973,47 @@ Mediana de 9 filas, pero **14 ODPs superan las 50** y el peor caso llega a 320. 
 - **Equivalencia de JSON** en las 4 ODPs medidas (incluido el peor caso): **contenido idéntico** tras normalizar, con los mismos conteos en las 11 colecciones (`items`, `saps`, `cotizaciones`, `tomas_medidas`, `evidencias`, `ruta_odps`, `notas_produccion`, `no_conformidades`, `garantias`, `pagos`, `historial_estados`). La única diferencia es el `odp_id` que `separate` obliga a pedir.
 - **HTTP real** con JWT: 200 en las 4, con payloads equivalentes (61.435 vs 61.396 bytes en ODP-23931 — la diferencia son los `odp_id` añadidos).
 - Confirmado que el `scope: { es_garantia: true }` de la asociación `garantias` se sigue aplicando.
+
+---
+
+## 2026-08-02 — Diseño (sin código): módulo de Proveedores y comparador de precios
+
+Sesión **exclusivamente documental** a petición del usuario: *"esto es para documentar, no para codificar… en un futuro lo implementaremos"*. **No se modificó ningún archivo del sistema.** Todo el contenido vive en `compras.md` (nuevo, raíz del repo), que es la fuente de verdad de este diseño — aquí solo queda el resumen y los hallazgos que afectan al ERP actual.
+
+### Necesidad capturada
+
+Maestro de proveedores con lista de precios comparable: al consultar un producto interno, ver qué proveedores lo venden y a qué precio. Conservando los 2 precios anteriores con fecha. Problema central: cada proveedor usa **código y descripción propios** para el mismo producto ("brazo hidráulico" vs "cierrapuertas").
+
+### Hallazgos sobre el sistema actual (medidos en producción, read-only)
+
+| Hallazgo | Detalle |
+|---|---|
+| **No existe entidad proveedor** | El nombre es texto libre en 3 tablas: `ordenes_compra.proveedor` (150), `odp.proveedor_vidrio` (100), `pedido_pv.proveedor` (100) |
+| **Duplicados por tipeo confirmados** | 50 valores distintos ≈ **40 proveedores reales**: `VENTANAS Y PUERTAS`/`VyP`/`VYP` (63 registros), `VIDRIO EQUIPOS Y ACCESORIOS`/`VEA`/… (17), `ACCESORIOS PARA VIDRIO(S) DE COLOMBIA` (7). Normalizar mayúsculas **no** los une: son siglas y erratas |
+| **Compras no maneja dinero** | Ni `ordenes_compra` ni `odc_items` guardan precio. El módulo gestiona qué se pide y si llegó, no cuánto costó |
+| **`catalogo_productos` está sano** | 1.243 productos, **1.212 con código** (`ACC0106`, `TUB0103`, `PEL0106`…). El **96,8 %** de lo comprado (`odc_items`) ya existe en él. Solo **313 códigos** se compran realmente |
+| **Categorías casi vacías** | **1.180 de 1.243 (95 %) sin categoría**; las 63 que hay son de venta (`Películas`, `Cabinas`, `Fachadas`), no de compra |
+| **Catálogo mixto** | Los 31 productos sin código son terminados de venta (`CABINA GLASSVIT 8MM`), no insumos |
+| Vidrio concentrado | `Vitelsa` = 266 de 269 registros en `odp.proveedor_vidrio` |
+
+### Decisiones de diseño (22, detalladas en `compras.md` §8)
+
+- **Origen de precios: XML DIAN** del `.zip` de la FE (el usuario archiva PDF+XML, ~20 FE/día). Descartado parsear el PDF, con o sin LLM: teniendo el XML es trabajar de más con datos peores. El NIT del emisor permite identificar al proveedor solo.
+- **Precios sin IVA** + calculador del 19 %, con el porcentaje como **campo con default, no constante** (hay excluidos/exentos; el XML trae el % real por línea).
+- **Alcance acotado a consultor de precios independiente**: no toca ODC, ODP ni Pedidos PV → riesgo de regresión bajo. Solo `catalogo_productos` recibiría `unidad_medida` y `porcentaje_iva`.
+- **Histórico registra cambios, no apariciones** — con 20 FE/día registrar cada aparición llenaría los 2 slots de "precio anterior" con el mismo número repetido.
+- **El precio vigente lo define la fecha de la factura, no el orden de carga** — sin esto el backfill se autodestruye al procesar facturas viejas después de las nuevas.
+- **Mapeo `(proveedor, código)` → producto: siempre lo confirma un humano.** Un mapeo errado no falla, produce un precio equivocado con apariencia de dato correcto. Ayudas: diccionario de **alias** (aprende de cada mapeo), sugerencia semántica por LLM, orden por frecuencia/valor, y **backfill desde los `.zip` archivados**.
+- **Perfilería:** unidad canónica = metro, tiras de **6 m para todos los proveedores**. La modalidad de compra entra en la clave — tira y metro fraccionado son **dos precios independientes** (el recargo por fraccionar existe "solo en algunos casos", así que no hay factor derivable).
+- **UI:** feature propio `/proveedores` con `FolderTabs` y 5 tabs (Consultar precios · Cargar facturas · Por mapear · Proveedores · Equivalencias), no tabs dentro de `/compras`.
+- **Backfill masivo como script one-off**, nunca dentro de un request: Node es mono-hilo y congelaría el resto del ERP.
+
+### Impacto en egress (analizado a petición del usuario)
+
+Despreciable y **no toca Supabase**: descomprimir y parsear es CPU local, el `.zip` viaja navegador→backend sin pasar por la BD, y lo que llega a Postgres son `INSERT` (escribir no genera egress). El riesgo real es otro: **bloqueo del event loop** si el parseo es síncrono.
+
+### Pendiente para la próxima sesión
+
+El usuario aportará dos Excel (especificados en `compras.md` §9): **proveedores con NIT** (llave para reconocerlos desde el XML y para unificar los duplicados) e **inventario por categoría con unidad de medida** (resolvería la clasificación de los 1.180 productos y la unidad de los 1.212 de una vez). Descartado derivar la categoría del prefijo de 3 letras del código: el usuario confirma que la estructura se perdió con el tiempo.
+
+Quedan abiertas solo cuestiones menores: umbral de la alerta por variación de precio, roles que pueden ver costos, retención del `.zip` (completo / solo XML / nada), caducidad de precios y proveedor preferido.
