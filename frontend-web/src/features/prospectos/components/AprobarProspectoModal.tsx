@@ -78,6 +78,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
   const [clienteBusqueda, setClienteBusqueda] = useState('');
   const [clientesBuscando, setClientesBuscando] = useState(false);
   const [dropdownClienteAbierto, setDropdownClienteAbierto] = useState(false);
+  const [clienteSeleccionadoObj, setClienteSeleccionadoObj] = useState<ClienteItem | null>(null);
   const clienteSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cargoRecibe, setCargoRecibe] = useState('');
   // Fuente a registrar cuando el cliente destino (existente/viejo) aún no la tiene
@@ -209,7 +210,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
     }
   };
 
-  const clienteSeleccionado = clientes.find(c => String(c.id) === clienteId);
+  const clienteSeleccionado = clienteSeleccionadoObj;
   // Cliente destino de la aprobación; si ya existe y no tiene fuente, hay que pedirla
   const clienteDestino = esContactoNuevo
     ? (tipoCliente === 'existente' ? clienteSeleccionado : null)
@@ -265,7 +266,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                   </button>
                   <button
                     type="button"
-                    onClick={() => setTipoCliente('nuevo')}
+                    onClick={() => { setTipoCliente('nuevo'); setClienteId(''); setClienteSeleccionadoObj(null); setClienteBusqueda(''); }}
                     className={`py-2.5 text-sm font-bold rounded-xl border transition flex items-center justify-center gap-2 ${
                       tipoCliente === 'nuevo' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                     }`}
@@ -282,7 +283,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                       <input
                         type="text"
                         value={dropdownClienteAbierto ? clienteBusqueda : (clienteSeleccionado?.nombre_razon_social || clienteBusqueda)}
-                        onChange={e => { setClienteBusqueda(e.target.value); setDropdownClienteAbierto(true); }}
+                        onChange={e => { setClienteBusqueda(e.target.value); setClienteSeleccionadoObj(null); setClienteId(''); setDropdownClienteAbierto(true); }}
                         onFocus={() => { setClienteBusqueda(''); setDropdownClienteAbierto(true); }}
                         placeholder="Buscar cliente..."
                         className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
@@ -296,7 +297,12 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                               <button
                                 key={c.id}
                                 type="button"
-                                onClick={() => { setClienteId(String(c.id)); setClienteBusqueda(''); setDropdownClienteAbierto(false); }}
+                                onClick={() => {
+                                  setClienteId(String(c.id));
+                                  setClienteSeleccionadoObj(c);
+                                  setClienteBusqueda('');
+                                  setDropdownClienteAbierto(false);
+                                }}
                                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-amber-50 hover:text-amber-700 transition-colors"
                               >
                                 <span className="block font-medium">{c.nombre_razon_social}</span>

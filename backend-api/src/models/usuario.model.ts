@@ -12,6 +12,7 @@ Usuario.init({
   nombre_completo: { type: DataTypes.STRING(100), allowNull: false },
   email: { type: DataTypes.STRING(100), unique: true },
   puede_gestionar_pv: { type: DataTypes.BOOLEAN, defaultValue: false },
+  telefono_whatsapp: { type: DataTypes.STRING(20), allowNull: true },
   activo: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
   creado_en: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 }, {
