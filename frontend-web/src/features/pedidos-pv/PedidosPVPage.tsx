@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useDataChangedSocket } from '../../store/useSocketNotifications';
 import axios from 'axios';
 import ODPFichaModal from '../odp/components/ODPFichaModal';
@@ -616,7 +616,7 @@ const PedidosPVPage: React.FC = () => {
       }));
       const a = document.createElement('a');
       a.href = url;
-      a.download = `VITELSA-${pedido.numero_pedido}.xlsx`;
+      a.download = `PEDIDO VITELSA #${pedido.numero_pedido}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
