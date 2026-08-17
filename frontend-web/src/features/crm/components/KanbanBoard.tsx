@@ -14,6 +14,7 @@ import { apiGetLeads, apiUpdateLeadStatus, apiAssignLeadToMe } from '../crmServi
 import LeadCard from './LeadCard';
 import MotivoPerdidaModal from './MotivoPerdidaModal';
 import CrearODPModal from './CrearODPModal';
+import GuiaMensajesModal from './GuiaMensajesModal';
 import ODPFichaModal from '../../odp/components/ODPFichaModal';
 import { useDataChangedSocket } from '../../../store/useSocketNotifications';
 
@@ -305,6 +306,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
   const [crearOdpLead, setCrearOdpLead] = useState<any | null>(null);
   // Filtro contextual: mostrar solo leads APROBADO sin ODP vinculada
   const [soloSinOdp, setSoloSinOdp] = useState(false);
+  // Guía de mensajes comerciales (modal global del pipeline)
+  const [guiaAbierta, setGuiaAbierta] = useState(false);
 
   useEffect(() => {
     if (dropdownOpenId === null) return;
@@ -1091,6 +1094,15 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
           <span className="font-bold text-slate-700">{totalLeadsFiltrados}</span> lead(s)
         </span>
 
+        {/* Guía de mensajes comerciales */}
+        <button
+          onClick={() => setGuiaAbierta(true)}
+          title="Mensajes predeterminados por situación para WhatsApp"
+          className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
+        >
+          <MessageCircle className="w-3.5 h-3.5" /> Guía de Mensajes
+        </button>
+
         {/* Toggle de vista */}
         <div className="ml-auto flex items-center gap-0.5 bg-slate-100 rounded-lg p-1">
           <button
@@ -1143,6 +1155,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
           />
         </React.Suspense>
       )}
+
+      {/* Guía de mensajes comerciales */}
+      {guiaAbierta && <GuiaMensajesModal onClose={() => setGuiaAbierta(false)} />}
     </>
   );
 };
