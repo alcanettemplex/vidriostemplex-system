@@ -273,6 +273,16 @@ const PedidosPVPage: React.FC = () => {
 
   const [modalEnviar, setModalEnviar] = useState<PedidoPV | null>(null);
   const [formEnviar, setFormEnviar] = useState({ fecha_entrega_prometida: '', confirmado_proveedor: false });
+  const [horaActual, setHoraActual] = useState('');
+
+  // Reloj en vivo: se activa solo cuando el modal de enviar está abierto
+  useEffect(() => {
+    if (!modalEnviar) return;
+    const tick = () => setHoraActual(new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [!!modalEnviar]);
 
   const [modalLlegada, setModalLlegada] = useState<PedidoPV | null>(null);
   const [fechaLlegada, setFechaLlegada] = useState('');
@@ -1358,6 +1368,21 @@ const PedidosPVPage: React.FC = () => {
         <DialogTitle>Marcar enviado — PV {modalEnviar?.numero_pedido}</DialogTitle>
         <DialogContent>
           <Stack gap={2} mt={1}>
+            {/* Hora que quedará registrada */}
+            <Box sx={{
+              display: 'flex', alignItems: 'center', gap: 1.5,
+              bgcolor: 'action.hover', borderRadius: 2, px: 2, py: 1.5,
+            }}>
+              <Box sx={{ fontSize: 22 }}>🕐</Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Hora de envío que se registrará
+                </Typography>
+                <Typography variant="h6" fontWeight="bold" letterSpacing={1} color="primary.main">
+                  {horaActual}
+                </Typography>
+              </Box>
+            </Box>
             <TextField label="Fecha entrega prometida" type="date" size="small" fullWidth
               InputLabelProps={{ shrink: true }} value={formEnviar.fecha_entrega_prometida}
               onChange={(e) => setFormEnviar(f => ({ ...f, fecha_entrega_prometida: e.target.value }))} />

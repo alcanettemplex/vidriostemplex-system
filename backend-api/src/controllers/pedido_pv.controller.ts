@@ -524,6 +524,7 @@ export const generarExcelPedidoPV = async (req: Request, res: Response) => {
     const numeroPedido = pedido.getDataValue('numero_pedido') || '';
     const creadoEn: Date | null = pedido.getDataValue('creado_en') || null;
     const fechaEnvio: Date | null = pedido.getDataValue('fecha_envio') || null;
+    const horaEnvio: string | null = pedido.getDataValue('hora_envio') || null;
     const fechaEntregaPrometida: Date | null = pedido.getDataValue('fecha_entrega_prometida') || null;
 
     const numeroOdp = odp?.numero_odp || '';
@@ -596,7 +597,8 @@ export const generarExcelPedidoPV = async (req: Request, res: Response) => {
     const fontRed = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFF0000' } } as ExcelJS.Font;
     const alignCenter: Partial<ExcelJS.Alignment> = { horizontal: 'center', vertical: 'middle' };
     const cellEnvio = ws.getCell('G40');
-    cellEnvio.value = fmtDateRed(fechaEnvio);
+    const horaEnvioStr = horaEnvio ? `  ${horaEnvio.substring(0, 5)}` : '';
+    cellEnvio.value = `${fmtDateRed(fechaEnvio)}${horaEnvioStr}`;
     cellEnvio.font = fontRed;
     cellEnvio.alignment = alignCenter;
     const cellEntrega = ws.getCell('P40');
