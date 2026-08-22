@@ -507,9 +507,17 @@ const PedidosPVPage: React.FC = () => {
   const enviarPedido = async () => {
     if (!modalEnviar) return;
     try {
+      // Capturamos la hora local del navegador para evitar el desfase UTC del servidor
+      const ahora = new Date();
+      const horaLocal = [
+        String(ahora.getHours()).padStart(2, '0'),
+        String(ahora.getMinutes()).padStart(2, '0'),
+        String(ahora.getSeconds()).padStart(2, '0'),
+      ].join(':');
       await axios.patch(`${API}/api/pedidos-pv/${modalEnviar.id}/enviar`, {
         fecha_entrega_prometida: formEnviar.fecha_entrega_prometida || null,
         confirmado_proveedor: formEnviar.confirmado_proveedor,
+        hora_envio: horaLocal,
       }, { headers });
       setModalEnviar(null);
       cargarDatos();
