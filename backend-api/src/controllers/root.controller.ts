@@ -294,6 +294,9 @@ const TABLAS_AUDITABLES = new Set([
   'configuracion_global', 'pedido_pv', 'salidas_almacen',
   'leads', 'lead_eventos', 'lead_imagenes', 'facturas_adicionales_odp',
   'supervision_lineamientos', 'supervision_lineamiento_items',
+  // Módulo Proveedores — agregados 2026-08-23
+  'proveedores', 'proveedor_producto', 'proveedor_producto_precio',
+  'proveedor_codigo_pendiente', 'producto_alias',
 ]);
 
 export const revertirAuditoria = async (req: Request, res: Response) => {

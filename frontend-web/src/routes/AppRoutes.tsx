@@ -23,6 +23,7 @@ import CRMPage from '../features/crm/CRMPage';
 import ManualesPage from '../features/manuales/ManualesPage';
 import InformeEjecutivoPage from '../features/informe-ejecutivo/InformeEjecutivoPage';
 import SupervisionCRMPage from '../features/supervision-crm/SupervisionCRMPage';
+import ProveedoresPage from '../features/proveedores/ProveedoresPage';
 
 const AppRoutes: React.FC = () => {
   return (
@@ -66,6 +67,10 @@ const AppRoutes: React.FC = () => {
             </Route>
             <Route element={<RoleRoute allowedRoles={['admin', 'gerencia', 'marketing', 'compras', 'jefe_produccion']} />}>
               <Route path="/compras" element={<ComprasPage />} />
+            </Route>
+            {/* Proveedores — precios de compra: solo root y admin (información sensible) */}
+            <Route element={<RoleRoute allowedRoles={['root', 'admin']} />}>
+              <Route path="/proveedores" element={<ProveedoresPage />} />
             </Route>
             <Route element={<RoleRoute allowedRoles={['admin', 'marketing', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras']} />}>
               <Route path="/inventario" element={<InventarioPage />} />

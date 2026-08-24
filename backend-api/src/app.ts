@@ -33,6 +33,7 @@ import supervisionRoutes from './routes/supervision.routes';
 import searchRoutes from './routes/search.routes';
 import manualesRoutes from './routes/manuales.routes';
 import informeEjecutivoRoutes from './routes/informe_ejecutivo.routes';
+import proveedorRoutes from './routes/proveedor.routes';
 import { requestContext } from './utils/requestContext';
 
 const app = express();
@@ -109,6 +110,7 @@ app.use('/api/supervision-crm', supervisionRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/manuales', manualesRoutes);
 app.use('/api/informe-ejecutivo', informeEjecutivoRoutes);
+app.use('/api/proveedores', proveedorRoutes);
 
 import { errorHandler } from './middlewares/errorHandler';
 app.use(errorHandler);

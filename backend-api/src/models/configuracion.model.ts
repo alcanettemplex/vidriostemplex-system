@@ -18,6 +18,10 @@ ConfiguracionGlobal.init({
   
   // Flujo Caja
   dias_alerta_cartera_vencida: { type: DataTypes.INTEGER, defaultValue: 60 },
+
+  // Módulo Proveedores: % de variación de precio que dispara alerta en rojo.
+  // Configurable desde /configuracion por root/admin. La BD es fuente de verdad.
+  umbral_variacion_precio_pct: { type: DataTypes.INTEGER, defaultValue: 30 },
   
   ultima_modificacion: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 }, {

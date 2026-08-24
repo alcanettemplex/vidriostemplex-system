@@ -23,6 +23,7 @@ import {
   BookOpen,
   BarChart2,
   Crosshair,
+  Building2,
 } from 'lucide-react';
 import { TemplexLogo } from '../ui/TemplexLogo';
 
@@ -94,6 +95,14 @@ const MENU_ITEMS_CONFIG = [
     icon: ShoppingCart,
     path: '/compras',
     allowedRoles: ['admin', 'marketing', 'gerencia', 'compras', 'jefe_produccion'],
+    section: 'logistica'
+  },
+  {
+    // Precios de compra — información comercialmente sensible (margen/negociación)
+    text: 'Proveedores',
+    icon: Building2,
+    path: '/proveedores',
+    allowedRoles: ['root', 'admin'],
     section: 'logistica'
   },
   {

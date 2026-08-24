@@ -38,6 +38,11 @@ import MetaUsuarioMensual from './meta_usuario_mensual.model';
 import FacturaAdicionalODP from './factura_adicional_odp.model';
 import SupervisionLineamiento from './supervision_lineamiento.model';
 import SupervisionLineamientoItem from './supervision_lineamiento_item.model';
+import Proveedor from './proveedor.model';
+import ProveedorProducto from './proveedor_producto.model';
+import ProveedorProductoPrecio from './proveedor_producto_precio.model';
+import ProveedorCodigoPendiente from './proveedor_codigo_pendiente.model';
+import ProductoAlias from './producto_alias.model';
 
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
@@ -277,6 +282,28 @@ SupervisionLineamientoItem.belongsTo(SupervisionLineamiento, { foreignKey: 'line
 Lead.hasMany(SupervisionLineamientoItem, { foreignKey: 'lead_id', as: 'items_lineamiento' });
 SupervisionLineamientoItem.belongsTo(Lead, { foreignKey: 'lead_id', as: 'lead' });
 
+// ─── Bloque K: Módulo Proveedores ────────────────────────────────────────────
+Proveedor.hasMany(ProveedorProducto, { foreignKey: 'proveedor_id', as: 'productos' });
+ProveedorProducto.belongsTo(Proveedor, { foreignKey: 'proveedor_id', as: 'proveedor' });
+
+CatalogoProducto.hasMany(ProveedorProducto, { foreignKey: 'catalogo_producto_id', as: 'precios_proveedor' });
+ProveedorProducto.belongsTo(CatalogoProducto, { foreignKey: 'catalogo_producto_id', as: 'producto' });
+
+ProveedorProducto.hasMany(ProveedorProductoPrecio, { foreignKey: 'proveedor_producto_id', as: 'historico' });
+ProveedorProductoPrecio.belongsTo(ProveedorProducto, { foreignKey: 'proveedor_producto_id' });
+
+Usuario.hasMany(ProveedorProductoPrecio, { foreignKey: 'registrado_por', as: 'precios_registrados' });
+ProveedorProductoPrecio.belongsTo(Usuario, { foreignKey: 'registrado_por', as: 'registrador' });
+
+Proveedor.hasMany(ProveedorCodigoPendiente, { foreignKey: 'proveedor_id', as: 'codigos_pendientes' });
+ProveedorCodigoPendiente.belongsTo(Proveedor, { foreignKey: 'proveedor_id', as: 'proveedor' });
+
+CatalogoProducto.hasMany(ProductoAlias, { foreignKey: 'catalogo_producto_id', as: 'aliases' });
+ProductoAlias.belongsTo(CatalogoProducto, { foreignKey: 'catalogo_producto_id', as: 'producto' });
+
+Proveedor.hasMany(ProductoAlias, { foreignKey: 'proveedor_id', as: 'aliases_generados' });
+ProductoAlias.belongsTo(Proveedor, { foreignKey: 'proveedor_id', as: 'proveedor' });
+
 // ─── Hooks globales de auditoría ────────────────────────────────────────────
 // Captura INSERT/UPDATE/DELETE en todos los modelos registrados y graba en auditoria_log
 import { getContext } from '../utils/requestContext';
@@ -316,6 +343,12 @@ const MODELOS_AUDITADOS = [
   { model: FacturaAdicionalODP, tabla: 'facturas_adicionales_odp', pk: 'id' },
   { model: SupervisionLineamiento, tabla: 'supervision_lineamientos', pk: 'id' },
   { model: SupervisionLineamientoItem, tabla: 'supervision_lineamiento_items', pk: 'id' },
+  // Módulo Proveedores — agregados 2026-08-23
+  { model: Proveedor, tabla: 'proveedores', pk: 'id' },
+  { model: ProveedorProducto, tabla: 'proveedor_producto', pk: 'id' },
+  { model: ProveedorProductoPrecio, tabla: 'proveedor_producto_precio', pk: 'id' },
+  { model: ProveedorCodigoPendiente, tabla: 'proveedor_codigo_pendiente', pk: 'id' },
+  { model: ProductoAlias, tabla: 'producto_alias', pk: 'id' },
 ];
 
 function registrarAuditoria(
@@ -417,5 +450,10 @@ export {
   FacturaAdicionalODP,
   SupervisionLineamiento,
   SupervisionLineamientoItem,
+  Proveedor,
+  ProveedorProducto,
+  ProveedorProductoPrecio,
+  ProveedorCodigoPendiente,
+  ProductoAlias,
 };
 
