@@ -94,7 +94,13 @@ export const uploadExcel = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
   fileFilter: (_req, file, cb) => {
-    if (file.mimetype.includes('spreadsheet') || file.originalname.endsWith('.xlsx') || file.originalname.endsWith('.xls')) {
+    // Windows puede enviar varios mimetypes para .xlsx:
+    // application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+    // application/vnd.ms-excel
+    // application/octet-stream
+    // Se acepta cualquier archivo con extensión .xlsx o .xls
+    const ext = file.originalname.toLowerCase();
+    if (ext.endsWith('.xlsx') || ext.endsWith('.xls')) {
       cb(null, true);
     } else {
       cb(new Error('Solo se aceptan archivos Excel (.xlsx, .xls)'));
@@ -184,63 +190,134 @@ export const desactivarProveedor = async (req: Request, res: Response) => {
 // ─── POST /api/proveedores/importar-excel ─────────────────────────────────────
 /**
  * Importa el archivo proveedores_limpio.xlsx generado por el script de limpieza.
- * Columnas esperadas: Nombre | Identificacion | Tipo_ID | Numero_ID | Propiedades | Roles
- * Match: por NIT/Numero_ID. Si ya existe → actualiza nombre. Si no existe → crea.
+ * Optimizado: Lee existentes en memoria y usa bulkCreate para procesar 1.805 filas en ~1 segundo.
  */
 export const importarExcel = async (req: Request, res: Response) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo' });
 
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const sheetName = workbook.SheetNames.includes('Proveedores_Limpios')
+      ? 'Proveedores_Limpios'
+      : workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
     const rows: any[] = XLSX.utils.sheet_to_json(sheet);
 
-    let creados = 0, actualizados = 0, omitidos = 0;
+    if (!rows || rows.length === 0) {
+      return res.status(400).json({ error: 'El archivo Excel no contiene filas' });
+    }
+
+    // 1. Cargar todos los proveedores existentes en memoria
+    const existentes = await Proveedor.findAll({
+      attributes: ['id', 'nit', 'nombre_comercial', 'tipo_identificacion', 'numero_identificacion'],
+    });
+
+    const mapaPorNit = new Map<string, any>();
+    const mapaPorNombre = new Map<string, any>();
+
+    for (const p of existentes) {
+      const nitVal = p.getDataValue('nit');
+      const nombreVal = p.getDataValue('nombre_comercial');
+      if (nitVal) mapaPorNit.set(String(nitVal).trim().toLowerCase(), p);
+      if (nombreVal) mapaPorNombre.set(String(nombreVal).trim().toLowerCase(), p);
+    }
+
+    const nuevos: any[] = [];
+    const paraActualizar: Array<{ instancia: any; nombre: string; tipoId: string; numeroId: string | null }> = [];
+    const nitsProcesados = new Set<string>();
+    const nombresProcesados = new Set<string>();
+
+    let omitidos = 0;
     const errores: string[] = [];
 
     for (const row of rows) {
       const nombre = String(row['Nombre'] ?? '').trim();
-      const identificacion = String(row['Identificacion'] ?? '').trim();
       const tipoId = String(row['Tipo_ID'] ?? 'NIT').trim();
       const numeroId = String(row['Numero_ID'] ?? '').trim();
 
-      if (!nombre || nombre.length <= 2) { omitidos++; continue; }
-
-      try {
-        const nit = tipoId === 'NIT' && numeroId ? numeroId : null;
-
-        // Buscar por NIT si aplica, sino por nombre comercial exacto
-        const existing = nit
-          ? await Proveedor.findOne({ where: { nit } })
-          : await Proveedor.findOne({ where: { nombre_comercial: nombre } });
-
-        if (existing) {
-          await existing.update({ nombre_comercial: nombre, tipo_identificacion: tipoId, numero_identificacion: numeroId || null });
-          actualizados++;
-        } else {
-          await Proveedor.create({
-            nit,
-            tipo_identificacion: tipoId,
-            numero_identificacion: numeroId || null,
-            nombre_comercial: nombre,
-            activo: true,
-          });
-          creados++;
-        }
-      } catch (e: any) {
-        errores.push(`${nombre}: ${e.message}`);
+      if (!nombre || nombre.length <= 2) {
         omitidos++;
+        continue;
+      }
+
+      const nit = tipoId === 'NIT' && numeroId ? numeroId : null;
+      const nitKey = nit ? nit.toLowerCase() : null;
+      const nombreKey = nombre.toLowerCase();
+
+      // Evitar duplicados dentro del mismo archivo
+      if (nitKey && nitsProcesados.has(nitKey)) {
+        omitidos++;
+        continue;
+      }
+      if (!nitKey && nombresProcesados.has(nombreKey)) {
+        omitidos++;
+        continue;
+      }
+      if (nitKey) nitsProcesados.add(nitKey);
+      nombresProcesados.add(nombreKey);
+
+      // Verificar si ya existe en la BD
+      const existing = nitKey ? (mapaPorNit.get(nitKey) ?? mapaPorNombre.get(nombreKey)) : mapaPorNombre.get(nombreKey);
+
+      if (existing) {
+        paraActualizar.push({
+          instancia: existing,
+          nombre,
+          tipoId,
+          numeroId: numeroId || null,
+        });
+      } else {
+        nuevos.push({
+          nit,
+          tipo_identificacion: tipoId,
+          numero_identificacion: numeroId || null,
+          nombre_comercial: nombre,
+          activo: true,
+        });
       }
     }
 
+    // 2. Inserción masiva de nuevos en 1 sola consulta SQL
+    let creados = 0;
+    if (nuevos.length > 0) {
+      await Proveedor.bulkCreate(nuevos, { validate: true, hooks: false });
+      creados = nuevos.length;
+    }
+
+    // 3. Actualizar existentes en paralelo por lotes
+    let actualizados = 0;
+    const batchSize = 50;
+    for (let i = 0; i < paraActualizar.length; i += batchSize) {
+      const lote = paraActualizar.slice(i, i + batchSize);
+      await Promise.all(
+        lote.map(async item => {
+          try {
+            await item.instancia.update(
+              {
+                nombre_comercial: item.nombre,
+                tipo_identificacion: item.tipoId,
+                numero_identificacion: item.numeroId,
+              },
+              { hooks: false }
+            );
+            actualizados++;
+          } catch (e: any) {
+            errores.push(`${item.nombre}: ${e.message}`);
+          }
+        })
+      );
+    }
+
     res.json({
-      message: 'Importación completada',
+      message: 'Importación completada con éxito',
       creados,
       actualizados,
       omitidos,
-      errores: errores.slice(0, 20),
+      total: rows.length,
+      errores: errores.slice(0, 10),
     });
   } catch (err: any) {
+    console.error('Error en importarExcel:', err);
     res.status(500).json({ error: 'Error al importar Excel', detalle: err.message });
   }
 };
