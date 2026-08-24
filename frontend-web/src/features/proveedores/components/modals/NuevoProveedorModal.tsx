@@ -43,7 +43,7 @@ const NuevoProveedorModal: React.FC<Props> = ({ onClose, onCreado }) => {
           email: form.email.trim() || null,
           notas: form.notas.trim() || null,
         },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+        { headers: { Authorization: `Bearer ${(sessionStorage.getItem('token') || localStorage.getItem('token'))}` } }
       );
       toast.success('Proveedor creado exitosamente');
       onCreado();
@@ -184,4 +184,5 @@ const NuevoProveedorModal: React.FC<Props> = ({ onClose, onCreado }) => {
 };
 
 export default NuevoProveedorModal;
+
 

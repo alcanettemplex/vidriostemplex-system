@@ -52,7 +52,7 @@ const ProveedoresTab: React.FC = () => {
       if (filtroActivo !== null) params.activo = filtroActivo;
       const { data } = await axios.get<Proveedor[]>(
         `${API}/api/proveedores`,
-        { params, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+        { params, headers: { Authorization: `Bearer ${(sessionStorage.getItem('token') || localStorage.getItem('token'))}` } }
       );
       setProveedores(data);
     } catch {
@@ -77,7 +77,7 @@ const ProveedoresTab: React.FC = () => {
         formData,
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            Authorization: `Bearer ${(sessionStorage.getItem('token') || localStorage.getItem('token'))}`,
             'Content-Type': 'multipart/form-data',
           },
         }
@@ -98,7 +98,7 @@ const ProveedoresTab: React.FC = () => {
       await axios.patch(
         `${API}/api/proveedores/${prov.id}`,
         { activo: !prov.activo },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+        { headers: { Authorization: `Bearer ${(sessionStorage.getItem('token') || localStorage.getItem('token'))}` } }
       );
       toast.success(prov.activo ? 'Proveedor desactivado' : 'Proveedor activado');
       cargar();
@@ -323,4 +323,5 @@ const ProveedoresTab: React.FC = () => {
 };
 
 export default ProveedoresTab;
+
 

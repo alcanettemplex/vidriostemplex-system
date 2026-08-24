@@ -46,7 +46,7 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
           `${API}/api/catalogo`,
           {
             params: { q: buscando },
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+            headers: { Authorization: `Bearer ${(sessionStorage.getItem('token') || localStorage.getItem('token'))}` },
           }
         );
         setProductos(data.slice(0, 10));
@@ -80,7 +80,7 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
           fecha_precio: form.fecha_precio,
           guardar_alias: true,
         },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+        { headers: { Authorization: `Bearer ${(sessionStorage.getItem('token') || localStorage.getItem('token'))}` } }
       );
       onGuardado();
     } catch (err: any) {
@@ -289,4 +289,5 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
 };
 
 export default AgregarPrecioModal;
+
 

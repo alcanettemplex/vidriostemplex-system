@@ -105,7 +105,7 @@ const ConsultarPreciosTab: React.FC = () => {
 
       const { data } = await axios.get<ResultadoConsulta>(
         `${API}/api/proveedores/consulta`,
-        { params, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+        { params, headers: { Authorization: `Bearer ${(sessionStorage.getItem('token') || localStorage.getItem('token'))}` } }
       );
       setResultado(data);
     } catch (err: any) {
@@ -426,4 +426,5 @@ const ConsultarPreciosTab: React.FC = () => {
 };
 
 export default ConsultarPreciosTab;
+
 
