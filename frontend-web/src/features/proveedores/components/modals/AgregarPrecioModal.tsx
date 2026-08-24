@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, DollarSign, Search, Loader2, AlertTriangle } from 'lucide-react';
@@ -43,7 +43,7 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
       setLoadingBusqueda(true);
       try {
         const { data } = await axios.get<ProductoCatalogo[]>(
-          `${API}/catalogo`,
+          `${API}/api/catalogo`,
           {
             params: { q: buscando },
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
@@ -70,7 +70,7 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
     setGuardando(true);
     try {
       await axios.post(
-        `${API}/proveedores/${proveedor.id}/productos`,
+        `${API}/api/proveedores/${proveedor.id}/productos`,
         {
           catalogo_producto_id: productoSeleccionado.id,
           codigo_proveedor: form.codigo_proveedor.trim() || null,
@@ -289,3 +289,4 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
 };
 
 export default AgregarPrecioModal;
+

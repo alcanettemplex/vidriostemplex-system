@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -104,7 +104,7 @@ const ConsultarPreciosTab: React.FC = () => {
       if (modalidad) params.modalidad = modalidad;
 
       const { data } = await axios.get<ResultadoConsulta>(
-        `${API}/proveedores/consulta`,
+        `${API}/api/proveedores/consulta`,
         { params, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );
       setResultado(data);
@@ -426,3 +426,4 @@ const ConsultarPreciosTab: React.FC = () => {
 };
 
 export default ConsultarPreciosTab;
+

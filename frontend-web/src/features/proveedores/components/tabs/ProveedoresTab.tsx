@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -51,7 +51,7 @@ const ProveedoresTab: React.FC = () => {
       if (busqueda.trim()) params.q = busqueda.trim();
       if (filtroActivo !== null) params.activo = filtroActivo;
       const { data } = await axios.get<Proveedor[]>(
-        `${API}/proveedores`,
+        `${API}/api/proveedores`,
         { params, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );
       setProveedores(data);
@@ -73,7 +73,7 @@ const ProveedoresTab: React.FC = () => {
     formData.append('archivo', archivo);
     try {
       const { data } = await axios.post<ResultadoImport>(
-        `${API}/proveedores/importar-excel`,
+        `${API}/api/proveedores/importar-excel`,
         formData,
         {
           headers: {
@@ -96,7 +96,7 @@ const ProveedoresTab: React.FC = () => {
   const handleToggleActivo = async (prov: Proveedor) => {
     try {
       await axios.patch(
-        `${API}/proveedores/${prov.id}`,
+        `${API}/api/proveedores/${prov.id}`,
         { activo: !prov.activo },
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );
@@ -323,3 +323,4 @@ const ProveedoresTab: React.FC = () => {
 };
 
 export default ProveedoresTab;
+

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Building2, Loader2 } from 'lucide-react';
@@ -32,7 +32,7 @@ const NuevoProveedorModal: React.FC<Props> = ({ onClose, onCreado }) => {
     setGuardando(true);
     try {
       await axios.post(
-        `${API}/proveedores`,
+        `${API}/api/proveedores`,
         {
           nombre_comercial: form.nombre_comercial.trim(),
           nit: form.nit.trim() || null,
@@ -184,3 +184,4 @@ const NuevoProveedorModal: React.FC<Props> = ({ onClose, onCreado }) => {
 };
 
 export default NuevoProveedorModal;
+
