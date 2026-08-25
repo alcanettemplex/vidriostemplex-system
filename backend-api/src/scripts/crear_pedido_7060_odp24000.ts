@@ -6,9 +6,9 @@ const PROVEEDOR = 'Vitelsa';
 
 // 3 cristales de la imagen
 const VIDRIOS = [
-  { ancho_mm: 737, alto_mm: 248, pulidos: '2', pulidos_h: '2', perforaciones: 0, boquetes: 0, cantidad: 1 },
-  { ancho_mm: 150, alto_mm: 248, pulidos: '2', pulidos_h: '2', perforaciones: 0, boquetes: 0, cantidad: 1 },
-  { ancho_mm: 773, alto_mm: 248, pulidos: '2', pulidos_h: '2', perforaciones: 0, boquetes: 0, cantidad: 1 },
+  { ancho_mm: 737, alto_mm: 2480, pulidos: '2', pulidos_h: '2', perforaciones: 0, boquetes: 0, cantidad: 1 },
+  { ancho_mm: 150, alto_mm: 2480, pulidos: '2', pulidos_h: '2', perforaciones: 0, boquetes: 0, cantidad: 1 },
+  { ancho_mm: 773, alto_mm: 2480, pulidos: '2', pulidos_h: '2', perforaciones: 0, boquetes: 0, cantidad: 1 },
 ];
 
 const BASE_ITEM = {
