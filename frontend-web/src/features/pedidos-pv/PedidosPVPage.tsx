@@ -1284,11 +1284,11 @@ const PedidosPVPage: React.FC = () => {
                           <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>Medidas (mm)</Typography>
                           <Stack direction="row" gap={0.5} alignItems="center" mt={0.5}>
                             <TextField size="small" type="number" placeholder="Ancho" value={it.ancho_mm}
-                              onChange={(e) => upd('ancho_mm', e.target.value)}
+                              onChange={(e) => upd('ancho_mm', e.target.value === '' ? undefined : parseInt(e.target.value))}
                               sx={{ width: 65 }} inputProps={{ style: { fontSize: 13 }, min: 0 }} />
                             <Typography color="text.secondary" fontSize={13}>×</Typography>
                             <TextField size="small" type="number" placeholder="Alto" value={it.alto_mm}
-                              onChange={(e) => upd('alto_mm', e.target.value)}
+                              onChange={(e) => upd('alto_mm', e.target.value === '' ? undefined : parseInt(e.target.value))}
                               sx={{ width: 65 }} inputProps={{ style: { fontSize: 13 }, min: 0 }} />
                           </Stack>
                         </Box>
