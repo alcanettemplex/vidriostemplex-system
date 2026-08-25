@@ -32,15 +32,21 @@ import { z } from 'zod';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { generarNumeroODP } from '../utils/generarNumeroODP';
 
+const aEnteroOPosibleNull = (val: unknown) => {
+  if (val === '' || val === null || val === undefined) return null;
+  const num = Number(val);
+  return isNaN(num) ? val : Math.round(num);
+};
+
 const odpItemSchema = z.object({
   // id del ítem existente (para edición incremental en updateODP). Ausente = ítem nuevo.
   id: z.coerce.number().int().positive().optional(),
   item: z.string().nullable().optional(),
   color: z.string().nullable().optional(),
   espesor: z.coerce.string().nullable().optional(),
-  cantidad: z.number().int().positive().nullable().optional().default(1),
-  ancho_mm: z.number().int().positive().nullable().optional(),
-  alto_mm: z.number().int().positive().nullable().optional(),
+  cantidad: z.preprocess(aEnteroOPosibleNull, z.number().int().positive().nullable().optional().default(1)),
+  ancho_mm: z.preprocess(aEnteroOPosibleNull, z.number().int().positive().nullable().optional()),
+  alto_mm: z.preprocess(aEnteroOPosibleNull, z.number().int().positive().nullable().optional()),
   tipo_vidrio: z.string().nullable().optional(),
   pelicula: z.boolean().nullable().optional(),
   matizado: z.boolean().nullable().optional(),
@@ -49,8 +55,8 @@ const odpItemSchema = z.object({
   accesorios: z.string().nullable().optional(),
   pulidos: z.string().nullable().optional(),
   pulidos_h: z.string().nullable().optional(),
-  perforaciones: z.number().int().nonnegative().nullable().optional().default(0),
-  boquetes: z.number().int().nonnegative().nullable().optional().default(0),
+  perforaciones: z.preprocess(aEnteroOPosibleNull, z.number().int().nonnegative().nullable().optional().default(0)),
+  boquetes: z.preprocess(aEnteroOPosibleNull, z.number().int().nonnegative().nullable().optional().default(0)),
   descuentos: z.string().nullable().optional(),
   otros: z.string().nullable().optional(),
   mts_pt_a: z.string().nullable().optional(),
