@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { Op } from 'sequelize';
 import { CatalogoProducto } from '../models';
 import { z } from 'zod';
 
@@ -13,13 +14,39 @@ export const getCatalogo = async (req: Request, res: Response) => {
   try {
     const where: any = { activo: true };
     if (req.query.es_aluminio === 'true') where.es_aluminio = true;
+
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+
+    if (q) {
+      const palabras = q.split(/\s+/).filter(Boolean);
+      const condiciones = palabras.map((p) => ({
+        [Op.or]: [
+          { codigo: { [Op.iLike]: `%${p}%` } },
+          { nombre: { [Op.iLike]: `%${p}%` } },
+          { descripcion: { [Op.iLike]: `%${p}%` } },
+        ],
+      }));
+
+      where[Op.and] = condiciones;
+
+      const items = await CatalogoProducto.findAll({
+        where,
+        order: [
+          ['codigo', 'ASC'],
+          ['nombre', 'ASC'],
+        ],
+        limit: req.query.limit ? parseInt(String(req.query.limit)) : 50,
+      });
+      return res.json(items);
+    }
+
     const items = await CatalogoProducto.findAll({
       where,
       order: [['categoria', 'ASC'], ['nombre', 'ASC']],
     });
     res.json(items);
-  } catch (e) {
-    res.status(500).json({ error: 'Error al obtener catálogo' });
+  } catch (e: any) {
+    res.status(500).json({ error: 'Error al obtener catálogo', detalle: e.message });
   }
 };
 

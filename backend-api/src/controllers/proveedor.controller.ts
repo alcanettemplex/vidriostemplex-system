@@ -107,7 +107,7 @@ export const uploadExcel = multer({
 // ─── Multer en memoria para Facturas Electrónicas (.zip y .xml) ────────────────
 export const uploadFacturas = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 40 * 1024 * 1024 }, // 40 MB total por lote
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB total por lote
   fileFilter: (_req, file, cb) => {
     const ext = file.originalname.toLowerCase();
     if (ext.endsWith('.zip') || ext.endsWith('.xml')) {
@@ -116,7 +116,7 @@ export const uploadFacturas = multer({
       cb(new Error('Solo se aceptan archivos comprimidos .zip o facturas .xml'));
     }
   },
-}).array('archivos', 50);
+}).array('archivos', 100);
 
 // ─── GET /api/proveedores ─────────────────────────────────────────────────────
 export const listarProveedores = async (req: Request, res: Response) => {

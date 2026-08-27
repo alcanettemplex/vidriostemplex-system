@@ -247,12 +247,15 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear }) => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
           <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 8px', borderRadius: 6, background: 'rgba(99, 102, 241, 0.1)', color: '#4338ca' }}>
             📦 Paquetes .ZIP (PDF + XML)
           </span>
           <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 8px', borderRadius: 6, background: 'rgba(5, 150, 105, 0.1)', color: '#047857' }}>
             📄 XML DIAN Sueltos
+          </span>
+          <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 8px', borderRadius: 6, background: 'rgba(245, 158, 11, 0.12)', color: '#b45309' }}>
+            ⚡ Hasta 100 archivos por lote (100 MB)
           </span>
         </div>
       </div>

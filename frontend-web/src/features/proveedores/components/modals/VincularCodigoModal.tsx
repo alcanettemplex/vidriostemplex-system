@@ -88,16 +88,16 @@ const VincularCodigoModal: React.FC<Props> = ({
       setLoadingBusqueda(true);
       try {
         const { data } = await axios.get<ProductoCatalogo[]>(`${API}/api/catalogo`, {
-          params: { q: busqueda },
+          params: { q: busqueda.trim(), limit: 30 },
           headers: { Authorization: `Bearer ${token}` },
         });
-        setProductos(data.slice(0, 8));
+        setProductos(data);
       } catch {
         setProductos([]);
       } finally {
         setLoadingBusqueda(false);
       }
-    }, 350);
+    }, 250);
 
     return () => clearTimeout(timer);
   }, [busqueda, token]);
@@ -336,14 +336,14 @@ const VincularCodigoModal: React.FC<Props> = ({
                   )}
                 </div>
 
-                {/* Input Buscador */}
+                {/* Input Buscador con botón de limpiar */}
                 <div style={{ position: 'relative' }}>
                   <Search size={16} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-muted, #94a3b8)' }} />
                   <input
                     type="text"
                     value={busqueda}
                     onChange={(e) => setBusqueda(e.target.value)}
-                    placeholder="Buscar por código, nombre o sinónimo..."
+                    placeholder="Buscar por código (ej. TUB0103, ACC...), nombre o sinónimo..."
                     style={{
                       width: '100%', padding: '10px 36px 10px 38px',
                       borderRadius: 10, border: '1px solid var(--border, #cbd5e1)',
@@ -351,6 +351,20 @@ const VincularCodigoModal: React.FC<Props> = ({
                       color: 'var(--text, #0f172a)'
                     }}
                   />
+                  {busqueda && !loadingBusqueda && (
+                    <button
+                      type="button"
+                      onClick={() => setBusqueda('')}
+                      style={{
+                        position: 'absolute', right: 10, top: 10,
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--text-muted, #94a3b8)', padding: 2
+                      }}
+                      title="Limpiar búsqueda"
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
                   {loadingBusqueda && (
                     <Loader2 size={16} className="animate-spin" style={{ position: 'absolute', right: 12, top: 12, color: '#6366f1' }} />
                   )}
@@ -359,13 +373,13 @@ const VincularCodigoModal: React.FC<Props> = ({
                 {/* Lista de sugerencias de catálogo */}
                 <div
                   style={{
-                    maxHeight: 160, overflowY: 'auto', border: '1px solid var(--border, #e2e8f0)',
+                    maxHeight: 230, overflowY: 'auto', border: '1px solid var(--border, #e2e8f0)',
                     borderRadius: 10, background: 'var(--surface-subtle, #f8fafc)', padding: 6
                   }}
                 >
                   {productos.length === 0 ? (
-                    <div style={{ padding: '16px 12px', textAlign: 'center', fontSize: 12, color: 'var(--text-muted, #94a3b8)' }}>
-                      {loadingBusqueda ? 'Buscando coincidencias...' : 'Escribe para buscar en tu catálogo de productos'}
+                    <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: 12.5, color: 'var(--text-muted, #94a3b8)' }}>
+                      {loadingBusqueda ? 'Buscando coincidencias en tu catálogo...' : 'Escribe el código o nombre para buscar en tu catálogo'}
                     </div>
                   ) : (
                     productos.map((p) => {
@@ -375,27 +389,53 @@ const VincularCodigoModal: React.FC<Props> = ({
                           key={p.id}
                           onClick={() => handleSelectProducto(p)}
                           style={{
-                            padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
+                            padding: '9px 12px', borderRadius: 8, cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            background: isSelected ? '#6366f1' : 'transparent',
+                            background: isSelected ? '#6366f1' : 'var(--surface, #fff)',
                             color: isSelected ? '#fff' : 'var(--text, #1e293b)',
-                            marginBottom: 4, transition: 'all 0.15s'
+                            border: isSelected ? '1px solid #6366f1' : '1px solid var(--border, #f1f5f9)',
+                            marginBottom: 5, transition: 'all 0.15s',
+                            boxShadow: isSelected ? '0 2px 8px rgba(99, 102, 241, 0.2)' : 'none'
                           }}
                         >
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 12, opacity: isSelected ? 1 : 0.85 }}>
-                                {p.codigo}
-                              </span>
+                              {p.codigo ? (
+                                <span
+                                  style={{
+                                    fontFamily: 'monospace',
+                                    fontWeight: 800,
+                                    fontSize: 12,
+                                    padding: '2px 7px',
+                                    borderRadius: 5,
+                                    background: isSelected ? 'rgba(255,255,255,0.25)' : 'rgba(99, 102, 241, 0.1)',
+                                    color: isSelected ? '#fff' : '#4338ca'
+                                  }}
+                                >
+                                  {p.codigo}
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: 11, color: isSelected ? '#e0e7ff' : '#94a3b8' }}>
+                                  (Sin código)
+                                </span>
+                              )}
                               {p.es_aluminio && (
-                                <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, background: isSelected ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.06)' }}>
+                                <span
+                                  style={{
+                                    fontSize: 10, padding: '1px 5px', borderRadius: 4,
+                                    background: isSelected ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.06)',
+                                    color: isSelected ? '#fff' : '#475569', fontWeight: 600
+                                  }}
+                                >
                                   Aluminio
                                 </span>
                               )}
                             </div>
-                            <div style={{ fontSize: 12.5, fontWeight: 500, marginTop: 2 }}>{p.nombre}</div>
+                            <div style={{ fontSize: 12.5, fontWeight: 500, marginTop: 3 }}>
+                              {p.nombre}
+                            </div>
                           </div>
-                          {isSelected && <CheckCircle2 size={16} />}
+                          {isSelected && <CheckCircle2 size={17} />}
                         </div>
                       );
                     })
