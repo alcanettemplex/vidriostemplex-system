@@ -12,6 +12,7 @@ import {
   ConfiguracionGlobal,
   Usuario,
 } from '../models';
+import { procesarBufferFactura } from '../utils/dianXmlParser';
 
 // ─── Helpers internos ─────────────────────────────────────────────────────────
 
@@ -94,11 +95,6 @@ export const uploadExcel = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
   fileFilter: (_req, file, cb) => {
-    // Windows puede enviar varios mimetypes para .xlsx:
-    // application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-    // application/vnd.ms-excel
-    // application/octet-stream
-    // Se acepta cualquier archivo con extensión .xlsx o .xls
     const ext = file.originalname.toLowerCase();
     if (ext.endsWith('.xlsx') || ext.endsWith('.xls')) {
       cb(null, true);
@@ -107,6 +103,20 @@ export const uploadExcel = multer({
     }
   },
 }).single('archivo');
+
+// ─── Multer en memoria para Facturas Electrónicas (.zip y .xml) ────────────────
+export const uploadFacturas = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 40 * 1024 * 1024 }, // 40 MB total por lote
+  fileFilter: (_req, file, cb) => {
+    const ext = file.originalname.toLowerCase();
+    if (ext.endsWith('.zip') || ext.endsWith('.xml')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se aceptan archivos comprimidos .zip o facturas .xml'));
+    }
+  },
+}).array('archivos', 50);
 
 // ─── GET /api/proveedores ─────────────────────────────────────────────────────
 export const listarProveedores = async (req: Request, res: Response) => {
@@ -665,13 +675,231 @@ export const listarEquivalencias = async (req: Request, res: Response) => {
       where,
       include: [
         { model: Proveedor, as: 'proveedor', attributes: ['id', 'nombre_comercial', 'nit'] },
-        { model: CatalogoProducto, as: 'producto', attributes: ['id', 'codigo', 'nombre'] },
+        { model: CatalogoProducto, as: 'producto', attributes: ['id', 'codigo', 'nombre', 'es_aluminio'] },
       ],
       order: [[{ model: Proveedor, as: 'proveedor' }, 'nombre_comercial', 'ASC']],
     });
 
-    res.json(equivalencias);
+    // Mapear para compatibilidad con catalogo_producto y producto
+    const response = equivalencias.map((eq: any) => {
+      const plain = eq.toJSON();
+      plain.catalogo_producto = plain.producto;
+      return plain;
+    });
+
+    res.json(response);
   } catch (err: any) {
     res.status(500).json({ error: 'Error al listar equivalencias', detalle: err.message });
   }
 };
+
+// ─── DELETE /api/proveedores/equivalencias/:id ───────────────────────────────
+export const desvincularEquivalencia = async (req: Request, res: Response) => {
+  try {
+    const pp = await ProveedorProducto.findByPk(req.params.id);
+    if (!pp) return res.status(404).json({ error: 'Equivalencia no encontrada' });
+    await pp.destroy();
+    res.json({ message: 'Equivalencia desvinculada exitosamente' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Error al desvincular equivalencia', detalle: err.message });
+  }
+};
+
+// ─── POST /api/proveedores/facturas/cargar ──────────────────────────────────
+export const cargarFacturasLote = async (req: Request, res: Response) => {
+  try {
+    const files = (req.files as Express.Multer.File[]) || [];
+    if (files.length === 0) {
+      return res.status(400).json({ error: 'No se enviaron archivos para procesar' });
+    }
+
+    const userId = (req as any).user?.id ?? null;
+    const cufesVistosLote = new Set<string>();
+
+    let facturasProcesadas = 0;
+    let facturasDuplicadasCufe = 0;
+    let preciosSinCambio = 0;
+    const preciosActualizados: Array<{
+      codigo_proveedor: string;
+      descripcion: string;
+      proveedor_nombre: string;
+      precio_anterior: number;
+      precio_nuevo: number;
+      variacion_pct: number;
+      anomalo: boolean;
+    }> = [];
+    let codigosNuevosPendientes = 0;
+    const errores: string[] = [];
+
+    for (const file of files) {
+      try {
+        const facturas = procesarBufferFactura(file.buffer, file.originalname);
+        if (facturas.length === 0) {
+          errores.push(`${file.originalname}: No se encontró un XML de factura válido`);
+          continue;
+        }
+
+        for (const fac of facturas) {
+          // Validar CUFE para idempotencia
+          if (fac.cufe) {
+            if (cufesVistosLote.has(fac.cufe)) {
+              facturasDuplicadasCufe++;
+              continue;
+            }
+            cufesVistosLote.add(fac.cufe);
+
+            // Verificar si el CUFE ya fue registrado antes en histórico
+            const yaRegistrado = await ProveedorProductoPrecio.findOne({
+              where: {
+                documento_ref: { [Op.like]: `%${fac.cufe}%` },
+              },
+            });
+            if (yaRegistrado) {
+              facturasDuplicadasCufe++;
+              continue;
+            }
+          }
+
+          // Identificar o crear proveedor por NIT o nombre
+          let proveedor: any = null;
+          if (fac.emisor_nit) {
+            proveedor = await Proveedor.findOne({
+              where: {
+                [Op.or]: [
+                  { nit: { [Op.like]: `%${fac.emisor_nit}%` } },
+                  { numero_identificacion: { [Op.like]: `%${fac.emisor_nit}%` } },
+                ],
+              },
+            });
+          }
+
+          if (!proveedor && fac.emisor_nombre) {
+            proveedor = await Proveedor.findOne({
+              where: {
+                [Op.or]: [
+                  { nombre_comercial: { [Op.iLike]: `%${fac.emisor_nombre}%` } },
+                  { razon_social: { [Op.iLike]: `%${fac.emisor_nombre}%` } },
+                ],
+              },
+            });
+          }
+
+          // Si el proveedor no existe, registrarlo como borrador activo
+          if (!proveedor) {
+            proveedor = await Proveedor.create({
+              nit: fac.emisor_nit,
+              nombre_comercial: fac.emisor_nombre || `Proveedor ${fac.emisor_nit || 'S/N'}`,
+              razon_social: fac.emisor_nombre || null,
+              activo: true,
+            });
+          }
+
+          const proveedorId = proveedor.id;
+          const docRef = `FE-${fac.numero}${fac.cufe ? ` · CUFE:${fac.cufe.slice(0, 12)}...` : ''}`;
+
+          // Regla compras.md §8: Si hay varias líneas del mismo producto en la misma FE, manda el precio MAYOR
+          const lineasPorCodigo = new Map<string, { desc: string; maxPrecio: number; unidad: string }>();
+          for (const linea of fac.lineas) {
+            const cod = linea.codigo_proveedor?.trim() || 'SIN_CODIGO';
+            const precio = linea.precio_unitario;
+            const existente = lineasPorCodigo.get(cod);
+            if (!existente || precio > existente.maxPrecio) {
+              lineasPorCodigo.set(cod, {
+                desc: linea.descripcion,
+                maxPrecio: precio,
+                unidad: linea.unidad || 'UNIDAD',
+              });
+            }
+          }
+
+          for (const [codigoProv, info] of lineasPorCodigo.entries()) {
+            // 1. Buscar si ya existe equivalencia en proveedor_producto
+            const ppList = await ProveedorProducto.findAll({
+              where: {
+                proveedor_id: proveedorId,
+                codigo_proveedor: codigoProv,
+                activo: true,
+              },
+            });
+
+            if (ppList.length > 0) {
+              // Ya mapeado -> actualizar precio
+              for (const pp of ppList) {
+                const precioAnt = parseFloat(pp.getDataValue('precio_actual')) || 0;
+                const resAct = await actualizarPrecio(
+                  pp,
+                  info.maxPrecio,
+                  fac.fecha_emision,
+                  'FACTURA',
+                  userId,
+                  docRef
+                );
+
+                if (resAct.cambio) {
+                  preciosActualizados.push({
+                    codigo_proveedor: codigoProv,
+                    descripcion: info.desc,
+                    proveedor_nombre: proveedor.nombre_comercial,
+                    precio_anterior: precioAnt,
+                    precio_nuevo: info.maxPrecio,
+                    variacion_pct: resAct.variacionPct ?? 0,
+                    anomalo: resAct.anomalo,
+                  });
+                } else {
+                  preciosSinCambio++;
+                }
+              }
+            } else {
+              // 2. No mapeado -> registrar en bandeja de códigos pendientes
+              const pendienteExistente = await ProveedorCodigoPendiente.findOne({
+                where: {
+                  proveedor_id: proveedorId,
+                  codigo_proveedor: codigoProv,
+                },
+              });
+
+              if (pendienteExistente) {
+                if (pendienteExistente.getDataValue('estado') === 'PENDIENTE') {
+                  const veces = (pendienteExistente.getDataValue('veces_visto') || 1) + 1;
+                  await pendienteExistente.update({
+                    veces_visto: veces,
+                    precio_detectado: info.maxPrecio,
+                    documento_ref: docRef,
+                  });
+                }
+              } else {
+                await ProveedorCodigoPendiente.create({
+                  proveedor_id: proveedorId,
+                  codigo_proveedor: codigoProv,
+                  descripcion_proveedor: info.desc,
+                  precio_detectado: info.maxPrecio,
+                  documento_ref: docRef,
+                  veces_visto: 1,
+                  estado: 'PENDIENTE',
+                });
+                codigosNuevosPendientes++;
+              }
+            }
+          }
+
+          facturasProcesadas++;
+        }
+      } catch (fileErr: any) {
+        errores.push(`${file.originalname}: ${fileErr.message}`);
+      }
+    }
+
+    res.json({
+      total_archivos: files.length,
+      facturas_procesadas: facturasProcesadas,
+      facturas_duplicadas_cufe: facturasDuplicadasCufe,
+      precios_sin_cambio: preciosSinCambio,
+      precios_actualizados: preciosActualizados,
+      codigos_nuevos_pendientes: codigosNuevosPendientes,
+      errores,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Error general al cargar facturas', detalle: err.message });
+  }
+};
+
