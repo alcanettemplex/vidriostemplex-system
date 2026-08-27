@@ -39,7 +39,11 @@ const formatFecha = (val: string | null | undefined): string => {
   return `${d}-${meses[parseInt(m) - 1]}-${y.slice(2)}`;
 };
 
-const EquivalenciasTab: React.FC = () => {
+interface Props {
+  onActualizarContador?: () => void;
+}
+
+const EquivalenciasTab: React.FC<Props> = ({ onActualizarContador }) => {
   const [equivalencias, setEquivalencias] = useState<EquivalenciaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
@@ -87,7 +91,7 @@ const EquivalenciasTab: React.FC = () => {
   const handleDesvincular = async (item: EquivalenciaItem) => {
     if (
       !window.confirm(
-        `¿Desvincular la equivalencia entre "${item.proveedor?.nombre_comercial} (${item.codigo_proveedor})" y tu producto "${item.catalogo_producto?.codigo}"?`
+        `¿Desvincular la equivalencia de "${item.proveedor?.nombre_comercial} (${item.codigo_proveedor})"?\n\nEl código regresará a la bandeja "Por Mapear" para que puedas re-vincularlo.`
       )
     ) {
       return;
@@ -98,8 +102,11 @@ const EquivalenciasTab: React.FC = () => {
       await axios.delete(`${API}/api/proveedores/equivalencias/${item.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      toast.info('Equivalencia eliminada');
+      toast.info('Equivalencia desvinculada y devuelta a Por Mapear');
       cargarEquivalencias();
+      if (onActualizarContador) {
+        onActualizarContador();
+      }
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Error al eliminar equivalencia');
     } finally {

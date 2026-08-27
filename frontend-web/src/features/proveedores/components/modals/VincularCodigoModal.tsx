@@ -56,6 +56,13 @@ const formatCOP = (val: number | null | undefined): string => {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
 };
 
+const formatFecha = (val: string | null | undefined): string => {
+  if (!val) return '';
+  const [y, m, d] = val.split('T')[0].split('-');
+  const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  return `${d}-${meses[parseInt(m) - 1]}-${y.slice(2)}`;
+};
+
 const VincularCodigoModal: React.FC<Props> = ({
   pendiente,
   onClose,
@@ -136,12 +143,14 @@ const VincularCodigoModal: React.FC<Props> = ({
 
     setGuardando(true);
     try {
+      const fechaFactura = pendiente.fecha_deteccion ? pendiente.fecha_deteccion.split('T')[0] : '';
       await axios.post(
         `${API}/api/proveedores/codigos-pendientes/${pendiente.id}/vincular`,
         {
           catalogo_producto_id: productoSeleccionado.id,
           unidad_compra: unidadCompra,
           precio: precioNum,
+          fecha_precio: fechaFactura || undefined,
           guardar_alias: guardarAlias,
           descripcion_alias: pendiente.descripcion_proveedor,
         },
@@ -284,11 +293,18 @@ const VincularCodigoModal: React.FC<Props> = ({
                   <div style={{ fontSize: 18, fontWeight: 800, color: '#059669' }}>
                     {formatCOP(pendiente.precio_detectado)} <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted, #64748b)' }}>(sin IVA)</span>
                   </div>
-                  {pendiente.documento_ref && (
-                    <div style={{ fontSize: 11, color: 'var(--text-muted, #94a3b8)', marginTop: 2 }}>
-                      Doc ref: {pendiente.documento_ref}
-                    </div>
-                  )}
+                  <div style={{ fontSize: 11.5, color: 'var(--text-muted, #64748b)', marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {pendiente.fecha_deteccion && (
+                      <span style={{ color: '#4338ca', fontWeight: 600 }}>
+                        📅 Fecha Factura / XML: {formatFecha(pendiente.fecha_deteccion)}
+                      </span>
+                    )}
+                    {pendiente.documento_ref && (
+                      <span style={{ color: 'var(--text-muted, #94a3b8)' }}>
+                        Doc ref: {pendiente.documento_ref}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Switch de aprendizaje de alias */}

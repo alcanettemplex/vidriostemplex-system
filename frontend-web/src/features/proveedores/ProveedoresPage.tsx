@@ -90,7 +90,9 @@ const ProveedoresPage: React.FC = () => {
             <PorMapearTab onActualizarContador={fetchPendientesCount} />
           )}
           {tab === 'maestro' && <ProveedoresTab />}
-          {tab === 'equivalencias' && <EquivalenciasTab />}
+          {tab === 'equivalencias' && (
+            <EquivalenciasTab onActualizarContador={fetchPendientesCount} />
+          )}
         </div>
       </div>
 

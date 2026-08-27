@@ -337,33 +337,44 @@ export const importarExcel = async (req: Request, res: Response) => {
  * Pantalla principal: busca un producto por código, nombre o alias y retorna
  * todos sus proveedores con precio comparativo, ordenados por precio_actual ASC.
  */
+// ─── GET /api/proveedores/consulta ───────────────────────────────────────────
+/**
+ * Pantalla principal: busca un producto por código, nombre, alias o ID y retorna
+ * todos sus proveedores con precio comparativo, ordenados por precio_actual ASC.
+ */
 export const consultarPrecios = async (req: Request, res: Response) => {
   try {
-    const { codigo, nombre, modalidad } = req.query;
-    if (!codigo && !nombre) {
-      return res.status(400).json({ error: 'Debe especificar código o nombre del producto' });
+    const { codigo, nombre, modalidad, producto_id, id, q } = req.query;
+    const term = (q || codigo || nombre || '').toString().trim();
+
+    if (!term && !producto_id && !id) {
+      return res.status(400).json({ error: 'Debe especificar código, nombre o ID del producto' });
     }
 
-    // Buscar el producto en catálogo (incluyendo aliases)
     let producto: any = null;
-    if (codigo) {
-      producto = await CatalogoProducto.findOne({
-        where: { codigo: String(codigo).toUpperCase() },
+
+    if (producto_id || id) {
+      producto = await CatalogoProducto.findByPk(Number(producto_id || id), {
         attributes: ['id', 'codigo', 'nombre', 'unidad_medida', 'porcentaje_iva'],
       });
     }
 
-    if (!producto && nombre) {
-      // Búsqueda por nombre directo
+    if (!producto && (codigo || term)) {
       producto = await CatalogoProducto.findOne({
-        where: { nombre: { [Op.iLike]: `%${nombre}%` }, activo: true },
+        where: { codigo: String(codigo || term).toUpperCase(), activo: true },
+        attributes: ['id', 'codigo', 'nombre', 'unidad_medida', 'porcentaje_iva'],
+      });
+    }
+
+    if (!producto && (nombre || term)) {
+      producto = await CatalogoProducto.findOne({
+        where: { nombre: { [Op.iLike]: `%${nombre || term}%` }, activo: true },
         attributes: ['id', 'codigo', 'nombre', 'unidad_medida', 'porcentaje_iva'],
       });
 
-      // Si no lo encontró por nombre, buscar por alias
       if (!producto) {
         const alias = await ProductoAlias.findOne({
-          where: { alias: { [Op.iLike]: `%${nombre}%` } },
+          where: { alias: { [Op.iLike]: `%${nombre || term}%` } },
           include: [{ model: CatalogoProducto, as: 'producto', attributes: ['id', 'codigo', 'nombre', 'unidad_medida', 'porcentaje_iva'] }],
         });
         producto = alias?.getDataValue('producto') ?? null;
@@ -481,7 +492,6 @@ export const agregarPrecioManual = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'producto y precio son obligatorios' });
     }
 
-    // Verificar que el proveedor y el producto existen
     const [proveedor, producto] = await Promise.all([
       Proveedor.findByPk(proveedor_id),
       CatalogoProducto.findByPk(catalogo_producto_id),
@@ -491,7 +501,6 @@ export const agregarPrecioManual = async (req: Request, res: Response) => {
 
     const fechaVigencia = fecha_precio ?? new Date().toISOString().split('T')[0];
 
-    // Crear o actualizar la relación proveedor_producto
     const [pp, creado] = await ProveedorProducto.findOrCreate({
       where: { proveedor_id, catalogo_producto_id, unidad_compra },
       defaults: {
@@ -506,10 +515,8 @@ export const agregarPrecioManual = async (req: Request, res: Response) => {
     });
 
     if (!creado) {
-      // Ya existía — actualizar precio con la lógica de cambio
       await actualizarPrecio(pp, parseFloat(precio), fechaVigencia, 'MANUAL', userId);
     } else {
-      // Primer precio — registrar directamente en histórico
       await ProveedorProductoPrecio.create({
         proveedor_producto_id: pp.getDataValue('id'),
         precio: parseFloat(precio),
@@ -519,7 +526,6 @@ export const agregarPrecioManual = async (req: Request, res: Response) => {
       });
     }
 
-    // Guardar descripción del proveedor como alias del producto (aprendizaje automático)
     if (guardar_alias && descripcion_proveedor?.trim()) {
       await ProductoAlias.findOrCreate({
         where: { catalogo_producto_id, alias: descripcion_proveedor.trim() },
@@ -542,13 +548,11 @@ export const editarPrecio = async (req: Request, res: Response) => {
     const { precio, fecha_precio, codigo_proveedor, descripcion_proveedor } = req.body;
     const userId = (req as any).user?.id ?? null;
 
-    // Actualizar campos opcionales de la relación
     const updates: any = {};
     if (codigo_proveedor !== undefined) updates.codigo_proveedor = codigo_proveedor;
     if (descripcion_proveedor !== undefined) updates.descripcion_proveedor = descripcion_proveedor;
     if (Object.keys(updates).length) await pp.update(updates);
 
-    // Actualizar precio si se envió uno nuevo
     let resultado = null;
     if (precio !== undefined) {
       const fechaVigencia = fecha_precio ?? new Date().toISOString().split('T')[0];
@@ -595,7 +599,7 @@ export const vincularPendiente = async (req: Request, res: Response) => {
     });
     if (!pendiente) return res.status(404).json({ error: 'Pendiente no encontrado' });
 
-    const { catalogo_producto_id, unidad_compra = 'UNIDAD' } = req.body;
+    const { catalogo_producto_id, unidad_compra = 'UNIDAD', fecha_precio } = req.body;
     const userId = (req as any).user?.id ?? null;
 
     if (!catalogo_producto_id) return res.status(400).json({ error: 'catalogo_producto_id es obligatorio' });
@@ -606,7 +610,13 @@ export const vincularPendiente = async (req: Request, res: Response) => {
     const proveedor_id = pendiente.getDataValue('proveedor_id');
     const precio = pendiente.getDataValue('precio_detectado');
     const descripcion = pendiente.getDataValue('descripcion_proveedor');
-    const fechaVigencia = new Date().toISOString().split('T')[0];
+    
+    // Tomar la fecha del XML/factura original registrada en fecha_deteccion o enviada en fecha_precio
+    const fechaDeteccionRaw = pendiente.getDataValue('fecha_deteccion');
+    const fechaFactura = fechaDeteccionRaw
+      ? (typeof fechaDeteccionRaw === 'string' ? fechaDeteccionRaw.split('T')[0] : new Date(fechaDeteccionRaw).toISOString().split('T')[0])
+      : null;
+    const fechaVigencia = fecha_precio || fechaFactura || new Date().toISOString().split('T')[0];
 
     // Crear o actualizar la relación proveedor_producto
     const [pp, creado] = await ProveedorProducto.findOrCreate({
@@ -698,8 +708,42 @@ export const desvincularEquivalencia = async (req: Request, res: Response) => {
   try {
     const pp = await ProveedorProducto.findByPk(req.params.id);
     if (!pp) return res.status(404).json({ error: 'Equivalencia no encontrada' });
+
+    const proveedor_id = pp.getDataValue('proveedor_id');
+    const codigo_proveedor = pp.getDataValue('codigo_proveedor');
+    const descripcion_proveedor = pp.getDataValue('descripcion_proveedor');
+    const precio_actual = pp.getDataValue('precio_actual');
+    const fecha_precio_actual = pp.getDataValue('fecha_precio_actual');
+
+    // 1. Eliminar la equivalencia
     await pp.destroy();
-    res.json({ message: 'Equivalencia desvinculada exitosamente' });
+
+    // 2. Si tenía código de proveedor, regresarlo inmediatamente a "Por Mapear" con estado PENDIENTE
+    if (codigo_proveedor) {
+      const pendiente = await ProveedorCodigoPendiente.findOne({
+        where: { proveedor_id, codigo_proveedor },
+      });
+
+      if (pendiente) {
+        await pendiente.update({
+          estado: 'PENDIENTE',
+          precio_detectado: precio_actual ?? pendiente.getDataValue('precio_detectado'),
+          fecha_deteccion: fecha_precio_actual ?? pendiente.getDataValue('fecha_deteccion'),
+        });
+      } else {
+        await ProveedorCodigoPendiente.create({
+          proveedor_id,
+          codigo_proveedor,
+          descripcion_proveedor: descripcion_proveedor || null,
+          precio_detectado: precio_actual || null,
+          veces_visto: 1,
+          estado: 'PENDIENTE',
+          fecha_deteccion: fecha_precio_actual || new Date(),
+        });
+      }
+    }
+
+    res.json({ message: 'Equivalencia desvinculada y devuelta a Por Mapear' });
   } catch (err: any) {
     res.status(500).json({ error: 'Error al desvincular equivalencia', detalle: err.message });
   }
@@ -865,6 +909,7 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
                     veces_visto: veces,
                     precio_detectado: info.maxPrecio,
                     documento_ref: docRef,
+                    fecha_deteccion: fac.fecha_emision || pendienteExistente.getDataValue('fecha_deteccion'),
                   });
                 }
               } else {
@@ -876,6 +921,7 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
                   documento_ref: docRef,
                   veces_visto: 1,
                   estado: 'PENDIENTE',
+                  fecha_deteccion: fac.fecha_emision || new Date(),
                 });
                 codigosNuevosPendientes++;
               }
