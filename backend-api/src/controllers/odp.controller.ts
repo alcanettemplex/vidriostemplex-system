@@ -1220,6 +1220,8 @@ export const updateODP = async (req: Request, res: Response) => {
       }).catch(err => console.error('Error notificación retroceso ODP:', err));
     }
 
+    await transaction.commit();
+
     import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(Number(id), 'update')).catch(() => {});
     res.json({ message: 'ODP actualizada con éxito', odp });
   } catch (error: any) {

@@ -145,6 +145,13 @@ cron.schedule('0 8 * * *', async () => {
       console.log('Schema sincronizado (modo desarrollo).');
     }
 
+    // Asegurar columnas nuevas en la base de datos sin alterar tablas completas
+    try {
+      await sequelize.query("ALTER TABLE sap ADD COLUMN IF NOT EXISTS impresa_auto BOOLEAN DEFAULT FALSE;");
+    } catch (colErr) {
+      console.warn('Verificación columna sap.impresa_auto:', colErr);
+    }
+
     console.log('Conexión a la base de datos exitosa.');
     server.listen(PORT, () => {
       console.log(`Servidor backend (REST + WS) escuchando en puerto ${PORT}`);

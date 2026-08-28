@@ -374,6 +374,10 @@ const ProduccionPage: React.FC = () => {
     const handleSetColor = async (odpId: number, color: string | null) => {
         if (!puedeEditarTaller) { avisarSinEdicion(); return; }
         setColorPicker(null);
+        // Actualización optimista inmediata en la UI local
+        setOdps(prev => prev.map(o => o.id === odpId ? { ...o, color_taller: color } : o));
+        setNcGarantiasOdps(prev => prev.map(o => o.id === odpId ? { ...o, color_taller: color } : o));
+        setPanelOdp(prev => (prev && prev.id === odpId ? { ...prev, color_taller: color } : prev));
         try {
             const token = sessionStorage.getItem('token');
             await axios.put(
@@ -381,9 +385,10 @@ const ProduccionPage: React.FC = () => {
                 { color_taller: color },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            // La lista se actualiza vía socket (odp_patch); no se re-descarga.
+            // La lista también se sincroniza a los demás clientes vía socket (odp_patch).
         } catch (error: any) {
             toast.error(error.response?.data?.error || 'Error al guardar color');
+            fetchData(true); // Revertir en caso de error
         }
     };
 

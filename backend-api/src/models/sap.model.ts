@@ -11,6 +11,7 @@ SAP.init({
   notas: { type: DataTypes.TEXT },
   estado: { type: DataTypes.ENUM('borrador', 'enviada', 'aprobada'), defaultValue: 'borrador' },
   fecha_creacion: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  impresa_auto: { type: DataTypes.BOOLEAN, defaultValue: false },
 }, {
   sequelize, modelName: 'SAP', tableName: 'sap', timestamps: false,
 });

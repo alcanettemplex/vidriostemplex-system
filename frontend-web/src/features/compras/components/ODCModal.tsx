@@ -36,12 +36,13 @@ interface Props {
   items: SAPItemConContexto[];
   onClose: () => void;
   onRefresh: () => void;
+  onSAPsCompletadas?: (saps: any[]) => void;
 }
 
 // Nota: la gestión de existencia de perfilería (selección de piezas, "Falta material")
 // se realiza ahora desde la pestaña Pendientes. Este modal solo crea la orden con lo
 // que se va a COMPRAR; no asigna existencia ni consume inventario.
-const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
+const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh, onSAPsCompletadas }) => {
   const [numeroOdc, setNumeroOdc] = useState('');
   const [proveedor, setProveedor] = useState('');
   const [notas, setNotas] = useState('');
@@ -80,7 +81,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
     if (!proveedor.trim()) { toast.error('Ingresa el proveedor'); return; }
     setLoading(true);
     try {
-      await axios.post(`${API}/api/compras/odc`, {
+      const res = await axios.post(`${API}/api/compras/odc`, {
         numero_odc: numeroOdc.trim(),
         proveedor,
         notas: notas || null,
@@ -94,6 +95,9 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
       }, { headers });
 
       toast.success('ODC creada exitosamente');
+      if (res.data?.saps_completadas?.length > 0 && onSAPsCompletadas) {
+        onSAPsCompletadas(res.data.saps_completadas);
+      }
       onRefresh();
       onClose();
     } catch (e: any) {

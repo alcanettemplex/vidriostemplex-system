@@ -8,11 +8,16 @@ import ODCVidriosModal, { ODPItemConContexto } from './components/ODCVidriosModa
 import ODCSinSAPModal from './components/ODCSinSAPModal';
 import { useSoloLectura } from '../../utils/permisos';
 import PrintableODC from './components/PrintableODC';
+import PrintableSAP from '../odp/components/PrintableSAP';
 import ODPFichaModal from '../odp/components/ODPFichaModal';
 import FolderTabs from '../../components/FolderTabs';
 
 import { useDataChangedSocket } from '../../store/useSocketNotifications';
+import { useDispatch } from 'react-redux';
+import { clearODPCache } from '../odp/odpSlice';
 
+import { renderToString } from 'react-dom/server';
+import { imprimirIframeSilencioso } from '../../utils/printSilent';
 import { abrirVentanaImpresion } from '../../utils/printWindow';
 import API from '../../services/config';
 
@@ -1147,6 +1152,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
 // ─── Componente principal ────────────────────────────────────────────────────
 
 const ComprasPage: React.FC = () => {
+  const dispatch = useDispatch();
   // Roles de solo lectura (marketing): consultan Compras sin poder crear ni editar ODC.
   const soloLectura = useSoloLectura();
   const [tab, setTab] = useState<'pendientes' | 'seguimiento' | 'recibidas' | 'vidrios' | 'existencia'>('pendientes');
@@ -1178,6 +1184,34 @@ const ComprasPage: React.FC = () => {
   const [gestionVista, setGestionVista] = useState<'piezas' | 'faltante'>('piezas');
   const [faltanteCant, setFaltanteCant] = useState('');
   const [faltanteDim, setFaltanteDim] = useState('');
+
+  // ── Auto-impresión silenciosa de SAPs completadas al 100% (Modo Kiosk) ──
+  const autoImprimirSAPs = useCallback(async (sapsCompletadas: Array<{ sap_id: number; odp_id: number; numero_sap: string; numero_odp: string }>) => {
+    if (!sapsCompletadas || sapsCompletadas.length === 0) return;
+    const token = sessionStorage.getItem('token');
+    const headers = { Authorization: `Bearer ${token}` };
+
+    for (const item of sapsCompletadas) {
+      try {
+        toast.info(`🖨️ SAP ${item.numero_sap} completada al 100%. Imprimiendo automáticamente...`, { autoClose: 3000 });
+        dispatch(clearODPCache(item.odp_id));
+        const res = await axios.get(`${API}/api/odp/${item.odp_id}`, { headers });
+        const odpData = res.data;
+        if (!odpData) continue;
+
+        const sapData = odpData.saps?.find((s: any) => s.id === item.sap_id) || odpData.saps?.[0];
+        const html = renderToString(<PrintableSAP odp={odpData} sap={sapData} />);
+        await imprimirIframeSilencioso({
+          titulo: `SAP ${item.numero_sap} - ODP ${item.numero_odp}`,
+          contenidoHtml: html,
+        });
+        toast.success(`🖨️ SAP ${item.numero_sap} enviada a impresión`);
+      } catch (err) {
+        console.error('Error al auto-imprimir SAP:', err);
+        toast.error(`Error al auto-imprimir SAP ${item.numero_sap}`);
+      }
+    }
+  }, [dispatch]);
 
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
@@ -1377,7 +1411,7 @@ const ComprasPage: React.FC = () => {
     const piezas = piezasSeleccionadasGestion();
     setGestionGuardando(true);
     try {
-      await axios.post(`${API}/api/compras/sap-item/${item.id}/asignar-existencia`, {
+      const res = await axios.post(`${API}/api/compras/sap-item/${item.id}/asignar-existencia`, {
         exist_perf: formatExistPerf(piezas),
         consecutivos: piezas.map(p => p.consecutivo),
         piezas: piezas.map(p => ({ consecutivo: p.consecutivo, codigo: p.codigo ?? null, mm: p.mm ?? null, ubicacion: p.ubicacion ?? null, fecha_corte: p.fecha_corte ?? null })),
@@ -1386,6 +1420,10 @@ const ComprasPage: React.FC = () => {
       setItemsPendientes(prev => prev.filter(i => i.id !== item.id));
       cerrarGestion();
       await invalidarStockCodigo(item.codigo);
+      if (item.SAP?.ODP?.id) dispatch(clearODPCache(item.SAP.ODP.id));
+      if (res.data?.saps_completadas?.length > 0) {
+        autoImprimirSAPs(res.data.saps_completadas);
+      }
     } catch (e: any) {
       toast.error(e?.response?.data?.error || 'Error al asignar existencia');
     } finally { setGestionGuardando(false); }
@@ -1399,7 +1437,7 @@ const ComprasPage: React.FC = () => {
     const piezas = piezasSeleccionadasGestion();
     setGestionGuardando(true);
     try {
-      await axios.post(`${API}/api/compras/sap-item/${item.id}/dividir-existencia`, {
+      const res = await axios.post(`${API}/api/compras/sap-item/${item.id}/dividir-existencia`, {
         exist_perf: formatExistPerf(piezas),
         consecutivos: piezas.map(p => p.consecutivo),
         piezas: piezas.map(p => ({ consecutivo: p.consecutivo, codigo: p.codigo ?? null, mm: p.mm ?? null, ubicacion: p.ubicacion ?? null, fecha_corte: p.fecha_corte ?? null })),
@@ -1408,6 +1446,10 @@ const ComprasPage: React.FC = () => {
       toast.success('Faltante registrado y enviado a Pendientes');
       cerrarGestion();
       await invalidarStockCodigo(item.codigo);
+      if (item.SAP?.ODP?.id) dispatch(clearODPCache(item.SAP.ODP.id));
+      if (res.data?.saps_completadas?.length > 0) {
+        autoImprimirSAPs(res.data.saps_completadas);
+      }
       refresh(); // refrescar el panel para traer el nuevo faltante
     } catch (e: any) {
       toast.error(e?.response?.data?.error || 'Error al registrar el faltante');
@@ -1716,8 +1758,12 @@ const ComprasPage: React.FC = () => {
                                       onClick={async (e) => {
                                         e.stopPropagation();
                                         try {
-                                          await axios.patch(`${API}/api/compras/sap-item/${item.id}/existencia`, {}, { headers });
+                                          const res = await axios.patch(`${API}/api/compras/sap-item/${item.id}/existencia`, {}, { headers });
                                           setItemsPendientes(prev => prev.filter(i => i.id !== item.id));
+                                          if (item.SAP?.ODP?.id) dispatch(clearODPCache(item.SAP.ODP.id));
+                                          if (res.data?.saps_completadas?.length > 0) {
+                                            autoImprimirSAPs(res.data.saps_completadas);
+                                          }
                                         } catch {
                                           // el item permanece en lista si falla
                                         }
@@ -2166,6 +2212,7 @@ const ComprasPage: React.FC = () => {
           items={itemsPendientes.filter(i => seleccionados.has(i.id))}
           onClose={() => setMostrarModal(false)}
           onRefresh={refresh}
+          onSAPsCompletadas={autoImprimirSAPs}
         />
       )}
 

@@ -43,6 +43,52 @@ const resolverOdpIdDesdeSapId = async (sapId: number, transaction?: any): Promis
   return sap ? sap.getDataValue('odp_id') : null;
 };
 
+export interface SAPCompletadaInfo {
+  sap_id: number;
+  odp_id: number;
+  numero_sap: string;
+  numero_odp: string;
+}
+
+// Verifica si todas las líneas de una o varias SAPs ya tienen estado_compra != 'pendiente'
+// y si aún no han sido impresas automáticamente (impresa_auto === false).
+// Si están 100% completas, marca impresa_auto = true y devuelve la información para auto-impresión.
+const verificarYMarcarSAPsCompletas = async (sapIds: (number | null | undefined)[], transaction?: any): Promise<SAPCompletadaInfo[]> => {
+  const completadas: SAPCompletadaInfo[] = [];
+  const sapsUnicas = Array.from(new Set(sapIds.filter((id): id is number => typeof id === 'number' && id > 0)));
+  if (sapsUnicas.length === 0) return completadas;
+
+  for (const sapId of sapsUnicas) {
+    const sap = await SAP.findByPk(sapId, {
+      include: [
+        { model: ODP, attributes: ['id', 'numero_odp'] },
+        { model: SAPItem, as: 'items', attributes: ['id', 'estado_compra', 'es_faltante'] },
+      ],
+      transaction,
+    });
+
+    if (!sap) continue;
+    if (sap.getDataValue('impresa_auto') === true) continue;
+
+    const items: any[] = sap.getDataValue('items') || [];
+    if (items.length === 0) continue;
+
+    const todosCubiertos = items.every(it => it.estado_compra && it.estado_compra !== 'pendiente');
+    if (todosCubiertos) {
+      await sap.update({ impresa_auto: true }, { transaction });
+      const odp = sap.getDataValue('ODP') || (sap as any).ODP;
+      completadas.push({
+        sap_id: sap.getDataValue('id'),
+        odp_id: sap.getDataValue('odp_id'),
+        numero_sap: sap.getDataValue('numero_sap'),
+        numero_odp: odp?.numero_odp || '',
+      });
+    }
+  }
+
+  return completadas;
+};
+
 // Inclusión completa para detalle expandido y actualización tras recepción
 const includeItemsTrazabilidad = [
   {
@@ -353,11 +399,25 @@ export const createODC = async (req: Request, res: Response) => {
     }
 
     // Marcar todos los SAPItems incluidos como en_odc y limpiar flag de modificado
+    let sapsCompletadas: SAPCompletadaInfo[] = [];
+    let odpIdsAfectados: number[] = [];
     if (sapItemIdsSel.length > 0) {
       await SAPItem.update(
         { estado_compra: 'en_odc', modificado: false, datos_anteriores: null },
         { where: { id: { [Op.in]: sapItemIdsSel } }, transaction: t }
       );
+
+      const sapItemsAfectados = await SAPItem.findAll({
+        where: { id: { [Op.in]: sapItemIdsSel } },
+        attributes: ['id', 'sap_id'],
+        transaction: t,
+      });
+      const sapIdsAfectados = Array.from(new Set(sapItemsAfectados.map(i => i.getDataValue('sap_id')).filter(Boolean)));
+      for (const sid of sapIdsAfectados) {
+        const oid = await resolverOdpIdDesdeSapId(sid, t);
+        if (oid) odpIdsAfectados.push(oid);
+      }
+      sapsCompletadas = await verificarYMarcarSAPsCompletas(sapIdsAfectados, t);
     }
 
     await t.commit();
@@ -370,7 +430,14 @@ export const createODC = async (req: Request, res: Response) => {
     });
 
     import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
-    res.status(201).json(odcCompleta);
+    for (const oid of Array.from(new Set(odpIdsAfectados))) {
+      import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(oid, 'update')).catch(() => {});
+    }
+
+    res.status(201).json({
+      ...(odcCompleta ? odcCompleta.toJSON() : {}),
+      saps_completadas: sapsCompletadas,
+    });
   } catch (error: any) {
     await t.rollback();
     res.status(500).json({ error: 'Error al crear ODC', detail: error.message });
@@ -685,13 +752,20 @@ export const toggleExistencia = async (req: Request, res: Response) => {
     const nuevoEstado = estadoActual === 'en_existencia' ? 'pendiente' : 'en_existencia';
     await item.update({ estado_compra: nuevoEstado });
 
-    const odpId = await resolverOdpIdDesdeSapId(item.getDataValue('sap_id'));
+    const sapId = item.getDataValue('sap_id');
+    const odpId = await resolverOdpIdDesdeSapId(sapId);
+
+    let sapsCompletadas: SAPCompletadaInfo[] = [];
+    if (nuevoEstado === 'en_existencia' && sapId) {
+      sapsCompletadas = await verificarYMarcarSAPsCompletas([sapId]);
+    }
+
     import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
     if (odpId) {
       import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'update')).catch(() => {});
     }
 
-    res.json({ id, estado_compra: nuevoEstado });
+    res.json({ id, estado_compra: nuevoEstado, saps_completadas: sapsCompletadas });
   } catch (error: any) {
     res.status(500).json({ error: 'Error al actualizar item', detail: error.message });
   }
@@ -756,14 +830,16 @@ export const dividirPorExistencia = async (req: Request, res: Response) => {
       });
     }
 
-    const odpId = await resolverOdpIdDesdeSapId(original.getDataValue('sap_id'), t);
+    const sapId = original.getDataValue('sap_id');
+    const odpId = await resolverOdpIdDesdeSapId(sapId, t);
+    const sapsCompletadas = await verificarYMarcarSAPsCompletas([sapId], t);
 
     await t.commit();
     import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
     if (odpId) {
       import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'update')).catch(() => {});
     }
-    res.status(201).json({ original_id: Number(id), faltante: faltanteItem });
+    res.status(201).json({ original_id: Number(id), faltante: faltanteItem, saps_completadas: sapsCompletadas });
   } catch (error: any) {
     await t.rollback();
     res.status(500).json({ error: 'Error al dividir por existencia', detail: error.message });
@@ -1219,14 +1295,16 @@ export const asignarExistencia = async (req: Request, res: Response) => {
       });
     }
 
-    const odpId = await resolverOdpIdDesdeSapId(item.getDataValue('sap_id'), t);
+    const sapId = item.getDataValue('sap_id');
+    const odpId = await resolverOdpIdDesdeSapId(sapId, t);
+    const sapsCompletadas = await verificarYMarcarSAPsCompletas([sapId], t);
 
     await t.commit();
     import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
     if (odpId) {
       import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'update')).catch(() => {});
     }
-    res.json({ ok: true, id: Number(id), estado_compra: 'en_existencia' });
+    res.json({ ok: true, id: Number(id), estado_compra: 'en_existencia', saps_completadas: sapsCompletadas });
   } catch (error: any) {
     await t.rollback();
     res.status(500).json({ error: 'Error al asignar existencia', detail: error.message });
