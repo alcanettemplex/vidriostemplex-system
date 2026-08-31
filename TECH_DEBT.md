@@ -4,6 +4,53 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-08-30 — Auditoría del módulo Proveedores: 26 hallazgos, corregidos
+
+**Severidad:** Crítica (5 hallazgos), Alta (9), Media (10), Baja (2) — **todos corregidos el mismo día**
+
+**Contexto:** auditoría completa de las Fases 1 y 2 del módulo (commits `9a39045` → `6f216f9`), disparada por la entrada en producción de la ingesta de facturas electrónicas DIAN. Ninguno de los defectos se manifestaba como excepción: todos producían datos plausibles pero equivocados, que es el peor modo de falla para una herramienta cuyo propósito es decidir a qué proveedor comprar.
+
+### Los cinco críticos
+
+| ID | Defecto | Causa raíz |
+|----|---------|------------|
+| C1 | La idempotencia por CUFE **nunca coincidía** | `documento_ref` guardaba el CUFE truncado a 12 caracteres y se buscaba el completo (96) con `LIKE`. Recargar un `.zip` reprocesaba todo. Una factura de códigos 100% nuevos no dejaba rastro del CUFE en ninguna tabla, así que era reprocesable siempre |
+| C2 | La unidad del XML se leía y se **descartaba** | El `findAll` de equivalencias no filtraba `unidad_compra` y el bucle escribía el mismo precio en todas las filas del código. Un perfil con tira de 6 m y metro recibía la misma cifra en ambas |
+| C3 | Una factura vieja **pisaba** el precio vigente | `actualizarPrecio` nunca comparaba fechas y el lote se procesaba en orden de multer, no por `fecha_emision` |
+| C4 | Desvincular **borraba el histórico** | `destroy()` físico + `ON DELETE CASCADE` en `proveedor_producto_precio` |
+| C5 | Código `MAPEADO` sin equivalencia quedaba **en limbo permanente** | La ingesta solo actualizaba pendientes en estado `PENDIENTE`; con `MAPEADO` no hacía nada y tampoco entraba al `else` que lo habría creado |
+
+**C5 ya había ocurrido en producción:** el pendiente `id=5`, código `VTNA000000006INC` — *vidrio templado 6 mm incoloro*, visto 17 veces — llevaba desde antes del fix `d3012b7` sin capturar precio y sin aparecer en ninguna bandeja. El script de migración lo devolvió a `PENDIENTE`.
+
+### Cambios de esquema
+
+Script `backend-api/src/scripts/2026_08_30_fix_ingesta_proveedores.ts` (ya ejecutado, idempotente):
+
+- **Tabla nueva `factura_proveedor_procesada`** — `cufe` UNIQUE. Es el registro de idempotencia real y la bitácora de la ingesta (qué documento entró, cuántas líneas movió y por qué se omitió, si aplica). Auditada y registrada en `MODELOS_AUDITADOS`.
+- `proveedor_codigo_pendiente`: `unidad_detectada`, `porcentaje_iva_detectado`, `codigo_derivado`.
+- `proveedores`: `seguir_precios` (interruptor de ruido), `origen_registro` (`MANUAL` / `IMPORTACION_WO` / `INGESTA_FE`).
+- `proveedor_producto_precio`: `cufe`, `porcentaje_iva`, `lineas_en_factura`, `retroactivo`.
+- Índice `idx_proveedor_producto_prov_codigo` sobre `(proveedor_id, codigo_proveedor)` — la consulta caliente de la ingesta.
+
+### Reglas de negocio que ahora sí se cumplen
+
+- **El precio vigente lo define la fecha de la factura.** Las facturas de un lote se ordenan por `fecha_emision` antes de procesarse, y una anterior a la vigente se archiva en el histórico con `retroactivo = true` sin desplazar el precio actual.
+- **La unidad decide contra qué modalidad se compara.** Un `unitCode` informativo (`MTR`, `KGM`, `MTK`) exige coincidencia con `unidad_compra`; uno genérico (`94`, `EA`, `NIU`) confía en la equivalencia registrada **solo si hay una sola**. Con dos modalidades activas y unidad ambigua no se toca ningún precio y se emite un aviso.
+- **Notas crédito y débito se registran sin mover precios.** Antes se procesaban como facturas de compra.
+- **Facturas en moneda distinta a COP** se registran y se omiten sus precios.
+- **El IVA se toma del XML** y se guarda en el histórico; si difiere del catálogo se avisa en vez de sobrescribir en silencio una configuración hecha a mano.
+
+### Deuda residual (no bloqueante)
+
+- 🟡 **49 códigos puramente numéricos** en la bandeja, previos al fix del parser (que ya no usa `cbc:ID` como código y deriva `SD-<hash>` de la descripción). Algunos son códigos legítimos del proveedor (`1088`, `3710`), otros son números de línea que pudieron agrupar productos distintos. No es distinguible automáticamente: el script de migración los lista para revisión manual. **Estimación:** 30 min de revisión humana.
+- 🟡 **La carga sigue siendo una petición HTTP síncrona.** Se eliminó el N+1 (precarga de proveedores, equivalencias y bandeja en memoria; una transacción por factura), pero un backfill masivo debería ir por script one-off, como advierte `compras.md`. **Estimación:** 4 h si se necesita.
+- 🟡 **BOM en 4 archivos** del módulo (`AgregarPrecioModal`, `NuevoProveedorModal`, `ConsultarPreciosTab`, `ProveedoresTab`). Cosmético; quitarlo reescribe el archivo entero en el diff. **Estimación:** 5 min.
+- 🟡 **`npm run build` del frontend falla en Windows** (`CI=false` no es sintaxis de cmd). Preexistente y sin impacto: Cloudflare Pages construye en Linux. Localmente se usa `CI=false npx react-scripts build` desde bash. **Estimación:** 10 min con `cross-env`.
+
+**Verificación:** 26 comprobaciones automatizadas end-to-end contra la BD real con facturas DIAN sintéticas (idempotencia, orden cronológico, conflicto de unidad, nota crédito, código derivado, rescate de limbo, validación Zod, corte de ruido por proveedor). Todas pasaron; los datos de prueba se eliminaron al terminar.
+
+---
+
 ## 2026-08-01 — `PEDIDO_PROVEEDOR`: valor huérfano en el ENUM de Postgres
 
 **Severidad:** Baja (resuelta en código, permanece como nota de BD)

@@ -1,62 +1,126 @@
 import { Request, Response } from 'express';
-import { Op } from 'sequelize';
+import { Op, Transaction } from 'sequelize';
+import { z } from 'zod';
 import * as XLSX from 'xlsx';
 import multer from 'multer';
+import sequelize from '../config/database';
 import {
   Proveedor,
   ProveedorProducto,
   ProveedorProductoPrecio,
   ProveedorCodigoPendiente,
+  FacturaProveedorProcesada,
   ProductoAlias,
   CatalogoProducto,
   ConfiguracionGlobal,
-  Usuario,
 } from '../models';
-import { procesarBufferFactura } from '../utils/dianXmlParser';
+import { procesarBufferFactura, FacturaParseada } from '../utils/dianXmlParser';
+
+// ─── Constantes de dominio ────────────────────────────────────────────────────
+
+const UNIDADES_COMPRA = ['UNIDAD', 'TIRA_6M', 'METRO', 'KG', 'M2', 'ML'] as const;
+const MAX_PAGINA = 200;
 
 // ─── Helpers internos ─────────────────────────────────────────────────────────
 
-/** Extrae el número limpio del campo Identificacion de World Office.
- *  Formatos posibles: "NIT 900149483 1" | "CC 79448711" | "NIT PENDIENTE"
- */
-function extraerNumeroId(identificacion: string): string | null {
-  if (!identificacion) return null;
-  const partes = identificacion.trim().split(/\s+/);
-  for (const p of partes) {
-    if (/^\d{6,}$/.test(p)) return p;
+/** Deja solo los dígitos de un NIT/cédula: "NIT 900149483-1" → "9001494831" → "900149483".
+ *  El dígito de verificación se descarta cuando viene separado, que es como lo traen
+ *  tanto World Office como el XML DIAN. */
+function normalizarNit(valor: string | null | undefined): string | null {
+  if (!valor) return null;
+  const soloDigitos = String(valor).replace(/\D/g, '');
+  return soloDigitos.length >= 6 ? soloDigitos : null;
+}
+
+/** Normaliza un nombre para comparar sin depender de mayúsculas, tildes ni dobles espacios */
+function normalizarNombre(valor: string | null | undefined): string {
+  if (!valor) return '';
+  return String(valor)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Fecha ISO (YYYY-MM-DD) de un valor que puede ser Date, string ISO o DATEONLY */
+function aFechaISO(valor: any): string | null {
+  if (!valor) return null;
+  if (typeof valor === 'string') return valor.split('T')[0];
+  try {
+    return new Date(valor).toISOString().split('T')[0];
+  } catch {
+    return null;
   }
-  return null;
 }
 
-/** Obtiene el umbral de variación de precio desde configuracion_global.
- *  Usa 30 como fallback si la fila no existe (por ej. en entorno de pruebas).
- */
+/** Caché en memoria del umbral: se leía de la BD una vez por cada cambio de precio,
+ *  lo que en un lote de 100 facturas significaba cientos de consultas idénticas. */
+let umbralCache: { valor: number; expira: number } | null = null;
+
 async function obtenerUmbral(): Promise<number> {
-  const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
-  return (config?.getDataValue('umbral_variacion_precio_pct') as number) ?? 30;
+  if (umbralCache && umbralCache.expira > Date.now()) return umbralCache.valor;
+  const config = await ConfiguracionGlobal.findOne({
+    where: { id: 1 },
+    attributes: ['umbral_variacion_precio_pct'],
+  });
+  const valor = (config?.getDataValue('umbral_variacion_precio_pct') as number) ?? 30;
+  umbralCache = { valor, expira: Date.now() + 60_000 };
+  return valor;
 }
 
-/** Actualiza el precio vigente de un ProveedorProducto y corre la denormalización.
- *  Solo registra en histórico si el precio efectivamente cambió.
- *  Retorna true si hubo cambio, false si el precio era igual.
+interface ResultadoPrecio {
+  cambio: boolean;
+  anomalo: boolean;
+  variacionPct: number | null;
+  retroactivo: boolean;
+}
+
+interface OpcionesPrecio {
+  origen: 'MANUAL' | 'LISTA' | 'FACTURA';
+  registradoPor: number | null;
+  documentoRef?: string | null;
+  cufe?: string | null;
+  porcentajeIva?: number | null;
+  lineasEnFactura?: number;
+  transaction?: Transaction;
+}
+
+/**
+ * Actualiza el precio vigente de un ProveedorProducto y corre la denormalización.
+ *
+ * Tres reglas que sostienen todo el módulo:
+ *  · El histórico registra CAMBIOS de precio, no apariciones del producto.
+ *  · El precio vigente lo define la FECHA DE LA FACTURA, no el orden de carga: una
+ *    factura anterior a la vigente se archiva en el histórico sin desplazar nada.
+ *    Sin esto, arrastrar un lote con fechas mezcladas deja como "precio actual" el
+ *    de la factura más antigua del montón.
+ *  · Un salto mayor al umbral configurado se marca como anómalo, no se registra en
+ *    silencio.
  */
 async function actualizarPrecio(
   pp: any,
   nuevoPrecio: number,
   fechaVigencia: string,
-  origen: 'MANUAL' | 'LISTA' | 'FACTURA',
-  registradoPor: number | null,
-  documentoRef?: string
-): Promise<{ cambio: boolean; anomalo: boolean; variacionPct: number | null }> {
-  const precioActual = parseFloat(pp.precio_actual) || null;
+  opciones: OpcionesPrecio
+): Promise<ResultadoPrecio> {
+  const { origen, registradoPor, documentoRef = null, cufe = null, porcentajeIva = null, lineasEnFactura = 1, transaction } = opciones;
 
-  // Si el precio es idéntico solo actualiza la fecha de confirmación
-  if (precioActual !== null && precioActual === nuevoPrecio) {
-    await pp.update({ fecha_precio_actual: fechaVigencia });
-    return { cambio: false, anomalo: false, variacionPct: null };
+  const precioActualRaw = pp.getDataValue('precio_actual');
+  const precioActual = precioActualRaw === null || precioActualRaw === undefined ? null : parseFloat(precioActualRaw);
+  const fechaActual = aFechaISO(pp.getDataValue('fecha_precio_actual'));
+
+  // Documento anterior al precio vigente: se archiva sin tocar el actual.
+  const esRetroactivo = !!(fechaActual && fechaVigencia < fechaActual);
+
+  // Precio idéntico al vigente: solo se confirma la fecha, no se ensucia el histórico.
+  if (!esRetroactivo && precioActual !== null && precioActual === nuevoPrecio) {
+    await pp.update({ fecha_precio_actual: fechaVigencia }, { transaction });
+    return { cambio: false, anomalo: false, variacionPct: null, retroactivo: false };
   }
 
-  // Calcular variación porcentual respecto al precio anterior
+  // Variación porcentual respecto al precio anterior
   let variacionPct: number | null = null;
   let anomalo = false;
   if (precioActual !== null && precioActual > 0) {
@@ -65,29 +129,122 @@ async function actualizarPrecio(
     anomalo = Math.abs(variacionPct) > umbral;
   }
 
-  // Correr denormalización: actual → anterior_1 → anterior_2
-  await pp.update({
-    precio_anterior_2: pp.precio_anterior_1,
-    fecha_anterior_2: pp.fecha_anterior_1,
-    precio_anterior_1: pp.precio_actual,
-    fecha_anterior_1: pp.fecha_precio_actual,
-    precio_actual: nuevoPrecio,
-    fecha_precio_actual: fechaVigencia,
-  });
+  if (!esRetroactivo) {
+    // Denormalización: actual → anterior_1 → anterior_2
+    await pp.update(
+      {
+        precio_anterior_2: pp.getDataValue('precio_anterior_1'),
+        fecha_anterior_2: pp.getDataValue('fecha_anterior_1'),
+        precio_anterior_1: pp.getDataValue('precio_actual'),
+        fecha_anterior_1: pp.getDataValue('fecha_precio_actual'),
+        precio_actual: nuevoPrecio,
+        fecha_precio_actual: fechaVigencia,
+      },
+      { transaction }
+    );
+  }
 
-  // Registrar en histórico completo
-  await ProveedorProductoPrecio.create({
-    proveedor_producto_id: pp.id,
-    precio: nuevoPrecio,
-    fecha_vigencia: fechaVigencia,
-    origen,
-    documento_ref: documentoRef ?? null,
-    registrado_por: registradoPor,
-    precio_anomalo: anomalo,
-    variacion_pct: variacionPct,
-  });
+  await ProveedorProductoPrecio.create(
+    {
+      proveedor_producto_id: pp.getDataValue('id'),
+      precio: nuevoPrecio,
+      fecha_vigencia: fechaVigencia,
+      origen,
+      documento_ref: documentoRef,
+      cufe,
+      registrado_por: registradoPor,
+      precio_anomalo: anomalo,
+      variacion_pct: variacionPct,
+      porcentaje_iva: porcentajeIva,
+      lineas_en_factura: lineasEnFactura,
+      retroactivo: esRetroactivo,
+    },
+    { transaction }
+  );
 
-  return { cambio: true, anomalo, variacionPct };
+  return { cambio: !esRetroactivo, anomalo, variacionPct, retroactivo: esRetroactivo };
+}
+
+/** Respuesta de error uniforme: mensaje accionable para el usuario, detalle técnico al log. */
+function fallar(res: Response, status: number, mensaje: string, err?: any) {
+  if (err) console.error(`[proveedores] ${mensaje}:`, err?.message ?? err);
+  return res.status(status).json({ error: mensaje });
+}
+
+/** Traduce un error de Sequelize a un mensaje que el usuario pueda entender y resolver */
+function mensajeDeError(err: any, accionFallida: string): { status: number; mensaje: string } {
+  if (err?.name === 'SequelizeUniqueConstraintError') {
+    return { status: 409, mensaje: `${accionFallida}: ya existe un registro con esos datos.` };
+  }
+  if (err?.name === 'SequelizeForeignKeyConstraintError') {
+    return { status: 409, mensaje: `${accionFallida}: el registro está referenciado por otros datos y no puede modificarse.` };
+  }
+  if (err?.name === 'SequelizeValidationError') {
+    return { status: 400, mensaje: `${accionFallida}: revisa los campos, hay valores fuera de lo esperado.` };
+  }
+  return { status: 500, mensaje: `${accionFallida}. Vuelve a intentarlo; si persiste, avisa al administrador.` };
+}
+
+// ─── Esquemas de validación ───────────────────────────────────────────────────
+
+const proveedorSchema = z.object({
+  nit: z.string().trim().max(20).optional().nullable(),
+  tipo_identificacion: z.string().trim().max(20).optional(),
+  numero_identificacion: z.string().trim().max(30).optional().nullable(),
+  nombre_comercial: z.string().trim().min(1, 'El nombre comercial es obligatorio').max(255),
+  razon_social: z.string().trim().max(255).optional().nullable(),
+  contacto_nombre: z.string().trim().max(150).optional().nullable(),
+  telefono: z.string().trim().max(30).optional().nullable(),
+  email: z.string().trim().max(150).optional().nullable(),
+  direccion: z.string().trim().optional().nullable(),
+  notas: z.string().trim().optional().nullable(),
+  codigo_world_office: z.string().trim().max(50).optional().nullable(),
+  seguir_precios: z.boolean().optional(),
+}).strict();
+
+const proveedorUpdateSchema = proveedorSchema.partial().extend({
+  activo: z.boolean().optional(),
+}).strict();
+
+const precioManualSchema = z.object({
+  catalogo_producto_id: z.coerce.number().int().positive(),
+  codigo_proveedor: z.string().trim().max(100).optional().nullable(),
+  descripcion_proveedor: z.string().trim().optional().nullable(),
+  unidad_compra: z.enum(UNIDADES_COMPRA).default('UNIDAD'),
+  precio: z.coerce.number().positive('El precio debe ser mayor a cero'),
+  fecha_precio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  guardar_alias: z.boolean().default(true),
+}).strict();
+
+const vincularSchema = z.object({
+  catalogo_producto_id: z.coerce.number().int().positive(),
+  unidad_compra: z.enum(UNIDADES_COMPRA).default('UNIDAD'),
+  precio: z.coerce.number().positive().optional(),
+  fecha_precio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  guardar_alias: z.boolean().default(true),
+  descripcion_alias: z.string().trim().optional().nullable(),
+}).strict();
+
+const editarPrecioSchema = z.object({
+  precio: z.coerce.number().positive().optional(),
+  fecha_precio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  codigo_proveedor: z.string().trim().max(100).optional().nullable(),
+  descripcion_proveedor: z.string().trim().optional().nullable(),
+  unidad_compra: z.enum(UNIDADES_COMPRA).optional(),
+}).strict();
+
+/** Extrae el primer mensaje legible de un ZodError (zod v4 expone `issues`) */
+function mensajeZod(err: z.ZodError): string {
+  const primero = err.issues[0];
+  const campo = primero?.path?.join('.') || 'dato';
+  if (!primero) return 'Los datos enviados no son válidos.';
+  if (primero.code === 'invalid_type' && (primero as any).input === undefined) {
+    return `Falta el campo obligatorio "${campo}".`;
+  }
+  if (primero.code === 'unrecognized_keys') {
+    return `El campo "${(primero as any).keys?.join(', ') ?? campo}" no es válido para esta operación.`;
+  }
+  return `${primero.message} (campo "${campo}").`;
 }
 
 // ─── Multer en memoria para el Excel de proveedores ───────────────────────────
@@ -105,9 +262,16 @@ export const uploadExcel = multer({
 }).single('archivo');
 
 // ─── Multer en memoria para Facturas Electrónicas (.zip y .xml) ────────────────
+// `fileSize` es POR ARCHIVO, no por lote: con 100 archivos permitidos, un tope de
+// 100 MB dejaba entrar hasta 10 GB en memoria. Los .zip de FE pesan pocos cientos
+// de KB, así que 8 MB por archivo es holgado y acota el lote a ~800 MB en el peor caso.
 export const uploadFacturas = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB total por lote
+  limits: {
+    fileSize: 8 * 1024 * 1024,
+    files: 100,
+    fields: 10,
+  },
   fileFilter: (_req, file, cb) => {
     const ext = file.originalname.toLowerCase();
     if (ext.endsWith('.zip') || ext.endsWith('.xml')) {
@@ -121,11 +285,11 @@ export const uploadFacturas = multer({
 // ─── GET /api/proveedores ─────────────────────────────────────────────────────
 export const listarProveedores = async (req: Request, res: Response) => {
   try {
-    const { activo, q } = req.query;
+    const { activo, q, compacto } = req.query;
     const where: any = {};
     if (activo !== undefined) where.activo = activo === 'true';
     if (q) {
-      const term = `%${q}%`;
+      const term = `%${String(q).trim()}%`;
       where[Op.or] = [
         { nombre_comercial: { [Op.iLike]: term } },
         { nit: { [Op.iLike]: term } },
@@ -133,55 +297,58 @@ export const listarProveedores = async (req: Request, res: Response) => {
       ];
     }
 
+    // Modo compacto: las pantallas que solo necesitan poblar un selector no tienen
+    // por qué descargar el maestro completo con todas sus columnas.
+    const attributes = compacto === 'true'
+      ? ['id', 'nombre_comercial', 'seguir_precios']
+      : ['id', 'nit', 'nombre_comercial', 'razon_social', 'telefono', 'email', 'activo',
+         'tipo_identificacion', 'numero_identificacion', 'seguir_precios', 'origen_registro'];
+
     const proveedores = await Proveedor.findAll({
       where,
       order: [['nombre_comercial', 'ASC']],
-      attributes: ['id', 'nit', 'nombre_comercial', 'razon_social', 'telefono', 'email', 'activo', 'tipo_identificacion', 'numero_identificacion'],
+      attributes,
     });
     res.json(proveedores);
   } catch (err: any) {
-    res.status(500).json({ error: 'Error al listar proveedores', detalle: err.message });
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo cargar la lista de proveedores');
+    fallar(res, status, mensaje, err);
   }
 };
 
 // ─── POST /api/proveedores ────────────────────────────────────────────────────
 export const crearProveedor = async (req: Request, res: Response) => {
   try {
-    const { nit, nombre_comercial, razon_social, tipo_identificacion, numero_identificacion, contacto_nombre, telefono, email, direccion, notas, codigo_world_office } = req.body;
-    if (!nombre_comercial?.trim()) {
-      return res.status(400).json({ error: 'El nombre comercial es obligatorio' });
-    }
+    const datos = proveedorSchema.parse(req.body);
     const proveedor = await Proveedor.create({
-      nit: nit?.trim() || null,
-      tipo_identificacion: tipo_identificacion || 'NIT',
-      numero_identificacion: numero_identificacion?.trim() || null,
-      nombre_comercial: nombre_comercial.trim(),
-      razon_social: razon_social?.trim() || null,
-      contacto_nombre: contacto_nombre?.trim() || null,
-      telefono: telefono?.trim() || null,
-      email: email?.trim() || null,
-      direccion: direccion?.trim() || null,
-      notas: notas?.trim() || null,
-      codigo_world_office: codigo_world_office?.trim() || null,
+      ...datos,
+      nit: datos.nit || null,
+      tipo_identificacion: datos.tipo_identificacion || 'NIT',
+      origen_registro: 'MANUAL',
     });
     res.status(201).json(proveedor);
   } catch (err: any) {
+    if (err instanceof z.ZodError) return fallar(res, 400, mensajeZod(err));
     if (err.name === 'SequelizeUniqueConstraintError') {
-      return res.status(409).json({ error: `Ya existe un proveedor con ese NIT` });
+      return fallar(res, 409, 'Ya existe un proveedor registrado con ese NIT.');
     }
-    res.status(500).json({ error: 'Error al crear proveedor', detalle: err.message });
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo crear el proveedor');
+    fallar(res, status, mensaje, err);
   }
 };
 
 // ─── PATCH /api/proveedores/:id ───────────────────────────────────────────────
 export const editarProveedor = async (req: Request, res: Response) => {
   try {
+    const datos = proveedorUpdateSchema.parse(req.body);
     const proveedor = await Proveedor.findByPk(req.params.id);
-    if (!proveedor) return res.status(404).json({ error: 'Proveedor no encontrado' });
-    await proveedor.update(req.body);
+    if (!proveedor) return fallar(res, 404, 'El proveedor no existe o fue eliminado.');
+    await proveedor.update(datos);
     res.json(proveedor);
   } catch (err: any) {
-    res.status(500).json({ error: 'Error al editar proveedor', detalle: err.message });
+    if (err instanceof z.ZodError) return fallar(res, 400, mensajeZod(err));
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo guardar el proveedor');
+    fallar(res, status, mensaje, err);
   }
 };
 
@@ -189,22 +356,76 @@ export const editarProveedor = async (req: Request, res: Response) => {
 export const desactivarProveedor = async (req: Request, res: Response) => {
   try {
     const proveedor = await Proveedor.findByPk(req.params.id);
-    if (!proveedor) return res.status(404).json({ error: 'Proveedor no encontrado' });
+    if (!proveedor) return fallar(res, 404, 'El proveedor no existe o fue eliminado.');
     await proveedor.update({ activo: false });
     res.json({ message: 'Proveedor desactivado' });
   } catch (err: any) {
-    res.status(500).json({ error: 'Error al desactivar proveedor', detalle: err.message });
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo desactivar el proveedor');
+    fallar(res, status, mensaje, err);
+  }
+};
+
+// ─── PATCH /api/proveedores/:id/seguimiento ───────────────────────────────────
+/**
+ * Enciende o apaga el seguimiento de precios de un proveedor. Al apagarlo, sus
+ * códigos pendientes se descartan de una vez: es la acción que limpia la bandeja
+ * cuando el emisor es una gasolinera, un parqueadero o la papelería.
+ */
+export const cambiarSeguimiento = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const seguir = req.body?.seguir_precios;
+    if (typeof seguir !== 'boolean') {
+      await t.rollback();
+      return fallar(res, 400, 'Indica si el proveedor debe seguirse o no (seguir_precios: true | false).');
+    }
+
+    const proveedor = await Proveedor.findByPk(req.params.id, { transaction: t });
+    if (!proveedor) {
+      await t.rollback();
+      return fallar(res, 404, 'El proveedor no existe o fue eliminado.');
+    }
+
+    await proveedor.update({ seguir_precios: seguir }, { transaction: t });
+
+    let descartados = 0;
+    if (!seguir) {
+      const [afectados] = await ProveedorCodigoPendiente.update(
+        { estado: 'DESCARTADO' },
+        {
+          where: { proveedor_id: proveedor.getDataValue('id'), estado: 'PENDIENTE' },
+          transaction: t,
+          individualHooks: true, // los hooks de auditoría no disparan en operaciones bulk
+        }
+      );
+      descartados = afectados;
+    }
+
+    await t.commit();
+    res.json({
+      message: seguir
+        ? 'Se reanudó el seguimiento de precios de este proveedor'
+        : `Se dejó de seguir a este proveedor${descartados ? ` y se descartaron ${descartados} código(s) de su bandeja` : ''}`,
+      seguir_precios: seguir,
+      codigos_descartados: descartados,
+    });
+  } catch (err: any) {
+    await t.rollback();
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo cambiar el seguimiento del proveedor');
+    fallar(res, status, mensaje, err);
   }
 };
 
 // ─── POST /api/proveedores/importar-excel ─────────────────────────────────────
 /**
  * Importa el archivo proveedores_limpio.xlsx generado por el script de limpieza.
- * Optimizado: Lee existentes en memoria y usa bulkCreate para procesar 1.805 filas en ~1 segundo.
+ * Optimizado: lee existentes en memoria y usa bulkCreate para procesar 1.805 filas
+ * en ~1 segundo. Corre con hooks desactivados a propósito: auditar fila por fila una
+ * carga masiva del maestro llenaría auditoria_log sin aportar trazabilidad útil.
  */
 export const importarExcel = async (req: Request, res: Response) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo' });
+    if (!req.file) return fallar(res, 400, 'No se recibió ningún archivo. Selecciona el Excel de proveedores.');
 
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames.includes('Proveedores_Limpios')
@@ -214,7 +435,7 @@ export const importarExcel = async (req: Request, res: Response) => {
     const rows: any[] = XLSX.utils.sheet_to_json(sheet);
 
     if (!rows || rows.length === 0) {
-      return res.status(400).json({ error: 'El archivo Excel no contiene filas' });
+      return fallar(res, 400, 'El archivo no tiene filas para importar. Verifica que sea el Excel correcto.');
     }
 
     // 1. Cargar todos los proveedores existentes en memoria
@@ -283,6 +504,7 @@ export const importarExcel = async (req: Request, res: Response) => {
           numero_identificacion: numeroId || null,
           nombre_comercial: nombre,
           activo: true,
+          origen_registro: 'IMPORTACION_WO',
         });
       }
     }
@@ -327,20 +549,19 @@ export const importarExcel = async (req: Request, res: Response) => {
       errores: errores.slice(0, 10),
     });
   } catch (err: any) {
-    console.error('Error en importarExcel:', err);
-    res.status(500).json({ error: 'Error al importar Excel', detalle: err.message });
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo importar el archivo');
+    fallar(res, status, mensaje, err);
   }
 };
 
 // ─── GET /api/proveedores/consulta ───────────────────────────────────────────
 /**
- * Pantalla principal: busca un producto por código, nombre o alias y retorna
- * todos sus proveedores con precio comparativo, ordenados por precio_actual ASC.
- */
-// ─── GET /api/proveedores/consulta ───────────────────────────────────────────
-/**
  * Pantalla principal: busca un producto por código, nombre, alias o ID y retorna
  * todos sus proveedores con precio comparativo, ordenados por precio_actual ASC.
+ *
+ * Cuando el término coincide con varios productos devuelve la lista de candidatos
+ * en vez de elegir uno arbitrariamente: antes un `findOne` sin `order` respondía
+ * con el primero que apareciera y el usuario no se enteraba de que había más.
  */
 export const consultarPrecios = async (req: Request, res: Response) => {
   try {
@@ -348,41 +569,77 @@ export const consultarPrecios = async (req: Request, res: Response) => {
     const term = (q || codigo || nombre || '').toString().trim();
 
     if (!term && !producto_id && !id) {
-      return res.status(400).json({ error: 'Debe especificar código, nombre o ID del producto' });
+      return fallar(res, 400, 'Escribe el código o el nombre del producto que quieres comparar.');
     }
 
+    const atributosProducto = ['id', 'codigo', 'nombre', 'unidad_medida', 'porcentaje_iva'];
     let producto: any = null;
 
     if (producto_id || id) {
-      producto = await CatalogoProducto.findByPk(Number(producto_id || id), {
-        attributes: ['id', 'codigo', 'nombre', 'unidad_medida', 'porcentaje_iva'],
+      producto = await CatalogoProducto.findByPk(Number(producto_id || id), { attributes: atributosProducto });
+      if (!producto) return fallar(res, 404, 'El producto seleccionado ya no está en el catálogo.');
+    }
+
+    // 1. Coincidencia exacta por código — es la búsqueda que el usuario espera resolver directo
+    if (!producto && term) {
+      producto = await CatalogoProducto.findOne({
+        where: { codigo: term.toUpperCase(), activo: true },
+        attributes: atributosProducto,
       });
     }
 
-    if (!producto && (codigo || term)) {
-      producto = await CatalogoProducto.findOne({
-        where: { codigo: String(codigo || term).toUpperCase(), activo: true },
-        attributes: ['id', 'codigo', 'nombre', 'unidad_medida', 'porcentaje_iva'],
+    // 2. Búsqueda amplia: código parcial, nombre o alias aprendido de proveedores
+    if (!producto && term) {
+      const patron = `%${term}%`;
+      const porTexto = await CatalogoProducto.findAll({
+        where: {
+          activo: true,
+          [Op.or]: [{ codigo: { [Op.iLike]: patron } }, { nombre: { [Op.iLike]: patron } }],
+        },
+        attributes: atributosProducto,
+        order: [['codigo', 'ASC']],
+        limit: 12,
       });
-    }
 
-    if (!producto && (nombre || term)) {
-      producto = await CatalogoProducto.findOne({
-        where: { nombre: { [Op.iLike]: `%${nombre || term}%` }, activo: true },
-        attributes: ['id', 'codigo', 'nombre', 'unidad_medida', 'porcentaje_iva'],
-      });
+      let candidatos = porTexto;
 
-      if (!producto) {
-        const alias = await ProductoAlias.findOne({
-          where: { alias: { [Op.iLike]: `%${nombre || term}%` } },
-          include: [{ model: CatalogoProducto, as: 'producto', attributes: ['id', 'codigo', 'nombre', 'unidad_medida', 'porcentaje_iva'] }],
+      if (candidatos.length === 0) {
+        const alias = await ProductoAlias.findAll({
+          where: { alias: { [Op.iLike]: patron } },
+          include: [{ model: CatalogoProducto, as: 'producto', attributes: atributosProducto }],
+          limit: 12,
         });
-        producto = alias?.getDataValue('producto') ?? null;
+        const vistos = new Set<number>();
+        candidatos = alias
+          .map((a: any) => a.getDataValue('producto'))
+          .filter((p: any) => {
+            if (!p || vistos.has(p.id)) return false;
+            vistos.add(p.id);
+            return true;
+          });
       }
+
+      if (candidatos.length === 0) {
+        return fallar(res, 404, `No se encontró ningún producto que coincida con "${term}". Revisa el código o busca por nombre.`);
+      }
+
+      if (candidatos.length > 1) {
+        return res.json({
+          candidatos: candidatos.map((p: any) => ({
+            id: p.id,
+            codigo: p.codigo,
+            nombre: p.nombre,
+            unidad_medida: p.unidad_medida,
+          })),
+          total_candidatos: candidatos.length,
+        });
+      }
+
+      producto = candidatos[0];
     }
 
     if (!producto) {
-      return res.status(404).json({ error: 'Producto no encontrado en el catálogo' });
+      return fallar(res, 404, 'No se encontró el producto en el catálogo.');
     }
 
     // Obtener todos los mapeos activos de ese producto
@@ -416,19 +673,22 @@ export const consultarPrecios = async (req: Request, res: Response) => {
     const pct_iva = producto.getDataValue('porcentaje_iva') ?? 19;
 
     const resultado = precios.map((pp: any) => {
-      const precioActual = parseFloat(pp.precio_actual) || null;
-      const precioAnterior1 = parseFloat(pp.precio_anterior_1) || null;
+      const actualRaw = pp.precio_actual;
+      const anteriorRaw = pp.precio_anterior_1;
+      const precioActual = actualRaw === null || actualRaw === undefined ? null : parseFloat(actualRaw);
+      const precioAnterior1 = anteriorRaw === null || anteriorRaw === undefined ? null : parseFloat(anteriorRaw);
       let variacionPct: number | null = null;
       let anomalo = false;
 
-      if (precioActual && precioAnterior1) {
+      if (precioActual !== null && precioAnterior1 !== null && precioAnterior1 > 0) {
         variacionPct = ((precioActual - precioAnterior1) / precioAnterior1) * 100;
         anomalo = Math.abs(variacionPct) > umbral;
       }
 
       // Precio por metro derivado (solo para TIRA_6M)
-      const precioMetroDerivado = pp.unidad_compra === 'TIRA_6M' && precioActual && pp.metros_por_unidad
-        ? precioActual / parseFloat(pp.metros_por_unidad)
+      const metros = parseFloat(pp.metros_por_unidad);
+      const precioMetroDerivado = pp.unidad_compra === 'TIRA_6M' && precioActual !== null && metros > 0
+        ? precioActual / metros
         : null;
 
       return {
@@ -438,14 +698,14 @@ export const consultarPrecios = async (req: Request, res: Response) => {
         descripcion_proveedor: pp.descripcion_proveedor,
         unidad_compra: pp.unidad_compra,
         precio_sin_iva: precioActual,
-        precio_con_iva: precioActual ? +(precioActual * (1 + pct_iva / 100)).toFixed(2) : null,
-        precio_metro_derivado: precioMetroDerivado ? +precioMetroDerivado.toFixed(2) : null,
+        precio_con_iva: precioActual !== null ? +(precioActual * (1 + pct_iva / 100)).toFixed(2) : null,
+        precio_metro_derivado: precioMetroDerivado !== null ? +precioMetroDerivado.toFixed(2) : null,
         fecha_precio_actual: pp.fecha_precio_actual,
         precio_anterior_1: pp.precio_anterior_1,
         fecha_anterior_1: pp.fecha_anterior_1,
         precio_anterior_2: pp.precio_anterior_2,
         fecha_anterior_2: pp.fecha_anterior_2,
-        variacion_pct: variacionPct ? +variacionPct.toFixed(2) : null,
+        variacion_pct: variacionPct !== null ? +variacionPct.toFixed(2) : null,
         precio_anomalo: anomalo,
       };
     });
@@ -463,7 +723,8 @@ export const consultarPrecios = async (req: Request, res: Response) => {
       total: resultado.length,
     });
   } catch (err: any) {
-    res.status(500).json({ error: 'Error al consultar precios', detalle: err.message });
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo consultar los precios');
+    fallar(res, status, mensaje, err);
   }
 };
 
@@ -473,95 +734,149 @@ export const listarProductosProveedor = async (req: Request, res: Response) => {
     const productos = await ProveedorProducto.findAll({
       where: { proveedor_id: req.params.id, activo: true },
       include: [{ model: CatalogoProducto, as: 'producto', attributes: ['id', 'codigo', 'nombre', 'unidad_medida'] }],
+      attributes: [
+        'id', 'proveedor_id', 'catalogo_producto_id', 'codigo_proveedor', 'descripcion_proveedor',
+        'unidad_compra', 'metros_por_unidad', 'precio_actual', 'fecha_precio_actual',
+      ],
       order: [['precio_actual', 'ASC']],
+      limit: MAX_PAGINA,
     });
     res.json(productos);
   } catch (err: any) {
-    res.status(500).json({ error: 'Error al listar productos del proveedor', detalle: err.message });
+    const { status, mensaje } = mensajeDeError(err, 'No se pudieron cargar los productos del proveedor');
+    fallar(res, status, mensaje, err);
   }
 };
 
 // ─── POST /api/proveedores/:id/productos ──────────────────────────────────────
 export const agregarPrecioManual = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
   try {
-    const { catalogo_producto_id, codigo_proveedor, descripcion_proveedor, unidad_compra = 'UNIDAD', precio, fecha_precio, guardar_alias = true } = req.body;
-    const proveedor_id = parseInt(req.params.id);
-    const userId = (req as any).user?.id ?? null;
-
-    if (!catalogo_producto_id || !precio) {
-      return res.status(400).json({ error: 'producto y precio son obligatorios' });
-    }
+    const datos = precioManualSchema.parse(req.body);
+    const proveedor_id = parseInt(req.params.id, 10);
+    const userId = req.user?.id ?? null;
 
     const [proveedor, producto] = await Promise.all([
-      Proveedor.findByPk(proveedor_id),
-      CatalogoProducto.findByPk(catalogo_producto_id),
+      Proveedor.findByPk(proveedor_id, { transaction: t }),
+      CatalogoProducto.findByPk(datos.catalogo_producto_id, { transaction: t }),
     ]);
-    if (!proveedor) return res.status(404).json({ error: 'Proveedor no encontrado' });
-    if (!producto) return res.status(404).json({ error: 'Producto no encontrado en el catálogo' });
+    if (!proveedor) {
+      await t.rollback();
+      return fallar(res, 404, 'El proveedor no existe o fue eliminado.');
+    }
+    if (!producto) {
+      await t.rollback();
+      return fallar(res, 404, 'El producto ya no está en el catálogo. Actualiza la búsqueda e inténtalo de nuevo.');
+    }
 
-    const fechaVigencia = fecha_precio ?? new Date().toISOString().split('T')[0];
+    const fechaVigencia = datos.fecha_precio ?? new Date().toISOString().split('T')[0];
 
     const [pp, creado] = await ProveedorProducto.findOrCreate({
-      where: { proveedor_id, catalogo_producto_id, unidad_compra },
+      where: { proveedor_id, catalogo_producto_id: datos.catalogo_producto_id, unidad_compra: datos.unidad_compra },
       defaults: {
         proveedor_id,
-        catalogo_producto_id,
-        codigo_proveedor: codigo_proveedor?.trim() || null,
-        descripcion_proveedor: descripcion_proveedor?.trim() || null,
-        unidad_compra,
-        precio_actual: parseFloat(precio),
+        catalogo_producto_id: datos.catalogo_producto_id,
+        codigo_proveedor: datos.codigo_proveedor || null,
+        descripcion_proveedor: datos.descripcion_proveedor || null,
+        unidad_compra: datos.unidad_compra,
+        precio_actual: datos.precio,
         fecha_precio_actual: fechaVigencia,
       },
+      transaction: t,
     });
 
     if (!creado) {
-      await actualizarPrecio(pp, parseFloat(precio), fechaVigencia, 'MANUAL', userId);
-    } else {
-      await ProveedorProductoPrecio.create({
-        proveedor_producto_id: pp.getDataValue('id'),
-        precio: parseFloat(precio),
-        fecha_vigencia: fechaVigencia,
+      // Reactivar el mapeo si venía dado de baja y refrescar cómo lo nombra el proveedor
+      const cambios: any = {};
+      if (pp.getDataValue('activo') === false) cambios.activo = true;
+      if (datos.codigo_proveedor) cambios.codigo_proveedor = datos.codigo_proveedor;
+      if (datos.descripcion_proveedor) cambios.descripcion_proveedor = datos.descripcion_proveedor;
+      if (Object.keys(cambios).length) await pp.update(cambios, { transaction: t });
+
+      await actualizarPrecio(pp, datos.precio, fechaVigencia, {
         origen: 'MANUAL',
-        registrado_por: userId,
+        registradoPor: userId,
+        transaction: t,
       });
+    } else {
+      await ProveedorProductoPrecio.create(
+        {
+          proveedor_producto_id: pp.getDataValue('id'),
+          precio: datos.precio,
+          fecha_vigencia: fechaVigencia,
+          origen: 'MANUAL',
+          registrado_por: userId,
+        },
+        { transaction: t }
+      );
     }
 
-    if (guardar_alias && descripcion_proveedor?.trim()) {
+    if (datos.guardar_alias && datos.descripcion_proveedor) {
       await ProductoAlias.findOrCreate({
-        where: { catalogo_producto_id, alias: descripcion_proveedor.trim() },
-        defaults: { catalogo_producto_id, alias: descripcion_proveedor.trim(), origen: 'PROVEEDOR', proveedor_id },
+        where: { catalogo_producto_id: datos.catalogo_producto_id, alias: datos.descripcion_proveedor },
+        defaults: {
+          catalogo_producto_id: datos.catalogo_producto_id,
+          alias: datos.descripcion_proveedor,
+          origen: 'PROVEEDOR',
+          proveedor_id,
+        },
+        transaction: t,
       });
     }
 
+    await t.commit();
     res.status(creado ? 201 : 200).json({ message: creado ? 'Mapeo creado' : 'Precio actualizado', pp });
   } catch (err: any) {
-    res.status(500).json({ error: 'Error al agregar precio', detalle: err.message });
+    await t.rollback();
+    if (err instanceof z.ZodError) return fallar(res, 400, mensajeZod(err));
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo registrar el precio');
+    fallar(res, status, mensaje, err);
   }
 };
 
 // ─── PATCH /api/proveedores/productos/:pp_id ──────────────────────────────────
 export const editarPrecio = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
   try {
-    const pp = await ProveedorProducto.findByPk(req.params.pp_id);
-    if (!pp) return res.status(404).json({ error: 'Relación proveedor-producto no encontrada' });
-
-    const { precio, fecha_precio, codigo_proveedor, descripcion_proveedor } = req.body;
-    const userId = (req as any).user?.id ?? null;
-
-    const updates: any = {};
-    if (codigo_proveedor !== undefined) updates.codigo_proveedor = codigo_proveedor;
-    if (descripcion_proveedor !== undefined) updates.descripcion_proveedor = descripcion_proveedor;
-    if (Object.keys(updates).length) await pp.update(updates);
-
-    let resultado = null;
-    if (precio !== undefined) {
-      const fechaVigencia = fecha_precio ?? new Date().toISOString().split('T')[0];
-      resultado = await actualizarPrecio(pp, parseFloat(precio), fechaVigencia, 'MANUAL', userId);
+    const datos = editarPrecioSchema.parse(req.body);
+    const pp = await ProveedorProducto.findByPk(req.params.pp_id, { transaction: t });
+    if (!pp) {
+      await t.rollback();
+      return fallar(res, 404, 'La equivalencia ya no existe. Refresca la lista.');
     }
 
-    res.json({ message: 'Actualizado', anomalo: resultado?.anomalo ?? false, variacion_pct: resultado?.variacionPct ?? null });
+    const userId = req.user?.id ?? null;
+
+    const updates: any = {};
+    if (datos.codigo_proveedor !== undefined) updates.codigo_proveedor = datos.codigo_proveedor;
+    if (datos.descripcion_proveedor !== undefined) updates.descripcion_proveedor = datos.descripcion_proveedor;
+    if (datos.unidad_compra !== undefined) updates.unidad_compra = datos.unidad_compra;
+    if (Object.keys(updates).length) await pp.update(updates, { transaction: t });
+
+    let resultado: ResultadoPrecio | null = null;
+    if (datos.precio !== undefined) {
+      const fechaVigencia = datos.fecha_precio ?? new Date().toISOString().split('T')[0];
+      resultado = await actualizarPrecio(pp, datos.precio, fechaVigencia, {
+        origen: 'MANUAL',
+        registradoPor: userId,
+        transaction: t,
+      });
+    }
+
+    await t.commit();
+    res.json({
+      message: resultado?.retroactivo
+        ? 'Precio archivado en el histórico: la fecha indicada es anterior al precio vigente'
+        : 'Actualizado',
+      anomalo: resultado?.anomalo ?? false,
+      variacion_pct: resultado?.variacionPct ?? null,
+      retroactivo: resultado?.retroactivo ?? false,
+    });
   } catch (err: any) {
-    res.status(500).json({ error: 'Error al editar precio', detalle: err.message });
+    await t.rollback();
+    if (err instanceof z.ZodError) return fallar(res, 400, mensajeZod(err));
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo actualizar la equivalencia');
+    fallar(res, status, mensaje, err);
   }
 };
 
@@ -569,369 +884,759 @@ export const editarPrecio = async (req: Request, res: Response) => {
 export const desactivarMapeo = async (req: Request, res: Response) => {
   try {
     const pp = await ProveedorProducto.findByPk(req.params.pp_id);
-    if (!pp) return res.status(404).json({ error: 'Mapeo no encontrado' });
+    if (!pp) return fallar(res, 404, 'El mapeo ya no existe.');
     await pp.update({ activo: false });
     res.json({ message: 'Mapeo desactivado' });
   } catch (err: any) {
-    res.status(500).json({ error: 'Error al desactivar mapeo', detalle: err.message });
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo desactivar el mapeo');
+    fallar(res, status, mensaje, err);
   }
 };
 
-// ─── GET /api/proveedores/pendientes ─────────────────────────────────────────
+// ─── GET /api/proveedores/codigos-pendientes ─────────────────────────────────
 export const listarPendientes = async (req: Request, res: Response) => {
   try {
-    const pendientes = await ProveedorCodigoPendiente.findAll({
-      where: { estado: 'PENDIENTE' },
-      include: [{ model: Proveedor, as: 'proveedor', attributes: ['id', 'nombre_comercial', 'nit'] }],
-      order: [['veces_visto', 'DESC']],
+    const { q, proveedor_id, estado } = req.query;
+    const limit = Math.min(parseInt(String(req.query.limit ?? MAX_PAGINA), 10) || MAX_PAGINA, MAX_PAGINA);
+    const offset = Math.max(parseInt(String(req.query.offset ?? 0), 10) || 0, 0);
+    const orden = String(req.query.orden ?? 'frecuencia');
+
+    const where: any = { estado: estado ? String(estado).toUpperCase() : 'PENDIENTE' };
+    if (proveedor_id) where.proveedor_id = Number(proveedor_id);
+    if (q) {
+      const patron = `%${String(q).trim()}%`;
+      where[Op.or] = [
+        { codigo_proveedor: { [Op.iLike]: patron } },
+        { descripcion_proveedor: { [Op.iLike]: patron } },
+      ];
+    }
+
+    const order: any =
+      orden === 'reciente' ? [['fecha_deteccion', 'DESC']]
+      : orden === 'precio' ? [['precio_detectado', 'DESC']]
+      : [['veces_visto', 'DESC'], ['id', 'DESC']];
+
+    const { rows, count } = await ProveedorCodigoPendiente.findAndCountAll({
+      where,
+      include: [{ model: Proveedor, as: 'proveedor', attributes: ['id', 'nombre_comercial', 'nit', 'seguir_precios'] }],
+      attributes: [
+        'id', 'proveedor_id', 'codigo_proveedor', 'descripcion_proveedor', 'precio_detectado',
+        'documento_ref', 'veces_visto', 'estado', 'fecha_deteccion',
+        'unidad_detectada', 'porcentaje_iva_detectado', 'codigo_derivado',
+      ],
+      order,
+      limit,
+      offset,
     });
-    res.json(pendientes);
+
+    res.json({ items: rows, total: count, limit, offset });
   } catch (err: any) {
-    res.status(500).json({ error: 'Error al listar pendientes', detalle: err.message });
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo cargar la bandeja de códigos');
+    fallar(res, status, mensaje, err);
   }
 };
 
-// ─── POST /api/proveedores/pendientes/:id/vincular ────────────────────────────
-export const vincularPendiente = async (req: Request, res: Response) => {
+// ─── GET /api/proveedores/codigos-pendientes/count ───────────────────────────
+/** Solo el número para el badge: antes se descargaba la bandeja entera para contarla. */
+export const contarPendientes = async (_req: Request, res: Response) => {
   try {
-    const pendiente = await ProveedorCodigoPendiente.findByPk(req.params.id, {
-      include: [{ model: Proveedor, as: 'proveedor' }],
-    });
-    if (!pendiente) return res.status(404).json({ error: 'Pendiente no encontrado' });
+    const count = await ProveedorCodigoPendiente.count({ where: { estado: 'PENDIENTE' } });
+    res.json({ count });
+  } catch (err: any) {
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo contar los códigos pendientes');
+    fallar(res, status, mensaje, err);
+  }
+};
 
-    const { catalogo_producto_id, unidad_compra = 'UNIDAD', fecha_precio } = req.body;
-    const userId = (req as any).user?.id ?? null;
+// ─── POST /api/proveedores/codigos-pendientes/:id/vincular ────────────────────
+export const vincularPendiente = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const datos = vincularSchema.parse(req.body);
+    const pendiente = await ProveedorCodigoPendiente.findByPk(req.params.id, { transaction: t });
+    if (!pendiente) {
+      await t.rollback();
+      return fallar(res, 404, 'Ese código ya no está en la bandeja. Refresca la lista.');
+    }
 
-    if (!catalogo_producto_id) return res.status(400).json({ error: 'catalogo_producto_id es obligatorio' });
+    const userId = req.user?.id ?? null;
 
-    const producto = await CatalogoProducto.findByPk(catalogo_producto_id);
-    if (!producto) return res.status(404).json({ error: 'Producto no encontrado' });
+    const producto = await CatalogoProducto.findByPk(datos.catalogo_producto_id, { transaction: t });
+    if (!producto) {
+      await t.rollback();
+      return fallar(res, 404, 'El producto ya no está en el catálogo. Búscalo de nuevo o créalo.');
+    }
 
     const proveedor_id = pendiente.getDataValue('proveedor_id');
-    const precio = pendiente.getDataValue('precio_detectado');
-    const descripcion = pendiente.getDataValue('descripcion_proveedor');
-    
-    // Tomar la fecha del XML/factura original registrada en fecha_deteccion o enviada en fecha_precio
-    const fechaDeteccionRaw = pendiente.getDataValue('fecha_deteccion');
-    const fechaFactura = fechaDeteccionRaw
-      ? (typeof fechaDeteccionRaw === 'string' ? fechaDeteccionRaw.split('T')[0] : new Date(fechaDeteccionRaw).toISOString().split('T')[0])
-      : null;
-    const fechaVigencia = fecha_precio || fechaFactura || new Date().toISOString().split('T')[0];
+    const descripcion = (pendiente.getDataValue('descripcion_proveedor') || '').trim();
 
-    // Crear o actualizar la relación proveedor_producto
+    // El precio que el usuario confirma en pantalla manda sobre el detectado en el XML:
+    // el campo era editable pero se ignoraba, así que corregir una cifra mal leída
+    // no tenía ningún efecto.
+    const precioDetectado = pendiente.getDataValue('precio_detectado');
+    const precio = datos.precio ?? (precioDetectado !== null && precioDetectado !== undefined ? parseFloat(precioDetectado) : null);
+
+    // La fecha vigente es la de la factura donde se detectó, no la de hoy
+    const fechaFactura = aFechaISO(pendiente.getDataValue('fecha_deteccion'));
+    const fechaVigencia = datos.fecha_precio || fechaFactura || new Date().toISOString().split('T')[0];
+
     const [pp, creado] = await ProveedorProducto.findOrCreate({
-      where: { proveedor_id, catalogo_producto_id, unidad_compra },
+      where: { proveedor_id, catalogo_producto_id: datos.catalogo_producto_id, unidad_compra: datos.unidad_compra },
       defaults: {
         proveedor_id,
-        catalogo_producto_id,
+        catalogo_producto_id: datos.catalogo_producto_id,
         codigo_proveedor: pendiente.getDataValue('codigo_proveedor'),
-        descripcion_proveedor: descripcion,
-        unidad_compra,
+        descripcion_proveedor: descripcion || null,
+        unidad_compra: datos.unidad_compra,
         precio_actual: precio,
-        fecha_precio_actual: fechaVigencia,
+        fecha_precio_actual: precio !== null ? fechaVigencia : null,
       },
+      transaction: t,
     });
 
-    if (!creado && precio) {
-      await actualizarPrecio(pp, parseFloat(precio), fechaVigencia, 'FACTURA', userId, pendiente.getDataValue('documento_ref'));
-    } else if (creado && precio) {
-      await ProveedorProductoPrecio.create({
-        proveedor_producto_id: pp.getDataValue('id'),
-        precio: parseFloat(precio),
-        fecha_vigencia: fechaVigencia,
-        origen: 'FACTURA',
-        registrado_por: userId,
-        documento_ref: pendiente.getDataValue('documento_ref'),
-      });
+    if (!creado) {
+      // Reutilizar un mapeo dado de baja en lugar de dejarlo inactivo y sin efecto
+      const cambios: any = {};
+      if (pp.getDataValue('activo') === false) cambios.activo = true;
+      if (!pp.getDataValue('codigo_proveedor')) cambios.codigo_proveedor = pendiente.getDataValue('codigo_proveedor');
+      if (Object.keys(cambios).length) await pp.update(cambios, { transaction: t });
+
+      if (precio !== null) {
+        await actualizarPrecio(pp, precio, fechaVigencia, {
+          origen: 'FACTURA',
+          registradoPor: userId,
+          documentoRef: pendiente.getDataValue('documento_ref'),
+          porcentajeIva: pendiente.getDataValue('porcentaje_iva_detectado'),
+          transaction: t,
+        });
+      }
+    } else if (precio !== null) {
+      await ProveedorProductoPrecio.create(
+        {
+          proveedor_producto_id: pp.getDataValue('id'),
+          precio,
+          fecha_vigencia: fechaVigencia,
+          origen: 'FACTURA',
+          registrado_por: userId,
+          documento_ref: pendiente.getDataValue('documento_ref'),
+          porcentaje_iva: pendiente.getDataValue('porcentaje_iva_detectado'),
+        },
+        { transaction: t }
+      );
     }
 
-    // Guardar descripción como alias
-    if (descripcion?.trim()) {
+    // Guardar la descripción como alias solo si el usuario lo pidió: la casilla
+    // "Recordar como sinónimo" existía en pantalla pero no se consultaba.
+    const alias = (datos.descripcion_alias || descripcion).trim();
+    if (datos.guardar_alias && alias) {
       await ProductoAlias.findOrCreate({
-        where: { catalogo_producto_id, alias: descripcion.trim() },
-        defaults: { catalogo_producto_id, alias: descripcion.trim(), origen: 'PROVEEDOR', proveedor_id },
+        where: { catalogo_producto_id: datos.catalogo_producto_id, alias },
+        defaults: { catalogo_producto_id: datos.catalogo_producto_id, alias, origen: 'PROVEEDOR', proveedor_id },
+        transaction: t,
       });
     }
 
-    // Marcar el pendiente como mapeado
-    await pendiente.update({ estado: 'MAPEADO' });
+    await pendiente.update({ estado: 'MAPEADO' }, { transaction: t });
 
+    await t.commit();
     res.json({ message: 'Código vinculado exitosamente', proveedor_producto: pp });
   } catch (err: any) {
-    res.status(500).json({ error: 'Error al vincular código', detalle: err.message });
+    await t.rollback();
+    if (err instanceof z.ZodError) return fallar(res, 400, mensajeZod(err));
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo vincular el código');
+    fallar(res, status, mensaje, err);
   }
 };
 
-// ─── POST /api/proveedores/pendientes/:id/descartar ───────────────────────────
+// ─── PATCH /api/proveedores/codigos-pendientes/:id/descartar ──────────────────
 export const descartarPendiente = async (req: Request, res: Response) => {
   try {
     const pendiente = await ProveedorCodigoPendiente.findByPk(req.params.id);
-    if (!pendiente) return res.status(404).json({ error: 'Pendiente no encontrado' });
+    if (!pendiente) return fallar(res, 404, 'Ese código ya no está en la bandeja.');
     await pendiente.update({ estado: 'DESCARTADO' });
     res.json({ message: 'Código descartado' });
   } catch (err: any) {
-    res.status(500).json({ error: 'Error al descartar código', detalle: err.message });
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo descartar el código');
+    fallar(res, status, mensaje, err);
+  }
+};
+
+// ─── POST /api/proveedores/codigos-pendientes/descartar-lote ──────────────────
+/** Descarta varios códigos de una vez: con 270 entradas de fletes y papelería,
+ *  hacerlo de a uno no es un flujo de trabajo viable. */
+export const descartarLote = async (req: Request, res: Response) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map((n: any) => Number(n)).filter(Number.isInteger) : [];
+    if (ids.length === 0) return fallar(res, 400, 'Selecciona al menos un código para descartar.');
+    if (ids.length > 500) return fallar(res, 400, 'Puedes descartar hasta 500 códigos por vez.');
+
+    const [afectados] = await ProveedorCodigoPendiente.update(
+      { estado: 'DESCARTADO' },
+      { where: { id: { [Op.in]: ids }, estado: 'PENDIENTE' }, individualHooks: true },
+    );
+
+    res.json({ message: `${afectados} código(s) descartado(s)`, descartados: afectados });
+  } catch (err: any) {
+    const { status, mensaje } = mensajeDeError(err, 'No se pudieron descartar los códigos');
+    fallar(res, status, mensaje, err);
   }
 };
 
 // ─── GET /api/proveedores/equivalencias ──────────────────────────────────────
 export const listarEquivalencias = async (req: Request, res: Response) => {
   try {
-    const { proveedor_id, q } = req.query;
-    const where: any = { activo: true };
-    if (proveedor_id) where.proveedor_id = proveedor_id;
+    const { proveedor_id, q, unidad_compra } = req.query;
+    const limit = Math.min(parseInt(String(req.query.limit ?? MAX_PAGINA), 10) || MAX_PAGINA, MAX_PAGINA);
+    const offset = Math.max(parseInt(String(req.query.offset ?? 0), 10) || 0, 0);
 
-    const equivalencias = await ProveedorProducto.findAll({
+    const where: any = { activo: true };
+    if (proveedor_id) where.proveedor_id = Number(proveedor_id);
+    if (unidad_compra) where.unidad_compra = String(unidad_compra).toUpperCase();
+    if (q) {
+      const patron = `%${String(q).trim()}%`;
+      where[Op.or] = [
+        { codigo_proveedor: { [Op.iLike]: patron } },
+        { descripcion_proveedor: { [Op.iLike]: patron } },
+        { '$producto.codigo$': { [Op.iLike]: patron } },
+        { '$producto.nombre$': { [Op.iLike]: patron } },
+        { '$proveedor.nombre_comercial$': { [Op.iLike]: patron } },
+      ];
+    }
+
+    const { rows, count } = await ProveedorProducto.findAndCountAll({
       where,
       include: [
         { model: Proveedor, as: 'proveedor', attributes: ['id', 'nombre_comercial', 'nit'] },
         { model: CatalogoProducto, as: 'producto', attributes: ['id', 'codigo', 'nombre', 'es_aluminio'] },
       ],
-      order: [[{ model: Proveedor, as: 'proveedor' }, 'nombre_comercial', 'ASC']],
+      attributes: [
+        'id', 'proveedor_id', 'catalogo_producto_id', 'codigo_proveedor', 'descripcion_proveedor',
+        'unidad_compra', 'metros_por_unidad', 'precio_actual', 'fecha_precio_actual',
+        'precio_anterior_1', 'fecha_anterior_1', 'precio_anterior_2', 'fecha_anterior_2', 'activo',
+      ],
+      order: [[{ model: Proveedor, as: 'proveedor' }, 'nombre_comercial', 'ASC'], ['id', 'ASC']],
+      limit,
+      offset,
+      subQuery: false,
+      distinct: true,
     });
 
-    // Mapear para compatibilidad con catalogo_producto y producto
-    const response = equivalencias.map((eq: any) => {
+    // `catalogo_producto` se mantiene como alias de `producto` por compatibilidad con la UI
+    const items = rows.map((eq: any) => {
       const plain = eq.toJSON();
       plain.catalogo_producto = plain.producto;
       return plain;
     });
 
-    res.json(response);
+    res.json({ items, total: count, limit, offset });
   } catch (err: any) {
-    res.status(500).json({ error: 'Error al listar equivalencias', detalle: err.message });
+    const { status, mensaje } = mensajeDeError(err, 'No se pudieron cargar las equivalencias');
+    fallar(res, status, mensaje, err);
   }
 };
 
 // ─── DELETE /api/proveedores/equivalencias/:id ───────────────────────────────
+/**
+ * Desvincula una equivalencia y devuelve su código a la bandeja.
+ *
+ * Es baja lógica, no borrado. El borrado físico arrastraba en cascada todo el
+ * histórico de precios de ese proveedor para ese producto — justamente el activo
+ * que el módulo existe para acumular, y la única copia del CUFE de origen.
+ */
 export const desvincularEquivalencia = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
   try {
-    const pp = await ProveedorProducto.findByPk(req.params.id);
-    if (!pp) return res.status(404).json({ error: 'Equivalencia no encontrada' });
+    const pp = await ProveedorProducto.findByPk(req.params.id, { transaction: t });
+    if (!pp) {
+      await t.rollback();
+      return fallar(res, 404, 'La equivalencia ya no existe. Refresca la lista.');
+    }
 
     const proveedor_id = pp.getDataValue('proveedor_id');
     const codigo_proveedor = pp.getDataValue('codigo_proveedor');
     const descripcion_proveedor = pp.getDataValue('descripcion_proveedor');
     const precio_actual = pp.getDataValue('precio_actual');
     const fecha_precio_actual = pp.getDataValue('fecha_precio_actual');
+    const unidad_compra = pp.getDataValue('unidad_compra');
 
-    // 1. Eliminar la equivalencia
-    await pp.destroy();
+    await pp.update({ activo: false }, { transaction: t });
 
-    // 2. Si tenía código de proveedor, regresarlo inmediatamente a "Por Mapear" con estado PENDIENTE
     if (codigo_proveedor) {
       const pendiente = await ProveedorCodigoPendiente.findOne({
         where: { proveedor_id, codigo_proveedor },
+        transaction: t,
       });
 
       if (pendiente) {
-        await pendiente.update({
-          estado: 'PENDIENTE',
-          precio_detectado: precio_actual ?? pendiente.getDataValue('precio_detectado'),
-          fecha_deteccion: fecha_precio_actual ?? pendiente.getDataValue('fecha_deteccion'),
-        });
+        await pendiente.update(
+          {
+            estado: 'PENDIENTE',
+            precio_detectado: precio_actual ?? pendiente.getDataValue('precio_detectado'),
+            fecha_deteccion: fecha_precio_actual ?? pendiente.getDataValue('fecha_deteccion'),
+            unidad_detectada: pendiente.getDataValue('unidad_detectada') ?? unidad_compra,
+          },
+          { transaction: t }
+        );
       } else {
-        await ProveedorCodigoPendiente.create({
-          proveedor_id,
-          codigo_proveedor,
-          descripcion_proveedor: descripcion_proveedor || null,
-          precio_detectado: precio_actual || null,
-          veces_visto: 1,
-          estado: 'PENDIENTE',
-          fecha_deteccion: fecha_precio_actual || new Date(),
-        });
+        await ProveedorCodigoPendiente.create(
+          {
+            proveedor_id,
+            codigo_proveedor,
+            descripcion_proveedor: descripcion_proveedor || null,
+            precio_detectado: precio_actual || null,
+            unidad_detectada: unidad_compra,
+            veces_visto: 1,
+            estado: 'PENDIENTE',
+            fecha_deteccion: fecha_precio_actual || new Date(),
+          },
+          { transaction: t }
+        );
       }
     }
 
-    res.json({ message: 'Equivalencia desvinculada y devuelta a Por Mapear' });
+    await t.commit();
+    res.json({ message: 'Equivalencia desvinculada y devuelta a Por Mapear. Su histórico de precios se conserva.' });
   } catch (err: any) {
-    res.status(500).json({ error: 'Error al desvincular equivalencia', detalle: err.message });
+    await t.rollback();
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo desvincular la equivalencia');
+    fallar(res, status, mensaje, err);
+  }
+};
+
+// ─── GET /api/proveedores/equivalencias/:id/historico ────────────────────────
+/** Histórico completo de precios de una equivalencia, para auditar de dónde salió cada cifra. */
+export const historicoEquivalencia = async (req: Request, res: Response) => {
+  try {
+    const historico = await ProveedorProductoPrecio.findAll({
+      where: { proveedor_producto_id: req.params.id },
+      attributes: [
+        'id', 'precio', 'fecha_vigencia', 'origen', 'documento_ref', 'cufe',
+        'precio_anomalo', 'variacion_pct', 'porcentaje_iva', 'lineas_en_factura',
+        'retroactivo', 'fecha_registro',
+      ],
+      order: [['fecha_vigencia', 'DESC'], ['id', 'DESC']],
+      limit: 60,
+    });
+    res.json(historico);
+  } catch (err: any) {
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo cargar el histórico de precios');
+    fallar(res, status, mensaje, err);
   }
 };
 
 // ─── POST /api/proveedores/facturas/cargar ──────────────────────────────────
+
+interface LineaAgrupada {
+  descripcion: string;
+  maxPrecio: number;
+  unidad: string;
+  unidadConfiable: boolean;
+  porcentajeIva: number;
+  codigoDerivado: boolean;
+  ocurrencias: number;
+}
+
+interface PrecioActualizadoItem {
+  codigo_proveedor: string;
+  descripcion: string;
+  proveedor_nombre: string;
+  precio_anterior: number;
+  precio_nuevo: number;
+  variacion_pct: number;
+  anomalo: boolean;
+  retroactivo: boolean;
+}
+
+interface AvisoLote {
+  tipo: 'UNIDAD_DISTINTA' | 'IVA_DISTINTO' | 'MONEDA' | 'NOTA_CREDITO' | 'PROVEEDOR_NUEVO';
+  proveedor_nombre: string;
+  detalle: string;
+}
+
+/**
+ * Ingesta de facturas electrónicas.
+ *
+ * Orden de operaciones y por qué:
+ *  1. Parsear todo primero y ORDENAR POR FECHA DE EMISIÓN. El precio vigente lo
+ *     define la fecha de la factura, no el orden en que el navegador subió los
+ *     archivos; sin este paso un lote con fechas mezcladas deja como precio actual
+ *     el de la factura más antigua.
+ *  2. Descartar CUFEs ya registrados consultando `factura_proveedor_procesada` en
+ *     una sola consulta.
+ *  3. Precargar proveedores, equivalencias y bandeja en memoria. Antes se consultaba
+ *     la BD tres veces por línea, más una búsqueda de CUFE que recorría el histórico
+ *     entero: miles de consultas por lote.
+ *  4. Procesar cada factura dentro de su propia transacción, para que un documento
+ *     defectuoso no arrastre al resto del lote.
+ */
 export const cargarFacturasLote = async (req: Request, res: Response) => {
   try {
     const files = (req.files as Express.Multer.File[]) || [];
     if (files.length === 0) {
-      return res.status(400).json({ error: 'No se enviaron archivos para procesar' });
+      return fallar(res, 400, 'No se recibió ningún archivo. Arrastra los .zip o .xml de tus facturas.');
     }
 
-    const userId = (req as any).user?.id ?? null;
-    const cufesVistosLote = new Set<string>();
-
-    let facturasProcesadas = 0;
-    let facturasDuplicadasCufe = 0;
-    let preciosSinCambio = 0;
-    const preciosActualizados: Array<{
-      codigo_proveedor: string;
-      descripcion: string;
-      proveedor_nombre: string;
-      precio_anterior: number;
-      precio_nuevo: number;
-      variacion_pct: number;
-      anomalo: boolean;
-    }> = [];
-    let codigosNuevosPendientes = 0;
+    const userId = req.user?.id ?? null;
     const errores: string[] = [];
+    const avisos: AvisoLote[] = [];
+
+    // ── 1. Parsear todos los archivos ──────────────────────────────────────────
+    type FacturaEnLote = FacturaParseada & { archivo: string };
+    const facturas: FacturaEnLote[] = [];
 
     for (const file of files) {
       try {
-        const facturas = procesarBufferFactura(file.buffer, file.originalname);
-        if (facturas.length === 0) {
-          errores.push(`${file.originalname}: No se encontró un XML de factura válido`);
+        const parseadas = procesarBufferFactura(file.buffer, file.originalname);
+        if (parseadas.length === 0) {
+          errores.push(`${file.originalname}: no contiene un XML de factura electrónica válido`);
+          continue;
+        }
+        for (const f of parseadas) facturas.push({ ...f, archivo: file.originalname });
+      } catch (fileErr: any) {
+        errores.push(`${file.originalname}: no se pudo leer (${fileErr.message})`);
+      }
+    }
+
+    // ── 2. Deduplicar por CUFE: dentro del lote y contra lo ya procesado ──────
+    let facturasDuplicadasCufe = 0;
+    const vistosEnLote = new Set<string>();
+    const candidatas: FacturaEnLote[] = [];
+
+    for (const f of facturas) {
+      if (f.cufe) {
+        if (vistosEnLote.has(f.cufe)) { facturasDuplicadasCufe++; continue; }
+        vistosEnLote.add(f.cufe);
+      }
+      candidatas.push(f);
+    }
+
+    const cufes = candidatas.map(f => f.cufe).filter((c): c is string => !!c);
+    const yaProcesadas = cufes.length
+      ? await FacturaProveedorProcesada.findAll({ where: { cufe: { [Op.in]: cufes } }, attributes: ['cufe'] })
+      : [];
+    const cufesRegistrados = new Set(yaProcesadas.map((f: any) => f.getDataValue('cufe')));
+
+    const pendientesDeProcesar = candidatas.filter(f => {
+      if (f.cufe && cufesRegistrados.has(f.cufe)) { facturasDuplicadasCufe++; return false; }
+      return true;
+    });
+
+    // ── 3. Ordenar cronológicamente ───────────────────────────────────────────
+    pendientesDeProcesar.sort((a, b) => (a.fecha_emision || '').localeCompare(b.fecha_emision || ''));
+
+    // ── 4. Resolver proveedores en bloque ─────────────────────────────────────
+    const maestro = await Proveedor.findAll({
+      attributes: ['id', 'nit', 'numero_identificacion', 'nombre_comercial', 'razon_social', 'seguir_precios'],
+    });
+
+    const porNit = new Map<string, any>();
+    const porNombre = new Map<string, any>();
+    for (const p of maestro) {
+      const nit = normalizarNit(p.getDataValue('nit')) ?? normalizarNit(p.getDataValue('numero_identificacion'));
+      if (nit && !porNit.has(nit)) porNit.set(nit, p);
+      for (const campo of ['nombre_comercial', 'razon_social']) {
+        const clave = normalizarNombre(p.getDataValue(campo));
+        if (clave && !porNombre.has(clave)) porNombre.set(clave, p);
+      }
+    }
+
+    /** Match exacto sobre NIT normalizado; el LIKE anterior emparejaba 900123 con 1900123456 */
+    const resolverProveedor = async (fac: FacturaEnLote) => {
+      const nit = normalizarNit(fac.emisor_nit);
+      if (nit && porNit.has(nit)) return porNit.get(nit);
+
+      const clave = normalizarNombre(fac.emisor_nombre);
+      if (clave && porNombre.has(clave)) return porNombre.get(clave);
+
+      const nuevo = await Proveedor.create({
+        nit: nit,
+        numero_identificacion: nit,
+        nombre_comercial: fac.emisor_nombre || `Proveedor ${nit || 'S/N'}`,
+        razon_social: fac.emisor_nombre || null,
+        activo: true,
+        seguir_precios: true,
+        origen_registro: 'INGESTA_FE',
+      });
+      if (nit) porNit.set(nit, nuevo);
+      if (clave) porNombre.set(clave, nuevo);
+      avisos.push({
+        tipo: 'PROVEEDOR_NUEVO',
+        proveedor_nombre: nuevo.getDataValue('nombre_comercial'),
+        detalle: `Registrado automáticamente desde la factura ${fac.numero}. Revísalo en la pestaña Proveedores.`,
+      });
+      return nuevo;
+    };
+
+    // ── 5. Procesar ───────────────────────────────────────────────────────────
+    let facturasProcesadas = 0;
+    let preciosSinCambio = 0;
+    let codigosNuevosPendientes = 0;
+    let notasCredito = 0;
+    let lineasOmitidasProveedor = 0;
+    const preciosActualizados: PrecioActualizadoItem[] = [];
+
+    for (const fac of pendientesDeProcesar) {
+      const t = await sequelize.transaction();
+      try {
+        const proveedor = await resolverProveedor(fac);
+        const proveedorId = proveedor.getDataValue('id');
+        const proveedorNombre = proveedor.getDataValue('nombre_comercial');
+        const docRef = `${fac.tipo_documento === 'FACTURA' ? 'FE' : 'NC'}-${fac.numero}`.slice(0, 100);
+
+        const registrarDocumento = async (motivo: string | null, totales: { act: number; pend: number; omit: number }) => {
+          if (!fac.cufe) return;
+          await FacturaProveedorProcesada.create(
+            {
+              cufe: fac.cufe,
+              proveedor_id: proveedorId,
+              numero_factura: String(fac.numero).slice(0, 60),
+              fecha_emision: fac.fecha_emision,
+              tipo_documento: fac.tipo_documento,
+              moneda: fac.moneda,
+              lineas_totales: fac.lineas.length,
+              lineas_actualizadas: totales.act,
+              lineas_pendientes: totales.pend,
+              lineas_omitidas: totales.omit,
+              motivo_omision: motivo,
+              archivo_origen: fac.archivo.slice(0, 255),
+              procesado_por: userId,
+            },
+            { transaction: t }
+          );
+        };
+
+        // Notas crédito/débito: corrigen una factura previa. Registrar su valor como
+        // precio de compra distorsiona el histórico, así que se deja constancia y no
+        // se mueven precios.
+        if (fac.tipo_documento !== 'FACTURA') {
+          notasCredito++;
+          avisos.push({
+            tipo: 'NOTA_CREDITO',
+            proveedor_nombre: proveedorNombre,
+            detalle: `${fac.tipo_documento === 'NOTA_CREDITO' ? 'Nota crédito' : 'Nota débito'} ${fac.numero}: registrada, sin afectar precios.`,
+          });
+          await registrarDocumento(fac.tipo_documento, { act: 0, pend: 0, omit: fac.lineas.length });
+          await t.commit();
+          facturasProcesadas++;
           continue;
         }
 
-        for (const fac of facturas) {
-          // Validar CUFE para idempotencia
-          if (fac.cufe) {
-            if (cufesVistosLote.has(fac.cufe)) {
-              facturasDuplicadasCufe++;
-              continue;
+        // Moneda distinta a COP: el precio no es comparable con el resto del maestro.
+        if (fac.moneda && fac.moneda !== 'COP') {
+          avisos.push({
+            tipo: 'MONEDA',
+            proveedor_nombre: proveedorNombre,
+            detalle: `Factura ${fac.numero} emitida en ${fac.moneda}: no se registran precios para no mezclar monedas.`,
+          });
+          await registrarDocumento('MONEDA_EXTRANJERA', { act: 0, pend: 0, omit: fac.lineas.length });
+          await t.commit();
+          facturasProcesadas++;
+          continue;
+        }
+
+        // Proveedor excluido del seguimiento de precios
+        if (proveedor.getDataValue('seguir_precios') === false) {
+          lineasOmitidasProveedor += fac.lineas.length;
+          await registrarDocumento('PROVEEDOR_NO_SEGUIDO', { act: 0, pend: 0, omit: fac.lineas.length });
+          await t.commit();
+          facturasProcesadas++;
+          continue;
+        }
+
+        // Agrupar líneas del mismo producto — manda el precio mayor (compras.md §8),
+        // comparando solo entre líneas de la misma unidad.
+        const agrupadas = new Map<string, LineaAgrupada>();
+        for (const linea of fac.lineas) {
+          const cod = linea.codigo_proveedor.trim() || 'SIN_CODIGO';
+          const clave = `${cod}|${linea.unidad}`;
+          const existente = agrupadas.get(clave);
+          if (!existente) {
+            agrupadas.set(clave, {
+              descripcion: linea.descripcion,
+              maxPrecio: linea.precio_unitario,
+              unidad: linea.unidad,
+              unidadConfiable: linea.unidad_confiable,
+              porcentajeIva: linea.porcentaje_iva,
+              codigoDerivado: linea.codigo_derivado,
+              ocurrencias: 1,
+            });
+          } else {
+            existente.ocurrencias++;
+            if (linea.precio_unitario > existente.maxPrecio) {
+              existente.maxPrecio = linea.precio_unitario;
+              existente.descripcion = linea.descripcion;
+              existente.porcentajeIva = linea.porcentaje_iva;
             }
-            cufesVistosLote.add(fac.cufe);
+          }
+        }
 
-            // Verificar si el CUFE ya fue registrado antes en histórico
-            const yaRegistrado = await ProveedorProductoPrecio.findOne({
-              where: {
-                documento_ref: { [Op.like]: `%${fac.cufe}%` },
-              },
-            });
-            if (yaRegistrado) {
-              facturasDuplicadasCufe++;
-              continue;
+        // Equivalencias y bandeja de este proveedor, en dos consultas
+        const codigos = Array.from(agrupadas.keys()).map(k => k.split('|')[0]);
+        const [equivalencias, bandeja] = await Promise.all([
+          ProveedorProducto.findAll({
+            where: { proveedor_id: proveedorId, codigo_proveedor: { [Op.in]: codigos }, activo: true },
+            transaction: t,
+          }),
+          ProveedorCodigoPendiente.findAll({
+            where: { proveedor_id: proveedorId, codigo_proveedor: { [Op.in]: codigos } },
+            transaction: t,
+          }),
+        ]);
+
+        const equivPorCodigo = new Map<string, any[]>();
+        for (const eq of equivalencias) {
+          const cod = eq.getDataValue('codigo_proveedor');
+          if (!equivPorCodigo.has(cod)) equivPorCodigo.set(cod, []);
+          equivPorCodigo.get(cod)!.push(eq);
+        }
+        const bandejaPorCodigo = new Map<string, any>();
+        for (const b of bandeja) bandejaPorCodigo.set(b.getDataValue('codigo_proveedor'), b);
+
+        let actualizadas = 0;
+        let nuevasPendientes = 0;
+        let omitidas = 0;
+
+        for (const [clave, info] of agrupadas.entries()) {
+          const codigoProv = clave.split('|')[0];
+          const candidatas = equivPorCodigo.get(codigoProv) ?? [];
+
+          // Elegir contra qué modalidad se compara el precio.
+          //  · Unidad informativa en el XML (MTR, KGM, MTK): solo se actualiza la
+          //    equivalencia de esa misma modalidad.
+          //  · Unidad genérica ("94", "EA"): el XML no afirma nada, así que se confía
+          //    en la equivalencia registrada — pero solo si hay una sola. Con dos
+          //    modalidades activas no hay forma de saber a cuál corresponde, y
+          //    escribir el mismo precio en ambas era exactamente el defecto a evitar.
+          let objetivo: any[] = [];
+          if (candidatas.length > 0) {
+            if (info.unidadConfiable) {
+              objetivo = candidatas.filter(eq => eq.getDataValue('unidad_compra') === info.unidad);
+            } else if (candidatas.length === 1) {
+              objetivo = candidatas;
             }
           }
 
-          // Identificar o crear proveedor por NIT o nombre
-          let proveedor: any = null;
-          if (fac.emisor_nit) {
-            proveedor = await Proveedor.findOne({
-              where: {
-                [Op.or]: [
-                  { nit: { [Op.like]: `%${fac.emisor_nit}%` } },
-                  { numero_identificacion: { [Op.like]: `%${fac.emisor_nit}%` } },
-                ],
-              },
+          if (candidatas.length > 0 && objetivo.length === 0) {
+            // Hay equivalencia para el código pero no se puede decidir la modalidad:
+            // no se pisa ningún precio y queda constancia para revisión.
+            omitidas++;
+            avisos.push({
+              tipo: 'UNIDAD_DISTINTA',
+              proveedor_nombre: proveedorNombre,
+              detalle: info.unidadConfiable
+                ? `${codigoProv} (${info.descripcion}) llegó facturado por ${info.unidad}, pero no hay equivalencia en esa modalidad. Precio no aplicado.`
+                : `${codigoProv} (${info.descripcion}) tiene varias modalidades registradas y la factura no precisa la unidad. Precio no aplicado.`,
             });
+            continue;
           }
 
-          if (!proveedor && fac.emisor_nombre) {
-            proveedor = await Proveedor.findOne({
-              where: {
-                [Op.or]: [
-                  { nombre_comercial: { [Op.iLike]: `%${fac.emisor_nombre}%` } },
-                  { razon_social: { [Op.iLike]: `%${fac.emisor_nombre}%` } },
-                ],
-              },
-            });
-          }
+          if (objetivo.length > 0) {
+            for (const pp of objetivo) {
+              const anteriorRaw = pp.getDataValue('precio_actual');
+              const precioAnt = anteriorRaw === null || anteriorRaw === undefined ? 0 : parseFloat(anteriorRaw);
 
-          // Si el proveedor no existe, registrarlo como borrador activo
-          if (!proveedor) {
-            proveedor = await Proveedor.create({
-              nit: fac.emisor_nit,
-              nombre_comercial: fac.emisor_nombre || `Proveedor ${fac.emisor_nit || 'S/N'}`,
-              razon_social: fac.emisor_nombre || null,
-              activo: true,
-            });
-          }
-
-          const proveedorId = proveedor.id;
-          const docRef = `FE-${fac.numero}${fac.cufe ? ` · CUFE:${fac.cufe.slice(0, 12)}...` : ''}`;
-
-          // Regla compras.md §8: Si hay varias líneas del mismo producto en la misma FE, manda el precio MAYOR
-          const lineasPorCodigo = new Map<string, { desc: string; maxPrecio: number; unidad: string }>();
-          for (const linea of fac.lineas) {
-            const cod = linea.codigo_proveedor?.trim() || 'SIN_CODIGO';
-            const precio = linea.precio_unitario;
-            const existente = lineasPorCodigo.get(cod);
-            if (!existente || precio > existente.maxPrecio) {
-              lineasPorCodigo.set(cod, {
-                desc: linea.descripcion,
-                maxPrecio: precio,
-                unidad: linea.unidad || 'UNIDAD',
+              const resAct = await actualizarPrecio(pp, info.maxPrecio, fac.fecha_emision, {
+                origen: 'FACTURA',
+                registradoPor: userId,
+                documentoRef: docRef,
+                cufe: fac.cufe,
+                porcentajeIva: info.porcentajeIva,
+                lineasEnFactura: info.ocurrencias,
+                transaction: t,
               });
-            }
-          }
 
-          for (const [codigoProv, info] of lineasPorCodigo.entries()) {
-            // 1. Buscar si ya existe equivalencia en proveedor_producto
-            const ppList = await ProveedorProducto.findAll({
-              where: {
-                proveedor_id: proveedorId,
-                codigo_proveedor: codigoProv,
-                activo: true,
-              },
-            });
-
-            if (ppList.length > 0) {
-              // Ya mapeado -> actualizar precio
-              for (const pp of ppList) {
-                const precioAnt = parseFloat(pp.getDataValue('precio_actual')) || 0;
-                const resAct = await actualizarPrecio(
-                  pp,
-                  info.maxPrecio,
-                  fac.fecha_emision,
-                  'FACTURA',
-                  userId,
-                  docRef
-                );
-
-                if (resAct.cambio) {
-                  preciosActualizados.push({
-                    codigo_proveedor: codigoProv,
-                    descripcion: info.desc,
-                    proveedor_nombre: proveedor.nombre_comercial,
-                    precio_anterior: precioAnt,
-                    precio_nuevo: info.maxPrecio,
-                    variacion_pct: resAct.variacionPct ?? 0,
-                    anomalo: resAct.anomalo,
-                  });
-                } else {
-                  preciosSinCambio++;
-                }
-              }
-            } else {
-              // 2. No mapeado -> registrar en bandeja de códigos pendientes
-              const pendienteExistente = await ProveedorCodigoPendiente.findOne({
-                where: {
-                  proveedor_id: proveedorId,
+              if (resAct.cambio || resAct.retroactivo) {
+                actualizadas++;
+                preciosActualizados.push({
                   codigo_proveedor: codigoProv,
-                },
-              });
-
-              if (pendienteExistente) {
-                if (pendienteExistente.getDataValue('estado') === 'PENDIENTE') {
-                  const veces = (pendienteExistente.getDataValue('veces_visto') || 1) + 1;
-                  await pendienteExistente.update({
-                    veces_visto: veces,
-                    precio_detectado: info.maxPrecio,
-                    documento_ref: docRef,
-                    fecha_deteccion: fac.fecha_emision || pendienteExistente.getDataValue('fecha_deteccion'),
-                  });
-                }
+                  descripcion: info.descripcion,
+                  proveedor_nombre: proveedorNombre,
+                  precio_anterior: precioAnt,
+                  precio_nuevo: info.maxPrecio,
+                  variacion_pct: resAct.variacionPct ?? 0,
+                  anomalo: resAct.anomalo,
+                  retroactivo: resAct.retroactivo,
+                });
               } else {
-                await ProveedorCodigoPendiente.create({
-                  proveedor_id: proveedorId,
-                  codigo_proveedor: codigoProv,
-                  descripcion_proveedor: info.desc,
+                preciosSinCambio++;
+              }
+
+              // El IVA del XML es el dato real; si difiere del catálogo, avisar en
+              // vez de sobrescribir en silencio una configuración hecha a mano.
+              const producto = await CatalogoProducto.findByPk(pp.getDataValue('catalogo_producto_id'), {
+                attributes: ['id', 'codigo', 'porcentaje_iva'],
+                transaction: t,
+              });
+              const ivaCatalogo = producto ? Number(producto.getDataValue('porcentaje_iva')) : null;
+              if (ivaCatalogo !== null && Number.isFinite(info.porcentajeIva) && Math.abs(ivaCatalogo - info.porcentajeIva) > 0.01) {
+                avisos.push({
+                  tipo: 'IVA_DISTINTO',
+                  proveedor_nombre: proveedorNombre,
+                  detalle: `${producto!.getDataValue('codigo')}: la factura trae IVA ${info.porcentajeIva}% y el catálogo tiene ${ivaCatalogo}%.`,
+                });
+              }
+            }
+            continue;
+          }
+
+          // Código sin equivalencia → bandeja
+          const pendienteExistente = bandejaPorCodigo.get(codigoProv);
+
+          if (pendienteExistente) {
+            const estado = pendienteExistente.getDataValue('estado');
+
+            // Un código MAPEADO sin equivalencia activa quedaba en tierra de nadie:
+            // ni actualizaba precio ni volvía a aparecer en la bandeja. Se devuelve.
+            const debeReactivarse = estado === 'MAPEADO';
+
+            if (estado === 'PENDIENTE' || debeReactivarse) {
+              await pendienteExistente.update(
+                {
+                  estado: 'PENDIENTE',
+                  veces_visto: (pendienteExistente.getDataValue('veces_visto') || 1) + 1,
                   precio_detectado: info.maxPrecio,
                   documento_ref: docRef,
-                  veces_visto: 1,
-                  estado: 'PENDIENTE',
-                  fecha_deteccion: fac.fecha_emision || new Date(),
-                });
-                codigosNuevosPendientes++;
-              }
+                  fecha_deteccion: fac.fecha_emision,
+                  unidad_detectada: info.unidadConfiable ? info.unidad : pendienteExistente.getDataValue('unidad_detectada'),
+                  porcentaje_iva_detectado: info.porcentajeIva,
+                  codigo_derivado: info.codigoDerivado,
+                },
+                { transaction: t }
+              );
+              if (debeReactivarse) nuevasPendientes++;
+            } else {
+              // DESCARTADO: fue una decisión humana, se respeta
+              omitidas++;
             }
+          } else {
+            await ProveedorCodigoPendiente.create(
+              {
+                proveedor_id: proveedorId,
+                codigo_proveedor: codigoProv,
+                descripcion_proveedor: info.descripcion,
+                precio_detectado: info.maxPrecio,
+                documento_ref: docRef,
+                veces_visto: 1,
+                estado: 'PENDIENTE',
+                fecha_deteccion: fac.fecha_emision,
+                unidad_detectada: info.unidadConfiable ? info.unidad : null,
+                porcentaje_iva_detectado: info.porcentajeIva,
+                codigo_derivado: info.codigoDerivado,
+              },
+              { transaction: t }
+            );
+            bandejaPorCodigo.set(codigoProv, true);
+            nuevasPendientes++;
+            codigosNuevosPendientes++;
           }
-
-          facturasProcesadas++;
         }
-      } catch (fileErr: any) {
-        errores.push(`${file.originalname}: ${fileErr.message}`);
+
+        await registrarDocumento(null, { act: actualizadas, pend: nuevasPendientes, omit: omitidas });
+        await t.commit();
+        facturasProcesadas++;
+      } catch (facErr: any) {
+        await t.rollback();
+        errores.push(`${fac.archivo} (factura ${fac.numero}): ${facErr.message}`);
       }
     }
 
@@ -939,13 +1644,16 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
       total_archivos: files.length,
       facturas_procesadas: facturasProcesadas,
       facturas_duplicadas_cufe: facturasDuplicadasCufe,
+      notas_credito: notasCredito,
       precios_sin_cambio: preciosSinCambio,
       precios_actualizados: preciosActualizados,
       codigos_nuevos_pendientes: codigosNuevosPendientes,
+      lineas_omitidas_proveedor: lineasOmitidasProveedor,
+      avisos: avisos.slice(0, 40),
       errores,
     });
   } catch (err: any) {
-    res.status(500).json({ error: 'Error general al cargar facturas', detalle: err.message });
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo procesar el lote de facturas');
+    fallar(res, status, mensaje, err);
   }
 };
-

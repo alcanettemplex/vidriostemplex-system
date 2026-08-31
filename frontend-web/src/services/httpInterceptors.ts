@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import API from './config';
 
 /**
  * Interceptor global de respuestas HTTP.
@@ -13,9 +14,34 @@ import { toast } from 'react-toastify';
  */
 let instalado = false;
 
+/** Token de sesión, con el mismo orden de precedencia que usa toda la aplicación */
+export const obtenerToken = (): string | null =>
+  sessionStorage.getItem('token') || localStorage.getItem('token');
+
 export const instalarInterceptores = () => {
   if (instalado) return;
   instalado = true;
+
+  /**
+   * Adjunta el token a las peticiones dirigidas a nuestra API.
+   *
+   * Se limita a las URLs del backend propio para no filtrar credenciales a
+   * terceros, y respeta una cabecera Authorization ya presente: las pantallas que
+   * la envían a mano siguen funcionando igual mientras se van migrando.
+   */
+  axios.interceptors.request.use((config) => {
+    const url = config.url ?? '';
+    const esApiPropia = url.startsWith(API) || url.startsWith('/api');
+    const yaTieneAuth = !!(config.headers as any)?.Authorization;
+
+    if (esApiPropia && !yaTieneAuth) {
+      const token = obtenerToken();
+      if (token) {
+        (config.headers as any).Authorization = `Bearer ${token}`;
+      }
+    }
+    return config;
+  });
 
   axios.interceptors.response.use(
     (response) => response,

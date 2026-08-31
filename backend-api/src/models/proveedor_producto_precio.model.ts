@@ -35,12 +35,27 @@ ProveedorProductoPrecio.init({
     defaultValue: 'MANUAL',
     // Valores: MANUAL | LISTA | FACTURA
   },
-  documento_ref: { type: DataTypes.STRING(100), allowNull: true }, // CUFE o referencia
+  documento_ref: { type: DataTypes.STRING(100), allowNull: true }, // Número de factura legible
+  // CUFE completo del documento que originó el precio. La idempotencia vive en
+  // factura_proveedor_procesada; esto es trazabilidad directa desde el precio.
+  cufe: { type: DataTypes.STRING(120), allowNull: true },
   registrado_por: {
     type: DataTypes.INTEGER,
     allowNull: true,
     references: { model: 'usuarios', key: 'id' },
   },
+
+  // IVA que traía la línea del XML — en Colombia hay excluidos, exentos y tarifas
+  // especiales, así que el porcentaje es un dato del documento, no una constante.
+  porcentaje_iva: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+
+  // Cuántas líneas del mismo producto traía la factura. Con más de una manda el
+  // precio mayor (compras.md §8) y conviene poder auditar de dónde salió el número.
+  lineas_en_factura: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 1 },
+
+  // true cuando la factura es anterior al precio vigente: se archiva en el histórico
+  // sin desplazar el precio actual, para que un backfill no retroceda los precios.
+  retroactivo: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
 
   // Alerta de variación anómala respecto al precio anterior
   precio_anomalo: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false },

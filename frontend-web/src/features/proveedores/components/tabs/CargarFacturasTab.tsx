@@ -1,16 +1,18 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   UploadCloud, FileArchive, FileCode, CheckCircle2, AlertTriangle,
-  XCircle, ArrowRight, Loader2, RefreshCw, Sparkles, TrendingUp,
-  TrendingDown, Minus, Info, Trash2
+  XCircle, ArrowRight, Loader2, Sparkles, TrendingUp,
+  TrendingDown, Minus, Info, Trash2, History,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
 
 interface Props {
   onIrAPorMapear?: () => void;
+  /** Se dispara al terminar un lote para refrescar el contador de la bandeja */
+  onLoteProcesado?: () => void;
 }
 
 interface ArchivoEnCola {
@@ -31,17 +33,35 @@ interface PrecioActualizadoItem {
   precio_nuevo: number;
   variacion_pct: number;
   anomalo: boolean;
+  retroactivo: boolean;
+}
+
+interface AvisoLote {
+  tipo: 'UNIDAD_DISTINTA' | 'IVA_DISTINTO' | 'MONEDA' | 'NOTA_CREDITO' | 'PROVEEDOR_NUEVO';
+  proveedor_nombre: string;
+  detalle: string;
 }
 
 interface ResumenLote {
   total_archivos: number;
   facturas_procesadas: number;
   facturas_duplicadas_cufe: number;
+  notas_credito: number;
   precios_sin_cambio: number;
   precios_actualizados: PrecioActualizadoItem[];
   codigos_nuevos_pendientes: number;
+  lineas_omitidas_proveedor: number;
+  avisos: AvisoLote[];
   errores: string[];
 }
+
+const ETIQUETA_AVISO: Record<AvisoLote['tipo'], { texto: string; color: string; fondo: string }> = {
+  UNIDAD_DISTINTA: { texto: 'Unidad no coincide', color: '#b45309', fondo: 'rgba(245, 158, 11, 0.1)' },
+  IVA_DISTINTO: { texto: 'IVA distinto al catálogo', color: '#4338ca', fondo: 'rgba(99, 102, 241, 0.1)' },
+  MONEDA: { texto: 'Moneda extranjera', color: '#b45309', fondo: 'rgba(245, 158, 11, 0.1)' },
+  NOTA_CREDITO: { texto: 'Nota crédito/débito', color: '#64748b', fondo: 'rgba(100, 116, 139, 0.1)' },
+  PROVEEDOR_NUEVO: { texto: 'Proveedor nuevo', color: '#047857', fondo: 'rgba(5, 150, 105, 0.1)' },
+};
 
 const formatBytes = (bytes: number): string => {
   if (bytes === 0) return '0 B';
@@ -56,7 +76,7 @@ const formatCOP = (val: number | null | undefined): string => {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
 };
 
-const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear }) => {
+const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado }) => {
   const [cola, setCola] = useState<ArchivoEnCola[]>([]);
   const [procesando, setProcesando] = useState(false);
   const [progreso, setProgreso] = useState(0);
@@ -123,7 +143,6 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear }) => {
 
     setProcesando(true);
     setProgreso(10);
-    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
 
     const formData = new FormData();
     archivosValidos.forEach((item) => {
@@ -136,10 +155,6 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear }) => {
         `${API}/api/proveedores/facturas/cargar`,
         formData,
         {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token}`,
-          },
           onUploadProgress: (progressEvent) => {
             if (progressEvent.total) {
               const percent = Math.round((progressEvent.loaded * 80) / progressEvent.total);
@@ -158,8 +173,9 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear }) => {
       );
 
       toast.success(`Lote procesado: ${data.facturas_procesadas} facturas analizadas`);
+      if (onLoteProcesado) onLoteProcesado();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Error al procesar el lote de facturas');
+      toast.error(err.response?.data?.error || 'No se pudo procesar el lote de facturas');
       // Marcar error en cola si hubo fallo global
       setCola((prev) =>
         prev.map((item) =>
@@ -189,7 +205,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear }) => {
         <Info size={20} style={{ color: '#6366f1', flexShrink: 0, marginTop: 2 }} />
         <div style={{ fontSize: 13, color: 'var(--text, #1e293b)', lineHeight: 1.5 }}>
           <strong style={{ color: '#4338ca' }}>Ingesta Directa de Facturación Electrónica (.zip / XML):</strong>{' '}
-          Sube los archivos <strong>.zip</strong> de tus facturas electrónicas (~20 diarias). El sistema descomprime en memoria y extrae el <strong>XML DIAN (UBL 2.1)</strong> exacto, ignorando el PDF. Identifica automáticamente al proveedor por su <strong>NIT</strong> y controla duplicados por <strong>CUFE</strong>.
+          Sube los archivos <strong>.zip</strong> de tus facturas electrónicas (~20 diarias). El sistema descomprime en memoria y extrae el <strong>XML DIAN (UBL 2.1)</strong> exacto, ignorando el PDF. Identifica al proveedor por su <strong>NIT</strong>, rechaza duplicados por <strong>CUFE</strong> y aplica los precios en <strong>orden de fecha de factura</strong>, no de carga.
         </div>
       </div>
 
@@ -255,7 +271,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear }) => {
             📄 XML DIAN Sueltos
           </span>
           <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 8px', borderRadius: 6, background: 'rgba(245, 158, 11, 0.12)', color: '#b45309' }}>
-            ⚡ Hasta 100 archivos por lote (100 MB)
+            ⚡ Hasta 100 archivos por lote · 8 MB cada uno
           </span>
         </div>
       </div>
@@ -509,7 +525,66 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear }) => {
                 {resumen.codigos_nuevos_pendientes}
               </div>
             </div>
+
+            {resumen.notas_credito > 0 && (
+              <div style={{ background: 'var(--surface-subtle, #f8fafc)', padding: 14, borderRadius: 12, border: '1px solid var(--border, #e2e8f0)' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted, #64748b)' }}>Notas crédito / débito</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#64748b', marginTop: 4 }}>
+                  {resumen.notas_credito}
+                </div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-muted, #94a3b8)', marginTop: 2 }}>
+                  Registradas sin mover precios
+                </div>
+              </div>
+            )}
+
+            {resumen.lineas_omitidas_proveedor > 0 && (
+              <div style={{ background: 'var(--surface-subtle, #f8fafc)', padding: 14, borderRadius: 12, border: '1px solid var(--border, #e2e8f0)' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted, #64748b)' }}>Líneas de proveedores no seguidos</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#64748b', marginTop: 4 }}>
+                  {resumen.lineas_omitidas_proveedor}
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Avisos que requieren criterio humano */}
+          {resumen.avisos?.length > 0 && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text, #0f172a)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <AlertTriangle size={14} style={{ color: '#d97706' }} />
+                Requieren tu revisión ({resumen.avisos.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+                {resumen.avisos.map((a, idx) => {
+                  const estilo = ETIQUETA_AVISO[a.tipo] ?? ETIQUETA_AVISO.NOTA_CREDITO;
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex', alignItems: 'flex-start', gap: 10,
+                        padding: '8px 12px', borderRadius: 9,
+                        background: 'var(--surface-subtle, #f8fafc)',
+                        border: '1px solid var(--border, #f1f5f9)',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
+                          color: estilo.color, background: estilo.fondo, whiteSpace: 'nowrap', flexShrink: 0,
+                        }}
+                      >
+                        {estilo.texto}
+                      </span>
+                      <div style={{ fontSize: 12.5, color: 'var(--text, #334155)', lineHeight: 1.4 }}>
+                        <strong style={{ fontWeight: 600 }}>{a.proveedor_nombre}:</strong> {a.detalle}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Banner de llamada a acción si hay códigos por mapear */}
           {resumen.codigos_nuevos_pendientes > 0 && (
@@ -615,12 +690,41 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear }) => {
                               {p.variacion_pct > 0 ? '+' : ''}{p.variacion_pct.toFixed(1)}%
                               {p.anomalo && <AlertTriangle size={11} style={{ marginLeft: 2 }} />}
                             </span>
+                            {p.retroactivo && (
+                              <div
+                                title="La factura es anterior al precio vigente: se archivó en el histórico sin reemplazarlo"
+                                style={{ fontSize: 10.5, color: '#64748b', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}
+                              >
+                                <History size={10} /> archivado
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* Archivos que no se pudieron procesar */}
+          {resumen.errores?.length > 0 && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#b91c1c', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <XCircle size={14} />
+                No se pudieron procesar ({resumen.errores.length})
+              </div>
+              <div
+                style={{
+                  background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)',
+                  borderRadius: 10, padding: '10px 14px', maxHeight: 160, overflowY: 'auto',
+                  display: 'flex', flexDirection: 'column', gap: 4,
+                }}
+              >
+                {resumen.errores.map((e, idx) => (
+                  <div key={idx} style={{ fontSize: 12, color: '#991b1b', lineHeight: 1.4 }}>{e}</div>
+                ))}
               </div>
             </div>
           )}

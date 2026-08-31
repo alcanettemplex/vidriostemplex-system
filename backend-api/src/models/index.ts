@@ -43,6 +43,7 @@ import ProveedorProducto from './proveedor_producto.model';
 import ProveedorProductoPrecio from './proveedor_producto_precio.model';
 import ProveedorCodigoPendiente from './proveedor_codigo_pendiente.model';
 import ProductoAlias from './producto_alias.model';
+import FacturaProveedorProcesada from './factura_proveedor_procesada.model';
 
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
@@ -304,6 +305,12 @@ ProductoAlias.belongsTo(CatalogoProducto, { foreignKey: 'catalogo_producto_id', 
 Proveedor.hasMany(ProductoAlias, { foreignKey: 'proveedor_id', as: 'aliases_generados' });
 ProductoAlias.belongsTo(Proveedor, { foreignKey: 'proveedor_id', as: 'proveedor' });
 
+Proveedor.hasMany(FacturaProveedorProcesada, { foreignKey: 'proveedor_id', as: 'facturas_procesadas' });
+FacturaProveedorProcesada.belongsTo(Proveedor, { foreignKey: 'proveedor_id', as: 'proveedor' });
+
+Usuario.hasMany(FacturaProveedorProcesada, { foreignKey: 'procesado_por', as: 'facturas_cargadas' });
+FacturaProveedorProcesada.belongsTo(Usuario, { foreignKey: 'procesado_por', as: 'cargador' });
+
 // ─── Hooks globales de auditoría ────────────────────────────────────────────
 // Captura INSERT/UPDATE/DELETE en todos los modelos registrados y graba en auditoria_log
 import { getContext } from '../utils/requestContext';
@@ -349,6 +356,7 @@ const MODELOS_AUDITADOS = [
   { model: ProveedorProductoPrecio, tabla: 'proveedor_producto_precio', pk: 'id' },
   { model: ProveedorCodigoPendiente, tabla: 'proveedor_codigo_pendiente', pk: 'id' },
   { model: ProductoAlias, tabla: 'producto_alias', pk: 'id' },
+  { model: FacturaProveedorProcesada, tabla: 'factura_proveedor_procesada', pk: 'id' },
 ];
 
 function registrarAuditoria(
@@ -455,5 +463,6 @@ export {
   ProveedorProductoPrecio,
   ProveedorCodigoPendiente,
   ProductoAlias,
+  FacturaProveedorProcesada,
 };
 

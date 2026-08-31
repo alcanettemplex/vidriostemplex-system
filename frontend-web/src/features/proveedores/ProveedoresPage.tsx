@@ -12,28 +12,48 @@ import API from '../../services/config';
 const FOLDER_BODY =
   'bg-white dark:bg-[var(--surface)] border border-t-0 border-[var(--border)] rounded-b-2xl rounded-tr-2xl p-6 min-h-[450px]';
 
+/** Proveedor en su forma reducida: es lo único que necesitan los selectores */
+export interface ProveedorCompacto {
+  id: number;
+  nombre_comercial: string;
+  seguir_precios?: boolean;
+}
+
 const ProveedoresPage: React.FC = () => {
   const [tab, setTab] = useState('consultar');
   const [pendientesCount, setPendientesCount] = useState<number>(0);
+  const [proveedores, setProveedores] = useState<ProveedorCompacto[]>([]);
 
+  /** Solo el número: antes se descargaba la bandeja completa para hacer un .length */
   const fetchPendientesCount = useCallback(async () => {
     try {
-      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
-      const { data } = await axios.get(`${API}/api/proveedores/codigos-pendientes`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (Array.isArray(data)) {
-        setPendientesCount(data.length);
-      }
+      const { data } = await axios.get<{ count: number }>(`${API}/api/proveedores/codigos-pendientes/count`);
+      setPendientesCount(data?.count ?? 0);
     } catch {
-      // Si la API aún no devuelve datos o no está activa
       setPendientesCount(0);
+    }
+  }, []);
+
+  /**
+   * El maestro compacto se carga una sola vez y se comparte con las pestañas.
+   * Antes "Por Mapear" y "Equivalencias" pedían cada una los 1.011 proveedores
+   * completos al montarse, y cambiar de pestaña lo repetía.
+   */
+  const fetchProveedores = useCallback(async () => {
+    try {
+      const { data } = await axios.get<ProveedorCompacto[]>(`${API}/api/proveedores`, {
+        params: { compacto: true },
+      });
+      if (Array.isArray(data)) setProveedores(data);
+    } catch {
+      setProveedores([]);
     }
   }, []);
 
   useEffect(() => {
     fetchPendientesCount();
-  }, [fetchPendientesCount]);
+    fetchProveedores();
+  }, [fetchPendientesCount, fetchProveedores]);
 
   const tabs: FolderTabItem[] = [
     {
@@ -84,14 +104,27 @@ const ProveedoresPage: React.FC = () => {
         <div className={FOLDER_BODY}>
           {tab === 'consultar' && <ConsultarPreciosTab />}
           {tab === 'cargar' && (
-            <CargarFacturasTab onIrAPorMapear={() => setTab('mapear')} />
+            <CargarFacturasTab
+              onIrAPorMapear={() => setTab('mapear')}
+              onLoteProcesado={() => {
+                fetchPendientesCount();
+                fetchProveedores();
+              }}
+            />
           )}
           {tab === 'mapear' && (
-            <PorMapearTab onActualizarContador={fetchPendientesCount} />
+            <PorMapearTab
+              proveedores={proveedores}
+              onActualizarContador={fetchPendientesCount}
+              onProveedoresCambiados={fetchProveedores}
+            />
           )}
-          {tab === 'maestro' && <ProveedoresTab />}
+          {tab === 'maestro' && <ProveedoresTab onCambio={fetchProveedores} />}
           {tab === 'equivalencias' && (
-            <EquivalenciasTab onActualizarContador={fetchPendientesCount} />
+            <EquivalenciasTab
+              proveedores={proveedores}
+              onActualizarContador={fetchPendientesCount}
+            />
           )}
         </div>
       </div>
@@ -101,4 +134,3 @@ const ProveedoresPage: React.FC = () => {
 };
 
 export default ProveedoresPage;
-

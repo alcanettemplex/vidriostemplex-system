@@ -2,8 +2,8 @@
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Building2, Plus, Upload, Search, RefreshCw, CheckCircle2,
-  XCircle, Edit3, ChevronRight, AlertTriangle, FileSpreadsheet,
+  Building2, Plus, Search, RefreshCw, CheckCircle2,
+  XCircle, AlertTriangle, FileSpreadsheet, Bell, BellOff,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
@@ -22,6 +22,8 @@ interface Proveedor {
   activo: boolean;
   tipo_identificacion: string;
   numero_identificacion: string | null;
+  seguir_precios: boolean;
+  origen_registro: string;
 }
 
 interface ResultadoImport {
@@ -31,9 +33,14 @@ interface ResultadoImport {
   errores: string[];
 }
 
+interface Props {
+  /** Avisa a la página para refrescar el maestro compartido con las otras pestañas */
+  onCambio?: () => void;
+}
+
 // ─── Componente ───────────────────────────────────────────────────────────────
 
-const ProveedoresTab: React.FC = () => {
+const ProveedoresTab: React.FC<Props> = ({ onCambio }) => {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -50,13 +57,10 @@ const ProveedoresTab: React.FC = () => {
       const params: any = {};
       if (busqueda.trim()) params.q = busqueda.trim();
       if (filtroActivo !== null) params.activo = filtroActivo;
-      const { data } = await axios.get<Proveedor[]>(
-        `${API}/api/proveedores`,
-        { params, headers: { Authorization: `Bearer ${(sessionStorage.getItem('token') || localStorage.getItem('token'))}` } }
-      );
+      const { data } = await axios.get<Proveedor[]>(`${API}/api/proveedores`, { params });
       setProveedores(data);
-    } catch {
-      toast.error('Error al cargar proveedores');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error ?? 'No se pudo cargar la lista de proveedores');
     } finally {
       setLoading(false);
     }
@@ -75,18 +79,14 @@ const ProveedoresTab: React.FC = () => {
       const { data } = await axios.post<ResultadoImport>(
         `${API}/api/proveedores/importar-excel`,
         formData,
-        {
-          headers: {
-            Authorization: `Bearer ${(sessionStorage.getItem('token') || localStorage.getItem('token'))}`,
-            'Content-Type': 'multipart/form-data',
-          },
-        }
+        { headers: { 'Content-Type': 'multipart/form-data' } }
       );
       setResultadoImport(data);
       toast.success(`Importación completa: ${data.creados} nuevos, ${data.actualizados} actualizados`);
       cargar();
+      if (onCambio) onCambio();
     } catch (err: any) {
-      toast.error(err?.response?.data?.error ?? 'Error al importar');
+      toast.error(err?.response?.data?.error ?? 'No se pudo importar el archivo');
     } finally {
       setImportando(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -95,15 +95,34 @@ const ProveedoresTab: React.FC = () => {
 
   const handleToggleActivo = async (prov: Proveedor) => {
     try {
-      await axios.patch(
-        `${API}/api/proveedores/${prov.id}`,
-        { activo: !prov.activo },
-        { headers: { Authorization: `Bearer ${(sessionStorage.getItem('token') || localStorage.getItem('token'))}` } }
-      );
+      await axios.patch(`${API}/api/proveedores/${prov.id}`, { activo: !prov.activo });
       toast.success(prov.activo ? 'Proveedor desactivado' : 'Proveedor activado');
       cargar();
-    } catch {
-      toast.error('Error al actualizar estado');
+      if (onCambio) onCambio();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error ?? 'No se pudo actualizar el estado');
+    }
+  };
+
+  /**
+   * Enciende o apaga el seguimiento de precios. Apagarlo evita que las facturas de
+   * este emisor llenen la bandeja de códigos por mapear.
+   */
+  const handleToggleSeguimiento = async (prov: Proveedor) => {
+    const activando = !prov.seguir_precios;
+    if (!activando && !window.confirm(
+      `¿Dejar de seguir precios de "${prov.nombre_comercial}"?\n\nSus facturas se seguirán registrando, pero no generarán códigos por mapear. Los que tenga pendientes ahora se descartarán.`
+    )) return;
+
+    try {
+      const { data } = await axios.patch(`${API}/api/proveedores/${prov.id}/seguimiento`, {
+        seguir_precios: activando,
+      });
+      toast.success(data?.message ?? 'Seguimiento actualizado');
+      cargar();
+      if (onCambio) onCambio();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error ?? 'No se pudo cambiar el seguimiento');
     }
   };
 
@@ -220,7 +239,7 @@ const ProveedoresTab: React.FC = () => {
         <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
           {/* Encabezado */}
           <div style={{
-            display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
+            display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1.4fr',
             background: 'var(--surface)', padding: '10px 20px',
             borderBottom: '1px solid var(--border)',
           }}>
@@ -236,7 +255,7 @@ const ProveedoresTab: React.FC = () => {
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               transition={{ delay: Math.min(idx * 0.02, .3) }}
               style={{
-                display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
+                display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1.4fr',
                 padding: '12px 20px', borderBottom: '1px solid var(--border)',
                 background: !p.activo ? '#ffffff08' : 'transparent',
                 alignItems: 'center',
@@ -248,6 +267,18 @@ const ProveedoresTab: React.FC = () => {
                 <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: 14 }}>{p.nombre_comercial}</div>
                 {p.razon_social && p.razon_social !== p.nombre_comercial && (
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.razon_social}</div>
+                )}
+                {p.origen_registro === 'INGESTA_FE' && (
+                  <span
+                    title="Se creó automáticamente al procesar una factura. Verifica sus datos."
+                    style={{
+                      display: 'inline-block', marginTop: 3, fontSize: 10,
+                      fontWeight: 700, padding: '1px 6px', borderRadius: 4,
+                      background: '#f59e0b18', color: '#b45309',
+                    }}
+                  >
+                    Creado por factura
+                  </span>
                 )}
               </div>
 
@@ -282,6 +313,19 @@ const ProveedoresTab: React.FC = () => {
                   }}
                 >
                   <Plus size={11} /> Precio
+                </button>
+                <button
+                  title={p.seguir_precios
+                    ? 'Siguiendo precios: sus facturas alimentan la bandeja. Clic para dejar de seguir.'
+                    : 'Sin seguimiento: sus facturas se registran pero no generan códigos por mapear. Clic para reanudar.'}
+                  onClick={() => handleToggleSeguimiento(p)}
+                  style={{
+                    background: 'none', border: '1px solid var(--border)', borderRadius: 7,
+                    padding: '4px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                    color: p.seguir_precios ? '#22c55e' : 'var(--text-muted)',
+                  }}
+                >
+                  {p.seguir_precios ? <Bell size={13} /> : <BellOff size={13} />}
                 </button>
                 <button
                   title={p.activo ? 'Desactivar' : 'Activar'}

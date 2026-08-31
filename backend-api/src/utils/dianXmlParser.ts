@@ -1,10 +1,20 @@
 import AdmZip from 'adm-zip';
+import { createHash } from 'crypto';
 import { XMLParser } from 'fast-xml-parser';
+
+export type TipoDocumentoDIAN = 'FACTURA' | 'NOTA_CREDITO' | 'NOTA_DEBITO';
 
 export interface FacturaLinea {
   codigo_proveedor: string;
+  /** true si el código NO venía en el XML y se derivó de la descripción (ver derivarCodigo) */
+  codigo_derivado: boolean;
   descripcion: string;
   unidad: string;
+  /** false cuando el unitCode del XML es genérico ("94", "EA", "NIU"): la unidad no es
+   *  un dato del proveedor sino el relleno por defecto, y no debe usarse para decidir
+   *  contra qué modalidad de compra se compara el precio. */
+  unidad_confiable: boolean;
+  unidad_codigo_original: string;
   cantidad: number;
   precio_unitario: number;
   porcentaje_iva: number;
@@ -15,6 +25,8 @@ export interface FacturaParseada {
   cufe: string | null;
   numero: string;
   fecha_emision: string;
+  tipo_documento: TipoDocumentoDIAN;
+  moneda: string;
   emisor_nit: string | null;
   emisor_nombre: string;
   lineas: FacturaLinea[];
@@ -42,53 +54,87 @@ function extraerTexto(nodo: any): string {
 }
 
 /**
- * Mapea unitCode DIAN / UN/ECE a modalidad del sistema
+ * Mapea unitCode DIAN / UN-ECE a modalidad del sistema.
+ *
+ * Devuelve además si el código es informativo o genérico: los emisores colombianos
+ * usan "94", "EA", "NIU" o "C62" como relleno para "unidad", sin que eso afirme nada
+ * sobre cómo se vende el producto. Tratar ese relleno como un dato real haría que el
+ * precio de una tira de 6 m se comparara contra el de un metro suelto.
  */
-function normalizarUnidad(unitCode: string): string {
+function normalizarUnidad(unitCode: string): { unidad: string; confiable: boolean } {
   const code = (unitCode || '').toUpperCase().trim();
-  if (code === 'MTR' || code === 'MT' || code === 'METRO' || code === 'METROS') return 'METRO';
-  if (code === 'KGM' || code === 'KG' || code === 'KILO' || code === 'KILOGRAMO') return 'KG';
-  if (code === 'MTK' || code === 'M2') return 'M2';
-  if (code === 'TIRA' || code === 'TIRA_6M') return 'TIRA_6M';
-  return 'UNIDAD';
+  if (code === 'MTR' || code === 'MT' || code === 'METRO' || code === 'METROS') return { unidad: 'METRO', confiable: true };
+  if (code === 'KGM' || code === 'KG' || code === 'KILO' || code === 'KILOGRAMO') return { unidad: 'KG', confiable: true };
+  if (code === 'MTK' || code === 'M2') return { unidad: 'M2', confiable: true };
+  if (code === 'TIRA' || code === 'TIRA_6M') return { unidad: 'TIRA_6M', confiable: true };
+  return { unidad: 'UNIDAD', confiable: false };
 }
 
 /**
- * Parsea un XML (Invoice o AttachedDocument de DIAN) y extrae sus datos estructurados
+ * Código estable para líneas cuyo XML no trae identificación de ítem.
+ *
+ * Antes se caía a `cbc:ID`, que es el número de línea (1, 2, 3…): dos facturas
+ * distintas del mismo proveedor colisionaban en la UNIQUE (proveedor, código) y
+ * terminaban pisándose descripción y precio como si fueran el mismo producto.
+ * Derivar de la descripción agrupa lo que de verdad es el mismo ítem y separa
+ * lo que no.
+ */
+function derivarCodigo(descripcion: string): string {
+  const base = descripcion.toUpperCase().replace(/\s+/g, ' ').trim();
+  const hash = createHash('sha1').update(base).digest('hex').slice(0, 10).toUpperCase();
+  return `SD-${hash}`;
+}
+
+/** Detecta el tipo de documento a partir del nodo raíz y del código de tipo de operación */
+function detectarTipo(parsed: any): TipoDocumentoDIAN {
+  if (parsed['CreditNote']) return 'NOTA_CREDITO';
+  if (parsed['DebitNote']) return 'NOTA_DEBITO';
+  return 'FACTURA';
+}
+
+/**
+ * Parsea un XML (Invoice, CreditNote, DebitNote o AttachedDocument de DIAN)
+ * y extrae sus datos estructurados.
  */
 export function parsearXmlFactura(xmlString: string): FacturaParseada {
   let parsed = xmlParser.parse(xmlString);
 
-  // 1. Si es AttachedDocument, buscar el Invoice embebido en CDATA o en el nodo de Attachment
+  // 1. Si es AttachedDocument, buscar el documento embebido en CDATA o en el nodo de Attachment
   if (parsed['AttachedDocument'] || parsed['cac:Attachment']) {
     const attached = parsed['AttachedDocument'] || parsed;
-    let invoiceXmlStr = '';
+    let docXmlStr = '';
 
     // Buscar en cac:Attachment -> cac:ExternalReference -> cbc:Description
     const descNodo = attached?.['cac:Attachment']?.['cac:ExternalReference']?.['cbc:Description'];
     const descText = extraerTexto(descNodo);
 
-    if (descText && (descText.includes('<Invoice') || descText.includes('<CreditNote'))) {
-      invoiceXmlStr = descText;
+    if (descText && (descText.includes('<Invoice') || descText.includes('<CreditNote') || descText.includes('<DebitNote'))) {
+      docXmlStr = descText;
     } else {
-      // Buscar en todo el XML si hay bloque <Invoice...> o CDATA
-      const match = xmlString.match(/<Invoice[\s\S]*?<\/Invoice>/i) || xmlString.match(/<CreditNote[\s\S]*?<\/CreditNote>/i);
+      // Buscar en todo el XML si hay bloque del documento o CDATA
+      const match =
+        xmlString.match(/<Invoice[\s\S]*?<\/Invoice>/i) ||
+        xmlString.match(/<CreditNote[\s\S]*?<\/CreditNote>/i) ||
+        xmlString.match(/<DebitNote[\s\S]*?<\/DebitNote>/i);
       if (match) {
-        invoiceXmlStr = match[0];
+        docXmlStr = match[0];
       }
     }
 
-    if (invoiceXmlStr) {
-      parsed = xmlParser.parse(invoiceXmlStr);
+    if (docXmlStr) {
+      parsed = xmlParser.parse(docXmlStr);
     }
   }
 
-  // 2. Localizar nodo raíz Invoice (o CreditNote)
-  const invoice = parsed['Invoice'] || parsed['CreditNote'] || parsed;
+  const tipo_documento = detectarTipo(parsed);
+
+  // 2. Localizar nodo raíz del documento
+  const invoice = parsed['Invoice'] || parsed['CreditNote'] || parsed['DebitNote'] || parsed;
 
   const numero = extraerTexto(invoice['cbc:ID']) || 'S/N';
   const fechaEmision = extraerTexto(invoice['cbc:IssueDate']) || new Date().toISOString().split('T')[0];
   const cufe = extraerTexto(invoice['cbc:UUID']) || null;
+  const moneda = extraerTexto(invoice['cbc:DocumentCurrencyCode']) || 'COP';
 
   // 3. Emisor (Supplier)
   const supplierParty = invoice['cac:AccountingSupplierParty']?.['cac:Party'] || {};
@@ -104,8 +150,12 @@ export function parsearXmlFactura(xmlString: string): FacturaParseada {
   const nombreParty = supplierParty['cac:PartyName']?.['cbc:Name'];
   const emisor_nombre = extraerTexto(nombreReg || nombreParty) || (emisor_nit ? `Proveedor NIT ${emisor_nit}` : 'Proveedor Desconocido');
 
-  // 4. Líneas de Factura (cac:InvoiceLine o cac:CreditNoteLine)
-  const rawLines = invoice['cac:InvoiceLine'] || invoice['cac:CreditNoteLine'] || [];
+  // 4. Líneas del documento
+  const rawLines =
+    invoice['cac:InvoiceLine'] ||
+    invoice['cac:CreditNoteLine'] ||
+    invoice['cac:DebitNoteLine'] ||
+    [];
   const linesArray = Array.isArray(rawLines) ? rawLines : [rawLines].filter(Boolean);
 
   const lineas: FacturaLinea[] = [];
@@ -114,20 +164,30 @@ export function parsearXmlFactura(xmlString: string): FacturaParseada {
     const itemNodo = line['cac:Item'] || {};
     const sellersId = itemNodo['cac:SellersItemIdentification']?.['cbc:ID'];
     const standardId = itemNodo['cac:StandardItemIdentification']?.['cbc:ID'];
-    const lineId = line['cbc:ID'];
-    const codigo_proveedor = extraerTexto(sellersId || standardId || lineId || 'SIN_CODIGO');
 
     const descNodo = itemNodo['cbc:Description'];
     const descripcion = extraerTexto(descNodo) || 'Sin descripción';
 
-    const qtyNodo = line['cbc:InvoicedQuantity'] || line['cbc:CreditedQuantity'] || {};
+    const codigoXml = extraerTexto(sellersId || standardId);
+    const codigo_derivado = !codigoXml;
+    const codigo_proveedor = codigoXml || derivarCodigo(descripcion);
+
+    const qtyNodo = line['cbc:InvoicedQuantity'] || line['cbc:CreditedQuantity'] || line['cbc:DebitedQuantity'] || {};
     const cantidad = parseFloat(extraerTexto(qtyNodo)) || 1;
     const unitCode = typeof qtyNodo === 'object' ? (qtyNodo['@_unitCode'] || '') : '';
-    const unidad = normalizarUnidad(unitCode);
+    const { unidad, confiable } = normalizarUnidad(unitCode);
 
     // Precio Unitario base
-    const priceAmountNodo = line['cac:Price']?.['cbc:PriceAmount'];
+    const priceNodo = line['cac:Price'] || {};
+    const priceAmountNodo = priceNodo['cbc:PriceAmount'];
     let precio_unitario = parseFloat(extraerTexto(priceAmountNodo)) || 0;
+
+    // BaseQuantity: cuando el precio se expresa por lote (ej. "$X por cada 100"),
+    // el unitario real es PriceAmount / BaseQuantity.
+    const baseQty = parseFloat(extraerTexto(priceNodo['cbc:BaseQuantity'])) || 1;
+    if (precio_unitario > 0 && baseQty > 1) {
+      precio_unitario = +(precio_unitario / baseQty).toFixed(2);
+    }
 
     const lineExtNodo = line['cbc:LineExtensionAmount'];
     const total_linea = parseFloat(extraerTexto(lineExtNodo)) || 0;
@@ -138,14 +198,21 @@ export function parsearXmlFactura(xmlString: string): FacturaParseada {
 
     // Porcentaje IVA
     const taxSubtotal = line['cac:TaxTotal']?.['cac:TaxSubtotal'];
-    const taxPercent = taxSubtotal ? extraerTexto(taxSubtotal['cac:TaxCategory']?.['cbc:Percent'] || taxSubtotal['cbc:Percent']) : '';
-    const porcentaje_iva = parseFloat(taxPercent) || 19;
+    const subtotalNodo = Array.isArray(taxSubtotal) ? taxSubtotal[0] : taxSubtotal;
+    const taxPercent = subtotalNodo
+      ? extraerTexto(subtotalNodo['cac:TaxCategory']?.['cbc:Percent'] || subtotalNodo['cbc:Percent'])
+      : '';
+    const porcentajeParseado = parseFloat(taxPercent);
+    const porcentaje_iva = Number.isFinite(porcentajeParseado) ? porcentajeParseado : 19;
 
     if (precio_unitario > 0) {
       lineas.push({
         codigo_proveedor,
+        codigo_derivado,
         descripcion,
         unidad,
+        unidad_confiable: confiable,
+        unidad_codigo_original: unitCode,
         cantidad,
         precio_unitario,
         porcentaje_iva,
@@ -158,14 +225,22 @@ export function parsearXmlFactura(xmlString: string): FacturaParseada {
     cufe,
     numero,
     fecha_emision: fechaEmision,
+    tipo_documento,
+    moneda,
     emisor_nit,
     emisor_nombre,
     lineas,
   };
 }
 
+/** Tope de expansión al descomprimir: evita que un .zip manipulado agote la memoria */
+const MAX_BYTES_XML = 12 * 1024 * 1024; // 12 MB por XML
+const MAX_XML_POR_ZIP = 40;
+
 /**
- * Extrae y parsea archivos XML desde un Buffer que puede ser .zip o .xml directo
+ * Extrae y parsea archivos XML desde un Buffer que puede ser .zip o .xml directo.
+ * Un mismo .zip puede traer el AttachedDocument y el documento suelto: el control
+ * de duplicados por CUFE aguas arriba se encarga de que no cuenten dos veces.
  */
 export function procesarBufferFactura(buffer: Buffer, nombreArchivo: string): FacturaParseada[] {
   const ext = nombreArchivo.split('.').pop()?.toLowerCase();
@@ -174,18 +249,22 @@ export function procesarBufferFactura(buffer: Buffer, nombreArchivo: string): Fa
   if (ext === 'zip') {
     const zip = new AdmZip(buffer);
     const zipEntries = zip.getEntries();
+    let leidos = 0;
 
     for (const entry of zipEntries) {
-      if (!entry.isDirectory && entry.entryName.toLowerCase().endsWith('.xml')) {
-        const xmlContent = entry.getData().toString('utf8');
-        try {
-          const parsed = parsearXmlFactura(xmlContent);
-          if (parsed.lineas.length > 0 || parsed.cufe) {
-            resultados.push(parsed);
-          }
-        } catch {
-          // Si una entrada XML no es factura válida, ignorar
+      if (entry.isDirectory || !entry.entryName.toLowerCase().endsWith('.xml')) continue;
+      if (leidos >= MAX_XML_POR_ZIP) break;
+      if (entry.header.size > MAX_BYTES_XML) continue;
+
+      leidos++;
+      const xmlContent = entry.getData().toString('utf8');
+      try {
+        const parsed = parsearXmlFactura(xmlContent);
+        if (parsed.lineas.length > 0 || parsed.cufe) {
+          resultados.push(parsed);
         }
+      } catch {
+        // Si una entrada XML no es factura válida, ignorar
       }
     }
   } else if (ext === 'xml') {

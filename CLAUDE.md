@@ -166,12 +166,13 @@ Hija con `odp_padre_id` + `es_no_conformidad: true`. Padre → PAUSADA. Se react
 **Solo lectura global:** `authMiddleware` corta con 403 cualquier método distinto de GET/HEAD/OPTIONS para los roles del Set `ROLES_SOLO_LECTURA` (hoy: `marketing`). Se resuelve ahí —y no ruta por ruta— porque varias rutas de escritura no declaran `requireRole` (quedaron abiertas a cualquier autenticado): el control por método las cubre todas, incluidas las que se agreguen después. Al sumar un rol de solo lectura, agregarlo también a `ROLES_SOLO_LECTURA` en `frontend-web/src/utils/permisos.ts` para que la UI oculte los controles.
 
 **Módulos clave:**
+- **Proveedores (ingesta FE):** reglas no negociables, todas verificadas el 2026-08-30 — (1) el histórico registra **cambios de precio, no apariciones**; (2) el precio vigente lo define la **fecha de la factura**, no el orden de carga: el lote se ordena por `fecha_emision` y una factura anterior se archiva con `retroactivo=true` sin desplazar el vigente; (3) la **modalidad** decide qué precio se actualiza — un `unitCode` informativo (`MTR`, `KGM`, `MTK`) exige coincidir con `unidad_compra`, uno genérico (`94`, `EA`, `NIU`) solo vale si hay una única equivalencia; (4) idempotencia por **CUFE completo** en `factura_proveedor_procesada`, nunca por substring de `documento_ref`; (5) notas crédito/débito y monedas ≠ COP se registran **sin mover precios**; (6) el mapeo siempre lo confirma un humano. Ver `TECH_DEBT.md` 2026-08-30 y `compras.md`.
 - **SAP:** `SAP → SAPItem → OrdenCompra (ODC) → ODCItem`
 - **PedidoPV:** auto-generado al crear ODP con `proveedor_vidrio`. Base 6733. >12 ítems → extensiones `-1,-2...`
 - **Rutas:** `RutaInstalacion → RutaODP (join) → ruta_instaladores (M:M)`. `forma_pago='credito'` = pago OK automático para instalación.
 - **Salidas Almacén:** `SA-XXXX` por ODP facturada. UNIQUE por ODP.
 - **Socket ODP:** usar `emitirODPPatch(id, accion)` (en `utils/notificaciones.ts`), nunca `emitirCambio('odp')`. `notificarCambioEstadoODP()` para cambios de estado.
-- **Auditoría:** `requestContext.ts` (AsyncLocalStorage). Hooks en `models/index.ts` (array `MODELOS_AUDITADOS`) cubriendo **34 modelos** — excluidos: `AuditoriaLog`, `AlertasUmbral`, `AgendaInstalacion` (planeación volátil), `DetalleSAPImagen`, y los 2 modelos legados fuera de `index.ts` (`Produccion`, `ProgramacionInstalacion`). `beforeUpdate`/`beforeDestroy` guardan snapshot previo; `afterCreate`/`afterUpdate`/`afterDestroy` graban `datos_anteriores` en `auditoria_log`. **Los hooks de instancia NO disparan en operaciones bulk** (`Model.destroy({ where })` / `Model.update({...}, { where })`) salvo `individualHooks: true` — ver `TECH_DEBT.md` 2026-07-02.
+- **Auditoría:** `requestContext.ts` (AsyncLocalStorage). Hooks en `models/index.ts` (array `MODELOS_AUDITADOS`) cubriendo **40 modelos** — excluidos: `AuditoriaLog`, `AlertasUmbral`, `AgendaInstalacion` (planeación volátil), `DetalleSAPImagen`, y los 2 modelos legados fuera de `index.ts` (`Produccion`, `ProgramacionInstalacion`). `beforeUpdate`/`beforeDestroy` guardan snapshot previo; `afterCreate`/`afterUpdate`/`afterDestroy` graban `datos_anteriores` en `auditoria_log`. **Los hooks de instancia NO disparan en operaciones bulk** (`Model.destroy({ where })` / `Model.update({...}, { where })`) salvo `individualHooks: true` — ver `TECH_DEBT.md` 2026-07-02.
 - **Revertir auditoría (panel ROOT):** usa un allow-list independiente, `TABLAS_AUDITABLES` en `root.controller.ts` (32 tablas) — no es 1:1 con `MODELOS_AUDITADOS`. `cotizacion_capturas` y `metas_usuario_mensual` se auditan pero no se pueden revertir desde ahí. **Bug conocido:** revertir un registro de `Cotizacion`, `SAP` o `RutaODP` falla siempre (500) por mismatch entre el nombre de tabla real (`cotizacion`, `sap`, `ruta_odp`, singular) y el string usado en ambos Sets (`cotizaciones`, `saps`, `ruta_odps`, plural) — ver `TECH_DEBT.md` 2026-07-10.
 
 ### API Endpoints (prefijo `/api`)
@@ -202,6 +203,7 @@ Hija con `odp_padre_id` + `es_no_conformidad: true`. Padre → PAUSADA. Se react
 | `/cotizaciones` | cotizacion.controller |
 | `/cotizacion-capturas` | cotizacion_captura.controller |
 | `/detalle-sap-imagenes` | detalle_sap.controller |
+| `/proveedores` | proveedor.controller — solo `root`/`admin`. Maestro, ingesta de FE (.zip/XML DIAN), bandeja de mapeo, equivalencias y comparador de precios |
 | `/crm` | crm.controller — pipeline de Leads (CRUD, asignación, seguimiento, conversión a cliente) |
 | `/supervision-crm` | crm.controller (mismo archivo que `/crm`) — solo rol `root`: ranking asesores, lineamientos de coaching, buscador avanzado |
 | `/search` | search.controller — búsqueda global |
@@ -210,7 +212,7 @@ Hija con `odp_padre_id` + `es_no_conformidad: true`. Padre → PAUSADA. Se react
 
 ---
 
-## Modelos de Base de Datos (40 en `backend-api/src/models/`, 34 auditados)
+## Modelos de Base de Datos (46 en `backend-api/src/models/`, 40 auditados)
 
 **SIEMPRE importar desde `models/index.ts`** — asociaciones centralizadas. Excepciones (legados, fuera del registro central, sin auditoría): `Produccion` (import directo en `produccion.controller.ts`) y `ProgramacionInstalacion` (en `instalacion.controller.ts`).
 
@@ -251,6 +253,12 @@ Hija con `odp_padre_id` + `es_no_conformidad: true`. Padre → PAUSADA. Se react
 | `CotizacionCaptura` | `cotizacion_capturas` | Imágenes Cloudinary de cotización, ligadas a `odp_id` o `prospecto_id`. Auditada pero no revertible desde ROOT |
 | `DetalleSAPImagen` | `detalle_sap_imagenes` | Imágenes Cloudinary de detalle SAP. Sin auditoría |
 | `AgendaInstalacion` | `agenda_instalacion` | Planeación tentativa pre-ruta. `odp_id` UNIQUE. Sin timestamps, sin auditoría ("planeación volátil") |
+| `Proveedor` | `proveedores` | `seguir_precios` (excluye al emisor de la bandeja sin dejar de registrar sus facturas), `origen_registro`: `MANUAL\|IMPORTACION_WO\|INGESTA_FE` |
+| `ProveedorProducto` | `proveedor_producto` | Equivalencia (proveedor, producto, **modalidad**). UNIQUE `(proveedor_id, catalogo_producto_id, unidad_compra)`. Precio vigente + 2 anteriores denormalizados. Baja lógica, nunca borrado: el `CASCADE` arrastraría el histórico |
+| `ProveedorProductoPrecio` | `proveedor_producto_precio` | Histórico. **Solo registra cambios de precio, no apariciones.** `retroactivo=true` cuando la factura es anterior a la vigente |
+| `ProveedorCodigoPendiente` | `proveedor_codigo_pendiente` | Bandeja sin mapear. UNIQUE `(proveedor_id, codigo_proveedor)`. `PENDIENTE\|MAPEADO\|DESCARTADO` |
+| `ProductoAlias` | `producto_alias` | Sinónimos por producto, aprendidos en cada mapeo confirmado |
+| `FacturaProveedorProcesada` | `factura_proveedor_procesada` | Idempotencia de la ingesta: `cufe` UNIQUE. Bitácora de qué documento entró y qué movió |
 | `Produccion` (legado) | `produccion` | Fuera de `models/index.ts`, sin asociaciones ni auditoría. Import directo en `produccion.controller.ts` |
 | `ProgramacionInstalacion` (legado) | `programacion_instalaciones` | Fuera de `models/index.ts`, sin asociaciones ni auditoría. Import directo en `instalacion.controller.ts` y `odp.controller.ts` |
 
@@ -276,6 +284,7 @@ Cada módulo en `frontend-web/src/features/<nombre>/`: página principal + `comp
 | `usuarios` | `/usuarios` | Admin usuarios (solo `admin`) |
 | `pedidos-pv` | `/pedidos-pv` | Tab "Por Gestionar": solo `puede_gestionar_pv=true` |
 | `facturas-salidas` | `/facturas-salidas` | SA-XXXX; edición: compras/produccion |
+| `proveedores` | `/proveedores` | Solo `root`/`admin` (precios de compra = info sensible). Tabs: Consultar Precios, Cargar Facturas, Por Mapear, Proveedores, Equivalencias |
 | `configuracion` | `/configuracion` | Sin catálogo (movido a ROOT) |
 | `manuales` | `/manuales` | Manual de Usuario (todos) + Manual Técnico (solo `root/admin/gerencia/jefe_produccion`), visor in-app |
 | `informe-ejecutivo` | `/informe-ejecutivo` | Solo `root`. KPIs y semáforos de finanzas/producción/alertas |

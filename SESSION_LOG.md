@@ -1017,3 +1017,59 @@ Despreciable y **no toca Supabase**: descomprimir y parsear es CPU local, el `.z
 El usuario aportará dos Excel (especificados en `compras.md` §9): **proveedores con NIT** (llave para reconocerlos desde el XML y para unificar los duplicados) e **inventario por categoría con unidad de medida** (resolvería la clasificación de los 1.180 productos y la unidad de los 1.212 de una vez). Descartado derivar la categoría del prefijo de 3 letras del código: el usuario confirma que la estructura se perdió con el tiempo.
 
 Quedan abiertas solo cuestiones menores: umbral de la alerta por variación de precio, roles que pueden ver costos, retención del `.zip` (completo / solo XML / nada), caducidad de precios y proveedor preferido.
+
+---
+
+## 2026-08-30 — Auditoría del módulo Proveedores y corrección de los 26 hallazgos
+
+### Contexto
+
+Sesión iniciada con `git pull` (llegaron los commits `9a39045` → `6f216f9`: Fase 2 completa — parser DIAN, ingesta de `.zip`/XML, bandeja de mapeo, equivalencias) y auditoría solicitada del módulo completo. Se auditaron backend, frontend, esquema de BD y datos reales de producción, contrastando contra las decisiones documentadas en `compras.md`.
+
+**Resultado de la auditoría:** 26 hallazgos — 5 críticos, 9 altos, 10 medios, 2 menores. Detalle completo en `TECH_DEBT.md` (entrada 2026-08-30). El usuario autorizó corregirlos todos con autonomía de orden.
+
+### Diagnóstico: por qué ninguno se veía
+
+Los cinco críticos compartían un patrón: **no lanzaban excepción**. Producían datos plausibles pero equivocados en un módulo cuya salida es una decisión de compra. El más grave (C2) escribía el mismo precio en la modalidad "tira de 6 m" y en la "metro" del mismo perfil, y el comparador seguía marcando un "más bajo" con total aplomo — exactamente el riesgo que `compras.md §6` señala en rojo como *"induce a decisiones equivocadas con apariencia de dato duro"*.
+
+C5 ya había ocurrido: el vidrio templado de 6 mm incoloro de VITELSA (visto 17 veces) llevaba semanas sin capturar precio, invisible tanto en equivalencias como en la bandeja.
+
+### Cambios realizados
+
+**Backend**
+- `utils/dianXmlParser.ts` — reescrito: distingue `Invoice` / `CreditNote` / `DebitNote`, extrae moneda, marca si el `unitCode` es informativo o relleno genérico, deriva `SD-<hash de descripción>` cuando el XML no trae identificación de ítem (antes usaba el número de línea, que colisionaba entre facturas), aplica `BaseQuantity`, y acota la descompresión de `.zip` (40 XML, 12 MB por entrada).
+- `controllers/proveedor.controller.ts` — reescrito: idempotencia real por CUFE contra tabla propia, orden cronológico del lote, resolución de proveedor por NIT normalizado exacto (antes `LIKE '%nit%'` emparejaba `900123` con `1900123456`), precarga de proveedores/equivalencias/bandeja en memoria (se eliminó el N+1 de tres consultas por línea más un recorrido del histórico por factura), una transacción por factura, esquemas Zod `.strict()`, caché del umbral, mensajes de error accionables sin `err.message` crudo, paginación y `attributes` selectivos en los listados.
+- `controllers/catalogo.controller.ts` — el schema aceptaba `categoria`/`nombre`/`descripcion`/`activo` pero no `codigo`, que es `NOT NULL UNIQUE`: **crear productos de catálogo fallaba siempre**. Ahora acepta código, `es_aluminio`, `unidad_medida` y `porcentaje_iva`, y autogenera `PROD-NNNN` si no viene.
+- `routes/proveedor.routes.ts` — rutas duplicadas eliminadas, orden corregido (las literales antes de `/:id`), traducción de errores de multer a mensajes que dicen qué corregir.
+- Endpoints nuevos: `GET /codigos-pendientes/count`, `POST /codigos-pendientes/descartar-lote`, `GET /equivalencias/:id/historico`, `PATCH /:id/seguimiento`.
+- Modelos: nuevo `FacturaProveedorProcesada` (auditado); campos añadidos a `Proveedor`, `ProveedorCodigoPendiente` y `ProveedorProductoPrecio`.
+
+**Frontend**
+- `httpInterceptors.ts` — interceptor de request que adjunta el token a las llamadas a la API propia (respeta cualquier `Authorization` explícita, así que las pantallas no migradas siguen igual). Se eliminó la repetición de `sessionStorage.getItem('token')` en los 7 puntos del módulo.
+- `ProveedoresPage.tsx` — el maestro compacto se carga una vez y se comparte con las pestañas (antes "Por Mapear" y "Equivalencias" pedían cada una los 1.011 proveedores completos al montarse); el badge usa el endpoint de conteo en vez de descargar la bandeja entera; se refresca al terminar un lote.
+- `PorMapearTab.tsx` — filtros y orden en servidor con debounce, selección múltiple con descarte en lote, botón "No seguir precios" por proveedor, muestra unidad detectada y marca de código deducido.
+- `EquivalenciasTab.tsx` — corrección de precio y modalidad (el endpoint `PATCH /productos/:pp_id` existía y no lo llamaba nadie), visor de histórico completo, filtros KG y M².
+- `VincularCodigoModal.tsx` — la unidad del XML llega preseleccionada, el precio corregido a mano ahora se respeta, la casilla "recordar como sinónimo" ahora tiene efecto, y se puede crear el producto en el catálogo sin salir del modal.
+- `CargarFacturasTab.tsx` — panel de avisos que requieren criterio humano (unidad no coincide, IVA distinto al catálogo, moneda extranjera, proveedor nuevo, nota crédito), marca de precio archivado por retroactivo, y listado de archivos que no se pudieron procesar.
+- `ConsultarPreciosTab.tsx` — cuando varios productos coinciden se ofrece elegir en vez de resolver a uno arbitrario; la heurística código-vs-nombre se movió al servidor; aviso cuando el listado mezcla modalidades, porque "el más bajo" solo es válido dentro de una.
+- `ProveedoresTab.tsx` — interruptor de seguimiento de precios y distintivo para los proveedores creados por la ingesta.
+
+### Base de datos
+
+Script `2026_08_30_fix_ingesta_proveedores.ts` **ejecutado**: tabla nueva, 9 columnas añadidas, 1 índice, saneamiento del código en limbo y clasificación de `origen_registro` (972 `IMPORTACION_WO`, 38 `INGESTA_FE`, 1 `MANUAL`).
+
+### Verificación
+
+- Compilación limpia de `backend-api` y `frontend-web`; build de producción del frontend correcto.
+- **26 comprobaciones end-to-end** contra el backend levantado y la BD real, con facturas DIAN sintéticas construidas para cada defecto: idempotencia por CUFE, orden cronológico, retroactividad, conflicto de unidad, nota crédito, código derivado, rescate de limbo, precio corregido en la vinculación, validación Zod y corte de ruido por proveedor. Todas pasaron. Los datos de prueba (NIT ficticio `999999999`) se eliminaron al terminar y se verificó que la BD quedó sin residuos.
+
+### Decisiones técnicas
+
+- **Baja lógica en vez de borrado físico al desvincular.** El histórico de precios es el activo del módulo; el `CASCADE` se lo llevaba entero.
+- **El proveedor creado por ingesta nace con `seguir_precios = true`**, no en false: apagarlo por defecto habría hecho perder datos silenciosamente. Se marca su origen para que se vea y se pueda apagar de un clic.
+- **El IVA del XML no sobrescribe el del catálogo**, avisa. La configuración por producto puede ser una decisión deliberada del usuario.
+- **Con unidad ambigua y dos modalidades registradas no se toca ningún precio.** Es preferible un aviso a un dato contaminado.
+
+### Pendientes
+
+Los 49 códigos puramente numéricos previos al fix del parser requieren revisión humana (el script los lista). El backfill masivo, si se hace, debe ir por script one-off y no por HTTP.

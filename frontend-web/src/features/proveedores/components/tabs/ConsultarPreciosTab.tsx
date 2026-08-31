@@ -1,11 +1,10 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useCallback } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, AlertTriangle, TrendingDown, TrendingUp, Minus,
   Package, RefreshCw, ChevronDown, ChevronUp, Filter
 } from 'lucide-react';
-import { toast } from 'react-toastify';
 import API from '../../../../services/config';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -37,12 +36,31 @@ interface ResultadoConsulta {
   total: number;
 }
 
+/** Cuando el término coincide con varios productos, el backend devuelve la lista
+ *  para que el usuario elija en vez de resolver a uno arbitrario. */
+interface Candidato {
+  id: number;
+  codigo: string;
+  nombre: string;
+  unidad_medida: string | null;
+}
+
 const MODALIDADES = [
   { value: '', label: 'Todas las modalidades' },
   { value: 'UNIDAD', label: 'Por unidad' },
   { value: 'TIRA_6M', label: 'Por tira (6 m)' },
   { value: 'METRO', label: 'Por metro' },
+  { value: 'KG', label: 'Por kilogramo' },
+  { value: 'M2', label: 'Por m²' },
 ];
+
+const ETIQUETA_MODALIDAD: Record<string, string> = {
+  UNIDAD: 'Unidad',
+  TIRA_6M: 'Tira 6 m',
+  METRO: 'Metro',
+  KG: 'Kilogramo',
+  M2: 'm²',
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -81,40 +99,45 @@ const ConsultarPreciosTab: React.FC = () => {
   const [query, setQuery] = useState('');
   const [modalidad, setModalidad] = useState('');
   const [resultado, setResultado] = useState<ResultadoConsulta | null>(null);
+  const [candidatos, setCandidatos] = useState<Candidato[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandido, setExpandido] = useState<number | null>(null);
 
-  const buscar = useCallback(async () => {
-    if (!query.trim()) return;
+  /**
+   * El servidor decide si el término es código, nombre o alias: la heurística que
+   * vivía aquí (letras + dígitos = código) mandaba a buscar como texto libre
+   * cualquier código que no encajara en ese patrón.
+   */
+  const consultar = useCallback(async (params: Record<string, any>) => {
     setLoading(true);
     setError(null);
     setResultado(null);
+    setCandidatos(null);
     setExpandido(null);
 
     try {
-      const params: any = {};
-      const termino = query.trim().toUpperCase();
-      // Heurística: si parece un código (empieza con letras + dígitos sin espacio)
-      if (/^[A-Z]{2,5}[0-9]/.test(termino)) {
-        params.codigo = termino;
-      } else {
-        params.nombre = query.trim();
-      }
-      if (modalidad) params.modalidad = modalidad;
-
-      const { data } = await axios.get<ResultadoConsulta>(
+      const { data } = await axios.get<ResultadoConsulta & { candidatos?: Candidato[] }>(
         `${API}/api/proveedores/consulta`,
-        { params, headers: { Authorization: `Bearer ${(sessionStorage.getItem('token') || localStorage.getItem('token'))}` } }
+        { params: { ...params, modalidad: modalidad || undefined } }
       );
-      setResultado(data);
+
+      if (data?.candidatos) {
+        setCandidatos(data.candidatos);
+      } else {
+        setResultado(data as ResultadoConsulta);
+      }
     } catch (err: any) {
-      const msg = err?.response?.data?.error ?? 'Producto no encontrado';
-      setError(msg);
+      setError(err?.response?.data?.error ?? 'No se encontró el producto');
     } finally {
       setLoading(false);
     }
-  }, [query, modalidad]);
+  }, [modalidad]);
+
+  const buscar = useCallback(() => {
+    if (!query.trim()) return;
+    consultar({ q: query.trim() });
+  }, [query, consultar]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') buscar();
@@ -187,8 +210,48 @@ const ConsultarPreciosTab: React.FC = () => {
         </button>
       </div>
 
+      {/* ── Varios productos coinciden: que elija el usuario ── */}
+      {candidatos && candidatos.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+          style={{
+            border: '1px solid var(--border)', borderRadius: 14,
+            overflow: 'hidden', marginBottom: 20,
+          }}
+        >
+          <div style={{ padding: '12px 20px', background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+              {candidatos.length} productos coinciden con «{query.trim()}»
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>
+              Elige cuál quieres comparar
+            </div>
+          </div>
+          {candidatos.map((c) => (
+            <div
+              key={c.id}
+              onClick={() => consultar({ producto_id: c.id })}
+              style={{
+                padding: '11px 20px', borderBottom: '1px solid var(--border)',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >
+              <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>
+                {c.codigo}
+              </span>
+              <span style={{ fontSize: 13.5, color: 'var(--text)' }}>{c.nombre}</span>
+              {c.unidad_medida && (
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>{c.unidad_medida}</span>
+              )}
+            </div>
+          ))}
+        </motion.div>
+      )}
+
       {/* ── Estado inicial ── */}
-      {!resultado && !error && !loading && (
+      {!resultado && !candidatos && !error && !loading && (
         <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--text-muted)' }}>
           <Package size={48} style={{ opacity: .3, marginBottom: 12 }} />
           <p style={{ fontSize: 15 }}>Busca un producto para comparar precios entre proveedores</p>
@@ -243,6 +306,25 @@ const ConsultarPreciosTab: React.FC = () => {
                 {resultado.total} proveedor{resultado.total !== 1 ? 'es' : ''}
               </div>
             </div>
+
+            {/* Aviso: comparar precios de modalidades distintas induce a error */}
+            {resultado.precios.length > 1 &&
+              new Set(resultado.precios.map(p => p.unidad_compra)).size > 1 && (
+              <div
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  background: '#f59e0b12', border: '1px solid #f59e0b55',
+                  borderRadius: 12, padding: '12px 16px', marginBottom: 16,
+                }}
+              >
+                <AlertTriangle size={16} color="#b45309" style={{ flexShrink: 0, marginTop: 1 }} />
+                <div style={{ fontSize: 12.5, color: 'var(--text)', lineHeight: 1.45 }}>
+                  <strong>Hay precios en distintas modalidades de compra.</strong>{' '}
+                  Un precio por tira no es comparable con uno por metro: el marcado como «más bajo»
+                  lo es solo dentro de su modalidad. Filtra por una modalidad para comparar de forma válida.
+                </div>
+              </div>
+            )}
 
             {/* Sin resultados */}
             {resultado.precios.length === 0 && (
@@ -320,7 +402,7 @@ const ConsultarPreciosTab: React.FC = () => {
 
                       {/* Modalidad */}
                       <div style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center' }}>
-                        {p.unidad_compra === 'TIRA_6M' ? 'Tira 6 m' : p.unidad_compra === 'METRO' ? 'Metro' : 'Unidad'}
+                        {ETIQUETA_MODALIDAD[p.unidad_compra] ?? p.unidad_compra}
                       </div>
 
                       {/* Precio sin IVA */}

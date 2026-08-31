@@ -28,6 +28,16 @@ Proveedor.init({
   // Referencia cruzada con World Office (código interno del software contable)
   codigo_world_office: { type: DataTypes.STRING(50), allowNull: true },
 
+  // Si está en false, las facturas de este proveedor se registran como procesadas
+  // pero sus líneas no mueven precios ni caen a la bandeja. Es el interruptor para
+  // los emisores que no son insumos (combustible, parqueaderos, papelería, servicios
+  // públicos), que con ~20 FE diarias son la mayor fuente de ruido de la bandeja.
+  seguir_precios: { type: DataTypes.BOOLEAN, defaultValue: true, allowNull: false },
+
+  // MANUAL | IMPORTACION_WO | INGESTA_FE — distingue el maestro curado de los
+  // proveedores que la ingesta creó sola al no reconocer el NIT de una factura.
+  origen_registro: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'MANUAL' },
+
   fecha_creacion: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 }, {
   sequelize,

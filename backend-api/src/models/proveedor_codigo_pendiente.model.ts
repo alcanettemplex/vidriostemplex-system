@@ -29,6 +29,17 @@ ProveedorCodigoPendiente.init({
   // Último precio detectado en facturas (referencia orientativa para el mapeo)
   precio_detectado: { type: DataTypes.DECIMAL(15, 2), allowNull: true },
 
+  // Unidad leída del unitCode del XML. Solo se guarda cuando el código era informativo
+  // (MTR, KGM, MTK…) y no el relleno genérico: así el mapeo se propone contra la
+  // modalidad correcta en vez de dejar que el humano adivine.
+  unidad_detectada: { type: DataTypes.STRING(20), allowNull: true },
+
+  // Porcentaje de IVA que traía la línea en el XML (no siempre es 19)
+  porcentaje_iva_detectado: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+
+  // true si el XML no traía identificación de ítem y el código se derivó de la descripción
+  codigo_derivado: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+
   // CUFE u otra referencia del documento donde se detectó
   documento_ref: { type: DataTypes.STRING(100), allowNull: true },
 

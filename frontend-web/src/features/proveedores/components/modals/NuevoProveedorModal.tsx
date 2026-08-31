@@ -31,25 +31,20 @@ const NuevoProveedorModal: React.FC<Props> = ({ onClose, onCreado }) => {
     if (!form.nombre_comercial.trim()) return;
     setGuardando(true);
     try {
-      await axios.post(
-        `${API}/api/proveedores`,
-        {
-          nombre_comercial: form.nombre_comercial.trim(),
-          nit: form.nit.trim() || null,
-          razon_social: form.razon_social.trim() || null,
-          tipo_identificacion: form.tipo_identificacion,
-          numero_identificacion: form.numero_identificacion.trim() || null,
-          telefono: form.telefono.trim() || null,
-          email: form.email.trim() || null,
-          notas: form.notas.trim() || null,
-        },
-        { headers: { Authorization: `Bearer ${(sessionStorage.getItem('token') || localStorage.getItem('token'))}` } }
-      );
+      await axios.post(`${API}/api/proveedores`, {
+        nombre_comercial: form.nombre_comercial.trim(),
+        nit: form.nit.trim() || null,
+        razon_social: form.razon_social.trim() || null,
+        tipo_identificacion: form.tipo_identificacion,
+        numero_identificacion: form.numero_identificacion.trim() || null,
+        telefono: form.telefono.trim() || null,
+        email: form.email.trim() || null,
+        notas: form.notas.trim() || null,
+      });
       toast.success('Proveedor creado exitosamente');
       onCreado();
     } catch (err: any) {
-      const msg = err?.response?.data?.error ?? 'Error al crear proveedor';
-      toast.error(msg);
+      toast.error(err?.response?.data?.error ?? 'No se pudo crear el proveedor');
     } finally {
       setGuardando(false);
     }

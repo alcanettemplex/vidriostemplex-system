@@ -297,6 +297,8 @@ const TABLAS_AUDITABLES = new Set([
   // Módulo Proveedores — agregados 2026-08-23
   'proveedores', 'proveedor_producto', 'proveedor_producto_precio',
   'proveedor_codigo_pendiente', 'producto_alias',
+  // Agregada 2026-08-30 con la corrección de idempotencia de la ingesta
+  'factura_proveedor_procesada',
 ]);
 
 export const revertirAuditoria = async (req: Request, res: Response) => {

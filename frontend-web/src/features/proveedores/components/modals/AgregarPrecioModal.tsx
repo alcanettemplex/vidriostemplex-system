@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, DollarSign, Search, Loader2, AlertTriangle } from 'lucide-react';
+import { X, DollarSign, Search, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
 
@@ -42,14 +42,10 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
     const timer = setTimeout(async () => {
       setLoadingBusqueda(true);
       try {
-        const { data } = await axios.get<ProductoCatalogo[]>(
-          `${API}/api/catalogo`,
-          {
-            params: { q: buscando },
-            headers: { Authorization: `Bearer ${(sessionStorage.getItem('token') || localStorage.getItem('token'))}` },
-          }
-        );
-        setProductos(data.slice(0, 10));
+        const { data } = await axios.get<ProductoCatalogo[]>(`${API}/api/catalogo`, {
+          params: { q: buscando, limit: 10 },
+        });
+        setProductos(Array.isArray(data) ? data.slice(0, 10) : []);
       } catch { setProductos([]); }
       finally { setLoadingBusqueda(false); }
     }, 350);
@@ -69,22 +65,18 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
     if (!productoSeleccionado || !form.precio) return;
     setGuardando(true);
     try {
-      await axios.post(
-        `${API}/api/proveedores/${proveedor.id}/productos`,
-        {
-          catalogo_producto_id: productoSeleccionado.id,
-          codigo_proveedor: form.codigo_proveedor.trim() || null,
-          descripcion_proveedor: form.descripcion_proveedor.trim() || null,
-          unidad_compra: form.unidad_compra,
-          precio: parseFloat(form.precio),
-          fecha_precio: form.fecha_precio,
-          guardar_alias: true,
-        },
-        { headers: { Authorization: `Bearer ${(sessionStorage.getItem('token') || localStorage.getItem('token'))}` } }
-      );
+      await axios.post(`${API}/api/proveedores/${proveedor.id}/productos`, {
+        catalogo_producto_id: productoSeleccionado.id,
+        codigo_proveedor: form.codigo_proveedor.trim() || null,
+        descripcion_proveedor: form.descripcion_proveedor.trim() || null,
+        unidad_compra: form.unidad_compra,
+        precio: parseFloat(form.precio),
+        fecha_precio: form.fecha_precio,
+        guardar_alias: true,
+      });
       onGuardado();
     } catch (err: any) {
-      toast.error(err?.response?.data?.error ?? 'Error al guardar precio');
+      toast.error(err?.response?.data?.error ?? 'No se pudo guardar el precio');
     } finally {
       setGuardando(false);
     }
