@@ -806,6 +806,7 @@ export const updateODP = async (req: Request, res: Response) => {
       const sumAdic = Number(await FacturaAdicionalODP.sum('monto', { where: { odp_id: odp.getDataValue('id') } })) || 0;
       const yaFacturado = montoPrincipal + sumAdic;
       if (yaFacturado > 0 && nuevoTotal < yaFacturado - 0.01) {
+        await transaction.rollback();
         return res.status(400).json({
           error: `No se puede fijar el valor total (${nuevoTotal.toLocaleString('es-CO')}) por debajo de lo ya facturado en esta ODP (${yaFacturado.toLocaleString('es-CO')}).`,
         });
