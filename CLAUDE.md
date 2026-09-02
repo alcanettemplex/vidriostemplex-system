@@ -55,6 +55,14 @@ Ante un error inesperado durante ejecución:
 1. Intentar recovery automático (rollback, reintento, fix rápido)
 2. Si no es posible recovery, reportar error completo y esperar instrucciones
 
+### Sincronización entre Máquinas — el usuario trabaja en casa y en la oficina
+
+El repo vive en `C:\dev\vidrios-templex-system` (fuera de OneDrive desde el 2026-09-01: OneDrive sincronizando `.git/` corrompe el repo y resuelve conflictos renombrando archivos en vez de mezclarlos).
+
+- **Al iniciar sesión:** el hook `SessionStart` de `.claude/settings.json` corre `git fetch` e informa si la rama está atrás o adelante del remoto. Si avisa que hay commits por traer, **decírselo al usuario y esperar su orden** — nunca hacer `pull` por iniciativa propia; un pull sobre un working tree sucio puede mezclar sin que él lo vea.
+- **Al cerrar sesión:** si quedan commits locales sin pushear, **recordárselo**. El riesgo real de trabajar en dos máquinas no es olvidar el pull, es olvidar el push: al día siguiente se arranca sobre código viejo y se generan dos `main` divergentes que hay que mergear a mano.
+- El hook vive en `.claude/`, que está en `.gitignore` — **no viaja por git**. Al configurar la otra máquina hay que replicarlo a mano.
+
 ---
 
 ## Preferencias de Estilo
@@ -105,6 +113,7 @@ Ante un error inesperado durante ejecución:
 - **Mensajes:** Formato convencional automático (`feat/fix/perf/chore: descripción`)
 - **Seguridad:** Antes de cada commit, verificar que ningún secreto (tokens, URLs, passwords) esté hardcodeado en archivos staged
 - **Push:** Junto con el commit, solo cuando el usuario lo ordene
+- **Recordatorio de cierre:** si al terminar la sesión quedan commits locales sin pushear, avisarle (ver "Sincronización entre Máquinas"). Avisar, no pushear.
 
 ---
 
