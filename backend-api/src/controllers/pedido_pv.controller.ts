@@ -68,7 +68,7 @@ const INCLUDE_COMPLETO = [
 // de ODP —es un estado de PedidoPV— así que nunca protegió nada.)
 const ESTADOS_POSTERIORES_A_VIDRIO = [
   'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR',
-  'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA',
+  'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA',
 ];
 
 const verificarAvanceODP = async (odp_id: number, usuario_id: number) => {

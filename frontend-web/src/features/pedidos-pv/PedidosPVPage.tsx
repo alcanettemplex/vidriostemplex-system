@@ -20,6 +20,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import API from '../../services/config';
+import { getEstadoODP } from '../../utils/estadosODP';
 import { useSoloLectura } from '../../utils/permisos';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -1213,8 +1214,8 @@ const PedidosPVPage: React.FC = () => {
                         <Stack>
                           <Stack direction="row" alignItems="center" gap={0.75}>
                             <Typography fontSize={13} fontWeight={700}>{o.numero_odp}</Typography>
-                            {['ENTREGADA', 'INSTALADA'].includes(o.estado_produccion) && (
-                              <Chip label={o.estado_produccion === 'ENTREGADA' ? 'Entregada' : 'Instalada'}
+                            {['ENTREGADA', 'INSTALANDO', 'INSTALADA'].includes(o.estado_produccion) && (
+                              <Chip label={getEstadoODP(o.estado_produccion).label}
                                 size="small" sx={{ height: 16, fontSize: 9, fontWeight: 700 }} />
                             )}
                           </Stack>

@@ -69,7 +69,7 @@ const odpSchema = z.object({
   numero_odp: z.string().optional(),
   cliente_id: z.number().int().positive('ID de cliente requerido'),
   asesor_id: z.number().int().positive('ID de asesor requerido').optional(),
-  estado_produccion: z.enum(['EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA']).optional(),
+  estado_produccion: z.enum(['EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA']).optional(),
   estado_facturacion: z.enum(['PENDIENTE', 'FACTURADA']).optional(),
   estado_caja: z.enum(['PENDIENTE', 'ABONADO', 'CANCELADO', 'CREDITO_APROBADO']).optional(),
   factura_electronica: z.string().optional(),
@@ -1144,8 +1144,9 @@ export const updateODP = async (req: Request, res: Response) => {
       }
     }
 
-    // ─── Regla automática: PedidoPV VERIFICADO → ENTREGADO cuando ODP es INSTALADA/ENTREGADA ───
-    if (data.estado_produccion === 'INSTALADA' || data.estado_produccion === 'ENTREGADA') {
+    // ─── Regla automática: PedidoPV VERIFICADO → ENTREGADO cuando el vidrio ya salió ───
+    // Incluye INSTALANDO: si el instalador está en obra, el vidrio ya se despachó.
+    if (['INSTALANDO', 'INSTALADA', 'ENTREGADA'].includes(data.estado_produccion as string)) {
       try {
         await PedidoPV.update(
           { estado: 'ENTREGADO' },
@@ -1692,7 +1693,7 @@ export const agregarItems = async (req: Request, res: Response) => {
       const estadoActual = odp.getDataValue('estado_produccion') as string;
       const rolUsuario = req.user?.rol;
       const esAdminOGerencia = rolUsuario === 'admin' || rolUsuario === 'gerencia';
-      if (['INSTALADA', 'ENTREGADA', 'PAUSADA'].includes(estadoActual) && !esAdminOGerencia) {
+      if (['INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA'].includes(estadoActual) && !esAdminOGerencia) {
         throw new Error(`No se pueden agregar ítems a una ODP en estado ${estadoActual}`);
       }
 

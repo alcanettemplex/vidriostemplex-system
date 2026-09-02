@@ -8,10 +8,11 @@ import { toast } from 'react-toastify';
 import {
     Plus, Search, FileText, CheckCircle2, Clock, Truck, Eye, Trash2, Edit3,
     AlertCircle, AlertTriangle, Package, DollarSign, Ruler, Printer, MoreVertical,
-    ChevronUp, ChevronDown, ChevronsUpDown, Filter, CheckSquare, Shield
+    ChevronUp, ChevronDown, ChevronsUpDown, Filter, Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPForm from './components/ODPForm';
+import { getEstadoODP } from '../../utils/estadosODP';
 import FolderTabs from '../../components/FolderTabs';
 import ODPFichaModal from './components/ODPFichaModal';
 import AsignarAsesorODPModal from './components/AsignarAsesorODPModal';
@@ -50,22 +51,8 @@ const ESTADOS_PRODUCCION = [
 
 const ESTADOS_COMPLETADAS = ['ENTREGADA', 'INSTALADA'];
 
-const getStatusColor = (estado: string) => {
-    switch (estado) {
-        case 'EN_ESPERA':           return 'bg-amber-50 text-amber-800 border-amber-300';
-        case 'VISITA_TECNICA':      return 'bg-orange-100 text-orange-800 border-orange-300';
-        case 'MEDICION':            return 'bg-sky-100 text-sky-800 border-sky-300';
-        case 'ALUMINIO_CORTADO':    return 'bg-blue-100 text-blue-800 border-blue-300';
-        case 'VIDRIO_RECIBIDO':     return 'bg-indigo-100 text-indigo-800 border-indigo-300';
-        case 'ACCESORIOS_SEPARADOS':return 'bg-teal-100 text-teal-800 border-teal-300';
-        case 'LISTO_INSTALAR':      return 'bg-emerald-100 text-emerald-800 border-emerald-300';
-        case 'PROGRAMADA':          return 'bg-amber-100 text-amber-800 border-amber-300';
-        case 'INSTALADA':           return 'bg-green-100 text-green-800 border-green-300';
-        case 'ENTREGADA':           return 'bg-gray-100 text-gray-700 border-gray-300';
-        case 'PAUSADA':             return 'bg-rose-100 text-rose-800 border-rose-300';
-        default:                    return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-};
+// Color y nombre salen de `utils/estadosODP` (fuente única). Aquí solo el ícono.
+const getStatusColor = (estado: string) => getEstadoODP(estado).badge;
 
 const getStatusIcon = (estado: string) => {
     switch (estado) {
@@ -77,7 +64,9 @@ const getStatusIcon = (estado: string) => {
         case 'ACCESORIOS_SEPARADOS':return <Package className="w-3 h-3 mr-1 shrink-0" />;
         case 'LISTO_INSTALAR':      return <CheckCircle2 className="w-3 h-3 mr-1 shrink-0" />;
         case 'PROGRAMADA':          return <Truck className="w-3 h-3 mr-1 shrink-0" />;
-        case 'INSTALADA':           return <CheckSquare className="w-3 h-3 mr-1 shrink-0" />;
+        // INSTALANDO está en curso (reloj); INSTALADA ya culminó (check)
+        case 'INSTALANDO':          return <Clock className="w-3 h-3 mr-1 shrink-0" />;
+        case 'INSTALADA':           return <CheckCircle2 className="w-3 h-3 mr-1 shrink-0" />;
         case 'ENTREGADA':           return <CheckCircle2 className="w-3 h-3 mr-1 shrink-0" />;
         case 'PAUSADA':             return <AlertCircle className="w-3 h-3 mr-1 shrink-0" />;
         default:                    return null;
@@ -122,7 +111,7 @@ const ActionsMenu: React.FC<{
     const items: { label: string; icon: React.ReactNode; onClick: () => void; danger?: boolean; show: boolean }[] = [
         { label: 'Solicitud Accesorios (SAP)', icon: <Package className="w-4 h-4" />, onClick: onSap, show: isAsesor },
         { label: 'Cotización (COT)',            icon: <DollarSign className="w-4 h-4" />, onClick: onCot, show: isAsesor },
-        { label: 'Solicitar Visita Técnica',   icon: <Ruler className="w-4 h-4" />, onClick: onVisita, show: isAsesor && !['INSTALADA', 'ENTREGADA', 'PAUSADA'].includes(odp.estado_produccion) },
+        { label: 'Solicitar Visita Técnica',   icon: <Ruler className="w-4 h-4" />, onClick: onVisita, show: isAsesor && !['INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA'].includes(odp.estado_produccion) },
         { label: 'Toma de Medidas (TM)',        icon: <Ruler className="w-4 h-4" />, onClick: onTm, show: isJefe },
         { label: 'Eliminar ODP',               icon: <Trash2 className="w-4 h-4" />, onClick: onDelete, danger: true, show: isAdmin && odp.estado_produccion !== 'ENTREGADA' && odp.estado_facturacion !== 'FACTURADA' },
     ].filter(i => i.show);
@@ -745,7 +734,7 @@ const ODPListPage: React.FC = () => {
                                                             <Shield className="w-2.5 h-2.5" /> {(odp as any).numero_garantia || 'G'}
                                                         </span>
                                                     )}
-                                                    {odp.sin_items && !['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA'].includes(odp.estado_produccion) && (
+                                                    {odp.sin_items && !['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA'].includes(odp.estado_produccion) && (
                                                         <span className="text-[9px] font-black bg-orange-500 text-white px-1 py-0.5 rounded leading-none" title="Sin requerimientos — pendiente aprobación">SIN REQ.</span>
                                                     )}
                                                     #{odp.numero_odp}
@@ -762,9 +751,12 @@ const ODPListPage: React.FC = () => {
                                         </td>
                                         {/* Estado taller */}
                                         <td className="px-4 py-3">
-                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(odp.estado_produccion)}`}>
+                                            <span
+                                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(odp.estado_produccion)}`}
+                                                title={getEstadoODP(odp.estado_produccion).descripcion}
+                                            >
                                                 {getStatusIcon(odp.estado_produccion)}
-                                                {odp.estado_produccion.replace(/_/g, ' ')}
+                                                {getEstadoODP(odp.estado_produccion).label}
                                             </span>
                                         </td>
                                         {/* Fecha Liberado — solo tab Listas para instalar */}
@@ -844,7 +836,7 @@ const ODPListPage: React.FC = () => {
                                                 >
                                                     <Eye className="w-4 h-4" />
                                                 </button>
-                                                {odp.sin_items && !['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA'].includes(odp.estado_produccion) && ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'].includes(userRole) && (
+                                                {odp.sin_items && !['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA'].includes(odp.estado_produccion) && ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'].includes(userRole) && (
                                                 <button
                                                     onClick={() => handleAprobarSinItems(odp)}
                                                     className="text-orange-400 hover:text-orange-600 transition p-1.5 hover:bg-orange-50 rounded"

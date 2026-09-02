@@ -1,13 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-const ESTADO_LABEL: Record<string, string> = {
-  EN_ESPERA: 'En Espera', VISITA_TECNICA: 'Visita', MEDICION: 'Medición',
-  ALUMINIO_CORTADO: 'Al. Cortado',
-  VIDRIO_RECIBIDO: 'Vidrio Recibido', ACCESORIOS_SEPARADOS: 'Accesorios Sep.',
-  LISTO_INSTALAR: 'Listo Instalar', PROGRAMADA: 'Programada',
-  INSTALADA: 'Instalada', ENTREGADA: 'Entregada', PAUSADA: 'Pausada',
-};
+// Nombres de estado: `utils/estadosODP` es la fuente única. Aquí se usa la variante
+// corta porque van dentro de tarjetas densas.
+import { ESTADO_LABELS_CORTOS as ESTADO_LABEL } from '../../../utils/estadosODP';
 
 const SERVICIO_COLORS = ['#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6','#64748b','#06b6d4'];
 

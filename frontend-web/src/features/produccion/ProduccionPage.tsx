@@ -132,7 +132,7 @@ const activeStates = [
 ];
 
 // Estados que el tablero de producción realmente muestra. Se pide al backend solo estas
-// ODP (excluye PROGRAMADA/INSTALADA, que esta página nunca renderiza) para no descargar
+// ODP (excluye PROGRAMADA/INSTALANDO/INSTALADA, que esta página nunca renderiza) para no descargar
 // cientos de órdenes históricas que luego se descartan en el cliente — optimización egress.
 //
 // ENTREGADA se retiró el 2026-07-30: eran 284 ODPs (el 79% del universo pedido) para
@@ -543,7 +543,7 @@ const ProduccionPage: React.FC = () => {
             }
             if (!odp) return;
             // Maestro: upsert si la ODP es visible en el tablero; si dejó de serlo (p. ej. pasó
-            // a PROGRAMADA/INSTALADA vía rutas), se retira. Cubre también el re-ingreso a un
+            // a PROGRAMADA/INSTALANDO vía rutas), se retira. Cubre también el re-ingreso a un
             // estado visible desde uno excluido por el filtro de la carga inicial.
             setOdps(prev => {
                 const visible = !odp.es_garantia && ESTADOS_PRODUCCION_VISIBLES.includes(odp.estado_produccion);

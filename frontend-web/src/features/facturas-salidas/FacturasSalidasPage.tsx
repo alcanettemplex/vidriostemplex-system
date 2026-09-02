@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import ODPFichaModal from '../odp/components/ODPFichaModal';
+import { getEstadoODP } from '../../utils/estadosODP';
 import FolderTabs from '../../components/FolderTabs';
 import {
   FileCheck, Warehouse, Plus, Pencil, Trash2, X, RefreshCw, Search, Package, AlertTriangle, Zap,
@@ -21,23 +22,10 @@ const fmtFecha = (f: string | null | undefined) => {
 const fmtMoneda = (v: number | null | undefined) =>
   v ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v) : '—';
 
-const ESTADO_PROD: Record<string, { label: string; cls: string }> = {
-  EN_ESPERA:           { label: 'En espera',          cls: 'bg-slate-100 text-slate-600' },
-  VISITA_TECNICA:      { label: 'Visita técnica',      cls: 'bg-blue-50 text-blue-700' },
-  MEDICION:            { label: 'Medición',            cls: 'bg-cyan-50 text-cyan-700' },
-  ALUMINIO_CORTADO:    { label: 'Aluminio cortado',    cls: 'bg-orange-50 text-orange-700' },
-  VIDRIO_RECIBIDO:     { label: 'Vidrio recibido',     cls: 'bg-yellow-50 text-yellow-700' },
-  ACCESORIOS_SEPARADOS:{ label: 'Accesorios sep.',     cls: 'bg-lime-50 text-lime-700' },
-  LISTO_INSTALAR:      { label: 'Listo instalar',      cls: 'bg-emerald-50 text-emerald-700' },
-  PROGRAMADA:          { label: 'Programada',          cls: 'bg-teal-50 text-teal-700' },
-  INSTALADA:           { label: 'Instalada',           cls: 'bg-green-50 text-green-700' },
-  ENTREGADA:           { label: 'Entregada',           cls: 'bg-violet-50 text-violet-700' },
-  PAUSADA:             { label: 'Pausada',             cls: 'bg-rose-50 text-rose-700' },
-};
-
+// Nombres y colores de estado: `utils/estadosODP` es la fuente única.
 const BadgeEstado = ({ estado }: { estado: string }) => {
-  const e = ESTADO_PROD[estado] ?? { label: estado, cls: 'bg-slate-100 text-slate-600' };
-  return <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${e.cls}`}>{e.label}</span>;
+  const e = getEstadoODP(estado);
+  return <span title={e.descripcion} className={`px-2 py-0.5 rounded-full text-xs font-bold border ${e.badge}`}>{e.label}</span>;
 };
 
 /**

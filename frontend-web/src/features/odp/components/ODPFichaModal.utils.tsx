@@ -1,18 +1,7 @@
 import React from 'react';
 import { getTmEstadoConfig, tmVisitaRealizada } from '../../../utils/tmEstado';
 
-export const estadoProdColor: Record<string, string> = {
-  EN_ESPERA: 'bg-slate-100 text-slate-700 border-slate-200',
-  MEDICION: 'bg-sky-100 text-sky-700 border-sky-200',
-  ALUMINIO_CORTADO: 'bg-blue-100 text-blue-700 border-blue-200',
-  VIDRIO_RECIBIDO: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-  ACCESORIOS_SEPARADOS: 'bg-teal-100 text-teal-700 border-teal-200',
-  LISTO_INSTALAR: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  PROGRAMADA: 'bg-amber-100 text-amber-700 border-amber-200',
-  INSTALADA: 'bg-green-100 text-green-700 border-green-200',
-  ENTREGADA: 'bg-gray-100 text-gray-700 border-gray-200',
-  PAUSADA: 'bg-rose-100 text-rose-700 border-rose-200',
-};
+// Los colores/nombres de estado_produccion viven en `utils/estadosODP` (fuente única).
 
 export const cajaColor: Record<string, string> = {
   PENDIENTE: 'bg-rose-100 text-rose-700',
@@ -39,8 +28,8 @@ export const InfoRow: React.FC<{ label: string; value?: any; icon?: React.ReactN
   </div>
 );
 
-export const Badge: React.FC<{ className?: string; children: React.ReactNode }> = ({ className, children }) => (
-  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${className}`}>{children}</span>
+export const Badge: React.FC<{ className?: string; title?: string; children: React.ReactNode }> = ({ className, title, children }) => (
+  <span title={title} className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${className}`}>{children}</span>
 );
 
 export const normalizarItemLabel = (item: string): string => {

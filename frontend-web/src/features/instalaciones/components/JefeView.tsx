@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import ProgramarRutaModal from './ProgramarRutaModal';
 import InstaladorGestionTab from './InstaladorGestionTab';
+import CerrarAtascadaModal from './CerrarAtascadaModal';
 import AgendaTab from './AgendaTab';
 import FolderTabs, { FOLDER_BODY } from '../../../components/FolderTabs';
 import ODPFichaModal from '../../odp/components/ODPFichaModal';
@@ -69,6 +70,17 @@ const ESTADO_ODP_RUTA_STYLES: Record<string, string> = {
   pausada:    'bg-violet-100 text-violet-700',
   completada: 'bg-emerald-100 text-emerald-700',
   con_dano:   'bg-orange-100 text-orange-700',
+};
+
+// Por qué una instalación quedó sin cerrar. Los códigos los calcula getODPsAtascadas
+// en el backend; aquí solo se traducen a lenguaje del jefe de producción.
+const MOTIVO_ATASCADA: Record<string, { label: string; cls: string; detalle: string }> = {
+  INICIADA_SIN_FINALIZAR:    { label: 'Instalando sin finalizar', cls: 'bg-orange-100 text-orange-700', detalle: 'El instalador entró a la obra pero nunca finalizó en la app. La orden sigue abierta.' },
+  RUTA_CERRADA_SIN_INSTALAR: { label: 'Ruta cerrada sin instalar', cls: 'bg-rose-100 text-rose-700',    detalle: 'El conductor cerró la ruta y esta parada nunca se atendió.' },
+  DANO_SIN_RESOLVER:         { label: 'Daño sin resolver',        cls: 'bg-red-100 text-red-700',       detalle: 'Se reportó un daño en la instalación y sigue sin resolverse.' },
+  PAUSADA_SIN_RETOMAR:       { label: 'Pausada sin retomar',      cls: 'bg-violet-100 text-violet-700', detalle: 'La instalación se pausó y nunca se retomó.' },
+  PARADA_VENCIDA:            { label: 'Parada vencida',           cls: 'bg-amber-100 text-amber-700',   detalle: 'La fecha programada ya pasó y la parada sigue pendiente.' },
+  SIN_RUTA:                  { label: 'Sin ruta asociada',        cls: 'bg-slate-200 text-slate-700',   detalle: 'No tiene ninguna parada de ruta que pueda cerrarla.' },
 };
 
 const getTipoServicio = (odp: any) => {
@@ -305,6 +317,8 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const [preseleccionRuta, setPreseleccionRuta] = useState<{ odps: any[]; fecha: string } | null>(null);
   const [pauseModal, setPauseModal] = useState<{ rutaOdpId: number; numeroOdp: string } | null>(null);
   const [pauseMotivo, setPauseMotivo] = useState('');
+  const [cierreModal, setCierreModal] = useState<{ odpId: number; numeroOdp: string; cliente?: string | null } | null>(null);
+  const [cerrando, setCerrando] = useState(false);
   const [finalizarModal, setFinalizarModal] = useState<{ rutaOdpId: number; numeroOdp: string } | null>(null);
   const [fotosFinalizar, setFotosFinalizar] = useState<File[]>([]);
   const [datosReceptor, setDatosReceptor] = useState('');
@@ -421,22 +435,30 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     } catch (e: any) { toast.error(e.response?.data?.error || 'Error al pausar'); }
   };
 
-  // Atascadas: reprogramar (→ Listo para instalar) o marcar entregada (cierre administrativo)
-  const handleReprogramarAtascada = async (rutaOdpId: number, numeroOdp: string) => {
+  // Pendientes de cierre: reprogramar (→ Listo para instalar) o cerrar administrativamente.
+  // Ambas acciones van por odp_id, no por ruta_odp_id: hay ODPs colgadas que nunca
+  // tuvieron parada de ruta y aun así deben poder gestionarse desde aquí.
+  const handleReprogramarAtascada = async (odpId: number, numeroOdp: string) => {
     if (!window.confirm(`¿Reprogramar ${numeroOdp}? Volverá a "Listo para instalar" para asignarla a una ruta nueva.`)) return;
     try {
-      await axios.post(`${API}/api/rutas/atascadas/${rutaOdpId}/reprogramar`, {}, { headers });
+      await axios.post(`${API}/api/rutas/atascadas/${odpId}/reprogramar`, {}, { headers });
       toast.success(`${numeroOdp} reprogramada`);
       cargar();
     } catch (e: any) { toast.error(e.response?.data?.error || 'Error al reprogramar'); }
   };
-  const handleEntregarAtascada = async (rutaOdpId: number, numeroOdp: string) => {
-    if (!window.confirm(`¿Marcar ${numeroOdp} como ENTREGADA? Úsalo solo si la instalación realmente se realizó. Es un cierre administrativo.`)) return;
+  const handleConfirmarCierre = async (motivo: string) => {
+    if (!cierreModal) return;
+    setCerrando(true);
     try {
-      await axios.post(`${API}/api/rutas/atascadas/${rutaOdpId}/entregar`, {}, { headers });
-      toast.success(`${numeroOdp} marcada como entregada`);
+      await axios.post(`${API}/api/rutas/atascadas/${cierreModal.odpId}/entregar`, { motivo }, { headers });
+      toast.success(`${cierreModal.numeroOdp} marcada como entregada`);
+      setCierreModal(null);
       cargar();
-    } catch (e: any) { toast.error(e.response?.data?.error || 'Error al marcar entregada'); }
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Error al marcar entregada');
+    } finally {
+      setCerrando(false);
+    }
   };
 
   // Tabs principales
@@ -447,7 +469,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     { key: 'factura',       label: 'Espera de factura',     count: odps.espera_factura.length,      icon: Receipt,       color: 'text-orange-600',  soloEscritura: false },
     { key: 'produccion',    label: 'Espera de producción',  count: odps.espera_produccion.length,   icon: AlertTriangle, color: 'text-red-500',     soloEscritura: false },
     { key: 'programados',   label: 'Programados',           count: rutas.length,                    icon: Route,         color: 'text-indigo-600',  soloEscritura: false },
-    { key: 'atascadas',     label: 'Atascadas',             count: atascadas.length,                icon: AlertOctagon,  color: 'text-rose-600',    soloEscritura: false },
+    { key: 'atascadas',     label: 'Pendientes de cierre',  count: atascadas.length,                icon: AlertOctagon,  color: 'text-rose-600',    soloEscritura: false },
     { key: 'completados',   label: 'Completados',           count: null,                            icon: History,       color: 'text-slate-500',   soloEscritura: false },
     { key: 'instaladores',  label: 'Instaladores',          count: null,                            icon: HardHat,       color: 'text-teal-600',    soloEscritura: true  },
   ] as const;
@@ -629,15 +651,16 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
           </div>
         )}
 
-        {/* ── Contenido tab Atascadas ── */}
+        {/* ── Contenido tab Pendientes de cierre ── */}
         {mainTab === 'atascadas' && (
           <div className="p-4 space-y-3">
             <div className="flex items-start gap-2 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-xs text-rose-800">
               <AlertOctagon className="w-4 h-4 mt-0.5 shrink-0 text-rose-600" />
               <span>
-                ODPs que quedaron en <b>PROGRAMADA</b> porque su ruta se cerró sin registrar la instalación.
-                Reprogámalas para asignarlas a una ruta nueva, o márcalas como entregadas si la instalación
-                sí se realizó pero no se registró.
+                Órdenes que siguen vivas: el instalador entró a la obra y nunca finalizó, la fecha
+                programada ya pasó, o el trabajo terminó pero dejó una parada de ruta abierta.
+                <b> Reprográmalas</b> para asignarlas a una ruta nueva, o <b>márcalas como entregadas</b>
+                {' '}si la instalación sí se realizó y solo falta el registro.
               </span>
             </div>
 
@@ -645,12 +668,14 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
               <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-7 w-7 border-b-2 border-rose-600" /></div>
             ) : atascadasMostradas.length === 0 ? (
               <div className="py-10 text-center text-slate-400 text-sm">
-                {q ? 'Sin resultados para la búsqueda.' : 'No hay ODPs atascadas. 🎉'}
+                {q ? 'Sin resultados para la búsqueda.' : 'No hay instalaciones pendientes de cierre. 🎉'}
               </div>
             ) : (
               <div className="space-y-2.5">
-                {atascadasMostradas.map((a: any) => (
-                  <div key={a.ruta_odp_id} className="border border-slate-200 rounded-xl p-3.5 bg-white hover:shadow-sm transition-shadow">
+                {atascadasMostradas.map((a: any) => {
+                  const m = MOTIVO_ATASCADA[a.motivo] ?? { label: 'Sin cerrar', cls: 'bg-slate-100 text-slate-600' };
+                  return (
+                  <div key={a.odp_id} className="border border-slate-200 rounded-xl p-3.5 bg-white hover:shadow-sm transition-shadow">
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -658,7 +683,15 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                             {a.numero_odp}
                           </button>
                           {a.es_no_conformidad && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">REPROCESO</span>}
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">Ruta #{a.ruta_id} cerrada</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${m.cls}`} title={m.detalle}>{m.label}</span>
+                          {a.dias_vencida != null && a.dias_vencida > 0 && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                              {a.dias_vencida} {a.dias_vencida === 1 ? 'día' : 'días'}
+                            </span>
+                          )}
+                          {a.ruta_id && (
+                            <span className="text-[10px] text-slate-400">Ruta #{a.ruta_id}</span>
+                          )}
                         </div>
                         <p className="text-sm text-slate-700 font-medium mt-1 truncate">{a.cliente || 'Sin cliente'}</p>
                         {a.direccion_instalacion && (
@@ -666,18 +699,32 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                             <MapPin className="w-3 h-3 shrink-0" /> {a.direccion_instalacion}
                           </p>
                         )}
-                        <p className="text-[11px] text-slate-400 mt-0.5">Asesor: {a.asesor || '—'}</p>
+                        <div className="flex items-center gap-2 flex-wrap mt-1">
+                          <p className="text-[11px] text-slate-400">Asesor: {a.asesor || '—'}</p>
+                          {/* Facturada y pagada = señal fuerte de que la instalación sí ocurrió */}
+                          {a.estado_facturacion === 'FACTURADA' && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700">Facturada</span>
+                          )}
+                          {a.estado_caja === 'CANCELADO' && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">Pagada</span>
+                          )}
+                        </div>
+                        {(a.motivo_pausa || a.descripcion_dano) && (
+                          <p className="text-[11px] text-slate-500 italic mt-1 truncate">
+                            "{a.motivo_pausa || a.descripcion_dano}"
+                          </p>
+                        )}
                       </div>
                       {!readOnly && (
                         <div className="flex items-center gap-2 shrink-0">
                           <button
-                            onClick={() => handleReprogramarAtascada(a.ruta_odp_id, a.numero_odp)}
+                            onClick={() => handleReprogramarAtascada(a.odp_id, a.numero_odp)}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
                           >
                             <RefreshCw className="w-3.5 h-3.5" /> Reprogramar
                           </button>
                           <button
-                            onClick={() => handleEntregarAtascada(a.ruta_odp_id, a.numero_odp)}
+                            onClick={() => setCierreModal({ odpId: a.odp_id, numeroOdp: a.numero_odp, cliente: a.cliente })}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
                           >
                             <PackageCheck className="w-3.5 h-3.5" /> Marcar entregada
@@ -686,7 +733,8 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -880,6 +928,17 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
         <ODPFichaModal
           odpId={selectedOdpId}
           onClose={() => setSelectedOdpId(null)}
+        />
+      )}
+
+      {/* Cierre administrativo de una instalación sin registrar (motivo obligatorio) */}
+      {cierreModal && (
+        <CerrarAtascadaModal
+          numeroOdp={cierreModal.numeroOdp}
+          cliente={cierreModal.cliente}
+          guardando={cerrando}
+          onCancelar={() => setCierreModal(null)}
+          onConfirmar={handleConfirmarCierre}
         />
       )}
 

@@ -9,7 +9,8 @@ import {
   Sparkles, Film, Box, Archive, ChevronUp, Loader2, MessageSquare,
   ArrowRight, RefreshCw, Tag
 } from 'lucide-react';
-import { estadoProdColor, cajaColor, Badge } from './ODPFichaModal.utils';
+import { cajaColor, Badge } from './ODPFichaModal.utils';
+import { getEstadoODP } from '../../../utils/estadosODP';
 import Lightbox, { useLightbox } from '../../../components/ui/Lightbox';
 import ReportarProblemaForm from './ReportarProblemaForm';
 import GarantiaFormModal from './GarantiaFormModal';
@@ -157,7 +158,8 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
             <div className="flex justify-between items-start">
               <div className="flex items-start gap-4">
                 <div className="hidden md:flex flex-col items-center gap-1 pt-1">
-                  <div className={`w-3 h-3 rounded-full ${odp.estado_produccion === 'INSTALADA' || odp.estado_produccion === 'ENTREGADA' ? 'bg-emerald-500' : odp.estado_produccion === 'PAUSADA' ? 'bg-rose-500' : 'bg-amber-400'} animate-pulse`} />
+                  {/* Verde cuando el trabajo culminó (INSTALADA o ENTREGADA); ámbar mientras sigue en curso */}
+                  <div className={`w-3 h-3 rounded-full ${['INSTALADA', 'ENTREGADA'].includes(odp.estado_produccion) ? 'bg-emerald-500' : odp.estado_produccion === 'PAUSADA' ? 'bg-rose-500' : 'bg-amber-400'} animate-pulse`} />
                 </div>
                 <div>
                   <div className="flex items-center gap-3 flex-wrap">
@@ -165,8 +167,11 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                       <span className="text-[10px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded">REPROCESO</span>
                     )}
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">{odp.numero_odp}</h1>
-                    <Badge className={estadoProdColor[odp.estado_produccion] || 'bg-slate-100 text-slate-700 border-slate-200'}>
-                      {odp.estado_produccion?.replace(/_/g, ' ')}
+                    <Badge
+                      className={getEstadoODP(odp.estado_produccion).badge}
+                      title={getEstadoODP(odp.estado_produccion).descripcion}
+                    >
+                      {getEstadoODP(odp.estado_produccion).label}
                     </Badge>
                     {!odp.es_garantia && (
                       <Badge className={cajaColor[odp.estado_caja] || 'bg-slate-100'}>

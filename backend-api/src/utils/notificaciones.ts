@@ -21,6 +21,7 @@ const ESTADO_LABELS: Record<string, string> = {
   ACCESORIOS_SEPARADOS: 'Accesorios Separados',
   LISTO_INSTALAR:       'Listo para Instalar',
   PROGRAMADA:           'Programada',
+  INSTALANDO:           'Instalando',
   INSTALADA:            'Instalada',
   ENTREGADA:            'Entregada',
   PAUSADA:              'Pausada',

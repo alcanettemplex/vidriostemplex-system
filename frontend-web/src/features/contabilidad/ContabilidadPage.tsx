@@ -16,6 +16,7 @@ import { useDataChangedSocket, useODPSocketPatch } from '../../store/useSocketNo
 import API from '../../services/config';
 // Helpers y modales compartidos: los mismos que consume la ficha de la ODP.
 import { headers, fmt, fmtFecha, formatMiles, parseMiles, calcPendiente } from './components/contabilidad.utils';
+import { getEstadoODP } from '../../utils/estadosODP';
 import FacturaElectronicaModal from './components/FacturaElectronicaModal';
 import AbonoFormModal from './components/AbonoFormModal';
 import ConfirmarEliminarAbonoModal from './components/ConfirmarEliminarAbonoModal';
@@ -440,13 +441,11 @@ const ContabilidadPage: React.FC = () => {
                       <td className="px-4 py-4 text-slate-600 text-xs whitespace-nowrap">{odp.asesor?.nombre_completo || '—'}</td>
                       {/* Estado Taller */}
                       <td className="px-4 py-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                          odp.estado_produccion === 'ENTREGADA' || odp.estado_produccion === 'INSTALADA' ? 'bg-green-100 text-green-700 border-green-200' :
-                          odp.estado_produccion === 'PAUSADA' ? 'bg-rose-100 text-rose-700 border-rose-200' :
-                          odp.estado_produccion === 'LISTO_INSTALAR' || odp.estado_produccion === 'PROGRAMADA' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                          'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}>
-                          {(odp.estado_produccion || '—').replace(/_/g, ' ')}
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${getEstadoODP(odp.estado_produccion).badge}`}
+                          title={getEstadoODP(odp.estado_produccion).descripcion}
+                        >
+                          {getEstadoODP(odp.estado_produccion).label}
                         </span>
                       </td>
                       <td className="px-4 py-4">
@@ -740,13 +739,11 @@ const ContabilidadPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-4 text-slate-600 text-xs whitespace-nowrap">{odp.asesor?.nombre_completo || '—'}</td>
                       <td className="px-4 py-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                          odp.estado_produccion === 'ENTREGADA' || odp.estado_produccion === 'INSTALADA' ? 'bg-green-100 text-green-700 border-green-200' :
-                          odp.estado_produccion === 'PAUSADA' ? 'bg-rose-100 text-rose-700 border-rose-200' :
-                          odp.estado_produccion === 'LISTO_INSTALAR' || odp.estado_produccion === 'PROGRAMADA' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                          'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}>
-                          {(odp.estado_produccion || '—').replace(/_/g, ' ')}
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${getEstadoODP(odp.estado_produccion).badge}`}
+                          title={getEstadoODP(odp.estado_produccion).descripcion}
+                        >
+                          {getEstadoODP(odp.estado_produccion).label}
                         </span>
                       </td>
                       <td className="px-4 py-4">
@@ -919,12 +916,11 @@ const ContabilidadPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-4 text-slate-600 text-xs whitespace-nowrap">{odp.asesor?.nombre_completo || '—'}</td>
                       <td className="px-4 py-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                          odp.estado_produccion === 'ENTREGADA' || odp.estado_produccion === 'INSTALADA' ? 'bg-green-100 text-green-700 border-green-200' :
-                          odp.estado_produccion === 'PAUSADA' ? 'bg-rose-100 text-rose-700 border-rose-200' :
-                          'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}>
-                          {(odp.estado_produccion || '—').replace(/_/g, ' ')}
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${getEstadoODP(odp.estado_produccion).badge}`}
+                          title={getEstadoODP(odp.estado_produccion).descripcion}
+                        >
+                          {getEstadoODP(odp.estado_produccion).label}
                         </span>
                       </td>
                       <td className="px-4 py-4">

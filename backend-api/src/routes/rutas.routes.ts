@@ -59,10 +59,11 @@ router.get('/historial', requireRole('admin', 'gerencia', 'jefe_produccion', 'as
 router.get('/vehiculos', getVehiculos);
 router.get('/personal', getInstaladores);
 
-// Jefe: ODPs atascadas tras cierre de ruta (rescate)
+// Jefe: instalaciones sin cerrar (rescate). El parámetro es odp.id —no ruta_odp.id—
+// porque hay ODPs colgadas que nunca tuvieron parada de ruta.
 router.get('/atascadas', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), getODPsAtascadas);
-router.post('/atascadas/:id/reprogramar', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), reprogramarAtascada);
-router.post('/atascadas/:id/entregar', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), entregarAtascada);
+router.post('/atascadas/:odpId/reprogramar', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), reprogramarAtascada);
+router.post('/atascadas/:odpId/entregar', requireRole('admin', 'gerencia', 'jefe_produccion', 'produccion'), entregarAtascada);
 
 // Instalador: mi asignación del día
 router.get('/mi-asignacion', requireRole('instalador'), getMiAsignacion);

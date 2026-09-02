@@ -209,7 +209,7 @@ export const getGeneralData = async (req: Request, res: Response) => {
     const embudo_conversion = {
       creadas:         await ODP.count({ where: { ...periodWhere } }),
       en_espera:       await ODP.count({ where: { ...periodWhere, estado_produccion: 'EN_ESPERA' } }),
-      en_produccion:   await ODP.count({ where: { ...periodWhere, estado_produccion: { [Op.notIn]: ['EN_ESPERA', 'ENTREGADA', 'INSTALADA'] } } }),
+      en_produccion:   await ODP.count({ where: { ...periodWhere, estado_produccion: { [Op.notIn]: ['EN_ESPERA', 'ENTREGADA', 'INSTALANDO', 'INSTALADA'] } } }),
       listas_con_pago: await ODP.count({ where: { ...periodWhere, estado_produccion: 'LISTO_INSTALAR', [Op.or]: [{ forma_pago: 'credito' }, { estado_caja: 'CANCELADO' }, { estado_caja: 'CREDITO_APROBADO' }] } }),
       listas_sin_pago: await ODP.count({ where: { ...periodWhere, estado_produccion: 'LISTO_INSTALAR', forma_pago: { [Op.ne]: 'credito' }, estado_caja: { [Op.notIn]: ['CANCELADO', 'CREDITO_APROBADO'] } } }),
       instaladas:      await ODP.count({ where: { ...periodWhere, estado_produccion: 'INSTALADA' } }),
@@ -403,7 +403,7 @@ export const getVentasData = async (req: Request, res: Response) => {
     const odps_atrasadas = await ODP.count({
       where: {
         fecha_entrega:    { [Op.lt]: today },
-        estado_produccion:{ [Op.notIn]: ['ENTREGADA', 'INSTALADA'] },
+        estado_produccion:{ [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA'] },
         estado_caja:      { [Op.ne]: 'CANCELADO' }
       }
     });
@@ -437,8 +437,8 @@ export const getProduccionData = async (req: Request, res: Response) => {
     const nextWeek = new Date(today.getTime() + (7 * 24 * 3600 * 1000));
     const { firstDay, lastDay } = parsePeriod(req);
 
-    const odps_en_taller         = await ODP.count({ where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'EN_ESPERA'] } } });
-    const odps_vencen_esta_semana = await ODP.count({ where: { fecha_entrega: { [Op.between]: [today, nextWeek] }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA'] } } });
+    const odps_en_taller         = await ODP.count({ where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'EN_ESPERA'] } } });
+    const odps_vencen_esta_semana = await ODP.count({ where: { fecha_entrega: { [Op.between]: [today, nextWeek] }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA'] } } });
 
     const entregadasPeriodo = await ODP.findAll({
       where: { estado_produccion: 'ENTREGADA', fecha_creacion: { [Op.between]: [firstDay, lastDay] } },
@@ -494,7 +494,7 @@ export const getProduccionData = async (req: Request, res: Response) => {
     ].map(c => ({ ...c, total: totalActivas, pct: totalActivas > 0 ? Math.round((c.completadas / totalActivas) * 100) : 0 }));
 
     const proximas_vencer_raw = await ODP.findAll({
-      where: { fecha_entrega: { [Op.between]: [today, nextWeek] }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA'] } },
+      where: { fecha_entrega: { [Op.between]: [today, nextWeek] }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA'] } },
       include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
       order: [['fecha_entrega', 'ASC']],
       limit: 10
@@ -524,7 +524,7 @@ export const getProduccionData = async (req: Request, res: Response) => {
     const no_conformidades_abiertas = await NoConformidad.count({ where: { estado: { [Op.in]: ['ABIERTO', 'EN_PROCESO'] } } });
 
     const masAntiguas = await ODP.findAll({
-      where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'EN_ESPERA'] } },
+      where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'EN_ESPERA'] } },
       include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
       order: [['fecha_creacion', 'ASC']],
       limit: 5
@@ -762,7 +762,7 @@ export const getAlertas = async (_req: Request, res: Response) => {
          FROM odp o
          LEFT JOIN clientes c ON c.id = o.cliente_id
         WHERE o.fecha_entrega::date <= CURRENT_DATE + 2
-          AND o.estado_produccion NOT IN ('ENTREGADA', 'INSTALADA', 'LISTO_INSTALAR')
+          AND o.estado_produccion NOT IN ('ENTREGADA', 'INSTALANDO', 'INSTALADA', 'LISTO_INSTALAR')
         ORDER BY o.fecha_entrega ASC`,
       { type: QueryTypes.SELECT }
     );
@@ -1042,8 +1042,8 @@ export const getDashboardData = async (_req: Request, res: Response) => {
     const today           = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const facturadoMes    = await ODP.sum('abono', { where: { fecha_creacion: { [Op.gte]: firstDayOfMonth } } }) || 0;
-    const enProduccion    = await ODP.count({ where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'EN_ESPERA'] } } });
-    const pedidos_atrasados = await ODP.count({ where: { fecha_entrega: { [Op.lt]: today }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA'] } } });
+    const enProduccion    = await ODP.count({ where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'EN_ESPERA'] } } });
+    const pedidos_atrasados = await ODP.count({ where: { fecha_entrega: { [Op.lt]: today }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA'] } } });
     res.json({
       ventas_mes: facturadoMes,
       en_produccion: enProduccion,

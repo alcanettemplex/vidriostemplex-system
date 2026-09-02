@@ -6,7 +6,7 @@ import {
   ODPItem, SAP, SAPItem, Cotizacion, TomaMedidas, OrdenCompra, ODCItem, Pago
 } from '../models';
 import Cliente from '../models/cliente.model';
-import { notificarCambioEstadoODP } from '../utils/notificaciones';
+import { notificarCambioEstadoODP, emitirODPPatch } from '../utils/notificaciones';
 import { uploadConfig } from '../config/upload';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -776,15 +776,16 @@ export const iniciarInstalacion = async (req: Request, res: Response) => {
       fin_instalacion: null,
     }, { transaction: t });
 
-    // ODP → INSTALADA (desde PROGRAMADA en inicio normal, desde LISTO_INSTALAR en reanudación)
+    // ODP → INSTALANDO: el instalador está en obra, el trabajo aún no culmina.
+    // (desde PROGRAMADA en inicio normal, desde LISTO_INSTALAR en reanudación)
     const odp = await ODP.findByPk(rutaODP.odp_id, { transaction: t }) as any;
     if (odp) {
       const estadoAnteriorODP = odp.getDataValue('estado_produccion');
-      await odp.update({ estado_produccion: 'INSTALADA' }, { transaction: t });
+      await odp.update({ estado_produccion: 'INSTALANDO' }, { transaction: t });
       await HistorialEstadoODP.create({
         odp_id: odp.id,
         estado_anterior: estadoAnteriorODP,
-        estado_nuevo: 'INSTALADA',
+        estado_nuevo: 'INSTALANDO',
         usuario_id: user.id,
         fecha: new Date(),
       }, { transaction: t });
@@ -803,7 +804,7 @@ export const iniciarInstalacion = async (req: Request, res: Response) => {
         numero_odp: odp.numero_odp,
         odp_id: odp.id,
         asesor_id: odp.asesor_id,
-        estado_nuevo: 'INSTALADA',
+        estado_nuevo: 'INSTALANDO',
         mensaje: `Instalación de ${odp.numero_odp} iniciada`,
       }).catch(() => {});
     }
@@ -864,7 +865,7 @@ export const finalizarInstalacion = async (req: Request, res: Response) => {
       await odp.update({ estado_produccion: 'ENTREGADA' }, { transaction: t });
       await HistorialEstadoODP.create({
         odp_id: odp.id,
-        estado_anterior: 'INSTALADA',
+        estado_anterior: 'INSTALANDO',
         estado_nuevo: 'ENTREGADA',
         usuario_id: user.id,
         fecha: ahora,
@@ -1130,7 +1131,7 @@ export const pausarInstalacion = async (req: Request, res: Response) => {
       await odp.update({ estado_produccion: 'LISTO_INSTALAR' }, { transaction: t });
       await HistorialEstadoODP.create({
         odp_id: odp.id,
-        estado_anterior: 'INSTALADA',
+        estado_anterior: 'INSTALANDO',
         estado_nuevo: 'LISTO_INSTALAR',
         usuario_id: user.id,
         fecha: ahora,
@@ -1255,7 +1256,7 @@ export const terminarRutaConductor = async (req: Request, res: Response) => {
           id: { [Op.in]: odpIds },
           acarreo: true,
           instalacion: false,
-          estado_produccion: { [Op.in]: ['PROGRAMADA', 'INSTALADA'] },
+          estado_produccion: { [Op.in]: ['PROGRAMADA', 'INSTALANDO', 'INSTALADA'] },
         },
       }) as any[];
 
@@ -1303,82 +1304,169 @@ export const terminarRutaConductor = async (req: Request, res: Response) => {
   }
 };
 
-// ─── JEFE: ODPs "atascadas" tras cierre de ruta ──────────────────────────────
-// ODP en PROGRAMADA cuya parada quedó pendiente pero el conductor ya cerró la ruta.
-// Quedan invisibles: no entran en odps-para-gestion (no es LISTO_INSTALAR) ni en
-// getRutas (la ruta está completada). Esta vista las rescata para reprogramar o cerrar.
+// ─── JEFE: instalaciones sin cerrar ──────────────────────────────────────────
+// Desde la separación de estados (2026-09-02) hay dos situaciones distintas que dejan
+// una instalación "viva" y que este panel rescata:
+//
+//   a) La ODP no ha terminado.  INSTALANDO (el instalador entró a la obra y nunca
+//      finalizó) o PROGRAMADA con la fecha ya vencida. La orden sigue abierta.
+//
+//   b) La ODP terminó pero su ruta quedó mal cerrada.  Está en INSTALADA —trabajo
+//      culminado— y aun así arrastra una parada de ruta abierta: un daño sin resolver,
+//      una pausa que nadie retomó, o una parada que quedó pendiente. El trabajo está
+//      hecho, pero el historial de instalaciones queda sucio.
+//
+// Una ODP en INSTALADA sin ninguna parada abierta NO entra: es una instalación marcada
+// como terminada (a mano, o por la reactivación de un reproceso) y no le falta nada.
+// ENTREGADA tampoco entra nunca: es el cierre definitivo.
 
 export const getODPsAtascadas = async (_req: Request, res: Response) => {
   try {
     const filas = await sequelize.query(
-      `SELECT ro.id AS ruta_odp_id, ro.estado AS estado_parada, ro.fecha_programada,
-              ri.id AS ruta_id, ri.fin_ruta,
-              o.id AS odp_id, o.numero_odp, o.estado_produccion,
+      // Una sola parada por ODP: la "viva" manda sobre las cerradas, y entre iguales la
+      // más reciente. Sin esto, una ODP con 5 paradas aparecería 5 veces.
+      `WITH parada AS (
+         SELECT DISTINCT ON (ro.odp_id)
+                ro.odp_id, ro.id AS ruta_odp_id, ro.estado AS estado_parada,
+                ro.fecha_programada, ro.motivo_pausa, ro.descripcion_dano,
+                ri.id AS ruta_id, ri.estado AS estado_ruta, ri.fin_ruta
+           FROM ruta_odp ro
+           JOIN rutas_instalacion ri ON ri.id = ro.ruta_id
+          ORDER BY ro.odp_id,
+                   CASE ro.estado
+                     WHEN 'en_curso'  THEN 1
+                     WHEN 'con_dano'  THEN 2
+                     WHEN 'pausada'   THEN 3
+                     WHEN 'pendiente' THEN 4
+                     ELSE 5
+                   END,
+                   ro.id DESC
+       )
+       SELECT o.id AS odp_id, o.numero_odp, o.estado_produccion,
               o.instalacion, o.acarreo, o.es_no_conformidad, o.direccion_instalacion,
+              o.estado_facturacion, o.estado_caja,
               c.nombre_razon_social AS cliente,
-              u.nombre_completo AS asesor
-       FROM ruta_odp ro
-       JOIN rutas_instalacion ri ON ri.id = ro.ruta_id
-       JOIN odp o ON o.id = ro.odp_id
-       LEFT JOIN clientes c ON c.id = o.cliente_id
-       LEFT JOIN usuarios u ON u.id = o.asesor_id
-       WHERE ri.estado = 'completada'
-         AND ro.estado = 'pendiente'
-         AND o.estado_produccion = 'PROGRAMADA'
-       ORDER BY ri.fin_ruta DESC NULLS LAST`,
+              u.nombre_completo AS asesor,
+              p.ruta_odp_id, p.estado_parada, p.ruta_id, p.estado_ruta,
+              p.fecha_programada, p.motivo_pausa, p.descripcion_dano,
+              (CURRENT_DATE - p.fecha_programada) AS dias_vencida,
+              CASE
+                WHEN o.estado_produccion = 'INSTALANDO'                 THEN 'INICIADA_SIN_FINALIZAR'
+                WHEN p.estado_parada = 'con_dano'                       THEN 'DANO_SIN_RESOLVER'
+                WHEN p.estado_parada = 'pausada'                        THEN 'PAUSADA_SIN_RETOMAR'
+                WHEN p.estado_parada = 'pendiente'
+                     AND p.estado_ruta = 'completada'                   THEN 'RUTA_CERRADA_SIN_INSTALAR'
+                WHEN p.estado_parada = 'pendiente'                      THEN 'PARADA_VENCIDA'
+                WHEN p.ruta_odp_id IS NULL                              THEN 'SIN_RUTA'
+                ELSE 'PARADA_VENCIDA'
+              END AS motivo
+         FROM odp o
+         LEFT JOIN parada p ON p.odp_id = o.id
+         LEFT JOIN clientes c ON c.id = o.cliente_id
+         LEFT JOIN usuarios u ON u.id = o.asesor_id
+        WHERE (
+                -- (a) La orden no ha terminado
+                o.estado_produccion = 'INSTALANDO'
+             OR (o.estado_produccion = 'PROGRAMADA'
+                 AND (p.ruta_odp_id IS NULL
+                   OR p.estado_ruta = 'cancelada'
+                   OR p.fecha_programada < CURRENT_DATE))
+                -- (b) Terminó, pero dejó una parada de ruta abierta
+             OR (o.estado_produccion = 'INSTALADA'
+                 AND p.estado_parada IN ('pendiente', 'en_curso', 'pausada', 'con_dano'))
+          )
+        ORDER BY p.fecha_programada ASC NULLS FIRST, o.numero_odp`,
       { type: QueryTypes.SELECT }
     );
     res.json(filas);
   } catch (e: any) {
     console.error('getODPsAtascadas:', e.message);
-    res.status(500).json({ error: 'Error al obtener ODPs atascadas' });
+    res.status(500).json({ error: 'Error al obtener instalaciones sin cerrar' });
   }
 };
 
-// JEFE: reprogramar una ODP atascada → vuelve a LISTO_INSTALAR para rearmar ruta.
-// Cierra la parada vieja (completada) para sacarla de la ruta finalizada.
+// Estados desde los que el panel puede actuar sobre una ODP.
+// INSTALADA entra porque una orden ya terminada puede seguir arrastrando una parada de
+// ruta abierta; cerrarla desde aquí la lleva a ENTREGADA y limpia esa parada.
+const ESTADOS_RESCATABLES = ['PROGRAMADA', 'INSTALANDO', 'INSTALADA'];
+
+/**
+ * Localiza la parada que estaría bloqueando el cierre de una ODP, si existe.
+ * Devuelve null cuando la ODP no tiene ruta (12 de los casos históricos llegaron a
+ * INSTALADA sin pasar nunca por una), y por eso ambas acciones operan por odp_id: la
+ * parada es opcional, la ODP no.
+ */
+const buscarParadaActiva = async (odpId: number, t: Transaction) => {
+  const filas: any[] = await sequelize.query(
+    `SELECT ro.id
+       FROM ruta_odp ro
+       JOIN rutas_instalacion ri ON ri.id = ro.ruta_id
+      WHERE ro.odp_id = :odpId
+        AND ro.estado IN ('pendiente', 'en_curso', 'pausada', 'con_dano')
+      ORDER BY CASE ro.estado
+                 WHEN 'en_curso'  THEN 1
+                 WHEN 'con_dano'  THEN 2
+                 WHEN 'pausada'   THEN 3
+                 ELSE 4
+               END,
+               ro.id DESC
+      LIMIT 1`,
+    { replacements: { odpId }, type: QueryTypes.SELECT, transaction: t }
+  );
+  if (!filas.length) return null;
+  return await RutaODP.findByPk(filas[0].id, { transaction: t }) as any;
+};
+
+// JEFE: reprogramar una instalación sin cerrar → vuelve a LISTO_INSTALAR para rearmar ruta.
+// Cierra la parada que la bloqueaba (si la hay) para que no reaparezca en el panel.
 export const reprogramarAtascada = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
-    const { id } = req.params; // ruta_odp.id
+    const { odpId } = req.params;
     const user = req.user!;
+    const motivo: string | undefined = req.body?.motivo?.trim() || undefined;
 
-    const rutaODP = await RutaODP.findByPk(id, {
-      include: [{ model: RutaInstalacion, as: 'ruta', attributes: ['id', 'estado'] }],
-      transaction: t,
-    }) as any;
-    if (!rutaODP) { await t.rollback(); return res.status(404).json({ error: 'Parada de ruta no encontrada' }); }
-    if (rutaODP.estado !== 'pendiente' || rutaODP.ruta?.estado !== 'completada') {
+    const odp = await ODP.findByPk(odpId, { transaction: t }) as any;
+    if (!odp) { await t.rollback(); return res.status(404).json({ error: 'ODP no encontrada' }); }
+
+    const estadoAnterior = odp.getDataValue('estado_produccion');
+    // Revalidado dentro de la transacción: si otro jefe la movió mientras tanto, no la pisamos.
+    if (!ESTADOS_RESCATABLES.includes(estadoAnterior)) {
       await t.rollback();
-      return res.status(400).json({ error: 'Esta ODP ya no está atascada (su estado cambió). Refresca la lista.' });
+      return res.status(400).json({
+        error: `Esta ODP ya no está pendiente de cierre (ahora está en ${estadoAnterior}). Actualiza la lista.`,
+      });
     }
 
     const ahora = new Date();
-    // Cerrar la parada vieja para que no reaparezca; la ODP se reasignará a una ruta nueva.
-    await rutaODP.update({ estado: 'completada', fin_instalacion: ahora }, { transaction: t });
-
-    const odp = await ODP.findByPk(rutaODP.odp_id, { transaction: t }) as any;
-    if (odp) {
-      const estadoAnterior = odp.getDataValue('estado_produccion');
-      await odp.update({ estado_produccion: 'LISTO_INSTALAR' }, { transaction: t });
-      await HistorialEstadoODP.create({
-        odp_id: odp.id,
-        estado_anterior: estadoAnterior,
-        estado_nuevo: 'LISTO_INSTALAR',
-        usuario_id: user.id,
-        fecha: ahora,
-        observacion: `Reprogramada desde panel "Atascadas" (ruta #${rutaODP.ruta_id} se cerró sin instalar)`,
-      }, { transaction: t });
-      notificarCambioEstadoODP({
-        numero_odp: odp.numero_odp,
-        odp_id: odp.id,
-        asesor_id: odp.asesor_id,
-        estado_nuevo: 'LISTO_INSTALAR',
-        mensaje: `${odp.numero_odp} reprogramada — lista para nueva ruta`,
-      }).catch(() => {});
+    const parada = await buscarParadaActiva(Number(odpId), t);
+    if (parada) {
+      await parada.update({ estado: 'completada', fin_instalacion: ahora }, { transaction: t });
     }
 
+    await odp.update({ estado_produccion: 'LISTO_INSTALAR' }, { transaction: t });
+    await HistorialEstadoODP.create({
+      odp_id: odp.id,
+      estado_anterior: estadoAnterior,
+      estado_nuevo: 'LISTO_INSTALAR',
+      usuario_id: user.id,
+      fecha: ahora,
+      observacion: motivo
+        ? `Reprogramada desde "Pendientes de cierre": ${motivo}`
+        : `Reprogramada desde "Pendientes de cierre"${parada ? ` (ruta #${parada.ruta_id} no la cerró)` : ' (no tenía ruta asociada)'}`,
+    }, { transaction: t });
+
     await t.commit();
+
+    notificarCambioEstadoODP({
+      numero_odp: odp.numero_odp,
+      odp_id: odp.id,
+      asesor_id: odp.asesor_id,
+      estado_nuevo: 'LISTO_INSTALAR',
+      mensaje: `${odp.numero_odp} reprogramada — lista para nueva ruta`,
+    }).catch(() => {});
+    emitirODPPatch(Number(odpId), 'update').catch(() => {});
+
     res.json({ ok: true });
   } catch (e: any) {
     await t.rollback();
@@ -1387,66 +1475,80 @@ export const reprogramarAtascada = async (req: Request, res: Response) => {
   }
 };
 
-// JEFE: marcar entregada una ODP atascada → cierre administrativo (sí se instaló
-// pero no se registró). Replica el cierre de finalizarInstalacion sin evidencia.
+// JEFE: cerrar administrativamente una instalación sin registrar (sí se instaló, pero el
+// instalador nunca la finalizó en la app). Replica el cierre de finalizarInstalacion sin
+// exigir evidencia fotográfica, a cambio de un motivo obligatorio que queda en el historial.
 export const entregarAtascada = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
-    const { id } = req.params; // ruta_odp.id
+    const { odpId } = req.params;
     const user = req.user!;
+    const motivo: string = (req.body?.motivo ?? '').trim();
 
-    const rutaODP = await RutaODP.findByPk(id, {
-      include: [{ model: RutaInstalacion, as: 'ruta', attributes: ['id', 'estado'] }],
-      transaction: t,
-    }) as any;
-    if (!rutaODP) { await t.rollback(); return res.status(404).json({ error: 'Parada de ruta no encontrada' }); }
-    if (rutaODP.estado !== 'pendiente' || rutaODP.ruta?.estado !== 'completada') {
+    // El motivo es la única trazabilidad de un cierre sin foto ni firma: sin él no se cierra.
+    if (motivo.length < 5) {
       await t.rollback();
-      return res.status(400).json({ error: 'Esta ODP ya no está atascada (su estado cambió). Refresca la lista.' });
+      return res.status(400).json({
+        error: 'Indica el motivo del cierre (mínimo 5 caracteres). Queda registrado en el historial de la ODP.',
+      });
+    }
+
+    const odp = await ODP.findByPk(odpId, { transaction: t }) as any;
+    if (!odp) { await t.rollback(); return res.status(404).json({ error: 'ODP no encontrada' }); }
+
+    const estadoAnterior = odp.getDataValue('estado_produccion');
+    // Revalidado dentro de la transacción: evita que dos jefes la cierren a la vez.
+    if (!ESTADOS_RESCATABLES.includes(estadoAnterior)) {
+      await t.rollback();
+      return res.status(400).json({
+        error: `Esta ODP ya no está pendiente de cierre (ahora está en ${estadoAnterior}). Actualiza la lista.`,
+      });
     }
 
     const ahora = new Date();
-    await rutaODP.update({ estado: 'completada', fin_instalacion: ahora }, { transaction: t });
+    const parada = await buscarParadaActiva(Number(odpId), t);
+    if (parada) {
+      await parada.update({ estado: 'completada', fin_instalacion: ahora }, { transaction: t });
+    }
 
-    const odp = await ODP.findByPk(rutaODP.odp_id, { transaction: t }) as any;
-    if (odp) {
-      const estadoAnterior = odp.getDataValue('estado_produccion');
-      await odp.update({ estado_produccion: 'ENTREGADA' }, { transaction: t });
-      await HistorialEstadoODP.create({
-        odp_id: odp.id,
-        estado_anterior: estadoAnterior,
-        estado_nuevo: 'ENTREGADA',
-        usuario_id: user.id,
-        fecha: ahora,
-        observacion: `Entrega registrada desde panel "Atascadas" (cierre administrativo, ruta #${rutaODP.ruta_id})`,
-      }, { transaction: t });
+    await odp.update({ estado_produccion: 'ENTREGADA' }, { transaction: t });
+    await HistorialEstadoODP.create({
+      odp_id: odp.id,
+      estado_anterior: estadoAnterior,
+      estado_nuevo: 'ENTREGADA',
+      usuario_id: user.id,
+      fecha: ahora,
+      observacion: `Cierre administrativo desde "Pendientes de cierre"${parada ? ` (ruta #${parada.ruta_id})` : ' (sin ruta asociada)'}: ${motivo}`,
+    }, { transaction: t });
 
-      // Si era ODP de reproceso → reactivar el padre pausado (igual que finalizarInstalacion)
-      if (odp.es_no_conformidad && odp.odp_padre_id) {
-        const padre = await ODP.findByPk(odp.odp_padre_id, { transaction: t }) as any;
-        if (padre && padre.estado_produccion === 'PAUSADA') {
-          await padre.update({ estado_produccion: 'INSTALADA' }, { transaction: t });
-          await HistorialEstadoODP.create({
-            odp_id: padre.id,
-            estado_anterior: 'PAUSADA',
-            estado_nuevo: 'INSTALADA',
-            usuario_id: user.id,
-            fecha: ahora,
-            observacion: `Reactivada: reproceso ${odp.numero_odp} entregado`,
-          }, { transaction: t });
-        }
+    // Si era ODP de reproceso → reactivar el padre pausado (igual que finalizarInstalacion)
+    if (odp.es_no_conformidad && odp.odp_padre_id) {
+      const padre = await ODP.findByPk(odp.odp_padre_id, { transaction: t }) as any;
+      if (padre && padre.estado_produccion === 'PAUSADA') {
+        await padre.update({ estado_produccion: 'INSTALADA' }, { transaction: t });
+        await HistorialEstadoODP.create({
+          odp_id: padre.id,
+          estado_anterior: 'PAUSADA',
+          estado_nuevo: 'INSTALADA',
+          usuario_id: user.id,
+          fecha: ahora,
+          observacion: `Reactivada: reproceso ${odp.numero_odp} entregado`,
+        }, { transaction: t });
       }
-
-      notificarCambioEstadoODP({
-        numero_odp: odp.numero_odp,
-        odp_id: odp.id,
-        asesor_id: odp.asesor_id,
-        estado_nuevo: 'ENTREGADA',
-        mensaje: `${odp.numero_odp} marcada como entregada`,
-      }).catch(() => {});
     }
 
     await t.commit();
+
+    notificarCambioEstadoODP({
+      numero_odp: odp.numero_odp,
+      odp_id: odp.id,
+      asesor_id: odp.asesor_id,
+      estado_nuevo: 'ENTREGADA',
+      mensaje: `${odp.numero_odp} marcada como entregada`,
+    }).catch(() => {});
+    emitirODPPatch(Number(odpId), 'update').catch(() => {});
+    if (odp.odp_padre_id) emitirODPPatch(Number(odp.odp_padre_id), 'update').catch(() => {});
+
     res.json({ ok: true });
   } catch (e: any) {
     await t.rollback();

@@ -492,7 +492,7 @@ const LABELS_ESTADO: Record<string, string> = {
   ALUMINIO_CORTADO: 'Aluminio Cortado',
   VIDRIO_RECIBIDO: 'Vidrio Recibido', ACCESORIOS_SEPARADOS: 'Accesorios Sep.',
   LISTO_INSTALAR: 'Listo Instalar', PROGRAMADA: 'Programada',
-  INSTALADA: 'Instalada', PAUSADA: 'Pausada',
+  INSTALANDO: 'Instalando', INSTALADA: 'Instalada', PAUSADA: 'Pausada',
 };
 
 const LABELS_CHK: Record<string, string> = {

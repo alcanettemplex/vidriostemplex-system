@@ -7,6 +7,7 @@ import ODCModal, { SAPItemConContexto } from './components/ODCModal';
 import ODCVidriosModal, { ODPItemConContexto } from './components/ODCVidriosModal';
 import ODCSinSAPModal from './components/ODCSinSAPModal';
 import { useSoloLectura } from '../../utils/permisos';
+import { getEstadoODP } from '../../utils/estadosODP';
 import PrintableODC from './components/PrintableODC';
 import PrintableSAP from '../odp/components/PrintableSAP';
 import ODPFichaModal from '../odp/components/ODPFichaModal';
@@ -145,14 +146,7 @@ const formatExistPerf = (piezas: PiezaPerfil[]): string =>
 
 // ─── Constantes UI ──────────────────────────────────────────────────────────
 
-const ESTADO_PROD_COLOR: Record<string, string> = {
-  EN_ESPERA: 'bg-slate-100 text-slate-600', MEDICION: 'bg-yellow-100 text-yellow-700',
-  ALUMINIO_CORTADO: 'bg-blue-100 text-blue-700',
-  VIDRIO_RECIBIDO: 'bg-cyan-100 text-cyan-700', ACCESORIOS_SEPARADOS: 'bg-indigo-100 text-indigo-700',
-  LISTO_INSTALAR: 'bg-green-100 text-green-700', PROGRAMADA: 'bg-violet-100 text-violet-700',
-  INSTALADA: 'bg-emerald-100 text-emerald-700', ENTREGADA: 'bg-teal-100 text-teal-700',
-  PAUSADA: 'bg-red-100 text-red-700',
-};
+// Nombres y colores de estado de producción: `utils/estadosODP` es la fuente única.
 
 const ODC_ESTADO_STYLE: Record<string, { label: string; className: string }> = {
   pendiente:   { label: 'Pendiente',   className: 'bg-amber-100 text-amber-700 border-amber-200' },
@@ -428,8 +422,11 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                 </span>
               )}
               {!isMultiODP && estadoProd && (
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ESTADO_PROD_COLOR[estadoProd] || 'bg-slate-100 text-slate-600'}`}>
-                  {estadoProd.replace(/_/g, ' ')}
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getEstadoODP(estadoProd).badge}`}
+                  title={getEstadoODP(estadoProd).descripcion}
+                >
+                  {getEstadoODP(estadoProd).label}
                 </span>
               )}
             </div>

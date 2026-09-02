@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { fmt } from './ODPFichaModal.utils';
+import { getEstadoODP } from '../../../utils/estadosODP';
 import API from '../../../services/config';
 
 const TIPO_VISUAL: Record<string, { icon: (cls: string) => React.ReactNode; dot: string; peso: 'alto' | 'medio' | 'bajo' }> = {
@@ -45,18 +46,7 @@ const HIST_CATS: Record<string, { bg: string; text: string; border: string; dot:
   sistema:     { bg: 'bg-slate-50',   text: 'text-slate-600',   border: 'border-slate-200',   dot: 'bg-slate-400',   label: 'Sistema',     icon: <MessageSquare className="w-3 h-3" /> },
 };
 
-const ESTADO_HIST_COLOR: Record<string, string> = {
-  EN_ESPERA: 'bg-slate-100 text-slate-600 border-slate-200',
-  MEDICION: 'bg-sky-100 text-sky-700 border-sky-200',
-  ALUMINIO_CORTADO: 'bg-blue-100 text-blue-700 border-blue-200',
-  VIDRIO_RECIBIDO: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-  ACCESORIOS_SEPARADOS: 'bg-teal-100 text-teal-700 border-teal-200',
-  LISTO_INSTALAR: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  PROGRAMADA: 'bg-amber-100 text-amber-700 border-amber-200',
-  INSTALADA: 'bg-green-100 text-green-700 border-green-200',
-  ENTREGADA: 'bg-gray-100 text-gray-700 border-gray-200',
-  PAUSADA: 'bg-rose-100 text-rose-700 border-rose-200',
-};
+// Colores y nombres de estado: `utils/estadosODP` es la fuente única (ver ese módulo).
 
 const fmtHora   = (f: string) => f ? new Date(f).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '—';
 const fmtTs     = (f: string) => f ? new Date(f).toLocaleString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -83,10 +73,10 @@ function renderHistDetalle(ev: any, onOpenLightbox?: (src: string) => void): Rea
     <div className="space-y-2.5">
       <div className="flex items-center gap-2 flex-wrap">
         {meta.estado_anterior && <>
-          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${ESTADO_HIST_COLOR[meta.estado_anterior] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>{meta.estado_anterior.replace(/_/g, ' ')}</span>
+          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getEstadoODP(meta.estado_anterior).badge}`}>{getEstadoODP(meta.estado_anterior).label}</span>
           <ArrowRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
         </>}
-        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${ESTADO_HIST_COLOR[meta.estado_nuevo] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>{meta.estado_nuevo?.replace(/_/g, ' ')}</span>
+        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getEstadoODP(meta.estado_nuevo).badge}`} title={getEstadoODP(meta.estado_nuevo).descripcion}>{getEstadoODP(meta.estado_nuevo).label}</span>
       </div>
       {meta.observacion && <p className="text-xs text-slate-600 bg-white rounded-lg px-3 py-2 border border-slate-200 italic leading-relaxed">"{meta.observacion}"</p>}
     </div>
@@ -198,7 +188,7 @@ function renderHistChips(ev: any): React.ReactNode {
   }
 
   if (tipo === 'GARANTIA_CREADA' && meta.estado_produccion)
-    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${ESTADO_HIST_COLOR[meta.estado_produccion] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>{meta.estado_produccion.replace(/_/g, ' ')}</span>;
+    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${getEstadoODP(meta.estado_produccion).badge}`}>{getEstadoODP(meta.estado_produccion).label}</span>;
 
   return null;
 }

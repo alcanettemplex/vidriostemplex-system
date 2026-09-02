@@ -10,6 +10,7 @@ import DonutChart from '../charts/DonutChart';
 import CarteraVencidaModal from './CarteraVencidaModal';
 import PedidosFacturadosModal from './PedidosFacturadosModal';
 import ODPFichaModal from '../../../features/odp/components/ODPFichaModal';
+import { ESTADO_HEX as ESTADO_COLORS, ESTADO_LABELS_CORTOS as ESTADO_LABELS } from '../../../utils/estadosODP';
 import { PeriodParams } from '../hooks/useDashboardData';
 
 const fmtM = (n: number) => {
@@ -36,18 +37,8 @@ const useCountUp = (target: number, duration = 1400) => {
   return value;
 };
 
-const ESTADO_COLORS: Record<string, string> = {
-  EN_ESPERA: '#94a3b8', VISITA_TECNICA: '#c084fc', MEDICION: '#818cf8',
-  ALUMINIO_CORTADO: '#06b6d4', VIDRIO_RECIBIDO: '#3b82f6',
-  ACCESORIOS_SEPARADOS: '#8b5cf6', LISTO_INSTALAR: '#f97316', PROGRAMADA: '#14b8a6',
-  INSTALADA: '#22c55e', ENTREGADA: '#10b981', PAUSADA: '#e11d48',
-};
-const ESTADO_LABELS: Record<string, string> = {
-  EN_ESPERA: 'En Espera', VISITA_TECNICA: 'Visita Técnica', MEDICION: 'En producción',
-  ALUMINIO_CORTADO: 'Al. Cortado', VIDRIO_RECIBIDO: 'Vidrio',
-  ACCESORIOS_SEPARADOS: 'Accesorios', LISTO_INSTALAR: 'A Instalar', PROGRAMADA: 'Programada',
-  INSTALADA: 'Instalada', ENTREGADA: 'Entregada', PAUSADA: 'Pausada',
-};
+// Colores y nombres de estado: `utils/estadosODP` es la fuente única. En la leyenda del
+// gráfico se usa la variante corta.
 const CAJA_COLORS: Record<string, string> = {
   CANCELADO: '#16a34a', ABONADO: '#d97706', CREDITO_APROBADO: '#2563eb', PENDIENTE: '#dc2626'
 };

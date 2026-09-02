@@ -9,7 +9,9 @@ ODP.init({
   cliente_id: { type: DataTypes.INTEGER, allowNull: false },
   asesor_id: { type: DataTypes.INTEGER, allowNull: false },
   estado_produccion: {
-    type: DataTypes.ENUM('EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA'),
+    // INSTALANDO = el instalador está en obra; INSTALADA = el trabajo culminó.
+    // Ver `2026-09-02_agregar_estado_instalando.ts`.
+    type: DataTypes.ENUM('EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA'),
     defaultValue: 'EN_ESPERA',
     allowNull: false
   },

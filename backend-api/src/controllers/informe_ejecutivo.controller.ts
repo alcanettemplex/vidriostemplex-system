@@ -106,7 +106,7 @@ export const getResumen = async (req: Request, res: Response) => {
     const odps_atrasadas = await ODP.count({
       where: {
         fecha_entrega: { [Op.lt]: today },
-        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR'] },
+        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
         ...asesorFiltro
       }
@@ -269,7 +269,7 @@ export const getProduccionCritica = async (req: Request, res: Response) => {
     const material_en_produccion = await ODP.findAll({
       where: {
         fecha_listo_instalar: { [Op.lt]: today, [Op.ne]: null },
-        estado_produccion: { [Op.notIn]: ['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA'] },
+        estado_produccion: { [Op.notIn]: ['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
         ...asesorFiltro, ...buscadorFiltro,
       },
@@ -356,7 +356,7 @@ export const getProduccionCritica = async (req: Request, res: Response) => {
     const atrasadas_raw = await ODP.findAll({
       where: {
         fecha_entrega: { [Op.lt]: today },
-        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR'] },
+        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
         ...asesorFiltro, ...buscadorFiltro,
       },
@@ -407,7 +407,7 @@ export const getProduccionCritica = async (req: Request, res: Response) => {
 
     const ORDEN_ESTADOS = [
       'EN_ESPERA','VISITA_TECNICA','MEDICION','ALUMINIO_CORTADO',
-      'VIDRIO_RECIBIDO','ACCESORIOS_SEPARADOS','LISTO_INSTALAR','PROGRAMADA','INSTALADA','PAUSADA',
+      'VIDRIO_RECIBIDO','ACCESORIOS_SEPARADOS','LISTO_INSTALAR','PROGRAMADA','INSTALANDO','INSTALADA','PAUSADA',
     ];
     const embudo = ORDEN_ESTADOS.map(e => ({
       estado: e,
@@ -656,7 +656,7 @@ export const getRecomendaciones = async (req: Request, res: Response) => {
     const atrasadas_count = await ODP.count({
       where: {
         fecha_entrega: { [Op.lt]: today },
-        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR'] },
+        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
       },
     });
@@ -684,7 +684,7 @@ export const getRecomendaciones = async (req: Request, res: Response) => {
     const mat_listo_produccion = await ODP.count({
       where: {
         fecha_listo_instalar: { [Op.lt]: today, [Op.ne]: null },
-        estado_produccion: { [Op.notIn]: ['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALADA', 'ENTREGADA', 'PAUSADA'] },
+        estado_produccion: { [Op.notIn]: ['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
       },
     });
