@@ -17,6 +17,7 @@ import {
   getPorGestionar,
   asignarItems,
   generarExcelPedidoPV,
+  eliminarPedidoPV,
 } from '../controllers/pedido_pv.controller';
 
 const router = Router();
@@ -31,6 +32,10 @@ router.get('/:id', getPedidoPV);
 // Creación y edición — solo quien tiene puede_gestionar_pv (verificado dentro del controller)
 router.post('/', createPedidoPV);
 router.patch('/:id', updatePedidoPV);
+
+// Eliminación — solo pedidos PENDIENTE, sin ítems asignados y de origen SISTEMA.
+// Permiso puede_gestionar_pv verificado dentro del controller, igual que POST/PATCH.
+router.delete('/:id', eliminarPedidoPV);
 
 // Acciones de seguimiento — Alejandro (asesor_comercial) puede enviar y confirmar
 router.patch('/:id/enviar', requireRole('asesor_comercial', 'admin', 'gerencia'), marcarEnviado);

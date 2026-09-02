@@ -1073,3 +1073,92 @@ Script `2026_08_30_fix_ingesta_proveedores.ts` **ejecutado**: tabla nueva, 9 col
 ### Pendientes
 
 Los 49 códigos puramente numéricos previos al fix del parser requieren revisión humana (el script los lista). El backfill masivo, si se hace, debe ir por script one-off y no por HTTP.
+
+---
+
+## 2026-08-31 — ODP-24267: marcar chk_vidrio y chk_pelicula (corrección puntual)
+
+### Contexto
+
+La ODP-24267 (STOP SAS, id 502) estaba en `LISTO_INSTALAR` con el panel de componentes en 1/3: solo Herrajes marcado, Vidrio y Película en Pendiente. No había forma de corregirlo desde la UI.
+
+### Hallazgo — hueco funcional
+
+Los `chk_*` solo son editables desde la matriz del tablero de Producción (`toggleCheck`, `ProduccionPage.tsx:395`), y esa matriz se renderiza únicamente en las tabs **Activas** y **NC/Garantías**, cuyo origen (`filteredOdps` ← `activeOdps`) filtra por `activeStates` (EN_ESPERA…ACCESORIOS_SEPARADOS). Una ODP en `LISTO_INSTALAR` cae en "Pedido a mano"/despacho, donde no hay matriz; y el panel de la ficha (`ODPTabProduccion.tsx:296-304`) es solo lectura. **Conclusión: una vez que la ODP pasa a LISTO_INSTALAR, ningún rol puede corregir un check.**
+
+### Cambio realizado
+
+Script one-off `backend-api/src/scripts/2026-08-31_marcar_chk_vidrio_pelicula_odp24267.ts` — **ejecutado**. Marca ambos checks en un solo `.update()` de instancia (dispara hooks de auditoría), envuelto en `requestContext.run({ userId: 30 })` para que el registro quede atribuido a ROOT y no con `usuario_id: null`. Incluye guardas de aplicabilidad (espejo de `isColApplicable`): aborta si la ODP no tiene ítems o no lleva película.
+
+Verificado en BD: `chk_vidrio=true`, `chk_pelicula=true`, `estado_produccion` sin cambios (`LISTO_INSTALAR`), `auditoria_log` id 36426 con `usuario_id=30`.
+
+### Decisiones técnicas
+
+- **Ambos checks en un mismo update.** La regla de dependencia del controlador (`odp.controller.ts:795`) rechaza película sin vidrio; marcándolos juntos se respeta el orden lógico del negocio.
+- **No se tocó el estado.** El auto-avance a `LISTO_INSTALAR` (`odp.controller.ts:1012`) solo corre para `ESTADOS_PRODUCTIVOS` y el retroceso (`:1068`) solo con `chk = false`: la corrección es inocua respecto del flujo.
+- **Script en vez de UPDATE directo en Supabase**, para no perder el rastro en `auditoria_log`.
+
+### Pendientes
+
+Decidir si se habilita la edición de los `chk_*` desde el panel de la ficha (`ODPTabProduccion`) para los roles con permiso de taller. Resolvería el hueco de raíz — hoy cada caso así exige un script.
+
+---
+
+## 2026-09-02 — ODP-24302: eliminación del Pedido PV 7076 (pedido externo inexistente)
+
+### Contexto
+
+La ODP-24302 (id 546, creada el mismo día, estado `MEDICION`) figuraba con Pedido PV 7076, pero no tiene pedido externo de vidrio: sus 3 ítems se cortan en casa (`prod = 'CR'`, `pedido_pv_id = null`). El PV se generó solo, por el auto-create de `createODP` (`odp.controller.ts:691-720`), al haberse dejado `proveedor_vidrio = 'Otros'` en el bloque "Pedido Externo (Vidrio)" del formulario (`ODPForm.tsx:828`).
+
+### Impacto que tenía
+
+`odp.controller.ts:1029` corta el auto-avance a `LISTO_INSTALAR` mientras exista un PV en `PENDIENTE`/`ENVIADO`/`CONFIRMADO_PROVEEDOR`: la ODP se habría quedado atascada aunque terminara toda la producción. Además figuraba como pendiente en el tablero de Pedidos PV y el proveedor salía impreso en talonario y orden de producción.
+
+### Cambio realizado
+
+Script one-off `backend-api/src/scripts/2026-09-02_eliminar_pedidopv_7076_odp24302.ts` — **ejecutado**. Calcado del precedente `2026-07-28_eliminar_pedidopv_6958_odp24129.ts`: valida precondiciones (PV en `PENDIENTE`, 0 ítems asignados, `numero_pedido`/`odp_id`/`numero_odp` coincidentes) y aborta sin escribir si alguna falla. En transacción: desasigna ítems (defensivo, 0 filas) → `pv.destroy()` → `odp.update({ proveedor_vidrio: null, numero_pedido_proveedor: null })`.
+
+Verificado en BD: PV id 572 borrado, 0 pedidos PV en la ODP, ambos campos en `null`, estado `MEDICION` intacto, los 3 ítems de vidrio intactos. Auditoría: `auditoria_log` 37152 (DELETE `pedido_pv`) y 37153 (UPDATE `odp`).
+
+### Decisiones técnicas
+
+- **Se limpió también `proveedor_vidrio`, no solo el PV.** Si el campo queda con valor, una edición que lo borre y lo reasigne dispara el auto-create de `updateODP` (`odp.controller.ts:1121`) y reaparece un PV nuevo. En `null` el cambio es definitivo.
+- **El checklist no se rompe.** `needsVidrio = itemCount > 0 || !!proveedor_vidrio` (`:1025`): con 3 ítems, el checkpoint "Vidrio" se sigue exigiendo. Solo desaparece el bloqueo por pedido externo.
+- **Borrado, no cambio de estado.** 7076 era el `numero_base` más alto, así que el próximo PV automático reutilizará el 7076. Es correcto: nunca se envió al proveedor (sin `fecha_envio`, sin `factura_pv`, sin confirmación), no queda hueco ni número quemado en la numeración física.
+- **Script por instancia, no SQL crudo**, para conservar el rastro en `auditoria_log` (revertible desde ROOT → Auditoría; `pedido_pv` está en `TABLAS_AUDITABLES`).
+
+### Pendientes
+
+Dos huecos de raíz, ambos reincidentes (mismo caso en ODP-24129 el 2026-07-28):
+
+1. **No existe `DELETE` en `/api/pedidos-pv`** (`pedido_pv.routes.ts`): un PV auto-generado por error solo se puede quitar con script. Es la tercera vez que se hace a mano.
+2. **El selector de proveedor de vidrio no advierte que genera un pedido.** La opción `Otros` se lee como "vidrio propio/otro origen" y dispara un PV real. Valdría un texto de ayuda en el bloque, o exigir confirmación al elegir proveedor en el formulario.
+
+### Adenda — endpoint de eliminación de Pedidos PV (opción A)
+
+Tras el arreglo puntual de la ODP-24302 se resolvió el hueco de raíz: `DELETE /api/pedidos-pv/:id`.
+
+**Backend.** `eliminarPedidoPV` en `pedido_pv.controller.ts` + `router.delete('/:id')` en `pedido_pv.routes.ts`. Permiso `puede_gestionar_pv` verificado dentro del controlador, igual que `POST`/`PATCH`. Guardas con 409 y mensaje redactado para el usuario: `origen='EXCEL'` (histórico importado), estado ≠ `PENDIENTE`, `factura_pv` con valor, ítems asignados > 0, y extensión de la familia ya enviada. En transacción: desasignación defensiva de ítems → borrado de la familia completa (`numero_base` + `odp_id`, principal y extensiones `-1`, `-2`) **instancia por instancia** → desvinculación de la ODP. Sockets: `emitirCambio('pedidos_pv')` + `emitirODPPatch(odp_id, 'update')`.
+
+**Frontend.** `PedidosPVPage.tsx`: botón de borrado en la tarjeta de la pestaña **Por Gestionar** (`puedeCrear && !soloLectura`), diálogo de confirmación que explica las tres consecuencias, `Alert` de éxito y propagación del mensaje del backend en caso de 409.
+
+**Sin cambios de BD.** Ninguna migración, ENUM ni constraint.
+
+### Decisiones técnicas
+
+- **La desvinculación de la ODP es parte del endpoint, no un extra.** `odc.controller.ts:921` calcula `tieneRutaPV = !!(proveedor_vidrio || numero_pedido_proveedor)` y oculta de Compras los vidrios de toda ODP con ruta PV. Borrar solo la fila dejaría los ítems **invisibles en Compras para siempre**, colgando de campos que ya no apuntan a nada. Ningún script anterior lo había documentado.
+- **Borrado por instancia, no `destroy({ where })`.** El destroy bulk no dispara los hooks de `MODELOS_AUDITADOS` y el borrado quedaría sin rastro (`TECH_DEBT.md` 2026-07-02).
+- **Si quedan otros pedidos en la ODP no se desvincula**, solo se reapunta `numero_pedido_proveedor` al pedido vivo de mayor `numero_base`, para que la ficha no muestre un número inexistente.
+- **El botón vive solo en "Por Gestionar".** `estaPorGestionar = PENDIENTE && 0 ítems` (`PedidosPVPage.tsx:359`) es exactamente el conjunto que el backend acepta; en "Gestión PV" el botón chocaría siempre contra una guarda.
+- **Opción A sobre B (descartada):** no se permite borrar un PV `PENDIENTE` *con* ítems asignados desasignándolos en la transacción. Cubriría un caso más —pedido mal gestionado, no solo mal creado— a cambio de que alguien pueda desmontar por accidente un pedido ya trabajado. Los 3 incidentes históricos caen todos en la opción A.
+
+### Verificación
+
+- Compilación limpia de `backend-api` y `frontend-web` (`tsc --noEmit`).
+- **32 comprobaciones end-to-end** por HTTP contra el backend levantado y la BD real, con JWT firmado para un usuario `admin` (`puede_gestionar_pv`), otro sin el flag y uno con rol `marketing`. Filas de prueba en `numero_base` 90001+ para no alterar la numeración real. Cubrieron: camino feliz con desvinculación, estado `ENVIADO`, origen `EXCEL`, ítems asignados con rollback intacto, familia con extensión, extensión enviada que bloquea a la familia, reapuntado con pedidos restantes, 403 sin permiso, 403 de `marketing`, y 404. Todas pasaron.
+- Auditoría confirmada: `auditoria_log` 37226 registra el DELETE por HTTP con `usuario_id` del solicitante.
+- Limpieza verificada: 0 filas residuales, 0 ítems colgados, `numero_base` máximo de vuelta en 7076 y ODP-24302 sin pedidos ni proveedor.
+
+### Pendientes
+
+Sigue abierta la recomendación 2 del arreglo de la ODP-24302: la opción `Otros` del selector de proveedor de vidrio se lee como "vidrio propio" y genera un pedido real. El endpoint permite deshacerlo en un clic, pero no evita la causa.

@@ -448,6 +448,140 @@ export const updatePedidoPV = async (req: Request, res: Response) => {
   }
 };
 
+// DELETE /api/pedidos-pv/:id — eliminar un pedido que nunca debió existir (solo puede_gestionar_pv)
+//
+// Caso de uso: el auto-create de `createODP`/`updateODP` (odp.controller.ts) genera un
+// PedidoPV cada vez que la ODP se guarda con `proveedor_vidrio`. Cuando ese proveedor se
+// eligió por error, quedaba un pedido fantasma que solo se podía quitar con un script
+// one-off (ODP-24129 el 2026-07-28, PV 6889 huérfano el mismo día, ODP-24302 el 2026-09-02).
+//
+// Además de borrar la fila, DESVINCULA la ODP limpiando `proveedor_vidrio` y
+// `numero_pedido_proveedor`. No es cosmético: `odc.controller.ts` calcula
+// `tieneRutaPV = !!(proveedor_vidrio || numero_pedido_proveedor)` y oculta de Compras los
+// vidrios de toda ODP que tenga ruta PV. Borrar el pedido sin limpiar esos campos dejaría
+// los ítems invisibles en Compras para siempre. Y con `proveedor_vidrio` aún con valor, una
+// edición posterior que lo borre y lo reasigne dispararía otra vez el auto-create.
+export const eliminarPedidoPV = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const user = req.user as { id: number };
+    const usuario = await Usuario.findByPk(user.id, { attributes: ['puede_gestionar_pv'] });
+    if (!usuario || !usuario.getDataValue('puede_gestionar_pv')) {
+      await t.rollback();
+      return res.status(403).json({ error: 'No tienes permiso para eliminar pedidos PV' });
+    }
+
+    const pedido = await PedidoPV.findByPk(req.params.id, { transaction: t });
+    if (!pedido) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Pedido PV no encontrado' });
+    }
+
+    const numero_pedido = pedido.getDataValue('numero_pedido') as string;
+    const numero_base = pedido.getDataValue('numero_base') as number;
+    const odp_id = pedido.getDataValue('odp_id') as number | null;
+
+    // ── Guardas ───────────────────────────────────────────────────────────────
+    if (pedido.getDataValue('origen') === 'EXCEL') {
+      await t.rollback();
+      return res.status(409).json({
+        error: `El pedido ${numero_pedido} es un registro histórico importado del Excel y no se puede eliminar. Solo se eliminan pedidos generados por el sistema.`,
+      });
+    }
+
+    const estado = pedido.getDataValue('estado') as string;
+    if (estado !== 'PENDIENTE') {
+      await t.rollback();
+      return res.status(409).json({
+        error: `El pedido ${numero_pedido} está en estado ${estado}: ya salió al proveedor y no se puede eliminar. Solo se eliminan pedidos que nunca se enviaron.`,
+      });
+    }
+
+    if (pedido.getDataValue('factura_pv')) {
+      await t.rollback();
+      return res.status(409).json({
+        error: `El pedido ${numero_pedido} tiene factura registrada (${pedido.getDataValue('factura_pv')}) y no se puede eliminar. Revísalo con el área de compras.`,
+      });
+    }
+
+    // La familia = el pedido principal más sus extensiones -1, -2… (mismo numero_base y ODP).
+    // Se borra completa: una extensión huérfana no representa nada por sí sola.
+    const familia = await PedidoPV.findAll({
+      where: odp_id === null ? { id: pedido.getDataValue('id') } : { numero_base, odp_id },
+      transaction: t,
+    });
+
+    const familiaIds = familia.map((p) => p.getDataValue('id') as number);
+    const noPendientes = familia.filter((p) => p.getDataValue('estado') !== 'PENDIENTE');
+    if (noPendientes.length > 0) {
+      await t.rollback();
+      return res.status(409).json({
+        error: `El pedido ${numero_pedido} tiene extensiones que ya salieron al proveedor (${noPendientes.map((p) => `${p.getDataValue('numero_pedido')}: ${p.getDataValue('estado')}`).join(', ')}). No se puede eliminar.`,
+      });
+    }
+
+    const itemsAsignados = await ODPItem.count({ where: { pedido_pv_id: familiaIds }, transaction: t });
+    if (itemsAsignados > 0) {
+      await t.rollback();
+      return res.status(409).json({
+        error: `El pedido ${numero_pedido} tiene ${itemsAsignados} ítem(s) de vidrio asignado(s). Desasígnalos desde "Asignar ítems" antes de eliminarlo.`,
+      });
+    }
+
+    // ── Borrado ───────────────────────────────────────────────────────────────
+    // Defensivo: hoy son 0 filas por la guarda anterior, pero deja explícita la desvinculación.
+    await ODPItem.update({ pedido_pv_id: null }, { where: { pedido_pv_id: familiaIds }, transaction: t });
+
+    // Instancia por instancia, NO `PedidoPV.destroy({ where })`: el destroy bulk no dispara
+    // los hooks de `MODELOS_AUDITADOS` y el borrado quedaría sin rastro en `auditoria_log`.
+    for (const p of familia) {
+      await p.destroy({ transaction: t });
+    }
+
+    // ── Desvinculación de la ODP ──────────────────────────────────────────────
+    let odpDesvinculada = false;
+    if (odp_id) {
+      const odp = await ODP.findByPk(odp_id, { transaction: t });
+      if (odp) {
+        const restantes = await PedidoPV.findAll({
+          where: { odp_id },
+          order: [['numero_base', 'DESC']],
+          transaction: t,
+        });
+
+        if (restantes.length === 0) {
+          await odp.update({ proveedor_vidrio: null, numero_pedido_proveedor: null }, { transaction: t });
+          odpDesvinculada = true;
+        } else if (odp.getDataValue('numero_pedido_proveedor') === numero_pedido) {
+          // Quedan otros pedidos: la ODP sigue en la ruta PV, solo se reapunta el número
+          // al pedido vivo más reciente para que la ficha no muestre uno inexistente.
+          await odp.update(
+            { numero_pedido_proveedor: restantes[0].getDataValue('numero_pedido') },
+            { transaction: t }
+          );
+        }
+      }
+    }
+
+    await t.commit();
+
+    import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
+    if (odp_id) {
+      import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odp_id, 'update')).catch(() => {});
+    }
+
+    res.json({
+      mensaje: `Pedido PV ${numero_pedido} eliminado`,
+      eliminados: familia.map((p) => p.getDataValue('numero_pedido')),
+      odp_desvinculada: odpDesvinculada,
+    });
+  } catch (error) {
+    await t.rollback();
+    console.error('Error eliminarPedidoPV:', error);
+    res.status(500).json({ error: 'Error al eliminar el pedido PV' });
+  }
+};
+
 // GET /api/pedidos-pv/siguiente-numero — para mostrar en el form antes de crear
 export const getSiguienteNumero = async (_req: Request, res: Response) => {
   try {

@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import {
   Add, Refresh, MoreVert, Search, CheckCircleOutline, LocalShipping,
-  HourglassEmpty, Cancel, TableChart, Tune, Print,
+  HourglassEmpty, Cancel, TableChart, Tune, Print, DeleteOutline, WarningAmber,
 } from '@mui/icons-material';
 import PrintablePedidoVitelsa from './components/PrintablePedidoVitelsa';
 import { abrirVentanaImpresion } from '../../utils/printWindow';
@@ -314,6 +314,11 @@ const PedidosPVPage: React.FC = () => {
   const [itemsExtras, setItemsExtras] = useState<Record<number, { dt: string, obsType: string, customObs: string }>>({});
   const [savingGestionar, setSavingGestionar] = useState(false);
 
+  // ─── Eliminación de pedidos generados por error ───────────────────────────
+  const [modalEliminar, setModalEliminar] = useState<any | null>(null);
+  const [eliminando, setEliminando] = useState(false);
+  const [mensajeOk, setMensajeOk] = useState<string | null>(null);
+
   const puedeCrear = user?.puede_gestionar_pv;
   // Roles de solo lectura (marketing): consultan los pedidos sin crear ni editar.
   const soloLectura = useSoloLectura();
@@ -598,6 +603,29 @@ const PedidosPVPage: React.FC = () => {
     finally { setSavingGestionar(false); }
   };
 
+  // Elimina un pedido PV generado por error. El backend solo acepta pedidos PENDIENTE,
+  // sin ítems asignados y de origen SISTEMA; cualquier otro caso vuelve con un 409 y su
+  // mensaje explicativo, que se muestra tal cual porque ya viene redactado para el usuario.
+  const eliminarPedido = async () => {
+    if (!modalEliminar) return;
+    setEliminando(true);
+    setError(null);
+    try {
+      const { data } = await axios.delete(`${API}/api/pedidos-pv/${modalEliminar.id}`, { headers });
+      setModalEliminar(null);
+      await cargarDatos();
+      await cargarPorGestionar();
+      setMensajeOk(
+        data.odp_desvinculada
+          ? `${data.mensaje}. La ODP quedó sin pedido externo y sus vidrios pasan a Compras.`
+          : data.mensaje
+      );
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Error al eliminar el pedido PV');
+      setModalEliminar(null);
+    } finally { setEliminando(false); }
+  };
+
   const actualizarCampo = async (id: number, field: string, value: unknown) => {
     if (soloLectura) return;
     setSavingField({ id, field });
@@ -695,6 +723,7 @@ const PedidosPVPage: React.FC = () => {
       </Stack>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+      {mensajeOk && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMensajeOk(null)}>{mensajeOk}</Alert>}
 
       {/* Tabs */}
       <Tabs value={tab} onChange={(_, v) => setTab(v)}
@@ -1049,19 +1078,35 @@ const PedidosPVPage: React.FC = () => {
                               {asignados > 0 && <>&nbsp;·&nbsp; <strong>{asignados} ya asignado{asignados !== 1 ? 's' : ''}</strong></>}
                             </Typography>
                           </Box>
-                          {!soloLectura && (<Button
-                            variant="contained"
-                            size="small"
-                            onClick={() => {
-                              setModalGestionar(pv);
-                              setItemsSeleccionados(
-                                items.filter((it: any) => it.pedido_pv_id === pv.id).map((it: any) => it.id)
-                              );
-                            }}
-                            sx={{ borderRadius: 2, whiteSpace: 'nowrap' }}
-                          >
-                            Asignar ítems
-                          </Button>)}
+                          {!soloLectura && (
+                            <Stack direction="row" gap={1} alignItems="center">
+                              <Button
+                                variant="contained"
+                                size="small"
+                                onClick={() => {
+                                  setModalGestionar(pv);
+                                  setItemsSeleccionados(
+                                    items.filter((it: any) => it.pedido_pv_id === pv.id).map((it: any) => it.id)
+                                  );
+                                }}
+                                sx={{ borderRadius: 2, whiteSpace: 'nowrap' }}
+                              >
+                                Asignar ítems
+                              </Button>
+                              {/* Solo aquí: un pedido "por gestionar" es PENDIENTE y sin ítems,
+                                  exactamente lo que el backend acepta eliminar. En Gestión PV el
+                                  botón siempre chocaría contra una guarda. */}
+                              <Tooltip title="Eliminar pedido — la ODP no tiene pedido externo">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => setModalEliminar(pv)}
+                                >
+                                  <DeleteOutline fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Stack>
+                          )}
                         </Stack>
                       </Paper>
                     );
@@ -1674,6 +1719,42 @@ const PedidosPVPage: React.FC = () => {
             disabled={itemsSeleccionados.length === 0 || savingGestionar}
           >
             {savingGestionar ? 'Guardando...' : `Registrar asignación (${itemsSeleccionados.length} ítems)`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ─── Confirmación de eliminación ──────────────────────────────────────── */}
+      <Dialog open={!!modalEliminar} onClose={() => setModalEliminar(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <WarningAmber color="error" /> Eliminar pedido PV
+        </DialogTitle>
+        <DialogContent>
+          {modalEliminar && (
+            <Stack gap={2}>
+              <Typography variant="body2">
+                Se eliminará el pedido <strong>PV {modalEliminar.numero_pedido}</strong> ({modalEliminar.proveedor})
+                de la ODP <strong>{modalEliminar.odp?.numero_odp || '—'}</strong>
+                {modalEliminar.odp?.cliente?.nombre_razon_social ? ` — ${modalEliminar.odp.cliente.nombre_razon_social}` : ''}.
+              </Typography>
+              <Alert severity="info" sx={{ '& .MuiAlert-message': { fontSize: 13 } }}>
+                Úsalo cuando la ODP <strong>no tiene pedido externo</strong> y el pedido se generó
+                solo por haber elegido un proveedor de vidrio al crearla. Al eliminarlo:
+                <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                  <li>la ODP queda sin proveedor de vidrio;</li>
+                  <li>sus vidrios pasan a gestionarse en <strong>Compras</strong>;</li>
+                  <li>deja de bloquear el avance a Listo para Instalar.</li>
+                </ul>
+              </Alert>
+              <Typography variant="caption" color="text.secondary">
+                Queda registrado en auditoría y es reversible desde el panel ROOT.
+              </Typography>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setModalEliminar(null)} disabled={eliminando}>Cancelar</Button>
+          <Button variant="contained" color="error" onClick={eliminarPedido} disabled={eliminando}>
+            {eliminando ? 'Eliminando...' : 'Eliminar pedido'}
           </Button>
         </DialogActions>
       </Dialog>
