@@ -1162,3 +1162,50 @@ Tras el arreglo puntual de la ODP-24302 se resolvió el hueco de raíz: `DELETE 
 ### Pendientes
 
 Sigue abierta la recomendación 2 del arreglo de la ODP-24302: la opción `Otros` del selector de proveedor de vidrio se lee como "vidrio propio" y genera un pedido real. El endpoint permite deshacerlo en un clic, pero no evita la causa.
+
+---
+
+## 2026-09-02 — Cierre de 4 instalaciones entregadas que el sistema daba por pendientes
+
+### Contexto
+
+ODP-24228 (456), ODP-24171 (395), ODP-24106 (333) y ODP-24066 (286) ya se habían instalado y entregado al cliente, pero figuraban en `LISTO_INSTALAR`. Las cuatro son del asesor Bryam Arrubla, tres de LABORATORIOS ECAR y una de INGENIEROS DE ANTIOQUIA (79,6 M, abonada al 50 %); todas facturadas.
+
+### Hallazgo — cómo caen en el limbo
+
+El historial de las cuatro es idéntico: `LISTO_INSTALAR → PROGRAMADA → INSTALADA → LISTO_INSTALAR` con observación "Pausa: Termino dia". El instalador pausó al terminar la jornada y **la pausa retrocede el estado de la ODP a `LISTO_INSTALAR`**, dejando la parada en `pausada`. Nadie la retomó.
+
+El resultado es un punto ciego: no salen en Instalaciones (no están programadas) ni en el panel "Pendientes de cierre" —`getODPsAtascadas` (`rutas.controller.ts:1367-1377`) solo levanta `INSTALANDO`, `PROGRAMADA` e `INSTALADA`, y `ESTADOS_RESCATABLES` (`:1391`) excluye `LISTO_INSTALAR`—. **No había forma de cerrarlas desde la aplicación.** Es el mismo limbo que motivó la separación INSTALANDO/INSTALADA, pero entrando por otra puerta: aquel arreglo cubría las que se quedaban en `INSTALADA`; estas retroceden un paso más.
+
+### Cambio realizado
+
+Script one-off `backend-api/src/scripts/2026-09-02_cerrar_entregadas_4odp.ts` — **ejecutado**. Replica `entregarAtascada` (`rutas.controller.ts:1481`) para cada ODP en su propia transacción: parada de la ruta viva → `completada` con `fin_instalacion`; ruta (379, 381, 380, 337) → `completada` con `fin_ruta`; ODP → `ENTREGADA`; registro en `historial_estados_odp` atribuido a ROOT.
+
+Verificado en BD: las 4 en `ENTREGADA` con parada y ruta cerradas. 12 registros en `auditoria_log` (`odp`, `rutas_instalacion` y `ruta_odps`) con `usuario_id: 30`. Reejecución posterior confirma idempotencia: las salta sin escribir.
+
+### Decisiones técnicas
+
+- **Las 9 paradas residuales se dejaron abiertas.** Cuelgan de rutas ya canceladas o completadas, restos de reprogramaciones anteriores (24066: 4, 24106: 3, 24171: 2). El ENUM de `ruta_odp.estado` no tiene `cancelada` —solo `pendiente|en_curso|pausada|completada|con_dano`— y marcarlas `completada` afirmaría instalaciones que nunca ocurrieron. Con la ODP en `ENTREGADA` ninguna consulta viva las levanta.
+- **Cerrar las rutas era seguro:** se verificó que cada una de las 4 contiene una sola parada, la de su ODP. El script lo revalida antes de escribir y aborta si encuentra más.
+- **Una transacción por ODP**, no una global: un fallo aislado no arrastra a las otras tres.
+- **Script en vez de mover a `INSTALADA` para usar el panel**, que habría metido un estado falso en el historial solo para sortear el filtro.
+
+### Pendientes
+
+Hay **5 ODP más en el mismo limbo** (`LISTO_INSTALAR` o `PAUSADA` con paradas abiertas), todas facturadas: `ODP-24000` (ECAR, 4 paradas), `ODP-24203` (Parque Comercial El Tesoro), `ODP-24248` (Parroquia San Pío), `G-0014` (Indumecanicer) y `ODP-24164` (Persa Medical, en `PAUSADA`). No se tocaron: falta confirmar con el usuario cuáles están efectivamente entregadas.
+
+Arreglo de raíz por decidir: que la pausa de fin de jornada **no** retroceda la ODP a `LISTO_INSTALAR`, o que el panel de pendientes de cierre contemple ese estado cuando arrastra una parada abierta. Mientras no se resuelva, cada caso exige un script.
+
+### Adenda — la tab "Pendientes de cierre" ya no se oculta
+
+El usuario reportó que en Instalaciones había una pestaña desde la que cerraba instalaciones y ya no la veía. Diagnóstico: la tab existe —se llamaba "Atascadas" y el commit 5a96168 la renombró a "Pendientes de cierre"— pero `JefeView.tsx:536` solo la pintaba si `atascadas.length > 0`, y la consulta de `/api/rutas/atascadas` devolvía 0 filas (ninguna ODP en `INSTALANDO`, ninguna `PROGRAMADA` vencida, y ninguna de las 12 en `INSTALADA` con parada abierta). La regla de ocultamiento ya existía antes del renombrado.
+
+**Cambio:** se quitó esa condición —la tab se comporta como las demás— y el aviso rojo que la encabeza ahora solo aparece cuando hay elementos, porque con la lista vacía contradecía al mensaje "No hay instalaciones pendientes de cierre". Solo frontend, sin backend ni BD. Compilación limpia.
+
+El badge muestra "0" cuando no hay pendientes, igual que el resto de las tabs.
+
+### Hallazgo colateral — no hay forma de marcar `INSTALADA` desde la interfaz
+
+El commit 5a96168 definió `LISTO_INSTALAR → INSTALADA` como marcado manual de "trabajo culminado", pero ese control nunca se construyó. Las tres vías de cierre existentes llevan todas a `ENTREGADA`: finalizar parada en Programados (con foto y receptor), "Marcar entregada" en Pendientes de cierre (cierre administrativo con motivo) y "Marcar Entregada" en Producción → Pedido en la mano → Listos. Las 12 ODP que hoy están en `INSTALADA` provienen de la migración de datos de ese commit, ninguna se puso desde la aplicación.
+
+Antes del commit sí se llegaba a `INSTALADA`, pero por el camino equivocado: el instalador pulsaba "Iniciar" y la ODP quedaba marcada como instalada aunque el trabajo apenas empezara — justo lo que se corrigió. Queda pendiente decidir si el marcado manual necesita interfaz propia, dónde vive y qué roles la ven.

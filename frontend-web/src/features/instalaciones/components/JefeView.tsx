@@ -533,7 +533,10 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
       <div className="relative">
         <FolderTabs
           tabs={MAIN_TABS
-            .filter(t => (!t.soloEscritura || !readOnly) && (t.key !== 'atascadas' || atascadas.length > 0))
+            // "Pendientes de cierre" se muestra siempre, aunque esté vacía: antes se ocultaba
+            // al llegar a cero y el jefe no encontraba dónde cerrar una instalación cuando
+            // volvía a aparecer una. Se comporta como las demás tabs.
+            .filter(t => !t.soloEscritura || !readOnly)
             .map(t => ({ key: t.key, label: t.label, icon: React.createElement(t.icon, { className: 'w-4 h-4' }), badge: t.count ?? undefined }))}
           activeKey={mainTab}
           onChange={(k) => setMainTab(k as MainTab)}
@@ -654,15 +657,19 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
         {/* ── Contenido tab Pendientes de cierre ── */}
         {mainTab === 'atascadas' && (
           <div className="p-4 space-y-3">
-            <div className="flex items-start gap-2 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-xs text-rose-800">
-              <AlertOctagon className="w-4 h-4 mt-0.5 shrink-0 text-rose-600" />
-              <span>
-                Órdenes que siguen vivas: el instalador entró a la obra y nunca finalizó, la fecha
-                programada ya pasó, o el trabajo terminó pero dejó una parada de ruta abierta.
-                <b> Reprográmalas</b> para asignarlas a una ruta nueva, o <b>márcalas como entregadas</b>
-                {' '}si la instalación sí se realizó y solo falta el registro.
-              </span>
-            </div>
+            {/* El aviso solo tiene sentido si hay algo que cerrar: con la lista vacía
+                contradecía al mensaje de "no hay pendientes". */}
+            {atascadasMostradas.length > 0 && (
+              <div className="flex items-start gap-2 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-xs text-rose-800">
+                <AlertOctagon className="w-4 h-4 mt-0.5 shrink-0 text-rose-600" />
+                <span>
+                  Órdenes que siguen vivas: el instalador entró a la obra y nunca finalizó, la fecha
+                  programada ya pasó, o el trabajo terminó pero dejó una parada de ruta abierta.
+                  <b> Reprográmalas</b> para asignarlas a una ruta nueva, o <b>márcalas como entregadas</b>
+                  {' '}si la instalación sí se realizó y solo falta el registro.
+                </span>
+              </div>
+            )}
 
             {loading ? (
               <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-7 w-7 border-b-2 border-rose-600" /></div>
