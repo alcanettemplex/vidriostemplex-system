@@ -7,6 +7,7 @@ import { PedidoPV, ODP, ODPItem, Usuario, HistorialEstadoODP, sequelize } from '
 import Cliente from '../models/cliente.model';
 import { emitirNotificacion } from '../server';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
+import { esTemplacol, bloquesPorProveedor } from '../utils/pedidoPvCapacidad';
 
 // ─── Esquema de validación ────────────────────────────────────────────────────
 
@@ -57,6 +58,7 @@ const INCLUDE_COMPLETO = [
       'descuentos', 'otros', 'mts_pt_a', 'mts_pt_h', 'accesorios', 'prod', 'dt', 'observaciones_pv'],
   },
 ];
+
 
 // ─── Helper: avanzar ODP a VIDRIO_RECIBIDO si todos los PV están verificados ──
 
@@ -647,7 +649,135 @@ export const getPorGestionar = async (_req: Request, res: Response) => {
   }
 };
 
-// POST /api/pedidos-pv/:id/excel — genera Excel desde plantilla vitelsa.xlsx (ExcelJS)
+// ─── Helpers de volcado a celda ──────────────────────────────────────────────
+// Un cero en un formulario impreso es ruido: el proveedor puede leerlo como un dato
+// real ("0 perforaciones" vs. "sin perforaciones"). Las celdas en cero van vacías.
+const txt = (val: unknown): string => (val !== null && val !== undefined ? String(val) : '');
+
+const sinCeros = (val: unknown): string => {
+  const s = txt(val).trim();
+  return (s === '' || s === '0') ? '' : s;
+};
+
+const numSinCeros = (val: unknown): number | string => {
+  if (val === null || val === undefined) return '';
+  const n = Number(val);
+  return (!Number.isFinite(n) || n === 0) ? '' : n;
+};
+
+const colorCorto = (color: unknown): string =>
+  (txt(color).toLowerCase() === 'incoloro' ? 'INC' : txt(color));
+
+const acabadoEspecial = (item: any): string =>
+  txt(item.observaciones_pv || item.otros || item.accesorios);
+
+interface DatosExcelPV {
+  numeroPedido: string;
+  creadoEn: Date | null;
+  fechaEnvio: Date | null;
+  horaEnvio: string | null;
+  fechaEntregaPrometida: Date | null;
+  obra: string;
+  items: any[];
+  fmtDate: (d: Date | string | null) => string;
+  fmtDateRed: (d: Date | string | null) => string;
+}
+
+// ─── Plantilla Vitelsa (12 ítems, hoja "VR03 Orden de Pedido") ───────────────
+const llenarPlantillaVitelsa = (wb: ExcelJS.Workbook, d: DatosExcelPV): string | null => {
+  const ws = wb.getWorksheet('VR03 Orden de Pedido');
+  if (!ws) return 'Hoja "VR03 Orden de Pedido" no encontrada en plantilla';
+
+  const sc = (addr: string, value: ExcelJS.CellValue) => { ws.getCell(addr).value = value; };
+
+  sc('D10', d.fmtDate(d.creadoEn));
+  sc('N10', d.numeroPedido);
+  sc('L24', d.obra);
+
+  // Anchos columnas L:P → 7.29
+  ['L', 'M', 'N', 'O', 'P'].forEach(col => { ws.getColumn(col).width = 7.29; });
+
+  // Font 9pt en cabeceras F27 y G27
+  (['F27', 'G27'] as const).forEach(addr => {
+    const cell = ws.getCell(addr);
+    cell.font = { ...(cell.font as ExcelJS.Font), size: 9 };
+  });
+
+  for (let i = 0; i < 12; i++) {
+    const item = d.items[i] || null;
+    const row = 28 + i;
+    sc(`C${row}`, item ? colorCorto(item.color) : '');
+    sc(`D${row}`, item ? sinCeros(item.espesor) : '');
+    sc(`E${row}`, item ? numSinCeros(item.cantidad) : '');
+    sc(`F${row}`, item ? numSinCeros(item.ancho_mm) : '');
+    sc(`G${row}`, item ? numSinCeros(item.alto_mm) : '');
+    sc(`H${row}`, item ? txt(item.dt) : '');
+    sc(`I${row}`, item ? sinCeros(item.perforaciones) : '');
+    sc(`J${row}`, item ? sinCeros(item.boquetes) : '');
+    sc(`K${row}`, item ? sinCeros(item.descuentos) : '');
+    sc(`L${row}`, item ? sinCeros(item.pulidos) : '');
+    sc(`M${row}`, item ? sinCeros(item.pulidos_h) : '');
+    sc(`R${row}`, item ? acabadoEspecial(item) : '');
+  }
+
+  // Fechas en fila 40 — formato 25/ABR/2026 en rojo
+  const fontRed = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFF0000' } } as ExcelJS.Font;
+  const alignCenter: Partial<ExcelJS.Alignment> = { horizontal: 'center', vertical: 'middle' };
+  const cellEnvio = ws.getCell('G40');
+  const horaEnvioStr = d.horaEnvio ? `  ${d.horaEnvio.substring(0, 5)}` : '';
+  cellEnvio.value = `${d.fmtDateRed(d.fechaEnvio)}${horaEnvioStr}`;
+  cellEnvio.font = fontRed;
+  cellEnvio.alignment = alignCenter;
+  const cellEntrega = ws.getCell('P40');
+  cellEntrega.value = d.fmtDateRed(d.fechaEntregaPrometida);
+  cellEntrega.font = fontRed;
+  cellEntrega.alignment = alignCenter;
+
+  return null;
+};
+
+// ─── Plantilla Templacol (29 ítems, hoja "Orden de Pedido TEMPLACOL") ────────
+// Columnas sin origen en ODPItem y que por tanto quedan vacías: K/L (BPM),
+// M/N (CHAFLÁN), Q (RADIOS) y R (DSP). El modelo solo distingue pulidos de
+// ancho y de alto, que Templacol clasifica como BPB.
+const llenarPlantillaTemplacol = (wb: ExcelJS.Workbook, d: DatosExcelPV): string | null => {
+  const ws = wb.getWorksheet('Orden de Pedido TEMPLACOL');
+  if (!ws) return 'Hoja "Orden de Pedido TEMPLACOL" no encontrada en plantilla';
+
+  const sc = (addr: string, value: ExcelJS.CellValue) => { ws.getCell(addr).value = value; };
+
+  // E4 trae =TODAY() en la plantilla; se sobrescribe con la fecha real del envío
+  // para que el documento no cambie de fecha cada vez que se abre.
+  sc('E4', d.fmtDate(d.fechaEnvio));
+  sc('O4', d.numeroPedido);
+  sc('G9', d.obra);
+
+  for (let i = 0; i < 29; i++) {
+    const item = d.items[i] || null;
+    const row = 16 + i;
+    sc(`C${row}`, item ? numSinCeros(item.cantidad) : '');
+    sc(`D${row}`, item ? colorCorto(item.color) : '');
+    sc(`E${row}`, item ? sinCeros(item.espesor) : '');
+    sc(`F${row}`, item ? numSinCeros(item.ancho_mm) : '');
+    sc(`G${row}`, item ? numSinCeros(item.alto_mm) : '');
+    sc(`H${row}`, item ? txt(item.dt) : '');
+    sc(`I${row}`, item ? sinCeros(item.pulidos) : '');    // BPB anchos
+    sc(`J${row}`, item ? sinCeros(item.pulidos_h) : '');  // BPB altos
+    sc(`O${row}`, item ? sinCeros(item.perforaciones) : '');
+    sc(`P${row}`, item ? sinCeros(item.boquetes) : '');
+    sc(`S${row}`, item ? acabadoEspecial(item) : '');
+  }
+
+  sc('E45', d.fmtDate(d.fechaEnvio));
+  sc('I45', d.horaEnvio ? d.horaEnvio.substring(0, 5) : '');
+  sc('P45', d.fmtDate(d.fechaEntregaPrometida));
+
+  return null;
+};
+
+// POST /api/pedidos-pv/:id/excel — genera el Excel del pedido en el formato del
+// proveedor. Templacol tiene el suyo; Vitelsa y cualquier otro proveedor usan el
+// formato Vitelsa, que era el comportamiento único hasta ahora.
 export const generarExcelPedidoPV = async (req: Request, res: Response) => {
   try {
     const pedido = await PedidoPV.findByPk(req.params.id, { include: INCLUDE_COMPLETO });
@@ -684,64 +814,27 @@ export const generarExcelPedidoPV = async (req: Request, res: Response) => {
       return `${dd}/${mes}/${yyyy}`;
     };
 
-    const templatePath = path.join(__dirname, '../../templates/vitelsa.xlsx');
+    const proveedor = pedido.getDataValue('proveedor') as string;
+    const usaTemplacol = esTemplacol(proveedor);
+
+    const templatePath = path.join(
+      __dirname, '../../templates/', usaTemplacol ? 'templacol.xlsx' : 'vitelsa.xlsx'
+    );
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.readFile(templatePath);
 
-    const ws = wb.getWorksheet('VR03 Orden de Pedido');
-    if (!ws) return res.status(500).json({ error: 'Hoja "VR03 Orden de Pedido" no encontrada en plantilla' });
-
-    const sc = (addr: string, value: ExcelJS.CellValue) => {
-      ws.getCell(addr).value = value;
+    const datos: DatosExcelPV = {
+      numeroPedido, creadoEn, fechaEnvio, horaEnvio, fechaEntregaPrometida,
+      obra, items, fmtDate, fmtDateRed,
     };
 
-    sc('D10', fmtDate(creadoEn));
-    sc('N10', numeroPedido);
-    sc('L24', obra);
-
-    // Anchos columnas L:P → 7.29
-    ['L', 'M', 'N', 'O', 'P'].forEach(col => { ws.getColumn(col).width = 7.29; });
-
-    // Font 9pt en cabeceras F27 y G27
-    (['F27', 'G27'] as const).forEach(addr => {
-      const cell = ws.getCell(addr);
-      cell.font = { ...(cell.font as ExcelJS.Font), size: 9 };
-    });
-
-    const v = (val: unknown): string => (val !== null && val !== undefined ? String(val) : '');
-
-    for (let i = 0; i < 12; i++) {
-      const item = items[i] || null;
-      const row = 28 + i;
-      sc(`C${row}`, item ? (v(item.color).toLowerCase() === 'incoloro' ? 'INC' : v(item.color)) : '');
-      sc(`D${row}`, item ? v(item.espesor) : '');
-      sc(`E${row}`, item && item.cantidad !== null ? Number(item.cantidad) : '');
-      sc(`F${row}`, item && item.ancho_mm !== null ? Number(item.ancho_mm) : '');
-      sc(`G${row}`, item && item.alto_mm  !== null ? Number(item.alto_mm)  : '');
-      sc(`H${row}`, item ? v(item.dt) : '');
-      sc(`I${row}`, item ? v(item.perforaciones) : '');
-      sc(`J${row}`, item ? v(item.boquetes) : '');
-      sc(`K${row}`, item ? v(item.descuentos) : '');
-      sc(`L${row}`, item ? v(item.pulidos) : '');
-      sc(`M${row}`, item ? v(item.pulidos_h) : '');
-      sc(`R${row}`, item ? v(item.observaciones_pv || item.otros || item.accesorios) : '');
-    }
-
-    // Fechas en fila 40 — formato 25/ABR/2026 en rojo
-    const fontRed = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFF0000' } } as ExcelJS.Font;
-    const alignCenter: Partial<ExcelJS.Alignment> = { horizontal: 'center', vertical: 'middle' };
-    const cellEnvio = ws.getCell('G40');
-    const horaEnvioStr = horaEnvio ? `  ${horaEnvio.substring(0, 5)}` : '';
-    cellEnvio.value = `${fmtDateRed(fechaEnvio)}${horaEnvioStr}`;
-    cellEnvio.font = fontRed;
-    cellEnvio.alignment = alignCenter;
-    const cellEntrega = ws.getCell('P40');
-    cellEntrega.value = fmtDateRed(fechaEntregaPrometida);
-    cellEntrega.font = fontRed;
-    cellEntrega.alignment = alignCenter;
+    const error = usaTemplacol
+      ? llenarPlantillaTemplacol(wb, datos)
+      : llenarPlantillaVitelsa(wb, datos);
+    if (error) return res.status(500).json({ error });
 
     const buffer = await wb.xlsx.writeBuffer();
-    const filename = `PEDIDO VITELSA #${numeroPedido}.xlsx`;
+    const filename = `PEDIDO ${usaTemplacol ? 'TEMPLACOL' : 'VITELSA'} #${numeroPedido}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(Buffer.from(buffer));
@@ -752,7 +845,8 @@ export const generarExcelPedidoPV = async (req: Request, res: Response) => {
 };
 
 // PATCH /api/pedidos-pv/:id/asignar-items — Alejandro asigna ítems al PedidoPV
-// Regla: máx 12 ítems por PedidoPV; si hay más se crean extensiones -1, -2, ...
+// Regla: el tope de ítems lo fija el formulario del proveedor (29 en Templacol,
+// 12 en el resto); si hay más se crean extensiones -1, -2, ...
 export const asignarItems = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
@@ -810,11 +904,8 @@ export const asignarItems = async (req: Request, res: Response) => {
       }, { where: { id: it.id }, transaction: t });
     }
 
-    // Dividir en bloques de 12
-    const bloques: number[][] = [];
-    for (let i = 0; i < odp_item_ids.length; i += 12) {
-      bloques.push(odp_item_ids.slice(i, i + 12));
-    }
+    // Dividir en bloques del tamaño que admita el formulario del proveedor
+    const bloques = bloquesPorProveedor(odp_item_ids, proveedor);
 
     // Asignar bloque 0 → pedido principal (sin sufijo)
     await ODPItem.update(

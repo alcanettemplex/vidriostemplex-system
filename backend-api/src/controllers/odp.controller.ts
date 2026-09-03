@@ -31,6 +31,7 @@ import { invalidarCacheRespuesta } from '../utils/cacheMemoria';
 import { z } from 'zod';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { generarNumeroODP } from '../utils/generarNumeroODP';
+import { reparticionarPedidosPV } from '../utils/pedidoPvCapacidad';
 
 const aEnteroOPosibleNull = (val: unknown) => {
   if (val === '' || val === null || val === undefined) return null;
@@ -750,6 +751,28 @@ export const updateODP = async (req: Request, res: Response) => {
     // Capturar valor ANTES del update — odp.update() muta el modelo en memoria
     const proveedorAnterior = odp.getDataValue('proveedor_vidrio');
 
+    // ─── Bloqueo: no se puede quitar el proveedor si ya existe un Pedido PV ──
+    // El Pedido PV nace del proveedor de la ODP y su formulario depende de él;
+    // vaciar el campo dejaría el pedido apuntando a un proveedor inexistente.
+    // Solo aplica si el campo viene explícitamente en el payload: un update
+    // parcial que ni lo menciona no debe verse afectado.
+    const mencionaProveedor = Object.prototype.hasOwnProperty.call(req.body, 'proveedor_vidrio');
+    if (mencionaProveedor && !data.proveedor_vidrio && proveedorAnterior) {
+      const pedidosExistentes = await PedidoPV.findAll({
+        where: { odp_id: Number(id) },
+        attributes: ['numero_pedido'],
+        transaction,
+      });
+      if (pedidosExistentes.length > 0) {
+        await transaction.rollback();
+        const numeros = pedidosExistentes.map(p => p.getDataValue('numero_pedido')).join(', ');
+        return res.status(409).json({
+          error: `No se puede quitar el proveedor de vidrio: esta ODP ya tiene el Pedido PV ${numeros}. `
+            + 'Si el pedido se generó por error, elimínalo primero desde el módulo Pedidos PV y vuelve a intentarlo.',
+        });
+      }
+    }
+
     // ─── Verificación de ownership ───────────────────────────────────────────
     // Identificar qué campos se están intentando actualizar realmente (evitando defaults de Zod)
     const camposRecibidos = Object.keys(req.body);
@@ -1141,6 +1164,34 @@ export const updateODP = async (req: Request, res: Response) => {
         }
       } catch (pvError: any) {
         console.error('Error creando PedidoPV automático en update:', pvError.message);
+      }
+    }
+
+    // ─── Propagar cambio de proveedor a los Pedidos PV de la ODP ─────────────
+    // El formulario que se le manda al proveedor (Excel e impreso) se elige por el
+    // proveedor del pedido, no por el de la ODP. Si cambia en la ODP y no se propaga,
+    // el módulo Pedidos PV sigue mostrando —y generando— el formato del proveedor viejo.
+    // Se propaga en cualquier estado del pedido, por decisión operativa: la ODP es la
+    // fuente de verdad. El cambio queda en auditoria_log con autor y valor anterior.
+    if (data.proveedor_vidrio && proveedorAnterior && data.proveedor_vidrio !== proveedorAnterior) {
+      try {
+        // findAll + update por INSTANCIA: un update masivo no dispara los hooks de
+        // MODELOS_AUDITADOS y el cambio quedaría sin registro en auditoria_log.
+        const pedidos = await PedidoPV.findAll({ where: { odp_id: odp.getDataValue('id') } });
+        if (pedidos.length > 0) {
+          for (const pv of pedidos) {
+            await pv.update({ proveedor: data.proveedor_vidrio });
+          }
+
+          // Si el formulario del nuevo proveedor admite menos ítems que el anterior,
+          // los pedidos que se pasen del tope deben repartirse en extensiones.
+          await reparticionarPedidosPV(odp.getDataValue('id'), data.proveedor_vidrio, req.user?.id || null);
+
+          import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
+          console.log(`🔄 ${pedidos.length} Pedido(s) PV de ${odp.getDataValue('numero_odp')}: ${proveedorAnterior} → ${data.proveedor_vidrio}`);
+        }
+      } catch (propError: any) {
+        console.error('Error propagando proveedor a Pedidos PV:', propError.message);
       }
     }
 

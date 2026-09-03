@@ -15,6 +15,7 @@ import {
   HourglassEmpty, Cancel, TableChart, Tune, Print, DeleteOutline, WarningAmber,
 } from '@mui/icons-material';
 import PrintablePedidoVitelsa from './components/PrintablePedidoVitelsa';
+import PrintablePedidoTemplacol from './components/PrintablePedidoTemplacol';
 import { abrirVentanaImpresion } from '../../utils/printWindow';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -476,6 +477,11 @@ const PedidosPVPage: React.FC = () => {
 
   const COLORES_VIDRIO = ['Incoloro', 'Bronce', 'Gris', 'Azul', 'Verde', 'Mate', 'Otro'];
   const PROVEEDORES_PV = ['Vitelsa', 'Templacol', 'Vidplex', 'Otros'];
+  // Capacidad del formulario físico de cada proveedor: Templacol tiene 29 filas de
+  // ítem; Vitelsa —y el resto, que usan su formato— tienen 12.
+  const esTemplacol = (proveedor?: string | null) =>
+    String(proveedor ?? '').trim().toLowerCase() === 'templacol';
+  const maxItemsPorPedido = (proveedor?: string | null) => (esTemplacol(proveedor) ? 29 : 12);
   const PROD_OPCIONES = ['', 'PV', 'CAMARA', 'CR', 'CR-LAM', 'ESP', 'LAM', 'S/T', 'TE', 'TEM-MULTILAMINADO', 'TEM-LAM', 'N.A.'];
 
   const itemVacio = () => ({ tipo_vidrio: '', color: 'Incoloro', espesor: '6', ancho_mm: '', alto_mm: '', cantidad: 1, pulidos: '', pulidos_h: '', perforaciones: 0, boquetes: 0, descuentos: '', otros: '', prod: 'PV' });
@@ -663,7 +669,7 @@ const PedidosPVPage: React.FC = () => {
       }));
       const a = document.createElement('a');
       a.href = url;
-      a.download = `PEDIDO VITELSA #${pedido.numero_pedido}.xlsx`;
+      a.download = `PEDIDO ${esTemplacol(pedido.proveedor) ? 'TEMPLACOL' : 'VITELSA'} #${pedido.numero_pedido}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -1574,7 +1580,8 @@ const PedidosPVPage: React.FC = () => {
             const itemsVisibles = items.filter((it: any) => !estaEnCompras(it));
             const itemsEnCompras = items.length - itemsVisibles.length;
             const itemsLibres = itemsVisibles.filter((it: any) => !it.pedido_pv_id || it.pedido_pv_id === modalGestionar.id);
-            const bloques = Math.ceil(itemsSeleccionados.length / 12);
+            const topeItems = maxItemsPorPedido(modalGestionar.proveedor);
+            const bloques = Math.ceil(itemsSeleccionados.length / topeItems);
             return (
               <Stack gap={2} mt={1}>
                 <Box display="flex" gap={2} flexWrap="wrap">
@@ -1583,7 +1590,7 @@ const PedidosPVPage: React.FC = () => {
                   <Typography variant="body2"><strong>Ítems totales ODP:</strong> {items.length}{itemsEnCompras > 0 && ` · ${itemsEnCompras} en compras (ocultos)`}</Typography>
                 </Box>
 
-                {itemsSeleccionados.length > 12 && (
+                {itemsSeleccionados.length > topeItems && (
                   <Alert severity="info">
                     {itemsSeleccionados.length} ítems seleccionados — se generarán <strong>{bloques} formularios</strong>: {modalGestionar.numero_pedido}{Array.from({ length: bloques - 1 }, (_, i) => `, ${modalGestionar.numero_pedido}-${i + 1}`).join('')}
                   </Alert>
@@ -1762,7 +1769,9 @@ const PedidosPVPage: React.FC = () => {
       {/* ─── Área de impresión (oculta) ───────────────────────────────────────── */}
       <div id="printable-pedido-pv" style={{ display: 'none' }}>
         {printData && (
-          <PrintablePedidoVitelsa pedido={printData.pedido} odp={printData.odp} />
+          esTemplacol(printData.pedido.proveedor)
+            ? <PrintablePedidoTemplacol pedido={printData.pedido} odp={printData.odp} />
+            : <PrintablePedidoVitelsa pedido={printData.pedido} odp={printData.odp} />
         )}
       </div>
 

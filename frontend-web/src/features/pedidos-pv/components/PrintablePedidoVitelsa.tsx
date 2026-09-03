@@ -17,6 +17,15 @@ const fmtFechaHora = (ts: string | null) => {
   } catch { return ts; }
 };
 
+// Un cero impreso es ruido: el proveedor puede leerlo como dato real ("0 perforaciones"
+// en vez de "sin perforaciones"). Ojo con los campos STRING (pulidos, espesor…): "0" es
+// truthy en JS, así que `valor || ''` no basta para vaciarlos.
+const sinCeros = (val: unknown): string => {
+  if (val === null || val === undefined) return '';
+  const s = String(val).trim();
+  return (s === '' || s === '0') ? '' : s;
+};
+
 const PrintablePedidoVitelsa: React.FC<PrintablePedidoVitelsaProps> = ({ odp, pedido }) => {
   // Preferir ítems asignados específicamente a este pedido PV
   const items: any[] = (pedido as any)?.items_asignados?.length
@@ -212,21 +221,21 @@ const PrintablePedidoVitelsa: React.FC<PrintablePedidoVitelsaProps> = ({ odp, pe
               <tr key={i} style={{ height: '18px' }}>
                 <td className="pv-center">{i + 1}</td>
                 <td>{item?.color || ''}</td>
-                <td className="pv-center">{item?.espesor || ''}</td>
-                <td className="pv-center">{item?.cantidad || ''}</td>
-                <td className="pv-center">{item?.ancho_mm || ''}</td>
-                <td className="pv-center">{item?.alto_mm || ''}</td>
+                <td className="pv-center">{sinCeros(item?.espesor)}</td>
+                <td className="pv-center">{sinCeros(item?.cantidad)}</td>
+                <td className="pv-center">{sinCeros(item?.ancho_mm)}</td>
+                <td className="pv-center">{sinCeros(item?.alto_mm)}</td>
                 {/* DT: Doble Templado / tipo especial */}
                 <td className="pv-center">{item?.dt ? item.dt : ''}</td>
                 {/* PER: Perforaciones */}
-                <td className="pv-center">{item?.perforaciones ? item.perforaciones : ''}</td>
+                <td className="pv-center">{sinCeros(item?.perforaciones)}</td>
                 {/* BOQ: Boquetes */}
-                <td className="pv-center">{item?.boquetes ? item.boquetes : ''}</td>
+                <td className="pv-center">{sinCeros(item?.boquetes)}</td>
                 {/* DES: Descuentos */}
-                <td className="pv-center">{item?.descuentos || ''}</td>
+                <td className="pv-center">{sinCeros(item?.descuentos)}</td>
                 {/* BPB Ancho/Alto: Borde Pulido Biselado */}
-                <td className="pv-center">{item?.pulidos || ''}</td>
-                <td className="pv-center">{item?.pulidos_h || ''}</td>
+                <td className="pv-center">{sinCeros(item?.pulidos)}</td>
+                <td className="pv-center">{sinCeros(item?.pulidos_h)}</td>
                 {/* BP MATE Ancho/Alto */}
                 <td className="pv-center"></td>
                 <td className="pv-center"></td>
