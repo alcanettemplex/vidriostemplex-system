@@ -1271,6 +1271,25 @@ export const terminarRutaConductor = async (req: Request, res: Response) => {
           fecha: finRuta,
           observacion: `Acarreo completado automáticamente al cerrar ruta #${ruta.id}`,
         });
+
+        // Si era ODP de reproceso → reactivar el padre pausado (igual que finalizarInstalacion
+        // y entregarAtascada). Sin esto, un acarreo de reproceso deja al padre huérfano en
+        // PAUSADA para siempre — mismo bug que ODP-23925/NC-0005.
+        if (odp.es_no_conformidad && odp.odp_padre_id) {
+          const padre = await ODP.findByPk(odp.odp_padre_id) as any;
+          if (padre && padre.estado_produccion === 'PAUSADA') {
+            await padre.update({ estado_produccion: 'INSTALADA' });
+            await HistorialEstadoODP.create({
+              odp_id: padre.id,
+              estado_anterior: 'PAUSADA',
+              estado_nuevo: 'INSTALADA',
+              usuario_id: user.id,
+              fecha: finRuta,
+              observacion: `Reactivada: reproceso ${odp.numero_odp} completado (acarreo)`,
+            });
+          }
+        }
+
         notificarCambioEstadoODP({
           numero_odp: odp.numero_odp,
           odp_id: odp.id,

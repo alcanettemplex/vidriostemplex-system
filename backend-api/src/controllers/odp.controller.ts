@@ -1158,7 +1158,12 @@ export const updateODP = async (req: Request, res: Response) => {
     }
 
     // ─── Regla automática: ODP padre → INSTALADA cuando el reproceso se completa ───
-      if (data.estado_produccion === 'INSTALADA' && odp.getDataValue('es_no_conformidad') && odp.getDataValue('odp_padre_id')) {
+    // Dispara tanto si la hija llega a INSTALADA como si salta directo a ENTREGADA (p.ej.
+    // el flujo de rutas ya no pasa por INSTALADA desde el alta de INSTALANDO, ver
+    // 2026-09-02_agregar_estado_instalando.ts) — de lo contrario el padre queda huérfano en
+    // PAUSADA para siempre. Caso real: ODP-23925/NC-0005, corregido en
+    // 2026-09-03_reactivar_odp23925_nc0005.ts.
+    if (['INSTALADA', 'ENTREGADA'].includes(data.estado_produccion as string) && odp.getDataValue('es_no_conformidad') && odp.getDataValue('odp_padre_id')) {
       try {
         const odpPadre = await ODP.findByPk(odp.getDataValue('odp_padre_id'));
         if (odpPadre && odpPadre.getDataValue('estado_produccion') === 'PAUSADA') {
