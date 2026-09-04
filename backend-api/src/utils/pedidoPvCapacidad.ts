@@ -11,11 +11,43 @@
 import { Op } from 'sequelize';
 import { PedidoPV, ODPItem, sequelize } from '../models';
 
+// Los proveedores llegan de un <select> del formulario, pero también de datos viejos
+// y de scripts: se comparan siempre normalizados para que ' Templacol ' o 'templacol'
+// no cuenten como un proveedor distinto.
+export const normalizarProveedor = (proveedor?: string | null): string =>
+  String(proveedor ?? '').trim();
+
+export const mismoProveedor = (a?: string | null, b?: string | null): boolean =>
+  normalizarProveedor(a).toLowerCase() === normalizarProveedor(b).toLowerCase();
+
 // El formato de Templacol tiene 29 filas de ítem (B16:B44); el de Vitelsa, 12.
 // De este tope dependen tanto el troquelado en extensiones (-1, -2…) como el número
 // de filas que llena el generador de Excel.
 export const esTemplacol = (proveedor?: string | null): boolean =>
-  String(proveedor ?? '').trim().toLowerCase() === 'templacol';
+  normalizarProveedor(proveedor).toLowerCase() === 'templacol';
+
+/**
+ * Proveedor con el que se debe imprimir / exportar un pedido.
+ *
+ * En condiciones normales `pedido.proveedor` ya viene alineado con la ODP, porque
+ * `updateODP` propaga el cambio. Esto es la red de seguridad para las filas que se
+ * desalinearon por fuera de ese camino —edición directa en Supabase, `PATCH
+ * /api/pedidos-pv/:id`, o pedidos anteriores a que existiera la propagación—: el
+ * papel que sale hacia el proveedor es irreversible, así que ahí manda la ODP.
+ *
+ * Solo aplica a los pedidos que nacieron de la ODP (`origen = 'SISTEMA'`). Un pedido
+ * MANUAL puede apuntar a propósito a otro proveedor que el de la ODP y no se toca.
+ */
+export const proveedorParaFormato = (
+  proveedorPedido?: string | null,
+  proveedorOdp?: string | null,
+  origen?: string | null,
+): string => {
+  const delPedido = normalizarProveedor(proveedorPedido);
+  const deLaOdp = normalizarProveedor(proveedorOdp);
+  if (origen !== 'SISTEMA' || !deLaOdp) return delPedido;
+  return deLaOdp;
+};
 
 export const maxItemsPorPedido = (proveedor?: string | null): number =>
   (esTemplacol(proveedor) ? 29 : 12);
@@ -130,4 +162,45 @@ export const reparticionarPedidosPV = async (
   }
 
   return gruposRehechos;
+};
+
+/**
+ * Alinea el proveedor de todos los Pedidos PV de una ODP con el de la ODP.
+ *
+ * La ODP es la fuente de verdad: el formulario que se le manda al proveedor (Excel e
+ * impreso) se elige por `pedido_pv.proveedor`, así que un cambio en la ODP que no se
+ * propague hace que el módulo Pedidos PV siga generando el formato del proveedor viejo.
+ *
+ * Se propaga en cualquier estado del pedido —incluidos ENVIADO y CONFIRMADO_PROVEEDOR—
+ * por decisión operativa; el cambio queda en `auditoria_log` con autor y valor anterior.
+ *
+ * Vive aquí y no en `pedido_pv.controller` por el ciclo de imports descrito arriba:
+ * así lo pueden consumir `odp.controller` y los scripts de mantenimiento por igual.
+ *
+ * @returns cuántos pedidos se tocaron (0 si la ODP no tiene pedidos o ya estaban alineados)
+ */
+export const propagarProveedorAPedidosPV = async (
+  odpId: number,
+  proveedor: string,
+  usuarioId: number | null,
+): Promise<number> => {
+  const destino = normalizarProveedor(proveedor);
+  if (!destino) return 0;
+
+  // findAll + update por INSTANCIA: un update masivo no dispara los hooks de
+  // MODELOS_AUDITADOS y el cambio quedaría sin registro en auditoria_log.
+  const pedidos = await PedidoPV.findAll({ where: { odp_id: odpId } });
+  let tocados = 0;
+
+  for (const pv of pedidos) {
+    if (mismoProveedor(pv.getDataValue('proveedor'), destino)) continue;
+    await pv.update({ proveedor: destino });
+    tocados++;
+  }
+
+  // Si el formulario del proveedor nuevo admite menos ítems que el anterior
+  // (Templacol 29 → Vitelsa 12), los que se pasen del tope van a extensiones.
+  if (tocados > 0) await reparticionarPedidosPV(odpId, destino, usuarioId);
+
+  return tocados;
 };

@@ -31,7 +31,7 @@ import { invalidarCacheRespuesta } from '../utils/cacheMemoria';
 import { z } from 'zod';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { generarNumeroODP } from '../utils/generarNumeroODP';
-import { reparticionarPedidosPV } from '../utils/pedidoPvCapacidad';
+import { propagarProveedorAPedidosPV, normalizarProveedor, mismoProveedor } from '../utils/pedidoPvCapacidad';
 
 const aEnteroOPosibleNull = (val: unknown) => {
   if (val === '' || val === null || val === undefined) return null;
@@ -1139,19 +1139,47 @@ export const updateODP = async (req: Request, res: Response) => {
     await transaction.commit();
     if (cambioValorTotal) invalidarCacheKPIs();
 
-    // ─── Auto-crear PedidoPV si proveedor_vidrio se asigna por primera vez en edición ───
-    // Usar proveedorAnterior (capturado antes del update) porque odp.update() muta el modelo en memoria
-    if (data.proveedor_vidrio && !proveedorAnterior) {
+    // ─── Pedidos PV: crear el primero, o propagarles el cambio de proveedor ──
+    //
+    // Un solo bloque para las dos caras del mismo hecho —"la ODP cambió de proveedor
+    // de vidrio"— porque antes eran dos condiciones independientes y entre ambas
+    // quedaba un hueco: con `proveedor_vidrio` en cadena vacía (88 ODP en BD lo están)
+    // y un Pedido PV ya creado, `!proveedorAnterior` mandaba al auto-create —que no
+    // hacía nada al encontrar el pedido existente— y la propagación se saltaba por
+    // pedir `proveedorAnterior` truthy. Resultado: el pedido se quedaba con el
+    // proveedor viejo y el formulario salía con el formato equivocado.
+    //
+    // La comparación es normalizada (trim + case-insensitive): 'vitelsa' y 'Vitelsa'
+    // son el mismo proveedor y reescribir la fila solo ensuciaría el dato.
+    //
+    // Va después del commit a propósito: si algo falla aquí, la ODP ya quedó guardada
+    // y el usuario no pierde su edición. Por eso el catch no propaga el error.
+    const provNuevo = normalizarProveedor(data.proveedor_vidrio);
+    const provAnterior = normalizarProveedor(proveedorAnterior);
+
+    if (provNuevo && !mismoProveedor(provNuevo, provAnterior)) {
+      const odpId = odp.getDataValue('id');
+      const numeroOdp = odp.getDataValue('numero_odp');
       try {
-        const existente = await PedidoPV.findOne({ where: { odp_id: odp.getDataValue('id') } });
-        if (!existente) {
+        const existentes = await PedidoPV.count({ where: { odp_id: odpId } });
+
+        if (existentes > 0) {
+          const tocados = await propagarProveedorAPedidosPV(odpId, provNuevo, req.user?.id || null);
+          if (tocados > 0) {
+            import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
+            console.log(`🔄 ${tocados} Pedido(s) PV de ${numeroOdp}: ${provAnterior || '(vacío)'} → ${provNuevo}`);
+          }
+        } else if (!provAnterior) {
+          // Primera asignación de proveedor y todavía no hay pedido: se crea.
+          // Si ya hubo proveedor antes y no queda ningún pedido, es porque se eliminó
+          // a propósito desde Pedidos PV — no se recrea solo por editar la ODP.
           await withUniqueRetry(async () => {
             const ultimoPV = await PedidoPV.findOne({ order: [['numero_base', 'DESC']], attributes: ['numero_base'] });
             const numero_base = ultimoPV ? (ultimoPV.getDataValue('numero_base') as number) + 1 : 6733;
             const numero_pedido = String(numero_base);
             await PedidoPV.create({
-              odp_id: odp.getDataValue('id'),
-              proveedor: data.proveedor_vidrio,
+              odp_id: odpId,
+              proveedor: provNuevo,
               numero_pedido,
               numero_base,
               sufijo: null,
@@ -1159,39 +1187,15 @@ export const updateODP = async (req: Request, res: Response) => {
               origen: 'SISTEMA',
               creado_por: (req.user as any)?.id || null,
             });
-            await ODP.update({ numero_pedido_proveedor: numero_pedido }, { where: { id: odp.getDataValue('id') } });
+            await ODP.update({ numero_pedido_proveedor: numero_pedido }, { where: { id: odpId } });
           });
+          import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
         }
       } catch (pvError: any) {
-        console.error('Error creando PedidoPV automático en update:', pvError.message);
-      }
-    }
-
-    // ─── Propagar cambio de proveedor a los Pedidos PV de la ODP ─────────────
-    // El formulario que se le manda al proveedor (Excel e impreso) se elige por el
-    // proveedor del pedido, no por el de la ODP. Si cambia en la ODP y no se propaga,
-    // el módulo Pedidos PV sigue mostrando —y generando— el formato del proveedor viejo.
-    // Se propaga en cualquier estado del pedido, por decisión operativa: la ODP es la
-    // fuente de verdad. El cambio queda en auditoria_log con autor y valor anterior.
-    if (data.proveedor_vidrio && proveedorAnterior && data.proveedor_vidrio !== proveedorAnterior) {
-      try {
-        // findAll + update por INSTANCIA: un update masivo no dispara los hooks de
-        // MODELOS_AUDITADOS y el cambio quedaría sin registro en auditoria_log.
-        const pedidos = await PedidoPV.findAll({ where: { odp_id: odp.getDataValue('id') } });
-        if (pedidos.length > 0) {
-          for (const pv of pedidos) {
-            await pv.update({ proveedor: data.proveedor_vidrio });
-          }
-
-          // Si el formulario del nuevo proveedor admite menos ítems que el anterior,
-          // los pedidos que se pasen del tope deben repartirse en extensiones.
-          await reparticionarPedidosPV(odp.getDataValue('id'), data.proveedor_vidrio, req.user?.id || null);
-
-          import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
-          console.log(`🔄 ${pedidos.length} Pedido(s) PV de ${odp.getDataValue('numero_odp')}: ${proveedorAnterior} → ${data.proveedor_vidrio}`);
-        }
-      } catch (propError: any) {
-        console.error('Error propagando proveedor a Pedidos PV:', propError.message);
+        // Falla silenciosa hacia el usuario, pero ruidosa en el log: si esto se rompe,
+        // el pedido queda con el proveedor viejo y el formulario sale equivocado.
+        console.error(`⚠️ Pedidos PV de ${numeroOdp}: no se pudo aplicar el proveedor ` +
+          `'${provNuevo}' (anterior '${provAnterior || '(vacío)'}'):`, pvError.message);
       }
     }
 

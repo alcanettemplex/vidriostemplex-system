@@ -55,7 +55,7 @@ interface PedidoPV {
   asesor_iniciales: string | null;
   origen: string;
   creado_en: string;
-  odp?: { id: number; numero_odp: string; estado_produccion: string; fecha_creacion?: string; cliente?: { nombre_razon_social: string }; asesor?: { nombre_completo: string } };
+  odp?: { id: number; numero_odp: string; estado_produccion: string; fecha_creacion?: string; proveedor_vidrio?: string | null; cliente?: { nombre_razon_social: string }; asesor?: { nombre_completo: string } };
   items_asignados?: { id: number; espesor: string | null; cantidad: number; ancho_mm: number; alto_mm: number }[];
   creador?: { id: number; nombre_completo: string };
   verificador?: { id: number; nombre_completo: string } | null;
@@ -482,6 +482,20 @@ const PedidosPVPage: React.FC = () => {
   const esTemplacol = (proveedor?: string | null) =>
     String(proveedor ?? '').trim().toLowerCase() === 'templacol';
   const maxItemsPorPedido = (proveedor?: string | null) => (esTemplacol(proveedor) ? 29 : 12);
+
+  // Proveedor que decide el FORMATO (impreso, Excel y tope de ítems).
+  //
+  // Normalmente coincide con `pedido.proveedor`, porque editar el proveedor en la ODP
+  // lo propaga a sus pedidos. Es la red de seguridad para filas desalineadas por fuera
+  // de ese camino: manda la ODP, que es la fuente de verdad. Espejo de
+  // `proveedorParaFormato` en backend-api/src/utils/pedidoPvCapacidad.ts.
+  //
+  // Solo para pedidos nacidos de la ODP (origen SISTEMA): uno MANUAL puede apuntar
+  // a propósito a otro proveedor.
+  const proveedorFormato = (p: { proveedor: string; origen?: string; odp?: { proveedor_vidrio?: string | null } }) => {
+    const deLaOdp = String(p.odp?.proveedor_vidrio ?? '').trim();
+    return (p.origen === 'SISTEMA' && deLaOdp) ? deLaOdp : p.proveedor;
+  };
   const PROD_OPCIONES = ['', 'PV', 'CAMARA', 'CR', 'CR-LAM', 'ESP', 'LAM', 'S/T', 'TE', 'TEM-MULTILAMINADO', 'TEM-LAM', 'N.A.'];
 
   const itemVacio = () => ({ tipo_vidrio: '', color: 'Incoloro', espesor: '6', ancho_mm: '', alto_mm: '', cantidad: 1, pulidos: '', pulidos_h: '', perforaciones: 0, boquetes: 0, descuentos: '', otros: '', prod: 'PV' });
@@ -669,7 +683,7 @@ const PedidosPVPage: React.FC = () => {
       }));
       const a = document.createElement('a');
       a.href = url;
-      a.download = `PEDIDO ${esTemplacol(pedido.proveedor) ? 'TEMPLACOL' : 'VITELSA'} #${pedido.numero_pedido}.xlsx`;
+      a.download = `PEDIDO ${esTemplacol(proveedorFormato(pedido)) ? 'TEMPLACOL' : 'VITELSA'} #${pedido.numero_pedido}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -686,7 +700,7 @@ const PedidosPVPage: React.FC = () => {
       const area = document.getElementById('printable-pedido-pv');
       if (!area) return;
       abrirVentanaImpresion({
-        titulo: `Pedido PV ${printData.pedido.numero_pedido} — ${printData.pedido.proveedor}`,
+        titulo: `Pedido PV ${printData.pedido.numero_pedido} — ${proveedorFormato(printData.pedido)}`,
         contenidoHtml: area.innerHTML,
         ancho: 1100,
         alto: 800,
@@ -1580,13 +1594,13 @@ const PedidosPVPage: React.FC = () => {
             const itemsVisibles = items.filter((it: any) => !estaEnCompras(it));
             const itemsEnCompras = items.length - itemsVisibles.length;
             const itemsLibres = itemsVisibles.filter((it: any) => !it.pedido_pv_id || it.pedido_pv_id === modalGestionar.id);
-            const topeItems = maxItemsPorPedido(modalGestionar.proveedor);
+            const topeItems = maxItemsPorPedido(proveedorFormato(modalGestionar));
             const bloques = Math.ceil(itemsSeleccionados.length / topeItems);
             return (
               <Stack gap={2} mt={1}>
                 <Box display="flex" gap={2} flexWrap="wrap">
                   <Typography variant="body2"><strong>Cliente:</strong> {odp?.cliente?.nombre_razon_social || '—'}</Typography>
-                  <Typography variant="body2"><strong>Proveedor:</strong> {modalGestionar.proveedor}</Typography>
+                  <Typography variant="body2"><strong>Proveedor:</strong> {proveedorFormato(modalGestionar)}</Typography>
                   <Typography variant="body2"><strong>Ítems totales ODP:</strong> {items.length}{itemsEnCompras > 0 && ` · ${itemsEnCompras} en compras (ocultos)`}</Typography>
                 </Box>
 
@@ -1769,7 +1783,7 @@ const PedidosPVPage: React.FC = () => {
       {/* ─── Área de impresión (oculta) ───────────────────────────────────────── */}
       <div id="printable-pedido-pv" style={{ display: 'none' }}>
         {printData && (
-          esTemplacol(printData.pedido.proveedor)
+          esTemplacol(proveedorFormato(printData.pedido))
             ? <PrintablePedidoTemplacol pedido={printData.pedido} odp={printData.odp} />
             : <PrintablePedidoVitelsa pedido={printData.pedido} odp={printData.odp} />
         )}

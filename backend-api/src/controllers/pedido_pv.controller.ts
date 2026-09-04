@@ -7,7 +7,7 @@ import { PedidoPV, ODP, ODPItem, Usuario, HistorialEstadoODP, sequelize } from '
 import Cliente from '../models/cliente.model';
 import { emitirNotificacion } from '../server';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
-import { esTemplacol, bloquesPorProveedor } from '../utils/pedidoPvCapacidad';
+import { esTemplacol, bloquesPorProveedor, proveedorParaFormato, mismoProveedor } from '../utils/pedidoPvCapacidad';
 
 // ─── Esquema de validación ────────────────────────────────────────────────────
 
@@ -42,7 +42,9 @@ const INCLUDE_COMPLETO = [
   {
     model: ODP,
     as: 'odp',
-    attributes: ['id', 'numero_odp', 'estado_produccion', 'fecha_creacion'],
+    // `proveedor_vidrio` viaja para que el front pueda elegir el formulario por la ODP
+    // cuando la fila del pedido quedó desalineada (ver `proveedorParaFormato`).
+    attributes: ['id', 'numero_odp', 'estado_produccion', 'fecha_creacion', 'proveedor_vidrio'],
     include: [
       { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social'] },
       { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }
@@ -814,7 +816,16 @@ export const generarExcelPedidoPV = async (req: Request, res: Response) => {
       return `${dd}/${mes}/${yyyy}`;
     };
 
-    const proveedor = pedido.getDataValue('proveedor') as string;
+    // El formato lo manda la ODP cuando el pedido nació de ella: es lo que el proveedor
+    // recibe en papel y no hay vuelta atrás si sale con la plantilla equivocada.
+    const proveedorFila = pedido.getDataValue('proveedor') as string;
+    const proveedor = proveedorParaFormato(
+      proveedorFila, odp?.proveedor_vidrio, pedido.getDataValue('origen') as string
+    );
+    if (!mismoProveedor(proveedor, proveedorFila)) {
+      console.warn(`⚠️ Pedido PV ${numeroPedido}: la fila dice '${proveedorFila}' y la ODP ` +
+        `${numeroOdp} dice '${proveedor}'. Se genera el formato de la ODP.`);
+    }
     const usaTemplacol = esTemplacol(proveedor);
 
     const templatePath = path.join(

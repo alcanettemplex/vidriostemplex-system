@@ -1475,3 +1475,63 @@ Imprimir los nombres en el dry-run, y no solo los conteos, fue lo que hizo visib
 ### Pendiente al cierre de la sesión
 
 Redesplegar el backend con el parser corregido y **recargar los 97 `.zip`**. Verificación esperada: `SI2072-10` en $52.184,88 y `SI1560-12` en $45.882,37. Los emisores llegarán como *sin decidir*: se aprueban en el bloque de la pantalla de carga y **se vuelven a subir sus facturas** (al aprobarlos se borra su registro de omisión justamente para permitirlo).
+
+---
+
+## 2026-09-04 (3) — PV 7012 con el formato equivocado: el hueco de la propagación del proveedor
+
+**Punto de partida.** El usuario reporta que **ODP-24211 tiene el Pedido PV 7012 de Templacol pero registra Vitelsa**, y pide que al cambiar el proveedor desde el modal de la ODP el cambio llegue también al módulo Pedidos PV, al impreso y al Excel.
+
+### Lo que había en BD
+
+| Registro | Proveedor | Estado | Detalle |
+|---|---|---|---|
+| ODP-24211 (id 437) | **Templacol** | MEDICION | cambiado el 04-sep 11:01 (usuario 74), antes Vitelsa |
+| PV 7012 (id 508) | **Vitelsa** | ENVIADO | creado 28-jul con Vitelsa, 3 ítems, **enviado el 04-sep 11:51** |
+
+El formulario salió al proveedor con la plantilla Vitelsa **50 minutos después** de que la ODP pasara a Templacol. No era un caso aislado: había **3 desalineados** — 7012 (ODP-24211), 7073 (ODP-24299) y 7077 (ODP-24305), todos Vitelsa con la ODP en Templacol.
+
+### Por qué no propagó — dos causas, no una
+
+**(1) El código nunca corrió en el servidor.** La propagación existe desde `b67bcc3` (03-sep 15:56). En todo `auditoria_log` **no hay un solo cambio de `pedido_pv.proveedor` hecho por la aplicación**: los únicos cuatro los hizo el script de mantenimiento de ayer. La cronología lo confirma — el script alineó a las 15:48, el commit entró a las 15:56, y ODP-24305 (16:47) y ODP-24299 (16:49) se desalinearon **después del commit** sin que nada las propagara. El backend seguía corriendo el build anterior; el propio cierre de la sesión anterior ya dejaba pendiente redesplegarlo.
+
+**(2) Aun desplegado, quedaba un hueco.** Las dos caras del mismo hecho vivían en bloques independientes con condiciones que no cubrían todo el espacio:
+
+```
+auto-crear:  data.proveedor_vidrio && !proveedorAnterior
+propagar:    data.proveedor_vidrio &&  proveedorAnterior && distinto (comparación estricta)
+```
+
+Con `proveedor_vidrio = ''` —**88 ODP en BD lo están**— y un Pedido PV ya creado, `!proveedorAnterior` mandaba al auto-create, que al encontrar el pedido existente no hacía nada, y la propagación se saltaba por exigir `proveedorAnterior` truthy. El pedido se quedaba con el proveedor viejo. La comparación estricta añadía lo suyo: `'vitelsa'` vs `'Vitelsa'` contaba como cambio y reescribía la fila con el valor sucio.
+
+### Cambios
+
+| Archivo | Cambio |
+|---|---|
+| `utils/pedidoPvCapacidad.ts` | `normalizarProveedor` / `mismoProveedor`; `propagarProveedorAPedidosPV()` (update por instancia + re-particionado); `proveedorParaFormato()` |
+| `controllers/odp.controller.ts` | Los dos bloques fusionados en uno solo con comparación normalizada; log de error explícito cuando la propagación falla |
+| `controllers/pedido_pv.controller.ts` | `proveedor_vidrio` agregado al `INCLUDE_COMPLETO`; el Excel elige plantilla por el proveedor efectivo y avisa por log si la fila diverge |
+| `features/pedidos-pv/PedidosPVPage.tsx` | `proveedorFormato()` — espejo del backend — usado en printable, nombre del Excel, tope de ítems y encabezado del modal de gestión |
+
+**Regla nueva, en una línea:** si el pedido nació de la ODP (`origen = 'SISTEMA'`), el **formato** lo manda la ODP. Un pedido `MANUAL` conserva su proveedor: puede apuntar a otro a propósito.
+
+### Decisiones técnicas
+
+- **La red de seguridad no reescribe la fila.** Imprimir y exportar son lecturas; que un GET corrija datos de paso esconde el problema en vez de mostrarlo. Se elige la plantilla correcta y se deja un `console.warn` con las dos versiones del proveedor.
+- **Se preserva el "no recrear pedidos borrados".** Si ya hubo proveedor y no queda ningún pedido es porque se eliminó a propósito desde Pedidos PV; editar la ODP no lo resucita. El auto-create sigue reservado a la primera asignación.
+- **La propagación sigue después del `commit`** y con `catch`: si falla, la ODP ya quedó guardada y el usuario no pierde su edición. Lo que cambió es que ahora el log dice qué ODP, qué proveedor y cuál era el anterior.
+- **`asignarItems` no se tocó.** Reparte los ítems por `pedido.proveedor`; con la propagación arreglada ese valor ya es el de la ODP para los pedidos SISTEMA, y meterle una consulta más solo duplicaría la red sin un caso real detrás.
+
+### Datos corregidos
+
+`2026-09-03_alinear_proveedor_pedidos_pv.ts` re-ejecutado (es idempotente y detecta dinámicamente): **7077, 7073 y 7012 alineados a Templacol**. Revisión de capacidad sin cambios — los tres van de tope 12 a tope 29 con 1 y 3 ítems, así que no se rehízo ninguna extensión. Verificación posterior: **0 desalineados**. `pedido_pv` con Templacol pasó de 8 a 11 filas.
+
+### Verificación
+
+`npm --prefix backend-api run build` exit 0 · build de `frontend-web` exit 0 (+38 B en el bundle).
+
+⚠️ `npm --prefix backend-api run lint` no corre en esta máquina: no hay `eslint` local y `npx` baja la v10, que rechaza el `.eslintrc` del proyecto. Preexistente, no relacionado con estos cambios.
+
+### Pendiente al cierre de la sesión
+
+**Redesplegar el backend.** Sin eso, ni la corrección de hoy ni la de ayer están activas y el próximo cambio de proveedor volverá a desalinearse. Y en el plano operativo: a Templacol se le mandaron 7012, 7073 y 7077 en formato Vitelsa — **reimprimir y reenviar los tres** desde el módulo, que ahora sí generan la plantilla correcta.
