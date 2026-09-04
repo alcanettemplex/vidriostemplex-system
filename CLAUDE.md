@@ -383,11 +383,22 @@ Existen además dos listas más, menores: `ROLES_VALIDOS` en `server.ts` (12, in
 
 ```bash
 # Backend
-cd backend-api && npm run dev      # nodemon hot-reload
-cd backend-api && npm run build    # compilar TS → dist/
-cd backend-api && npm run lint:fix # ESLint
+npm --prefix backend-api run dev      # nodemon hot-reload
+npm --prefix backend-api run build    # compilar TS → dist/
+npm --prefix backend-api run lint:fix # ESLint
 
 # Frontend
-cd frontend-web && npm start       # dev http://localhost:3000
-cd frontend-web && npm run build   # CI=false
+npm --prefix frontend-web run start   # dev http://localhost:3000
+npm --prefix frontend-web run build   # CI=false
 ```
+
+### Ejecución de comandos — nunca componer con `cd`
+
+**No escribir `cd <ruta> && <comando>`.** La herramienta lo evalúa como comando compuesto y **pide permiso aunque el comando esté en el allowlist** — era el 32 % de las llamadas de la sesión (101 de 318) y la causa dominante de los prompts. No se arregla agregando entradas al allowlist; se arregla no usando `cd`.
+
+- **npm:** `npm --prefix backend-api run build`. No hay `package.json` en la raíz del monorepo, por eso la tentación del `cd`.
+- **Scripts / ts-node:** ruta relativa a la raíz del repo, o absoluta.
+- **git:** se ejecuta desde la raíz; si hace falta apuntar a otro sitio, `git -C <ruta> <subcomando>`.
+- **Temporales:** al directorio scratchpad de la sesión, nunca a la raíz del repo ni a `/tmp`.
+
+Los permisos viven en `.claude/settings.json` (55 entradas: scripts npm del monorepo, `tsc`/`eslint`, `ts-node` limitado a `src/scripts/` y al scratchpad, git de lectura + `add`/`commit`, y cmdlets de lectura de PowerShell). **`git push` queda deliberadamente fuera**: es la única acción que sale de la máquina y el prompt es la última red de seguridad. `.claude/` está en `.gitignore` — al configurar la otra máquina hay que replicar ese archivo a mano.

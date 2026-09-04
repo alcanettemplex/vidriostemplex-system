@@ -1356,3 +1356,42 @@ Compilación limpia en backend y frontend. Prueba real de generación del Excel 
 - **Propagación sin ejecutar en vivo:** verificada por compilación y revisión de lógica, no por corrida real — requiere sesión autenticada. Igual el re-particionado Templacol→Vitelsa: hoy ningún pedido supera 12 ítems.
 - **Densidad del printable Templacol:** el Excel necesita 43 % de escala para caber en carta vertical, así que el impreso queda de fuente muy pequeña. Falta validarlo con una impresión real.
 - **`pulidos`/`pulidos_h` no son metros lineales**, pese al rótulo de la columna en el formato Templacol. Ver `TECH_DEBT.md` 2026-09-03.
+
+---
+
+## 2026-09-04 — Permisos de herramientas: diagnóstico y reconfiguración
+
+### Contexto
+
+El usuario pidió revisar la configuración para dejar de recibir prompts de permiso en cada comando. Se escanearon **318 llamadas a Bash/PowerShell** en las 8 sesiones recientes de `~/.claude/projects/` y las tres capas de configuración (`.claude/settings.json`, `.claude/settings.local.json`, `~/.claude/settings.json`).
+
+### Diagnóstico — la causa no era el allowlist
+
+**El 32 % de las llamadas (101 de 318) tenían la forma `cd <ruta> && <comando>`.** Un comando compuesto con `cd` se evalúa como una unidad y pide permiso **aunque el comando final esté aprobado**: `Bash(npm run build:*)` nunca matchea `cd backend-api && npm run build`. Ninguna entrada del allowlist arregla eso. El propio `CLAUDE.md` documentaba los comandos de desarrollo con esa forma, que es de donde venía el hábito.
+
+Causas secundarias: **cero patrones de PowerShell de lectura** pese a ser el shell primario en Windows (41 usos de `Get-ChildItem`, 11 de `Get-Content`, 10 de `Get-CimInstance`, 7 de `Select-String`), y **17 entradas muertas** fijadas al scratchpad de una sesión ya cerrada (`3a5eadc4-…`), que nunca volverán a matchear.
+
+### Hallazgo de seguridad
+
+`Bash(node:*)`, `Bash(npx:*)` y `Bash(curl:*)` estaban aprobados: equivalen a **ejecución de código arbitrario y llamadas de red arbitrarias sin prompt**. Por decisión del usuario se estrecharon. `ts-node` quedó limitado por prefijo a `src/scripts/` y al directorio scratchpad de la sesión, en vez de comodín abierto.
+
+### Cambios
+
+- **`CLAUDE.md`** — comandos de desarrollo reescritos con `npm --prefix <paquete> run <script>` (no hay `package.json` en la raíz del monorepo, por eso la tentación del `cd`), más la subsección *"Ejecución de comandos — nunca componer con `cd`"* con la regla y las alternativas (`git -C <ruta>` para git).
+- **`.claude/settings.json`** — 36 → 55 entradas. Se quitaron `node:*`, `npx:*`, `curl:*`, `nodemon:*`, 6 entradas de git de solo lectura que Claude Code ya auto-permite de forma nativa, 6 duplicados de scripts npm y 4 one-offs muertos. Se agregaron los scripts npm del monorepo en forma `--prefix`, `tsc`/`eslint`, `ts-node` acotado, y 11 cmdlets de lectura de PowerShell.
+- **`.claude/settings.local.json`** y **`~/.claude/settings.json`** — purgados de las 17 entradas muertas. No se tocó `defaultMode`, `model`, `effortLevel` ni el hook `SessionStart`.
+
+**`git push` quedó deliberadamente fuera del allowlist.** `CLAUDE.md` prohíbe pushear por iniciativa propia y es la única acción que sale de la máquina: el prompt es la última red de seguridad. Cuesta una aprobación cuando el usuario dice "sube los cambios".
+
+### Réplica en la otra máquina
+
+`.claude/` está en `.gitignore` — **esta configuración no viaja por git**. En la máquina de casa/oficina hay que copiar `.claude/settings.json` a mano; mientras no se haga, allá siguen los prompts viejos. El archivo completo está en el repo local, no reproducido aquí para no duplicar una fuente que cambiará.
+
+### Verificación
+
+`npx tsc --noEmit` en `backend-api` y `frontend-web`: ambos exit 0 tras el merge del remoto (2.669 líneas de Fase 3 de Proveedores y buscador transversal).
+
+### Pendientes
+
+- **La configuración de permisos no está versionada.** Si se quiere que viaje entre máquinas habría que sacarla de `.gitignore` o mantener una copia en el repo; hoy es manual y silenciosamente diverge.
+- **`Bash(git add *)` y `Bash(git commit *)` siguen aprobados.** Son locales y reversibles, y la regla de `CLAUDE.md` (no commitear sin orden explícita) es la que gobierna — pero es una regla de comportamiento, no un control técnico.
