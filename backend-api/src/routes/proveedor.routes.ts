@@ -26,6 +26,9 @@ import {
   listarEquivalencias,
   desvincularEquivalencia,
   historicoEquivalencia,
+  listarFacturasProcesadas,
+  importarListaPrecios,
+  buscarEnModulo,
 } from '../controllers/proveedor.controller';
 
 const router = Router();
@@ -60,6 +63,9 @@ const manejarErroresCarga = (subir: any) => (req: Request, res: Response, next: 
 router.get('/', listarProveedores);
 router.post('/', crearProveedor);
 
+// ─── Buscador transversal del módulo (barra única + autocompletado) ──────────
+router.get('/buscar', buscarEnModulo);
+
 // ─── Consulta comparativa de precios (la pantalla principal) ──────────────────
 // Dos alias históricos del mismo endpoint; ambos en uso desde el frontend.
 router.get('/precios', consultarPrecios);
@@ -70,6 +76,9 @@ router.post('/importar-excel', manejarErroresCarga(uploadExcel), importarExcel);
 
 // ─── Ingesta de Facturas Electrónicas (.zip y .xml) ───────────────────────────
 router.post('/facturas/cargar', manejarErroresCarga(uploadFacturas), cargarFacturasLote);
+
+// ─── Bitácora: qué documentos ya entraron por la ingesta ─────────────────────
+router.get('/facturas', listarFacturasProcesadas);
 
 // ─── Bandeja de códigos sin mapear ───────────────────────────────────────────
 router.get('/codigos-pendientes', listarPendientes);
@@ -90,6 +99,8 @@ router.delete('/productos/:pp_id', desactivarMapeo);
 // ─── Rutas con parámetro al final: no deben capturar las literales de arriba ──
 router.get('/:id/productos', listarProductosProveedor);
 router.post('/:id/productos', agregarPrecioManual);
+// Lista de precios en Excel (Fase 3). Sin `dry_run: false` explícito solo previsualiza.
+router.post('/:id/importar-precios', manejarErroresCarga(uploadExcel), importarListaPrecios);
 router.patch('/:id/seguimiento', cambiarSeguimiento);
 router.patch('/:id', editarProveedor);
 router.delete('/:id', desactivarProveedor);

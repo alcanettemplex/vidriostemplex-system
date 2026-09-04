@@ -11,6 +11,8 @@ import { ProveedorCompacto } from '../../ProveedoresPage';
 
 interface Props {
   proveedores: ProveedorCompacto[];
+  /** Filtro con el que entra la pestaña cuando se llega desde el buscador del módulo */
+  busquedaInicial?: string;
   onActualizarContador?: () => void;
   onProveedoresCambiados?: () => void;
 }
@@ -28,11 +30,11 @@ const ETIQUETA_UNIDAD: Record<string, string> = {
   M2: 'm²',
 };
 
-const PorMapearTab: React.FC<Props> = ({ proveedores, onActualizarContador, onProveedoresCambiados }) => {
+const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActualizarContador, onProveedoresCambiados }) => {
   const [pendientes, setPendientes] = useState<CodigoPendienteItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(busquedaInicial ?? '');
   const [filtroProveedor, setFiltroProveedor] = useState('');
   const [orden, setOrden] = useState<'frecuencia' | 'reciente' | 'precio'>('frecuencia');
 
@@ -43,7 +45,9 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, onActualizarContador, onPr
 
   // El filtrado ocurre en el servidor: se espera a que el usuario deje de teclear
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [qAplicado, setQAplicado] = useState('');
+  // Se inicializa con el filtro de entrada para no gastar una consulta sin filtro
+  // antes de que corra el debounce
+  const [qAplicado, setQAplicado] = useState(busquedaInicial ?? '');
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
