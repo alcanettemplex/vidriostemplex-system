@@ -17,7 +17,8 @@ const FOLDER_BODY =
 export interface ProveedorCompacto {
   id: number;
   nombre_comercial: string;
-  seguir_precios?: boolean;
+  /** null = sin decidir: la ingesta lo descubrió y nadie ha resuelto si interesa */
+  seguir_precios?: boolean | null;
 }
 
 /**

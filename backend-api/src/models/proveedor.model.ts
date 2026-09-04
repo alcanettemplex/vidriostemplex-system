@@ -28,11 +28,17 @@ Proveedor.init({
   // Referencia cruzada con World Office (código interno del software contable)
   codigo_world_office: { type: DataTypes.STRING(50), allowNull: true },
 
-  // Si está en false, las facturas de este proveedor se registran como procesadas
-  // pero sus líneas no mueven precios ni caen a la bandeja. Es el interruptor para
-  // los emisores que no son insumos (combustible, parqueaderos, papelería, servicios
-  // públicos), que con ~20 FE diarias son la mayor fuente de ruido de la bandeja.
-  seguir_precios: { type: DataTypes.BOOLEAN, defaultValue: true, allowNull: false },
+  // Tri-estado (2026-09-04). Decide si las facturas de este proveedor alimentan la
+  // bandeja de mapeo; en cualquier caso se registran como procesadas.
+  //   NULL  = sin decidir. Lo crea así la ingesta al ver un emisor por primera vez:
+  //           sus líneas NO entran a la bandeja hasta que un humano lo apruebe. Con
+  //           ~20 FE diarias, la mayoría de emisores nuevos son combustible, peajes o
+  //           papelería, y dejarlos entrar "por si acaso" era el ruido dominante.
+  //   true  = seguir precios.
+  //   false = ignorado por decisión explícita.
+  // La regla de lectura no es este campo suelto sino `siguePrecios()` en el
+  // controlador: un proveedor inactivo tampoco alimenta la bandeja.
+  seguir_precios: { type: DataTypes.BOOLEAN, defaultValue: null, allowNull: true },
 
   // MANUAL | IMPORTACION_WO | INGESTA_FE — distingue el maestro curado de los
   // proveedores que la ingesta creó sola al no reconocer el NIT de una factura.

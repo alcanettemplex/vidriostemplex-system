@@ -4,6 +4,22 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-04 — Proveedores: el histórico de precios no es auditable ni recalculable
+
+**Severidad:** Alta (obligó a borrar y recargar todo el módulo) — **abierta**. Detalle en `SESSION_LOG.md` 2026-09-04 (2).
+
+**El problema:** `proveedor_producto_precio` guarda el precio resultante, pero no la **cantidad** ni el **total de línea** del documento del que salió. Cuando se descubrió que el parser dividía el precio unitario entre `cbc:BaseQuantity` (ver la sesión), no hubo forma de saber qué filas estaban mal: nada en la fila permite recomputar la cifra ni contrastarla contra la factura. Sumado a la idempotencia por CUFE —que impide reprocesar los mismos `.zip`—, la única salida fue **vaciar el módulo y recargarlo**, perdiendo todas las equivalencias y alias ya mapeados.
+
+**Qué faltaría:** `cantidad`, `total_linea` y el `precio_bruto_xml` en cada fila del histórico. Con esos tres campos, un error de parseo se corrige con un `UPDATE` y un script de recálculo en vez de un borrado total. **Estimación:** 3 h (migración + escritura en la ingesta + script de recálculo).
+
+**Mitigación mientras tanto:** la bitácora `factura_proveedor_procesada` conserva el CUFE y el archivo de origen, así que el usuario puede volver a subir los `.zip`. Depende de que él los siga archivando: si deja de hacerlo, un error de parseo pasa a ser irreversible.
+
+### Hallazgo colateral
+
+🟡 **`PATCH /api/proveedores/:id` puede dejar `seguir_precios` fuera de la regla unificada.** `proveedorUpdateSchema` acepta `seguir_precios` directo, y por esa vía se puede encender el seguimiento **sin** reabrir las facturas omitidas del proveedor (lo que sí hace `aplicarSeguimiento`). No es un bug hoy —ninguna pantalla lo usa así— pero es la misma clase de desalineación que ya existe entre `PATCH /api/pedidos-pv/:id` y la propagación del proveedor. **Estimación:** 20 min (sacar el campo del schema de update y dejar el seguimiento solo en su endpoint).
+
+---
+
 ## 2026-09-03 (2) — Buscadores del módulo Proveedores: seis alcances distintos, unificados
 
 **Severidad:** Media (usabilidad + una carencia funcional real) — **resuelto**. Detalle en `SESSION_LOG.md` 2026-09-03 (2).

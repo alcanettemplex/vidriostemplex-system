@@ -110,16 +110,16 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
     }
   };
 
-  /** Apaga el seguimiento del proveedor y limpia de un golpe todos sus pendientes */
+  /** Ignora al proveedor y limpia de un golpe todos sus pendientes */
   const handleDejarDeSeguir = async (proveedorId: number, nombre: string) => {
     if (!window.confirm(
-      `¿Dejar de seguir precios de "${nombre}"?\n\nSus futuras facturas se registrarán pero no generarán códigos por mapear, y los que tenga ahora se descartarán.\n\nÚsalo para emisores que no son insumos: combustible, parqueaderos, papelería, servicios.`
+      `¿Ignorar a "${nombre}"?\n\nSus futuras facturas se registrarán pero no generarán códigos por mapear, y los que tenga ahora se descartarán.\n\nÚsalo para emisores que no son insumos: combustible, parqueaderos, papelería, servicios.`
     )) return;
 
     setAccionLote(true);
     try {
       const { data } = await axios.patch(`${API}/api/proveedores/${proveedorId}/seguimiento`, { seguir_precios: false });
-      toast.success(data?.message ?? 'Proveedor excluido del seguimiento');
+      toast.success(data?.message ?? 'Proveedor ignorado');
       cargarPendientes();
       if (onProveedoresCambiados) onProveedoresCambiados();
     } catch (err: any) {

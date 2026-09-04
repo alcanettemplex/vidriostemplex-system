@@ -55,6 +55,28 @@ function aFechaISO(valor: any): string | null {
   }
 }
 
+/**
+ * Regla única de "¿este proveedor alimenta la bandeja de mapeo?".
+ *
+ * Son dos columnas porque significan cosas distintas —`activo` es la baja lógica del
+ * maestro y `seguir_precios` la decisión sobre sus precios— pero la ingesta las lee
+ * juntas: dar de baja a un proveedor y que sus facturas siguieran generando códigos
+ * por mapear era una inconsistencia que solo se explicaba leyendo el código.
+ *
+ * `seguir_precios` en NULL significa "sin decidir": no se sigue todavía, pero tampoco
+ * es un rechazo, y por eso `motivoOmision` los distingue en la bitácora.
+ */
+function siguePrecios(proveedor: any): boolean {
+  return proveedor.getDataValue('activo') === true && proveedor.getDataValue('seguir_precios') === true;
+}
+
+/** Por qué se omitieron las líneas de un proveedor. Cabe en motivo_omision (STRING 40). */
+function motivoOmision(proveedor: any): string {
+  if (proveedor.getDataValue('activo') !== true) return 'PROVEEDOR_INACTIVO';
+  if (proveedor.getDataValue('seguir_precios') === false) return 'PROVEEDOR_NO_SEGUIDO';
+  return 'PROVEEDOR_SIN_DECIDIR';
+}
+
 /** Caché en memoria del umbral: se leía de la BD una vez por cada cambio de precio,
  *  lo que en un lote de 100 facturas significaba cientos de consultas idénticas. */
 let umbralCache: { valor: number; expira: number } | null = null;
@@ -212,6 +234,11 @@ const proveedorUpdateSchema = proveedorSchema.partial().extend({
   activo: z.boolean().optional(),
 }).strict();
 
+const seguimientoMasivoSchema = z.object({
+  ids: z.array(z.coerce.number().int().positive()).min(1, 'Selecciona al menos un proveedor').max(200),
+  seguir_precios: z.boolean(),
+}).strict();
+
 const precioManualSchema = z.object({
   catalogo_producto_id: z.coerce.number().int().positive(),
   codigo_proveedor: z.string().trim().max(100).optional().nullable(),
@@ -291,9 +318,15 @@ export const uploadFacturas = multer({
 // ─── GET /api/proveedores ─────────────────────────────────────────────────────
 export const listarProveedores = async (req: Request, res: Response) => {
   try {
-    const { activo, q, compacto } = req.query;
+    const { activo, q, compacto, seguimiento } = req.query;
     const where: any = {};
     if (activo !== undefined) where.activo = activo === 'true';
+
+    // Filtro por el tri-estado de seguimiento; "sin_decidir" es el que usa la pestaña
+    // para sacar a flote los emisores que la ingesta descubrió y nadie ha resuelto.
+    if (seguimiento === 'sin_decidir') where.seguir_precios = { [Op.is]: null };
+    else if (seguimiento === 'siguiendo') where.seguir_precios = true;
+    else if (seguimiento === 'ignorado') where.seguir_precios = false;
     if (q) {
       const term = `%${String(q).trim()}%`;
       where[Op.or] = [
@@ -330,6 +363,10 @@ export const crearProveedor = async (req: Request, res: Response) => {
       ...datos,
       nit: datos.nit || null,
       tipo_identificacion: datos.tipo_identificacion || 'NIT',
+      // Un proveedor tecleado a mano se sigue por defecto: si alguien se tomó el
+      // trabajo de registrarlo, le interesa. El estado "sin decidir" (NULL, el
+      // default de la columna) es exclusivo de los que descubre la ingesta.
+      seguir_precios: datos.seguir_precios ?? true,
       origen_registro: 'MANUAL',
     });
     res.status(201).json(proveedor);
@@ -371,12 +408,71 @@ export const desactivarProveedor = async (req: Request, res: Response) => {
   }
 };
 
-// ─── PATCH /api/proveedores/:id/seguimiento ───────────────────────────────────
 /**
- * Enciende o apaga el seguimiento de precios de un proveedor. Al apagarlo, sus
- * códigos pendientes se descartan de una vez: es la acción que limpia la bandeja
- * cuando el emisor es una gasolinera, un parqueadero o la papelería.
+ * Aplica una decisión de seguimiento a uno o varios proveedores, en una transacción.
+ *
+ * Al apagarlo, los códigos pendientes se descartan de una vez: es la acción que limpia
+ * la bandeja cuando el emisor es una gasolinera, un parqueadero o la papelería.
+ *
+ * Al encenderlo hay que reabrir sus facturas. Las que llegaron mientras el proveedor
+ * estaba sin decidir quedaron registradas con su CUFE y la idempotencia las rechazaría
+ * para siempre: aprobar al proveedor no habría servido de nada porque sus líneas no
+ * volverían a procesarse nunca. Se borra ese registro —solo el de las omitidas, nunca
+ * el de una factura que sí movió precios— para que el usuario pueda volver a subirlas.
  */
+async function aplicarSeguimiento(
+  proveedores: any[],
+  seguir: boolean,
+  t: Transaction
+): Promise<{ descartados: number; facturasReabiertas: number }> {
+  const ids = proveedores.map((p) => p.getDataValue('id'));
+  if (ids.length === 0) return { descartados: 0, facturasReabiertas: 0 };
+
+  await Proveedor.update(
+    { seguir_precios: seguir },
+    { where: { id: { [Op.in]: ids } }, transaction: t, individualHooks: true }
+  );
+
+  let descartados = 0;
+  let facturasReabiertas = 0;
+
+  if (!seguir) {
+    const [afectados] = await ProveedorCodigoPendiente.update(
+      { estado: 'DESCARTADO' },
+      {
+        where: { proveedor_id: { [Op.in]: ids }, estado: 'PENDIENTE' },
+        transaction: t,
+        individualHooks: true, // los hooks de auditoría no disparan en operaciones bulk
+      }
+    );
+    descartados = afectados;
+  } else {
+    facturasReabiertas = await FacturaProveedorProcesada.destroy({
+      where: {
+        proveedor_id: { [Op.in]: ids },
+        motivo_omision: { [Op.in]: ['PROVEEDOR_SIN_DECIDIR', 'PROVEEDOR_NO_SEGUIDO', 'PROVEEDOR_INACTIVO'] },
+      },
+      transaction: t,
+      individualHooks: true,
+    });
+  }
+
+  return { descartados, facturasReabiertas };
+}
+
+/** Texto del resultado, para no repetirlo entre el endpoint individual y el masivo */
+function mensajeSeguimiento(seguir: boolean, descartados: number, reabiertas: number, cuantos: number): string {
+  const sujeto = cuantos === 1 ? 'este proveedor' : `${cuantos} proveedores`;
+  if (seguir) {
+    return `Se sigue el precio de ${sujeto}` +
+      (reabiertas
+        ? `. Vuelve a subir sus ${reabiertas} factura(s): habían quedado registradas sin procesar y ahora sí alimentarán la bandeja.`
+        : '.');
+  }
+  return `Se ignoró a ${sujeto}${descartados ? ` y se descartaron ${descartados} código(s) de la bandeja` : ''}.`;
+}
+
+// ─── PATCH /api/proveedores/:id/seguimiento ───────────────────────────────────
 export const cambiarSeguimiento = async (req: Request, res: Response) => {
   const t = await sequelize.transaction();
   try {
@@ -392,32 +488,57 @@ export const cambiarSeguimiento = async (req: Request, res: Response) => {
       return fallar(res, 404, 'El proveedor no existe o fue eliminado.');
     }
 
-    await proveedor.update({ seguir_precios: seguir }, { transaction: t });
-
-    let descartados = 0;
-    if (!seguir) {
-      const [afectados] = await ProveedorCodigoPendiente.update(
-        { estado: 'DESCARTADO' },
-        {
-          where: { proveedor_id: proveedor.getDataValue('id'), estado: 'PENDIENTE' },
-          transaction: t,
-          individualHooks: true, // los hooks de auditoría no disparan en operaciones bulk
-        }
-      );
-      descartados = afectados;
-    }
-
+    const { descartados, facturasReabiertas } = await aplicarSeguimiento([proveedor], seguir, t);
     await t.commit();
+
     res.json({
-      message: seguir
-        ? 'Se reanudó el seguimiento de precios de este proveedor'
-        : `Se dejó de seguir a este proveedor${descartados ? ` y se descartaron ${descartados} código(s) de su bandeja` : ''}`,
+      message: mensajeSeguimiento(seguir, descartados, facturasReabiertas, 1),
       seguir_precios: seguir,
       codigos_descartados: descartados,
+      facturas_reabiertas: facturasReabiertas,
     });
   } catch (err: any) {
     await t.rollback();
     const { status, mensaje } = mensajeDeError(err, 'No se pudo cambiar el seguimiento del proveedor');
+    fallar(res, status, mensaje, err);
+  }
+};
+
+// ─── PATCH /api/proveedores/seguimiento-masivo ────────────────────────────────
+/**
+ * Decide en bloque sobre varios proveedores. Nace de la pantalla de carga: un lote de
+ * 20 facturas puede traer 5 emisores nuevos, y resolverlos uno por uno era el trabajo
+ * manual que hacía que la bandeja se llenara de ruido "para después".
+ */
+export const cambiarSeguimientoMasivo = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const datos = seguimientoMasivoSchema.parse(req.body);
+
+    const proveedores = await Proveedor.findAll({
+      where: { id: { [Op.in]: datos.ids } },
+      transaction: t,
+    });
+
+    if (proveedores.length === 0) {
+      await t.rollback();
+      return fallar(res, 404, 'Ninguno de los proveedores indicados existe. Recarga la lista e inténtalo de nuevo.');
+    }
+
+    const { descartados, facturasReabiertas } = await aplicarSeguimiento(proveedores, datos.seguir_precios, t);
+    await t.commit();
+
+    res.json({
+      message: mensajeSeguimiento(datos.seguir_precios, descartados, facturasReabiertas, proveedores.length),
+      proveedores_afectados: proveedores.length,
+      seguir_precios: datos.seguir_precios,
+      codigos_descartados: descartados,
+      facturas_reabiertas: facturasReabiertas,
+    });
+  } catch (err: any) {
+    await t.rollback();
+    if (err instanceof z.ZodError) return fallar(res, 400, mensajeZod(err));
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo aplicar la decisión a los proveedores');
     fallar(res, status, mensaje, err);
   }
 };
@@ -510,6 +631,10 @@ export const importarExcel = async (req: Request, res: Response) => {
           numero_identificacion: numeroId || null,
           nombre_comercial: nombre,
           activo: true,
+          // El maestro de World Office lo importa el usuario a propósito: son
+          // proveedores de insumos, no emisores sueltos. Nacen seguidos, a diferencia
+          // de los que descubre la ingesta de facturas.
+          seguir_precios: true,
           origen_registro: 'IMPORTACION_WO',
         });
       }
@@ -2124,9 +2249,14 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
     pendientesDeProcesar.sort((a, b) => (a.fecha_emision || '').localeCompare(b.fecha_emision || ''));
 
     // ── 4. Resolver proveedores en bloque ─────────────────────────────────────
+    // `activo` es imprescindible: `siguePrecios()` lo lee, y sin traerlo en el
+    // attributes valdría undefined y se omitirían las líneas de todo el lote.
     const maestro = await Proveedor.findAll({
-      attributes: ['id', 'nit', 'numero_identificacion', 'nombre_comercial', 'razon_social', 'seguir_precios'],
+      attributes: ['id', 'nit', 'numero_identificacion', 'nombre_comercial', 'razon_social', 'seguir_precios', 'activo'],
     });
+
+    /** Emisores que quedaron "sin decidir" en esta carga, para pedir la decisión al final */
+    const proveedoresPorDecidir = new Map<number, { id: number; nombre: string; nit: string | null; lineas: number }>();
 
     const porNit = new Map<string, any>();
     const porNombre = new Map<string, any>();
@@ -2153,15 +2283,25 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
         nombre_comercial: fac.emisor_nombre || `Proveedor ${nit || 'S/N'}`,
         razon_social: fac.emisor_nombre || null,
         activo: true,
-        seguir_precios: true,
+        // Sin decidir: sus líneas no entran a la bandeja hasta que el usuario lo
+        // apruebe en el resumen de esta misma carga. La mayoría de emisores nuevos
+        // no son insumos (combustible, peajes, papelería) y dejarlos entrar por
+        // defecto era la fuente dominante de ruido en Por Mapear.
+        seguir_precios: null,
         origen_registro: 'INGESTA_FE',
       });
       if (nit) porNit.set(nit, nuevo);
       if (clave) porNombre.set(clave, nuevo);
+      proveedoresPorDecidir.set(nuevo.getDataValue('id'), {
+        id: nuevo.getDataValue('id'),
+        nombre: nuevo.getDataValue('nombre_comercial'),
+        nit: nuevo.getDataValue('nit'),
+        lineas: 0,
+      });
       avisos.push({
         tipo: 'PROVEEDOR_NUEVO',
         proveedor_nombre: nuevo.getDataValue('nombre_comercial'),
-        detalle: `Registrado automáticamente desde la factura ${fac.numero}. Revísalo en la pestaña Proveedores.`,
+        detalle: `Emisor nuevo, detectado en la factura ${fac.numero}. Sus productos no entrarán a Por Mapear hasta que lo apruebes abajo.`,
       });
       return nuevo;
     };
@@ -2233,10 +2373,26 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
           continue;
         }
 
-        // Proveedor excluido del seguimiento de precios
-        if (proveedor.getDataValue('seguir_precios') === false) {
+        // Proveedor que no alimenta la bandeja: ignorado, inactivo o aún sin decidir.
+        // La factura queda registrada igual (trazabilidad), pero con el motivo, que es
+        // lo que permite reabrirla si después se aprueba al proveedor.
+        if (!siguePrecios(proveedor)) {
           lineasOmitidasProveedor += fac.lineas.length;
-          await registrarDocumento('PROVEEDOR_NO_SEGUIDO', { act: 0, pend: 0, omit: fac.lineas.length });
+          const motivo = motivoOmision(proveedor);
+          if (motivo === 'PROVEEDOR_SIN_DECIDIR') {
+            const ficha = proveedoresPorDecidir.get(proveedorId);
+            if (ficha) {
+              ficha.lineas += fac.lineas.length;
+            } else {
+              proveedoresPorDecidir.set(proveedorId, {
+                id: proveedorId,
+                nombre: proveedorNombre,
+                nit: proveedor.getDataValue('nit'),
+                lineas: fac.lineas.length,
+              });
+            }
+          }
+          await registrarDocumento(motivo, { act: 0, pend: 0, omit: fac.lineas.length });
           await t.commit();
           facturasProcesadas++;
           continue;
@@ -2483,6 +2639,9 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
       precios_actualizados: preciosActualizados,
       codigos_nuevos_pendientes: codigosNuevosPendientes,
       lineas_omitidas_proveedor: lineasOmitidasProveedor,
+      // Emisores sin decidir de esta carga: la pantalla los pinta con casillas para
+      // que el usuario resuelva ahí mismo cuáles seguir, sin ir a otra pestaña.
+      proveedores_por_decidir: Array.from(proveedoresPorDecidir.values()).sort((a, b) => b.lineas - a.lineas),
       avisos: avisos.slice(0, 40),
       errores,
     });

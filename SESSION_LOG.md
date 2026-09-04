@@ -1395,3 +1395,83 @@ Causas secundarias: **cero patrones de PowerShell de lectura** pese a ser el she
 
 - **La configuración de permisos no está versionada.** Si se quiere que viaje entre máquinas habría que sacarla de `.gitignore` o mantener una copia en el repo; hoy es manual y silenciosamente diverge.
 - **`Bash(git add *)` y `Bash(git commit *)` siguen aprobados.** Son locales y reversibles, y la regla de `CLAUDE.md` (no commitear sin orden explícita) es la que gobierna — pero es una regla de comportamiento, no un control técnico.
+
+---
+
+## 2026-09-04 (2) — Proveedores: precio unitario dividido por `BaseQuantity`, reset del módulo y aprobación de emisores
+
+### El síntoma
+
+Factura de **HI-TECH FILMS, FED-3171 (21-ago-2026)**. El PDF dice `SILVER 20% 72 SPECTRA · 2,2 · $52.185 · $114.807`. El modal de vinculación mostraba **$23.720,40**.
+
+### Diagnóstico
+
+`52.184,88 ÷ 2,2 = 23.720,40` — exacto, decimales incluidos. El único punto del sistema que divide un precio era `dianXmlParser.ts`:
+
+```ts
+const baseQty = parseFloat(...) || 1;
+if (precio_unitario > 0 && baseQty > 1) precio_unitario /= baseQty;
+```
+
+UBL 2.1 define `cbc:PriceAmount` como el precio de `BaseQuantity` unidades — el caso legítimo *"$X por cada 100"*. Pero buena parte de los emisores colombianos **repite ahí la cantidad facturada** como relleno y deja `PriceAmount` ya unitario. La regla "si es > 1, divide" no distinguía los dos mundos, y el precio quedaba dividido entre la cantidad.
+
+Confirmación aritmética con la segunda línea: `5,9 × $45.882 = $270.706` ⟹ unitario real `45.882,37`, detectado `7.776,67`.
+
+### Corrección
+
+El árbitro pasa a ser `LineExtensionAmount / cantidad`, que es lo que el proveedor cobra: entre las dos lecturas posibles gana **la que menos se aleja** de esa referencia. No se exige coincidencia exacta a propósito — en una línea con descuento el total viene neto y el precio bruto, y aun así la correcta es la que queda cerca. Sin total de línea no hay con qué arbitrar y se conserva la lectura UBL.
+
+Verificado con `2026_09_04_verificar_parser_precio.ts`, 5 escenarios, todos en verde: el caso HI-TECH, el lote real *"$100.000 por cada 100"*, la línea normal sin `BaseQuantity`, el combinado relleno + 10 % de descuento, y la línea sin `LineExtensionAmount`.
+
+### Por qué hubo que borrar y recargar
+
+**El daño no es detectable a posteriori.** `proveedor_producto_precio` guarda el precio, no la cantidad ni el total de línea de donde salió: no hay forma de saber qué filas se dividieron. Y la idempotencia por CUFE impide reprocesar los mismos `.zip`. Decisión del usuario: **reset total del módulo** y recarga desde su archivo de facturas.
+
+`2026_09_04_reset_ingesta_proveedores.ts` — dry-run por defecto, borra solo con `--ejecutar`. Vacía histórico, equivalencias, bandeja, alias y bitácora, y elimina los proveedores `INGESTA_FE`. **No toca `catalogo_productos`** (es el catálogo interno del tab ROOT) ni las fichas `MANUAL`/`IMPORTACION_WO`, que tienen contacto y datos tecleados a mano que ninguna recarga reconstruye; esas quedan en *sin decidir*.
+
+### `seguir_precios` pasa a tri-estado
+
+Segundo problema reportado: con ~20 FE diarias, cada emisor nuevo (combustible, peajes, papelería) ensuciaba la bandeja **antes** de poder apagarlo, porque `resolverProveedor` los creaba en `seguir_precios: true`.
+
+`NULL` = sin decidir · `true` = seguir · `false` = ignorado. La ingesta crea los emisores nuevos en `NULL` y la pantalla de carga pide la decisión con casillas. Migración: `2026_09_04_seguir_precios_tri_estado.ts`.
+
+**Regla unificada `siguePrecios()`:** `activo === true && seguir_precios === true`. Antes, un proveedor dado de baja **seguía alimentando la bandeja** — la pestaña mostraba dos interruptores parecidos ("Activo/Inactivo" y una campanita sin etiqueta) que hacían cosas distintas, y el que el usuario creía que servía para esto no hacía nada de eso.
+
+### La fuga que hubo que cerrar
+
+Un emisor "sin decidir" igual registra su CUFE. Al aprobarlo después, sus facturas **ya no se reprocesarían** (duplicado) y sus códigos no entrarían nunca a la bandeja: la función habría sido inútil en silencio. Al encender el seguimiento se borran sus `factura_proveedor_procesada` que tengan motivo de omisión —nunca las que sí movieron precios— y el mensaje pide volver a subirlas.
+
+### Cambios
+
+| Archivo | Cambio |
+|---|---|
+| `utils/dianXmlParser.ts` | Arbitraje del precio unitario contra el total de línea |
+| `models/proveedor.model.ts` | `seguir_precios` → `allowNull: true`, default `NULL` |
+| `controllers/proveedor.controller.ts` | `siguePrecios()` / `motivoOmision()`, `aplicarSeguimiento()`, endpoint masivo, emisores nuevos en `NULL`, `proveedores_por_decidir` en la respuesta del lote, filtro `?seguimiento=`, `activo` agregado al `attributes` del maestro |
+| `routes/proveedor.routes.ts` | `PATCH /seguimiento-masivo`, antes de las rutas con `:id` |
+| `tabs/ProveedoresTab.tsx` | Chip tri-estado con la regla real, un solo control, selección múltiple, filtro por seguimiento |
+| `tabs/CargarFacturasTab.tsx` | Bloque "Proveedores nuevos: ¿cuáles te interesan?" con casillas |
+| `tabs/PorMapearTab.tsx`, `ProveedoresPage.tsx` | Textos alineados, tipo `boolean \| null` |
+| 3 scripts nuevos | Verificación del parser, migración, reset |
+
+### Detalle que casi rompe todo el lote
+
+`siguePrecios()` lee `activo`, y el `findAll` del maestro en la ingesta **no lo traía en su `attributes`**. Habría valido `undefined`, y con la regla `activo === true` se habrían omitido las líneas de **todas** las facturas del lote, en silencio y con la bitácora diciendo `PROVEEDOR_INACTIVO`. Es el riesgo que `CLAUDE.md` advierte sobre los `attributes` selectivos.
+
+### Verificación
+
+`npm --prefix backend-api run build` exit 0 · build de `frontend-web` exit 0 sin advertencias nuevas (los avisos de BOM son preexistentes en 4 archivos del módulo).
+
+### Ejecutado contra Supabase (backup previo confirmado por el usuario)
+
+**Migración:** `seguir_precios` quedó `is_nullable: YES`, `column_default: null`.
+
+**Reset:** 40 precios (todos de origen `FACTURA` — no había ninguno manual ni de lista, así que nada irreconstruible se perdió), 24 equivalencias, 24 alias, 322 pendientes y 97 facturas borrados. 38 proveedores `INGESTA_FE` eliminados.
+
+**Qué proveedores se salvaron, y por qué se cambió el criterio a mitad de camino.** El plan era conservar en `true` a los que "ya demostraron interés", con dos señales: tener equivalencias mapeadas o tener facturas procesadas. El dry-run imprimió los nombres y la segunda señal resultó inservible: como hasta hoy **todo emisor nacía seguido**, rescataba a `ALMACENES EXITO`, `POSTOBON`, `COMBUSTIBLES LA GRAN VIA`, `PARQUE COMERCIAL EL TESORO` y `ANTIOQUEÑA DE AUTOMOTORES` — el ruido exacto que el cambio buscaba eliminar. Se dejó solo la señal fuerte, el mapeo humano: **2 proveedores** (`CAUCHO VIDRIOS SAS`, `VENTANAS Y PUERTAS S.A.S`). Los otros 971 quedaron sin decidir.
+
+Imprimir los nombres en el dry-run, y no solo los conteos, fue lo que hizo visible el problema: con un `18 proveedores conservados` nadie lo habría notado.
+
+### Pendiente al cierre de la sesión
+
+Redesplegar el backend con el parser corregido y **recargar los 97 `.zip`**. Verificación esperada: `SI2072-10` en $52.184,88 y `SI1560-12` en $45.882,37. Los emisores llegarán como *sin decidir*: se aprueban en el bloque de la pantalla de carga y **se vuelven a subir sus facturas** (al aprobarlos se borra su registro de omisión justamente para permitirlo).

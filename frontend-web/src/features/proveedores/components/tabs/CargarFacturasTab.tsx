@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import {
   UploadCloud, FileArchive, FileCode, CheckCircle2, AlertTriangle,
   XCircle, ArrowRight, Loader2, Sparkles, TrendingUp,
-  TrendingDown, Minus, Info, Trash2, History,
+  TrendingDown, Minus, Info, Trash2, History, HelpCircle,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
@@ -49,6 +49,14 @@ interface AvisoLote {
   detalle: string;
 }
 
+/** Emisor que la ingesta vio pero nadie ha decidido si interesa */
+interface ProveedorPorDecidir {
+  id: number;
+  nombre: string;
+  nit: string | null;
+  lineas: number;
+}
+
 interface ResumenLote {
   total_archivos: number;
   facturas_procesadas: number;
@@ -58,6 +66,7 @@ interface ResumenLote {
   precios_actualizados: PrecioActualizadoItem[];
   codigos_nuevos_pendientes: number;
   lineas_omitidas_proveedor: number;
+  proveedores_por_decidir?: ProveedorPorDecidir[];
   avisos: AvisoLote[];
   errores: string[];
 }
@@ -89,6 +98,8 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
   const [progreso, setProgreso] = useState(0);
   const [resumen, setResumen] = useState<ResumenLote | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [seleccionProv, setSeleccionProv] = useState<Set<number>>(new Set());
+  const [decidiendo, setDecidiendo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const agregarArchivos = (files: FileList | null) => {
@@ -141,6 +152,38 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
     setProgreso(0);
   };
 
+  /**
+   * Decisión sobre los emisores nuevos del lote recién cargado. Se resuelve aquí y no
+   * en la pestaña Proveedores porque es el único momento en que el usuario tiene
+   * presente de qué factura salió cada nombre.
+   */
+  const decidirProveedores = async (ids: number[], seguir: boolean) => {
+    if (ids.length === 0) return;
+    setDecidiendo(true);
+    try {
+      const { data } = await axios.patch(`${API}/api/proveedores/seguimiento-masivo`, {
+        ids,
+        seguir_precios: seguir,
+      });
+      toast.success(data?.message ?? 'Decisión aplicada');
+      // Los resueltos salen de la lista; los que quedan siguen esperando decisión.
+      setResumen((prev) => prev && ({
+        ...prev,
+        proveedores_por_decidir: (prev.proveedores_por_decidir ?? []).filter((p) => !ids.includes(p.id)),
+      }));
+      setSeleccionProv((prev) => {
+        const siguiente = new Set(prev);
+        ids.forEach((id) => siguiente.delete(id));
+        return siguiente;
+      });
+      if (onLoteProcesado) onLoteProcesado();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'No se pudo aplicar la decisión');
+    } finally {
+      setDecidiendo(false);
+    }
+  };
+
   const procesarLote = async () => {
     const archivosValidos = cola.filter((a) => a.status === 'listo');
     if (archivosValidos.length === 0) {
@@ -173,6 +216,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
 
       setProgreso(100);
       setResumen(data);
+      setSeleccionProv(new Set());
       setCola((prev) =>
         prev.map((item) =>
           item.status === 'listo' ? { ...item, status: 'completado' } : item
@@ -554,6 +598,99 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
               </div>
             )}
           </div>
+
+          {/* Emisores nuevos: la decisión que evita que la bandeja se llene de ruido.
+              Mientras no se resuelvan, sus productos no entran a Por Mapear. */}
+          {(resumen.proveedores_por_decidir?.length ?? 0) > 0 && (
+            <div
+              style={{
+                background: 'rgba(245, 158, 11, 0.07)',
+                border: '1px solid #fde68a',
+                borderRadius: 12,
+                padding: '14px 18px',
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text, #0f172a)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <HelpCircle size={14} style={{ color: '#d97706' }} />
+                Proveedores nuevos: ¿cuáles te interesan? ({resumen.proveedores_por_decidir!.length})
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted, #64748b)', marginBottom: 10, lineHeight: 1.45 }}>
+                Sus facturas quedaron registradas, pero sus productos <strong>no entrarán a Por Mapear</strong> hasta
+                que marques cuáles quieres seguir. Al aprobarlos, vuelve a subir sus facturas para que se procesen.
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 220, overflowY: 'auto', marginBottom: 12 }}>
+                {resumen.proveedores_por_decidir!.map((p) => (
+                  <label
+                    key={p.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                      padding: '7px 11px', borderRadius: 9,
+                      background: 'var(--surface, #fff)',
+                      border: '1px solid var(--border, #f1f5f9)',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={seleccionProv.has(p.id)}
+                      onChange={() => setSeleccionProv((prev) => {
+                        const siguiente = new Set(prev);
+                        if (siguiente.has(p.id)) siguiente.delete(p.id); else siguiente.add(p.id);
+                        return siguiente;
+                      })}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text, #0f172a)' }}>{p.nombre}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted, #64748b)', fontFamily: 'monospace' }}>
+                        {p.nit ?? 'Sin NIT'} · {p.lineas} línea(s) en este lote
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => decidirProveedores(Array.from(seleccionProv), true)}
+                  disabled={decidiendo || seleccionProv.size === 0}
+                  style={{
+                    padding: '7px 14px', borderRadius: 9, border: '1px solid #22c55e60',
+                    background: seleccionProv.size === 0 ? 'transparent' : 'rgba(34, 197, 94, 0.12)',
+                    color: '#16a34a', fontSize: 12.5, fontWeight: 700,
+                    cursor: decidiendo || seleccionProv.size === 0 ? 'not-allowed' : 'pointer',
+                    opacity: seleccionProv.size === 0 ? .5 : 1,
+                  }}
+                >
+                  Seguir precios de los marcados
+                </button>
+                <button
+                  onClick={() => decidirProveedores(Array.from(seleccionProv), false)}
+                  disabled={decidiendo || seleccionProv.size === 0}
+                  style={{
+                    padding: '7px 14px', borderRadius: 9, border: '1px solid var(--border, #e2e8f0)',
+                    background: 'transparent', color: 'var(--text-muted, #64748b)',
+                    fontSize: 12.5, fontWeight: 600,
+                    cursor: decidiendo || seleccionProv.size === 0 ? 'not-allowed' : 'pointer',
+                    opacity: seleccionProv.size === 0 ? .5 : 1,
+                  }}
+                >
+                  Ignorar los marcados
+                </button>
+                <button
+                  onClick={() => decidirProveedores(resumen.proveedores_por_decidir!.map((p) => p.id), false)}
+                  disabled={decidiendo}
+                  style={{
+                    padding: '7px 14px', borderRadius: 9, border: 'none',
+                    background: 'transparent', color: 'var(--text-muted, #64748b)',
+                    fontSize: 12.5, cursor: decidiendo ? 'wait' : 'pointer', textDecoration: 'underline',
+                  }}
+                >
+                  Ignorar todos
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Avisos que requieren criterio humano */}
           {resumen.avisos?.length > 0 && (

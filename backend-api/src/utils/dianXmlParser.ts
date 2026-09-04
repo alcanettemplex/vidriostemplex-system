@@ -180,20 +180,35 @@ export function parsearXmlFactura(xmlString: string): FacturaParseada {
     // Precio Unitario base
     const priceNodo = line['cac:Price'] || {};
     const priceAmountNodo = priceNodo['cbc:PriceAmount'];
-    let precio_unitario = parseFloat(extraerTexto(priceAmountNodo)) || 0;
-
-    // BaseQuantity: cuando el precio se expresa por lote (ej. "$X por cada 100"),
-    // el unitario real es PriceAmount / BaseQuantity.
+    const precioXml = parseFloat(extraerTexto(priceAmountNodo)) || 0;
     const baseQty = parseFloat(extraerTexto(priceNodo['cbc:BaseQuantity'])) || 1;
-    if (precio_unitario > 0 && baseQty > 1) {
-      precio_unitario = +(precio_unitario / baseQty).toFixed(2);
-    }
 
     const lineExtNodo = line['cbc:LineExtensionAmount'];
     const total_linea = parseFloat(extraerTexto(lineExtNodo)) || 0;
 
-    if (precio_unitario <= 0 && cantidad > 0 && total_linea > 0) {
-      precio_unitario = +(total_linea / cantidad).toFixed(2);
+    // UBL 2.1 define PriceAmount como el precio de BaseQuantity unidades — el caso
+    // legítimo "$X por cada 100". Pero buena parte de los emisores colombianos repite
+    // ahí la cantidad facturada como relleno y deja PriceAmount ya unitario: dividir
+    // a ciegas convertía $52.184,88 en $23.720,40 (HI-TECH FILMS, FED-3171, 2026-08-21).
+    //
+    // El árbitro es el total de la línea, que es lo que el proveedor realmente cobra:
+    // entre las dos lecturas posibles gana la que menos se aleja de
+    // LineExtensionAmount / cantidad. No se exige coincidencia exacta a propósito: en
+    // una línea con descuento el total viene neto y el precio bruto, así que ninguna
+    // cuadra, pero la correcta sigue siendo la que queda cerca. Sin total de línea no
+    // hay con qué arbitrar y se conserva la lectura UBL.
+    const referencia = cantidad > 0 && total_linea > 0 ? total_linea / cantidad : 0;
+
+    let precio_unitario = baseQty > 0 ? precioXml / baseQty : precioXml;
+    if (precioXml > 0 && baseQty !== 1 && referencia > 0) {
+      if (Math.abs(precioXml - referencia) < Math.abs(precio_unitario - referencia)) {
+        precio_unitario = precioXml;
+      }
+    }
+    precio_unitario = +precio_unitario.toFixed(2);
+
+    if (precio_unitario <= 0 && referencia > 0) {
+      precio_unitario = +referencia.toFixed(2);
     }
 
     // Porcentaje IVA

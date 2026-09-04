@@ -9,6 +9,7 @@ import {
   editarProveedor,
   desactivarProveedor,
   cambiarSeguimiento,
+  cambiarSeguimientoMasivo,
   importarExcel,
   uploadExcel,
   uploadFacturas,
@@ -65,6 +66,10 @@ router.post('/', crearProveedor);
 
 // ─── Buscador transversal del módulo (barra única + autocompletado) ──────────
 router.get('/buscar', buscarEnModulo);
+
+// ─── Decisión de seguimiento en bloque ───────────────────────────────────────
+// Va antes de las rutas con `:id` para que "seguimiento-masivo" no sea leído como un id.
+router.patch('/seguimiento-masivo', cambiarSeguimientoMasivo);
 
 // ─── Consulta comparativa de precios (la pantalla principal) ──────────────────
 // Dos alias históricos del mismo endpoint; ambos en uso desde el frontend.

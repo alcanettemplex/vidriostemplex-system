@@ -3,7 +3,7 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Building2, Plus, Search, RefreshCw, CheckCircle2,
-  XCircle, AlertTriangle, FileSpreadsheet, Bell, BellOff,
+  XCircle, AlertTriangle, FileSpreadsheet, HelpCircle,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
@@ -22,9 +22,41 @@ interface Proveedor {
   activo: boolean;
   tipo_identificacion: string;
   numero_identificacion: string | null;
-  seguir_precios: boolean;
+  /** null = sin decidir (lo descubrió la ingesta y nadie lo ha resuelto) */
+  seguir_precios: boolean | null;
   origen_registro: string;
 }
+
+/**
+ * Estado real de un proveedor frente a la bandeja de mapeo. Es la misma regla del
+ * backend (`siguePrecios`): un proveedor inactivo tampoco alimenta la bandeja, aunque
+ * su bandera de seguimiento diga que sí. Se calcula aquí para que la pantalla no
+ * afirme algo distinto de lo que hace la ingesta.
+ */
+type EstadoSeguimiento = 'SIGUIENDO' | 'IGNORADO' | 'SIN_DECIDIR';
+
+function estadoDe(p: Proveedor): EstadoSeguimiento {
+  if (!p.activo || p.seguir_precios === false) return 'IGNORADO';
+  return p.seguir_precios === true ? 'SIGUIENDO' : 'SIN_DECIDIR';
+}
+
+const ETIQUETA: Record<EstadoSeguimiento, { texto: string; color: string; ayuda: string }> = {
+  SIGUIENDO: {
+    texto: 'Siguiendo',
+    color: '#22c55e',
+    ayuda: 'Sus facturas actualizan precios y sus códigos nuevos entran a Por Mapear.',
+  },
+  IGNORADO: {
+    texto: 'Ignorado',
+    color: '#ef4444',
+    ayuda: 'Sus facturas quedan registradas en la bitácora, pero no mueven precios ni llenan la bandeja.',
+  },
+  SIN_DECIDIR: {
+    texto: 'Sin decidir',
+    color: '#f59e0b',
+    ayuda: 'La ingesta lo descubrió en una factura y nadie ha decidido si interesa. Mientras tanto se ignora.',
+  },
+};
 
 interface ResultadoImport {
   creados: number;
@@ -48,6 +80,9 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
   const [busqueda, setBusqueda] = useState(busquedaInicial ?? '');
   const [busquedaAplicada, setBusquedaAplicada] = useState(busquedaInicial ?? '');
   const [filtroActivo, setFiltroActivo] = useState<boolean | null>(null);
+  const [filtroSeguimiento, setFiltroSeguimiento] = useState<'' | 'sin_decidir' | 'siguiendo' | 'ignorado'>('');
+  const [seleccion, setSeleccion] = useState<Set<number>>(new Set());
+  const [aplicandoLote, setAplicandoLote] = useState(false);
   const [modalNuevo, setModalNuevo] = useState(false);
   const [modalPrecio, setModalPrecio] = useState<{ proveedor: Proveedor } | null>(null);
   const [importando, setImportando] = useState(false);
@@ -72,14 +107,18 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
       const params: any = {};
       if (busquedaAplicada) params.q = busquedaAplicada;
       if (filtroActivo !== null) params.activo = filtroActivo;
+      if (filtroSeguimiento) params.seguimiento = filtroSeguimiento;
       const { data } = await axios.get<Proveedor[]>(`${API}/api/proveedores`, { params });
       setProveedores(data);
+      // La selección se limpia con cada recarga: mantener ids de una lista que ya no
+      // está en pantalla llevaba a aplicar decisiones sobre proveedores no visibles.
+      setSeleccion(new Set());
     } catch (err: any) {
       toast.error(err?.response?.data?.error ?? 'No se pudo cargar la lista de proveedores');
     } finally {
       setLoading(false);
     }
-  }, [busquedaAplicada, filtroActivo]);
+  }, [busquedaAplicada, filtroActivo, filtroSeguimiento]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -120,25 +159,58 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
   };
 
   /**
-   * Enciende o apaga el seguimiento de precios. Apagarlo evita que las facturas de
-   * este emisor llenen la bandeja de códigos por mapear.
+   * Decide si un proveedor alimenta la bandeja. Ignorarlo descarta de una vez los
+   * códigos que tenga pendientes; seguirlo reabre las facturas suyas que se habían
+   * registrado sin procesar, para que puedan volver a subirse.
    */
-  const handleToggleSeguimiento = async (prov: Proveedor) => {
-    const activando = !prov.seguir_precios;
-    if (!activando && !window.confirm(
-      `¿Dejar de seguir precios de "${prov.nombre_comercial}"?\n\nSus facturas se seguirán registrando, pero no generarán códigos por mapear. Los que tenga pendientes ahora se descartarán.`
+  const handleDecidir = async (prov: Proveedor, seguir: boolean) => {
+    if (!seguir && !window.confirm(
+      `¿Ignorar a "${prov.nombre_comercial}"?\n\nSus facturas se seguirán registrando en la bitácora, pero no moverán precios ni generarán códigos por mapear. Los que tenga pendientes ahora se descartarán.`
     )) return;
 
     try {
       const { data } = await axios.patch(`${API}/api/proveedores/${prov.id}/seguimiento`, {
-        seguir_precios: activando,
+        seguir_precios: seguir,
       });
-      toast.success(data?.message ?? 'Seguimiento actualizado');
+      toast.success(data?.message ?? 'Decisión aplicada');
       cargar();
       if (onCambio) onCambio();
     } catch (err: any) {
       toast.error(err?.response?.data?.error ?? 'No se pudo cambiar el seguimiento');
     }
+  };
+
+  /** Misma decisión sobre la selección múltiple: tras un lote grande de facturas,
+   *  resolver emisor por emisor era el trabajo que nadie hacía. */
+  const handleDecidirLote = async (seguir: boolean) => {
+    const ids = Array.from(seleccion);
+    if (ids.length === 0) return;
+    if (!seguir && !window.confirm(
+      `¿Ignorar ${ids.length} proveedor(es)?\n\nSus códigos pendientes se descartarán.`
+    )) return;
+
+    setAplicandoLote(true);
+    try {
+      const { data } = await axios.patch(`${API}/api/proveedores/seguimiento-masivo`, {
+        ids,
+        seguir_precios: seguir,
+      });
+      toast.success(data?.message ?? 'Decisión aplicada');
+      cargar();
+      if (onCambio) onCambio();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error ?? 'No se pudo aplicar la decisión');
+    } finally {
+      setAplicandoLote(false);
+    }
+  };
+
+  const alternarSeleccion = (id: number) => {
+    setSeleccion(prev => {
+      const siguiente = new Set(prev);
+      if (siguiente.has(id)) siguiente.delete(id); else siguiente.add(id);
+      return siguiente;
+    });
   };
 
   return (
@@ -175,6 +247,21 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
           <option value="">Todos</option>
           <option value="true">Activos</option>
           <option value="false">Inactivos</option>
+        </select>
+
+        {/* Filtro por seguimiento — el que saca a flote los emisores sin decidir */}
+        <select
+          value={filtroSeguimiento}
+          onChange={e => setFiltroSeguimiento(e.target.value as typeof filtroSeguimiento)}
+          style={{
+            padding: '9px 14px', background: 'var(--bg)', border: '1px solid var(--border)',
+            borderRadius: 10, color: 'var(--text)', fontSize: 14, cursor: 'pointer', outline: 'none',
+          }}
+        >
+          <option value="">Todo seguimiento</option>
+          <option value="sin_decidir">Sin decidir</option>
+          <option value="siguiendo">Siguiendo precios</option>
+          <option value="ignorado">Ignorados</option>
         </select>
 
         {/* Importar Excel */}
@@ -236,6 +323,50 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
         )}
       </AnimatePresence>
 
+      {/* ── Acciones en bloque sobre la selección ── */}
+      <AnimatePresence>
+        {seleccion.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 12, padding: '10px 16px', marginBottom: 16,
+            }}
+          >
+            <strong style={{ fontSize: 13 }}>{seleccion.size} seleccionado(s)</strong>
+            <button
+              onClick={() => handleDecidirLote(true)}
+              disabled={aplicandoLote}
+              style={{
+                padding: '7px 14px', borderRadius: 9, border: '1px solid #22c55e60',
+                background: '#22c55e14', color: '#22c55e', fontSize: 13, fontWeight: 600,
+                cursor: aplicandoLote ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              <CheckCircle2 size={14} /> Seguir precios
+            </button>
+            <button
+              onClick={() => handleDecidirLote(false)}
+              disabled={aplicandoLote}
+              style={{
+                padding: '7px 14px', borderRadius: 9, border: '1px solid #ef444460',
+                background: '#ef444414', color: '#ef4444', fontSize: 13, fontWeight: 600,
+                cursor: aplicandoLote ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              <XCircle size={14} /> Ignorar
+            </button>
+            <button
+              onClick={() => setSeleccion(new Set())}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12 }}
+            >
+              Limpiar selección
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Tabla ── */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
@@ -254,11 +385,18 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
         <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
           {/* Encabezado */}
           <div style={{
-            display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1.4fr',
+            display: 'grid', gridTemplateColumns: '34px 2fr 1fr 1fr 1fr 1.6fr',
             background: 'var(--surface)', padding: '10px 20px',
-            borderBottom: '1px solid var(--border)',
+            borderBottom: '1px solid var(--border)', alignItems: 'center',
           }}>
-            {['NOMBRE COMERCIAL', 'NIT / ID', 'TELÉFONO', 'EMAIL', 'ESTADO'].map(h => (
+            <input
+              type="checkbox"
+              title="Seleccionar todos los visibles"
+              checked={seleccion.size > 0 && seleccion.size === proveedores.length}
+              onChange={e => setSeleccion(e.target.checked ? new Set(proveedores.map(p => p.id)) : new Set())}
+              style={{ cursor: 'pointer' }}
+            />
+            {['NOMBRE COMERCIAL', 'NIT / ID', 'TELÉFONO', 'EMAIL', 'SEGUIMIENTO'].map(h => (
               <div key={h} style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: .5 }}>{h}</div>
             ))}
           </div>
@@ -270,13 +408,20 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               transition={{ delay: Math.min(idx * 0.02, .3) }}
               style={{
-                display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1.4fr',
+                display: 'grid', gridTemplateColumns: '34px 2fr 1fr 1fr 1fr 1.6fr',
                 padding: '12px 20px', borderBottom: '1px solid var(--border)',
-                background: !p.activo ? '#ffffff08' : 'transparent',
+                background: seleccion.has(p.id) ? 'var(--surface)' : !p.activo ? '#ffffff08' : 'transparent',
                 alignItems: 'center',
                 opacity: p.activo ? 1 : .5,
               }}
             >
+              <input
+                type="checkbox"
+                checked={seleccion.has(p.id)}
+                onChange={() => alternarSeleccion(p.id)}
+                style={{ cursor: 'pointer' }}
+              />
+
               {/* Nombre */}
               <div>
                 <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: 14 }}>{p.nombre_comercial}</div>
@@ -309,50 +454,80 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
               {/* Email */}
               <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.email ?? '—'}</div>
 
-              {/* Acciones */}
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{
-                  fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 6,
-                  background: p.activo ? '#22c55e18' : '#f8383818',
-                  color: p.activo ? '#22c55e' : '#ef4444',
-                }}>
-                  {p.activo ? 'Activo' : 'Inactivo'}
-                </span>
-                <button
-                  title="Agregar precio para este proveedor"
-                  onClick={() => setModalPrecio({ proveedor: p })}
-                  style={{
-                    background: 'none', border: '1px solid var(--border)', borderRadius: 7,
-                    padding: '4px 8px', cursor: 'pointer', color: 'var(--text-muted)',
-                    fontSize: 11, display: 'flex', alignItems: 'center', gap: 4,
-                  }}
-                >
-                  <Plus size={11} /> Precio
-                </button>
-                <button
-                  title={p.seguir_precios
-                    ? 'Siguiendo precios: sus facturas alimentan la bandeja. Clic para dejar de seguir.'
-                    : 'Sin seguimiento: sus facturas se registran pero no generan códigos por mapear. Clic para reanudar.'}
-                  onClick={() => handleToggleSeguimiento(p)}
-                  style={{
-                    background: 'none', border: '1px solid var(--border)', borderRadius: 7,
-                    padding: '4px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center',
-                    color: p.seguir_precios ? '#22c55e' : 'var(--text-muted)',
-                  }}
-                >
-                  {p.seguir_precios ? <Bell size={13} /> : <BellOff size={13} />}
-                </button>
-                <button
-                  title={p.activo ? 'Desactivar' : 'Activar'}
-                  onClick={() => handleToggleActivo(p)}
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'var(--text-muted)', padding: 4,
-                  }}
-                >
-                  {p.activo ? <XCircle size={15} /> : <CheckCircle2 size={15} />}
-                </button>
-              </div>
+              {/* Seguimiento — un solo control. El chip dice el estado real (incluye
+                  la baja lógica) y el botón ofrece la única acción que falta. */}
+              {(() => {
+                const estado = estadoDe(p);
+                const meta = ETIQUETA[estado];
+                return (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span
+                      title={meta.ayuda}
+                      style={{
+                        fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6,
+                        background: `${meta.color}18`, color: meta.color,
+                        display: 'flex', alignItems: 'center', gap: 4,
+                      }}
+                    >
+                      {estado === 'SIN_DECIDIR' && <HelpCircle size={11} />}
+                      {meta.texto}
+                    </span>
+
+                    {estado !== 'SIGUIENDO' ? (
+                      <button
+                        title={!p.activo
+                          ? 'Este proveedor está dado de baja. Reactívalo para poder seguir sus precios.'
+                          : 'Sus facturas pasarán a actualizar precios y sus códigos entrarán a Por Mapear.'}
+                        onClick={() => (p.activo ? handleDecidir(p, true) : handleToggleActivo(p))}
+                        style={{
+                          background: 'none', border: '1px solid var(--border)', borderRadius: 7,
+                          padding: '4px 8px', cursor: 'pointer', color: '#22c55e',
+                          fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4,
+                        }}
+                      >
+                        <CheckCircle2 size={11} /> {p.activo ? 'Seguir' : 'Reactivar'}
+                      </button>
+                    ) : (
+                      <button
+                        title="Dejar de seguirlo: sus facturas se registran pero no llenan la bandeja."
+                        onClick={() => handleDecidir(p, false)}
+                        style={{
+                          background: 'none', border: '1px solid var(--border)', borderRadius: 7,
+                          padding: '4px 8px', cursor: 'pointer', color: 'var(--text-muted)',
+                          fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4,
+                        }}
+                      >
+                        <XCircle size={11} /> Ignorar
+                      </button>
+                    )}
+
+                    <button
+                      title="Agregar precio para este proveedor"
+                      onClick={() => setModalPrecio({ proveedor: p })}
+                      style={{
+                        background: 'none', border: '1px solid var(--border)', borderRadius: 7,
+                        padding: '4px 8px', cursor: 'pointer', color: 'var(--text-muted)',
+                        fontSize: 11, display: 'flex', alignItems: 'center', gap: 4,
+                      }}
+                    >
+                      <Plus size={11} /> Precio
+                    </button>
+
+                    {p.activo && (
+                      <button
+                        title="Dar de baja del maestro. También deja de alimentar la bandeja."
+                        onClick={() => handleToggleActivo(p)}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: 'var(--text-muted)', padding: 4,
+                        }}
+                      >
+                        <XCircle size={15} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
             </motion.div>
           ))}
 
