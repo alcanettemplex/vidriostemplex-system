@@ -1535,3 +1535,65 @@ Con `proveedor_vidrio = ''` —**88 ODP en BD lo están**— y un Pedido PV ya c
 ### Pendiente al cierre de la sesión
 
 **Redesplegar el backend.** Sin eso, ni la corrección de hoy ni la de ayer están activas y el próximo cambio de proveedor volverá a desalinearse. Y en el plano operativo: a Templacol se le mandaron 7012, 7073 y 7077 en formato Vitelsa — **reimprimir y reenviar los tres** desde el módulo, que ahora sí generan la plantilla correcta.
+
+---
+
+## 2026-09-04 (3) — Proveedores: rescate de códigos descartados, lista blanca de seguimiento y sub-pestañas
+
+### De dónde salió
+
+Una pregunta sobre el modal de vinculación: por qué decía *"Facturado por Por metro (fraccionado)"* si la representación gráfica de la factura FE206280 de Ventanas y Puertas dice "unidad" en la columna Unidad de Medida.
+
+**Respuesta:** el chip no lee esa columna —el sistema nunca ve el PDF—, sino `proveedor_codigo_pendiente.unidad_detectada`, que solo se llena cuando el `@unitCode` del XML era informativo (`MTR`, `KGM`, `MTK`). Dos orígenes posibles para un `METRO`: que el XML realmente traiga `MTR` pese al rótulo impreso, o que la fila venga de `desvincularEquivalencia`, que estampa ahí el `unidad_compra` de un mapeo anterior y hace pasar por dato de la factura lo que fue una decisión humana. **Sin resolver:** falta el XML de esa factura. Prueba de 30 segundos: si los otros cinco códigos del mismo documento también dicen "por metro", es el emisor; si solo `389M`, es el desvinculado.
+
+Importa porque `unidad_detectada = METRO` preselecciona esa modalidad **y anula** la sugerencia automática de `TIRA_6M` para aluminio, que solo corre cuando el campo es `null`. Un perfil de 6 m a $67.395 registrado como precio por metro deja el comparador ~6× arriba.
+
+De ahí salió el recorrido por los estados del proveedor, y de ahí lo que se hizo.
+
+### 1. Descartar un código era irreversible
+
+La ingesta respeta `DESCARTADO` como decisión humana y **no lo reabre nunca** — ni al volver a seguir al proveedor, que es justo cuando el usuario espera recuperarlo. Y `PorMapearTab` nunca enviaba el parámetro `estado`, así que el backend siempre filtraba `PENDIENTE`. Los descartados existían en BD y ninguna pantalla los mostraba: el único deshacer era editar la tabla.
+
+Pesa más de lo que parece porque "ignorar proveedor" descarta **todos** sus pendientes de un golpe.
+
+| Archivo | Cambio |
+|---|---|
+| `controllers/proveedor.controller.ts` | `restaurarPendiente` (PATCH) y `restaurarLote` (POST); `ESTADOS_BANDEJA` valida el filtro `?estado=` |
+| `routes/proveedor.routes.ts` | Ambas rutas, antes de las literales con `:id` |
+| `components/tabs/PorMapearTab.tsx` | Selector "Por mapear / Descartados"; acciones por fila y en lote según la vista; textos y estado vacío adaptados |
+
+**Decisiones:** solo se restaura desde `DESCARTADO` — un `MAPEADO` responde 409 pidiendo desvincular primero, porque ya tiene equivalencia activa. "Vincular" queda disponible también en la vista de descartados (`vincularPendiente` nunca validó el estado). Y el mensaje avisa cuando el proveedor sigue sin seguimiento: restaurar el código **no** reanuda al proveedor, son dos decisiones distintas y confundirlas deja esperando una factura que no va a traer nada.
+
+### 2. Lista blanca de seguimiento
+
+Se sustituyó el criterio automático del reset de la mañana ("tiene equivalencias mapeadas") por una lista explícita de proveedores de insumo. **Tenía que ser script:** no existe ninguna vía para devolver `seguir_precios` a `NULL` — `seguimientoMasivoSchema` y `proveedorUpdateSchema` exigen booleano.
+
+`2026_09_04_seguimiento_lista_blanca.ts`, en dos fases porque cuatro de los nombres buscados (`avq`, `ppa`, `vea`, `soho`) son subcadenas cortas contra 1.011 filas. La fase 1 solo propone; la fase 2 exige `--ids` confirmados. Modo `--buscar=` para cerrar los que no matchean.
+
+Dos no aparecieron con el nombre dado: **Todovidrios** es `TODOVIDRIO Y ALUMINIO SAS` (singular) y **Palacio de Aluminio** es `EL PALACIO DEL ALUMINIO S.A.S` ("DEL"). "VEA" tenía dos candidatos —`VEAIRE` y `VIDRIO EQUIPOS Y ACCESORIOS VEA & CIA`— y se eligió el segundo. Se sumaron a los 12 pedidos los tres que ya venían en seguimiento (`ALUMINIOS Y MAS`, `CAUCHO VIDRIOS`, `CIELOS Y VENTANAS`).
+
+**Resultado:** 1.011 proveedores → **15 siguiendo, 0 ignorados, 996 sin decidir**. Y **74 facturas liberadas** (Vitelsa 45, Rapi Vidrios 8, Hi-Tech 8, Mundial de Tornillos 5, VEA 4, Todovidrio 2, PPA 1, Palacio 1): hay que **volver a subir esos `.zip`** para que sus códigos entren a Por Mapear. No hay alternativa — ver `TECH_DEBT.md` 2026-09-04 (2).
+
+### 3. Sub-pestañas Activos / Pendientes / Ignorados
+
+| Archivo | Cambio |
+|---|---|
+| `controllers/proveedor.controller.ts` | `resumenSeguimiento` (conteos con `FILTER`, una consulta); filtro `seguimiento` alineado con `siguePrecios()`; `limit`/`offset` en la vista de tabla |
+| `routes/proveedor.routes.ts` | `GET /resumen-seguimiento` |
+| `components/tabs/ProveedoresTab.tsx` | Sub-pestañas con contador en vez del `<select>`; paginación con "Mostrar 200 más"; estado vacío por pestaña |
+
+**Dos correcciones de paso.** El filtro `seguimiento=ignorado` miraba solo `seguir_precios = false`, mientras la pantalla etiqueta IGNORADO también a los inactivos: un proveedor dado de baja con la bandera en `true` no salía en ninguna de las tres pestañas. Y las condiciones se acumulan ahora en `Op.and`: con seguimiento y búsqueda activos a la vez, el segundo `Op.or` pisaba al primero.
+
+**Paginación:** la pestaña descargaba las ~1.000 filas completas en cada carga (`findAll` sin `limit`). Se pagina de a 200 y el conteo real de cada grupo sale del resumen. El modo `compacto` queda sin paginar a propósito: alimenta selectores que necesitan el maestro entero y ya viaja con tres columnas.
+
+### Verificación
+
+`npm --prefix backend-api run build` exit 0 · `tsc --noEmit` de `frontend-web` exit 0. Estado en BD confirmado con una segunda corrida en dry-run del script.
+
+Sin migración de esquema: `proveedor_codigo_pendiente.estado` ya era `VARCHAR(20)` sin CHECK constraint y admitía los tres valores; solo faltaba pantalla.
+
+### Pendiente
+
+1. **Volver a subir las 74 facturas** de los 8 proveedores recién aprobados.
+2. **Redesplegar backend y frontend** — sin eso no hay vista de descartados ni sub-pestañas.
+3. **Cerrar el caso `389M`**: conseguir el XML de FE206280 y confirmar si el `MTR` es del emisor o del desvinculado.

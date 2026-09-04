@@ -40,6 +40,32 @@ function estadoDe(p: Proveedor): EstadoSeguimiento {
   return p.seguir_precios === true ? 'SIGUIENDO' : 'SIN_DECIDIR';
 }
 
+/** Parámetro que espera el backend para cada estado. */
+const PARAM_SEGUIMIENTO: Record<EstadoSeguimiento, string> = {
+  SIGUIENDO: 'siguiendo',
+  SIN_DECIDIR: 'sin_decidir',
+  IGNORADO: 'ignorado',
+};
+
+/** Las tres sub-pestañas, en el orden en que se trabajan: primero los que alimentan
+ *  precios, luego la cola de decisión, y al final el archivo de descartados. */
+const SUBTABS: Array<{ estado: EstadoSeguimiento; texto: string; clave: 'siguiendo' | 'sin_decidir' | 'ignorado' }> = [
+  { estado: 'SIGUIENDO', texto: 'Activos', clave: 'siguiendo' },
+  { estado: 'SIN_DECIDIR', texto: 'Pendientes', clave: 'sin_decidir' },
+  { estado: 'IGNORADO', texto: 'Ignorados', clave: 'ignorado' },
+];
+
+interface ResumenSeguimiento {
+  siguiendo: number;
+  sin_decidir: number;
+  ignorado: number;
+  total: number;
+}
+
+/** Tamaño de página. La pestaña descargaba las ~1.000 filas completas en cada carga;
+ *  con el maestro paginado, el conteo real de cada grupo lo da el resumen. */
+const PAGINA = 200;
+
 const ETIQUETA: Record<EstadoSeguimiento, { texto: string; color: string; ayuda: string }> = {
   SIGUIENDO: {
     texto: 'Siguiendo',
@@ -80,7 +106,10 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
   const [busqueda, setBusqueda] = useState(busquedaInicial ?? '');
   const [busquedaAplicada, setBusquedaAplicada] = useState(busquedaInicial ?? '');
   const [filtroActivo, setFiltroActivo] = useState<boolean | null>(null);
-  const [filtroSeguimiento, setFiltroSeguimiento] = useState<'' | 'sin_decidir' | 'siguiendo' | 'ignorado'>('');
+  const [subTab, setSubTab] = useState<EstadoSeguimiento>('SIGUIENDO');
+  const [resumen, setResumen] = useState<ResumenSeguimiento>({ siguiendo: 0, sin_decidir: 0, ignorado: 0, total: 0 });
+  const [hayMas, setHayMas] = useState(false);
+  const [cargandoMas, setCargandoMas] = useState(false);
   const [seleccion, setSeleccion] = useState<Set<number>>(new Set());
   const [aplicandoLote, setAplicandoLote] = useState(false);
   const [modalNuevo, setModalNuevo] = useState(false);
@@ -101,15 +130,27 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [busqueda]);
 
-  const cargar = useCallback(async () => {
-    setLoading(true);
+  /** Contadores de las sub-pestañas. Van aparte de la lista porque ésta está paginada:
+   *  el número de "Pendientes" no puede salir del largo de la página visible. */
+  const cargarResumen = useCallback(async () => {
     try {
-      const params: any = {};
+      const { data } = await axios.get<ResumenSeguimiento>(`${API}/api/proveedores/resumen-seguimiento`);
+      setResumen(data);
+    } catch {
+      // Los contadores son informativos: si fallan, la lista sigue siendo usable.
+    }
+  }, []);
+
+  const cargarPagina = useCallback(async (desde: number) => {
+    if (desde === 0) setLoading(true); else setCargandoMas(true);
+    try {
+      const params: any = { seguimiento: PARAM_SEGUIMIENTO[subTab], limit: PAGINA, offset: desde };
       if (busquedaAplicada) params.q = busquedaAplicada;
       if (filtroActivo !== null) params.activo = filtroActivo;
-      if (filtroSeguimiento) params.seguimiento = filtroSeguimiento;
       const { data } = await axios.get<Proveedor[]>(`${API}/api/proveedores`, { params });
-      setProveedores(data);
+      const lote = Array.isArray(data) ? data : [];
+      setProveedores(prev => (desde === 0 ? lote : [...prev, ...lote]));
+      setHayMas(lote.length === PAGINA);
       // La selección se limpia con cada recarga: mantener ids de una lista que ya no
       // está en pantalla llevaba a aplicar decisiones sobre proveedores no visibles.
       setSeleccion(new Set());
@@ -117,10 +158,19 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
       toast.error(err?.response?.data?.error ?? 'No se pudo cargar la lista de proveedores');
     } finally {
       setLoading(false);
+      setCargandoMas(false);
     }
-  }, [busquedaAplicada, filtroActivo, filtroSeguimiento]);
+  }, [busquedaAplicada, filtroActivo, subTab]);
 
-  useEffect(() => { cargar(); }, [cargar]);
+  /** Recarga desde el principio y refresca los contadores. La usan las acciones que
+   *  cambian el estado de un proveedor, porque mueven las filas entre sub-pestañas. */
+  const cargar = useCallback(() => {
+    cargarPagina(0);
+    cargarResumen();
+  }, [cargarPagina, cargarResumen]);
+
+  useEffect(() => { cargarPagina(0); }, [cargarPagina]);
+  useEffect(() => { cargarResumen(); }, [cargarResumen]);
 
   const handleImportar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const archivo = e.target.files?.[0];
@@ -165,7 +215,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
    */
   const handleDecidir = async (prov: Proveedor, seguir: boolean) => {
     if (!seguir && !window.confirm(
-      `¿Ignorar a "${prov.nombre_comercial}"?\n\nSus facturas se seguirán registrando en la bitácora, pero no moverán precios ni generarán códigos por mapear. Los que tenga pendientes ahora se descartarán.`
+      `¿Ignorar a "${prov.nombre_comercial}"?\n\nSus facturas se seguirán registrando en la bitácora, pero no moverán precios ni generarán códigos por mapear. Los que tenga pendientes ahora se descartarán, y podrás recuperarlos desde Por Mapear → "Descartados".`
     )) return;
 
     try {
@@ -186,7 +236,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
     const ids = Array.from(seleccion);
     if (ids.length === 0) return;
     if (!seguir && !window.confirm(
-      `¿Ignorar ${ids.length} proveedor(es)?\n\nSus códigos pendientes se descartarán.`
+      `¿Ignorar ${ids.length} proveedor(es)?\n\nSus códigos pendientes se descartarán (recuperables desde Por Mapear → "Descartados").`
     )) return;
 
     setAplicandoLote(true);
@@ -215,6 +265,45 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
 
   return (
     <div style={{ padding: '0 0 32px' }}>
+
+      {/* ── Sub-pestañas por estado de seguimiento ── */}
+      <div
+        style={{
+          display: 'flex', gap: 4, marginBottom: 18,
+          borderBottom: '1px solid var(--border)', paddingBottom: 0,
+        }}
+      >
+        {SUBTABS.map(({ estado, texto, clave }) => {
+          const activa = subTab === estado;
+          const meta = ETIQUETA[estado];
+          return (
+            <button
+              key={estado}
+              onClick={() => setSubTab(estado)}
+              title={meta.ayuda}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '10px 18px', border: 'none', background: 'none',
+                cursor: 'pointer', fontSize: 14, fontWeight: activa ? 700 : 500,
+                color: activa ? meta.color : 'var(--text-muted)',
+                borderBottom: `2px solid ${activa ? meta.color : 'transparent'}`,
+                marginBottom: -1, transition: 'all .2s',
+              }}
+            >
+              {texto}
+              <span
+                style={{
+                  fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
+                  background: activa ? `${meta.color}18` : 'var(--surface)',
+                  color: activa ? meta.color : 'var(--text-muted)',
+                }}
+              >
+                {resumen[clave]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* ── Barra de acciones ── */}
       <div style={{
@@ -247,21 +336,6 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
           <option value="">Todos</option>
           <option value="true">Activos</option>
           <option value="false">Inactivos</option>
-        </select>
-
-        {/* Filtro por seguimiento — el que saca a flote los emisores sin decidir */}
-        <select
-          value={filtroSeguimiento}
-          onChange={e => setFiltroSeguimiento(e.target.value as typeof filtroSeguimiento)}
-          style={{
-            padding: '9px 14px', background: 'var(--bg)', border: '1px solid var(--border)',
-            borderRadius: 10, color: 'var(--text)', fontSize: 14, cursor: 'pointer', outline: 'none',
-          }}
-        >
-          <option value="">Todo seguimiento</option>
-          <option value="sin_decidir">Sin decidir</option>
-          <option value="siguiendo">Siguiendo precios</option>
-          <option value="ignorado">Ignorados</option>
         </select>
 
         {/* Importar Excel */}
@@ -378,8 +452,27 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
           border: '1px dashed var(--border)', borderRadius: 14, color: 'var(--text-muted)',
         }}>
           <Building2 size={40} style={{ opacity: .3, marginBottom: 12 }} />
-          <p>No hay proveedores registrados aún.</p>
-          <p style={{ fontSize: 13 }}>Usa <strong>Importar Excel</strong> para cargar los 1.805 proveedores de World Office.</p>
+          {busquedaAplicada || filtroActivo !== null ? (
+            <>
+              <p>Ningún proveedor de esta pestaña coincide con el filtro.</p>
+              <p style={{ fontSize: 13 }}>Prueba en otra sub-pestaña o limpia la búsqueda.</p>
+            </>
+          ) : subTab === 'SIGUIENDO' ? (
+            <>
+              <p>Ningún proveedor está siguiendo precios.</p>
+              <p style={{ fontSize: 13 }}>Ve a <strong>Pendientes</strong> y aprueba los que sí sean proveedores de insumo.</p>
+            </>
+          ) : subTab === 'SIN_DECIDIR' ? (
+            <>
+              <p>No queda ningún proveedor por decidir.</p>
+              <p style={{ fontSize: 13 }}>Los emisores nuevos que detecte la ingesta aparecerán aquí.</p>
+            </>
+          ) : (
+            <>
+              <p>No hay proveedores ignorados.</p>
+              <p style={{ fontSize: 13 }}>Aquí caen los que marcaste como "no seguir" y los dados de baja.</p>
+            </>
+          )}
         </div>
       ) : (
         <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
@@ -531,9 +624,32 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
             </motion.div>
           ))}
 
-          {/* Footer con total */}
-          <div style={{ padding: '10px 20px', background: 'var(--surface)', fontSize: 12, color: 'var(--text-muted)' }}>
-            {proveedores.length} proveedor{proveedores.length !== 1 ? 'es' : ''}
+          {/* Footer con total y paginación */}
+          <div
+            style={{
+              padding: '10px 20px', background: 'var(--surface)', fontSize: 12,
+              color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+            }}
+          >
+            <span>
+              {proveedores.length} de {resumen[SUBTABS.find(s => s.estado === subTab)!.clave]} proveedor
+              {proveedores.length !== 1 ? 'es' : ''}
+              {(busquedaAplicada || filtroActivo !== null) && ' (con filtros aplicados)'}
+            </span>
+            {hayMas && (
+              <button
+                onClick={() => cargarPagina(proveedores.length)}
+                disabled={cargandoMas}
+                style={{
+                  padding: '5px 14px', borderRadius: 8, border: '1px solid var(--border)',
+                  background: 'var(--bg)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
+                  cursor: cargandoMas ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                {cargandoMas && <RefreshCw size={11} className="spin" />}
+                {cargandoMas ? 'Cargando…' : `Mostrar ${PAGINA} más`}
+              </button>
+            )}
           </div>
         </div>
       )}

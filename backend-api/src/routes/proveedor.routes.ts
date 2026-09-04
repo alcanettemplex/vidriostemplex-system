@@ -5,6 +5,7 @@ import { authMiddleware } from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import {
   listarProveedores,
+  resumenSeguimiento,
   crearProveedor,
   editarProveedor,
   desactivarProveedor,
@@ -24,6 +25,8 @@ import {
   vincularPendiente,
   descartarPendiente,
   descartarLote,
+  restaurarPendiente,
+  restaurarLote,
   listarEquivalencias,
   desvincularEquivalencia,
   historicoEquivalencia,
@@ -67,6 +70,9 @@ router.post('/', crearProveedor);
 // ─── Buscador transversal del módulo (barra única + autocompletado) ──────────
 router.get('/buscar', buscarEnModulo);
 
+// ─── Contadores de las sub-pestañas (Activos / Pendientes / Ignorados) ───────
+router.get('/resumen-seguimiento', resumenSeguimiento);
+
 // ─── Decisión de seguimiento en bloque ───────────────────────────────────────
 // Va antes de las rutas con `:id` para que "seguimiento-masivo" no sea leído como un id.
 router.patch('/seguimiento-masivo', cambiarSeguimientoMasivo);
@@ -89,8 +95,10 @@ router.get('/facturas', listarFacturasProcesadas);
 router.get('/codigos-pendientes', listarPendientes);
 router.get('/codigos-pendientes/count', contarPendientes);
 router.post('/codigos-pendientes/descartar-lote', descartarLote);
+router.post('/codigos-pendientes/restaurar-lote', restaurarLote);
 router.post('/codigos-pendientes/:id/vincular', vincularPendiente);
 router.patch('/codigos-pendientes/:id/descartar', descartarPendiente);
+router.patch('/codigos-pendientes/:id/restaurar', restaurarPendiente);
 
 // ─── Equivalencias (mapeos confirmados) ──────────────────────────────────────
 router.get('/equivalencias', listarEquivalencias);

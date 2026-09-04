@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import {
   Link2, Search, RefreshCw, Trash2, CheckCircle2,
-  Building2, Loader2, BellOff, AlertTriangle, Ruler,
+  Building2, Loader2, BellOff, AlertTriangle, Ruler, Undo2,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
@@ -30,6 +30,11 @@ const ETIQUETA_UNIDAD: Record<string, string> = {
   M2: 'm²',
 };
 
+/** Las dos caras de la bandeja. Los descartados existían en la BD pero ninguna
+ *  pantalla los listaba, así que descartar era irreversible: la ingesta respeta
+ *  ese estado para siempre y no los reabre ni al volver a seguir al proveedor. */
+type VistaBandeja = 'PENDIENTE' | 'DESCARTADO';
+
 const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActualizarContador, onProveedoresCambiados }) => {
   const [pendientes, setPendientes] = useState<CodigoPendienteItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -37,9 +42,12 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
   const [q, setQ] = useState(busquedaInicial ?? '');
   const [filtroProveedor, setFiltroProveedor] = useState('');
   const [orden, setOrden] = useState<'frecuencia' | 'reciente' | 'precio'>('frecuencia');
+  const [vista, setVista] = useState<VistaBandeja>('PENDIENTE');
+  const enDescartados = vista === 'DESCARTADO';
 
   const [itemParaVincular, setItemParaVincular] = useState<CodigoPendienteItem | null>(null);
   const [descartandoId, setDescartandoId] = useState<number | null>(null);
+  const [restaurandoId, setRestaurandoId] = useState<number | null>(null);
   const [seleccion, setSeleccion] = useState<Set<number>>(new Set());
   const [accionLote, setAccionLote] = useState(false);
 
@@ -60,7 +68,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
     try {
       const { data } = await axios.get<{ items: CodigoPendienteItem[]; total: number }>(
         `${API}/api/proveedores/codigos-pendientes`,
-        { params: { q: qAplicado || undefined, proveedor_id: filtroProveedor || undefined, orden, limit: 200 } }
+        { params: { q: qAplicado || undefined, proveedor_id: filtroProveedor || undefined, orden, estado: vista, limit: 200 } }
       );
       setPendientes(data.items ?? []);
       setTotal(data.total ?? 0);
@@ -73,12 +81,12 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
     } finally {
       setLoading(false);
     }
-  }, [qAplicado, filtroProveedor, orden, onActualizarContador]);
+  }, [qAplicado, filtroProveedor, orden, vista, onActualizarContador]);
 
   useEffect(() => { cargarPendientes(); }, [cargarPendientes]);
 
   const handleDescartar = async (item: CodigoPendienteItem) => {
-    if (!window.confirm(`¿Descartar el código "${item.codigo_proveedor}" (${item.descripcion_proveedor})?\n\nNo volverá a pedirse en futuras facturas.`)) {
+    if (!window.confirm(`¿Descartar el código "${item.codigo_proveedor}" (${item.descripcion_proveedor})?\n\nNo volverá a pedirse en futuras facturas. Podrás recuperarlo desde la vista "Descartados".`)) {
       return;
     }
     setDescartandoId(item.id);
@@ -96,7 +104,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
   const handleDescartarSeleccion = async () => {
     const ids = Array.from(seleccion);
     if (ids.length === 0) return;
-    if (!window.confirm(`¿Descartar ${ids.length} código(s) seleccionado(s)?\n\nNo volverán a pedirse en futuras facturas.`)) return;
+    if (!window.confirm(`¿Descartar ${ids.length} código(s) seleccionado(s)?\n\nNo volverán a pedirse en futuras facturas. Podrás recuperarlos desde la vista "Descartados".`)) return;
 
     setAccionLote(true);
     try {
@@ -110,10 +118,41 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
     }
   };
 
+  /** Devuelve un código descartado a la bandeja. No reanuda el seguimiento del
+   *  proveedor: el backend lo advierte en el mensaje cuando corresponde. */
+  const handleRestaurar = async (item: CodigoPendienteItem) => {
+    setRestaurandoId(item.id);
+    try {
+      const { data } = await axios.patch(`${API}/api/proveedores/codigos-pendientes/${item.id}/restaurar`, {});
+      toast.success(data?.message ?? `Código ${item.codigo_proveedor} devuelto a Por Mapear`);
+      cargarPendientes();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'No se pudo devolver el código a la bandeja');
+    } finally {
+      setRestaurandoId(null);
+    }
+  };
+
+  const handleRestaurarSeleccion = async () => {
+    const ids = Array.from(seleccion);
+    if (ids.length === 0) return;
+
+    setAccionLote(true);
+    try {
+      const { data } = await axios.post(`${API}/api/proveedores/codigos-pendientes/restaurar-lote`, { ids });
+      toast.success(data?.message ?? 'Códigos devueltos a Por Mapear');
+      cargarPendientes();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'No se pudieron devolver los códigos a la bandeja');
+    } finally {
+      setAccionLote(false);
+    }
+  };
+
   /** Ignora al proveedor y limpia de un golpe todos sus pendientes */
   const handleDejarDeSeguir = async (proveedorId: number, nombre: string) => {
     if (!window.confirm(
-      `¿Ignorar a "${nombre}"?\n\nSus futuras facturas se registrarán pero no generarán códigos por mapear, y los que tenga ahora se descartarán.\n\nÚsalo para emisores que no son insumos: combustible, parqueaderos, papelería, servicios.`
+      `¿Ignorar a "${nombre}"?\n\nSus futuras facturas se registrarán pero no generarán códigos por mapear, y los que tenga ahora se descartarán (recuperables desde la vista "Descartados").\n\nÚsalo para emisores que no son insumos: combustible, parqueaderos, papelería, servicios.`
     )) return;
 
     setAccionLote(true);
@@ -167,27 +206,59 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <h2 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--text, #0f172a)' }}>
-              Bandeja de Códigos por Mapear
+              {enDescartados ? 'Códigos Descartados' : 'Bandeja de Códigos por Mapear'}
             </h2>
             <span
               style={{
                 fontSize: 12, fontWeight: 700,
-                color: total > 0 ? '#d97706' : '#059669',
-                background: total > 0 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(5, 150, 105, 0.1)',
+                color: enDescartados ? '#64748b' : total > 0 ? '#d97706' : '#059669',
+                background: enDescartados
+                  ? 'rgba(100, 116, 139, 0.12)'
+                  : total > 0 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(5, 150, 105, 0.1)',
                 padding: '2px 8px', borderRadius: 999,
               }}
             >
-              {total} pendientes
+              {total} {enDescartados ? 'descartados' : 'pendientes'}
             </span>
           </div>
           <p style={{ fontSize: 13, color: 'var(--text-muted, #64748b)', margin: '4px 0 0' }}>
-            Códigos detectados en facturas electrónicas que aún no tienen equivalencia con tu catálogo interno
+            {enDescartados
+              ? 'Códigos que decidiste no mapear. La ingesta los ignora para siempre: devuélvelos a la bandeja si fue por error.'
+              : 'Códigos detectados en facturas electrónicas que aún no tienen equivalencia con tu catálogo interno'}
           </p>
         </div>
 
-        <button onClick={cargarPendientes} disabled={loading} style={botonSecundario}>
-          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refrescar
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Selector de vista: sin esto los descartados eran invisibles desde la app */}
+          <div
+            style={{
+              display: 'flex', background: 'var(--surface, #fff)',
+              border: '1px solid var(--border, #cbd5e1)', borderRadius: 9, padding: 3, gap: 3,
+            }}
+          >
+            {([
+              { valor: 'PENDIENTE' as const, texto: 'Por mapear' },
+              { valor: 'DESCARTADO' as const, texto: 'Descartados' },
+            ]).map((opcion) => (
+              <button
+                key={opcion.valor}
+                onClick={() => setVista(opcion.valor)}
+                style={{
+                  border: 'none', borderRadius: 7, padding: '6px 13px', cursor: 'pointer',
+                  fontSize: 12.5, fontWeight: 700,
+                  background: vista === opcion.valor ? '#6366f1' : 'transparent',
+                  color: vista === opcion.valor ? '#fff' : 'var(--text-muted, #64748b)',
+                }}
+              >
+                {opcion.texto}
+              </button>
+            ))}
+          </div>
+
+          <button onClick={cargarPendientes} disabled={loading} style={botonSecundario}>
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refrescar
+          </button>
+        </div>
       </div>
 
       {/* ── Filtros ── */}
@@ -234,16 +305,19 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
               Quitar selección
             </button>
             <button
-              onClick={handleDescartarSeleccion}
+              onClick={enDescartados ? handleRestaurarSeleccion : handleDescartarSeleccion}
               disabled={accionLote}
               style={{
-                display: 'flex', alignItems: 'center', gap: 6, background: '#ef4444',
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: enDescartados ? '#059669' : '#ef4444',
                 border: 'none', padding: '7px 14px', borderRadius: 8, fontSize: 12.5,
                 fontWeight: 700, color: '#fff', cursor: accionLote ? 'wait' : 'pointer',
               }}
             >
-              {accionLote ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-              Descartar seleccionados
+              {accionLote
+                ? <Loader2 size={13} className="animate-spin" />
+                : enDescartados ? <Undo2 size={13} /> : <Trash2 size={13} />}
+              {enDescartados ? 'Devolver a Por Mapear' : 'Descartar seleccionados'}
             </button>
           </div>
         </div>
@@ -265,19 +339,27 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
         >
           <div
             style={{
-              width: 50, height: 50, borderRadius: 999, background: 'rgba(5, 150, 105, 0.1)',
-              color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 50, height: 50, borderRadius: 999,
+              background: enDescartados ? 'rgba(100, 116, 139, 0.1)' : 'rgba(5, 150, 105, 0.1)',
+              color: enDescartados ? '#64748b' : '#059669',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
-            <CheckCircle2 size={26} />
+            {enDescartados ? <Trash2 size={26} /> : <CheckCircle2 size={26} />}
           </div>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text, #0f172a)' }}>
-            {qAplicado || filtroProveedor ? 'Ningún código coincide con el filtro' : '¡No hay códigos pendientes por mapear!'}
+            {qAplicado || filtroProveedor
+              ? 'Ningún código coincide con el filtro'
+              : enDescartados
+                ? 'No hay códigos descartados'
+                : '¡No hay códigos pendientes por mapear!'}
           </div>
           <p style={{ fontSize: 13, color: 'var(--text-muted, #64748b)', maxWidth: 460, margin: 0 }}>
             {qAplicado || filtroProveedor
               ? 'Prueba con otro término o quita el filtro de proveedor.'
-              : 'Todos los códigos de tus facturas electrónicas están vinculados a productos internos o fueron descartados.'}
+              : enDescartados
+                ? 'Aquí aparecen los códigos que descartaste a mano y los que se descartaron al ignorar a un proveedor.'
+                : 'Todos los códigos de tus facturas electrónicas están vinculados a productos internos o fueron descartados.'}
           </p>
         </div>
       ) : (
@@ -324,18 +406,22 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
                       <Building2 size={14} style={{ color: '#6366f1', flexShrink: 0 }} />
                       {item.proveedor?.nombre_comercial || `Proveedor #${item.proveedor_id}`}
                     </div>
-                    <button
-                      onClick={() => handleDejarDeSeguir(item.proveedor_id, item.proveedor?.nombre_comercial || 'este proveedor')}
-                      disabled={accionLote}
-                      title="Dejar de seguir precios de este proveedor y limpiar sus códigos"
-                      style={{
-                        marginTop: 4, background: 'none', border: 'none', padding: 0,
-                        color: 'var(--text-muted, #94a3b8)', fontSize: 11, fontWeight: 600,
-                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-                      }}
-                    >
-                      <BellOff size={11} /> No seguir precios
-                    </button>
+                    {/* Ignorar al proveedor descarta sus pendientes: no tiene sentido
+                        ofrecerlo desde la vista de los que ya están descartados. */}
+                    {!enDescartados && (
+                      <button
+                        onClick={() => handleDejarDeSeguir(item.proveedor_id, item.proveedor?.nombre_comercial || 'este proveedor')}
+                        disabled={accionLote}
+                        title="Dejar de seguir precios de este proveedor y limpiar sus códigos"
+                        style={{
+                          marginTop: 4, background: 'none', border: 'none', padding: 0,
+                          color: 'var(--text-muted, #94a3b8)', fontSize: 11, fontWeight: 600,
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                        }}
+                      >
+                        <BellOff size={11} /> No seguir precios
+                      </button>
+                    )}
                   </td>
 
                   <td style={{ padding: '12px 16px' }}>
@@ -408,20 +494,37 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
                         <Link2 size={13} /> Vincular
                       </button>
 
-                      <button
-                        onClick={() => handleDescartar(item)}
-                        disabled={descartandoId === item.id}
-                        title="Descartar código (fletes, papelería, gastos que no son producto)"
-                        style={{
-                          background: 'transparent', color: 'var(--text-muted, #94a3b8)',
-                          border: '1px solid var(--border, #cbd5e1)', padding: '6px 10px',
-                          borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', gap: 4,
-                        }}
-                      >
-                        {descartandoId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                        Descartar
-                      </button>
+                      {enDescartados ? (
+                        <button
+                          onClick={() => handleRestaurar(item)}
+                          disabled={restaurandoId === item.id}
+                          title="Devolver este código a la bandeja de Por Mapear"
+                          style={{
+                            background: 'transparent', color: '#059669',
+                            border: '1px solid #05966950', padding: '6px 10px',
+                            borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: 4,
+                          }}
+                        >
+                          {restaurandoId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Undo2 size={13} />}
+                          Devolver
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleDescartar(item)}
+                          disabled={descartandoId === item.id}
+                          title="Descartar código (fletes, papelería, gastos que no son producto)"
+                          style={{
+                            background: 'transparent', color: 'var(--text-muted, #94a3b8)',
+                            border: '1px solid var(--border, #cbd5e1)', padding: '6px 10px',
+                            borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: 4,
+                          }}
+                        >
+                          {descartandoId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                          Descartar
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

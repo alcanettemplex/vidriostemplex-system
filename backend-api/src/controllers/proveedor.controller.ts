@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Op, Transaction, fn, col } from 'sequelize';
+import { Op, QueryTypes, Transaction, fn, col } from 'sequelize';
 import { z } from 'zod';
 import * as XLSX from 'xlsx';
 import multer from 'multer';
@@ -20,6 +20,11 @@ import { procesarBufferFactura, derivarCodigo, FacturaParseada } from '../utils/
 
 const UNIDADES_COMPRA = ['UNIDAD', 'TIRA_6M', 'METRO', 'KG', 'M2', 'ML'] as const;
 const MAX_PAGINA = 200;
+
+/** Estados que puede tener una fila de la bandeja de mapeo. Se valida el filtro
+ *  contra esta lista: un `?estado=` con cualquier otra cosa devolvía 0 resultados
+ *  sin explicar por qué, que en pantalla se lee como "la bandeja está vacía". */
+const ESTADOS_BANDEJA = ['PENDIENTE', 'MAPEADO', 'DESCARTADO'] as const;
 
 // ─── Helpers internos ─────────────────────────────────────────────────────────
 
@@ -320,21 +325,35 @@ export const listarProveedores = async (req: Request, res: Response) => {
   try {
     const { activo, q, compacto, seguimiento } = req.query;
     const where: any = {};
+    const condiciones: any[] = [];
     if (activo !== undefined) where.activo = activo === 'true';
 
-    // Filtro por el tri-estado de seguimiento; "sin_decidir" es el que usa la pestaña
-    // para sacar a flote los emisores que la ingesta descubrió y nadie ha resuelto.
-    if (seguimiento === 'sin_decidir') where.seguir_precios = { [Op.is]: null };
-    else if (seguimiento === 'siguiendo') where.seguir_precios = true;
-    else if (seguimiento === 'ignorado') where.seguir_precios = false;
+    // Filtro por el tri-estado de seguimiento. Replica exactamente `siguePrecios()` y
+    // el `estadoDe()` de la pantalla: un proveedor dado de baja cuenta como ignorado
+    // aunque su bandera diga true. Antes se miraba solo `seguir_precios`, así que un
+    // inactivo con la bandera en true no salía en ninguna de las tres sub-pestañas.
+    if (seguimiento === 'sin_decidir') {
+      condiciones.push({ activo: true }, { seguir_precios: { [Op.is]: null } });
+    } else if (seguimiento === 'siguiendo') {
+      condiciones.push({ activo: true }, { seguir_precios: true });
+    } else if (seguimiento === 'ignorado') {
+      condiciones.push({ [Op.or]: [{ activo: false }, { seguir_precios: false }] });
+    }
+
     if (q) {
       const term = `%${String(q).trim()}%`;
-      where[Op.or] = [
-        { nombre_comercial: { [Op.iLike]: term } },
-        { nit: { [Op.iLike]: term } },
-        { razon_social: { [Op.iLike]: term } },
-      ];
+      condiciones.push({
+        [Op.or]: [
+          { nombre_comercial: { [Op.iLike]: term } },
+          { nit: { [Op.iLike]: term } },
+          { razon_social: { [Op.iLike]: term } },
+        ],
+      });
     }
+
+    // Se acumulan en Op.and en vez de asignar Op.or directamente: con el filtro de
+    // seguimiento y la búsqueda activos a la vez, el segundo pisaba al primero.
+    if (condiciones.length > 0) where[Op.and] = condiciones;
 
     // Modo compacto: las pantallas que solo necesitan poblar un selector no tienen
     // por qué descargar el maestro completo con todas sus columnas.
@@ -343,14 +362,51 @@ export const listarProveedores = async (req: Request, res: Response) => {
       : ['id', 'nit', 'nombre_comercial', 'razon_social', 'telefono', 'email', 'activo',
          'tipo_identificacion', 'numero_identificacion', 'seguir_precios', 'origen_registro'];
 
+    // La vista de tabla se pagina; el modo compacto no, porque alimenta selectores que
+    // necesitan el maestro entero y ya viaja con tres columnas. Sin esto, la pestaña
+    // descargaba las ~1.000 filas completas en cada carga (ver egress, CLAUDE.md §8).
+    const paginar = compacto !== 'true';
+    const limit = paginar
+      ? Math.min(parseInt(String(req.query.limit ?? MAX_PAGINA), 10) || MAX_PAGINA, MAX_PAGINA)
+      : undefined;
+    const offset = paginar ? Math.max(parseInt(String(req.query.offset ?? 0), 10) || 0, 0) : undefined;
+
     const proveedores = await Proveedor.findAll({
       where,
       order: [['nombre_comercial', 'ASC']],
       attributes,
+      ...(paginar ? { limit, offset } : {}),
     });
     res.json(proveedores);
   } catch (err: any) {
     const { status, mensaje } = mensajeDeError(err, 'No se pudo cargar la lista de proveedores');
+    fallar(res, status, mensaje, err);
+  }
+};
+
+// ─── GET /api/proveedores/resumen-seguimiento ─────────────────────────────────
+/**
+ * Conteo por estado de seguimiento, en una sola consulta.
+ *
+ * Alimenta los contadores de las tres sub-pestañas. Se resuelve con FILTER en vez de
+ * tres COUNT separados —y sobre todo en vez de descargar el maestro para contarlo en
+ * el navegador, que es lo que haría la pestaña al estar paginada.
+ */
+export const resumenSeguimiento = async (_req: Request, res: Response) => {
+  try {
+    const filas = await sequelize.query<{
+      siguiendo: number; sin_decidir: number; ignorado: number; total: number;
+    }>(
+      `SELECT COUNT(*) FILTER (WHERE activo AND seguir_precios IS TRUE)::int   AS siguiendo,
+              COUNT(*) FILTER (WHERE activo AND seguir_precios IS NULL)::int   AS sin_decidir,
+              COUNT(*) FILTER (WHERE NOT activo OR seguir_precios IS FALSE)::int AS ignorado,
+              COUNT(*)::int AS total
+         FROM proveedores`,
+      { type: QueryTypes.SELECT }
+    );
+    res.json(filas[0] ?? { siguiendo: 0, sin_decidir: 0, ignorado: 0, total: 0 });
+  } catch (err: any) {
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo cargar el resumen de seguimiento');
     fallar(res, status, mensaje, err);
   }
 };
@@ -1338,7 +1394,12 @@ export const listarPendientes = async (req: Request, res: Response) => {
     const offset = Math.max(parseInt(String(req.query.offset ?? 0), 10) || 0, 0);
     const orden = String(req.query.orden ?? 'frecuencia');
 
-    const where: any = { estado: estado ? String(estado).toUpperCase() : 'PENDIENTE' };
+    const estadoPedido = estado ? String(estado).toUpperCase() : 'PENDIENTE';
+    if (!ESTADOS_BANDEJA.includes(estadoPedido as typeof ESTADOS_BANDEJA[number])) {
+      return fallar(res, 400, `Estado no válido para la bandeja. Usa uno de: ${ESTADOS_BANDEJA.join(', ')}.`);
+    }
+
+    const where: any = { estado: estadoPedido };
     if (proveedor_id) where.proveedor_id = Number(proveedor_id);
     if (q) {
       const patron = `%${String(q).trim()}%`;
@@ -1515,6 +1576,99 @@ export const descartarLote = async (req: Request, res: Response) => {
     res.json({ message: `${afectados} código(s) descartado(s)`, descartados: afectados });
   } catch (err: any) {
     const { status, mensaje } = mensajeDeError(err, 'No se pudieron descartar los códigos');
+    fallar(res, status, mensaje, err);
+  }
+};
+
+// ─── PATCH /api/proveedores/codigos-pendientes/:id/restaurar ──────────────────
+/**
+ * Devuelve a la bandeja un código descartado.
+ *
+ * Descartar era irreversible en la práctica. La ingesta respeta `DESCARTADO` como
+ * decisión humana y no lo reabre nunca —ni siquiera al volver a seguir al proveedor,
+ * que es cuando el usuario espera recuperarlo—, y la pantalla solo listaba
+ * `PENDIENTE`. Un descarte por error, o el descarte en bloque que dispara "ignorar
+ * proveedor", solo se deshacía editando la BD a mano.
+ */
+export const restaurarPendiente = async (req: Request, res: Response) => {
+  try {
+    const pendiente = await ProveedorCodigoPendiente.findByPk(req.params.id, {
+      include: [{ model: Proveedor, as: 'proveedor', attributes: ['nombre_comercial', 'activo', 'seguir_precios'] }],
+    });
+    if (!pendiente) return fallar(res, 404, 'Ese código ya no existe en la bandeja. Refresca la lista.');
+
+    const estado = pendiente.getDataValue('estado');
+    if (estado === 'PENDIENTE') {
+      return res.json({ message: 'Ese código ya estaba pendiente por mapear.', restaurado: false });
+    }
+    if (estado !== 'DESCARTADO') {
+      return fallar(
+        res,
+        409,
+        'Solo se devuelven a la bandeja los códigos descartados. Este ya está vinculado a un producto: si quieres volver a mapearlo, desvincula primero su equivalencia.'
+      );
+    }
+
+    await pendiente.update({ estado: 'PENDIENTE' });
+
+    // Restaurar el código no reanuda el seguimiento del proveedor: son dos decisiones
+    // distintas y confundirlas deja al usuario esperando que la próxima factura lo traiga.
+    const proveedor: any = pendiente.get('proveedor');
+    const aviso = proveedor && !siguePrecios(proveedor)
+      ? ` Ten en cuenta que "${proveedor.getDataValue('nombre_comercial')}" no está siguiendo precios: sus próximas facturas no volverán a traer este código.`
+      : '';
+
+    res.json({ message: `Código devuelto a Por Mapear.${aviso}`, restaurado: true });
+  } catch (err: any) {
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo devolver el código a la bandeja');
+    fallar(res, status, mensaje, err);
+  }
+};
+
+// ─── POST /api/proveedores/codigos-pendientes/restaurar-lote ──────────────────
+/** El caso real no es un descarte suelto sino el masivo: ignorar a un proveedor
+ *  descarta todos sus códigos de un golpe, y deshacerlo de a uno no es viable. */
+export const restaurarLote = async (req: Request, res: Response) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map((n: any) => Number(n)).filter(Number.isInteger) : [];
+    if (ids.length === 0) return fallar(res, 400, 'Selecciona al menos un código para devolverlo a la bandeja.');
+    if (ids.length > 500) return fallar(res, 400, 'Puedes devolver hasta 500 códigos por vez.');
+
+    // Se resuelven primero las filas realmente descartadas: así el conteo del aviso
+    // se calcula sobre lo que se movió y no sobre toda la selección.
+    const filas = await ProveedorCodigoPendiente.findAll({
+      where: { id: { [Op.in]: ids }, estado: 'DESCARTADO' },
+      attributes: ['id', 'proveedor_id'],
+    });
+
+    if (filas.length === 0) {
+      return res.json({ message: 'Ninguno de los códigos seleccionados estaba descartado.', restaurados: 0 });
+    }
+
+    const [afectados] = await ProveedorCodigoPendiente.update(
+      { estado: 'PENDIENTE' },
+      {
+        where: { id: { [Op.in]: filas.map((f: any) => f.getDataValue('id')) } },
+        individualHooks: true, // los hooks de auditoría no disparan en operaciones bulk
+      }
+    );
+
+    const proveedoresSinSeguir = await Proveedor.count({
+      where: {
+        id: { [Op.in]: Array.from(new Set(filas.map((f: any) => Number(f.getDataValue('proveedor_id'))))) },
+        [Op.or]: [{ activo: false }, { seguir_precios: false }, { seguir_precios: null }],
+      },
+    });
+
+    res.json({
+      message: `${afectados} código(s) devuelto(s) a Por Mapear` +
+        (proveedoresSinSeguir
+          ? `. Ojo: ${proveedoresSinSeguir} proveedor(es) de esos códigos siguen sin seguimiento, así que sus próximas facturas no volverán a traerlos.`
+          : '.'),
+      restaurados: afectados,
+    });
+  } catch (err: any) {
+    const { status, mensaje } = mensajeDeError(err, 'No se pudieron devolver los códigos a la bandeja');
     fallar(res, status, mensaje, err);
   }
 };

@@ -4,6 +4,24 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-04 (2) — Proveedores: aprobar a un emisor no recupera sus facturas ya cargadas
+
+**Severidad:** Media — **abierta**. Detalle en `SESSION_LOG.md` 2026-09-04 (3).
+
+**El problema:** cuando la ingesta descubre un emisor nuevo lo crea con `seguir_precios = NULL` y **omite todas las líneas** de esa factura, dejando solo el registro en `factura_proveedor_procesada`. Al aprobarlo después, `aplicarSeguimiento` borra ese registro para liberar el CUFE — pero **no puede reprocesar nada**, porque los XML no se guardan en ninguna parte: `uploadFacturas` usa `multer.memoryStorage()` y la bitácora solo persiste metadatos (CUFE, número, fecha, conteos, nombre de archivo). La única salida es volver a subir los `.zip` a mano.
+
+En la práctica esto convierte la decisión sobre un proveedor en un trabajo con memoria externa: si el usuario aprueba a un emisor semanas después y ya borró los correos, esas facturas no entran nunca. Es la misma dependencia del archivo local que ya señala la entrada anterior.
+
+**Qué faltaría:** persistir las líneas parseadas **solo** de las facturas omitidas por motivo `PROVEEDOR_*` (tabla `factura_proveedor_linea` o un JSONB en la fila existente) y, al encender el seguimiento, reproyectarlas por el mismo camino que la ingesta normal en vez de borrar el registro. Se purgan al resolver el proveedor, así que la tabla no crece. **Estimación:** 4 h. Alternativa descartada por peso: guardar el XML crudo comprimido, que además permitiría reparsear si mejora el parser.
+
+**Mitigación mientras tanto:** el mensaje del endpoint ya dice cuántas facturas se liberaron y que hay que volver a subirlas.
+
+### Hallazgo colateral
+
+🟡 **Dar de baja a un proveedor no limpia su bandeja.** `desactivarProveedor` solo hace `activo: false`; sus códigos `PENDIENTE` siguen listándose en Por Mapear y se pueden vincular, creando equivalencias de un proveedor dado de baja. Es la inconsistencia inversa a "ignorar", que sí descarta todo. **Estimación:** 30 min (alinear la baja con `aplicarSeguimiento`, o filtrar la bandeja por proveedor activo).
+
+---
+
 ## 2026-09-04 — Proveedores: el histórico de precios no es auditable ni recalculable
 
 **Severidad:** Alta (obligó a borrar y recargar todo el módulo) — **abierta**. Detalle en `SESSION_LOG.md` 2026-09-04 (2).
