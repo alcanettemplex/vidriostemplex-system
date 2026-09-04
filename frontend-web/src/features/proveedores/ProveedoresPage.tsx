@@ -105,6 +105,7 @@ const ProveedoresPage: React.FC = () => {
           {tab === 'consultar' && <ConsultarPreciosTab />}
           {tab === 'cargar' && (
             <CargarFacturasTab
+              proveedores={proveedores}
               onIrAPorMapear={() => setTab('mapear')}
               onLoteProcesado={() => {
                 fetchPendientesCount();

@@ -32,6 +32,8 @@ interface ProductoCatalogo {
   unidad_medida?: string | null;
   porcentaje_iva: number;
   es_aluminio: boolean;
+  /** Alias aprendido de un mapeo anterior que hizo coincidir a este producto */
+  coincide_por_alias?: string | null;
 }
 
 interface Props {
@@ -554,6 +556,17 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                                   )}
                                 </div>
                                 <div style={{ fontSize: 12.5, fontWeight: 500, marginTop: 3 }}>{p.nombre}</div>
+                                {p.coincide_por_alias && (
+                                  <div
+                                    title="Este producto no coincide por código ni por nombre: lo reconoce un sinónimo aprendido en un mapeo anterior"
+                                    style={{
+                                      fontSize: 10.5, marginTop: 3, display: 'flex', alignItems: 'center', gap: 4,
+                                      color: isSelected ? '#e0e7ff' : '#7c3aed', fontWeight: 600,
+                                    }}
+                                  >
+                                    <Sparkles size={10} /> alias «{p.coincide_por_alias}»
+                                  </div>
+                                )}
                               </div>
                               {isSelected && <CheckCircle2 size={17} />}
                             </div>

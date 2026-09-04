@@ -1213,3 +1213,25 @@ Windows necesita apoyarse en un lector de PDF para imprimir sin abrir ventanas:
   proceso sobre la carpeta histórica vaciaría la impresora.
 - Estado: **idea temprana**, a afinar poco a poco. 5 preguntas abiertas en §10.6, la primera de
   ellas real: el nombre propuesto **no lleva año** y colisionaría entre 2026 y 2027.
+
+### 2026-09-03 — Fase 3 implementada y cierre de la ayuda de alias
+
+- **Fase 3 construida** (`POST /api/proveedores/:id/importar-precios`): lista de precios en Excel
+  con detección automática de encabezados y **previsualización obligatoria** antes de escribir.
+  Hasta hoy el `origen: 'LISTA'` existía en el modelo y ningún camino del código lo producía, así
+  que todo el histórico venía de facturas — justo la fuente que §3.2 señala como *peor* para una
+  lista de precios: la FE dice qué se pagó ese día, no qué cobra el proveedor.
+  Respeta las mismas reglas de la ingesta: fecha de vigencia sobre orden de carga, retroactividad
+  archivada sin desplazar el vigente, la modalidad decide qué precio se toca, y el código
+  desconocido va a la bandeja con el mismo derivador `SD-<hash>` (lista y factura del mismo ítem
+  caen en la misma fila). Admite listas con IVA incluido, descontándolo para guardar la base
+  comparable de §4.
+- **La ayuda 1 de §3.4 estaba inerte.** Los alias se guardaban en cada vinculación desde el primer
+  día, pero el buscador del modal (`/api/catalogo?q=`) solo miraba código, nombre y descripción:
+  nadie los leía. El mecanismo que sostiene el argumento central del diseño —*"el segundo proveedor
+  es más fácil que el primero"*— no estaba operando. Ahora la búsqueda consulta `producto_alias` y
+  muestra qué sinónimo trajo cada sugerencia. Va como complemento, nunca reordenando: un alias
+  viejo no debe desplazar al producto que coincide por código.
+- **El umbral de §4 ya es editable desde `/configuracion`**, como se había decidido el 2026-08-23.
+- Queda pendiente de las fases previstas: el **backfill de los `.zip` archivados** (ayuda 4), que
+  exige extraer la ingesta a un servicio compartido y sacarla del request (riesgo de §5.4).

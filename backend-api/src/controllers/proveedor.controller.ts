@@ -14,7 +14,7 @@ import {
   CatalogoProducto,
   ConfiguracionGlobal,
 } from '../models';
-import { procesarBufferFactura, FacturaParseada } from '../utils/dianXmlParser';
+import { procesarBufferFactura, derivarCodigo, FacturaParseada } from '../utils/dianXmlParser';
 
 // ─── Constantes de dominio ────────────────────────────────────────────────────
 
@@ -58,6 +58,12 @@ function aFechaISO(valor: any): string | null {
 /** Caché en memoria del umbral: se leía de la BD una vez por cada cambio de precio,
  *  lo que en un lote de 100 facturas significaba cientos de consultas idénticas. */
 let umbralCache: { valor: number; expira: number } | null = null;
+
+/** La pantalla de configuración llama a esto al guardar: sin invalidar, cambiar el
+ *  umbral no tenía efecto visible hasta que expirara la caché y parecía no funcionar. */
+export function invalidarCacheUmbral(): void {
+  umbralCache = null;
+}
 
 async function obtenerUmbral(): Promise<number> {
   if (umbralCache && umbralCache.expira > Date.now()) return umbralCache.valor;
@@ -1224,6 +1230,493 @@ export const historicoEquivalencia = async (req: Request, res: Response) => {
   }
 };
 
+// ─── POST /api/proveedores/:id/importar-precios ──────────────────────────────
+
+/**
+ * Fase 3 de `compras.md`: actualización masiva por **lista de precios** del proveedor.
+ *
+ * Por qué existe teniendo ya la ingesta de facturas: una FE dice qué se pagó por lo
+ * que se compró ese día — con descuentos puntuales, promociones y fletes; la lista
+ * dice qué cobra el proveedor en general. La factura sirve para *detectar* que un
+ * precio cambió; la lista es la fuente natural del precio de referencia. Por eso el
+ * histórico distingue el `origen` (`MANUAL | LISTA | FACTURA`): hasta ahora `LISTA`
+ * estaba declarado y ningún camino lo escribía.
+ *
+ * Dos decisiones que sostienen el flujo:
+ *  · **Nunca se escribe a ciegas.** El primer envío es una previsualización
+ *    (`dry_run`) que muestra qué columnas se detectaron y qué haría con cada fila.
+ *    Cada proveedor manda su Excel como se le ocurre; que el usuario confirme el
+ *    mapeo antes de tocar precios es más barato que deshacer una carga equivocada.
+ *  · **Un código sin equivalencia va a la bandeja, no se adivina** — la misma regla
+ *    que gobierna la ingesta de facturas, y con el mismo derivador de código, para
+ *    que una lista y una factura del mismo ítem caigan en la misma fila.
+ */
+
+/** Encabezados que se aceptan por columna. Se comparan normalizados (sin tildes ni signos). */
+const CABECERAS_LISTA: Record<'codigo' | 'descripcion' | 'precio' | 'unidad' | 'fecha', string[]> = {
+  codigo: ['CODIGO', 'COD', 'CODIGO PRODUCTO', 'CODIGO PROVEEDOR', 'REFERENCIA', 'REF', 'SKU', 'ITEM'],
+  descripcion: ['DESCRIPCION', 'PRODUCTO', 'NOMBRE', 'DETALLE', 'ARTICULO', 'ITEM DESCRIPCION'],
+  precio: ['PRECIO', 'VALOR', 'PRECIO UNITARIO', 'VALOR UNITARIO', 'VR UNITARIO', 'UNITARIO',
+           'PRECIO LISTA', 'PRECIO SIN IVA', 'PRECIO VENTA', 'VLR UNITARIO'],
+  unidad: ['UNIDAD', 'UND', 'UM', 'UNIDAD MEDIDA', 'UNIDAD DE MEDIDA', 'MEDIDA', 'PRESENTACION', 'MODALIDAD'],
+  fecha: ['FECHA', 'VIGENCIA', 'FECHA PRECIO', 'FECHA VIGENCIA', 'FECHA LISTA'],
+};
+
+/**
+ * Interpreta un precio escrito por un humano en Excel.
+ * "45.000" son cuarenta y cinco mil, no cuarenta y cinco: en Colombia el punto separa
+ * miles. Leerlo al revés metería un precio 1.000 veces menor sin que nada avise.
+ */
+function parsearPrecioCelda(valor: any): number | null {
+  if (valor === null || valor === undefined || valor === '') return null;
+  if (typeof valor === 'number') return Number.isFinite(valor) && valor > 0 ? valor : null;
+
+  let s = String(valor).replace(/[^\d.,-]/g, '').trim();
+  if (!s) return null;
+
+  const coma = s.lastIndexOf(',');
+  const punto = s.lastIndexOf('.');
+
+  if (coma > -1 && punto > -1) {
+    // El separador que va más a la derecha es el decimal
+    s = coma > punto ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  } else if (coma > -1) {
+    s = s.length - coma - 1 <= 2 ? s.replace(',', '.') : s.replace(/,/g, '');
+  } else if (punto > -1 && s.length - punto - 1 === 3) {
+    s = s.replace(/\./g, '');
+  }
+
+  const numero = parseFloat(s);
+  return Number.isFinite(numero) && numero > 0 ? numero : null;
+}
+
+/** Traduce la unidad escrita en la lista a una modalidad del sistema */
+function unidadDesdeTexto(valor: any): string | null {
+  const t = normalizarNombre(valor);
+  if (!t) return null;
+  if (/(TIRA|BARRA|6\s?M\b|6MTS?)/.test(t)) return 'TIRA_6M';
+  if (/(^|\s)(M2|MT2|METRO CUADRADO)/.test(t)) return 'M2';
+  if (/(^|\s)(KG|KILO|KILOGRAMO)/.test(t)) return 'KG';
+  if (/(^|\s)(ML|METRO LINEAL)/.test(t)) return 'ML';
+  if (/(^|\s)(M|MT|MTS|METRO|METROS)(\s|$)/.test(t)) return 'METRO';
+  if (/(^|\s)(UND?|UN|UNIDAD|UNID|PZA|PIEZA|C\/U)/.test(t)) return 'UNIDAD';
+  return null;
+}
+
+interface FilaLista {
+  fila: number;
+  codigo: string;
+  descripcion: string;
+  precio: number;
+  unidad: string | null;
+  fecha: string | null;
+}
+
+export const importarListaPrecios = async (req: Request, res: Response) => {
+  const proveedorId = parseInt(req.params.id, 10);
+  const userId = req.user?.id ?? null;
+
+  try {
+    if (!req.file) {
+      return fallar(res, 400, 'No se recibió ningún archivo. Selecciona el Excel con la lista de precios.');
+    }
+
+    const proveedor = await Proveedor.findByPk(proveedorId, { attributes: ['id', 'nombre_comercial'] });
+    if (!proveedor) return fallar(res, 404, 'El proveedor no existe o fue eliminado.');
+
+    const dryRun = String(req.body?.dry_run ?? 'true') !== 'false';
+    const preciosConIva = String(req.body?.precios_incluyen_iva ?? 'false') === 'true';
+    const crearPendientes = String(req.body?.crear_pendientes ?? 'true') !== 'false';
+
+    const unidadPedida = String(req.body?.unidad_defecto ?? 'UNIDAD').toUpperCase();
+    const unidadDefecto = (UNIDADES_COMPRA as readonly string[]).includes(unidadPedida) ? unidadPedida : 'UNIDAD';
+
+    const fechaPedida = String(req.body?.fecha_lista ?? '');
+    const fechaLista = /^\d{4}-\d{2}-\d{2}$/.test(fechaPedida) ? fechaPedida : new Date().toISOString().split('T')[0];
+
+    // ── 1. Localizar la fila de encabezados ────────────────────────────────────
+    // Las listas de proveedor traen logo, título y notas antes de la tabla, así que
+    // no se puede asumir que la primera fila sea la de los nombres de columna.
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    // `blankrows: true` a propósito: conserva las filas vacías para que el índice del
+    // arreglo siga coincidiendo con el número de fila real del Excel. Compactando,
+    // los "Fila 27: sin precio" del informe apuntaban a una fila distinta de la que
+    // el usuario abre a corregir.
+    const matriz: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: true, defval: null });
+
+    if (matriz.length === 0) {
+      return fallar(res, 400, 'El archivo está vacío. Verifica que sea la lista de precios correcta.');
+    }
+
+    const buscarColumna = (celdas: any[], candidatos: string[]): number => {
+      const normalizadas = celdas.map((c) => normalizarNombre(c));
+      let idx = normalizadas.findIndex((c) => c && candidatos.includes(c));
+      if (idx === -1) idx = normalizadas.findIndex((c) => c && candidatos.some((cand) => c.includes(cand)));
+      return idx;
+    };
+
+    let filaEncabezado = -1;
+    let cols = { codigo: -1, descripcion: -1, precio: -1, unidad: -1, fecha: -1 };
+
+    for (let i = 0; i < Math.min(matriz.length, 15); i++) {
+      const celdas = matriz[i] ?? [];
+      const candidato = {
+        codigo: buscarColumna(celdas, CABECERAS_LISTA.codigo),
+        descripcion: buscarColumna(celdas, CABECERAS_LISTA.descripcion),
+        precio: buscarColumna(celdas, CABECERAS_LISTA.precio),
+        unidad: buscarColumna(celdas, CABECERAS_LISTA.unidad),
+        fecha: buscarColumna(celdas, CABECERAS_LISTA.fecha),
+      };
+      // Sin precio no hay nada que importar; y hace falta código o descripción para identificar el ítem
+      if (candidato.precio > -1 && (candidato.codigo > -1 || candidato.descripcion > -1)) {
+        filaEncabezado = i;
+        cols = candidato;
+        break;
+      }
+    }
+
+    if (filaEncabezado === -1) {
+      return fallar(
+        res,
+        400,
+        'No se reconocieron las columnas de la lista. El archivo debe tener una fila de encabezados con al menos "Precio" y "Código" (o "Descripción"). Renombra los títulos y vuelve a intentarlo.'
+      );
+    }
+
+    const nombreCol = (idx: number): string | null =>
+      idx > -1 ? String(matriz[filaEncabezado][idx] ?? '').trim() || null : null;
+
+    const columnasDetectadas = {
+      codigo: nombreCol(cols.codigo),
+      descripcion: nombreCol(cols.descripcion),
+      precio: nombreCol(cols.precio),
+      unidad: nombreCol(cols.unidad),
+      fecha: nombreCol(cols.fecha),
+    };
+
+    // ── 2. Leer las filas ──────────────────────────────────────────────────────
+    const MAX_FILAS = 3000;
+    const filas: FilaLista[] = [];
+    const errores: string[] = [];
+    let filasIgnoradas = 0;
+
+    for (let i = filaEncabezado + 1; i < matriz.length; i++) {
+      if (filas.length >= MAX_FILAS) {
+        errores.push(`La lista supera las ${MAX_FILAS} filas: se procesaron las primeras ${MAX_FILAS}.`);
+        break;
+      }
+
+      const celdas = matriz[i] ?? [];
+
+      // Las filas en blanco de separación no son un error del archivo: se saltan sin
+      // contarlas, para que "filas ignoradas" siga significando "filas con datos que
+      // no se pudieron usar".
+      if (celdas.every((c) => c === null || c === undefined || String(c).trim() === '')) continue;
+
+      const descripcion = cols.descripcion > -1 ? String(celdas[cols.descripcion] ?? '').trim() : '';
+      const codigoBruto = cols.codigo > -1 ? String(celdas[cols.codigo] ?? '').trim() : '';
+      const precio = parsearPrecioCelda(cols.precio > -1 ? celdas[cols.precio] : null);
+
+      if (!codigoBruto && !descripcion) { filasIgnoradas++; continue; }
+
+      if (precio === null) {
+        filasIgnoradas++;
+        if (errores.length < 15) {
+          errores.push(`Fila ${i + 1}: sin precio válido ("${codigoBruto || descripcion}"). No se tuvo en cuenta.`);
+        }
+        continue;
+      }
+
+      // Sin código propio se deriva de la descripción con el mismo algoritmo que usa
+      // la ingesta de facturas: así la lista y la FE del mismo ítem coinciden.
+      const codigo = (codigoBruto || derivarCodigo(descripcion)).slice(0, 100);
+
+      let fecha: string | null = null;
+      if (cols.fecha > -1) fecha = aFechaISO(celdas[cols.fecha]);
+
+      filas.push({
+        fila: i + 1,
+        codigo,
+        descripcion: descripcion || codigoBruto,
+        precio,
+        unidad: cols.unidad > -1 ? unidadDesdeTexto(celdas[cols.unidad]) : null,
+        fecha,
+      });
+    }
+
+    if (filas.length === 0) {
+      return fallar(res, 400, 'No se encontró ninguna fila con código y precio válidos debajo de los encabezados.');
+    }
+
+    // ── 3. Contrastar contra lo ya conocido de este proveedor ──────────────────
+    const codigos = Array.from(new Set(filas.map((f) => f.codigo)));
+
+    const [equivalencias, bandeja] = await Promise.all([
+      ProveedorProducto.findAll({
+        where: { proveedor_id: proveedorId, codigo_proveedor: { [Op.in]: codigos }, activo: true },
+        attributes: ['id', 'codigo_proveedor', 'catalogo_producto_id', 'unidad_compra', 'precio_actual', 'fecha_precio_actual'],
+      }),
+      ProveedorCodigoPendiente.findAll({
+        where: { proveedor_id: proveedorId, codigo_proveedor: { [Op.in]: codigos } },
+        attributes: ['id', 'codigo_proveedor', 'estado'],
+      }),
+    ]);
+
+    const equivPorCodigo = new Map<string, any[]>();
+    for (const eq of equivalencias) {
+      const cod = eq.getDataValue('codigo_proveedor');
+      if (!equivPorCodigo.has(cod)) equivPorCodigo.set(cod, []);
+      equivPorCodigo.get(cod)!.push(eq);
+    }
+    const bandejaPorCodigo = new Map<string, any>();
+    for (const b of bandeja) bandejaPorCodigo.set(b.getDataValue('codigo_proveedor'), b);
+
+    // IVA por producto, solo si hay que descontarlo de precios con IVA incluido
+    const ivaPorProducto = new Map<number, number>();
+    if (preciosConIva && equivalencias.length > 0) {
+      const idsProducto = Array.from(new Set(equivalencias.map((e: any) => Number(e.getDataValue('catalogo_producto_id')))));
+      const productos = await CatalogoProducto.findAll({
+        where: { id: { [Op.in]: idsProducto } },
+        attributes: ['id', 'porcentaje_iva'],
+      });
+      for (const p of productos) {
+        ivaPorProducto.set(Number(p.getDataValue('id')), Number(p.getDataValue('porcentaje_iva') ?? 19));
+      }
+    }
+
+    const umbral = await obtenerUmbral();
+
+    interface CambioLista {
+      fila: number;
+      codigo: string;
+      descripcion: string;
+      unidad_compra: string;
+      precio_anterior: number | null;
+      precio_nuevo: number;
+      variacion_pct: number | null;
+      anomalo: boolean;
+      retroactivo: boolean;
+    }
+
+    const cambios: CambioLista[] = [];
+    const nuevosPendientes: Array<{ fila: number; codigo: string; descripcion: string; precio: number }> = [];
+    const ambiguas: Array<{ fila: number; codigo: string; motivo: string }> = [];
+    let sinCambio = 0;
+
+    // Plan de trabajo: qué equivalencia recibe qué precio. Se calcula igual para la
+    // previsualización y para la aplicación, así lo que el usuario aprueba es lo que ocurre.
+    const plan: Array<{ pp: any; precio: number; fecha: string; fila: FilaLista }> = [];
+
+    for (const f of filas) {
+      const candidatas = equivPorCodigo.get(f.codigo) ?? [];
+      const fechaVigencia = f.fecha ?? fechaLista;
+
+      if (candidatas.length === 0) {
+        const pendiente = bandejaPorCodigo.get(f.codigo);
+        const estado = pendiente?.getDataValue('estado');
+        if (estado === 'DESCARTADO') {
+          ambiguas.push({ fila: f.fila, codigo: f.codigo, motivo: 'Descartado antes por decisión humana: no se reabre.' });
+        } else {
+          nuevosPendientes.push({ fila: f.fila, codigo: f.codigo, descripcion: f.descripcion, precio: f.precio });
+        }
+        continue;
+      }
+
+      // Misma regla que la ingesta de facturas: la unidad decide qué precio se toca.
+      let objetivo: any[];
+      if (f.unidad) {
+        objetivo = candidatas.filter((eq) => eq.getDataValue('unidad_compra') === f.unidad);
+      } else if (candidatas.length === 1) {
+        objetivo = candidatas;
+      } else {
+        objetivo = candidatas.filter((eq) => eq.getDataValue('unidad_compra') === unidadDefecto);
+      }
+
+      if (objetivo.length === 0) {
+        ambiguas.push({
+          fila: f.fila,
+          codigo: f.codigo,
+          motivo: f.unidad
+            ? `La lista lo cotiza por ${f.unidad} y no hay equivalencia en esa modalidad.`
+            : 'Tiene varias modalidades registradas y la lista no dice cuál. Precio no aplicado.',
+        });
+        continue;
+      }
+
+      for (const pp of objetivo) {
+        let precioBase = f.precio;
+        if (preciosConIva) {
+          const iva = ivaPorProducto.get(Number(pp.getDataValue('catalogo_producto_id'))) ?? 19;
+          precioBase = +(precioBase / (1 + iva / 100)).toFixed(2);
+        }
+
+        const actualRaw = pp.getDataValue('precio_actual');
+        const precioAnterior = actualRaw === null || actualRaw === undefined ? null : parseFloat(actualRaw);
+        const fechaActual = aFechaISO(pp.getDataValue('fecha_precio_actual'));
+        const retroactivo = !!(fechaActual && fechaVigencia < fechaActual);
+
+        if (!retroactivo && precioAnterior !== null && precioAnterior === precioBase) {
+          sinCambio++;
+          continue;
+        }
+
+        const variacion = precioAnterior !== null && precioAnterior > 0
+          ? ((precioBase - precioAnterior) / precioAnterior) * 100
+          : null;
+
+        cambios.push({
+          fila: f.fila,
+          codigo: f.codigo,
+          descripcion: f.descripcion,
+          unidad_compra: pp.getDataValue('unidad_compra'),
+          precio_anterior: precioAnterior,
+          precio_nuevo: precioBase,
+          variacion_pct: variacion !== null ? +variacion.toFixed(2) : null,
+          anomalo: variacion !== null && Math.abs(variacion) > umbral,
+          retroactivo,
+        });
+
+        plan.push({ pp, precio: precioBase, fecha: fechaVigencia, fila: f });
+      }
+    }
+
+    const resumen = {
+      dry_run: dryRun,
+      proveedor: { id: proveedorId, nombre_comercial: proveedor.getDataValue('nombre_comercial') },
+      archivo: req.file.originalname,
+      fila_encabezado: filaEncabezado + 1,
+      columnas_detectadas: columnasDetectadas,
+      total_filas_leidas: filas.length,
+      filas_ignoradas: filasIgnoradas,
+      precios_sin_cambio: sinCambio,
+      precios_actualizados: cambios,
+      codigos_nuevos_pendientes: nuevosPendientes,
+      filas_no_aplicadas: ambiguas,
+      umbral_variacion_pct: umbral,
+      errores,
+    };
+
+    // ── 4. Previsualización: se responde sin haber tocado nada ─────────────────
+    if (dryRun) {
+      return res.json({
+        ...resumen,
+        message: `Previsualización: ${cambios.length} precio(s) cambiarían, ${nuevosPendientes.length} código(s) irían a la bandeja. Nada se ha guardado todavía.`,
+      });
+    }
+
+    // ── 5. Aplicar ─────────────────────────────────────────────────────────────
+    const documentoRef = `LISTA-${req.file.originalname}`.slice(0, 100);
+    const t = await sequelize.transaction();
+    try {
+      for (const item of plan) {
+        await actualizarPrecio(item.pp, item.precio, item.fecha, {
+          origen: 'LISTA',
+          registradoPor: userId,
+          documentoRef,
+          transaction: t,
+        });
+      }
+
+      let pendientesCreados = 0;
+      if (crearPendientes) {
+        for (const np of nuevosPendientes) {
+          const existente = bandejaPorCodigo.get(np.codigo);
+          if (existente) {
+            await existente.update(
+              {
+                estado: 'PENDIENTE',
+                precio_detectado: np.precio,
+                documento_ref: documentoRef,
+                fecha_deteccion: fechaLista,
+                descripcion_proveedor: np.descripcion || existente.getDataValue('descripcion_proveedor'),
+              },
+              { transaction: t }
+            );
+          } else {
+            const creado = await ProveedorCodigoPendiente.create(
+              {
+                proveedor_id: proveedorId,
+                codigo_proveedor: np.codigo,
+                descripcion_proveedor: np.descripcion,
+                precio_detectado: np.precio,
+                documento_ref: documentoRef,
+                veces_visto: 1,
+                estado: 'PENDIENTE',
+                fecha_deteccion: fechaLista,
+              },
+              { transaction: t }
+            );
+            bandejaPorCodigo.set(np.codigo, creado);
+          }
+          pendientesCreados++;
+        }
+      }
+
+      await t.commit();
+
+      return res.json({
+        ...resumen,
+        pendientes_registrados: pendientesCreados,
+        message: `Lista aplicada: ${cambios.length} precio(s) actualizado(s)${pendientesCreados ? `, ${pendientesCreados} código(s) enviado(s) a Por Mapear` : ''}.`,
+      });
+    } catch (errAplicar: any) {
+      await t.rollback();
+      throw errAplicar;
+    }
+  } catch (err: any) {
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo importar la lista de precios');
+    fallar(res, status, mensaje, err);
+  }
+};
+
+// ─── GET /api/proveedores/facturas ───────────────────────────────────────────
+/**
+ * Bitácora de la ingesta: qué documentos entraron, de quién y qué movieron.
+ *
+ * La tabla se escribía desde el primer día pero no la leía nadie, así que la
+ * pregunta operativa más frecuente — "¿ya cargué las facturas de este proveedor?"
+ * — solo se podía responder volviendo a subir el lote y mirando cuántas rebotaban
+ * por CUFE repetido.
+ */
+export const listarFacturasProcesadas = async (req: Request, res: Response) => {
+  try {
+    const { q, proveedor_id, tipo_documento } = req.query;
+    const limit = Math.min(parseInt(String(req.query.limit ?? 50), 10) || 50, MAX_PAGINA);
+    const offset = Math.max(parseInt(String(req.query.offset ?? 0), 10) || 0, 0);
+
+    const where: any = {};
+    if (proveedor_id) where.proveedor_id = Number(proveedor_id);
+    if (tipo_documento) where.tipo_documento = String(tipo_documento).toUpperCase();
+    if (q) {
+      const termino = String(q).trim();
+      where[Op.or] = [
+        { numero_factura: { [Op.iLike]: `%${termino}%` } },
+        { archivo_origen: { [Op.iLike]: `%${termino}%` } },
+        { cufe: termino },
+      ];
+    }
+
+    const { rows, count } = await FacturaProveedorProcesada.findAndCountAll({
+      where,
+      include: [{ model: Proveedor, as: 'proveedor', attributes: ['id', 'nombre_comercial'] }],
+      attributes: [
+        'id', 'cufe', 'numero_factura', 'fecha_emision', 'tipo_documento', 'moneda',
+        'lineas_totales', 'lineas_actualizadas', 'lineas_pendientes', 'lineas_omitidas',
+        'motivo_omision', 'archivo_origen', 'fecha_procesado',
+      ],
+      order: [['fecha_emision', 'DESC'], ['id', 'DESC']],
+      limit,
+      offset,
+    });
+
+    res.json({ items: rows, total: count, limit, offset });
+  } catch (err: any) {
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo cargar el historial de facturas procesadas');
+    fallar(res, status, mensaje, err);
+  }
+};
+
 // ─── POST /api/proveedores/facturas/cargar ──────────────────────────────────
 
 interface LineaAgrupada {
@@ -1492,13 +1985,37 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
         const bandejaPorCodigo = new Map<string, any>();
         for (const b of bandeja) bandejaPorCodigo.set(b.getDataValue('codigo_proveedor'), b);
 
+        // Productos del catálogo de las equivalencias tocadas por esta factura.
+        // El contraste de IVA hacía un findByPk por línea actualizada: en una factura
+        // de 40 líneas mapeadas eran 40 consultas para leer tres columnas.
+        const productosPorId = new Map<number, any>();
+        const idsProducto = Array.from(
+          new Set(equivalencias.map((eq: any) => Number(eq.getDataValue('catalogo_producto_id'))))
+        ).filter(Number.isFinite);
+        if (idsProducto.length > 0) {
+          const productosFactura = await CatalogoProducto.findAll({
+            where: { id: { [Op.in]: idsProducto } },
+            attributes: ['id', 'codigo', 'porcentaje_iva'],
+            transaction: t,
+          });
+          for (const prod of productosFactura) productosPorId.set(prod.getDataValue('id'), prod);
+        }
+
         let actualizadas = 0;
         let nuevasPendientes = 0;
         let omitidas = 0;
 
+        // La bandeja tiene UNIQUE (proveedor, código), así que un código facturado en
+        // dos unidades distintas dentro del MISMO documento ocupa una sola fila. Sin
+        // este control, la segunda vuelta sumaba otra aparición y dejaba como precio
+        // detectado el de la otra modalidad — dos cifras no comparables en una casilla.
+        const codigosVistosEnFactura = new Set<string>();
+
         for (const [clave, info] of agrupadas.entries()) {
           const codigoProv = clave.split('|')[0];
           const candidatas = equivPorCodigo.get(codigoProv) ?? [];
+          const repetidoEnOtraUnidad = codigosVistosEnFactura.has(codigoProv);
+          codigosVistosEnFactura.add(codigoProv);
 
           // Elegir contra qué modalidad se compara el precio.
           //  · Unidad informativa en el XML (MTR, KGM, MTK): solo se actualiza la
@@ -1563,10 +2080,7 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
 
               // El IVA del XML es el dato real; si difiere del catálogo, avisar en
               // vez de sobrescribir en silencio una configuración hecha a mano.
-              const producto = await CatalogoProducto.findByPk(pp.getDataValue('catalogo_producto_id'), {
-                attributes: ['id', 'codigo', 'porcentaje_iva'],
-                transaction: t,
-              });
+              const producto = productosPorId.get(Number(pp.getDataValue('catalogo_producto_id')));
               const ivaCatalogo = producto ? Number(producto.getDataValue('porcentaje_iva')) : null;
               if (ivaCatalogo !== null && Number.isFinite(info.porcentajeIva) && Math.abs(ivaCatalogo - info.porcentajeIva) > 0.01) {
                 avisos.push({
@@ -1589,7 +2103,16 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
             // ni actualizaba precio ni volvía a aparecer en la bandeja. Se devuelve.
             const debeReactivarse = estado === 'MAPEADO';
 
-            if (estado === 'PENDIENTE' || debeReactivarse) {
+            if (repetidoEnOtraUnidad && estado !== 'DESCARTADO') {
+              // Ya se registró este código en esta misma factura con otra unidad:
+              // se conserva la primera lectura y se deja constancia en vez de pisarla.
+              omitidas++;
+              avisos.push({
+                tipo: 'UNIDAD_DISTINTA',
+                proveedor_nombre: proveedorNombre,
+                detalle: `${codigoProv} (${info.descripcion}) viene en la misma factura con dos unidades distintas. Se conservó la primera lectura para mapearlo; revisa cuál corresponde.`,
+              });
+            } else if (estado === 'PENDIENTE' || debeReactivarse) {
               await pendienteExistente.update(
                 {
                   estado: 'PENDIENTE',
@@ -1609,7 +2132,12 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
               omitidas++;
             }
           } else {
-            await ProveedorCodigoPendiente.create(
+            // Se guarda la INSTANCIA creada, no un booleano: una misma factura puede
+            // traer el mismo código en dos unidades distintas (una línea con `MTR` y
+            // otra con el relleno genérico `94`), y entonces la segunda vuelta lo
+            // encuentra aquí. Con un `true` en el mapa, la rama de arriba llamaba
+            // `getDataValue` sobre un booleano y tumbaba la factura entera.
+            const pendienteCreado = await ProveedorCodigoPendiente.create(
               {
                 proveedor_id: proveedorId,
                 codigo_proveedor: codigoProv,
@@ -1625,7 +2153,7 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
               },
               { transaction: t }
             );
-            bandejaPorCodigo.set(codigoProv, true);
+            bandejaPorCodigo.set(codigoProv, pendienteCreado);
             nuevasPendientes++;
             codigosNuevosPendientes++;
           }

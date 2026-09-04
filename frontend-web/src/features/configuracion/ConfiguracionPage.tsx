@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Save, DollarSign, Clock, AlertCircle, TrendingUp, Users, Target } from 'lucide-react';
+import { Settings, Save, DollarSign, Clock, AlertCircle, TrendingUp, Users, Target, Percent } from 'lucide-react';
 import API from '../../services/config';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -368,6 +368,28 @@ export const ConfiguracionPage: React.FC = () => {
                 onChange={handleConfigChange}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 font-mono font-medium focus:ring-2 focus:ring-indigo-300 outline-none transition"
               />
+            </div>
+          </div>
+        </section>
+
+        {/* ── MÓDULO DE PROVEEDORES ─────────────────────────────────────────── */}
+        <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <Percent className="w-5 h-5 text-violet-500" /> Precios de Proveedores (Global)
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1">Alerta: Variación Anómala de Precio (%)</label>
+              <input
+                type="text" inputMode="numeric" name="umbral_variacion_precio_pct"
+                value={config?.umbral_variacion_precio_pct ?? ''}
+                onChange={handleConfigChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 font-mono font-medium focus:ring-2 focus:ring-indigo-300 outline-none transition"
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                Si el precio de un proveedor sube o baja más de este porcentaje respecto al anterior,
+                se marca en rojo al comparar y al cargar facturas. Recomendado: 30%. Rango válido: 1 a 200.
+              </p>
             </div>
           </div>
         </section>

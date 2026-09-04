@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
-import { CatalogoProducto } from '../models';
+import { CatalogoProducto, ProductoAlias } from '../models';
 import { z } from 'zod';
 
 const catalogoSchema = z.object({
@@ -46,15 +46,72 @@ export const getCatalogo = async (req: Request, res: Response) => {
 
       where[Op.and] = condiciones;
 
+      const limite = req.query.limit ? parseInt(String(req.query.limit)) : 50;
+
       const items = await CatalogoProducto.findAll({
         where,
         order: [
           ['codigo', 'ASC'],
           ['nombre', 'ASC'],
         ],
-        limit: req.query.limit ? parseInt(String(req.query.limit)) : 50,
+        limit: limite,
       });
-      return res.json(items);
+
+      const resultado: any[] = items.map((i) => i.toJSON());
+
+      /**
+       * Segunda pasada por el diccionario de sinónimos (`producto_alias`).
+       *
+       * Es lo que cierra el mecanismo descrito en `compras.md §3.4`: al mapear
+       * "CIERRAPUERTAS HIDRAULICO" de un proveedor, esa descripción queda como alias
+       * del producto interno; cuando otro proveedor factura "CIERRA PUERTA 100KG",
+       * el buscador debe reconocerlo aunque no comparta ni código ni nombre con el
+       * catálogo. Sin esta consulta los alias se acumulaban sin que nada los leyera,
+       * y el segundo proveedor costaba lo mismo que el primero.
+       *
+       * Va como complemento, nunca como reemplazo: los aciertos por código o nombre
+       * conservan su orden y encabezan la lista; los que llegan por sinónimo se
+       * anexan al final marcados, para que el humano vea por qué se le proponen.
+       */
+      if (resultado.length < limite) {
+        const condicionesAlias = palabras.map((p) => ({ alias: { [Op.iLike]: `%${p}%` } }));
+        const coincidencias = await ProductoAlias.findAll({
+          where: { [Op.and]: condicionesAlias },
+          attributes: ['catalogo_producto_id', 'alias'],
+          limit: limite * 2,
+        });
+
+        const yaListados = new Set(resultado.map((i) => i.id));
+        const aliasPorProducto = new Map<number, string>();
+        for (const a of coincidencias) {
+          const idProd = Number(a.getDataValue('catalogo_producto_id'));
+          if (!yaListados.has(idProd) && !aliasPorProducto.has(idProd)) {
+            aliasPorProducto.set(idProd, String(a.getDataValue('alias')));
+          }
+        }
+
+        if (aliasPorProducto.size > 0) {
+          // Where propio: el de arriba lleva las condiciones de texto, que aquí
+          // estorban — el filtro ya lo hizo el alias.
+          const whereAlias: any = { activo: true, id: { [Op.in]: Array.from(aliasPorProducto.keys()) } };
+          if (req.query.es_aluminio === 'true') whereAlias.es_aluminio = true;
+
+          const porAlias = await CatalogoProducto.findAll({
+            where: whereAlias,
+            order: [['codigo', 'ASC']],
+            limit: limite - resultado.length,
+          });
+
+          for (const p of porAlias) {
+            resultado.push({
+              ...p.toJSON(),
+              coincide_por_alias: aliasPorProducto.get(Number(p.getDataValue('id'))) ?? null,
+            });
+          }
+        }
+      }
+
+      return res.json(resultado);
     }
 
     const items = await CatalogoProducto.findAll({

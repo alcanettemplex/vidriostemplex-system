@@ -26,6 +26,8 @@ import {
   listarEquivalencias,
   desvincularEquivalencia,
   historicoEquivalencia,
+  listarFacturasProcesadas,
+  importarListaPrecios,
 } from '../controllers/proveedor.controller';
 
 const router = Router();
@@ -71,6 +73,9 @@ router.post('/importar-excel', manejarErroresCarga(uploadExcel), importarExcel);
 // ─── Ingesta de Facturas Electrónicas (.zip y .xml) ───────────────────────────
 router.post('/facturas/cargar', manejarErroresCarga(uploadFacturas), cargarFacturasLote);
 
+// ─── Bitácora: qué documentos ya entraron por la ingesta ─────────────────────
+router.get('/facturas', listarFacturasProcesadas);
+
 // ─── Bandeja de códigos sin mapear ───────────────────────────────────────────
 router.get('/codigos-pendientes', listarPendientes);
 router.get('/codigos-pendientes/count', contarPendientes);
@@ -90,6 +95,8 @@ router.delete('/productos/:pp_id', desactivarMapeo);
 // ─── Rutas con parámetro al final: no deben capturar las literales de arriba ──
 router.get('/:id/productos', listarProductosProveedor);
 router.post('/:id/productos', agregarPrecioManual);
+// Lista de precios en Excel (Fase 3). Sin `dry_run: false` explícito solo previsualiza.
+router.post('/:id/importar-precios', manejarErroresCarga(uploadExcel), importarListaPrecios);
 router.patch('/:id/seguimiento', cambiarSeguimiento);
 router.patch('/:id', editarProveedor);
 router.delete('/:id', desactivarProveedor);

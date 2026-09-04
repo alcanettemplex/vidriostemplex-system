@@ -44,6 +44,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio }) => {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
+  const [busquedaAplicada, setBusquedaAplicada] = useState('');
   const [filtroActivo, setFiltroActivo] = useState<boolean | null>(null);
   const [modalNuevo, setModalNuevo] = useState(false);
   const [modalPrecio, setModalPrecio] = useState<{ proveedor: Proveedor } | null>(null);
@@ -51,11 +52,23 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio }) => {
   const [resultadoImport, setResultadoImport] = useState<ResultadoImport | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  /**
+   * El filtrado ocurre en el servidor, así que se espera a que el usuario deje de
+   * teclear: sin esto, escribir "vitelsa" disparaba siete descargas del maestro.
+   * Las otras pestañas del módulo ya lo hacían; esta se había quedado fuera.
+   */
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setBusquedaAplicada(busqueda.trim()), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [busqueda]);
+
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
       const params: any = {};
-      if (busqueda.trim()) params.q = busqueda.trim();
+      if (busquedaAplicada) params.q = busquedaAplicada;
       if (filtroActivo !== null) params.activo = filtroActivo;
       const { data } = await axios.get<Proveedor[]>(`${API}/api/proveedores`, { params });
       setProveedores(data);
@@ -64,7 +77,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio }) => {
     } finally {
       setLoading(false);
     }
-  }, [busqueda, filtroActivo]);
+  }, [busquedaAplicada, filtroActivo]);
 
   useEffect(() => { cargar(); }, [cargar]);
 

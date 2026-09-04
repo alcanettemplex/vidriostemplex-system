@@ -79,7 +79,7 @@ function normalizarUnidad(unitCode: string): { unidad: string; confiable: boolea
  * Derivar de la descripción agrupa lo que de verdad es el mismo ítem y separa
  * lo que no.
  */
-function derivarCodigo(descripcion: string): string {
+export function derivarCodigo(descripcion: string): string {
   const base = descripcion.toUpperCase().replace(/\s+/g, ' ').trim();
   const hash = createHash('sha1').update(base).digest('hex').slice(0, 10).toUpperCase();
   return `SD-${hash}`;

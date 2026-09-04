@@ -8,11 +8,16 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
+import ImportarListaPreciosPanel from '../ImportarListaPreciosPanel';
+import FacturasProcesadasPanel from '../FacturasProcesadasPanel';
+import { ProveedorCompacto } from '../../ProveedoresPage';
 
 interface Props {
   onIrAPorMapear?: () => void;
   /** Se dispara al terminar un lote para refrescar el contador de la bandeja */
   onLoteProcesado?: () => void;
+  /** Maestro compacto compartido por la página: lo usan la lista de precios y la bitácora */
+  proveedores: ProveedorCompacto[];
 }
 
 interface ArchivoEnCola {
@@ -76,7 +81,7 @@ const formatCOP = (val: number | null | undefined): string => {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
 };
 
-const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado }) => {
+const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, proveedores }) => {
   const [cola, setCola] = useState<ArchivoEnCola[]>([]);
   const [procesando, setProcesando] = useState(false);
   const [progreso, setProgreso] = useState(0);
@@ -731,6 +736,12 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado })
 
         </motion.div>
       )}
+
+      {/* ── Fase 3: lista de precios del proveedor ── */}
+      <ImportarListaPreciosPanel proveedores={proveedores} onAplicado={onLoteProcesado} />
+
+      {/* ── Bitácora: qué documentos ya entraron ── */}
+      <FacturasProcesadasPanel proveedores={proveedores} />
 
     </div>
   );

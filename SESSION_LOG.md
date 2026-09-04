@@ -1196,6 +1196,57 @@ Hay **5 ODP más en el mismo limbo** (`LISTO_INSTALAR` o `PAUSADA` con paradas a
 
 Arreglo de raíz por decidir: que la pausa de fin de jornada **no** retroceda la ODP a `LISTO_INSTALAR`, o que el panel de pendientes de cierre contemple ese estado cuando arrastra una parada abierta. Mientras no se resuelva, cada caso exige un script.
 
+---
+
+## 2026-09-03 — Proveedores: Fase 3 (listas de precios), alias operativos y 4 correcciones
+
+### Contexto
+
+Sesión iniciada con `git pull` (`5a96168` → `b67bcc3`: formato Templacol de Pedidos PV, propagación de proveedor desde la ODP, reactivación de padre de NC — nada del módulo Proveedores). El usuario pidió un análisis del módulo para saber si le faltaba alguna fase y qué se podía mejorar; tras entregarlo, autorizó ejecutar las recomendaciones en el orden que se considerara correcto.
+
+### Diagnóstico del análisis
+
+Fases 1 y 2 completas y endurecidas desde la auditoría del 2026-08-30. **Fase 3 (`compras.md §3.2`) nunca se construyó:** el `origen: 'LISTA'` estaba declarado en el modelo y ningún camino del código lo escribía. Y la ayuda que sostiene todo el diseño de mapeo (`§3.4`, el diccionario de alias) estaba **a medias**: cada vinculación guardaba la descripción del proveedor como alias, pero el buscador del modal llamaba a `/api/catalogo?q=`, que solo miraba `codigo`, `nombre` y `descripcion`. Los alias se acumulaban sin que nada los leyera, así que la promesa de "el segundo proveedor se sugiere solo" no ocurría: mapear el tercer proveedor costaba lo mismo que el primero.
+
+### Cambios realizados
+
+**Backend**
+- `proveedor.controller.ts` — **bug corregido:** tras crear un pendiente, la bandeja en memoria guardaba `true` en vez de la instancia creada. Una factura con el mismo código en dos unidades (una línea `MTR` y otra con el relleno genérico `94`) llegaba en la segunda vuelta a `getDataValue` sobre un booleano y tumbaba la factura **entera** con `TypeError`. No corrompía datos —el CUFE no se registraba y era reprocesable—, pero el precio se perdía hasta que alguien leyera el listado de errores.
+- Caso adyacente que destapó el fix: el mismo código repetido en un documento inflaba `veces_visto` y dejaba en la bandeja el precio de la otra modalidad. Ahora se conserva la primera lectura y se emite aviso `UNIDAD_DISTINTA`.
+- Eliminado el N+1 residual del contraste de IVA: era un `findByPk` por línea actualizada (40 consultas en una factura de 40 líneas) para leer tres columnas. Los productos se precargan con las equivalencias.
+- **Endpoint nuevo `POST /:id/importar-precios` (Fase 3)** — importación de lista de precios en Excel, con detección automática de columnas y **previsualización obligatoria**: el primer envío es `dry_run` y no escribe nada. Códigos sin equivalencia van a la bandeja con el mismo derivador `SD-<hash>` que usa la ingesta de facturas, para que lista y FE del mismo ítem caigan en la misma fila.
+- **Endpoint nuevo `GET /facturas`** — bitácora de documentos ya procesados. La tabla `factura_proveedor_procesada` se escribía desde el primer día y no la leía nadie.
+- `catalogo.controller.ts` — la búsqueda por `q` consulta ahora también `producto_alias` y marca cada resultado con el sinónimo que hizo la coincidencia (`coincide_por_alias`). Va como complemento: los aciertos por código o nombre conservan su orden y encabezan la lista.
+- `configuracion.controller.ts` — `update({ ...req.body })` sin whitelist permitía escribir cualquier columna de `configuracion_global`, `id` incluido. Ahora hay lista explícita de campos, validación de rango para el umbral (1–200) e invalidación de la caché de `proveedor.controller` al guardarlo.
+- `dianXmlParser.ts` — `derivarCodigo` exportado para compartirlo con la importación de listas.
+
+**Frontend**
+- `ImportarListaPreciosPanel.tsx` (nuevo) — selector de proveedor, fecha de vigencia, modalidad por defecto, casilla "los precios incluyen IVA" (descuenta para guardar la base comparable) y flujo previsualizar → aplicar, con las columnas reconocidas a la vista.
+- `FacturasProcesadasPanel.tsx` (nuevo) — historial colapsable, con búsqueda por número, archivo o CUFE completo. Solo consulta al desplegarse.
+- `ConfiguracionPage.tsx` — sección "Precios de Proveedores" con el umbral de variación, que era una decisión tomada el 2026-08-23 ("editable desde `/configuracion` sin tocar código") y no tenía pantalla.
+- `ProveedoresTab.tsx` — debounce de 300 ms: `cargar` dependía de `busqueda` sin espera, así que escribir "vitelsa" disparaba siete descargas del maestro completo. Las otras pestañas ya lo hacían.
+- `VincularCodigoModal.tsx` — los productos sugeridos por sinónimo se muestran marcados con el alias que los trajo.
+
+### Verificación
+
+**40 comprobaciones end-to-end** contra el backend levantado y la BD real, con proveedor y catálogo sintéticos (NIT `999999999`, código `ZZTEST001`): alias en el buscador, whitelist y rango del umbral con restauración del valor real del usuario, detección de encabezados bajo un título, lectura de "12.500" como doce mil quinientos, dry-run que no toca la BD, aplicación con corrimiento a `precio_anterior_1` e histórico `origen=LISTA`, reaplicación sin ensuciar el histórico, lista retroactiva, la factura de doble unidad que antes reventaba, la bitácora, y dos regresiones (idempotencia por CUFE y comparador). Todas pasaron; la BD quedó verificada sin residuos. Compilación limpia de backend y frontend (`tsc --noEmit`).
+
+Durante la verificación falló una comprobación legítima: con `blankrows: false` la matriz del Excel se compactaba y el informe decía "encabezados en la fila 2" cuando en el archivo del usuario estaban en la 3 — y los "Fila N: sin precio" quedaban igual de desfasados. Corregido a `blankrows: true` saltando las filas vacías al iterar.
+
+### Decisiones técnicas
+
+- **La lista de precios previsualiza antes de aplicar.** Cada proveedor arma su Excel a su manera; mostrar qué columnas se reconocieron y qué haría con cada fila es más barato que deshacer una carga equivocada sobre precios que deciden compras.
+- **La lista respeta las mismas reglas que la factura**: la fecha de vigencia manda sobre el orden de carga, una lista anterior se archiva como retroactiva, la modalidad decide qué precio se toca y un código desconocido va a la bandeja en vez de adivinarse.
+- **Un código `DESCARTADO` no se reabre desde una lista.** Fue una decisión humana.
+- **El alias complementa, no reemplaza.** Si el alias reordenara los resultados, un sinónimo viejo podría desplazar al producto correcto.
+
+### Pendientes
+
+- **Backfill de los `.zip` históricos** (`compras.md §3.4`, ayuda 4): sigue sin hacerse. Exige extraer la ingesta a un servicio compartido para no duplicar la lógica en un script, y el parseo continúa siendo síncrono dentro del request (riesgo 🔴 de `§5.4` para lotes masivos).
+- **Categorías de producto** (requisito 2 original): sigue sin poder cumplirse, 95 % vacías.
+- Sin fusión de proveedores duplicados (`VyP`/`VYP`), sin pantalla para corregir alias mal aprendidos, y sin el cálculo del sobrecosto de fraccionar (tira vs metro).
+- Los 49 códigos puramente numéricos previos al fix del parser siguen esperando revisión humana.
+
 ### Adenda — la tab "Pendientes de cierre" ya no se oculta
 
 El usuario reportó que en Instalaciones había una pestaña desde la que cerraba instalaciones y ya no la veía. Diagnóstico: la tab existe —se llamaba "Atascadas" y el commit 5a96168 la renombró a "Pendientes de cierre"— pero `JefeView.tsx:536` solo la pintaba si `atascadas.length > 0`, y la consulta de `/api/rutas/atascadas` devolvía 0 filas (ninguna ODP en `INSTALANDO`, ninguna `PROGRAMADA` vencida, y ninguna de las 12 en `INSTALADA` con parada abierta). La regla de ocultamiento ya existía antes del renombrado.

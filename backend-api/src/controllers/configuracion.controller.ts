@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ConfiguracionGlobal, MetaMensual, MetaUsuarioMensual, Usuario } from '../models';
+import { invalidarCacheUmbral } from './proveedor.controller';
 
 export const obtenerConfiguracion = async (req: Request, res: Response) => {
   try {
@@ -23,16 +24,56 @@ export const obtenerConfiguracion = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Campos que la pantalla de configuración puede escribir.
+ *
+ * Antes se hacía `update({ ...req.body })`: el cliente decidía qué columnas tocar,
+ * incluidas `id` y `ultima_modificacion`. La lista explícita también documenta qué
+ * parámetros son ajustables sin tocar código.
+ */
+const CAMPOS_CONFIGURABLES = [
+  'meta_facturacion_mensual',
+  'meta_odps_cerradas_asesor',
+  'meta_ciclo_produccion_dias',
+  'dias_alerta_odp_estancada',
+  'dias_alerta_cartera_vencida',
+  'umbral_variacion_precio_pct',
+] as const;
+
 export const actualizarConfiguracion = async (req: Request, res: Response) => {
   try {
-    const data = req.body;
-    
+    const data: Record<string, number> = {};
+    for (const campo of CAMPOS_CONFIGURABLES) {
+      const valor = req.body?.[campo];
+      if (valor === undefined || valor === null || valor === '') continue;
+      const numero = Number(valor);
+      if (!Number.isFinite(numero) || numero < 0) {
+        return res.status(400).json({
+          error: `El valor de "${campo}" debe ser un número positivo. Revísalo e intenta de nuevo.`,
+        });
+      }
+      data[campo] = numero;
+    }
+
+    // El umbral de variación de precio gobierna la alerta roja del comparador de
+    // proveedores: un 0 apagaría la alerta y un 500 la volvería inútil.
+    if (data.umbral_variacion_precio_pct !== undefined) {
+      const pct = data.umbral_variacion_precio_pct;
+      if (pct < 1 || pct > 200) {
+        return res.status(400).json({
+          error: 'El umbral de variación de precio debe estar entre 1% y 200%. El valor recomendado es 30%.',
+        });
+      }
+    }
+
     let config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
     if (!config) {
       config = await ConfiguracionGlobal.create({ id: 1, ...data });
     } else {
       await config.update({ ...data, ultima_modificacion: new Date() });
     }
+
+    if (data.umbral_variacion_precio_pct !== undefined) invalidarCacheUmbral();
 
     res.json({ message: 'Configuración actualizada exitosamente', config });
   } catch (error: any) {
