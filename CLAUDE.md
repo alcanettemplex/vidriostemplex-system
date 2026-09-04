@@ -164,7 +164,9 @@ EN_ESPERA → VISITA_TECNICA → MEDICION → ALUMINIO_CORTADO
 `chk_medicion`, `chk_corte`, `chk_vidrio`, `chk_accesorios`, `chk_ensamble`, `chk_matizado`, `chk_pelicula`, `chk_huacal`, `chk_carton`
 
 ### ODP No Conformidad
-Hija con `odp_padre_id` + `es_no_conformidad: true`. Padre → PAUSADA. Se reactiva cuando hija llega a INSTALADA. NC no cobran al cliente → `estado_caja = CANCELADO`.
+Hija con `odp_padre_id` + `es_no_conformidad: true`. Padre → PAUSADA. Se reactiva a **INSTALADA** cuando la hija llega a `INSTALADA` **o a `ENTREGADA`** — ese es su estado terminal, no avanza a ENTREGADA. NC no cobran al cliente → `estado_caja = CANCELADO`.
+
+⚠️ **La reactivación está implementada en cinco puntos distintos** y todos deben mantenerse en sincronía: `updateODP` (`odp.controller.ts`), `finalizarInstalacion` y `entregarAtascada` y `terminarRutaConductor` (`rutas.controller.ts`), y el flujo de evidencias (`evidencia.controller.ts`). Desde que existe `INSTALANDO` (2026-09-02) el flujo por ruta va `PROGRAMADA → INSTALANDO → ENTREGADA` **sin pasar por `INSTALADA`**, así que cualquier regla que compare contra el valor exacto `'INSTALADA'` deja al padre huérfano en PAUSADA para siempre — fue el bug de ODP-23925, corregido el 2026-09-03. `finalizarInstalacionODP` (`odp.controller.ts`, endpoint huérfano) sigue sin esta verificación: ver `TECH_DEBT.md` 2026-09-03.
 
 ---
 
@@ -177,7 +179,8 @@ Hija con `odp_padre_id` + `es_no_conformidad: true`. Padre → PAUSADA. Se react
 **Módulos clave:**
 - **Proveedores (ingesta FE):** reglas no negociables, todas verificadas el 2026-08-30 — (1) el histórico registra **cambios de precio, no apariciones**; (2) el precio vigente lo define la **fecha de la factura**, no el orden de carga: el lote se ordena por `fecha_emision` y una factura anterior se archiva con `retroactivo=true` sin desplazar el vigente; (3) la **modalidad** decide qué precio se actualiza — un `unitCode` informativo (`MTR`, `KGM`, `MTK`) exige coincidir con `unidad_compra`, uno genérico (`94`, `EA`, `NIU`) solo vale si hay una única equivalencia; (4) idempotencia por **CUFE completo** en `factura_proveedor_procesada`, nunca por substring de `documento_ref`; (5) notas crédito/débito y monedas ≠ COP se registran **sin mover precios**; (6) el mapeo siempre lo confirma un humano. Ver `TECH_DEBT.md` 2026-08-30 y `compras.md`.
 - **SAP:** `SAP → SAPItem → OrdenCompra (ODC) → ODCItem`
-- **PedidoPV:** auto-generado al crear ODP con `proveedor_vidrio`. Base 6733. >12 ítems → extensiones `-1,-2...`
+- **PedidoPV:** auto-generado al crear ODP con `proveedor_vidrio`. Base 6733. **El tope de ítems por formulario lo fija el proveedor: 29 para Templacol, 12 para el resto** (`utils/pedidoPvCapacidad.ts`); al superarlo se crean extensiones `-1,-2...`. El **formulario** (Excel e impreso) también se elige por proveedor: Templacol usa el suyo, Vitelsa y cualquier otro valor usan el de Vitelsa. Cambiar `proveedor_vidrio` en la ODP **propaga** el cambio a todos sus Pedidos PV en cualquier estado, re-particiona si el formato nuevo admite menos ítems y emite `emitirCambio('pedidos_pv')`; vaciar el proveedor con un pedido ya creado se rechaza con 409. La vía inversa (`PATCH /api/pedidos-pv/:id`, que acepta `proveedor`) sigue pudiendo desalinearlos — ver `TECH_DEBT.md` 2026-09-03.
+- ⚠️ **`utils/pedidoPvCapacidad.ts` vive fuera de los controladores a propósito.** `pedido_pv.controller` importa `../server` de forma estática y `server → app → routes → controller` cierra un ciclo: importar ese controlador desde otro controlador o desde un script deja los handlers de las rutas en `undefined`. Cualquier lógica de PV que necesite compartirse va en ese util, no en el controlador.
 - **Rutas:** `RutaInstalacion → RutaODP (join) → ruta_instaladores (M:M)`. `forma_pago='credito'` = pago OK automático para instalación.
 - **Salidas Almacén:** `SA-XXXX` por ODP facturada. UNIQUE por ODP.
 - **Socket ODP:** usar `emitirODPPatch(id, accion)` (en `utils/notificaciones.ts`), nunca `emitirCambio('odp')`. `notificarCambioEstadoODP()` para cambios de estado.
@@ -291,7 +294,7 @@ Cada módulo en `frontend-web/src/features/<nombre>/`: página principal + `comp
 | `toma-medidas` | `/toma-medidas` | |
 | `inventario` | `/inventario` | Perfilería |
 | `usuarios` | `/usuarios` | Admin usuarios (solo `admin`) |
-| `pedidos-pv` | `/pedidos-pv` | Tab "Por Gestionar": solo `puede_gestionar_pv=true` |
+| `pedidos-pv` | `/pedidos-pv` | Tab "Por Gestionar": solo `puede_gestionar_pv=true`. Printables por proveedor: `PrintablePedidoTemplacol` si `proveedor='Templacol'`, `PrintablePedidoVitelsa` en cualquier otro caso |
 | `facturas-salidas` | `/facturas-salidas` | SA-XXXX; edición: compras/produccion |
 | `proveedores` | `/proveedores` | Solo `root`/`admin` (precios de compra = info sensible). Tabs: Consultar Precios, Cargar Facturas, Por Mapear, Proveedores, Equivalencias |
 | `configuracion` | `/configuracion` | Sin catálogo (movido a ROOT) |
@@ -372,6 +375,7 @@ Existen además dos listas más, menores: `ROLES_VALIDOS` en `server.ts` (12, in
 7. Al agregar nuevas tablas auditables, agregar el nombre al Set `TABLAS_AUDITABLES` en `root.controller.ts`.
 8. Egress Supabase baseline: ~50-60 MB/día. Usar `attributes` selectivos en includes. Ver `project_egress_estado.md`.
 9. Auditoría forense completa del sistema realizada 2026-07-10 (ver `TECH_DEBT.md`): drift RBAC en `auxiliar_produccion`/`taller`, bug de revertir auditoría en `Cotizacion`/`SAP`/`RutaODP`, y 3 módulos frontend huérfanos (`evidencias`, `cotizaciones`, `reportes` sin ruta montada). Ninguno se corrigió en esta pasada — solo documentación, a la espera de decisión del usuario.
+10. **Plantillas Excel de proveedores en `backend-api/templates/`** (`vitelsa.xlsx`, `templacol.xlsx`), rellenadas con ExcelJS en `generarExcelPedidoPV`. Son los formatos oficiales del proveedor: se copian tal cual desde `Formatos/` **sin round-trip por ExcelJS**, porque reserializar puede degradar estilos, merges y configuración de impresión. Al escribir en celdas combinadas se usa siempre la celda superior izquierda del rango. Un cero se escribe como celda vacía —en un formulario impreso un `0` se lee como dato real—; ojo con los campos `STRING` (`pulidos`, `espesor`), donde `"0"` es *truthy* en JS y `|| ''` no basta.
 
 ---
 

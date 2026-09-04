@@ -1209,3 +1209,60 @@ El badge muestra "0" cuando no hay pendientes, igual que el resto de las tabs.
 El commit 5a96168 definió `LISTO_INSTALAR → INSTALADA` como marcado manual de "trabajo culminado", pero ese control nunca se construyó. Las tres vías de cierre existentes llevan todas a `ENTREGADA`: finalizar parada en Programados (con foto y receptor), "Marcar entregada" en Pendientes de cierre (cierre administrativo con motivo) y "Marcar Entregada" en Producción → Pedido en la mano → Listos. Las 12 ODP que hoy están en `INSTALADA` provienen de la migración de datos de ese commit, ninguna se puso desde la aplicación.
 
 Antes del commit sí se llegaba a `INSTALADA`, pero por el camino equivocado: el instalador pulsaba "Iniciar" y la ODP quedaba marcada como instalada aunque el trabajo apenas empezara — justo lo que se corrigió. Queda pendiente decidir si el marcado manual necesita interfaz propia, dónde vive y qué roles la ven.
+
+---
+
+## 2026-09-03 — NC huérfana en PAUSADA, formato Templacol y propagación del proveedor
+
+Dos trabajos independientes, ambos disparados por una revisión que pidió el usuario sobre el widget "No Conformidades abiertas" del panel ROOT.
+
+### Parte 1 — ODP-23925 llevaba 3 meses huérfana en `PAUSADA`
+
+**Punto de partida.** El usuario afirmó que las 20 ODP del widget ya estaban instaladas y entregadas salvo ODP-24203 y ODP-24164, y pidió verificarlo. La columna "ODP" de ese widget sale de `no_conformidades.odp_id` (`root.controller.ts:832-841`), o sea la ODP **padre**, no la de reproceso.
+
+**Resultado de la verificación.** 17 de 20 padres estaban en `INSTALADA` o `ENTREGADA`. ODP-24203 efectivamente seguía en curso (`LISTO_INSTALAR`, reproceso en `MEDICION`). Pero apareció una que el usuario no había señalado: **ODP-23925 (NC-0005) seguía en `PAUSADA` desde el 21-may-2026**, pese a que su reproceso ODP-24002 está `ENTREGADA` desde el 01-jun-2026.
+
+**Causa raíz.** La regla de reactivación de `updateODP` (`odp.controller.ts:1161`) solo disparaba con `data.estado_produccion === 'INSTALADA'`, comparando el valor exacto que llega en la petición. El historial de ODP-24002 no tiene ningún registro con `estado_nuevo = INSTALADA`: saltó de `PROGRAMADA` a `ENTREGADA` en una sola actualización manual (observación `null`, o sea no vino de `rutas.controller.ts` ni de `evidencia.controller.ts`). Al no calzar el valor exacto, la regla nunca corrió.
+
+**Mapa forense.** Cinco puntos del código mueven una ODP a `ENTREGADA`/`INSTALADA`. Tres ya reactivaban al padre correctamente —`finalizarInstalacion` (`rutas.controller.ts:822`), `entregarAtascada` (`:1481`) y el flujo de evidencias (`evidencia.controller.ts:11`)—; dos no: `updateODP` (solo con el valor exacto) y `terminarRutaConductor` (`rutas.controller.ts:1216`, cierre automático de acarreo puro, que no verificaba `es_no_conformidad` en absoluto).
+
+El asunto dejó de ser un caso aislado el 2026-09-02: al separarse `INSTALANDO` de `INSTALADA`, el flujo por ruta pasó a ir `PROGRAMADA → INSTALANDO → ENTREGADA`, **sin tocar `INSTALADA`**. De ahí en adelante ninguna hija cerrada por ruta habría reactivado a su padre desde `updateODP`.
+
+**Cambios.** Se amplió la condición a `['INSTALADA','ENTREGADA'].includes(...)` en `updateODP` y se añadió el mismo bloque de reactivación en `terminarRutaConductor`. El padre sigue aterrizando solo en `INSTALADA`, que es su estado terminal por diseño (ver `2026-09-02_agregar_estado_instalando.ts`: *"padre reactivado tras reproceso = terminada"*) y coincide con `ESTADOS_COMPLETADAS`. Script `2026-09-03_reactivar_odp23925_nc0005.ts` — **ejecutado**, verificado en `auditoria_log` (id 37578, ROOT).
+
+**Commit:** `a408971`.
+
+### Parte 2 — Formato Templacol y propagación del proveedor
+
+**Punto de partida.** El usuario aportó `Formatos/PEDIDO TEMPLACOL #COPIA.xlsx` y pidió que al seleccionar Templacol en la ODP se usara ese formato en plantilla Excel, generador y printable.
+
+**Estado previo.** Templacol ya existía como opción (`PROVEEDORES_PV`), pero solo Vitelsa tenía maquinaria: plantilla, generador (`generarExcelPedidoPV`, hoja hardcodeada) y printable. **Todos los proveedores recibían el formato Vitelsa**, incluido Templacol.
+
+**El formato.** Una hoja, `B2:T54`, 89 celdas combinadas, 29 filas de ítem (`B16:B44`), carta vertical al **43 % de escala** con `printTitlesRow 13:15`. Columnas de acabados BPB/BPM/CHAFLÁN (anchos y altos) y maquinados PERF/BOQ/RADIOS/DSP.
+
+**Cambios.** Plantilla `templacol.xlsx`; `generarExcelPedidoPV` dividido en `llenarPlantillaVitelsa`/`llenarPlantillaTemplacol` con ramificación por proveedor (Vidplex y Otros siguen en Vitelsa); nuevo `PrintablePedidoTemplacol.tsx` y selección del printable por proveedor; tope de ítems por formulario dependiente del proveedor (29 Templacol / 12 resto).
+
+**Propagación del proveedor.** Cambiar `proveedor_vidrio` en una ODP existente no tocaba su Pedido PV: `updateODP` solo creaba el pedido cuando el proveedor se asignaba *por primera vez*. Como el módulo PV elige el formulario por `pedido_pv.proveedor`, se generaba el del proveedor viejo. **Había 4 casos reales**, dos activos (PV 7075 `ENVIADO` y PV 7071 `CONFIRMADO_PROVEEDOR`, ambos ODP en Templacol con PV en Vitelsa) y dos históricos (PV 6870 con el valor sucio `"PV"`, y PV 6763). Script `2026-09-03_alinear_proveedor_pedidos_pv.ts` — **ejecutado**, los 4 alineados, verificación posterior sin desalineados.
+
+**Commit:** `b67bcc3`.
+
+### Decisiones técnicas
+
+- **La capacidad vive en `utils/pedidoPvCapacidad.ts`, no en el controlador.** Al ejecutar el script apareció `TypeError: argument handler must be a function`: `pedido_pv.controller` importa `../server` de forma **estática** y `server → app → routes → controller` cierra un ciclo. Entrando por `server.ts` se resuelve solo (las funciones se usan en runtime, no al cargar), pero entrando por un script el controlador se evalúa primero y las rutas reciben handlers `undefined`. Extraer la lógica a un módulo que solo depende de modelos elimina además el acoplamiento controlador→controlador que había introducido.
+- **Propagación en cualquier estado del pedido**, decidido por el usuario: la ODP es la fuente de verdad. Reescribe pedidos ya `VERIFICADO`/`ENTREGADO`, pero queda en `auditoria_log` con autor y valor anterior, así que es reversible desde el panel ROOT.
+- **Actualización por instancia, no bulk.** Los hooks de `MODELOS_AUDITADOS` no disparan en `Model.update({}, { where })`; un update masivo habría dejado el cambio sin registro.
+- **Re-particionado solo cuando es necesario.** Rehacer un grupo elimina y recrea sus extensiones, perdiendo su estado y fechas. Solo corre si algún pedido excede el tope del formato nuevo (Templacol 29 → Vitelsa 12); el camino inverso nunca lo necesita.
+- **Bloquear el vaciado del proveedor** (409) si la ODP ya tiene Pedido PV, en vez de borrar el pedido en cascada.
+- **Celdas en cero van vacías** en los cuatro documentos, extendido a Vitelsa a pedido del usuario. En los printables `pulidos`/`espesor` son STRING y `"0"` es *truthy* en JS, así que `|| ''` no los vaciaba.
+- **La plantilla se copió sin modificar.** Se planeaba limpiar `O4` y `E4`, pero el usuario ya había vaciado `O4` y el generador sobrescribe ambas siempre; evitar el round-trip por ExcelJS preserva el original intacto.
+
+### Verificación
+
+Compilación limpia en backend y frontend. Prueba real de generación del Excel Templacol con datos del PV 7075: cabecera, pie y los 29 renglones se escriben en las celdas correctas, **los 89 merges quedan intactos** y `O16`/`P16` salieron vacíos (perforaciones y boquetes en 0). Auditoría confirmada para los 5 UPDATE de los dos scripts.
+
+### Pendientes
+
+- **`PATCH /api/pedidos-pv/:id` sigue permitiendo cambiar `proveedor` directamente** (está en la lista blanca de campos, `pedido_pv.controller.ts`). Es la vía más probable por la que nacieron los 4 desalineados y sigue abierta. Fuera de alcance por decisión del usuario.
+- **Propagación sin ejecutar en vivo:** verificada por compilación y revisión de lógica, no por corrida real — requiere sesión autenticada. Igual el re-particionado Templacol→Vitelsa: hoy ningún pedido supera 12 ítems.
+- **Densidad del printable Templacol:** el Excel necesita 43 % de escala para caber en carta vertical, así que el impreso queda de fuente muy pequeña. Falta validarlo con una impresión real.
+- **`pulidos`/`pulidos_h` no son metros lineales**, pese al rótulo de la columna en el formato Templacol. Ver `TECH_DEBT.md` 2026-09-03.

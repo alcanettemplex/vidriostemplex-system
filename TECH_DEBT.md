@@ -4,6 +4,59 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-03 — Ciclo de imports en `pedido_pv.controller`, endpoint huérfano y semántica de `pulidos`
+
+**Severidad:** Media (ciclo de imports), Media (semántica `pulidos`), Baja (endpoint huérfano), Baja (proveedor sin constraint)
+
+Hallazgos de la sesión que implementó el formato Templacol y la propagación de proveedor (commits `a408971`, `b67bcc3`). Ninguno bloqueó el trabajo; los cuatro siguen abiertos salvo donde se indica.
+
+### 1. `pedido_pv.controller` está dentro de un ciclo de imports — Media
+
+`pedido_pv.controller.ts:8` importa `emitirNotificacion` desde `../server` de forma **estática**, y `server → app → routes/pedido_pv.routes → pedido_pv.controller` cierra el ciclo.
+
+Entrando por `server.ts` no se nota: cuando `pedido_pv.routes` pide los handlers, el controlador ya terminó de evaluarse. Pero **cualquier script o módulo que importe ese controlador como punto de entrada revienta** con `TypeError: argument handler must be a function`, porque el controlador se evalúa primero, dispara la carga de `app.ts` y las rutas reciben `undefined`.
+
+Se topó con esto al escribir `2026-09-03_alinear_proveedor_pedidos_pv.ts`. Se esquivó extrayendo la lógica compartida a `utils/pedidoPvCapacidad.ts`, que solo depende de modelos — pero **el ciclo sigue ahí**: el próximo script que importe el controlador va a fallar igual, y el error no dice nada sobre imports circulares.
+
+- **Arreglo de raíz:** volver dinámico el import de `emitirNotificacion` (`import('../server').then(...)`), como ya se hace con `emitirCambio` en ese mismo archivo. Verificar antes que no haya otros controladores con importación estática de `../server`.
+- **Estimación:** 30 min más pruebas de humo de las notificaciones de Pedidos PV.
+
+### 2. `pulidos` / `pulidos_h` no son metros lineales — Media
+
+El formato de Templacol rotula las columnas I/J como **"ACABADOS (Metros Lineales)"**, pero `ODPItem.pulidos` y `pulidos_h` (`STRING(10)`) guardan **cantidad de lados**: de 698 ítems con dato, 688 valen exactamente `"2"`/`"2"`.
+
+Por decisión del usuario se vuelca el valor crudo, igual que se viene haciendo con Vitelsa desde hace 335 pedidos —donde el printable rotula esas mismas columnas como BPB, sin unidad—, así que es plausible que el proveedor ya lo interprete como lados. Pero **con el rótulo explícito de Templacol el riesgo es real**: 2 lados pulidos leídos como 2 metros lineales cambia la cotización y la fabricación.
+
+Además el modelo no distingue BPB de BPM ni de chaflán: todo `pulidos` cae en BPB, y las columnas K/L (BPM), M/N (CHAFLÁN), Q (RADIOS) y R (DSP) quedan siempre vacías por falta de campo de origen.
+
+- **Acción sugerida:** validar con Templacol cómo leen esas columnas antes de que el volumen crezca. Si hace falta convertir, la fórmula sería `(ancho_mm/1000) × pulidos × cantidad` — pero eso presupone que `pulidos` significa "cantidad de lados", que también está sin confirmar.
+- **Estimación:** 15 min de código; el costo real es la validación con el proveedor.
+
+### 3. `POST /api/odp/:id/instalacion` es un endpoint huérfano — Baja
+
+`finalizarInstalacionODP` (`odp.controller.ts:1318`) está montado en `odp.routes.ts:61` y accesible a `admin`, `gerencia`, `jefe_produccion` e `instalador`, pero **ningún cliente lo llama**: no aparece en `frontend-web` ni en `mobile-app`. Lo reemplazó el flujo de rutas (`finalizarInstalacion` en `rutas.controller.ts`, nombre casi idéntico).
+
+Además pone `estado_produccion: 'INSTALADA'` con `odp.update()` directo, **sin pasar por `updateODP`**, así que no verifica `es_no_conformidad`/`odp_padre_id`: si alguien lo invocara sobre una ODP de reproceso, el padre quedaría huérfano en `PAUSADA` — el mismo bug que se corrigió en los otros cinco puntos del código.
+
+- **Acción sugerida:** confirmar que está muerto y eliminarlo (endpoint, controlador y ruta), o añadirle la reactivación del padre si se decide conservarlo.
+- **Estimación:** 20 min.
+
+### 4. `pedido_pv.proveedor` acepta cualquier texto — Baja
+
+No hay ENUM ni CHECK sobre la columna, y el frontend ofrece `['Vitelsa','Templacol','Vidplex','Otros']` solo como lista del `<Select>`. En producción había 2 pedidos con proveedor `"PV"` (corregidos el 2026-09-03 por el script de alineación).
+
+El generador de Excel y el selector de printable normalizan con `trim().toLowerCase()` y caen a Vitelsa por defecto, así que un valor sucio no rompe nada — pero silenciosamente entrega el formato equivocado, que es justo el modo de falla que este trabajo vino a eliminar.
+
+- **Acción sugerida:** validar el valor contra la lista en `createPedidoPV` y `updatePedidoPV` con Zod, o un CHECK en BD.
+- **Estimación:** 20 min.
+
+### 5. Cerrado en esta sesión
+
+- **`updateODP` no reactivaba al padre de una NC si la hija saltaba directo a `ENTREGADA`** — corregido en `a408971`, junto con el mismo hueco en `terminarRutaConductor`. Era estructural desde el 2026-09-02: al separarse `INSTALANDO`, el flujo por ruta dejó de tocar `INSTALADA`.
+- **Cambiar `proveedor_vidrio` en la ODP no propagaba al Pedido PV** — corregido en `b67bcc3`. Sigue abierta la vía inversa: ver "Pendientes" en `SESSION_LOG.md` 2026-09-03.
+
+---
+
 ## 2026-08-30 — Auditoría del módulo Proveedores: 26 hallazgos, corregidos
 
 **Severidad:** Crítica (5 hallazgos), Alta (9), Media (10), Baja (2) — **todos corregidos el mismo día**
