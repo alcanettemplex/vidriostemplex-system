@@ -212,10 +212,10 @@ Hija con `odp_padre_id` + `es_no_conformidad: true`. Padre → PAUSADA. Se react
 | `/cotizaciones` | cotizacion.controller |
 | `/cotizacion-capturas` | cotizacion_captura.controller |
 | `/detalle-sap-imagenes` | detalle_sap.controller |
-| `/proveedores` | proveedor.controller — solo `root`/`admin`. Maestro, ingesta de FE (.zip/XML DIAN), **importación de listas de precios en Excel** (`POST /:id/importar-precios`, previsualiza salvo `dry_run: false`), **bitácora de documentos procesados** (`GET /facturas`), bandeja de mapeo, equivalencias y comparador de precios |
+| `/proveedores` | proveedor.controller — solo `root`/`admin`. Maestro, ingesta de FE (.zip/XML DIAN), **importación de listas de precios en Excel** (`POST /:id/importar-precios`, previsualiza salvo `dry_run: false`), **bitácora de documentos procesados** (`GET /facturas`), **buscador transversal** (`GET /buscar`, mín. 3 caracteres, 5 grupos), bandeja de mapeo, equivalencias y comparador de precios |
 | `/crm` | crm.controller — pipeline de Leads (CRUD, asignación, seguimiento, conversión a cliente) |
 | `/supervision-crm` | crm.controller (mismo archivo que `/crm`) — solo rol `root`: ranking asesores, lineamientos de coaching, buscador avanzado |
-| `/search` | search.controller — búsqueda global |
+| `/search` | search.controller — búsqueda global (ODP, clientes, prospectos, leads). ⚠️ **Ningún componente del frontend lo consume**: endpoint huérfano, verificado 2026-09-03. El módulo Proveedores tiene su propio buscador porque los precios de compra son solo para `root`/`admin` |
 | `/manuales` | manuales.controller — sirve PDFs de manual usuario/técnico |
 | `/informe-ejecutivo` | informe_ejecutivo.controller — solo rol `root` (chequeo inline, no usa `rbacMiddleware`) |
 

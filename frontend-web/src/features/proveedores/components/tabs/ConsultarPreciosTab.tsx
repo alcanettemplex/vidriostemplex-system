@@ -1,11 +1,12 @@
-﻿import React, { useState, useCallback } from 'react';
+﻿import React, { useState, useCallback, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, AlertTriangle, TrendingDown, TrendingUp, Minus,
-  Package, RefreshCw, ChevronDown, ChevronUp, Filter
+  Package, RefreshCw, ChevronDown, ChevronUp, Filter, Sparkles, Loader2
 } from 'lucide-react';
 import API from '../../../../services/config';
+import { useBusquedaModulo, MIN_CARACTERES, ProductoSugerido } from '../../hooks/useBusquedaModulo';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -95,7 +96,12 @@ const VariacionBadge: React.FC<{ pct: number | null; anomalo: boolean; umbral: n
 
 // ─── Componente principal ──────────────────────────────────────────────────────
 
-const ConsultarPreciosTab: React.FC = () => {
+interface Props {
+  /** Producto con el que entrar, cuando se llega desde el buscador del módulo */
+  productoInicial?: number;
+}
+
+const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
   const [query, setQuery] = useState('');
   const [modalidad, setModalidad] = useState('');
   const [resultado, setResultado] = useState<ResultadoConsulta | null>(null);
@@ -103,6 +109,27 @@ const ConsultarPreciosTab: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandido, setExpandido] = useState<number | null>(null);
+
+  // Autocompletado: comparte motor con la barra del módulo, así ambos reconocen
+  // lo mismo (código propio, código del proveedor, sinónimos, palabras sueltas)
+  const [sugerenciasAbiertas, setSugerenciasAbiertas] = useState(false);
+  const [indiceActivo, setIndiceActivo] = useState(0);
+  const { datos: sugerencias, cargando: cargandoSugerencias } = useBusquedaModulo(query, {
+    habilitado: sugerenciasAbiertas,
+  });
+  const productos: ProductoSugerido[] = sugerencias?.productos ?? [];
+  const buscadorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setIndiceActivo(0); }, [sugerencias]);
+
+  // Cerrar la lista al hacer clic fuera
+  useEffect(() => {
+    const fuera = (e: MouseEvent) => {
+      if (buscadorRef.current && !buscadorRef.current.contains(e.target as Node)) setSugerenciasAbiertas(false);
+    };
+    document.addEventListener('mousedown', fuera);
+    return () => document.removeEventListener('mousedown', fuera);
+  }, []);
 
   /**
    * El servidor decide si el término es código, nombre o alias: la heurística que
@@ -136,10 +163,48 @@ const ConsultarPreciosTab: React.FC = () => {
 
   const buscar = useCallback(() => {
     if (!query.trim()) return;
+    setSugerenciasAbiertas(false);
     consultar({ q: query.trim() });
   }, [query, consultar]);
 
+  /** Elegir una sugerencia salta directo a la comparativa de ese producto */
+  const elegirSugerencia = useCallback((p: ProductoSugerido) => {
+    setSugerenciasAbiertas(false);
+    setQuery(`${p.codigo} · ${p.nombre}`);
+    consultar({ producto_id: p.id });
+  }, [consultar]);
+
+  // Al llegar desde el buscador del módulo, se carga la comparativa sin escribir nada
+  useEffect(() => {
+    if (productoInicial) consultar({ producto_id: productoInicial });
+    // Solo al montar: la pestaña se remonta cuando cambia el producto de entrada
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') { setSugerenciasAbiertas(false); return; }
+
+    if (sugerenciasAbiertas && productos.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setIndiceActivo((i) => (i + 1) % productos.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setIndiceActivo((i) => (i - 1 + productos.length) % productos.length);
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        // Enter sobre una sugerencia la abre; si no hay ninguna resaltada, busca el texto
+        const elegido = productos[indiceActivo];
+        if (elegido) elegirSugerencia(elegido);
+        else buscar();
+        return;
+      }
+    }
+
     if (e.key === 'Enter') buscar();
   };
 
@@ -155,24 +220,99 @@ const ConsultarPreciosTab: React.FC = () => {
         marginBottom: 24,
         display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap',
       }}>
-        <div style={{ flex: 1, minWidth: 260 }}>
+        <div ref={buscadorRef} style={{ flex: 1, minWidth: 260, position: 'relative' }}>
           <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>
-            CÓDIGO O NOMBRE DEL PRODUCTO
+            CÓDIGO, NOMBRE, SINÓNIMO O CÓDIGO DEL PROVEEDOR
           </label>
           <div style={{ position: 'relative' }}>
             <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
               value={query}
-              onChange={e => setQuery(e.target.value)}
+              onChange={e => { setQuery(e.target.value); setSugerenciasAbiertas(true); }}
+              onFocus={() => setSugerenciasAbiertas(true)}
               onKeyDown={handleKeyDown}
-              placeholder="Ej: TUB0510 · brazo hidráulico · cierrapuertas"
+              placeholder="Ej: TUB0510 · brazo hidráulico · cierrapuertas · AL-2245"
               style={{
-                width: '100%', padding: '10px 12px 10px 38px', boxSizing: 'border-box',
+                width: '100%', padding: '10px 34px 10px 38px', boxSizing: 'border-box',
                 background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10,
                 color: 'var(--text)', fontSize: 14, outline: 'none',
               }}
             />
+            {cargandoSugerencias && (
+              <Loader2 size={14} className="animate-spin" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)' }} />
+            )}
           </div>
+
+          {/* Sugerencias mientras se escribe */}
+          <AnimatePresence>
+            {sugerenciasAbiertas && query.trim().length >= MIN_CARACTERES && (productos.length > 0 || (!cargandoSugerencias && sugerencias)) && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.12 }}
+                style={{
+                  position: 'absolute', top: 'calc(100% + 5px)', left: 0, right: 0, zIndex: 40,
+                  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
+                  boxShadow: '0 16px 36px -12px rgba(15, 23, 42, 0.25)',
+                  maxHeight: 320, overflowY: 'auto',
+                }}
+              >
+                {productos.length === 0 ? (
+                  <div style={{ padding: '14px 16px', fontSize: 12.5, color: 'var(--text-muted)' }}>
+                    Ningún producto coincide. Pulsa Enter para buscar de todas formas.
+                  </div>
+                ) : (
+                  productos.map((p, i) => (
+                    <div
+                      key={p.id}
+                      onClick={() => elegirSugerencia(p)}
+                      onMouseEnter={() => setIndiceActivo(i)}
+                      style={{
+                        padding: '9px 14px', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        background: i === indiceActivo ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                        borderLeft: i === indiceActivo ? '3px solid var(--primary)' : '3px solid transparent',
+                        borderBottom: '1px solid var(--border)',
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 12, color: 'var(--primary)' }}>
+                            {p.codigo}
+                          </span>
+                          <span style={{ fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {p.nombre}
+                          </span>
+                        </div>
+                        {(p.motivo?.tipo === 'ALIAS' || p.motivo?.tipo === 'CODIGO_PROVEEDOR') && (
+                          <div style={{ fontSize: 10.5, color: '#7c3aed', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Sparkles size={10} />
+                            {p.motivo.tipo === 'ALIAS' ? `sinónimo · «${p.motivo.detalle}»` : `código del proveedor · ${p.motivo.detalle}`}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        {p.total_proveedores > 0 ? (
+                          <>
+                            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#22c55e' }}>
+                              desde {formatCOP(p.precio_min)}
+                            </div>
+                            <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>
+                              {p.total_proveedores} proveedor{p.total_proveedores !== 1 ? 'es' : ''}
+                              {p.unidad_precio_min ? ` · por ${ETIQUETA_MODALIDAD[p.unidad_precio_min]?.toLowerCase() ?? p.unidad_precio_min}` : ''}
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>sin precios aún</div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <div style={{ minWidth: 180 }}>

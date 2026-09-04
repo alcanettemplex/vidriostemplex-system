@@ -64,15 +64,17 @@ const formatFecha = (val: string | null | undefined): string => {
 
 interface Props {
   proveedores: ProveedorCompacto[];
+  /** Filtro con el que entra la pestaña cuando se llega desde el buscador del módulo */
+  busquedaInicial?: string;
   onActualizarContador?: () => void;
 }
 
-const EquivalenciasTab: React.FC<Props> = ({ proveedores, onActualizarContador }) => {
+const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActualizarContador }) => {
   const [equivalencias, setEquivalencias] = useState<EquivalenciaItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState('');
-  const [qAplicado, setQAplicado] = useState('');
+  const [q, setQ] = useState(busquedaInicial ?? '');
+  const [qAplicado, setQAplicado] = useState(busquedaInicial ?? '');
   const [filtroProveedor, setFiltroProveedor] = useState('');
   const [filtroUnidad, setFiltroUnidad] = useState('');
   const [desvinculandoId, setDesvinculandoId] = useState<number | null>(null);

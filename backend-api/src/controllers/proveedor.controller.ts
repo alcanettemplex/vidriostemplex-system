@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Op, Transaction } from 'sequelize';
+import { Op, Transaction, fn, col } from 'sequelize';
 import { z } from 'zod';
 import * as XLSX from 'xlsx';
 import multer from 'multer';
@@ -560,6 +560,286 @@ export const importarExcel = async (req: Request, res: Response) => {
   }
 };
 
+// ─── GET /api/proveedores/buscar ─────────────────────────────────────────────
+
+/**
+ * Buscador transversal del módulo: una sola caja que relaciona todo.
+ *
+ * El módulo tenía seis buscadores con seis comportamientos distintos, y el más
+ * completo (Equivalencias) era el más escondido, mientras que el principal
+ * (Consultar Precios) no encontraba ni por código de proveedor ni por nombre de
+ * proveedor — justamente los dos datos que uno tiene delante cuando está mirando
+ * una factura. Este endpoint alimenta tanto la barra del módulo como el
+ * autocompletado de la pantalla de consulta, para que ambos entiendan lo mismo.
+ *
+ * Cada palabra debe aparecer en algún campo (AND entre palabras, OR entre campos):
+ * así "vidrio incoloro 6" encuentra "VIDRIO TEMPLADO 6MM INCOLORO", que con la
+ * frase completa como patrón no aparecía nunca.
+ */
+
+const MIN_BUSQUEDA = 3;
+const LIMITE_GRUPO = 5;
+
+/** Prioridad del motivo de coincidencia: lo más específico manda */
+const PESO_MOTIVO: Record<string, number> = {
+  CODIGO: 0,
+  CODIGO_PROVEEDOR: 1,
+  ALIAS: 2,
+  NOMBRE: 3,
+};
+
+export const buscarEnModulo = async (req: Request, res: Response) => {
+  const vacio = {
+    productos: [] as any[],
+    proveedores: [] as any[],
+    pendientes: [] as any[],
+    equivalencias: [] as any[],
+    facturas: [] as any[],
+    total: 0,
+  };
+
+  try {
+    const q = String(req.query.q ?? '').trim();
+    if (q.length < MIN_BUSQUEDA) {
+      return res.json({ termino: q, ...vacio, minimo: MIN_BUSQUEDA });
+    }
+
+    // Tope de palabras: pegar un párrafo en el buscador no debe traducirse en 30
+    // condiciones LIKE contra cinco tablas.
+    const palabras = q.split(/\s+/).filter(Boolean).slice(0, 6);
+
+    /** AND entre palabras, OR entre campos */
+    const condiciones = (campos: string[]) => ({
+      [Op.and]: palabras.map((p) => ({
+        [Op.or]: campos.map((campo) => ({ [campo]: { [Op.iLike]: `%${p}%` } })),
+      })),
+    });
+
+    const [porTexto, porAlias, porCodigoProveedor, proveedores, pendientes, equivalencias, facturas] =
+      await Promise.all([
+        // 1. Productos por código, nombre o descripción propios
+        CatalogoProducto.findAll({
+          where: { activo: true, ...condiciones(['codigo', 'nombre', 'descripcion']) },
+          attributes: ['id', 'codigo', 'nombre', 'unidad_medida'],
+          order: [['codigo', 'ASC']],
+          limit: LIMITE_GRUPO,
+        }),
+
+        // 2. Productos por sinónimo aprendido
+        ProductoAlias.findAll({
+          where: condiciones(['alias']),
+          attributes: ['catalogo_producto_id', 'alias'],
+          limit: LIMITE_GRUPO * 2,
+        }),
+
+        // 3. Productos por el código o la descripción que usa el proveedor
+        ProveedorProducto.findAll({
+          where: { activo: true, ...condiciones(['codigo_proveedor', 'descripcion_proveedor']) },
+          include: [{ model: Proveedor, as: 'proveedor', attributes: ['id', 'nombre_comercial'] }],
+          attributes: ['id', 'catalogo_producto_id', 'codigo_proveedor', 'descripcion_proveedor'],
+          limit: LIMITE_GRUPO * 2,
+          subQuery: false,
+        }),
+
+        // 4. Proveedores
+        Proveedor.findAll({
+          where: { activo: true, ...condiciones(['nombre_comercial', 'nit', 'razon_social']) },
+          attributes: ['id', 'nombre_comercial', 'nit', 'seguir_precios'],
+          order: [['nombre_comercial', 'ASC']],
+          limit: LIMITE_GRUPO,
+        }),
+
+        // 5. Bandeja: solo lo que sigue pendiente — lo descartado fue una decisión humana
+        ProveedorCodigoPendiente.findAll({
+          where: { estado: 'PENDIENTE', ...condiciones(['codigo_proveedor', 'descripcion_proveedor']) },
+          include: [{ model: Proveedor, as: 'proveedor', attributes: ['id', 'nombre_comercial'] }],
+          attributes: ['id', 'proveedor_id', 'codigo_proveedor', 'descripcion_proveedor',
+                       'precio_detectado', 'veces_visto', 'unidad_detectada'],
+          order: [['veces_visto', 'DESC']],
+          limit: LIMITE_GRUPO,
+          subQuery: false,
+        }),
+
+        // 6. Equivalencias ya confirmadas
+        ProveedorProducto.findAll({
+          where: {
+            activo: true,
+            ...condiciones([
+              'codigo_proveedor', 'descripcion_proveedor',
+              '$producto.codigo$', '$producto.nombre$', '$proveedor.nombre_comercial$',
+            ]),
+          },
+          include: [
+            { model: Proveedor, as: 'proveedor', attributes: ['id', 'nombre_comercial'] },
+            { model: CatalogoProducto, as: 'producto', attributes: ['id', 'codigo', 'nombre'] },
+          ],
+          attributes: ['id', 'codigo_proveedor', 'descripcion_proveedor', 'unidad_compra',
+                       'precio_actual', 'fecha_precio_actual'],
+          limit: LIMITE_GRUPO,
+          subQuery: false,
+        }),
+
+        // 7. Documentos ya procesados
+        FacturaProveedorProcesada.findAll({
+          where: condiciones(['numero_factura', 'archivo_origen']),
+          include: [{ model: Proveedor, as: 'proveedor', attributes: ['id', 'nombre_comercial'] }],
+          attributes: ['id', 'numero_factura', 'fecha_emision', 'tipo_documento', 'motivo_omision'],
+          order: [['fecha_emision', 'DESC']],
+          limit: LIMITE_GRUPO,
+          subQuery: false,
+        }),
+      ]);
+
+    // ── Unificar los productos de las tres fuentes ────────────────────────────
+    // Un mismo producto puede llegar por varias vías; se conserva el motivo más
+    // específico para que el usuario entienda por qué se le está proponiendo.
+    const motivos = new Map<number, { tipo: string; detalle: string | null }>();
+
+    const registrarMotivo = (id: number, tipo: string, detalle: string | null) => {
+      const previo = motivos.get(id);
+      if (!previo || PESO_MOTIVO[tipo] < PESO_MOTIVO[previo.tipo]) {
+        motivos.set(id, { tipo, detalle });
+      }
+    };
+
+    const productosPorId = new Map<number, any>();
+
+    for (const p of porTexto) {
+      const id = Number(p.getDataValue('id'));
+      productosPorId.set(id, p);
+      const codigo = normalizarNombre(p.getDataValue('codigo'));
+      const coincidePorCodigo = palabras.some((w) => codigo.includes(normalizarNombre(w)));
+      registrarMotivo(id, coincidePorCodigo ? 'CODIGO' : 'NOMBRE', null);
+    }
+
+    for (const a of porAlias) {
+      registrarMotivo(Number(a.getDataValue('catalogo_producto_id')), 'ALIAS', String(a.getDataValue('alias')));
+    }
+
+    for (const pp of porCodigoProveedor) {
+      const id = Number(pp.getDataValue('catalogo_producto_id'));
+      const prov = (pp as any).getDataValue('proveedor');
+      const codProv = pp.getDataValue('codigo_proveedor');
+      registrarMotivo(id, 'CODIGO_PROVEEDOR', `${codProv}${prov ? ` · ${prov.nombre_comercial}` : ''}`);
+    }
+
+    // Traer los productos que llegaron por alias o por código de proveedor y que no
+    // estaban en la búsqueda por texto
+    const faltantes = Array.from(motivos.keys()).filter((id) => !productosPorId.has(id));
+    if (faltantes.length > 0) {
+      const extra = await CatalogoProducto.findAll({
+        where: { id: { [Op.in]: faltantes }, activo: true },
+        attributes: ['id', 'codigo', 'nombre', 'unidad_medida'],
+        limit: LIMITE_GRUPO * 2,
+      });
+      for (const p of extra) productosPorId.set(Number(p.getDataValue('id')), p);
+    }
+
+    // Ordenar por especificidad del motivo y recortar al límite del grupo
+    const idsProducto = Array.from(productosPorId.keys())
+      .sort((a, b) => {
+        const pa = PESO_MOTIVO[motivos.get(a)?.tipo ?? 'NOMBRE'];
+        const pb = PESO_MOTIVO[motivos.get(b)?.tipo ?? 'NOMBRE'];
+        if (pa !== pb) return pa - pb;
+        return String(productosPorId.get(a)?.getDataValue('codigo') ?? '')
+          .localeCompare(String(productosPorId.get(b)?.getDataValue('codigo') ?? ''));
+      })
+      .slice(0, LIMITE_GRUPO);
+
+    // ── Precio de referencia y número de proveedores ──────────────────────────
+    // Una sola consulta para todos los productos del resultado. Se traen las filas
+    // en lugar de un MIN() agregado porque hace falta saber a qué modalidad
+    // corresponde el precio más bajo: decir "desde $8.000" sin aclarar que es por
+    // metro, cuando el resto se compra por tira de 6 m, es peor que no decir nada.
+    const resumenPrecios = new Map<number, { total: number; min: number | null; unidad: string | null }>();
+    if (idsProducto.length > 0) {
+      const filasPrecio = await ProveedorProducto.findAll({
+        where: { catalogo_producto_id: { [Op.in]: idsProducto }, activo: true },
+        attributes: ['catalogo_producto_id', 'proveedor_id', 'precio_actual', 'unidad_compra'],
+      });
+
+      const proveedoresPorProducto = new Map<number, Set<number>>();
+      for (const fila of filasPrecio) {
+        const idProd = Number(fila.getDataValue('catalogo_producto_id'));
+        const precioRaw = fila.getDataValue('precio_actual');
+        const precio = precioRaw === null || precioRaw === undefined ? null : parseFloat(precioRaw);
+
+        if (!proveedoresPorProducto.has(idProd)) proveedoresPorProducto.set(idProd, new Set());
+        proveedoresPorProducto.get(idProd)!.add(Number(fila.getDataValue('proveedor_id')));
+
+        const actual = resumenPrecios.get(idProd) ?? { total: 0, min: null, unidad: null };
+        if (precio !== null && (actual.min === null || precio < actual.min)) {
+          actual.min = precio;
+          actual.unidad = fila.getDataValue('unidad_compra');
+        }
+        resumenPrecios.set(idProd, actual);
+      }
+
+      for (const [idProd, setProv] of proveedoresPorProducto.entries()) {
+        const actual = resumenPrecios.get(idProd) ?? { total: 0, min: null, unidad: null };
+        actual.total = setProv.size;
+        resumenPrecios.set(idProd, actual);
+      }
+    }
+
+    // ── Equivalencias por proveedor, para el grupo de proveedores ─────────────
+    const totalPorProveedor = new Map<number, number>();
+    const idsProveedor = proveedores.map((p) => Number(p.getDataValue('id')));
+    if (idsProveedor.length > 0) {
+      const conteos: any[] = await ProveedorProducto.findAll({
+        where: { proveedor_id: { [Op.in]: idsProveedor }, activo: true },
+        attributes: ['proveedor_id', [fn('COUNT', col('id')), 'total']],
+        group: ['proveedor_id'],
+        raw: true,
+      });
+      for (const c of conteos) totalPorProveedor.set(Number(c.proveedor_id), Number(c.total));
+    }
+
+    // ── Armar la respuesta ────────────────────────────────────────────────────
+    const gruposProductos = idsProducto.map((id) => {
+      const p = productosPorId.get(id);
+      const resumen = resumenPrecios.get(id);
+      return {
+        id,
+        codigo: p.getDataValue('codigo'),
+        nombre: p.getDataValue('nombre'),
+        unidad_medida: p.getDataValue('unidad_medida'),
+        total_proveedores: resumen?.total ?? 0,
+        precio_min: resumen?.min ?? null,
+        unidad_precio_min: resumen?.unidad ?? null,
+        motivo: motivos.get(id) ?? { tipo: 'NOMBRE', detalle: null },
+      };
+    });
+
+    const gruposProveedores = proveedores.map((p) => ({
+      id: p.getDataValue('id'),
+      nombre_comercial: p.getDataValue('nombre_comercial'),
+      nit: p.getDataValue('nit'),
+      seguir_precios: p.getDataValue('seguir_precios'),
+      total_equivalencias: totalPorProveedor.get(Number(p.getDataValue('id'))) ?? 0,
+    }));
+
+    const resultado = {
+      termino: q,
+      productos: gruposProductos,
+      proveedores: gruposProveedores,
+      pendientes: pendientes.map((b: any) => b.toJSON()),
+      equivalencias: equivalencias.map((e: any) => e.toJSON()),
+      facturas: facturas.map((f: any) => f.toJSON()),
+    };
+
+    res.json({
+      ...resultado,
+      total:
+        resultado.productos.length + resultado.proveedores.length + resultado.pendientes.length +
+        resultado.equivalencias.length + resultado.facturas.length,
+    });
+  } catch (err: any) {
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo completar la búsqueda');
+    fallar(res, status, mensaje, err);
+  }
+};
+
 // ─── GET /api/proveedores/consulta ───────────────────────────────────────────
 /**
  * Pantalla principal: busca un producto por código, nombre, alias o ID y retorna
@@ -609,6 +889,32 @@ export const consultarPrecios = async (req: Request, res: Response) => {
 
       let candidatos = porTexto;
 
+      // 3. El código con el que lo factura el proveedor. Es el dato que uno tiene
+      //    delante al mirar una factura de VEA o Vitelsa, y hasta ahora escribirlo
+      //    aquí no encontraba nada: solo servía dentro de la bandeja.
+      if (candidatos.length === 0) {
+        const porCodigoProveedor = await ProveedorProducto.findAll({
+          where: {
+            activo: true,
+            [Op.or]: [
+              { codigo_proveedor: { [Op.iLike]: patron } },
+              { descripcion_proveedor: { [Op.iLike]: patron } },
+            ],
+          },
+          include: [{ model: CatalogoProducto, as: 'producto', attributes: atributosProducto }],
+          limit: 12,
+        });
+        const vistos = new Set<number>();
+        candidatos = porCodigoProveedor
+          .map((pp: any) => pp.getDataValue('producto'))
+          .filter((p: any) => {
+            if (!p || vistos.has(p.id)) return false;
+            vistos.add(p.id);
+            return true;
+          });
+      }
+
+      // 4. Sinónimos aprendidos en mapeos anteriores
       if (candidatos.length === 0) {
         const alias = await ProductoAlias.findAll({
           where: { alias: { [Op.iLike]: patron } },

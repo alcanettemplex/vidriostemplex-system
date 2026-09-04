@@ -7,6 +7,7 @@ import ProveedoresTab from './components/tabs/ProveedoresTab';
 import CargarFacturasTab from './components/tabs/CargarFacturasTab';
 import PorMapearTab from './components/tabs/PorMapearTab';
 import EquivalenciasTab from './components/tabs/EquivalenciasTab';
+import BuscadorProveedores, { SeleccionBusqueda } from './components/BuscadorProveedores';
 import API from '../../services/config';
 
 const FOLDER_BODY =
@@ -19,10 +20,23 @@ export interface ProveedorCompacto {
   seguir_precios?: boolean;
 }
 
+/**
+ * Contexto que la barra de búsqueda entrega a una pestaña al elegir un resultado.
+ * El `nonce` fuerza el remontaje: sin él, elegir dos veces el mismo proveedor no
+ * volvería a aplicar el filtro, porque el valor no habría cambiado.
+ */
+interface ContextoTab {
+  tab: string;
+  producto?: number;
+  busqueda?: string;
+  nonce: number;
+}
+
 const ProveedoresPage: React.FC = () => {
   const [tab, setTab] = useState('consultar');
   const [pendientesCount, setPendientesCount] = useState<number>(0);
   const [proveedores, setProveedores] = useState<ProveedorCompacto[]>([]);
+  const [contexto, setContexto] = useState<ContextoTab | null>(null);
 
   /** Solo el número: antes se descargaba la bandeja completa para hacer un .length */
   const fetchPendientesCount = useCallback(async () => {
@@ -54,6 +68,37 @@ const ProveedoresPage: React.FC = () => {
     fetchPendientesCount();
     fetchProveedores();
   }, [fetchPendientesCount, fetchProveedores]);
+
+  /** Cada tipo de resultado sabe a qué pestaña pertenece y con qué filtro entrar */
+  const irAResultado = useCallback((seleccion: SeleccionBusqueda) => {
+    const nonce = Date.now();
+    switch (seleccion.tipo) {
+      case 'producto':
+        setContexto({ tab: 'consultar', producto: seleccion.id, nonce });
+        setTab('consultar');
+        break;
+      case 'proveedor':
+        setContexto({ tab: 'maestro', busqueda: seleccion.etiqueta, nonce });
+        setTab('maestro');
+        break;
+      case 'pendiente':
+        setContexto({ tab: 'mapear', busqueda: seleccion.codigo, nonce });
+        setTab('mapear');
+        break;
+      case 'equivalencia':
+        setContexto({ tab: 'equivalencias', busqueda: seleccion.codigo, nonce });
+        setTab('equivalencias');
+        break;
+      case 'factura':
+        setContexto({ tab: 'cargar', busqueda: seleccion.termino, nonce });
+        setTab('cargar');
+        break;
+    }
+  }, []);
+
+  /** El contexto solo aplica a la pestaña para la que se generó */
+  const contextoDe = (clave: string) => (contexto?.tab === clave ? contexto : null);
+  const claveRemontaje = (clave: string) => `${clave}-${contextoDe(clave)?.nonce ?? 0}`;
 
   const tabs: FolderTabItem[] = [
     {
@@ -98,14 +143,24 @@ const ProveedoresPage: React.FC = () => {
         </p>
       </div>
 
+      {/* ── Buscador transversal ── */}
+      <BuscadorProveedores onSeleccion={irAResultado} />
+
       {/* ── Tabs ── */}
       <div className="relative">
         <FolderTabs tabs={tabs} activeKey={tab} onChange={setTab} />
         <div className={FOLDER_BODY}>
-          {tab === 'consultar' && <ConsultarPreciosTab />}
+          {tab === 'consultar' && (
+            <ConsultarPreciosTab
+              key={claveRemontaje('consultar')}
+              productoInicial={contextoDe('consultar')?.producto}
+            />
+          )}
           {tab === 'cargar' && (
             <CargarFacturasTab
+              key={claveRemontaje('cargar')}
               proveedores={proveedores}
+              busquedaFacturasInicial={contextoDe('cargar')?.busqueda}
               onIrAPorMapear={() => setTab('mapear')}
               onLoteProcesado={() => {
                 fetchPendientesCount();
@@ -115,15 +170,25 @@ const ProveedoresPage: React.FC = () => {
           )}
           {tab === 'mapear' && (
             <PorMapearTab
+              key={claveRemontaje('mapear')}
               proveedores={proveedores}
+              busquedaInicial={contextoDe('mapear')?.busqueda}
               onActualizarContador={fetchPendientesCount}
               onProveedoresCambiados={fetchProveedores}
             />
           )}
-          {tab === 'maestro' && <ProveedoresTab onCambio={fetchProveedores} />}
+          {tab === 'maestro' && (
+            <ProveedoresTab
+              key={claveRemontaje('maestro')}
+              busquedaInicial={contextoDe('maestro')?.busqueda}
+              onCambio={fetchProveedores}
+            />
+          )}
           {tab === 'equivalencias' && (
             <EquivalenciasTab
+              key={claveRemontaje('equivalencias')}
               proveedores={proveedores}
+              busquedaInicial={contextoDe('equivalencias')?.busqueda}
               onActualizarContador={fetchPendientesCount}
             />
           )}

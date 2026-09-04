@@ -36,15 +36,17 @@ interface ResultadoImport {
 interface Props {
   /** Avisa a la página para refrescar el maestro compartido con las otras pestañas */
   onCambio?: () => void;
+  /** Filtro con el que entra la pestaña cuando se llega desde el buscador del módulo */
+  busquedaInicial?: string;
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
-const ProveedoresTab: React.FC<Props> = ({ onCambio }) => {
+const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busqueda, setBusqueda] = useState('');
-  const [busquedaAplicada, setBusquedaAplicada] = useState('');
+  const [busqueda, setBusqueda] = useState(busquedaInicial ?? '');
+  const [busquedaAplicada, setBusquedaAplicada] = useState(busquedaInicial ?? '');
   const [filtroActivo, setFiltroActivo] = useState<boolean | null>(null);
   const [modalNuevo, setModalNuevo] = useState(false);
   const [modalPrecio, setModalPrecio] = useState<{ proveedor: Proveedor } | null>(null);

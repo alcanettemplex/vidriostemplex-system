@@ -1247,6 +1247,45 @@ Durante la verificación falló una comprobación legítima: con `blankrows: fal
 - Sin fusión de proveedores duplicados (`VyP`/`VYP`), sin pantalla para corregir alias mal aprendidos, y sin el cálculo del sobrecosto de fraccionar (tira vs metro).
 - Los 49 códigos puramente numéricos previos al fix del parser siguen esperando revisión humana.
 
+---
+
+## 2026-09-03 (2) — Proveedores: buscador transversal del módulo
+
+### Contexto
+
+El usuario pidió poder escribir en un solo lugar y que el sistema fuera relacionando código, producto, descripción y proveedor. Se levantó primero el estado real: **el módulo tenía seis buscadores con seis alcances distintos**, y el reparto estaba invertido — el más completo (Equivalencias, que ya cruzaba cinco campos) era el más escondido, mientras que el principal (Consultar Precios) era el más pobre de los seis **y el único que exigía Enter**.
+
+Tres carencias concretas en la pantalla principal: escribir el código del proveedor no encontraba nada (justo el dato que uno tiene delante al mirar una factura de VEA o Vitelsa), escribir el nombre del proveedor tampoco, y las palabras sueltas no funcionaban ("vidrio incoloro 6" no encontraba "VIDRIO TEMPLADO 6MM INCOLORO", porque se buscaba la frase literal).
+
+**Hallazgo lateral:** el sistema ya tiene un buscador global (`/api/search`, ODP + clientes + prospectos + leads) con exactamente este patrón, pero **ninguna pantalla lo consume**. Es un endpoint huérfano, como los tres módulos frontend que documenta `CLAUDE.md`. Se descartó extenderlo para proveedores: lo usan todos los roles y los precios de compra solo pueden verlos `root`/`admin`; meter costos ahí sería una fuga esperando ocurrir.
+
+### Decisión de diseño que redujo el trabajo
+
+En vez de reescribir la lógica de `consultarPrecios` —delicada y ya endurecida— se construyó **un solo motor de sugerencias que alimenta las dos piezas**: la barra del módulo y el autocompletado de la pantalla principal. Ambas entienden lo mismo por construcción, y `consultarPrecios` conserva su contrato.
+
+### Cambios realizados
+
+**Backend**
+- `GET /api/proveedores/buscar` (nuevo) — devuelve cinco grupos (productos, proveedores, por mapear, equivalencias, documentos procesados), 5 resultados cada uno, mínimo 3 caracteres. Las palabras se cruzan en AND y los campos en OR, de modo que el orden en que se escriban no importa.
+- Cada producto sugerido trae **por qué apareció** (`motivo`: código propio, código del proveedor con su nombre, sinónimo aprendido, o nombre) y su **precio de referencia con la modalidad**: se traen las filas de precio en una sola consulta en lugar de un `MIN()` agregado, porque decir "desde $8.000" sin aclarar que es por metro —cuando el resto se compra por tira de 6 m— induce peor error que no decir nada.
+- `consultarPrecios` — se añadió el código y la descripción del proveedor como fuente de búsqueda, después del código propio y antes de los sinónimos. Sin cambios de contrato.
+
+**Frontend**
+- `hooks/useBusquedaModulo.ts` (nuevo) — mínimo de 3 letras, espera de 300 ms y **cancelación de la consulta anterior**: sin eso, la respuesta lenta de "vid" puede llegar después de la de "vidrio" y pisar en pantalla el resultado correcto.
+- `BuscadorProveedores.tsx` (nuevo) — la barra única, con resultados agrupados y navegación por teclado (↑ ↓, Enter, Esc).
+- `ProveedoresPage` — enruta cada tipo de resultado a su pestaña con el filtro puesto. Usa un `nonce` en la `key` para forzar el remontaje: sin él, elegir dos veces el mismo proveedor no volvería a aplicar el filtro porque el valor no habría cambiado.
+- Las cinco pestañas aceptan un filtro de entrada opcional (`busquedaInicial` / `productoInicial`), inicializando también el valor ya "aplicado" para no gastar una consulta sin filtro antes del debounce.
+- `ConsultarPreciosTab` — el input sugiere mientras se escribe; **el botón y el Enter siguen funcionando** para quien ya tiene el hábito.
+- El panel de documentos procesados nace abierto y filtrado cuando se llega a él desde el buscador.
+
+### Verificación
+
+**28 comprobaciones end-to-end** contra el backend levantado y la BD real, con dos proveedores y un producto sintéticos vendido por ambos en modalidades distintas: umbral de 3 letras, búsqueda por código propio / palabras en desorden / sinónimo / código de proveedor con su motivo correcto en cada caso, precio mínimo con su modalidad (12.000 por metro frente a 45.000 por unidad), conteo de proveedores, grupos de proveedor por nombre y por NIT, bandeja que **no** resucita un código descartado, documentos por número, producto inactivo que no se propone, término sin coincidencias, y cuatro regresiones del comparador. Todas pasaron; BD verificada sin residuos. `tsc --noEmit` limpio en ambos proyectos.
+
+### Pendientes
+
+Sin cambios de esquema. Con los volúmenes actuales (1.212 productos, 1.011 proveedores) las búsquedas por texto no necesitan índices; si el catálogo crece mucho, habría que evaluar `pg_trgm`. El buscador global huérfano (`/api/search`) sigue sin consumidor: queda anotado por si algún día se decide revivirlo o retirarlo.
+
 ### Adenda — la tab "Pendientes de cierre" ya no se oculta
 
 El usuario reportó que en Instalaciones había una pestaña desde la que cerraba instalaciones y ya no la veía. Diagnóstico: la tab existe —se llamaba "Atascadas" y el commit 5a96168 la renombró a "Pendientes de cierre"— pero `JefeView.tsx:536` solo la pintaba si `atascadas.length > 0`, y la consulta de `/api/rutas/atascadas` devolvía 0 filas (ninguna ODP en `INSTALANDO`, ninguna `PROGRAMADA` vencida, y ninguna de las 12 en `INSTALADA` con parada abierta). La regla de ocultamiento ya existía antes del renombrado.

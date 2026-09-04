@@ -33,6 +33,8 @@ interface FacturaProcesada {
 
 interface Props {
   proveedores: ProveedorCompacto[];
+  /** Al llegar desde el buscador del módulo, el panel se abre ya filtrado por esa factura */
+  busquedaInicial?: string;
 }
 
 const ETIQUETA_MOTIVO: Record<string, string> = {
@@ -49,13 +51,15 @@ const formatFecha = (val: string | null): string => {
   return `${d}-${meses[parseInt(m) - 1]}-${y.slice(2)}`;
 };
 
-const FacturasProcesadasPanel: React.FC<Props> = ({ proveedores }) => {
-  const [abierto, setAbierto] = useState(false);
+const FacturasProcesadasPanel: React.FC<Props> = ({ proveedores, busquedaInicial }) => {
+  // Si se llega buscando una factura concreta, el panel nace abierto: obligar a
+  // desplegarlo a mano sería devolver al usuario al punto de partida.
+  const [abierto, setAbierto] = useState(!!busquedaInicial);
   const [items, setItems] = useState<FacturaProcesada[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [q, setQ] = useState('');
-  const [qAplicado, setQAplicado] = useState('');
+  const [q, setQ] = useState(busquedaInicial ?? '');
+  const [qAplicado, setQAplicado] = useState(busquedaInicial ?? '');
   const [filtroProveedor, setFiltroProveedor] = useState('');
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);

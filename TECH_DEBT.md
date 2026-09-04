@@ -4,6 +4,26 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-03 (2) — Buscadores del módulo Proveedores: seis alcances distintos, unificados
+
+**Severidad:** Media (usabilidad + una carencia funcional real) — **resuelto**. Detalle en `SESSION_LOG.md` 2026-09-03 (2).
+
+**El problema:** el módulo tenía seis buscadores y el reparto estaba invertido. El de *Equivalencias* —el más escondido— ya cruzaba cinco campos; el de *Consultar Precios* —la pantalla que motivó el módulo— era el más pobre y el único que exigía Enter. Escribir el código del proveedor no encontraba nada, pese a ser el dato que uno tiene delante al mirar una factura.
+
+**Resuelto** con un motor único (`GET /api/proveedores/buscar`) que alimenta la barra transversal del módulo y el autocompletado de la pantalla principal, más el hook `useBusquedaModulo` (mínimo 3 caracteres, 300 ms de espera, cancelación de la consulta anterior).
+
+### Hallazgo colateral
+
+🟡 **`/api/search` es un endpoint huérfano.** El buscador global del ERP (ODP, clientes, prospectos, leads) existe en el backend y **ninguna pantalla lo llama** — verificado por búsqueda en todo `frontend-web/src`. Se sumó a la lista de huérfanos junto a `evidencias`, `cotizaciones` y `reportes`. Decidir: montarle una UI o retirarlo. **Estimación:** 3 h montarlo, 10 min retirarlo.
+
+**No se extendió `/api/search` con proveedores a propósito:** lo consultan todos los roles autenticados y los precios de compra son exclusivos de `root`/`admin`. Mezclarlos exigiría filtrar por rol dentro del buscador global, y un descuido ahí expone los costos.
+
+### Nota de rendimiento
+
+Las búsquedas usan `iLike '%texto%'`, que no aprovecha índices B-tree. Con 1.212 productos y 1.011 proveedores es irrelevante; si el catálogo crece un orden de magnitud, evaluar `pg_trgm` con índices GIN. **Estimación:** 2 h llegado el caso.
+
+---
+
 ## 2026-09-03 — Proveedores: Fase 3 construida y 4 defectos corregidos
 
 **Severidad:** Media (1 bug de robustez), Baja (3 de rendimiento/seguridad) — **todos corregidos**. Detalle de la sesión en `SESSION_LOG.md` 2026-09-03.

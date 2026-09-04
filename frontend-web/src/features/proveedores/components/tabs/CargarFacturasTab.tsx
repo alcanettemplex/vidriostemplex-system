@@ -18,6 +18,8 @@ interface Props {
   onLoteProcesado?: () => void;
   /** Maestro compacto compartido por la página: lo usan la lista de precios y la bitácora */
   proveedores: ProveedorCompacto[];
+  /** Número de factura con el que entrar al historial cuando se llega desde el buscador */
+  busquedaFacturasInicial?: string;
 }
 
 interface ArchivoEnCola {
@@ -81,7 +83,7 @@ const formatCOP = (val: number | null | undefined): string => {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
 };
 
-const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, proveedores }) => {
+const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, proveedores, busquedaFacturasInicial }) => {
   const [cola, setCola] = useState<ArchivoEnCola[]>([]);
   const [procesando, setProcesando] = useState(false);
   const [progreso, setProgreso] = useState(0);
@@ -741,7 +743,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
       <ImportarListaPreciosPanel proveedores={proveedores} onAplicado={onLoteProcesado} />
 
       {/* ── Bitácora: qué documentos ya entraron ── */}
-      <FacturasProcesadasPanel proveedores={proveedores} />
+      <FacturasProcesadasPanel proveedores={proveedores} busquedaInicial={busquedaFacturasInicial} />
 
     </div>
   );

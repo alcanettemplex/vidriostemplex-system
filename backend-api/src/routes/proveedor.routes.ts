@@ -28,6 +28,7 @@ import {
   historicoEquivalencia,
   listarFacturasProcesadas,
   importarListaPrecios,
+  buscarEnModulo,
 } from '../controllers/proveedor.controller';
 
 const router = Router();
@@ -61,6 +62,9 @@ const manejarErroresCarga = (subir: any) => (req: Request, res: Response, next: 
 // ─── Maestro de proveedores ───────────────────────────────────────────────────
 router.get('/', listarProveedores);
 router.post('/', crearProveedor);
+
+// ─── Buscador transversal del módulo (barra única + autocompletado) ──────────
+router.get('/buscar', buscarEnModulo);
 
 // ─── Consulta comparativa de precios (la pantalla principal) ──────────────────
 // Dos alias históricos del mismo endpoint; ambos en uso desde el frontend.
