@@ -11,6 +11,27 @@ import { uploadConfig } from '../config/upload';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+// Cierra la ruta padre cuando ya no le queda ninguna parada pendiente. La usan
+// finalizarInstalacion (flujo normal del instalador) y las dos acciones del panel
+// "Pendientes de cierre" (entregarAtascada, reprogramarAtascada), que cierran la
+// parada (ruta_odp) pero antes no repetían este chequeo — la ruta se quedaba
+// "programada"/"en_curso" para siempre aunque sus ODPs ya estuvieran completadas.
+// El where con estado IN (programada, en_curso) evita resucitar una ruta ya
+// cancelada: cancelarRuta nunca toca ruta_odp.estado, así que una parada
+// "pendiente" de una ruta cancelada puede llegar intacta hasta acá.
+const cerrarRutaSiSinPendientes = async (rutaId: number, fin: Date, t: Transaction) => {
+  const pendientes = await RutaODP.count({
+    where: { ruta_id: rutaId, estado: { [Op.ne]: 'completada' } },
+    transaction: t,
+  });
+  if (pendientes === 0) {
+    await RutaInstalacion.update(
+      { estado: 'completada', fin_ruta: fin },
+      { where: { id: rutaId, estado: { [Op.in]: ['programada', 'en_curso'] } }, transaction: t }
+    );
+  }
+};
+
 // Lista: sin SAP/ODC — se usa en getRutas (listado). El detalle por ID usa INCLUDE_RUTA_COMPLETA.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const INCLUDE_RUTA_LISTA = async (): Promise<any[]> => [
@@ -890,13 +911,7 @@ export const finalizarInstalacion = async (req: Request, res: Response) => {
     }
 
     // ¿Todas las ODPs de la ruta completadas? → ruta = completada
-    const pendientesEnRuta = await RutaODP.count({
-      where: { ruta_id: rutaODP.ruta_id, estado: { [Op.ne]: 'completada' } },
-      transaction: t,
-    });
-    if (pendientesEnRuta === 0) {
-      await RutaInstalacion.update({ estado: 'completada' }, { where: { id: rutaODP.ruta_id }, transaction: t });
-    }
+    await cerrarRutaSiSinPendientes(rutaODP.ruta_id, ahora, t);
 
     await t.commit();
 
@@ -1461,6 +1476,7 @@ export const reprogramarAtascada = async (req: Request, res: Response) => {
     const parada = await buscarParadaActiva(Number(odpId), t);
     if (parada) {
       await parada.update({ estado: 'completada', fin_instalacion: ahora }, { transaction: t });
+      await cerrarRutaSiSinPendientes(parada.ruta_id, ahora, t);
     }
 
     await odp.update({ estado_produccion: 'LISTO_INSTALAR' }, { transaction: t });
@@ -1528,6 +1544,7 @@ export const entregarAtascada = async (req: Request, res: Response) => {
     const parada = await buscarParadaActiva(Number(odpId), t);
     if (parada) {
       await parada.update({ estado: 'completada', fin_instalacion: ahora }, { transaction: t });
+      await cerrarRutaSiSinPendientes(parada.ruta_id, ahora, t);
     }
 
     await odp.update({ estado_produccion: 'ENTREGADA' }, { transaction: t });
