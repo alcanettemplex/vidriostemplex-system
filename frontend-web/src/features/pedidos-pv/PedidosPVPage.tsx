@@ -527,7 +527,16 @@ const PedidosPVPage: React.FC = () => {
       cerrarModalCrear();
       cargarDatos();
       cargarPorGestionar();
-    } catch { setError('Error al crear pedido PV'); }
+    } catch (e) {
+      // El backend explica la causa real (400 de validación de ítems, 403 por
+      // `puede_gestionar_pv`…). El catch ciego que había antes las colapsaba todas en un
+      // mismo mensaje y volvía indescifrable cualquier fallo. Se filtra por `string`
+      // porque el 400 de `createPedidoPV` devuelve `error` como array de issues de Zod.
+      const detalle = axios.isAxiosError(e) ? e.response?.data?.error : undefined;
+      setError(typeof detalle === 'string'
+        ? `No se pudo crear el pedido PV: ${detalle}`
+        : 'Error al crear pedido PV');
+    }
   };
 
   const enviarPedido = async () => {
@@ -1368,18 +1377,25 @@ const PedidosPVPage: React.FC = () => {
                         {/* ACABADOS */}
                         <Box sx={{ flex: 1, minWidth: 260, borderLeft: '1px solid', borderColor: 'divider', pl: 1.5 }}>
                           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
-                            {[
-                              { label: 'PUL A*', field: 'pulidos', type: 'number' },
-                              { label: 'PUL H*', field: 'pulidos_h', type: 'number' },
+                            {([
+                              // `guardaTexto`: el campo se PINTA como número (teclado numérico y
+                              // alineación centrada) pero se GUARDA como string. Es obligatorio en
+                              // pulidos/pulidos_h, que son texto en el modelo (STRING(10)) y en la
+                              // BD: convertirlos con parseInt hacía que
+                              // POST /odp/:id/items respondiera 400 en cuanto se tocaba PUL A o PUL H
+                              // —incluso al borrarlos, porque `parseInt('') || 0` da el número 0—.
+                              // `perforaciones` y `boquetes` sí son INTEGER, por eso no lo llevan.
+                              { label: 'PUL A*', field: 'pulidos', type: 'number', guardaTexto: true },
+                              { label: 'PUL H*', field: 'pulidos_h', type: 'number', guardaTexto: true },
                               { label: 'Perf.', field: 'perforaciones', type: 'number' },
                               { label: 'Boq.', field: 'boquetes', type: 'number' },
                               { label: 'Des.', field: 'descuentos', type: 'text' },
                               { label: 'Otros**', field: 'otros', type: 'text' },
-                            ].map(({ label, field, type }) => (
+                            ] as { label: string; field: string; type: string; guardaTexto?: boolean }[]).map(({ label, field, type, guardaTexto }) => (
                               <Box key={field}>
                                 <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>{label}</Typography>
                                 <TextField size="small" fullWidth type={type} value={(it as any)[field]}
-                                  onChange={(e) => upd(field, type === 'number' ? (parseInt(e.target.value) || 0) : e.target.value)}
+                                  onChange={(e) => upd(field, (type === 'number' && !guardaTexto) ? (parseInt(e.target.value) || 0) : e.target.value)}
                                   sx={{ mt: 0.5 }} inputProps={{ style: { fontSize: 12, textAlign: type === 'number' ? 'center' : 'left' }, min: 0 }} />
                               </Box>
                             ))}

@@ -54,8 +54,12 @@ const odpItemSchema = z.object({
   carton: z.boolean().nullable().optional(),
   huacal: z.boolean().nullable().optional(),
   accesorios: z.string().nullable().optional(),
-  pulidos: z.string().nullable().optional(),
-  pulidos_h: z.string().nullable().optional(),
+  // STRING(10) en el modelo, pero varios formularios los pintan como input numérico y
+  // mandan `number` (el modal de Nuevo Pedido PV lo hacía con parseInt: cualquier valor
+  // en PUL A/PUL H tumbaba el POST con 400). Se coercionan igual que `espesor`; la
+  // coerción no toca null/undefined porque ZodNullable/ZodOptional cortan antes.
+  pulidos: z.coerce.string().nullable().optional(),
+  pulidos_h: z.coerce.string().nullable().optional(),
   perforaciones: z.preprocess(aEnteroOPosibleNull, z.number().int().nonnegative().nullable().optional().default(0)),
   boquetes: z.preprocess(aEnteroOPosibleNull, z.number().int().nonnegative().nullable().optional().default(0)),
   descuentos: z.string().nullable().optional(),
