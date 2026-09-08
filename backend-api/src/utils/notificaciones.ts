@@ -25,6 +25,7 @@ const ESTADO_LABELS: Record<string, string> = {
   INSTALADA:            'Instalada',
   ENTREGADA:            'Entregada',
   PAUSADA:              'Pausada',
+  ANULADA:              'Anulada',
 };
 
 // ─── Includes del listado de ODPs ────────────────────────────────────────────

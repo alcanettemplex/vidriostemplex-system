@@ -74,7 +74,7 @@ const odpSchema = z.object({
   numero_odp: z.string().optional(),
   cliente_id: z.number().int().positive('ID de cliente requerido'),
   asesor_id: z.number().int().positive('ID de asesor requerido').optional(),
-  estado_produccion: z.enum(['EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA']).optional(),
+  estado_produccion: z.enum(['EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA', 'ANULADA']).optional(),
   estado_facturacion: z.enum(['PENDIENTE', 'FACTURADA']).optional(),
   estado_caja: z.enum(['PENDIENTE', 'ABONADO', 'CANCELADO', 'CREDITO_APROBADO']).optional(),
   factura_electronica: z.string().optional(),
@@ -810,6 +810,20 @@ export const updateODP = async (req: Request, res: Response) => {
     }
 
     console.log(`Update ODP ${id} - Rol: ${rolUsuario}, Taller: ${esTaller}, Creador: ${esCreador}`);
+
+    // ─── ANULADA solo se establece/quita desde los endpoints dedicados ───────
+    // /:id/anular exige motivo y deja rastro explícito en historial_estados_odp;
+    // /:id/reactivar hace lo simétrico. Permitir el salto desde el PUT genérico
+    // dejaría anulaciones sin motivo y ediciones (ítems, financieros) sobre una ODP
+    // que se supone congelada mientras está anulada.
+    if (data.estado_produccion === 'ANULADA') {
+      await transaction.rollback();
+      return res.status(400).json({ error: 'Para anular una ODP usa la acción "Anular ODP" (requiere motivo).' });
+    }
+    if (odp.getDataValue('estado_produccion') === 'ANULADA') {
+      await transaction.rollback();
+      return res.status(400).json({ error: 'Esta ODP está anulada. Usa la acción "Reactivar ODP" para volver a editarla.' });
+    }
 
     // ─── La forma de pago no se puede cambiar tras crear la ODP, salvo admin/gerencia ───
     const formaPagoCambia = data.forma_pago !== undefined && data.forma_pago !== odp.getDataValue('forma_pago');
@@ -1757,7 +1771,7 @@ export const agregarItems = async (req: Request, res: Response) => {
       const estadoActual = odp.getDataValue('estado_produccion') as string;
       const rolUsuario = req.user?.rol;
       const esAdminOGerencia = rolUsuario === 'admin' || rolUsuario === 'gerencia';
-      if (['INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA'].includes(estadoActual) && !esAdminOGerencia) {
+      if (['INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA', 'ANULADA'].includes(estadoActual) && !esAdminOGerencia) {
         throw new Error(`No se pueden agregar ítems a una ODP en estado ${estadoActual}`);
       }
 
@@ -1862,6 +1876,121 @@ export const aprobarSinItems = async (req: Request, res: Response) => {
     await transaction.rollback();
     console.error('Error al liberar ODP sin items:', error);
     res.status(500).json({ error: 'Error al liberar ODP', details: error?.message });
+  }
+};
+
+// ─── PATCH /odp/:id/anular ─────────────────────────────────────────────────────
+// Alternativa no destructiva a deleteODP: la ODP no procede, pero el registro y su
+// historial se conservan intactos (nada se borra ni se toca en cascada — rutas,
+// pedidos PV y la ODP padre por no conformidad, si los hay, quedan como están para
+// que quien anula los revise a mano). Motivo obligatorio, queda en
+// historial_estados_odp.observacion junto con el estado del que se anuló, que es
+// lo que /reactivar usa para volver atrás.
+export const anularODP = async (req: Request, res: Response) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const schema = z.object({ motivo: z.string().trim().min(1, 'El motivo de anulación es obligatorio') });
+    const { motivo } = schema.parse(req.body);
+
+    const odp = await ODP.findByPk(id, { transaction });
+    if (!odp) { await transaction.rollback(); return res.status(404).json({ error: 'ODP no encontrada' }); }
+
+    // Ownership: solo el creador (asesor_comercial), admin o gerencia — mismo criterio que deleteODP.
+    if (!['admin', 'gerencia'].includes(req.user?.rol ?? '')) {
+      if (Number(odp.getDataValue('asesor_id')) !== Number(req.user?.id)) {
+        await transaction.rollback();
+        return res.status(403).json({ error: 'Solo el creador de la ODP puede anularla' });
+      }
+    }
+
+    const estadoActual = odp.getDataValue('estado_produccion') as string;
+    if (estadoActual === 'ANULADA') {
+      await transaction.rollback();
+      return res.status(400).json({ error: 'La ODP ya está anulada' });
+    }
+
+    await odp.update({ estado_produccion: 'ANULADA' }, { transaction });
+    await HistorialEstadoODP.create({
+      odp_id: id, estado_anterior: estadoActual, estado_nuevo: 'ANULADA',
+      usuario_id: req.user?.id || null, fecha: new Date(),
+      observacion: motivo,
+    }, { transaction });
+
+    await transaction.commit();
+
+    const numeroOdp = odp.getDataValue('numero_odp');
+    const odpId = odp.getDataValue('id');
+    const asesorId = odp.getDataValue('asesor_id');
+    import('../utils/notificaciones').then(({ notificarCambioEstadoODP, emitirODPPatch }) => {
+      notificarCambioEstadoODP({
+        numero_odp: numeroOdp, odp_id: odpId, asesor_id: asesorId,
+        estado_nuevo: 'ANULADA', mensaje: `ODP anulada: ${motivo}`,
+      });
+      emitirODPPatch(odpId, 'update');
+    }).catch(err => console.error('Error notificación anular ODP:', err));
+
+    const odpActualizada = await ODP.findByPk(id);
+    res.json(odpActualizada);
+  } catch (error: any) {
+    try { await transaction.rollback(); } catch { /* ya cerrada */ }
+    if (error instanceof z.ZodError) return res.status(400).json({ error: 'Datos inválidos', detalles: (error as any).errors });
+    console.error('Error al anular ODP:', error);
+    res.status(500).json({ error: 'Error al anular ODP', details: error?.message });
+  }
+};
+
+// ─── PATCH /odp/:id/reactivar ──────────────────────────────────────────────────
+// Revierte una anulación por error o porque el cliente retomó el pedido. Vuelve al
+// estado_anterior guardado en el último historial de anulación (EN_ESPERA si por algún
+// motivo no hay ese dato). ⚠️ Si ese estado previo era PROGRAMADA/INSTALANDO, la ODP
+// vuelve a mostrarse en ese estado aunque su ruta ya haya seguido su curso sin ella
+// (anular no toca ruta_odp) — producción/logística debe revisar la ruta a mano.
+export const reactivarODP = async (req: Request, res: Response) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const odp = await ODP.findByPk(id, { transaction });
+    if (!odp) { await transaction.rollback(); return res.status(404).json({ error: 'ODP no encontrada' }); }
+
+    if (odp.getDataValue('estado_produccion') !== 'ANULADA') {
+      await transaction.rollback();
+      return res.status(400).json({ error: 'Solo se puede reactivar una ODP anulada' });
+    }
+
+    const ultimaAnulacion = await HistorialEstadoODP.findOne({
+      where: { odp_id: id, estado_nuevo: 'ANULADA' },
+      order: [['fecha', 'DESC'], ['id', 'DESC']],
+      transaction,
+    });
+    const estadoPrevio = (ultimaAnulacion?.getDataValue('estado_anterior') as string) || 'EN_ESPERA';
+
+    await odp.update({ estado_produccion: estadoPrevio }, { transaction });
+    await HistorialEstadoODP.create({
+      odp_id: id, estado_anterior: 'ANULADA', estado_nuevo: estadoPrevio,
+      usuario_id: req.user?.id || null, fecha: new Date(),
+      observacion: 'ODP reactivada.',
+    }, { transaction });
+
+    await transaction.commit();
+
+    const numeroOdp = odp.getDataValue('numero_odp');
+    const odpId = odp.getDataValue('id');
+    const asesorId = odp.getDataValue('asesor_id');
+    import('../utils/notificaciones').then(({ notificarCambioEstadoODP, emitirODPPatch }) => {
+      notificarCambioEstadoODP({
+        numero_odp: numeroOdp, odp_id: odpId, asesor_id: asesorId,
+        estado_nuevo: estadoPrevio, mensaje: 'ODP reactivada tras anulación.',
+      });
+      emitirODPPatch(odpId, 'update');
+    }).catch(err => console.error('Error notificación reactivar ODP:', err));
+
+    const odpActualizada = await ODP.findByPk(id);
+    res.json(odpActualizada);
+  } catch (error: any) {
+    try { await transaction.rollback(); } catch { /* ya cerrada */ }
+    console.error('Error al reactivar ODP:', error);
+    res.status(500).json({ error: 'Error al reactivar ODP', details: error?.message });
   }
 };
 

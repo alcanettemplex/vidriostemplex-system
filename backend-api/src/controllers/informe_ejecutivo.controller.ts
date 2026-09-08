@@ -106,7 +106,7 @@ export const getResumen = async (req: Request, res: Response) => {
     const odps_atrasadas = await ODP.count({
       where: {
         fecha_entrega: { [Op.lt]: today },
-        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR'] },
+        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR', 'ANULADA'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
         ...asesorFiltro
       }
@@ -187,7 +187,7 @@ export const getAsesores = async (req: Request, res: Response) => {
 
       ODP.findAll({
         attributes: ['asesor_id', [fn('SUM', col('pendiente')), 'total']],
-        where: { asesor_id: { [Op.in]: ids }, estado_produccion: { [Op.ne]: 'ENTREGADA' }, estado_caja: { [Op.ne]: 'CANCELADO' } },
+        where: { asesor_id: { [Op.in]: ids }, estado_produccion: { [Op.notIn]: ['ENTREGADA', 'ANULADA'] }, estado_caja: { [Op.ne]: 'CANCELADO' } },
         group: ['asesor_id'], raw: true,
       }) as unknown as Promise<{ asesor_id: number; total: string }[]>,
 
@@ -269,7 +269,7 @@ export const getProduccionCritica = async (req: Request, res: Response) => {
     const material_en_produccion = await ODP.findAll({
       where: {
         fecha_listo_instalar: { [Op.lt]: today, [Op.ne]: null },
-        estado_produccion: { [Op.notIn]: ['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA'] },
+        estado_produccion: { [Op.notIn]: ['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA', 'ANULADA'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
         ...asesorFiltro, ...buscadorFiltro,
       },
@@ -356,7 +356,7 @@ export const getProduccionCritica = async (req: Request, res: Response) => {
     const atrasadas_raw = await ODP.findAll({
       where: {
         fecha_entrega: { [Op.lt]: today },
-        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR'] },
+        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR', 'ANULADA'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
         ...asesorFiltro, ...buscadorFiltro,
       },
@@ -400,7 +400,7 @@ export const getProduccionCritica = async (req: Request, res: Response) => {
     // E) Embudo: ODPs activas por estado
     const embudoRaw = await ODP.findAll({
       attributes: ['estado_produccion', [fn('COUNT', col('id')), 'total']],
-      where: { estado_produccion: { [Op.notIn]: ['ENTREGADA'] }, estado_caja: { [Op.ne]: 'CANCELADO' }, ...asesorFiltro },
+      where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'ANULADA'] }, estado_caja: { [Op.ne]: 'CANCELADO' }, ...asesorFiltro },
       group: ['estado_produccion'],
       raw: true,
     }) as unknown as { estado_produccion: string; total: string }[];
@@ -446,7 +446,7 @@ export const getFinanciero = async (req: Request, res: Response) => {
       sequelize.query(`SELECT ${sqlFacturadoEnRango(desde, hasta, { asesorId })} AS total`, { type: QueryTypes.SELECT })
         .then((r: any) => Number(r[0]?.total) || 0),
       Pago.sum('monto',      { where: { fecha: { [Op.between]: [desde, hasta] } } }),
-      ODP.sum('pendiente',   { where: { estado_produccion: { [Op.notIn]: ['ENTREGADA'] }, estado_caja: { [Op.ne]: 'CANCELADO' }, pendiente: { [Op.gt]: 0 }, ...asesorFiltro } }),
+      ODP.sum('pendiente',   { where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'ANULADA'] }, estado_caja: { [Op.ne]: 'CANCELADO' }, pendiente: { [Op.gt]: 0 }, ...asesorFiltro } }),
       ODP.sum('valor_total', { where: { estado_produccion: { [Op.in]: ['LISTO_INSTALAR', 'PROGRAMADA'] }, estado_caja: { [Op.ne]: 'CANCELADO' }, ...asesorFiltro } }),
     ]);
 
@@ -462,7 +462,7 @@ export const getFinanciero = async (req: Request, res: Response) => {
       where: {
         fecha_listo_instalar: { [Op.between]: [desde, hasta] },
         pendiente: { [Op.gt]: 0 },
-        estado_produccion: { [Op.notIn]: ['ENTREGADA'] },
+        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'ANULADA'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
         ...asesorFiltro, ...buscadorFiltro,
       },
@@ -492,7 +492,7 @@ export const getFinanciero = async (req: Request, res: Response) => {
       FROM odp o
       JOIN clientes c ON c.id = o.cliente_id
       WHERE o.pendiente > 0
-        AND o.estado_produccion <> 'ENTREGADA'
+        AND o.estado_produccion NOT IN ('ENTREGADA', 'ANULADA')
         AND o.estado_caja <> 'CANCELADO'
         ${asesorId ? 'AND o.asesor_id = :asesorId' : ''}
       GROUP BY c.nombre_razon_social
@@ -510,7 +510,7 @@ export const getFinanciero = async (req: Request, res: Response) => {
 
     // ODPs crédito aprobado pendientes (filtrado por fecha_creacion del período)
     const credito_aprobado_raw = await ODP.findAll({
-      where: { estado_caja: 'CREDITO_APROBADO', estado_produccion: { [Op.notIn]: ['ENTREGADA'] }, fecha_creacion: { [Op.between]: [desde, hasta] }, ...asesorFiltro, ...buscadorFiltro },
+      where: { estado_caja: 'CREDITO_APROBADO', estado_produccion: { [Op.notIn]: ['ENTREGADA', 'ANULADA'] }, fecha_creacion: { [Op.between]: [desde, hasta] }, ...asesorFiltro, ...buscadorFiltro },
       include: [
         { model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] },
         { model: Usuario, as: 'asesor',  attributes: ['nombre_completo'] },
@@ -656,7 +656,7 @@ export const getRecomendaciones = async (req: Request, res: Response) => {
     const atrasadas_count = await ODP.count({
       where: {
         fecha_entrega: { [Op.lt]: today },
-        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR'] },
+        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'INSTALANDO', 'INSTALADA', 'PAUSADA', 'LISTO_INSTALAR', 'ANULADA'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
       },
     });
@@ -684,7 +684,7 @@ export const getRecomendaciones = async (req: Request, res: Response) => {
     const mat_listo_produccion = await ODP.count({
       where: {
         fecha_listo_instalar: { [Op.lt]: today, [Op.ne]: null },
-        estado_produccion: { [Op.notIn]: ['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA'] },
+        estado_produccion: { [Op.notIn]: ['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA', 'ANULADA'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
       },
     });
@@ -754,7 +754,7 @@ export const getRecomendaciones = async (req: Request, res: Response) => {
 
     // ── FINANZAS ────────────────────────────────────────────
     const total_pendiente = Number(await ODP.sum('pendiente', {
-      where: { estado_produccion: { [Op.notIn]: ['ENTREGADA'] }, estado_caja: { [Op.ne]: 'CANCELADO' }, pendiente: { [Op.gt]: 0 } },
+      where: { estado_produccion: { [Op.notIn]: ['ENTREGADA', 'ANULADA'] }, estado_caja: { [Op.ne]: 'CANCELADO' }, pendiente: { [Op.gt]: 0 } },
     }) || 0);
     if (total_pendiente > 0) {
       alertas.push({
@@ -770,7 +770,7 @@ export const getRecomendaciones = async (req: Request, res: Response) => {
       where: {
         fecha_listo_instalar: { [Op.ne]: null },
         pendiente: { [Op.gt]: 0 },
-        estado_produccion: { [Op.notIn]: ['ENTREGADA'] },
+        estado_produccion: { [Op.notIn]: ['ENTREGADA', 'ANULADA'] },
         estado_caja: { [Op.ne]: 'CANCELADO' },
       },
     });

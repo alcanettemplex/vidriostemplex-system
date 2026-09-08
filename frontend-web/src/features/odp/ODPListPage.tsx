@@ -6,7 +6,7 @@ import { fetchODPById } from './odpSlice';
 import { useODPSocketPatch } from '../../store/useSocketNotifications';
 import { toast } from 'react-toastify';
 import {
-    Plus, Search, FileText, CheckCircle2, Clock, Truck, Eye, Trash2, Edit3,
+    Plus, Search, FileText, CheckCircle2, Clock, Truck, Eye, Ban, RotateCcw, Edit3,
     AlertCircle, AlertTriangle, Package, DollarSign, Ruler, Printer, MoreVertical,
     ChevronUp, ChevronDown, ChevronsUpDown, Filter, Shield
 } from 'lucide-react';
@@ -46,7 +46,7 @@ type SortDir = 'asc' | 'desc';
 const ESTADOS_PRODUCCION = [
     'EN_ESPERA', 'VISITA_TECNICA', 'MEDICION',
     'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS',
-    'LISTO_INSTALAR', 'PROGRAMADA', 'PAUSADA'
+    'LISTO_INSTALAR', 'PROGRAMADA', 'PAUSADA', 'ANULADA'
 ];
 
 const ESTADOS_COMPLETADAS = ['ENTREGADA', 'INSTALADA'];
@@ -69,6 +69,7 @@ const getStatusIcon = (estado: string) => {
         case 'INSTALADA':           return <CheckCircle2 className="w-3 h-3 mr-1 shrink-0" />;
         case 'ENTREGADA':           return <CheckCircle2 className="w-3 h-3 mr-1 shrink-0" />;
         case 'PAUSADA':             return <AlertCircle className="w-3 h-3 mr-1 shrink-0" />;
+        case 'ANULADA':             return <Ban className="w-3 h-3 mr-1 shrink-0" />;
         default:                    return null;
     }
 };
@@ -91,8 +92,9 @@ const ActionsMenu: React.FC<{
     onCot: () => void;
     onTm: () => void;
     onVisita: () => void;
-    onDelete: () => void;
-}> = ({ odp, userRole, onSap, onCot, onTm, onVisita, onDelete }) => {
+    onAnular: () => void;
+    onReactivar: () => void;
+}> = ({ odp, userRole, onSap, onCot, onTm, onVisita, onAnular, onReactivar }) => {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
 
@@ -111,9 +113,13 @@ const ActionsMenu: React.FC<{
     const items: { label: string; icon: React.ReactNode; onClick: () => void; danger?: boolean; show: boolean }[] = [
         { label: 'Solicitud Accesorios (SAP)', icon: <Package className="w-4 h-4" />, onClick: onSap, show: isAsesor },
         { label: 'Cotización (COT)',            icon: <DollarSign className="w-4 h-4" />, onClick: onCot, show: isAsesor },
-        { label: 'Solicitar Visita Técnica',   icon: <Ruler className="w-4 h-4" />, onClick: onVisita, show: isAsesor && !['INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA'].includes(odp.estado_produccion) },
+        { label: 'Solicitar Visita Técnica',   icon: <Ruler className="w-4 h-4" />, onClick: onVisita, show: isAsesor && !['INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA', 'ANULADA'].includes(odp.estado_produccion) },
         { label: 'Toma de Medidas (TM)',        icon: <Ruler className="w-4 h-4" />, onClick: onTm, show: isJefe },
-        { label: 'Eliminar ODP',               icon: <Trash2 className="w-4 h-4" />, onClick: onDelete, danger: true, show: isAdmin && odp.estado_produccion !== 'ENTREGADA' && odp.estado_facturacion !== 'FACTURADA' },
+        // Anular reemplaza a Eliminar: conserva el registro y su historial en vez de borrarlos
+        // en cascada (SAP, ODC, evidencias, pagos, ruta, pedido PV...). deleteODP se conserva
+        // en el backend, pero ya no tiene disparador aquí — ver CLAUDE.md / anulación ODP.
+        { label: 'Anular ODP',                 icon: <Ban className="w-4 h-4" />, onClick: onAnular, danger: true, show: isAdmin && odp.estado_produccion !== 'ENTREGADA' && odp.estado_facturacion !== 'FACTURADA' && odp.estado_produccion !== 'ANULADA' },
+        { label: 'Reactivar ODP',              icon: <RotateCcw className="w-4 h-4" />, onClick: onReactivar, show: isAdmin && odp.estado_produccion === 'ANULADA' },
     ].filter(i => i.show);
 
     if (items.length === 0) return null;
@@ -171,13 +177,13 @@ const ODPListPage: React.FC = () => {
     // mantiene viva. Las tabs 'completadas' (buscador server-side) y 'garantia'
     // (endpoint propio) conservan su fuente de datos.
     const [listado, setListado] = useState<{ rows: ODP[], count: number, page: number, totalPages: number } | null>(null);
-    const [tabPage, setTabPage] = useState<Record<string, number>>({ activas: 1, visita: 1, listas: 1, con_dano: 1, garantia: 1 });
+    const [tabPage, setTabPage] = useState<Record<string, number>>({ activas: 1, visita: 1, listas: 1, con_dano: 1, garantia: 1, anuladas: 1 });
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<{ rows: ODP[], count: number, page: number, totalPages: number } | null>(null);
     // Total de ODPs completadas: lo informa el backend porque el listado ya no las trae.
     const [countCompletadas, setCountCompletadas] = useState<number>(0);
-    const [activeTab, setActiveTab] = useState<'activas' | 'visita' | 'listas' | 'completadas' | 'con_dano' | 'garantia'>('activas');
+    const [activeTab, setActiveTab] = useState<'activas' | 'visita' | 'listas' | 'completadas' | 'con_dano' | 'garantia' | 'anuladas'>('activas');
     const [garantiaSubTab, setGarantiaSubTab] = useState<'activas' | 'realizadas'>('activas');
     const [garantias, setGarantias] = useState<ODP[]>([]);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -187,7 +193,8 @@ const ODPListPage: React.FC = () => {
     const [tipoOdp, setTipoOdp] = useState<'ODP' | 'OA'>('ODP');
     const [selectedOdpDetail, setSelectedOdpDetail] = useState<number | null>(null);
     const [editingOdp, setEditingOdp] = useState<ODP | null>(null);
-    const [deletingOdp, setDeletingOdp] = useState<ODP | null>(null);
+    const [anulandoOdp, setAnulandoOdp] = useState<ODP | null>(null);
+    const [motivoAnulacion, setMotivoAnulacion] = useState('');
     const [sapOdp, setSapOdp] = useState<ODP | null>(null);
     const [cotOdp, setCotOdp] = useState<ODP | null>(null);
     const [tmOdp, setTmOdp] = useState<ODP | null>(null);
@@ -367,18 +374,38 @@ const ODPListPage: React.FC = () => {
         }
     };
 
-    const handleDelete = async (id: number) => {
+    const handleAnular = async (id: number, motivo: string) => {
         try {
             const token = sessionStorage.getItem('token');
-            await axios.delete(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await axios.patch(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp/${id}/anular`,
+                { motivo },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
             setListado(prev => prev
-                ? { ...prev, rows: prev.rows.filter(o => o.id !== id), count: Math.max(0, prev.count - 1) }
+                ? { ...prev, rows: prev.rows.map(o => o.id === id ? { ...o, ...res.data } : o) }
                 : prev);
-            setDeletingOdp(null);
-        } catch {
-            toast.error('Error al eliminar ODP');
+            setAnulandoOdp(null);
+            setMotivoAnulacion('');
+            toast.success(`${res.data.numero_odp} — ODP anulada`);
+        } catch (err: any) {
+            toast.error(err.response?.data?.error || 'Error al anular ODP');
+        }
+    };
+
+    const handleReactivar = async (odp: ODP) => {
+        if (!window.confirm(`¿Reactivar ${odp.numero_odp}? Vuelve al estado que tenía antes de anularse.`)) return;
+        try {
+            const token = sessionStorage.getItem('token');
+            const res = await axios.patch(`${process.env.REACT_APP_API_URL || "http://localhost:3001"}/api/odp/${odp.id}/reactivar`,
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setListado(prev => prev
+                ? { ...prev, rows: prev.rows.map(o => o.id === odp.id ? { ...o, ...res.data } : o) }
+                : prev);
+            toast.success(`${res.data.numero_odp} — ODP reactivada`);
+        } catch (err: any) {
+            toast.error(err.response?.data?.error || 'Error al reactivar ODP');
         }
     };
 
@@ -408,15 +435,17 @@ const ODPListPage: React.FC = () => {
     const ESTADOS_LISTAS = ['LISTO_INSTALAR', 'PROGRAMADA'];
     // Con Daños tiene prioridad: una ODP con daño pendiente de revisar solo aparece en esa tab.
     const odpsConDano = currentRows.filter(o => o.tiene_dano_instalacion === true);
-    const odpsActivas = currentRows.filter(o => !o.tiene_dano_instalacion && !['VISITA_TECNICA', ...ESTADOS_LISTAS, ...ESTADOS_COMPLETADAS].includes(o.estado_produccion));
+    const odpsActivas = currentRows.filter(o => !o.tiene_dano_instalacion && !['VISITA_TECNICA', ...ESTADOS_LISTAS, ...ESTADOS_COMPLETADAS, 'ANULADA'].includes(o.estado_produccion));
     const odpsVisita = currentRows.filter(o => !o.tiene_dano_instalacion && o.estado_produccion === 'VISITA_TECNICA');
     const odpsListas = currentRows.filter(o => !o.tiene_dano_instalacion && ESTADOS_LISTAS.includes(o.estado_produccion));
     const odpsCompletadas = currentRows.filter(o => !o.tiene_dano_instalacion && ESTADOS_COMPLETADAS.includes(o.estado_produccion));
+    const odpsAnuladas = currentRows.filter(o => !o.tiene_dano_instalacion && o.estado_produccion === 'ANULADA');
 
     const tabBase = activeTab === 'visita' ? odpsVisita
         : activeTab === 'listas' ? odpsListas
         : activeTab === 'completadas' ? odpsCompletadas
         : activeTab === 'con_dano' ? odpsConDano
+        : activeTab === 'anuladas' ? odpsAnuladas
         : activeTab === 'garantia' ? (garantiaSubTab === 'realizadas' ? garantiasRealizadas : garantiasActivas)
         : odpsActivas;
 
@@ -495,6 +524,7 @@ const ODPListPage: React.FC = () => {
                         { key: 'completadas', label: 'Completadas',          icon: <CheckCircle2 className="w-4 h-4" />,  badge: countCompletadas || undefined },
                         { key: 'con_dano',    label: 'Con Daños',            icon: <AlertTriangle className="w-4 h-4" />, badge: odpsConDano.length || undefined },
                         { key: 'garantia',    label: 'Garantías',            icon: <Shield className="w-4 h-4" />,        badge: garantias.length || undefined },
+                        { key: 'anuladas',    label: 'Anuladas',             icon: <Ban className="w-4 h-4" />,           badge: odpsAnuladas.length || undefined },
                     ]}
                     activeKey={activeTab}
                     onChange={(k) => {
@@ -872,7 +902,8 @@ const ODPListPage: React.FC = () => {
                                                     onCot={() => abrirConDetalle(odp.id, setCotOdp)}
                                                     onTm={() => abrirConDetalle(odp.id, setTmOdp)}
                                                     onVisita={() => handleSolicitarVisita(odp)}
-                                                    onDelete={() => setDeletingOdp(odp)}
+                                                    onAnular={() => setAnulandoOdp(odp)}
+                                                    onReactivar={() => handleReactivar(odp)}
                                                 />
                                                 )}
                                             </div>
@@ -978,9 +1009,9 @@ const ODPListPage: React.FC = () => {
             {tmOdp && <TMModal odp={tmOdp} onClose={() => setTmOdp(null)} />}
             {printOdp && <ODPFichaModal odpId={printOdp.id} initialTab="imprimir" onClose={() => setPrintOdp(null)} />}
 
-            {/* Modal eliminación */}
+            {/* Modal anulación */}
             <AnimatePresence>
-                {deletingOdp && (
+                {anulandoOdp && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
@@ -989,25 +1020,34 @@ const ODPListPage: React.FC = () => {
                             className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 text-center"
                         >
                             <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <AlertCircle className="w-8 h-8" />
+                                <Ban className="w-8 h-8" />
                             </div>
-                            <h3 className="text-xl font-bold text-slate-900 mb-2">¿Eliminar esta ODP?</h3>
-                            <p className="text-slate-500 mb-6">
-                                Estás a punto de eliminar la orden <strong>{deletingOdp.numero_odp}</strong>.
-                                Esta acción es irreversible y afectará a producción.
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">¿Anular esta ODP?</h3>
+                            <p className="text-slate-500 mb-4">
+                                <strong>{anulandoOdp.numero_odp}</strong> queda marcada como anulada — el registro y su
+                                historial se conservan, no se borra nada. Se puede reactivar después si hace falta.
                             </p>
+                            <textarea
+                                autoFocus
+                                value={motivoAnulacion}
+                                onChange={(e) => setMotivoAnulacion(e.target.value)}
+                                placeholder="Motivo de la anulación (obligatorio)"
+                                rows={3}
+                                className="w-full text-sm border border-slate-300 rounded-lg p-3 mb-6 text-left focus:outline-none focus:ring-2 focus:ring-red-400"
+                            />
                             <div className="flex gap-3 justify-center">
                                 <button
-                                    onClick={() => setDeletingOdp(null)}
+                                    onClick={() => { setAnulandoOdp(null); setMotivoAnulacion(''); }}
                                     className="px-5 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
                                 >
                                     Cancelar
                                 </button>
                                 <button
-                                    onClick={() => handleDelete(deletingOdp.id)}
-                                    className="px-5 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition shadow-sm"
+                                    disabled={!motivoAnulacion.trim()}
+                                    onClick={() => handleAnular(anulandoOdp.id, motivoAnulacion.trim())}
+                                    className="px-5 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition shadow-sm"
                                 >
-                                    Sí, Eliminar ODP
+                                    Sí, Anular ODP
                                 </button>
                             </div>
                         </motion.div>

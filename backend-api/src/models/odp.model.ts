@@ -11,7 +11,10 @@ ODP.init({
   estado_produccion: {
     // INSTALANDO = el instalador está en obra; INSTALADA = el trabajo culminó.
     // Ver `2026-09-02_agregar_estado_instalando.ts`.
-    type: DataTypes.ENUM('EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA'),
+    // ANULADA = la ODP no va a proceder pero se conserva el registro (no se borra).
+    // Terminal por defecto; reversible solo vía PATCH /:id/reactivar. Ver
+    // `2026-09-08_agregar_estado_anulada.ts`.
+    type: DataTypes.ENUM('EN_ESPERA', 'VISITA_TECNICA', 'MEDICION', 'ALUMINIO_CORTADO', 'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR', 'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA', 'ANULADA'),
     defaultValue: 'EN_ESPERA',
     allowNull: false
   },

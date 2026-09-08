@@ -7,7 +7,7 @@ import {
   Building2, ExternalLink, CreditCard, Camera, History, Shield, ChevronDown,
   ClipboardList, TrendingUp, Printer, PenTool, Images, Trash2,
   Sparkles, Film, Box, Archive, ChevronUp, Loader2, MessageSquare,
-  ArrowRight, RefreshCw, Tag
+  ArrowRight, RefreshCw, Tag, Ban
 } from 'lucide-react';
 import { cajaColor, Badge } from './ODPFichaModal.utils';
 import { getEstadoODP } from '../../../utils/estadosODP';
@@ -155,11 +155,18 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                 <span className="text-rose-500">Esta ODP tiene un reporte de No Conformidad activo. Se marcará como completada al instalar la ODP de reproceso.</span>
               </div>
             )}
+            {odp.estado_produccion === 'ANULADA' && (
+              <div className="bg-gray-100 border border-gray-300 rounded-lg px-3 py-1.5 mb-3 flex items-center gap-2 text-xs">
+                <Ban className="w-3.5 h-3.5 text-gray-500" />
+                <span className="font-black text-gray-600">ODP ANULADA</span>
+                <span className="text-gray-500">No procedió. El registro y su historial se conservan — el motivo queda en la pestaña Historial.</span>
+              </div>
+            )}
             <div className="flex justify-between items-start">
               <div className="flex items-start gap-4">
                 <div className="hidden md:flex flex-col items-center gap-1 pt-1">
                   {/* Verde cuando el trabajo culminó (INSTALADA o ENTREGADA); ámbar mientras sigue en curso */}
-                  <div className={`w-3 h-3 rounded-full ${['INSTALADA', 'ENTREGADA'].includes(odp.estado_produccion) ? 'bg-emerald-500' : odp.estado_produccion === 'PAUSADA' ? 'bg-rose-500' : 'bg-amber-400'} animate-pulse`} />
+                  <div className={`w-3 h-3 rounded-full ${['INSTALADA', 'ENTREGADA'].includes(odp.estado_produccion) ? 'bg-emerald-500' : odp.estado_produccion === 'PAUSADA' ? 'bg-rose-500' : odp.estado_produccion === 'ANULADA' ? 'bg-gray-400' : 'bg-amber-400'} ${odp.estado_produccion === 'ANULADA' ? '' : 'animate-pulse'}`} />
                 </div>
                 <div>
                   <div className="flex items-center gap-3 flex-wrap">

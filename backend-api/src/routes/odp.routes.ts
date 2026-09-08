@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, getNcGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha, getHistorialODP, agregarFacturaAdicional, eliminarFacturaAdicional } from '../controllers/odp.controller';
+import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, getNcGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha, getHistorialODP, agregarFacturaAdicional, eliminarFacturaAdicional, anularODP, reactivarODP } from '../controllers/odp.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { uploadConfig } from '../config/upload';
@@ -56,6 +56,12 @@ router.put('/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_come
 
 // Eliminación: solo el creador (owner check en controller) + admin + gerencia
 router.delete('/:id', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), deleteODP);
+
+// Anular / reactivar: alternativa no destructiva a eliminar — conserva el registro y su
+// historial. Mismo criterio de dueño que deleteODP (owner check en controller);
+// reactivar queda restringido a quienes deciden reincorporar la orden a producción.
+router.patch('/:id/anular', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion'), anularODP);
+router.patch('/:id/reactivar', authMiddleware, requireRole('admin', 'gerencia'), reactivarODP);
 
 // Finalizar instalación: instaladores, admin, gerencia, producción
 router.post('/:id/instalacion', authMiddleware, requireRole('admin', 'gerencia', 'jefe_produccion', 'instalador'), uploadConfig.single('foto'), finalizarInstalacionODP);

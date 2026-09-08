@@ -19,6 +19,11 @@
  *   ENTREGADA   cierre definitivo, con foto y firma del cliente (verde)
  *
  * Ver `backend-api/src/scripts/2026-09-02_agregar_estado_instalando.ts`.
+ *
+ * ANULADA (2026-09-08): la ODP no va a proceder, pero el registro y su historial se
+ * conservan (alternativa no destructiva a eliminarla). Se establece/revierte solo desde
+ * las acciones dedicadas "Anular ODP" / "Reactivar ODP" — no aparece como opción en los
+ * selects de estado de los formularios. Ver `2026-09-08_agregar_estado_anulada.ts`.
  */
 
 export type EstadoProduccion =
@@ -34,6 +39,7 @@ export type EstadoProduccion =
   | 'INSTALADA'
   | 'ENTREGADA'
   | 'PAUSADA'
+  | 'ANULADA'
   | 'PEDIDO_PROVEEDOR';
 
 export interface EstadoConfig {
@@ -133,6 +139,13 @@ export const ESTADOS_ODP: Record<EstadoProduccion, EstadoConfig> = {
     badge: 'bg-rose-100 text-rose-700 border-rose-200',
     hex: '#e11d48',
     descripcion: 'Detenida, generalmente por una no conformidad en curso.',
+  },
+  ANULADA: {
+    label: 'Anulada',
+    corto: 'Anulada',
+    badge: 'bg-gray-200 text-gray-600 border-gray-300',
+    hex: '#6b7280',
+    descripcion: 'La ODP no procedió. El registro y su historial se conservan.',
   },
   // Existe en el ENUM de Postgres (posición 3) pero está retirado del flujo. Se mantiene
   // aquí solo para que la UI no se rompa si una ODP llega a él por edición directa en BD.
