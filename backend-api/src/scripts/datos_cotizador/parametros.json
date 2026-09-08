@@ -1,0 +1,12 @@
+{
+  "aiu": 0.96,
+  "iva": 0.19,
+  "clientes": ["PA", "PM", "PB"],
+  "flete_fijo": 25000,
+  "smo": {
+    "tarifaMinima": 58000,
+    "pisoTableroGrande": 87000
+  },
+  "asesores": ["Alba Lucia", "Bryam", "Alejandro", "Luz Adriana", "Oscar"],
+  "estados_cotizacion": ["PENDIENTE", "APROBADA", "CANCELADO", "PERDIDO"]
+}

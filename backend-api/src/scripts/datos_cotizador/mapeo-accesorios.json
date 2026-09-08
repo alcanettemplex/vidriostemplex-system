@@ -1,0 +1,132 @@
+{
+  "_comentario": "Mapeo de las 54 descripciones de accesorio que trae disenos.json (campo accesorios[], hoy nunca leído por el motor) al catálogo real de Templex. Ver lib/accesoriosPorDiseno.js para cómo se usa y webapp/CONTINUAR.md para la explicación completa. NO se toca data/: éste es material derivado, editable desde pantalla.",
+  "sistemasActivos": [],
+  "_sistemasActivos_nota": "Mientras un sistema no esté aquí, sus accesorios los sigue cobrando el mapa hardcodeado del módulo (CATALOGO_SISTEMAS en ventanas.js, las constantes de proyectantes.js, los literales de cabinasCorredizas/cabinasBatientes/espejo.js). Activar un sistema es una decisión de negocio deliberada, después de comparar en /accesorios/comparar — nunca automática.",
+  "accesorios": {
+    "Rodamiento 5020 Nylon": {
+      "estado": "MAPEADO",
+      "codigo": "RODA5020",
+      "consumo": { "tipo": "unidad" },
+      "nota": "Coincidencia exacta de descripción con el catálogo, y es el mismo código que ya usa el rol \"rodamiento\" de Sistema5020 en ventanas.js.",
+      "confianza": "alta"
+    },
+    "Rodamiento 8025": {
+      "estado": "MAPEADO",
+      "codigo": "ROD8025",
+      "consumo": { "tipo": "unidad" },
+      "nota": "Coincidencia exacta de descripción, y es el mismo código que ya usa el rol \"rodamiento\" de Sistema8025.",
+      "confianza": "alta"
+    },
+    "Rodamiento 744": {
+      "estado": "MAPEADO",
+      "codigo": "ROD744",
+      "consumo": { "tipo": "unidad" },
+      "nota": "Mismo código que ya usa el rol \"rodamiento\" de Sistema744 en ventanas.js.",
+      "confianza": "alta"
+    },
+    "Guia Superior 744": {
+      "estado": "MAPEADO",
+      "codigo": "GSU0101",
+      "consumo": { "tipo": "unidad" },
+      "nota": "Mismo código que ya usa el rol \"guiaSuperior\" de Sistema744. HALLAZGO (verificado por comparación real, Sistema744::XX 150x120): el hardcodeado cobra 2 (una por cuerpo, cuerpos=2) y este mapeo por \"unidad\" cobra 4 (la cantidad cruda que trae el diseño extraído) -- mismo código, cantidad distinta 2x. No activar este sistema sin resolver cuál de los dos criterios es el correcto con el taller.",
+      "confianza": "media"
+    },
+    "Guia Inferior 744": {
+      "estado": "MAPEADO",
+      "codigo": "GIN0101",
+      "consumo": { "tipo": "unidad" },
+      "nota": "Mismo código que ya usa el rol \"guiaInferior\" de Sistema744. Mismo hallazgo que \"Guia Superior 744\": el hardcodeado cobra 2, este mapeo cobra 4.",
+      "confianza": "media"
+    },
+    "Guia Superior 8025": {
+      "estado": "MAPEADO",
+      "codigo": "GSU8025",
+      "consumo": { "tipo": "unidad" },
+      "nota": "Mismo código que ya usa el rol \"guiaSuperior\" de Sistema8025. No verificado directamente, pero es la misma forma de mapeo (\"unidad\") que en 744, donde SÍ se confirmó una discrepancia 2x -- revisar con el mismo cuidado antes de activar.",
+      "confianza": "media"
+    },
+    "Guia Inferior 8025": {
+      "estado": "MAPEADO",
+      "codigo": "GIN8025",
+      "consumo": { "tipo": "unidad" },
+      "nota": "Mismo código que ya usa el rol \"guiaInferior\" de Sistema8025. Ver \"Guia Superior 8025\": misma cautela.",
+      "confianza": "media"
+    },
+    "Guia Platica 5020": {
+      "estado": "MAPEADO",
+      "codigo": "GUIA5020",
+      "consumo": { "tipo": "unidad" },
+      "nota": "\"Platica\" = plástica. Mismo código que ya usa el único rol \"guia\" de Sistema5020.",
+      "confianza": "alta"
+    },
+    "E.8025 Empaque 5 y 6 mm": {
+      "estado": "MAPEADO",
+      "codigo": "EMPA8025",
+      "consumo": { "tipo": "perimetroVidrio", "desperdicioPct": 5 },
+      "nota": "El nombre indica explícitamente \"8025\": mismo código que ya usa el rol \"empaque\" de ese sistema. Se mide por el perímetro real de cada paño de vidrio, no por unidad -- perimetroVidrioM ya viene calculado por cotizarPorDiseno.js.",
+      "confianza": "alta"
+    },
+
+    "Tornillo n10 x 1 1_2": { "estado": "INSUMO_NO_FACTURADO", "nota": "\"1 1_2\" = 1½ pulgada. Cero referencias de tornillería en los 430 productos: nunca fue línea de precio, va dentro del margen. Aparece en la orden de taller con su cantidad, nunca en el precio al cliente." },
+    "Tornillo n8 x 3_4": { "estado": "INSUMO_NO_FACTURADO", "nota": "Ver Tornillo n10 x 1 1_2." },
+    "Tornillo n8 x 1_2": { "estado": "INSUMO_NO_FACTURADO", "nota": "Ver Tornillo n10 x 1 1_2." },
+    "Tornillo n12 * 1": { "estado": "INSUMO_NO_FACTURADO", "nota": "Ver Tornillo n10 x 1 1_2." },
+    "Felpa": { "estado": "INSUMO_NO_FACTURADO", "nota": "Cero referencias en el catálogo. Igual que la tornillería, va dentro del margen." },
+    "Remache Pop 4-4": { "estado": "INSUMO_NO_FACTURADO", "nota": "Cero referencias en el catálogo." },
+    "Baquela Acrilica": { "estado": "INSUMO_NO_FACTURADO", "nota": "Cero referencias en el catálogo." },
+    "Anclaje Primavera": { "estado": "INSUMO_NO_FACTURADO", "nota": "Cero referencias en el catálogo (categoría \"anclaje\")." },
+    "Anclaje Torino": { "estado": "INSUMO_NO_FACTURADO", "nota": "Ver Anclaje Primavera." },
+
+    "E.universa. Empaque Universal": {
+      "estado": "PENDIENTE",
+      "nota": "Aparece en diseños de VARIOS sistemas (744, 5020, 8025...), y cada uno ya cobra su propio código de empaque (EMP1305 en 744, EMP5020 en 5020, EMPA8025 en 8025): no es un único producto sino una descripción genérica del extractor. El esquema de mapeo por descripción-única no puede resolver esto sin partirlo por sistema; requiere decisión aparte, no automatizar."
+    },
+    "Empaque Gallinazo": {
+      "estado": "PENDIENTE",
+      "nota": "Aparece en proyectantes (Sistema3831). Candidato probable: EMP1301, que ya usa proyectantes.js como único código de empaque -- pero no está confirmado que sea el mismo producto físico ('Gallinazo' es una forma de empaque específica). Verificar con el taller antes de fijar."
+    },
+    "Chapa de Impacto Alpha": {
+      "estado": "PENDIENTE",
+      "nota": "HALLAZGO: para Sistema744 hoy se cobra CHJ0101 (Chapa Jaguar) en el rol \"chapa\" -- es un producto DISTINTO al que describe el diseño. No unificar sin confirmar cuál es el que realmente se instala; unificar a ciegas cambiaría qué chapa factura cada ventana."
+    },
+    "Chapa Overseas Doble Cilindro": {
+      "estado": "PENDIENTE",
+      "nota": "HALLAZGO IMPORTANTE: pertenece a Sistema7038-Interior, que NO existe como clave en CATALOGO_SISTEMAS (ventanas.js) -- hoy ese sistema entero (23 diseños) no cobra NINGÚN accesorio, sale con advertencia 'No hay accesorios configurados'. Ésta y las dos siguientes son candidatas a ser la primera vez que Sistema7038-Interior cobre accesorios."
+    },
+    "Guia 7038": { "estado": "PENDIENTE", "nota": "Ver Chapa Overseas Doble Cilindro -- mismo hallazgo, Sistema7038-Interior no tiene accesorios configurados hoy." },
+    "Rodamiento 7038": { "estado": "PENDIENTE", "nota": "Ver Chapa Overseas Doble Cilindro." },
+    "E7038_6mm Empaque monumental 6mm": { "estado": "PENDIENTE", "nota": "Ver Chapa Overseas Doble Cilindro -- también de Sistema7038-Interior." },
+    "Manija 744-8025": {
+      "estado": "PENDIENTE",
+      "nota": "HALLAZGO: no existe ningún rol \"manija\" en CATALOGO_SISTEMAS de ventanas.js -- ningún sistema de ventanas cobra manija hoy, en ninguna cotización."
+    },
+    "Manija Alpha": { "estado": "PENDIENTE", "nota": "Ver Manija 744-8025." },
+    "Pomo-Haladera": { "estado": "PENDIENTE", "nota": "Candidatos con nombre parecido en el catálogo: BHA1101/BHA0901/BHA0301 (botón haladera, distintos acabados) -- no hay forma de saber cuál sin preguntar." },
+    "Manija Roma 40-20": { "estado": "PENDIENTE", "nota": "Ver Manija 744-8025." },
+    "Chapeta * 30 mm ref a15": { "estado": "PENDIENTE", "nota": "Para cabinas. Candidatos: CPI0101, CHA0301, CCE1101 -- ninguno coincide con seguridad." },
+    "Cerrojo de Embutir": { "estado": "PENDIENTE", "nota": "Sistema8025 ya cobra CPTOR en su rol \"cerrojo\", pero es un cerrojo distinto (\"punto rojo\", no \"de embutir\"): no asumir que son el mismo producto." },
+    "Burbuja de pvc": { "estado": "PENDIENTE", "nota": "Candidato con nombre parecido: PBU0901 (perfil burbuja) -- verificar antes de fijar." },
+    "Brazo escualizable 10 pulg": { "estado": "PENDIENTE", "nota": "Proyectantes. El catálogo sólo tiene BRES0301 de 12 pulgadas (proyectantes.js ya la usa como único BRAZO); este diseño pide 10 pulgadas, que es una referencia distinta." },
+    "Bisagra Sencilla de Cabina": { "estado": "PENDIENTE", "nota": "cabinasBatientes.js ya tiene BISAGRA_POR_TIPO.sencilla = BSE0301 para el formulario de cabinas batientes -- candidato razonable pero no confirmado como el mismo producto." },
+    "BIsagra Doble 180°": { "estado": "PENDIENTE", "nota": "cabinasBatientes.js ya tiene BISAGRA_POR_TIPO.doble = BDO0302 -- candidato, no confirmado." },
+    "Rodamiento de Cabina": { "estado": "PENDIENTE", "nota": "cabinasCorredizas.js usa ROD0401 (4 por par de paños) en su callback de accesorios -- candidato razonable." },
+    "Rodamientos Primavera": { "estado": "PENDIENTE", "nota": "Podría ser el mismo ROD0401 de Cabina Deslizante Primavera, o una referencia propia -- verificar." },
+    "Rodamiento Torino": { "estado": "PENDIENTE", "nota": "Ídem para Cabina Deslizante Torino." },
+    "Rodamiento Orquilla": { "estado": "PENDIENTE", "nota": "Sin candidato claro en el catálogo." },
+    "Chapetas Fijo Primavera": { "estado": "PENDIENTE", "nota": "Sin candidato claro." },
+    "Sujecion Fijo Torino": { "estado": "PENDIENTE", "nota": "Sin candidato claro." },
+    "Tope Torino": { "estado": "PENDIENTE", "nota": "Candidatos: TCA0301 (tope cazuela/media luna), TOR1101 (tope con oring) -- verificar." },
+    "Guia Torino": { "estado": "PENDIENTE", "nota": "Sin candidato claro; no confundir con GUIA5020 (es de otro sistema)." },
+    "Union 90° Torino": { "estado": "PENDIENTE", "nota": "Sin candidato claro." },
+    "Union VP010": { "estado": "PENDIENTE", "nota": "Sin candidato claro." },
+    "Cerrojo Media Luna": { "estado": "PENDIENTE", "nota": "Sin candidato claro (hay bisagras \"media luna\" en el catálogo, pero un cerrojo es otra pieza)." },
+    "Chapeta Anudal": { "estado": "PENDIENTE", "nota": "Sin candidato claro." },
+    "Chapeta Central": { "estado": "PENDIENTE", "nota": "Catálogo tiene CCE1101 (chapeta central acero 30-35) como candidato -- verificar espesor/acabado." },
+    "Soporte de Toallero": { "estado": "PENDIENTE", "nota": "Espejo/vidrios. Sin candidato claro." },
+    "Platina para Rodamiento de cabina": { "estado": "PENDIENTE", "nota": "Sin candidato claro." },
+    "Empaque de Cabina": { "estado": "PENDIENTE", "nota": "Un solo diseño lo usa (ESP_FLOT_1). Sin candidato claro." },
+    "Porta Chapa + Chapa PIcoloro": { "estado": "PENDIENTE", "nota": "Candidato: CPI0101 (chapeta con cerradura Picoloro) -- pero el nombre sugiere dos piezas juntas (porta-chapa + chapa), no una." },
+    "Trinquete Inoxidable": { "estado": "PENDIENTE", "nota": "Sin candidato claro." },
+    "Elevador Inoxidable de 1 Pulg x 20mm": { "estado": "PENDIENTE", "nota": "Catálogo tiene ELE0801/ELE1103/ELE1101 (elevadores de 1\", distintos altos) -- verificar cuál mide 20mm." }
+  }
+}

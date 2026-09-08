@@ -45,6 +45,30 @@ import ProveedorCodigoPendiente from './proveedor_codigo_pendiente.model';
 import ProductoAlias from './producto_alias.model';
 import FacturaProveedorProcesada from './factura_proveedor_procesada.model';
 
+// Módulo Cotizador — aislado del resto del ERP (no genera ODP, no lee
+// clientes ni catálogo de Proveedores). Ver CLAUDE.md / plan de migración.
+import CotizadorProducto from './cotizador_producto.model';
+import CotizadorPrecioOverride from './cotizador_precio_override.model';
+import CotizadorPrecioHistorial from './cotizador_precio_historial.model';
+import CotizadorParametro from './cotizador_parametro.model';
+import CotizadorCotizacion from './cotizador_cotizacion.model';
+import CotizadorCotizacionItem from './cotizador_cotizacion_item.model';
+import CotizadorConsecutivo from './cotizador_consecutivo.model';
+import CotizadorDiseno from './cotizador_diseno.model';
+import CotizadorDisenoPerfil from './cotizador_diseno_perfil.model';
+import CotizadorDisenoVidrio from './cotizador_diseno_vidrio.model';
+import CotizadorDisenoAccesorio from './cotizador_diseno_accesorio.model';
+import CotizadorMapeoAccesorio from './cotizador_mapeo_accesorio.model';
+import CotizadorAccesorioSistemaActivo from './cotizador_accesorio_sistema_activo.model';
+import CotizadorGeometriaOverride from './cotizador_geometria_override.model';
+import CotizadorCalibracionMargen from './cotizador_calibracion_margen.model';
+import CotizadorCalibracionHolgura from './cotizador_calibracion_holgura.model';
+import CotizadorCalibracionContraste from './cotizador_calibracion_contraste.model';
+import CotizadorCalibracionSistema from './cotizador_calibracion_sistema.model';
+import CotizadorCalibracionHistorial from './cotizador_calibracion_historial.model';
+import CotizadorEmpresa from './cotizador_empresa.model';
+import CotizadorEmpresaLogo from './cotizador_empresa_logo.model';
+
 // ─── Asociaciones ODP ────────────────────────────────────────────────────────
 Cliente.hasMany(ODP, { foreignKey: 'cliente_id', as: 'odps' });
 ODP.belongsTo(Cliente, { foreignKey: 'cliente_id', as: 'cliente' });
@@ -311,6 +335,21 @@ FacturaProveedorProcesada.belongsTo(Proveedor, { foreignKey: 'proveedor_id', as:
 Usuario.hasMany(FacturaProveedorProcesada, { foreignKey: 'procesado_por', as: 'facturas_cargadas' });
 FacturaProveedorProcesada.belongsTo(Usuario, { foreignKey: 'procesado_por', as: 'cargador' });
 
+// ─── Bloque L: Módulo Cotizador ──────────────────────────────────────────────
+// Deliberadamente sin asociaciones hacia Usuario/Cliente/ODP: el módulo está
+// aislado del flujo del ERP (asesor y registrado_por son texto libre).
+CotizadorCotizacion.hasMany(CotizadorCotizacionItem, { foreignKey: 'cotizacion_id', as: 'items' });
+CotizadorCotizacionItem.belongsTo(CotizadorCotizacion, { foreignKey: 'cotizacion_id', as: 'cotizacion' });
+
+CotizadorDiseno.hasMany(CotizadorDisenoPerfil, { foreignKey: 'diseno_id', as: 'perfiles' });
+CotizadorDisenoPerfil.belongsTo(CotizadorDiseno, { foreignKey: 'diseno_id', as: 'diseno' });
+
+CotizadorDiseno.hasMany(CotizadorDisenoVidrio, { foreignKey: 'diseno_id', as: 'vidrios' });
+CotizadorDisenoVidrio.belongsTo(CotizadorDiseno, { foreignKey: 'diseno_id', as: 'diseno' });
+
+CotizadorDiseno.hasMany(CotizadorDisenoAccesorio, { foreignKey: 'diseno_id', as: 'accesorios' });
+CotizadorDisenoAccesorio.belongsTo(CotizadorDiseno, { foreignKey: 'diseno_id', as: 'diseno' });
+
 // ─── Hooks globales de auditoría ────────────────────────────────────────────
 // Captura INSERT/UPDATE/DELETE en todos los modelos registrados y graba en auditoria_log
 import { getContext } from '../utils/requestContext';
@@ -357,6 +396,16 @@ const MODELOS_AUDITADOS = [
   { model: ProveedorCodigoPendiente, tabla: 'proveedor_codigo_pendiente', pk: 'id' },
   { model: ProductoAlias, tabla: 'producto_alias', pk: 'id' },
   { model: FacturaProveedorProcesada, tabla: 'factura_proveedor_procesada', pk: 'id' },
+  // Módulo Cotizador — solo precios y cotizaciones (tocan dinero). Calibración
+  // y datos de origen (diseños, empresa, mapeo) quedan fuera por volumen y
+  // porque no son operaciones de negocio (decisión 9 del plan de migración).
+  // Nombres de tabla exactos en singular para no heredar el bug de
+  // revertirAuditoria documentado en TECH_DEBT.md (Cotizacion/SAP/RutaODP).
+  { model: CotizadorProducto, tabla: 'cotizador_producto', pk: 'codigo' },
+  { model: CotizadorPrecioOverride, tabla: 'cotizador_precio_override', pk: 'codigo' },
+  { model: CotizadorCotizacion, tabla: 'cotizador_cotizacion', pk: 'id' },
+  { model: CotizadorCotizacionItem, tabla: 'cotizador_cotizacion_item', pk: 'id' },
+  { model: CotizadorParametro, tabla: 'cotizador_parametro', pk: 'id' },
 ];
 
 function registrarAuditoria(
@@ -464,5 +513,26 @@ export {
   ProveedorCodigoPendiente,
   ProductoAlias,
   FacturaProveedorProcesada,
+  CotizadorProducto,
+  CotizadorPrecioOverride,
+  CotizadorPrecioHistorial,
+  CotizadorParametro,
+  CotizadorCotizacion,
+  CotizadorCotizacionItem,
+  CotizadorConsecutivo,
+  CotizadorDiseno,
+  CotizadorDisenoPerfil,
+  CotizadorDisenoVidrio,
+  CotizadorDisenoAccesorio,
+  CotizadorMapeoAccesorio,
+  CotizadorAccesorioSistemaActivo,
+  CotizadorGeometriaOverride,
+  CotizadorCalibracionMargen,
+  CotizadorCalibracionHolgura,
+  CotizadorCalibracionContraste,
+  CotizadorCalibracionSistema,
+  CotizadorCalibracionHistorial,
+  CotizadorEmpresa,
+  CotizadorEmpresaLogo,
 };
 

@@ -299,6 +299,14 @@ const TABLAS_AUDITABLES = new Set([
   'proveedor_codigo_pendiente', 'producto_alias',
   // Agregada 2026-08-30 con la corrección de idempotencia de la ingesta
   'factura_proveedor_procesada',
+  // Módulo Cotizador — agregado en la migración del cotizador standalone.
+  // Nombres exactos de tabla (singular, con prefijo cotizador_): a
+  // diferencia de 'cotizaciones'/'cotizacion_items' de arriba (que no
+  // coinciden con las tablas reales 'cotizacion'/'cotizacion_items' y por
+  // eso revertir Cotizacion falla siempre — ver TECH_DEBT.md 2026-07-10),
+  // este módulo nace sin ese bug.
+  'cotizador_producto', 'cotizador_precio_override',
+  'cotizador_cotizacion', 'cotizador_cotizacion_item', 'cotizador_parametro',
 ]);
 
 export const revertirAuditoria = async (req: Request, res: Response) => {

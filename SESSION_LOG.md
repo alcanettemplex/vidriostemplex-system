@@ -1597,3 +1597,65 @@ Sin migración de esquema: `proveedor_codigo_pendiente.estado` ya era `VARCHAR(2
 1. **Volver a subir las 74 facturas** de los 8 proveedores recién aprobados.
 2. **Redesplegar backend y frontend** — sin eso no hay vista de descartados ni sub-pestañas.
 3. **Cerrar el caso `389M`**: conseguir el XML de FE206280 y confirmar si el `MTR` es del emisor o del desvinculado.
+
+---
+
+## 2026-09-07 — Nuevo módulo Cotizador: Etapa 1 de 4 (BD + migración de datos)
+
+### Contexto
+
+Se planificó (modo plan, aprobado por el usuario) traer al ERP como módulo nuevo el proyecto standalone **"PLANTILLA COTIZACIONES"** (`C:\Users\User\Desktop\ALCANET\PROYECTOS\Vidrios Templex\OTROS\Escritorio\PLANTILLA COTIZACIONES`, repo git independiente sin remote) — un cotizador de vidrio/aluminio que reemplaza la plantilla Excel `ORIGINAL PARA COPIAR.xlsb`: 6 módulos de producto, 430 productos de catálogo, despiece por diseño, plano a escala, PDF de cotización, hoja de trabajo, calibración y precios editables (~14.500 LOC construidas en 2 días, React+Vite+JSX puro sin BD real — persistencia en JSON con `writeFileSync`).
+
+**Por qué migrar:** el backend del ERP corre en Docker sin volúmenes; la persistencia en JSON del standalone perdería cada cotización y precio editado en cada despliegue, y ni siquiera arrancaría (los JSON de origen no viajan a la imagen).
+
+**Plan completo guardado en:** `C:\Users\User\.claude\plans\c-users-user-desktop-alcanet-proyectos-v-partitioned-puddle.md` (esquema de 21 tablas, estrategia de caché, mapa de archivos, 4 etapas, riesgos). Consultarlo antes de continuar la Etapa 2.
+
+### Decisiones cerradas (con el usuario, en modo plan)
+
+1. Port **completo y funcional**, pero **aislado**: no genera ODP, no lee clientes del ERP, no toca catálogo de Proveedores.
+2. **Todo a Postgres** (incluidos los 138 diseños), con **caché en memoria** al arrancar — no es optimización de egress, es el adaptador que permite portar motores **síncronos** sin reescribirlos contra Sequelize (asíncrono).
+3. UI **reescrita** en Tailwind/FolderTabs/lucide del ERP — no se porta el CSS artesanal (1.105 líneas).
+4. **TypeScript estricto** en todo, sin `any` salvo el tipado propio de `pdfmake` (etapa 2).
+5. Prefijo `cotizador` en todo (ruta, API, feature, tablas) — **choque de nombres confirmado** con `/api/cotizaciones`, `features/cotizaciones/`, tablas `cotizacion`/`cotizacion_items` y `cotizacionesSlice`, que ya existen y son el `COTModal` de la ODP.
+6. `pdfmake@0.3.11` exacto (pendiente instalar, etapa 2) — única dependencia nueva.
+7. Se migran catálogo/provisionales/diseños/parámetros/empresa; **no** las cotizaciones de prueba (numeración arranca en 1).
+8. **Sin identidad de usuario**: `asesor`/`registrado_por` siguen como texto libre, sin FK a `usuarios`.
+9. Auditoría **solo** en 5 tablas: `cotizador_producto`, `cotizador_precio_override`, `cotizador_cotizacion`, `cotizador_cotizacion_item`, `cotizador_parametro`.
+10. Visible solo para `root`/`admin` (`RoleRoute` + Sidebar, sección `comercial`).
+11. **El nombre del software externo de origen de los precios provisionales no puede aparecer en ningún dato ni código** — verificado y limpiado (ver más abajo).
+12. Ejecución en **4 etapas verificables**: (1) BD+datos ✅, (2) backend/motores/endpoints, (3) frontend cotizar/guardar, (4) PDF/calibración/precios.
+
+### Cambios realizados — Etapa 1
+
+**Modelos nuevos (21):** `backend-api/src/models/cotizador_*.model.ts` — precios (`producto`, `precio_override`, `precio_historial`, `parametro`), cotizaciones (`cotizacion`, `cotizacion_item`, `consecutivo`), diseños (`diseno` + `_perfil`/`_vidrio`/`_accesorio` hijas, `mapeo_accesorio`, `accesorio_sistema_activo` vacía a propósito, `geometria_override` vacía), calibración (`calibracion_margen`, `_holgura`, `_contraste`, `_sistema`, `_historial`), empresa (`empresa`, `empresa_logo` separado del texto). Todo `DataTypes.DOUBLE` en numérico (nunca `DECIMAL`: `pg` devuelve `NUMERIC` como string).
+
+**`models/index.ts`:** imports + "Bloque L: Módulo Cotizador" de asociaciones (deliberadamente sin FK a `Usuario`/`Cliente`/`ODP`) + 5 entradas en `MODELOS_AUDITADOS` + exports.
+
+**`controllers/root.controller.ts`:** 5 tablas nuevas en `TABLAS_AUDITABLES`, con **nombres exactos en singular** — el módulo nace sin el bug ya conocido de revertir auditoría de `Cotizacion`/`SAP`/`RutaODP` (nombres en plural que no calzan con la tabla real).
+
+**3 scripts en `backend-api/src/scripts/`:**
+- `2026-09-07_crear_tablas_cotizador.ts` — `sync({alter:false})` + 2 índices únicos parciales (`ux_cotizador_margen_vigente`, `ux_cotizador_holgura_vigente`) + 4 `CHECK` (gramática de la cascada de márgenes + 3 filas-únicas), todo idempotente con `IF NOT EXISTS`/guardas de excepción.
+- `2026-09-07_sembrar_datos_cotizador.ts` — lee los JSON copiados a `src/scripts/datos_cotizador/` (catálogo, provisional, diseños, parámetros, empresa, mapeo). Upsert en `cotizador_producto` (el catálogo sí se regenera), reemplazo completo en diseños (catálogo técnico derivado), `DO NOTHING` en mapeo/parámetros/empresa/consecutivo para no pisar ediciones futuras del usuario.
+- `2026-09-07_verificar_datos_cotizador.ts` — asserta conteos exactos, ausencia del nombre del software de origen en los datos, y **round-trip de fidelidad** campo a campo contra los 3 archivos de origen.
+
+**Limpieza del nombre del software externo:** 126 ocurrencias en `catalogo-provisional.json` (campo `fuente`) neutralizadas a `"referencia externa · <acabado>"` / `"...mediana de acabados"` al copiar los datos, antes de que tocaran el repo del ERP. El propio script de verificación arma el patrón de búsqueda por partes (`['alum','software'].join('')`) para no dejar el string ni en su propio código.
+
+### Ejecutado contra Supabase (producción)
+
+Solo aditivo — 21 tablas nuevas con prefijo `cotizador_`, ninguna tabla existente tocada. Verificado:
+- `cotizador_producto` = 556 (430 catálogo + 126 provisional) · `cotizador_diseno` = 138 (120 cotizables) · `_perfil` = 983 · `_vidrio` = 218 · `_accesorio` = 1.049 · `_mapeo_accesorio` = 54
+- `cotizador_empresa` + logo (23.342 chars) · `cotizador_parametro` (aiu=0.96, iva=0.19, flete=25000) · `cotizador_consecutivo` en 0
+- Round-trip: **430/430, 126/126, 138/138** idénticos campo a campo contra los archivos de origen
+- `grep -ri` sobre `backend-api/src` y consulta SQL sobre los datos: 0 coincidencias del nombre del software externo
+
+`npm run build` del backend compila limpio, sin tocar ningún módulo existente.
+
+### Bug encontrado y corregido en el propio proceso
+
+El primer intento de verificación reportó **129 fallos falsos** (todos los perfiles de todos los diseños). Causa: comparé JSONB con `JSON.stringify(a) !== JSON.stringify(b)` — **Postgres no preserva el orden de las claves de un objeto JSON al guardarlo en JSONB**, así que el mismo contenido puede serializarse en distinto orden. Corregido con un `jsonIgual()` deep-equal insensible al orden de claves; los datos siempre estuvieron correctos, era la comparación la que fallaba. Anotado por si se repite el patrón en la Etapa 2 (comparación de `codigosPorColor`, `refs_sin_precio`, etc. contra los motores portados).
+
+### Pendiente — próxima sesión
+
+1. **Etapa 2** (la más grande, ~4.700 LOC ESM→TS sin cambios de lógica): motores de cálculo (`motorCalculo`, `motorDespiece`, `cotizarPorDiseno`, `aptitudOrden`, `calibracion`, `planoProducto`, `codigoDiseno`, `ordenCorte`, `accesoriosPorDiseno`), los 6 módulos de producto, `cache.ts` (precarga síncrona), `proveedorSequelize.ts` (mismo contrato de 5 métodos que `lib/catalogo.ts` ya esperaba), endpoints en `routes/cotizador.routes.ts`, instalar `pdfmake@0.3.11` exacto. Verificar con golden-master contra el standalone antes de dar por buena la conversión.
+2. Etapa 3: frontend (cotizar/guardar). Etapa 4: PDF/calibración/precios/accesorios/empresa.
+3. Working tree con cambios sin commitear (ver recordatorio de cierre de sesión) — agrupar en un solo commit cuando el usuario lo pida, probablemente al cerrar una etapa completa.

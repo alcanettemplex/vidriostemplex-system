@@ -1,0 +1,4302 @@
+[
+  {
+    "codigo": "CAB0509",
+    "descripcion": "3138 TUBULAR CON ADAPTADOR 1102 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 21421.56862745098,
+    "precio_pa": 32443.649760629713,
+    "precio_pm": 30868.250120268214,
+    "precio_pb": 29292.850479906712
+  },
+  {
+    "codigo": "ADA0404",
+    "descripcion": "3831 ADAPTADOR 175 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 6945.378333333333,
+    "precio_pa": 10518.99727889096,
+    "precio_pm": 10008.215518750088,
+    "precio_pb": 9497.433758609215
+  },
+  {
+    "codigo": "SIL0502",
+    "descripcion": "3831 ADAPTADOR 175 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 7038.514999999999,
+    "precio_pa": 10660.055734775167,
+    "precio_pm": 10142.424454240952,
+    "precio_pb": 9624.793173706736
+  },
+  {
+    "codigo": "ADA0305",
+    "descripcion": "3831 ADAPTADOR 175 CRUDO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 5574.929971988796,
+    "precio_pa": 8443.409471865747,
+    "precio_pm": 8033.414161734399,
+    "precio_pb": 7623.418851603052
+  },
+  {
+    "codigo": "ADA0204",
+    "descripcion": "3831 ADAPTADOR 175 GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 6825.63,
+    "precio_pa": 10337.634604025627,
+    "precio_pm": 9835.659457655582,
+    "precio_pb": 9333.684311285537
+  },
+  {
+    "codigo": "SIL0103",
+    "descripcion": "3831 ADAPTADOR 175 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 7477.591666666667,
+    "precio_pa": 11325.05136787476,
+    "precio_pm": 10775.129211037893,
+    "precio_pb": 10225.207054201024
+  },
+  {
+    "codigo": "DIV0502",
+    "descripcion": "3831 DIVISOR 292 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 17815.826666666668,
+    "precio_pa": 26982.638415597663,
+    "precio_pm": 25672.41471482523,
+    "precio_pb": 24362.191014052794
+  },
+  {
+    "codigo": "DIV0101",
+    "descripcion": "3831 DIVISOR 292 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 15607.143333333333,
+    "precio_pa": 23637.51697537876,
+    "precio_pm": 22489.725773809343,
+    "precio_pb": 21341.934572239923
+  },
+  {
+    "codigo": "ESQ0501",
+    "descripcion": "3831 ESQUINERO 416 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 12658.333333333334,
+    "precio_pa": 19171.450063357923,
+    "precio_pm": 18240.522262143848,
+    "precio_pb": 17309.594460929773
+  },
+  {
+    "codigo": "ESQ0103",
+    "descripcion": "3831 ESQUINERO 416 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 15394.258333333333,
+    "precio_pa": 23315.09584462922,
+    "precio_pm": 22182.960777223972,
+    "precio_pb": 21050.82570981872
+  },
+  {
+    "codigo": "JAM0407",
+    "descripcion": "3831 JAMBA 174 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 10112.045,
+    "precio_pa": 15315.015069592744,
+    "precio_pm": 14571.34814522452,
+    "precio_pb": 13827.681220856295
+  },
+  {
+    "codigo": "JAM0101",
+    "descripcion": "3831 JAMBA 174 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 10311.625,
+    "precio_pa": 15617.285352961668,
+    "precio_pm": 14858.940779832446,
+    "precio_pb": 14100.596206703223
+  },
+  {
+    "codigo": "JAM0206",
+    "descripcion": "3831 JAMBA 174 GRIS PLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 11282.913333333332,
+    "precio_pa": 17088.332550825166,
+    "precio_pm": 16258.556827268436,
+    "precio_pb": 15428.781103711704
+  },
+  {
+    "codigo": "JAM0503",
+    "descripcion": "3831 JAMBA 174 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 9872.548333333334,
+    "precio_pa": 14952.28971986208,
+    "precio_pm": 14226.23602303551,
+    "precio_pb": 13500.182326208938
+  },
+  {
+    "codigo": "NAV0404",
+    "descripcion": "3831 NAVE 176 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 12983.333333333334,
+    "precio_pa": 19663.672941877314,
+    "precio_pm": 18708.84376854517,
+    "precio_pb": 17754.014595213026
+  },
+  {
+    "codigo": "NAV0503",
+    "descripcion": "3831 NAVE 176 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 15686.975,
+    "precio_pa": 23758.424583882355,
+    "precio_pm": 22604.762347322765,
+    "precio_pb": 21451.10011076317
+  },
+  {
+    "codigo": "NAV0202",
+    "descripcion": "3831 NAVE 176 GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 10857.143333333333,
+    "precio_pa": 16443.490289326084,
+    "precio_pm": 15645.026834097696,
+    "precio_pb": 14846.563378869305
+  },
+  {
+    "codigo": "NAV0101",
+    "descripcion": "3831 NAVE 176 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 15234.593333333332,
+    "precio_pa": 23073.278103402143,
+    "precio_pm": 21952.88522854838,
+    "precio_pb": 20832.49235369461
+  },
+  {
+    "codigo": "PIS0405",
+    "descripcion": "3831 PISAVIDRIOS 177 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 4683.473333333333,
+    "precio_pa": 7093.269924929701,
+    "precio_pm": 6748.834728175672,
+    "precio_pb": 6404.399531421643
+  },
+  {
+    "codigo": "PIS0204",
+    "descripcion": "3831 PISAVIDRIO 177  GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 5295.518333333333,
+    "precio_pa": 8020.231622417093,
+    "precio_pm": 7630.784993976897,
+    "precio_pb": 7241.3383655367
+  },
+  {
+    "codigo": "PPR0501",
+    "descripcion": "3831 PISAVIDRIO 177 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 5002.801666666667,
+    "precio_pa": 7576.90288316396,
+    "precio_pm": 7208.983423878106,
+    "precio_pb": 6841.063964592251
+  },
+  {
+    "codigo": "PIS0304",
+    "descripcion": "3831 PISAVIDRIO 177 CRUDO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 904.7616666666667,
+    "precio_pa": 1370.2904367405254,
+    "precio_pm": 1303.7518359000162,
+    "precio_pb": 1237.2132350595066
+  },
+  {
+    "codigo": "PPR0101",
+    "descripcion": "3831 PISAVIDRIO 177 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 4441.596666666667,
+    "precio_pa": 6726.93998919634,
+    "precio_pm": 6400.293051570553,
+    "precio_pb": 6073.646113944765
+  },
+  {
+    "codigo": "PIS0102",
+    "descripcion": "3831 PISAVIDRIOS 635 CURVO MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 4808.333333333333,
+    "precio_pa": 7282.374382197182,
+    "precio_pm": 6928.7566459888085,
+    "precio_pb": 6575.138909780433
+  },
+  {
+    "codigo": "PIS0103",
+    "descripcion": "3831 PISAVIDRIOS VIDRIO 10MM 435 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 6652.661666666667,
+    "precio_pa": 10075.668539637825,
+    "precio_pm": 9586.413948651298,
+    "precio_pb": 9097.159357664767
+  },
+  {
+    "codigo": "SIA0101",
+    "descripcion": "3831 SILLAR ALFAJIA 616 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 11549.019607843138,
+    "precio_pa": 17491.359001382978,
+    "precio_pm": 16642.01310831852,
+    "precio_pb": 15792.667215254056
+  },
+  {
+    "codigo": "SIL0415",
+    "descripcion": "3831 SILLAR CABEZAL 173 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 1742.9966666666667,
+    "precio_pa": 2639.824112358076,
+    "precio_pm": 2511.6394602640567,
+    "precio_pb": 2383.4548081700373
+  },
+  {
+    "codigo": "SIL0504",
+    "descripcion": "3831 SILLAR CABEZAL 173 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 8382.353333333334,
+    "precio_pa": 12695.341804615286,
+    "precio_pm": 12078.88104693791,
+    "precio_pb": 11462.420289260532
+  },
+  {
+    "codigo": "SIL0301",
+    "descripcion": "3831 SILLAR CABEZAL 173 CRUDO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 1636.555,
+    "precio_pa": 2478.61480909325,
+    "precio_pm": 2358.2581627957466,
+    "precio_pb": 2237.901516498243
+  },
+  {
+    "codigo": "SIL0203",
+    "descripcion": "3831 SILLAR CABEZAL 173 GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 9074.23,
+    "precio_pa": 13743.211110606268,
+    "precio_pm": 13075.867886252552,
+    "precio_pb": 12408.524661898835
+  },
+  {
+    "codigo": "SIL0102",
+    "descripcion": "3831 SILLAR CABEZAL 173 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 7783.613333333334,
+    "precio_pa": 11788.530954508511,
+    "precio_pm": 11216.10314311413,
+    "precio_pb": 10643.675331719747
+  },
+  {
+    "codigo": "TUB0118",
+    "descripcion": "3831 TUBULAR CON ADAPTADOR 1101 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 30642.156666666666,
+    "precio_pa": 46408.52479541198,
+    "precio_pm": 44155.0183677498,
+    "precio_pb": 41901.51194008761
+  },
+  {
+    "codigo": "CAB0410",
+    "descripcion": "5020 CABEZAL 144 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 1969.1883333333333,
+    "precio_pa": 2982.3986147081246,
+    "precio_pm": 2837.579220475624,
+    "precio_pb": 2692.759826243123
+  },
+  {
+    "codigo": "CAB0510",
+    "descripcion": "5020 CABEZAL 144 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 9478.991666666667,
+    "precio_pa": 14356.23558039388,
+    "precio_pm": 13659.125096919764,
+    "precio_pb": 12962.014613445646
+  },
+  {
+    "codigo": "CAB0307",
+    "descripcion": "5020 CABEZAL 144 CRUDO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 1809.5233333333333,
+    "precio_pa": 2740.5808734810507,
+    "precio_pm": 2607.5036718000324,
+    "precio_pb": 2474.426470119013
+  },
+  {
+    "codigo": "CAB0203",
+    "descripcion": "5020 CABEZAL 144 GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 8608.543417366947,
+    "precio_pa": 13037.913910017036,
+    "precio_pm": 12404.818526592258,
+    "precio_pb": 11771.72314316748
+  },
+  {
+    "codigo": "CAB0102",
+    "descripcion": "5020 CABEZAL 144 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 9579.831666666667,
+    "precio_pa": 14508.960980608945,
+    "precio_pm": 13804.434452936717,
+    "precio_pb": 13099.907925264488
+  },
+  {
+    "codigo": "ENG0406",
+    "descripcion": "5020 ENGANCHE 147 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 8009.803333333333,
+    "precio_pa": 12131.102932638669,
+    "precio_pm": 11542.040501676945,
+    "precio_pb": 10952.97807071522
+  },
+  {
+    "codigo": "ENG0504",
+    "descripcion": "5020 ENGANCHE 147 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 8083.473333333332,
+    "precio_pa": 12242.67850020951,
+    "precio_pm": 11648.198179758745,
+    "precio_pb": 11053.717859307979
+  },
+  {
+    "codigo": "ENG1001",
+    "descripcion": "5020 ENGANCHE 147 CRUDO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 7357.843333333333,
+    "precio_pa": 11143.688693009426,
+    "precio_pm": 10602.573149943386,
+    "precio_pb": 10061.457606877344
+  },
+  {
+    "codigo": "ENG0102",
+    "descripcion": "5020 ENGANCHE 147 GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 7411.064425770309,
+    "precio_pa": 11224.29373706258,
+    "precio_pm": 10679.264172043104,
+    "precio_pb": 10134.234607023627
+  },
+  {
+    "codigo": "ENG0103",
+    "descripcion": "5020 ENGANCHE 147 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 8169.468333333333,
+    "precio_pa": 12372.920673865743,
+    "precio_pm": 11772.116050352537,
+    "precio_pb": 11171.31142683933
+  },
+  {
+    "codigo": "HOR0408",
+    "descripcion": "5020 HORIZONTAL 148 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 9433.473333333333,
+    "precio_pa": 14287.296610982377,
+    "precio_pm": 13593.533667887321,
+    "precio_pb": 12899.770724792263
+  },
+  {
+    "codigo": "HOR0502",
+    "descripcion": "5020 HORIZONTAL 148 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 9557.983333333334,
+    "precio_pa": 14475.870982072991,
+    "precio_pm": 13772.951239462795,
+    "precio_pb": 13070.031496852595
+  },
+  {
+    "codigo": "HOR0307",
+    "descripcion": "5020 HORIZONTAL 148 CRUDO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 8701.68,
+    "precio_pa": 13178.972238629653,
+    "precio_pm": 12539.02734099159,
+    "precio_pb": 11899.082443353525
+  },
+  {
+    "codigo": "HOR0204",
+    "descripcion": "5020 HORIZONTAL 148 GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 8661.764705882353,
+    "precio_pa": 13118.519251037233,
+    "precio_pm": 12481.509831238887,
+    "precio_pb": 11844.50041144054
+  },
+  {
+    "codigo": "HOR0101",
+    "descripcion": "5020 HORIZONTAL 148 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 9659.663333333334,
+    "precio_pa": 14629.868589112537,
+    "precio_pm": 13919.471026450137,
+    "precio_pb": 13209.073463787736
+  },
+  {
+    "codigo": "JAM0403",
+    "descripcion": "5020 JAMBA 193 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 8874.649859943978,
+    "precio_pa": 13440.940615118026,
+    "precio_pm": 12788.275049825404,
+    "precio_pb": 12135.609484532783
+  },
+  {
+    "codigo": "JAM0504",
+    "descripcion": "5020 JAMBA 193 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 9360.505,
+    "precio_pa": 14176.783739985158,
+    "precio_pm": 13488.387083929594,
+    "precio_pb": 12799.990427874029
+  },
+  {
+    "codigo": "JAM1001",
+    "descripcion": "5020 JAMBA 193 CRUDO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 8515.406666666668,
+    "precio_pa": 12896.855326861236,
+    "precio_pm": 12270.60947000986,
+    "precio_pb": 11644.363613158484
+  },
+  {
+    "codigo": "JAM0102",
+    "descripcion": "5020 JAMBA 193 GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 8528.711484593838,
+    "precio_pa": 12917.005898486737,
+    "precio_pm": 12289.781569622315,
+    "precio_pb": 11662.557240757891
+  },
+  {
+    "codigo": "JAM0103",
+    "descripcion": "5020 JAMBA 193 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 9460.083333333334,
+    "precio_pa": 14327.598305743611,
+    "precio_pm": 13631.87839184221,
+    "precio_pb": 12936.158477940808
+  },
+  {
+    "codigo": "ROD5020",
+    "descripcion": "5020 RODAJA NAYLON",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 212.885,
+    "precio_pa": 322.4211307495419,
+    "precio_pm": 306.7649965853714,
+    "precio_pb": 291.10886242120085
+  },
+  {
+    "codigo": "SIL0416",
+    "descripcion": "5020 SILLAR 194 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2128.851666666667,
+    "precio_pa": 3224.213831715309,
+    "precio_pm": 3067.652367502465,
+    "precio_pb": 2911.090903289621
+  },
+  {
+    "codigo": "SIL0506",
+    "descripcion": "5020 SILLAR 194 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 10268.908333333333,
+    "precio_pa": 15552.58959718499,
+    "precio_pm": 14797.386522350056,
+    "precio_pb": 14042.18344751512
+  },
+  {
+    "codigo": "SIL1002",
+    "descripcion": "5020 SILLAR 194 CRUDO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 1955.881666666667,
+    "precio_pa": 2962.245243107618,
+    "precio_pm": 2818.4044568494287,
+    "precio_pb": 2674.5636705912384
+  },
+  {
+    "codigo": "SIL0205",
+    "descripcion": "5020 SILLAR 194 GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 9593.136666666667,
+    "precio_pa": 14529.111827989562,
+    "precio_pm": 13823.606814914163,
+    "precio_pb": 13118.10180183876
+  },
+  {
+    "codigo": "SIL0104",
+    "descripcion": "5020 SILLAR 194 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 10378.151666666667,
+    "precio_pa": 15718.042114084643,
+    "precio_pm": 14954.804991368423,
+    "precio_pb": 14191.567868652199
+  },
+  {
+    "codigo": "SIA0102",
+    "descripcion": "5020 SILLAR ALFAJIA 581 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 10737.800000000001,
+    "precio_pa": 16262.740999893986,
+    "precio_pm": 15473.05437364963,
+    "precio_pb": 14683.367747405271
+  },
+  {
+    "codigo": "TRA0307",
+    "descripcion": "5020 TRASLAPE 192 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 6014.005,
+    "precio_pa": 9108.40262316931,
+    "precio_pm": 8666.116557246432,
+    "precio_pb": 8223.830491323552
+  },
+  {
+    "codigo": "TRA0102",
+    "descripcion": "5020 TRASLAPE 192 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 6107.143333333333,
+    "precio_pa": 9249.463603273409,
+    "precio_pm": 8800.327894386048,
+    "precio_pb": 8351.192185498685
+  },
+  {
+    "codigo": "TRA1001",
+    "descripcion": "5020 TRASLAPE 192 CRUDO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 5508.403333333333,
+    "precio_pa": 8342.652753166634,
+    "precio_pm": 7937.549990562267,
+    "precio_pb": 7532.4472279579
+  },
+  {
+    "codigo": "TRA0201",
+    "descripcion": "5020 TRASLAPE 192 GRIS PLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 5525,
+    "precio_pa": 8367.788934829692,
+    "precio_pm": 7961.465608822496,
+    "precio_pb": 7555.142282815299
+  },
+  {
+    "codigo": "TRA0103",
+    "descripcion": "5020 TRASLAPE 192 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 6107.143333333333,
+    "precio_pa": 9249.463603273409,
+    "precio_pm": 8800.327894386048,
+    "precio_pb": 8351.192185498685
+  },
+  {
+    "codigo": "TRR0101",
+    "descripcion": "5020 TRASLAPE REFORZADO 258 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 7230.613333333334,
+    "precio_pa": 10950.994795058588,
+    "precio_pm": 10419.236087606647,
+    "precio_pb": 9887.477380154703
+  },
+  {
+    "codigo": "ADA0405",
+    "descripcion": "744 ADAPTADOR 403 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 6759.1033333333335,
+    "precio_pa": 10236.877842902652,
+    "precio_pm": 9739.795246119607,
+    "precio_pb": 9242.712649336561
+  },
+  {
+    "codigo": "ADA0504",
+    "descripcion": "744 ADAPTADOR 403 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 6639.333333333333,
+    "precio_pa": 10055.48235317875,
+    "precio_pm": 9567.20796359134,
+    "precio_pb": 9078.933574003928
+  },
+  {
+    "codigo": "ADA0206",
+    "descripcion": "744 ADAPTADOR 403 GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 5934.173669467787,
+    "precio_pa": 8987.495523752083,
+    "precio_pm": 8551.080468099144,
+    "precio_pb": 8114.665412446207
+  },
+  {
+    "codigo": "ADA0103",
+    "descripcion": "744 ADAPTADOR 403 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 6679.2716666666665,
+    "precio_pa": 10115.97023439906,
+    "precio_pm": 9624.758672606185,
+    "precio_pb": 9133.547110813312
+  },
+  {
+    "codigo": "CAB0402",
+    "descripcion": "744 CABEZAL 392 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2408.2633333333333,
+    "precio_pa": 3647.3917235878253,
+    "precio_pm": 3470.281575623812,
+    "precio_pb": 3293.1714276597972
+  },
+  {
+    "codigo": "CAB0508",
+    "descripcion": "744 CABEZAL 392 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 11006.161666666667,
+    "precio_pa": 16669.183313896843,
+    "precio_pm": 15859.76065055333,
+    "precio_pb": 15050.337987209816
+  },
+  {
+    "codigo": "CAB0202",
+    "descripcion": "744 CABEZAL 392 GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 11535.548333333332,
+    "precio_pa": 17470.956325947467,
+    "precio_pm": 16622.601146559817,
+    "precio_pb": 15774.245967172164
+  },
+  {
+    "codigo": "CAB0104",
+    "descripcion": "744 CABEZAL 392 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 10803.921666666667,
+    "precio_pa": 16362.884375583728,
+    "precio_pm": 15568.334984539166,
+    "precio_pb": 14773.785593494602
+  },
+  {
+    "codigo": "ENG0403",
+    "descripcion": "744 ENGANCHE 391 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 13079.131666666666,
+    "precio_pa": 19808.7625769256,
+    "precio_pm": 18846.888137091024,
+    "precio_pb": 17885.013697256447
+  },
+  {
+    "codigo": "ENG0505",
+    "descripcion": "744 ENGANCHE 391 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 13007.283333333333,
+    "precio_pa": 19699.94598169436,
+    "precio_pm": 18743.355461093823,
+    "precio_pb": 17786.76494049328
+  },
+  {
+    "codigo": "ENG0202",
+    "descripcion": "744 ENGANCHE 391 GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 13624.65,
+    "precio_pa": 20634.96751329002,
+    "precio_pm": 19632.974191356276,
+    "precio_pb": 18630.980869422525
+  },
+  {
+    "codigo": "ENG0101",
+    "descripcion": "744 ENGANCHE 391 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 13238.795,
+    "precio_pa": 20050.577793932785,
+    "precio_pm": 19076.961284117868,
+    "precio_pb": 18103.344774302943
+  },
+  {
+    "codigo": "HOI0402",
+    "descripcion": "744 HORIZONTAL INFERIOR 390 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 10657.563333333334,
+    "precio_pa": 16141.22000595716,
+    "precio_pm": 15357.43419948977,
+    "precio_pb": 14573.648393022377
+  },
+  {
+    "codigo": "HOI0503",
+    "descripcion": "744 HORIZONTAL INFERIOR 390 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2381.653333333333,
+    "precio_pa": 3607.090028826591,
+    "precio_pm": 3431.9368516689215,
+    "precio_pb": 3256.783674511252
+  },
+  {
+    "codigo": "HOI0204",
+    "descripcion": "744 HORIZONTAL INFERIOR 390 GRIS PLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 11655.461666666668,
+    "precio_pa": 17652.568898581896,
+    "precio_pm": 16795.394970880654,
+    "precio_pb": 15938.221043179406
+  },
+  {
+    "codigo": "HOI0101",
+    "descripcion": "744 HORIZONTAL INFERIOR 390 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 10657.563333333334,
+    "precio_pa": 16141.22000595716,
+    "precio_pm": 15357.43419948977,
+    "precio_pb": 14573.648393022377
+  },
+  {
+    "codigo": "HOS0401",
+    "descripcion": "744 HORIZONTAL SUPERIOR 389 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 8621.848333333333,
+    "precio_pa": 13058.06463012606,
+    "precio_pm": 12423.99076747817,
+    "precio_pb": 11789.916904830277
+  },
+  {
+    "codigo": "HOS0503",
+    "descripcion": "744 HORIZONTAL SUPERIOR 389 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 1809.5233333333333,
+    "precio_pa": 2740.5808734810507,
+    "precio_pm": 2607.5036718000324,
+    "precio_pb": 2474.426470119013
+  },
+  {
+    "codigo": "HOS0202",
+    "descripcion": "744 HORIZONTAL SUPERIOR 389 GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 8994.398333333333,
+    "precio_pa": 13622.303502102675,
+    "precio_pm": 12960.831312739132,
+    "precio_pb": 12299.359123375587
+  },
+  {
+    "codigo": "HOS0101",
+    "descripcion": "744 HORIZONTAL SUPERIOR 389 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 8741.596666666666,
+    "precio_pa": 13239.427304991394,
+    "precio_pm": 12596.546828572675,
+    "precio_pb": 11953.666352153956
+  },
+  {
+    "codigo": "JAM0402",
+    "descripcion": "744 JAMBA 393 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2315.1266666666666,
+    "precio_pa": 3506.3332677036165,
+    "precio_pm": 3336.072640132946,
+    "precio_pb": 3165.8120125622754
+  },
+  {
+    "codigo": "JAM0505",
+    "descripcion": "744 JAMBA 393 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2275.21,
+    "precio_pa": 3445.8782013418754,
+    "precio_pm": 3278.553152551861,
+    "precio_pb": 3111.2281037618454
+  },
+  {
+    "codigo": "JAM0744",
+    "descripcion": "744 JAMBA 393 GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 11123.25,
+    "precio_pa": 16846.517333817985,
+    "precio_pm": 16028.483680241598,
+    "precio_pb": 15210.450026665208
+  },
+  {
+    "codigo": "JAM0108",
+    "descripcion": "744 JAMBA 393 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 10803.921666666667,
+    "precio_pa": 16362.884375583728,
+    "precio_pm": 15568.334984539166,
+    "precio_pb": 14773.785593494602
+  },
+  {
+    "codigo": "SIL0408",
+    "descripcion": "744 SILLAR 387 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2567.9266666666667,
+    "precio_pa": 3889.2069405950097,
+    "precio_pm": 3700.3547226506525,
+    "precio_pb": 3511.5025047062954
+  },
+  {
+    "codigo": "SIL0507",
+    "descripcion": "744 SILLAR 387 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 12335.855000000001,
+    "precio_pa": 18683.046329531862,
+    "precio_pm": 17775.83445030245,
+    "precio_pb": 16868.622571073036
+  },
+  {
+    "codigo": "SIL0212",
+    "descripcion": "744 SILLAR 387 GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 12932.773333333333,
+    "precio_pa": 19587.098207299034,
+    "precio_pm": 18635.98735204163,
+    "precio_pb": 17684.87649678422
+  },
+  {
+    "codigo": "SIL0744",
+    "descripcion": "744 SILLAR 387 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 11309.523333333333,
+    "precio_pa": 17128.634245586403,
+    "precio_pm": 16296.901551223327,
+    "precio_pb": 15465.168856860251
+  },
+  {
+    "codigo": "TRA0402",
+    "descripcion": "744 TRASLAPE 388 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 12373.949999999999,
+    "precio_pa": 18740.742423554002,
+    "precio_pm": 17830.728935798936,
+    "precio_pb": 16920.715448043866
+  },
+  {
+    "codigo": "TRA0203",
+    "descripcion": "744 TRASLAPE 388 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 12309.523333333333,
+    "precio_pa": 18643.16617949223,
+    "precio_pm": 17737.890801688936,
+    "precio_pb": 16832.615423885643
+  },
+  {
+    "codigo": "TRA0101",
+    "descripcion": "744 TRASLAPE 388 GRISPLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2860.645,
+    "precio_pa": 4332.538204068033,
+    "precio_pm": 4122.158694398196,
+    "precio_pb": 3911.7791847283565
+  },
+  {
+    "codigo": "TRA0105",
+    "descripcion": "744 TRASLAPE 388 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 12533.613333333333,
+    "precio_pa": 18982.557640561186,
+    "precio_pm": 18060.802082825776,
+    "precio_pb": 17139.046525090365
+  },
+  {
+    "codigo": "CAB0505",
+    "descripcion": "8025 CABEZAL 151 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 15899.86,
+    "precio_pa": 24080.845714631894,
+    "precio_pm": 22911.527343908136,
+    "precio_pb": 21742.208973184373
+  },
+  {
+    "codigo": "CABE8025",
+    "descripcion": "8025 CABEZAL 151 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 16897.758333333335,
+    "precio_pa": 25592.19460725663,
+    "precio_pm": 24349.48811529902,
+    "precio_pb": 23106.781623341405
+  },
+  {
+    "codigo": "CAB0504",
+    "descripcion": "8025 CABEZAL 706 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 25386.554999999997,
+    "precio_pa": 38448.748239356624,
+    "precio_pm": 36581.75286135398,
+    "precio_pb": 34714.757483351335
+  },
+  {
+    "codigo": "CAB0106",
+    "descripcion": "8025 CABEZAL 706 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 26969.888333333332,
+    "precio_pa": 40846.75713470752,
+    "precio_pm": 38863.319174591205,
+    "precio_pb": 36879.88121447487
+  },
+  {
+    "codigo": "EMPA8025",
+    "descripcion": "EMPAQUE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2500,
+    "precio_pa": 3786.3298347645664,
+    "precio_pm": 3602.4731261640254,
+    "precio_pb": 3418.6164175634835
+  },
+  {
+    "codigo": "ENG0503",
+    "descripcion": "8025 ENGANCHE 191 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 16294.538333333332,
+    "precio_pa": 24678.598654085956,
+    "precio_pm": 23480.25457963315,
+    "precio_pb": 22281.91050518034
+  },
+  {
+    "codigo": "ENGA8025",
+    "descripcion": "8025 ENGANCHE 191 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 17177.171666666665,
+    "precio_pa": 26015.375023349035,
+    "precio_pm": 24752.11972506911,
+    "precio_pb": 23488.864426789187
+  },
+  {
+    "codigo": "HOI0505",
+    "descripcion": "8025 HORIZONTAL INF. 157 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 19505.601666666666,
+    "precio_pa": 29541.85661421338,
+    "precio_pm": 28107.362325530754,
+    "precio_pb": 26672.868036848125
+  },
+  {
+    "codigo": "HOIN8025",
+    "descripcion": "8025 HORIZONTAL INF. 157 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 16538.515406162463,
+    "precio_pa": 25048.10972202654,
+    "precio_pm": 23831.822918939994,
+    "precio_pb": 22615.536115853443
+  },
+  {
+    "codigo": "HOS0506",
+    "descripcion": "8025 HORIZONTAL SUP. 156 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 14702.381666666666,
+    "precio_pa": 22267.226538638235,
+    "precio_pm": 21185.973937909326,
+    "precio_pb": 20104.721337180414
+  },
+  {
+    "codigo": "HOSU8025",
+    "descripcion": "8025 HORIZONTAL SUP. 156 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 15181.373333333335,
+    "precio_pa": 22992.674713879678,
+    "precio_pm": 21876.1957806386,
+    "precio_pb": 20759.71684739752
+  },
+  {
+    "codigo": "JAM0506",
+    "descripcion": "8025 JAMBA 152 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 15633.753333333334,
+    "precio_pa": 23677.818670139997,
+    "precio_pm": 22528.070497764234,
+    "precio_pb": 21378.322325388468
+  },
+  {
+    "codigo": "JAM8025",
+    "descripcion": "8025 JAMBA 152 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 16126.050000000001,
+    "precio_pa": 24423.417692762054,
+    "precio_pm": 23237.464702470952,
+    "precio_pb": 22051.511712179847
+  },
+  {
+    "codigo": "JAM0508",
+    "descripcion": "8025 JAMBA 708 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 23590.336666666666,
+    "precio_pa": 35728.31821325619,
+    "precio_pm": 33993.4215515314,
+    "precio_pb": 32258.524889806595
+  },
+  {
+    "codigo": "JAM0106",
+    "descripcion": "8025 JAMBA 708 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 25067.226666666666,
+    "precio_pa": 37965.11528112237,
+    "precio_pm": 36121.60416565155,
+    "precio_pb": 34278.09305018073
+  },
+  {
+    "codigo": "SIL0510",
+    "descripcion": "8025 SILLAR 150 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 15890.756666666666,
+    "precio_pa": 24067.058425593572,
+    "precio_pm": 22898.409538431395,
+    "precio_pb": 21729.76065126922
+  },
+  {
+    "codigo": "SILL8025",
+    "descripcion": "8025 SILLAR 150 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 11868.347338935573,
+    "precio_pa": 17974.991047504165,
+    "precio_pm": 17102.16093619829,
+    "precio_pb": 16229.330824892413
+  },
+  {
+    "codigo": "SIL0508",
+    "descripcion": "8025 SILLAR 707 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 28446.778333333335,
+    "precio_pa": 43083.5542025737,
+    "precio_pm": 40991.50178871136,
+    "precio_pb": 38899.44937484901
+  },
+  {
+    "codigo": "SIL0110",
+    "descripcion": "8025 SILLAR 707 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 29338.235,
+    "precio_pa": 44433.693791933605,
+    "precio_pm": 42276.08126263393,
+    "precio_pb": 40118.468733334244
+  },
+  {
+    "codigo": "TRA0502",
+    "descripcion": "8025 TRASLAPE 190 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 3858.543333333333,
+    "precio_pa": 5843.887096692767,
+    "precio_pm": 5560.1194657890765,
+    "precio_pb": 5276.351834885385
+  },
+  {
+    "codigo": "TRAS8025",
+    "descripcion": "8025 TRASLAPE 190 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 17243.696666666667,
+    "precio_pa": 26116.12926025212,
+    "precio_pm": 24847.98153495634,
+    "precio_pb": 23579.833809660555
+  },
+  {
+    "codigo": "ACCBA01",
+    "descripcion": "ACC. BARRA ESTABILIZADORA EN U CROMO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 1746.6666666666667,
+    "precio_pa": 2645.3824445555106,
+    "precio_pm": 2516.9278908132655,
+    "precio_pb": 2388.4733370710205
+  },
+  {
+    "codigo": "ACCBO01",
+    "descripcion": "ACC. BARRA ESTABILIZADORA O EN CROMO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 1746.6666666666667,
+    "precio_pa": 2645.3824445555106,
+    "precio_pm": 2516.9278908132655,
+    "precio_pb": 2388.4733370710205
+  },
+  {
+    "codigo": "ACCBS01",
+    "descripcion": "ACC. BARRA ESTABILIZADORA PASANTE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2400,
+    "precio_pa": 3634.8766413739836,
+    "precio_pm": 3458.374201117464,
+    "precio_pb": 3281.8717608609445
+  },
+  {
+    "codigo": "ACCBP01",
+    "descripcion": "ACC. BARRA ESTABILIZADORA PISTOLA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 4400,
+    "precio_pa": 6663.940509185637,
+    "precio_pm": 6340.3527020486845,
+    "precio_pb": 6016.764894911731
+  },
+  {
+    "codigo": "ALF0102",
+    "descripcion": "ALFAJIA 413 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 21887.255,
+    "precio_pa": 33148.94664303997,
+    "precio_pm": 31539.29917719968,
+    "precio_pb": 29929.65171135938
+  },
+  {
+    "codigo": "ALF0103",
+    "descripcion": "ALFAJIA 612 MATE 10CM",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 12067.926666666666,
+    "precio_pa": 18277.26031270036,
+    "precio_pm": 17389.75260207395,
+    "precio_pb": 16502.24489144753
+  },
+  {
+    "codigo": "ALF0401",
+    "descripcion": "ALFAJIA S-332 BLANCA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2035.7150000000001,
+    "precio_pa": 3083.1553758310997,
+    "precio_pm": 2933.4434320115997,
+    "precio_pb": 2783.7314881920993
+  },
+  {
+    "codigo": "ANG0303",
+    "descripcion": "ANGULO DE 1 1/2* 1 1/2 A19 CRUDO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 15673.669333333333,
+    "precio_pa": 23738.27272681378,
+    "precio_pm": 22585.589024685818,
+    "precio_pb": 21432.905322557854
+  },
+  {
+    "codigo": "ANG1001",
+    "descripcion": "ANGULO DE 1\" X 1\" A-11 CRUDO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 6945.378333333333,
+    "precio_pa": 10518.99727889096,
+    "precio_pm": 10008.215518750088,
+    "precio_pb": 9497.433758609215
+  },
+  {
+    "codigo": "ANG0506",
+    "descripcion": "ANGULO DE 1/2*1/2 A-01 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2035.7150000000001,
+    "precio_pa": 3083.1553758310997,
+    "precio_pm": 2933.4434320115997,
+    "precio_pb": 2783.7314881920993
+  },
+  {
+    "codigo": "ANG0104",
+    "descripcion": "ANGULO DE 1/2*1/2 A-01 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2062.3250000000003,
+    "precio_pa": 3123.4570705923343,
+    "precio_pm": 2971.7881559664897,
+    "precio_pb": 2820.1192413406447
+  },
+  {
+    "codigo": "ANG0105",
+    "descripcion": "ANGULO DE 3/4 X 3/4 A-05 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2528.0116666666668,
+    "precio_pa": 3828.7543984531585,
+    "precio_pm": 3642.8376367183178,
+    "precio_pb": 3456.920874983477
+  },
+  {
+    "codigo": "ANG0102",
+    "descripcion": "ANGULO IRREGULAR A-46 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 3951.6806722689075,
+    "precio_pa": 5984.946570749705,
+    "precio_pm": 5694.329370012211,
+    "precio_pb": 5403.712169274717
+  },
+  {
+    "codigo": "ANG0107",
+    "descripcion": "ANG.IRRG. 1X3/4 X 1/16 A-46 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 3179.971988795518,
+    "precio_pa": 4816.169125956833,
+    "precio_pm": 4582.305452636089,
+    "precio_pb": 4348.441779315344
+  },
+  {
+    "codigo": "BAR1101",
+    "descripcion": "BARRA 2\" EN ACERO INOX. HASTA 1.10",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 25000,
+    "precio_pa": 37599.639043465184,
+    "precio_pm": 35216.29904053274,
+    "precio_pb": 32832.9590376003
+  },
+  {
+    "codigo": "BES0302",
+    "descripcion": "BARRA ESTABILIZADORA (EJE 7/16)",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 26200,
+    "precio_pa": 39404.421717551515,
+    "precio_pm": 36906.68139447831,
+    "precio_pb": 34408.94107140512
+  },
+  {
+    "codigo": "BZO0301",
+    "descripcion": "BASE PARA ZOCALO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 42016,
+    "precio_pa": 63191.45736200932,
+    "precio_pm": 59185.92081948094,
+    "precio_pb": 55180.38427695257
+  },
+  {
+    "codigo": "BAR0101",
+    "descripcion": "BISAGRA ARA¥A 2 PUNTO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 55500,
+    "precio_pa": 83471.1986764927,
+    "precio_pm": 78180.18386998268,
+    "precio_pb": 72889.16906347267
+  },
+  {
+    "codigo": "BIB0101",
+    "descripcion": "BISAGRA BANDERA MATE",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 5069.33,
+    "precio_pa": 7624.199127688374,
+    "precio_pm": 7140.921648605753,
+    "precio_pb": 6657.644169523133
+  },
+  {
+    "codigo": "BDO0301",
+    "descripcion": "BISAGRA DOBLE CROMO 180",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 66912,
+    "precio_pa": 100634.68190705369,
+    "precio_pm": 94255.72005600507,
+    "precio_pb": 87876.75820495645
+  },
+  {
+    "codigo": "BDO0302",
+    "descripcion": "BISAGRA DOBLE CROMO 90",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 69420,
+    "precio_pa": 104406.67769589412,
+    "precio_pm": 97788.61917575132,
+    "precio_pb": 91170.56065560851
+  },
+  {
+    "codigo": "BGM0101",
+    "descripcion": "BISAGRA GRANDE VITRINA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 40300,
+    "precio_pa": 60610.618138065875,
+    "precio_pm": 56768.67405333878,
+    "precio_pb": 52926.72996861168
+  },
+  {
+    "codigo": "BME1102",
+    "descripcion": "BISAGRA MEDIA LUNA 2 PUNTOS",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 86387,
+    "precio_pa": 129924.80072191307,
+    "precio_pm": 121689.21700858008,
+    "precio_pb": 113453.63329524708
+  },
+  {
+    "codigo": "BME1101",
+    "descripcion": "BISAGRA MEDIA LUNA 3 PUNTOS",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 134000,
+    "precio_pa": 201534.06527297338,
+    "precio_pm": 188759.36285725547,
+    "precio_pb": 175984.66044153762
+  },
+  {
+    "codigo": "BMM0101",
+    "descripcion": "BISAGRA MEDIANA VITRINA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 8800,
+    "precio_pa": 13235.072943299745,
+    "precio_pm": 12396.137262267524,
+    "precio_pb": 11557.201581235306
+  },
+  {
+    "codigo": "BPM0101",
+    "descripcion": "BISAGRA PEQUE¥A VITRINA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 8800,
+    "precio_pa": 13235.072943299745,
+    "precio_pm": 12396.137262267524,
+    "precio_pb": 11557.201581235306
+  },
+  {
+    "codigo": "BSE1201",
+    "descripcion": "BISAGRA SENCILLA ACERO 28-40",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 28740,
+    "precio_pa": 43224.54504436757,
+    "precio_pm": 40484.65737699644,
+    "precio_pb": 37744.7697096253
+  },
+  {
+    "codigo": "BSE0307",
+    "descripcion": "BISAGRA SENCILLA CROMO  25-30",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 24370,
+    "precio_pa": 36652.12813956986,
+    "precio_pm": 34328.84830471131,
+    "precio_pb": 32005.568469852773
+  },
+  {
+    "codigo": "BSE0301",
+    "descripcion": "BISAGRA SENCILLA CROMO  28-40",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 39240,
+    "precio_pa": 59016.39344262295,
+    "precio_pm": 55275.502974020186,
+    "precio_pb": 51534.61250541743
+  },
+  {
+    "codigo": "BSE0305",
+    "descripcion": "BISAGRA SENCILLA CROMO INVERTIDA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 43740,
+    "precio_pa": 65784.32847044668,
+    "precio_pm": 61614.43680131608,
+    "precio_pb": 57444.545132185485
+  },
+  {
+    "codigo": "BFL1102",
+    "descripcion": "BISAGRA TIPO FLAUTA DOS PUNTOS",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 45630.25,
+    "precio_pa": 68627.2371785231,
+    "precio_pm": 64277.14117177076,
+    "precio_pb": 59927.04516501845
+  },
+  {
+    "codigo": "BFL1103",
+    "descripcion": "BISAGRA TIPO FLAUTA TRES PUNTOS",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 118800,
+    "precio_pa": 178673.48473454654,
+    "precio_pm": 167347.85304061158,
+    "precio_pb": 156022.22134667664
+  },
+  {
+    "codigo": "PAS0101",
+    "descripcion": "BOLILLO PASAMANOS",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 80000,
+    "precio_pa": 120318.84493908858,
+    "precio_pm": 112692.15692970477,
+    "precio_pb": 105065.46892032096
+  },
+  {
+    "codigo": "1BOQN02",
+    "descripcion": "CODIGO NO EXISTE",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 0,
+    "precio_pa": 0,
+    "precio_pm": 0,
+    "precio_pb": 0
+  },
+  {
+    "codigo": "1BPB10",
+    "descripcion": "CODIGO NO EXISTE",
+    "categoria": "ACABADO",
+    "unidad": "ML",
+    "costo_unitario": 0,
+    "precio_pa": 0,
+    "precio_pm": 0,
+    "precio_pb": 0
+  },
+  {
+    "codigo": "1BPB07",
+    "descripcion": "CODIGO NO EXISTE",
+    "categoria": "ACABADO",
+    "unidad": "ML",
+    "costo_unitario": 0,
+    "precio_pa": 0,
+    "precio_pm": 0,
+    "precio_pb": 0
+  },
+  {
+    "codigo": "BHA1101",
+    "descripcion": "BOTON HALADERA ACERO TAMBOR",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 7550,
+    "precio_pa": 11355.090991126484,
+    "precio_pm": 10635.322310240887,
+    "precio_pb": 9915.55362935529
+  },
+  {
+    "codigo": "BHA1102",
+    "descripcion": "BOTON ACERO TAMBOR CON TAPA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 5200,
+    "precio_pa": 7820.724921040758,
+    "precio_pm": 7324.99020043081,
+    "precio_pb": 6829.255479820863
+  },
+  {
+    "codigo": "BHA0901",
+    "descripcion": "BOTON HALADERA ACRILICO TRANPARENTE",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 5000,
+    "precio_pa": 7519.927808693036,
+    "precio_pm": 7043.259808106548,
+    "precio_pb": 6566.59180752006
+  },
+  {
+    "codigo": "BHA0301",
+    "descripcion": "BOTON HALADERA CROMO BOLA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 12353,
+    "precio_pa": 18578.733644157015,
+    "precio_pm": 17401.07768190804,
+    "precio_pb": 16223.421719659062
+  },
+  {
+    "codigo": "BHA0302",
+    "descripcion": "BOTON HALADERA CROMO TAMBOR",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 12983,
+    "precio_pa": 19526.24454805234,
+    "precio_pm": 18288.528417729463,
+    "precio_pb": 17050.81228740659
+  },
+  {
+    "codigo": "BRES0301",
+    "descripcion": "BRAZO ESCULIZABLE 12 PUL 38-31",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 6306.72,
+    "precio_pa": 9485.21582192811,
+    "precio_pm": 8883.973499396347,
+    "precio_pb": 8282.731176864583
+  },
+  {
+    "codigo": "BHD0101",
+    "descripcion": "BRAZO HIDRAULICO DORMA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 114079.83,
+    "precio_pa": 171574.41720559483,
+    "precio_pm": 160698.77631092552,
+    "precio_pb": 149823.13541625623
+  },
+  {
+    "codigo": "CAB0401",
+    "descripcion": "CABEZAL BLANCO S-319",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 4670.168333333333,
+    "precio_pa": 7073.119077549083,
+    "precio_pm": 6729.662366198228,
+    "precio_pb": 6386.20565484737
+  },
+  {
+    "codigo": "CAB0501",
+    "descripcion": "CABEZAL BRONCE S-319",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 22020.308333333334,
+    "precio_pa": 33350.46016528592,
+    "precio_pm": 31731.02760027163,
+    "precio_pb": 30111.59503525733
+  },
+  {
+    "codigo": "CAB1001",
+    "descripcion": "CABEZAL CRUDO S-319",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 15434.173669467787,
+    "precio_pa": 23375.548895857435,
+    "precio_pm": 22240.478347522443,
+    "precio_pb": 21105.407799187447
+  },
+  {
+    "codigo": "CAB0201",
+    "descripcion": "CABEZAL GRIS PLATA S-319",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 22020.308333333334,
+    "precio_pa": 33350.46016528592,
+    "precio_pm": 31731.02760027163,
+    "precio_pb": 30111.59503525733
+  },
+  {
+    "codigo": "CAB0101",
+    "descripcion": "CABEZAL MATE S-319",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 18893.556666666667,
+    "precio_pa": 28614.89491672599,
+    "precio_pm": 27225.412059729533,
+    "precio_pb": 25835.92920273307
+  },
+  {
+    "codigo": "CAN0401",
+    "descripcion": "CANAL S-453 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 7424.36974789916,
+    "precio_pa": 11244.445072317629,
+    "precio_pm": 10698.436998204761,
+    "precio_pb": 10152.428924091892
+  },
+  {
+    "codigo": "CEL0101",
+    "descripcion": "CANTONERA ELECTRICA 110V",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 54205.88,
+    "precio_pa": 81524.86088133554,
+    "precio_pm": 76357.21919340931,
+    "precio_pb": 71189.57750548309
+  },
+  {
+    "codigo": "CER0302",
+    "descripcion": "CERRADURA CISA SEGURIDAD",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 32940,
+    "precio_pa": 49541.28440366973,
+    "precio_pm": 46400.995615805936,
+    "precio_pb": 43260.70682794216
+  },
+  {
+    "codigo": "CER0301",
+    "descripcion": "CERRADURA YALE 170 1/4",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 96516.81,
+    "precio_pa": 145159.88870506844,
+    "precio_pm": 135958.59373593124,
+    "precio_pb": 126757.29876679405
+  },
+  {
+    "codigo": "CM572A",
+    "descripcion": "CERRADURA A MURO 5724",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 0,
+    "precio_pa": 0,
+    "precio_pm": 0,
+    "precio_pb": 0
+  },
+  {
+    "codigo": "CSO1101",
+    "descripcion": "CERRADURA DE SOBREPONER",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 108000,
+    "precio_pa": 162430.44066776958,
+    "precio_pm": 152134.41185510144,
+    "precio_pb": 141838.3830424333
+  },
+  {
+    "codigo": "CPI0101",
+    "descripcion": "CHAPETA CON CERRADURA PICOLORO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 122853.78,
+    "precio_pa": 184770.31132501128,
+    "precio_pm": 173058.2181895928,
+    "precio_pb": 161346.12505417436
+  },
+  {
+    "codigo": "CSH1301",
+    "descripcion": "CERRADURA SCHLAGE ENTRADA OFICINA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 44000,
+    "precio_pa": 66175.36471649872,
+    "precio_pm": 61980.686311337624,
+    "precio_pb": 57786.00790617653
+  },
+  {
+    "codigo": "CYC0101",
+    "descripcion": "CERRADURA YALE CILINDRO PLUS MULTIPUNTO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 79300,
+    "precio_pa": 119266.05504587156,
+    "precio_pm": 111706.10055656984,
+    "precio_pb": 104146.14606726816
+  },
+  {
+    "codigo": "CPTOR",
+    "descripcion": "CERROJO PUNTO ROJO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 4310.924369747899,
+    "precio_pa": 6483.568009847945,
+    "precio_pm": 6072.592069846485,
+    "precio_pb": 5661.616129845026
+  },
+  {
+    "codigo": "CH802501",
+    "descripcion": "CHAPA 8025 DOBLE CARA LLAVE",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 10663.87,
+    "precio_pa": 16038.306512257484,
+    "precio_pm": 15021.681393974635,
+    "precio_pb": 14005.05627569179
+  },
+  {
+    "codigo": "CH8025S",
+    "descripcion": "CHAPA 8025 SENCILLA CON SEGURO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 6785.71,
+    "precio_pa": 10205.609866145285,
+    "precio_pm": 9558.703702493336,
+    "precio_pb": 8911.797538841389
+  },
+  {
+    "codigo": "CRA0101",
+    "descripcion": "CHAPA CON RECIBIDOR ACERO CUADRADA10X10",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 40500,
+    "precio_pa": 60911.41525041359,
+    "precio_pm": 57050.404445663036,
+    "precio_pb": 53189.39364091249
+  },
+  {
+    "codigo": "CHDP101",
+    "descripcion": "CHAPA DOBLE PICO VITRINA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 91000,
+    "precio_pa": 136862.68611821326,
+    "precio_pm": 128187.32850753918,
+    "precio_pb": 119511.9708968651
+  },
+  {
+    "codigo": "CHJ0101",
+    "descripcion": "CHAPA JAGUAR 1 CARA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 6785.71,
+    "precio_pa": 10205.609866145285,
+    "precio_pm": 9558.703702493336,
+    "precio_pb": 8911.797538841389
+  },
+  {
+    "codigo": "CJU0301",
+    "descripcion": "CERRADURA JUPITER A50WS",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 52000,
+    "precio_pa": 78207.24921040758,
+    "precio_pm": 73249.9020043081,
+    "precio_pb": 68292.55479820863
+  },
+  {
+    "codigo": "CPLEYALE",
+    "descripcion": "CHAPA PICOLORO DE ENCRUSTAR YALE 1/2 CILINDRO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 41752.1,
+    "precio_pa": 62794.5555722665,
+    "precio_pm": 58814.17756680908,
+    "precio_pb": 54833.79956135166
+  },
+  {
+    "codigo": "CPDC0101",
+    "descripcion": "CHAPA PICOLORO DOBLE CILINDRO NIQUELADA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 37500,
+    "precio_pa": 56399.458565197776,
+    "precio_pm": 52824.44856079911,
+    "precio_pb": 49249.438556400455
+  },
+  {
+    "codigo": "CHT1001",
+    "descripcion": "CHAPA TIJERA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 46600,
+    "precio_pa": 70085.7271770191,
+    "precio_pm": 65643.18141155303,
+    "precio_pb": 61200.635646086965
+  },
+  {
+    "codigo": "CHA0301",
+    "descripcion": "CHAPETA UNION 4 VOL. 100X100",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 31600,
+    "precio_pa": 47525.943750939994,
+    "precio_pm": 44513.40198723338,
+    "precio_pb": 41500.86022352678
+  },
+  {
+    "codigo": "CCE1101",
+    "descripcion": "CHAPETA CENTRAL ACERO 30-35",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 17290,
+    "precio_pa": 26003.91036246052,
+    "precio_pm": 24355.592416432442,
+    "precio_pb": 22707.27447040437
+  },
+  {
+    "codigo": "CCE0301",
+    "descripcion": "CHAPETA CENTRAL CROMO 30-35",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 26345,
+    "precio_pa": 39622.49962400361,
+    "precio_pm": 37110.9359289134,
+    "precio_pb": 34599.3722338232
+  },
+  {
+    "codigo": "CCE0302",
+    "descripcion": "CHAPETA CENTRAL IMPORTADA 20-30 ECONOM.",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 7500,
+    "precio_pa": 11279.891713039555,
+    "precio_pm": 10564.889712159822,
+    "precio_pb": 9849.887711280091
+  },
+  {
+    "codigo": "CCER01",
+    "descripcion": "CHAPETA CON CERRADURA VITRINA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 22230,
+    "precio_pa": 33433.59903744924,
+    "precio_pm": 31314.33310684171,
+    "precio_pb": 29195.067176234188
+  },
+  {
+    "codigo": "CCC0101",
+    "descripcion": "CHAPETA CON CERROJO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 30150,
+    "precio_pa": 45345.16468641901,
+    "precio_pm": 42470.856642882485,
+    "precio_pb": 39596.548599345966
+  },
+  {
+    "codigo": "CHA0303",
+    "descripcion": "CHAPETA CROMO A 90",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 49537.815,
+    "precio_pa": 74504.15852007821,
+    "precio_pm": 69781.54027418354,
+    "precio_pb": 65058.92202828887
+  },
+  {
+    "codigo": "CES0301",
+    "descripcion": "CHAPETA ESQUINERA CROMO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 25100,
+    "precio_pa": 37750.03759963904,
+    "precio_pm": 35357.16423669487,
+    "precio_pb": 32964.2908737507
+  },
+  {
+    "codigo": "CERE01",
+    "descripcion": "CHAPETA ESQUINERA RECIBIDOR VITRINA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 13000,
+    "precio_pa": 19551.812302601895,
+    "precio_pm": 18312.475501077024,
+    "precio_pb": 17073.138699552157
+  },
+  {
+    "codigo": "CRE0102",
+    "descripcion": "CHAPETA RECIBIDOR PICOLORO CENTRAL",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 28170,
+    "precio_pa": 42367.273274176565,
+    "precio_pm": 39681.72575887229,
+    "precio_pb": 36996.17824356802
+  },
+  {
+    "codigo": "CPE0101",
+    "descripcion": "CHAPETA RECIBIDOR PICOLORO ESQUINERO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 53000,
+    "precio_pa": 79711.23477214618,
+    "precio_pm": 74658.5539659294,
+    "precio_pb": 69605.87315971263
+  },
+  {
+    "codigo": "DIL0301",
+    "descripcion": "DILATADOR 3/4 x 5CM VITRINA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 5500,
+    "precio_pa": 8271.92058956234,
+    "precio_pm": 7747.585788917203,
+    "precio_pb": 7223.250988272066
+  },
+  {
+    "codigo": "PGC0101",
+    "descripcion": "PISTOLA DE GIRO CONTRAF 50X50 E3",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 63900,
+    "precio_pa": 96104.67739509701,
+    "precio_pm": 90012.86034760169,
+    "precio_pb": 83921.04330010636
+  },
+  {
+    "codigo": "CGA0101",
+    "descripcion": "CHAPETA DE GIRO ATORNILLAR A MURO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 40410,
+    "precio_pa": 60776.05654985712,
+    "precio_pm": 56923.62576911712,
+    "precio_pb": 53071.19498837712
+  },
+  {
+    "codigo": "CLM0101",
+    "descripcion": "CHAPETA UNION LATERAL Y MONTANTE",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 32331.932773109245,
+    "precio_pa": 48626.760073859594,
+    "precio_pm": 45544.44052384864,
+    "precio_pb": 42462.1209738377
+  },
+  {
+    "codigo": "CLC0101",
+    "descripcion": "CHAPETA UNION LATERAL CONTRAFUERTE E9",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 37800,
+    "precio_pa": 56850.65423371935,
+    "precio_pm": 53247.0441492855,
+    "precio_pb": 49643.43406485165
+  },
+  {
+    "codigo": "ELE0801",
+    "descripcion": "ELEVADORES ACERO 1\" DE 4CM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 7800,
+    "precio_pa": 11731.087381561138,
+    "precio_pm": 10987.485300646214,
+    "precio_pb": 10243.883219731293
+  },
+  {
+    "codigo": "ELE1103",
+    "descripcion": "ELEVADORES DE 1\" X 2 CM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 7600,
+    "precio_pa": 11430.290269213416,
+    "precio_pm": 10705.754908321953,
+    "precio_pb": 9981.219547430492
+  },
+  {
+    "codigo": "ELE1101",
+    "descripcion": "ELEVADORES DE 1\" X 3 CM ESTANDAR",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 8200,
+    "precio_pa": 12332.68160625658,
+    "precio_pm": 11550.946085294738,
+    "precio_pb": 10769.2105643329
+  },
+  {
+    "codigo": "ELE1102",
+    "descripcion": "ELEVADORES DE 3/4 ALUMINIO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 5000,
+    "precio_pa": 7519.927808693036,
+    "precio_pm": 7043.259808106548,
+    "precio_pb": 6566.59180752006
+  },
+  {
+    "codigo": "EMP5020",
+    "descripcion": "EMPAQUE 5020 VIDRIO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 2275.21,
+    "precio_pa": 3421.882989923297,
+    "precio_pm": 3204.97902960042,
+    "precio_pb": 2988.075069277543
+  },
+  {
+    "codigo": "EMP1305",
+    "descripcion": "EMPAQUE 744 VIDRIO 5MM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 2275.21,
+    "precio_pa": 3421.882989923297,
+    "precio_pm": 3204.97902960042,
+    "precio_pb": 2988.075069277543
+  },
+  {
+    "codigo": "EMP1306",
+    "descripcion": "EMPAQUE 744 VIDRIO DE 4MM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 2275.11,
+    "precio_pa": 3421.732591367123,
+    "precio_pm": 3204.838164404258,
+    "precio_pb": 2987.943737441393
+  },
+  {
+    "codigo": "EMP1302",
+    "descripcion": "EMPAQUE CU¥ERO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 1237.39,
+    "precio_pa": 1861.0166942397354,
+    "precio_pm": 1743.0518507905924,
+    "precio_pb": 1625.0870073414496
+  },
+  {
+    "codigo": "EMP1303",
+    "descripcion": "EMPAQUE DE U VENTANA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 6426.75,
+    "precio_pa": 9665.739208903595,
+    "precio_pm": 9053.053994349752,
+    "precio_pb": 8440.36877979591
+  },
+  {
+    "codigo": "EMP1301",
+    "descripcion": "EMPAQUE ESPAGUETTI 3831",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 547.06,
+    "precio_pa": 822.7703414047224,
+    "precio_pm": 770.6171421245535,
+    "precio_pb": 718.4639428443847
+  },
+  {
+    "codigo": "EMP1307",
+    "descripcion": "EMPAQUE ESPONJA PARA TECHOS",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 3529.414,
+    "precio_pa": 5308.187697398105,
+    "precio_pm": 4971.715954473713,
+    "precio_pb": 4635.244211549321
+  },
+  {
+    "codigo": "EMP1304",
+    "descripcion": "EMPAQUE PARA ZOCALO \"U\"",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 7600,
+    "precio_pa": 11430.290269213416,
+    "precio_pm": 10705.754908321953,
+    "precio_pb": 9981.219547430492
+  },
+  {
+    "codigo": "ES0001",
+    "descripcion": "ESPEJO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 71429,
+    "precio_pa": 117520.56597564988,
+    "precio_pm": 111552.94527413472,
+    "precio_pb": 105585.32457261957
+  },
+  {
+    "codigo": "EPU0001",
+    "descripcion": "ESQUINERO PUERTA DUCHA 8MM y 10MM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 15570,
+    "precio_pa": 23417.055196270117,
+    "precio_pm": 21932.71104244379,
+    "precio_pb": 20448.366888617467
+  },
+  {
+    "codigo": "TAB0501",
+    "descripcion": "TABLILLA BRONCE F-08",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 12759.803921568628,
+    "precio_pa": 19325.130509592484,
+    "precio_pm": 18386.74028902933,
+    "precio_pb": 17448.350068466174
+  },
+  {
+    "codigo": "F080101",
+    "descripcion": "TABLILLA MATE F-08",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 14170.168333333333,
+    "precio_pa": 21461.172449654434,
+    "precio_pm": 20419.060245621524,
+    "precio_pb": 19376.948041588606
+  },
+  {
+    "codigo": "CHA0101",
+    "descripcion": "CHAPETA 100X70 UNION 90 GRADOS",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 39200,
+    "precio_pa": 58956.23402015341,
+    "precio_pm": 55219.15689555534,
+    "precio_pb": 51482.07977095727
+  },
+  {
+    "codigo": "CHC0101",
+    "descripcion": "CHAPETA 100 X 100 CONTRAF. 50X50",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 41000,
+    "precio_pa": 61663.4080312829,
+    "precio_pm": 57754.730426473696,
+    "precio_pb": 53846.052821664496
+  },
+  {
+    "codigo": "CHA0302",
+    "descripcion": "CHAPETA 50X100 ATORNILLAR A MURO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 20250,
+    "precio_pa": 30455.707625206796,
+    "precio_pm": 28525.202222831518,
+    "precio_pb": 26594.696820456244
+  },
+  {
+    "codigo": "FALLEBAIMp",
+    "descripcion": "FALLEBA IMPORTADA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 7823,
+    "precio_pa": 11765.679049481125,
+    "precio_pm": 11019.884295763504,
+    "precio_pb": 10274.089542045886
+  },
+  {
+    "codigo": "GHD0101",
+    "descripcion": "GATO HIDRAULICO DORMA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 205378,
+    "precio_pa": 308885.5466987517,
+    "precio_pm": 289306.1225738613,
+    "precio_pb": 269726.698448971
+  },
+  {
+    "codigo": "GHS0101",
+    "descripcion": "GATO HIDRAULICO SPEDDY M68 ECONOMICO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 231432.77310924372,
+    "precio_pa": 348071.5492694296,
+    "precio_pm": 326008.2298237956,
+    "precio_pb": 303944.91037816176
+  },
+  {
+    "codigo": "GHS0102",
+    "descripcion": "BISAGRA HIDRAULICA SPEDY TRAFICO PESADO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 495000,
+    "precio_pa": 744472.8530606106,
+    "precio_pm": 697282.7210025482,
+    "precio_pb": 650092.588944486
+  },
+  {
+    "codigo": "GUIA5020",
+    "descripcion": "GUIA 5020",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 100,
+    "precio_pa": 150.39855617386073,
+    "precio_pm": 140.86519616213096,
+    "precio_pb": 131.33183615040122
+  },
+  {
+    "codigo": "GPI1101",
+    "descripcion": "GUIA DE PISO EN ACERO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 10000,
+    "precio_pa": 15039.855617386072,
+    "precio_pm": 14086.519616213096,
+    "precio_pb": 13133.18361504012
+  },
+  {
+    "codigo": "GPSL0101",
+    "descripcion": "GUIA DE PISO SERIE LAGUNA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 19079.83,
+    "precio_pa": 28695.788840427136,
+    "precio_pm": 26876.839956901113,
+    "precio_pb": 25057.891073375096
+  },
+  {
+    "codigo": "GIN8025",
+    "descripcion": "GUIAS INFERIOR 8025",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 79.83,
+    "precio_pa": 120.06316739359302,
+    "precio_pm": 112.45268609622914,
+    "precio_pb": 104.84220479886528
+  },
+  {
+    "codigo": "GSU8025",
+    "descripcion": "GUIAS SUPERIOR 8025",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 79.83,
+    "precio_pa": 120.06316739359302,
+    "precio_pm": 112.45268609622914,
+    "precio_pb": 104.84220479886528
+  },
+  {
+    "codigo": "GIN0101",
+    "descripcion": "GUIAS INFERIOR 744",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 79.83,
+    "precio_pa": 120.06316739359302,
+    "precio_pm": 112.45268609622914,
+    "precio_pb": 104.84220479886528
+  },
+  {
+    "codigo": "GSU0101",
+    "descripcion": "GUIAS SUPERIOR 744",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 79.83,
+    "precio_pa": 120.06316739359302,
+    "precio_pm": 112.45268609622914,
+    "precio_pb": 104.84220479886528
+  },
+  {
+    "codigo": "KDG0306",
+    "descripcion": "KIT DESLIZANTE GLASVIT 1.10 A 1.50",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 100000,
+    "precio_pa": 150398.55617386074,
+    "precio_pm": 140865.19616213095,
+    "precio_pb": 131331.8361504012
+  },
+  {
+    "codigo": "KDE0303",
+    "descripcion": "KIT DESLIZANTE 6MM EN L",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 0,
+    "precio_pa": 0,
+    "precio_pm": 0,
+    "precio_pb": 0
+  },
+  {
+    "codigo": "KDE0305",
+    "descripcion": "KIT DESLIZANTE GLASVIT 1.50 A 2.20",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 104000,
+    "precio_pa": 156414.49842081516,
+    "precio_pm": 146499.8040086162,
+    "precio_pb": 136585.10959641726
+  },
+  {
+    "codigo": "KDE0301",
+    "descripcion": "KIT DESLIZANTE DERECHO VIDRIO 6MM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 141529,
+    "precio_pa": 212857.57256730334,
+    "precio_pm": 199365.10347630232,
+    "precio_pb": 185872.63438530132
+  },
+  {
+    "codigo": "KDE0304",
+    "descripcion": "KIT DESLIZANTE EN 6MM TRES CUERPOS",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 0,
+    "precio_pa": 0,
+    "precio_pm": 0,
+    "precio_pb": 0
+  },
+  {
+    "codigo": "KDE0302",
+    "descripcion": "KIT DESLIZANTE IZQUIERDO VIDRIO 6MM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 141529,
+    "precio_pa": 212857.57256730334,
+    "precio_pm": 199365.10347630232,
+    "precio_pb": 185872.63438530132
+  },
+  {
+    "codigo": "KIK0301",
+    "descripcion": "KIT TUBO RECTANGULAR",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 190000,
+    "precio_pa": 285757.2567303354,
+    "precio_pm": 267643.87270804885,
+    "precio_pb": 249530.48868576228
+  },
+  {
+    "codigo": "KOP0101",
+    "descripcion": "KIT OPTIGLAS - CORREDIZO VIDRIO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 137468.07,
+    "precio_pa": 206749.9924800722,
+    "precio_pm": 193644.6664657955,
+    "precio_pb": 180539.34045151883
+  },
+  {
+    "codigo": "KVE001",
+    "descripcion": "KIT VENTANERIA ESPECIAL",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 0,
+    "precio_pa": 0,
+    "precio_pm": 0,
+    "precio_pb": 0
+  },
+  {
+    "codigo": "MAN0101",
+    "descripcion": "MANIJA 210 INTERZOCALARIAS",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 150500,
+    "precio_pa": 226349.8270416604,
+    "precio_pm": 212002.12022400709,
+    "precio_pb": 197654.41340635382
+  },
+  {
+    "codigo": "MBL0406",
+    "descripcion": "MANIJA 3831 PROYECTANTE IMPORTADA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 6306.72,
+    "precio_pa": 9485.21582192811,
+    "precio_pm": 8883.973499396347,
+    "precio_pb": 8282.731176864583
+  },
+  {
+    "codigo": "MCE0101",
+    "descripcion": "MANIJA CON CERRADURA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 4622,
+    "precio_pa": 6951.421266355843,
+    "precio_pm": 6510.789366613692,
+    "precio_pb": 6070.157466871544
+  },
+  {
+    "codigo": "MGI0301",
+    "descripcion": "MANIJA GIRATORIA CROMO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 41471,
+    "precio_pa": 62371.78523086178,
+    "precio_pm": 58418.20550039733,
+    "precio_pb": 54464.625769932885
+  },
+  {
+    "codigo": "MML0102",
+    "descripcion": "MANIJA MEDIA LUNA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 5000,
+    "precio_pa": 7519.927808693036,
+    "precio_pm": 7043.259808106548,
+    "precio_pb": 6566.59180752006
+  },
+  {
+    "codigo": "MMT0101",
+    "descripcion": "MANIJA MULTIUSOS TOVIC",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 28659.66,
+    "precio_pa": 43103.7148443375,
+    "precio_pm": 40371.48627839978,
+    "precio_pb": 37639.25771246207
+  },
+  {
+    "codigo": "MRE0101",
+    "descripcion": "MANIJA PARA RECIBIDOR",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 45600,
+    "precio_pa": 68581.7416152805,
+    "precio_pm": 64234.52944993172,
+    "precio_pb": 59887.31728458295
+  },
+  {
+    "codigo": "MAPR0101",
+    "descripcion": "MANIJA 3831 PROYECTANTE NACIONAL",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 6067.23,
+    "precio_pa": 9125.02631974733,
+    "precio_pm": 8546.615441107657,
+    "precio_pb": 7968.204562467987
+  },
+  {
+    "codigo": "MSE0101",
+    "descripcion": "MANIJA SENCILLA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 46600,
+    "precio_pa": 70085.7271770191,
+    "precio_pm": 65643.18141155303,
+    "precio_pb": 61200.635646086965
+  },
+  {
+    "codigo": "MRO1101",
+    "descripcion": "MANIJA TIPO ROMA 60x40 EN 1 PUL",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 60000,
+    "precio_pa": 90239.13370431644,
+    "precio_pm": 84519.11769727858,
+    "precio_pb": 78799.10169024073
+  },
+  {
+    "codigo": "MON1101",
+    "descripcion": "MONEDA INOXIDABLE DE 1\"",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 7800,
+    "precio_pa": 11731.087381561138,
+    "precio_pm": 10987.485300646214,
+    "precio_pb": 10243.883219731293
+  },
+  {
+    "codigo": "EIN1102",
+    "descripcion": "ESQUINERO INFERIOR",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 50670,
+    "precio_pa": 76206.94841329523,
+    "precio_pm": 71376.39489535175,
+    "precio_pb": 66545.84137740829
+  },
+  {
+    "codigo": "ESU1102",
+    "descripcion": "ESQUINERO SUPERIOR",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 28080,
+    "precio_pa": 42231.914573620095,
+    "precio_pm": 39554.94708232637,
+    "precio_pb": 36877.97959103266
+  },
+  {
+    "codigo": "PDL0101",
+    "descripcion": "PASADOR DE LUJO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 4610.92,
+    "precio_pa": 6934.757106331779,
+    "precio_pm": 6495.181502878929,
+    "precio_pb": 6055.605899426079
+  },
+  {
+    "codigo": "PEA0101",
+    "descripcion": "PASAMANOS EN ACERO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 549000,
+    "precio_pa": 825688.0733944954,
+    "precio_pm": 773349.9269300989,
+    "precio_pb": 721011.7804657026
+  },
+  {
+    "codigo": "CCE0103",
+    "descripcion": "CHAPETA ESCUDO CERRADURA JUPITER",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 61470.59,
+    "precio_pa": 92450.87983155361,
+    "precio_pm": 86590.66718551925,
+    "precio_pb": 80730.4545394849
+  },
+  {
+    "codigo": "CCE0101",
+    "descripcion": "CHAPETA ESCUDO PARA CERRADURA YALE",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 47250,
+    "precio_pa": 71063.3177921492,
+    "precio_pm": 66558.80518660687,
+    "precio_pb": 62054.29258106457
+  },
+  {
+    "codigo": "PBU0901",
+    "descripcion": "PERFIL  BURBUJA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 6261,
+    "precio_pa": 9416.45360204542,
+    "precio_pm": 8819.56993171102,
+    "precio_pb": 8222.686261376619
+  },
+  {
+    "codigo": "PER0902",
+    "descripcion": "PERFIL ACRILICO DE 1.20 MTS",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 14000,
+    "precio_pa": 21055.797864340504,
+    "precio_pm": 19721.127462698332,
+    "precio_pb": 18386.457061056168
+  },
+  {
+    "codigo": "PER0901",
+    "descripcion": "PERFIL ACRILICO X 1.8 MTS",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 20000,
+    "precio_pa": 30079.711234772145,
+    "precio_pm": 28173.039232426192,
+    "precio_pb": 26266.36723008024
+  },
+  {
+    "codigo": "PER0301",
+    "descripcion": "PERFIL F MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 15247.898333333333,
+    "precio_pa": 23093.42895078276,
+    "precio_pm": 21972.057590525823,
+    "precio_pb": 20850.686230268886
+  },
+  {
+    "codigo": "PEP0301",
+    "descripcion": "PERFIL PESADO CARRILERA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 1343.8383333333334,
+    "precio_pa": 2035.2860698401162,
+    "precio_pm": 1936.4565926969547,
+    "precio_pb": 1837.6271155537931
+  },
+  {
+    "codigo": "PPL0001",
+    "descripcion": "PERFIL PLASTICO 6MM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 8000,
+    "precio_pa": 12031.884493908858,
+    "precio_pm": 11269.215692970476,
+    "precio_pb": 10506.546892032096
+  },
+  {
+    "codigo": "1PERF01",
+    "descripcion": "CODIGO NO EXISTE",
+    "categoria": "ACABADO",
+    "unidad": "UND",
+    "costo_unitario": 0,
+    "precio_pa": 0,
+    "precio_pm": 0,
+    "precio_pb": 0
+  },
+  {
+    "codigo": "PCE0503",
+    "descripcion": "PERSIANA VP-315 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 7188.235000000001,
+    "precio_pa": 10886.81145591955,
+    "precio_pm": 10358.169364820666,
+    "precio_pb": 9829.52727372178
+  },
+  {
+    "codigo": "PCE0202",
+    "descripcion": "PERSIANA VP-315 GRIS PLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 7437.675,
+    "precio_pa": 11264.596301513018,
+    "precio_pm": 10717.609723456806,
+    "precio_pb": 10170.623145400594
+  },
+  {
+    "codigo": "PERSIANA",
+    "descripcion": "PERSIANA VP-315 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 5082.633333333333,
+    "precio_pa": 7697.81049166755,
+    "precio_pm": 7324.019997391525,
+    "precio_pb": 6950.229503115499
+  },
+  {
+    "codigo": "PIC0101",
+    "descripcion": "PICAPORTE ACERO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 29200,
+    "precio_pa": 43916.37840276733,
+    "precio_pm": 41132.63727934224,
+    "precio_pb": 38348.89615591715
+  },
+  {
+    "codigo": "PGI0101",
+    "descripcion": "PISTOLA DE GIRO FIJO LATERAL Y MONTANTE",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 53100,
+    "precio_pa": 79861.63332832005,
+    "precio_pm": 74799.41916209154,
+    "precio_pb": 69737.20499586304
+  },
+  {
+    "codigo": "PAE1101",
+    "descripcion": "PIVOTE AEREO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 4770,
+    "precio_pa": 7174.011129493157,
+    "precio_pm": 6719.269856933646,
+    "precio_pb": 6264.528584374138
+  },
+  {
+    "codigo": "PPI1101",
+    "descripcion": "PIVOTE DE PISO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 16200,
+    "precio_pa": 24364.566100165437,
+    "precio_pm": 22820.161778265214,
+    "precio_pb": 21275.757456364994
+  },
+  {
+    "codigo": "PPD1101",
+    "descripcion": "PIVOTE PLATINA DIV.BAÑO ACERO INOXIDABLE",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 4410,
+    "precio_pa": 6632.576327267258,
+    "precio_pm": 6212.155150749975,
+    "precio_pb": 5791.733974232693
+  },
+  {
+    "codigo": "PPB0101",
+    "descripcion": "PIVOTE PUERTA BATIENTE PPB ALUMINIO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 17200,
+    "precio_pa": 25868.551661904046,
+    "precio_pm": 24228.813739886526,
+    "precio_pb": 22589.07581786901
+  },
+  {
+    "codigo": "CRE1301",
+    "descripcion": "CHAPETA ESCUDO PARA RECIBIDOR REDONDEADA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 58037,
+    "precio_pa": 87286.81004662355,
+    "precio_pm": 81753.93389661594,
+    "precio_pb": 76221.05774660835
+  },
+  {
+    "codigo": "CRE1302",
+    "descripcion": "CHAPETA RECIBIDOR PEQUE¥A",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 33800,
+    "precio_pa": 50834.71198676493,
+    "precio_pm": 47612.43630280026,
+    "precio_pb": 44390.16061883561
+  },
+  {
+    "codigo": "CRR1303",
+    "descripcion": "CHAPETA RECIBIDOR RECTANGULAR TRASLAPE P",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 45500,
+    "precio_pa": 68431.34305910663,
+    "precio_pm": 64093.66425376959,
+    "precio_pb": 59755.98544843255
+  },
+  {
+    "codigo": "RCE0101",
+    "descripcion": "RECIBIDOR PARA CERROJO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 3780,
+    "precio_pa": 5685.065423371936,
+    "precio_pm": 5324.70441492855,
+    "precio_pb": 4964.343406485165
+  },
+  {
+    "codigo": "RIE0101",
+    "descripcion": "RIEL 1764 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 19638.655,
+    "precio_pa": 29743.37013645933,
+    "precio_pm": 28299.090748602706,
+    "precio_pb": 26854.811360746076
+  },
+  {
+    "codigo": "RDU0101",
+    "descripcion": "RIEL DUCASSE ALUMINIO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 24149.16,
+    "precio_pa": 36574.67399700123,
+    "precio_pm": 34798.67996777409,
+    "precio_pb": 33022.68593854695
+  },
+  {
+    "codigo": "ROS0302",
+    "descripcion": "RIEL OPTIGLAS DOBLE X 6M.",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 39902.66166666667,
+    "precio_pa": 60433.85534200656,
+    "precio_pm": 57499.306526632834,
+    "precio_pb": 54564.757711259095
+  },
+  {
+    "codigo": "ROS0301",
+    "descripcion": "RIEL OPTIGLAS SENCILLO X 6M.",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 35819.32833333333,
+    "precio_pa": 54249.51661189109,
+    "precio_pm": 51615.26708723159,
+    "precio_pb": 48981.01756257207
+  },
+  {
+    "codigo": "S-72",
+    "descripcion": "RIEL S-72 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 11229.691876750701,
+    "precio_pa": 17007.72695526179,
+    "precio_pm": 16181.865280438744,
+    "precio_pb": 15356.003605615695
+  },
+  {
+    "codigo": "W0101",
+    "descripcion": "RIEL W CRUDO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 17350.14,
+    "precio_pa": 26277.341087736837,
+    "precio_pm": 25001.3652340734,
+    "precio_pb": 23725.38938040996
+  },
+  {
+    "codigo": "ROD0401",
+    "descripcion": "RODACHINA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 1176.47,
+    "precio_pa": 1769.3938938186193,
+    "precio_pm": 1657.236773288622,
+    "precio_pb": 1545.0796527586251
+  },
+  {
+    "codigo": "ROD0402",
+    "descripcion": "RODACHINA DOBLE REF: ITA 60D",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 2155.46,
+    "precio_pa": 3241.7807189050986,
+    "precio_pm": 3036.292957196268,
+    "precio_pb": 2830.8051954874377
+  },
+  {
+    "codigo": "RIN0001",
+    "descripcion": "RODACHINA INFERIOR PUERTA CORREDIZA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 32600,
+    "precio_pa": 49029.9293126786,
+    "precio_pm": 45922.05394885469,
+    "precio_pb": 42814.17858503079
+  },
+  {
+    "codigo": "ROC0002",
+    "descripcion": "RODAJA COLGANTE LT40",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 22113,
+    "precio_pa": 33257.632726725824,
+    "precio_pm": 31149.520827332017,
+    "precio_pb": 29041.408927938217
+  },
+  {
+    "codigo": "ROC0001",
+    "descripcion": "RODAJA COLGANTE LT440",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 22113,
+    "precio_pa": 33257.632726725824,
+    "precio_pm": 31149.520827332017,
+    "precio_pb": 29041.408927938217
+  },
+  {
+    "codigo": "CCP1101",
+    "descripcion": "RODAJA COLGANTE VID. TEMP. DUCASSE 60K",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 32456,
+    "precio_pa": 48813.35539178824,
+    "precio_pm": 45719.20806638122,
+    "precio_pb": 42625.060740974215
+  },
+  {
+    "codigo": "RCVTDU",
+    "descripcion": "RODAJA COLGANTE VID. TEMP. DUCASSE 80K",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 22113,
+    "precio_pa": 33257.632726725824,
+    "precio_pm": 31149.520827332017,
+    "precio_pb": 29041.408927938217
+  },
+  {
+    "codigo": "ROD744",
+    "descripcion": "RODAMIENTO 744 DE NAYLON",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 2434.87,
+    "precio_pa": 3662.009324710483,
+    "precio_pm": 3429.8844017928777,
+    "precio_pb": 3197.7594788752735
+  },
+  {
+    "codigo": "ROD8025",
+    "descripcion": "RODAMIENTO 8025",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 2873.9495798319326,
+    "precio_pa": 4322.378673231964,
+    "precio_pm": 4048.3947132309904,
+    "precio_pb": 3774.4107532300177
+  },
+  {
+    "codigo": "RODV153",
+    "descripcion": "RODAMIENTO MUEBLE VIDRIO DUCASSE",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 32456,
+    "precio_pa": 48813.35539178824,
+    "precio_pm": 45719.20806638122,
+    "precio_pb": 42625.060740974215
+  },
+  {
+    "codigo": "RDU0102",
+    "descripcion": "RODAMIENTO  DUCASSE",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 42773,
+    "precio_pa": 64329.97443224545,
+    "precio_pm": 60252.27035442828,
+    "precio_pb": 56174.566276611105
+  },
+  {
+    "codigo": "RODA5020",
+    "descripcion": "RODAMIENTO 5020 NYLON",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 1077.73,
+    "precio_pa": 1620.8903594525493,
+    "precio_pm": 1518.146478598134,
+    "precio_pb": 1415.4025977437188
+  },
+  {
+    "codigo": "SDR0301",
+    "descripcion": "SET DE RODAMIENTO AN 208",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 0,
+    "precio_pa": 0,
+    "precio_pm": 0,
+    "precio_pb": 0
+  },
+  {
+    "codigo": "TSL0101",
+    "descripcion": "TIRADERA SERIE LAGUNA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 18281.51,
+    "precio_pa": 27495.127086779965,
+    "precio_pm": 25752.284922899584,
+    "precio_pb": 24009.44275901921
+  },
+  {
+    "codigo": "SIL0002",
+    "descripcion": "SILICONA PARA ESPEJO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 27037.812749999997,
+    "precio_pa": 40664.47999699203,
+    "precio_pm": 38086.86796823715,
+    "precio_pb": 35509.25593948228
+  },
+  {
+    "codigo": "SIL003",
+    "descripcion": "SILICONA NEGRA PARA INSTALACIONES",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 5966,
+    "precio_pa": 8972.777861332532,
+    "precio_pm": 8404.017603032733,
+    "precio_pb": 7835.257344732936
+  },
+  {
+    "codigo": "SIL0001",
+    "descripcion": "SILICONA TRASPARENTE",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 12605.04,
+    "precio_pa": 18957.798165137618,
+    "precio_pm": 17756.114322315072,
+    "precio_pb": 16554.430479492534
+  },
+  {
+    "codigo": "SIL0401",
+    "descripcion": "SILLAR BLANCO S-201",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 7783.613333333334,
+    "precio_pa": 11788.530954508511,
+    "precio_pm": 11216.10314311413,
+    "precio_pb": 10643.675331719747
+  },
+  {
+    "codigo": "SIL0501",
+    "descripcion": "SILLAR BRONCE S-201",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 8528.711666666666,
+    "precio_pa": 12917.006174241851,
+    "precio_pm": 12289.781831987304,
+    "precio_pb": 11662.557489732755
+  },
+  {
+    "codigo": "SIL1001",
+    "descripcion": "SILLAR CRUDO S-201",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 5947.478991596639,
+    "precio_pa": 9007.646859007133,
+    "precio_pm": 8570.253294260803,
+    "precio_pb": 8132.859729514474
+  },
+  {
+    "codigo": "SIL0201",
+    "descripcion": "SILLAR GRIS PLATA S-201",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 7570.728291316526,
+    "precio_pa": 11466.109760123172,
+    "precio_pm": 10909.33808598299,
+    "precio_pb": 10352.566411842807
+  },
+  {
+    "codigo": "SIL0101",
+    "descripcion": "SILLAR MATE S-201 (CARRILERA)",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 7836.835,
+    "precio_pa": 11869.136868250867,
+    "precio_pm": 11292.79499267266,
+    "precio_pb": 10716.45311709445
+  },
+  {
+    "codigo": "SAR0101",
+    "descripcion": "SOPORTE ARA¥A 1 PUNTO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 30000,
+    "precio_pa": 45119.56685215822,
+    "precio_pm": 42259.55884863929,
+    "precio_pb": 39399.550845120364
+  },
+  {
+    "codigo": "SML0301",
+    "descripcion": "SOPORTE MEDIA LUNA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 8000,
+    "precio_pa": 12031.884493908858,
+    "precio_pm": 11269.215692970476,
+    "precio_pb": 10506.546892032096
+  },
+  {
+    "codigo": "SPE0102",
+    "descripcion": "SOPORTE PELICANO L ESTANDAR",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 5348.967713999999,
+    "precio_pa": 8044.770212061963,
+    "precio_pm": 7534.8338629751515,
+    "precio_pb": 7024.89751388834
+  },
+  {
+    "codigo": "SPE0101",
+    "descripcion": "SOPORTE PELICANO M",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 4327.73,
+    "precio_pa": 6508.843435103023,
+    "precio_pm": 6096.265353867389,
+    "precio_pb": 5683.687272631758
+  },
+  {
+    "codigo": "TZO0301",
+    "descripcion": "TAPA PARA ZOCALO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 990,
+    "precio_pa": 1488.9457061212213,
+    "precio_pm": 1394.5654420050964,
+    "precio_pb": 1300.185177888972
+  },
+  {
+    "codigo": "TEN0101",
+    "descripcion": "TENSORES",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 10355.9,
+    "precio_pa": 15575.124078808843,
+    "precio_pm": 14587.85884935412,
+    "precio_pb": 13600.593619899399
+  },
+  {
+    "codigo": "TOA0901",
+    "descripcion": "TOALLERO ACRILICO 20CM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 32000,
+    "precio_pa": 48127.53797563543,
+    "precio_pm": 45076.862771881904,
+    "precio_pb": 42026.187568128385
+  },
+  {
+    "codigo": "TBO0301",
+    "descripcion": "TOALLERO BOLA CROMO 20CM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 58782,
+    "precio_pa": 88407.27929011882,
+    "precio_pm": 82803.37960802382,
+    "precio_pb": 77199.47992592884
+  },
+  {
+    "codigo": "TBO0302",
+    "descripcion": "TOALLERO BOLA CROMO 30CM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 64600,
+    "precio_pa": 97157.46728831403,
+    "precio_pm": 90998.9167207366,
+    "precio_pb": 84840.36615315918
+  },
+  {
+    "codigo": "TBO0303",
+    "descripcion": "TOALLERO BOLA CROMO 40CM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 71680.6722,
+    "precio_pa": 107806.69604451797,
+    "precio_pm": 100973.11950486407,
+    "precio_pb": 94139.54296521019
+  },
+  {
+    "codigo": "TBO0304",
+    "descripcion": "TOALLERO BOLA CROMO 50CM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 71680.67226890757,
+    "precio_pa": 107806.69614815396,
+    "precio_pm": 100973.11960193086,
+    "precio_pb": 94139.54305570776
+  },
+  {
+    "codigo": "TOA1101",
+    "descripcion": "TOALLERO EN ACERO DE 20CM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 32000,
+    "precio_pa": 48127.53797563543,
+    "precio_pm": 45076.862771881904,
+    "precio_pb": 42026.187568128385
+  },
+  {
+    "codigo": "TOA1102",
+    "descripcion": "TOALLERO EN ACERO DE 30CM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 35000,
+    "precio_pa": 52639.494660851255,
+    "precio_pm": 49302.81865674583,
+    "precio_pb": 45966.142652640425
+  },
+  {
+    "codigo": "TOA1103",
+    "descripcion": "TOALLERO EN ACERO DE 40 CM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 40000,
+    "precio_pa": 60159.42246954429,
+    "precio_pm": 56346.078464852384,
+    "precio_pb": 52532.73446016048
+  },
+  {
+    "codigo": "TES1101",
+    "descripcion": "TOCETO ESTANDAR 1/2 PUL 10CM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 23000,
+    "precio_pa": 34591.667919987965,
+    "precio_pm": 32398.99511729012,
+    "precio_pb": 30206.32231459228
+  },
+  {
+    "codigo": "TES1102",
+    "descripcion": "TOCETO 20CM",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 19100,
+    "precio_pa": 28726.1242292074,
+    "precio_pm": 26905.252466967013,
+    "precio_pb": 25084.38070472663
+  },
+  {
+    "codigo": "TCA0301",
+    "descripcion": "TOPE CAZUELA / MEDIA LUNA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 10298.32,
+    "precio_pa": 15488.524590163934,
+    "precio_pm": 14506.748669403964,
+    "precio_pb": 13524.972748643997
+  },
+  {
+    "codigo": "TOR1101",
+    "descripcion": "TOPE CON ORING",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 5200,
+    "precio_pa": 7820.724921040758,
+    "precio_pm": 7324.99020043081,
+    "precio_pb": 6829.255479820863
+  },
+  {
+    "codigo": "TUB1102",
+    "descripcion": "TUBO 3/4\" CAL 20 BRILLANTE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 3333.3333333333335,
+    "precio_pa": 5048.4397796860885,
+    "precio_pm": 4803.297501552034,
+    "precio_pb": 4558.155223417978
+  },
+  {
+    "codigo": "TUB1101",
+    "descripcion": "TUBO DE 3/4 CAL 16 INOXIDABLE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2500,
+    "precio_pa": 3786.3298347645664,
+    "precio_pm": 3602.4731261640254,
+    "precio_pb": 3418.6164175634835
+  },
+  {
+    "codigo": "TUB0604",
+    "descripcion": "TUBULAR T-244 DE 3 X 1 1/2 NEGRO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 21178.991666666665,
+    "precio_pa": 32076.259207092047,
+    "precio_pm": 30518.6993273674,
+    "precio_pb": 28961.13944764275
+  },
+  {
+    "codigo": "TUB0101",
+    "descripcion": "TUBULAR T-103 DE 3 X 1 1/2 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 24135.8543417367,
+    "precio_pa": 36554.522152659825,
+    "precio_pm": 34779.50665724631,
+    "precio_pb": 33004.49116183279
+  },
+  {
+    "codigo": "TUB0203",
+    "descripcion": "TUBULAR T-244 DE 3 X 1 1/2 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 21421.568333333333,
+    "precio_pa": 32443.649315179144,
+    "precio_pm": 30868.24969644785,
+    "precio_pb": 29292.850077716546
+  },
+  {
+    "codigo": "TUB0102",
+    "descripcion": "TUBULAR T-244 DE 3 X 1 1/2 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 19589.916666666668,
+    "precio_pa": 29669.55437422065,
+    "precio_pm": 28228.859334183766,
+    "precio_pb": 26788.164294146874
+  },
+  {
+    "codigo": "TUB0103",
+    "descripcion": "TUBULAR T-70 1 1/2 X 1 1/2 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 11670.588333333333,
+    "precio_pa": 17675.47871830211,
+    "precio_pm": 16817.192334942694,
+    "precio_pb": 15958.905951583274
+  },
+  {
+    "codigo": "TUB1000",
+    "descripcion": "TUBULAR T-101 DE 4 X 1 1/2 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 35338.93557422969,
+    "precio_pa": 53521.946437411505,
+    "precio_pm": 50923.026285361724,
+    "precio_pb": 48324.10613331194
+  },
+  {
+    "codigo": "TUB0111",
+    "descripcion": "TUBULAR T-101 DE 4 X 1 1/2 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 40488.095,
+    "precio_pa": 61320.51282051283,
+    "precio_pm": 58342.90966683042,
+    "precio_pb": 55365.306513147996
+  },
+  {
+    "codigo": "TUB0610",
+    "descripcion": "TUBULAR T-70 1 1/2 X 1 1/2 NEGRO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 13771.008333333333,
+    "precio_pa": 20856.631882916587,
+    "precio_pm": 19843.87497640567,
+    "precio_pb": 18831.11806989475
+  },
+  {
+    "codigo": "TUB0605",
+    "descripcion": "TUBULAR T-76 NEGRO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 43867.64666666667,
+    "precio_pa": 66438.95174196415,
+    "precio_pm": 63212.80728989022,
+    "precio_pb": 59986.66283781628
+  },
+  {
+    "codigo": "TUB0501",
+    "descripcion": "TUBULAR T-244 DE 3 X 1 1/2 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 21009.103333333333,
+    "precio_pa": 31818.95790106068,
+    "precio_pm": 30273.89206525455,
+    "precio_pb": 28728.826229448416
+  },
+  {
+    "codigo": "TUB0312",
+    "descripcion": "TUBULAR T-244 DE 3 X 1 1/2 CRUDO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 19093.13666666667,
+    "precio_pa": 28917.165200094918,
+    "precio_pm": 27513.004694337462,
+    "precio_pb": 26108.844188580002
+  },
+  {
+    "codigo": "TUB0211",
+    "descripcion": "TUBULAR T-70 1 1/2 X 1 1/2 GRIS PLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 11096.638655462186,
+    "precio_pa": 16806.213602711294,
+    "precio_pm": 15990.13701882217,
+    "precio_pb": 15174.060434933044
+  },
+  {
+    "codigo": "TUB0409",
+    "descripcion": "TUBULAR T-70 1 1/2 x 1 1/2 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 14303.221666666666,
+    "precio_pa": 21662.685971900384,
+    "precio_pm": 20610.788668693473,
+    "precio_pb": 19558.89136548656
+  },
+  {
+    "codigo": "TUB0502",
+    "descripcion": "TUBULAR T-70 1 1/2 X 1 1/2 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 13411.765,
+    "precio_pa": 20312.546382540477,
+    "precio_pm": 19326.2091947709,
+    "precio_pb": 18339.872007001326
+  },
+  {
+    "codigo": "TUB0415",
+    "descripcion": "TUBULAR T-74 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 6852.240896358543,
+    "precio_pa": 10377.9376563505,
+    "precio_pm": 9874.005473253497,
+    "precio_pb": 9370.073290156495
+  },
+  {
+    "codigo": "TUB0506",
+    "descripcion": "TUBULAR T-94 3 X 1 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 20303.92156862745,
+    "precio_pa": 30750.937599205557,
+    "precio_pm": 29257.732722689005,
+    "precio_pb": 27764.52784617245
+  },
+  {
+    "codigo": "TUB0105",
+    "descripcion": "TUBULAR T-94 3 X 1 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 20769.608333333334,
+    "precio_pa": 31456.235075549903,
+    "precio_pm": 29928.78234471429,
+    "precio_pb": 28401.32961387867
+  },
+  {
+    "codigo": "TUB0508",
+    "descripcion": "TUBULAR T-96 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 23404.061624649858,
+    "precio_pa": 35446.19871363209,
+    "precio_pm": 33725.001218355144,
+    "precio_pb": 32003.8037230782
+  },
+  {
+    "codigo": "TUB0514",
+    "descripcion": "TUBULAR T-97 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 11469.188333333334,
+    "precio_pa": 17370.451986813478,
+    "precio_pm": 16526.97709989892,
+    "precio_pb": 15683.502212984362
+  },
+  {
+    "codigo": "TUB0302",
+    "descripcion": "TUBULAR T-76 DE 1 X 1 CRUDO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 5734.593333333333,
+    "precio_pa": 8685.224731296794,
+    "precio_pm": 8263.487349125084,
+    "precio_pb": 7841.7499669533745
+  },
+  {
+    "codigo": "TUB0107",
+    "descripcion": "TUBULAR T-98 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 5721.288515406162,
+    "precio_pa": 8665.07415967129,
+    "precio_pm": 8244.315249512629,
+    "precio_pb": 7823.556339353967
+  },
+  {
+    "codigo": "TUB0104",
+    "descripcion": "TUBULAR T-97 1 1/2*3/4 CRUDO (T-ESPEJO)",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 9446.778333333334,
+    "precio_pa": 14307.447458362994,
+    "precio_pm": 13612.706029864767,
+    "precio_pb": 12917.964601366535
+  },
+  {
+    "codigo": "TUB0117",
+    "descripcion": "TUBULAT T-95 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 18720.588333333333,
+    "precio_pa": 28352.928852338187,
+    "precio_pm": 26976.166550725244,
+    "precio_pb": 25599.4042491123
+  },
+  {
+    "codigo": "U320401",
+    "descripcion": "U32 BLANCA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2474.7899159663866,
+    "precio_pa": 3748.1483574392096,
+    "precio_pm": 3566.145666068254,
+    "precio_pb": 3384.142974697297
+  },
+  {
+    "codigo": "U320501",
+    "descripcion": "U32 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2514.7066666666665,
+    "precio_pa": 3808.603551072541,
+    "precio_pm": 3623.6652747408725,
+    "precio_pb": 3438.7269984092036
+  },
+  {
+    "codigo": "U320101",
+    "descripcion": "U32 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2279.4116666666664,
+    "precio_pa": 3452.2417596841697,
+    "precio_pm": 3284.607709052567,
+    "precio_pb": 3116.9736584209636
+  },
+  {
+    "codigo": "U570401",
+    "descripcion": "U57 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 14900,
+    "precio_pa": 22566.525815196816,
+    "precio_pm": 21470.73983193759,
+    "precio_pb": 20374.953848678364
+  },
+  {
+    "codigo": "U570502",
+    "descripcion": "U57 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 16072.828333333333,
+    "precio_pa": 24342.811779019696,
+    "precio_pm": 23160.77285291242,
+    "precio_pb": 21978.733926805144
+  },
+  {
+    "codigo": "U570101",
+    "descripcion": "U57 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 16272.408333333333,
+    "precio_pa": 24645.08206238862,
+    "precio_pm": 23448.365487520347,
+    "precio_pb": 22251.648912652072
+  },
+  {
+    "codigo": "U660101",
+    "descripcion": "U66 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 11362.745098039217,
+    "precio_pa": 17209.240307812284,
+    "precio_pm": 16373.593542055316,
+    "precio_pb": 15537.946776298346
+  },
+  {
+    "codigo": "U680401",
+    "descripcion": "U68 BLANCO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 3033.6133333333332,
+    "precio_pa": 4594.504268455834,
+    "precio_pm": 4371.404203402481,
+    "precio_pb": 4148.304138349127
+  },
+  {
+    "codigo": "U680501",
+    "descripcion": "U68 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2780.8116666666665,
+    "precio_pa": 4211.628071344551,
+    "precio_pm": 4007.1197192360237,
+    "precio_pb": 3802.6113671274957
+  },
+  {
+    "codigo": "U681001",
+    "descripcion": "U68 CRUDO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2408.2633333333333,
+    "precio_pa": 3647.3917235878253,
+    "precio_pm": 3470.281575623812,
+    "precio_pb": 3293.1714276597972
+  },
+  {
+    "codigo": "U680201",
+    "descripcion": "U68 GRIS PLATA",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 3033.6133333333332,
+    "precio_pa": 4594.504268455834,
+    "precio_pm": 4371.404203402481,
+    "precio_pb": 4148.304138349127
+  },
+  {
+    "codigo": "U680101",
+    "descripcion": "U68 MATE (PIZAVIDRIO)",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 2461.485,
+    "precio_pa": 3727.997637330184,
+    "precio_pm": 3546.9734251823425,
+    "precio_pb": 3365.9492130345006
+  },
+  {
+    "codigo": "U690101",
+    "descripcion": "U69 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 17456.582633053218,
+    "precio_pa": 26438.551854624955,
+    "precio_pm": 25154.747924094343,
+    "precio_pb": 23870.943993563727
+  },
+  {
+    "codigo": "U890101",
+    "descripcion": "U89 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 13265.406666666668,
+    "precio_pa": 20090.882012913913,
+    "precio_pm": 19115.30840972151,
+    "precio_pb": 18139.734806529104
+  },
+  {
+    "codigo": "AZ10MM01CR",
+    "descripcion": "VIDRIO AZUL 10MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 76950,
+    "precio_pa": 126604.14610069101,
+    "precio_pm": 120175.26689222398,
+    "precio_pb": 113746.38768375696
+  },
+  {
+    "codigo": "AZ10MM03SP",
+    "descripcion": "VIDRIO AZUL 10MM TEMPLADO SP",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 598000,
+    "precio_pa": 983876.2750904902,
+    "precio_pm": 933915.6543411298,
+    "precio_pb": 883955.0335917695
+  },
+  {
+    "codigo": "AZ6MM01CR",
+    "descripcion": "VIDRIO AZUL 6MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 36450,
+    "precio_pa": 59970.38499506416,
+    "precio_pm": 56925.12642263241,
+    "precio_pb": 53879.867850200666
+  },
+  {
+    "codigo": "BR10MM03SP",
+    "descripcion": "VIDRIO BRONCE 10MM TEMPLADO SP",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 159398,
+    "precio_pa": 262254.0309312274,
+    "precio_pm": 248936.93556967797,
+    "precio_pb": 235619.84020812853
+  },
+  {
+    "codigo": "BR4MM01CR",
+    "descripcion": "VIDRIO BRONCE 4MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 39045.614,
+    "precio_pa": 64240.89174070418,
+    "precio_pm": 60978.77951164077,
+    "precio_pb": 57716.667282577364
+  },
+  {
+    "codigo": "BR5MM01CR",
+    "descripcion": "VIDRIO BRONCE 5MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 125000,
+    "precio_pa": 205659.7564988483,
+    "precio_pm": 195216.4829308382,
+    "precio_pb": 184773.20936282806
+  },
+  {
+    "codigo": "BR6MM01CR",
+    "descripcion": "VIDRIO BRONCE 6MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 75102.0408,
+    "precio_pa": 123563.73938795656,
+    "precio_pm": 117289.25012723451,
+    "precio_pb": 111014.76086651244
+  },
+  {
+    "codigo": "BR6MM02TE",
+    "descripcion": "VIDRIO BRONCE 6MM TEMPLADO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 389578,
+    "precio_pa": 640964.1329384666,
+    "precio_pm": 608416.3758978406,
+    "precio_pb": 575868.6188572147
+  },
+  {
+    "codigo": "CL4MM08SP",
+    "descripcion": "VIDRIO CLARO  4MM TEMPLADO STV",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 0,
+    "precio_pa": 0,
+    "precio_pm": 0,
+    "precio_pb": 0
+  },
+  {
+    "codigo": "CL10MM01CR",
+    "descripcion": "VIDRIO CLARO 10MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 81513,
+    "precio_pa": 134111.54985192497,
+    "precio_pm": 127301.4493851313,
+    "precio_pb": 120491.34891833764
+  },
+  {
+    "codigo": "CL10MM03SP",
+    "descripcion": "VIDRIO CLARO 10MM TEMPLADO SP",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 149008.2,
+    "precio_pa": 245159.92102665352,
+    "precio_pm": 232710.8538548394,
+    "precio_pb": 220261.78668302528
+  },
+  {
+    "codigo": "CL15MM01CR",
+    "descripcion": "VIDRIO CLARO 15MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 92437,
+    "precio_pa": 152084.5672918723,
+    "precio_pm": 144361.8082614231,
+    "precio_pb": 136639.0492309739
+  },
+  {
+    "codigo": "CL19MM01CR",
+    "descripcion": "VIDRIO CLARO 19MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 243697.91,
+    "precio_pa": 400950.822639026,
+    "precio_pm": 380590.7911023675,
+    "precio_pb": 360230.75956570904
+  },
+  {
+    "codigo": "CL4MM03LM",
+    "descripcion": "VIDRIO CLARO 2+2 LAMINADO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 0,
+    "precio_pa": 0,
+    "precio_pm": 0,
+    "precio_pb": 0
+  },
+  {
+    "codigo": "CL6MM03LM",
+    "descripcion": "VIDRIO CLARO 3+3 LAMINADO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 28200,
+    "precio_pa": 46396.84106614017,
+    "precio_pm": 44040.83854919709,
+    "precio_pb": 41684.83603225401
+  },
+  {
+    "codigo": "CL8MM03LM",
+    "descripcion": "VIDRIO CLARO 4+4 LAMINADO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 287007.8,
+    "precio_pa": 472207.6340901612,
+    "precio_pm": 448229.22631773935,
+    "precio_pb": 424250.81854531745
+  },
+  {
+    "codigo": "CL4MM01CR",
+    "descripcion": "VIDRIO CLARO 4MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 30200,
+    "precio_pa": 49687.397170121745,
+    "precio_pm": 47164.30227609051,
+    "precio_pb": 44641.20738205926
+  },
+  {
+    "codigo": "CL4MM02TE",
+    "descripcion": "VIDRIO CLARO 4MM TEMPLADO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 106000,
+    "precio_pa": 174399.47351102336,
+    "precio_pm": 165543.5775253508,
+    "precio_pb": 156687.6815396782
+  },
+  {
+    "codigo": "CL4MM03SP",
+    "descripcion": "VIDRIO CLARO 4MM TEMPLADO SP",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 81620,
+    "precio_pa": 134287.594603488,
+    "precio_pm": 127468.5546945201,
+    "precio_pb": 120649.51478555221
+  },
+  {
+    "codigo": "CL10MM03LM",
+    "descripcion": "VIDRIO CLARO 5+5 LAMINADO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 315000,
+    "precio_pa": 518262.5863770977,
+    "precio_pm": 491945.53698571224,
+    "precio_pb": 465628.4875943267
+  },
+  {
+    "codigo": "CL5MM01CR",
+    "descripcion": "VIDRIO CLARO 5MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 42017,
+    "precio_pa": 69129.64791049687,
+    "precio_pm": 65619.28770644023,
+    "precio_pb": 62108.92750238357
+  },
+  {
+    "codigo": "CL5MM02TE",
+    "descripcion": "VIDRIO CLARO 5MM TEMPLADO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 103763,
+    "precio_pa": 170718.98650871997,
+    "precio_pm": 162049.9833468205,
+    "precio_pb": 153380.98018492103
+  },
+  {
+    "codigo": "CL5MM03SP",
+    "descripcion": "VIDRIO CLARO 5MM TEMPLADO SP",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 82000,
+    "precio_pa": 134912.80026324448,
+    "precio_pm": 128062.01280262985,
+    "precio_pb": 121211.22534201521
+  },
+  {
+    "codigo": "CL12MM03LM",
+    "descripcion": "VIDRIO CLARO 6+6 LAMINADO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 198000,
+    "precio_pa": 325765.0542941757,
+    "precio_pm": 309222.90896244766,
+    "precio_pb": 292680.7636307197
+  },
+  {
+    "codigo": "CL6MM01CR",
+    "descripcion": "VIDRIO CLARO 6MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 53782,
+    "precio_pa": 88486.34419216847,
+    "precio_pm": 83993.06307989071,
+    "precio_pb": 79499.78196761296
+  },
+  {
+    "codigo": "CL6MM02TE",
+    "descripcion": "VIDRIO CLARO 6MM TEMPLADO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 112955,
+    "precio_pa": 185842.38236261928,
+    "precio_pm": 176405.4226356226,
+    "precio_pb": 166968.46290862595
+  },
+  {
+    "codigo": "CL6MM03SP",
+    "descripcion": "VIDRIO CLARO 6MM TEMPLADO SP",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 88011,
+    "precio_pa": 144802.5666337611,
+    "precio_pm": 137449.58303380798,
+    "precio_pb": 130096.59943385489
+  },
+  {
+    "codigo": "CL6MM08SP",
+    "descripcion": "VIDRIO CLARO 6MM TEMPLADO STV",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 0,
+    "precio_pa": 0,
+    "precio_pm": 0,
+    "precio_pb": 0
+  },
+  {
+    "codigo": "CL8MM01CR",
+    "descripcion": "VIDRIO CLARO 8MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 73958,
+    "precio_pa": 121681.47416913458,
+    "precio_pm": 115502.56515679145,
+    "precio_pb": 109323.65614444831
+  },
+  {
+    "codigo": "CL8MM03SP",
+    "descripcion": "VIDRIO CLARO 8MM TEMPLADO SP",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 122009,
+    "precio_pa": 200738.72984534386,
+    "precio_pm": 190545.34292726908,
+    "precio_pb": 180351.9560091943
+  },
+  {
+    "codigo": "GR4MM01CR",
+    "descripcion": "VIDRIO GRIS 4MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 27540,
+    "precio_pa": 45310.95755182626,
+    "precio_pm": 43010.09551932227,
+    "precio_pb": 40709.23348681828
+  },
+  {
+    "codigo": "GR6MM01CR",
+    "descripcion": "VIDRIO GRIS 6MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 25150,
+    "precio_pa": 41378.74300756828,
+    "precio_pm": 39277.55636568464,
+    "precio_pb": 37176.369723801006
+  },
+  {
+    "codigo": "GR6MM03SP",
+    "descripcion": "VIDRIO GRIS EN 6MM TEMPLADO SP",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 234000,
+    "precio_pa": 384995.064165844,
+    "precio_pm": 365445.2560465291,
+    "precio_pb": 345895.44792721415
+  },
+  {
+    "codigo": "VR10MM03SP",
+    "descripcion": "VIDRIO VERDE 10MM TEMPLADO SP",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 155400,
+    "precio_pa": 255676.2092793682,
+    "precio_pm": 242693.13157961803,
+    "precio_pb": 229710.05387986786
+  },
+  {
+    "codigo": "VR5MM01CR",
+    "descripcion": "VIDRIO VERDE 5MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 29970,
+    "precio_pa": 49308.98321816387,
+    "precio_pm": 46805.10394749776,
+    "precio_pb": 44301.224676831655
+  },
+  {
+    "codigo": "VR6MM01CR",
+    "descripcion": "VIDRIO VERDE 6MM CRUDO",
+    "categoria": "VIDRIO",
+    "unidad": "X M2",
+    "costo_unitario": 105562.8842,
+    "precio_pa": 173680.29647910496,
+    "precio_pm": 164860.9198524748,
+    "precio_pb": 156041.5432258446
+  },
+  {
+    "codigo": "ZBT0101",
+    "descripcion": "ZOCALO CON BASE Y TAPA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 132900,
+    "precio_pa": 199879.6811550609,
+    "precio_pm": 187209.84569947203,
+    "precio_pb": 174540.0102438832
+  },
+  {
+    "codigo": "ZCE0101",
+    "descripcion": "ZOCALO CON CERRADURA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 131300,
+    "precio_pa": 197473.30425627914,
+    "precio_pm": 184956.00256087794,
+    "precio_pb": 172438.70086547677
+  },
+  {
+    "codigo": "ZCE0102",
+    "descripcion": "ZOCALO CON CERROJO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 144900,
+    "precio_pa": 217927.5078959242,
+    "precio_pm": 204113.66923892775,
+    "precio_pb": 190299.83058193134
+  },
+  {
+    "codigo": "ZRC0101",
+    "descripcion": "ZOCALO RODAMIENTO CERRADURA",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 164300,
+    "precio_pa": 247104.82779365318,
+    "precio_pm": 231441.51729438116,
+    "precio_pb": 215778.20679510917
+  },
+  {
+    "codigo": "ZSE0502",
+    "descripcion": "ZOCALO SENCILLO DE 10CM BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 70490.16666666667,
+    "precio_pa": 106759.6084430107,
+    "precio_pm": 101575.57243019594,
+    "precio_pb": 96391.53641738117
+  },
+  {
+    "codigo": "ZSE0104",
+    "descripcion": "ZOCALO SENCILLO 9CM BATIENTE MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 56919.833333333336,
+    "precio_pa": 86206.90525593066,
+    "precio_pm": 82020.86797162745,
+    "precio_pb": 77834.83068732423
+  },
+  {
+    "codigo": "ZSE0101",
+    "descripcion": "ZOCALO SENCILLO DE 10CM MATE FIJO",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 59794.11833333334,
+    "precio_pa": 90560.10167557719,
+    "precio_pm": 86162.68175940201,
+    "precio_pb": 81765.26184322682
+  },
+  {
+    "codigo": "BML0101",
+    "descripcion": "BISAGRA MEDIA LUNA 3 PUNTOS GTO",
+    "categoria": "ACCESORIO",
+    "unidad": "UND",
+    "costo_unitario": 285000,
+    "precio_pa": 428635.88509550306,
+    "precio_pm": 401465.80906207324,
+    "precio_pb": 374295.7330286434
+  },
+  {
+    "codigo": "K1200",
+    "descripcion": "Kit Aluminio de 1001 a 1200 ",
+    "categoria": "PERFILERIA",
+    "unidad": "UND",
+    "costo_unitario": 67386,
+    "precio_pa": 102058.24889817802,
+    "precio_pm": 97102.50163187561,
+    "precio_pb": 92146.75436557316
+  },
+  {
+    "codigo": "K1300",
+    "descripcion": "Kit Aluminio de 1201 a 1300",
+    "categoria": "PERFILERIA",
+    "unidad": "UND",
+    "costo_unitario": 72810,
+    "precio_pa": 110273.07010768323,
+    "precio_pm": 104918.42732640107,
+    "precio_pb": 99563.78454511889
+  },
+  {
+    "codigo": "K1500",
+    "descripcion": "Kit Aluminio de 1301 a 1500",
+    "categoria": "PERFILERIA",
+    "unidad": "UND",
+    "costo_unitario": 80434,
+    "precio_pa": 121819.86157178125,
+    "precio_pm": 115904.52937195088,
+    "precio_pb": 109989.1971721205
+  },
+  {
+    "codigo": "K2000",
+    "descripcion": "Kit Aluminio de 1501 a 2000",
+    "categoria": "PERFILERIA",
+    "unidad": "UND",
+    "costo_unitario": 99494,
+    "precio_pa": 150686.8402320263,
+    "precio_pm": 143369.78448582542,
+    "precio_pb": 136052.7287396245
+  },
+  {
+    "codigo": "K1000",
+    "descripcion": "Kit Aluminio Hasta 1000",
+    "categoria": "PERFILERIA",
+    "unidad": "UND",
+    "costo_unitario": 59762,
+    "precio_pa": 90511.45743408,
+    "precio_pm": 86116.39958632579,
+    "precio_pb": 81721.34173857156
+  },
+  {
+    "codigo": "TUB0109",
+    "descripcion": "TUBULAR T-117 MATE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 10976.89075630252,
+    "precio_pa": 16624.851585415847,
+    "precio_pm": 15817.581583367253,
+    "precio_pb": 15010.311581318656
+  },
+  {
+    "codigo": "ANG0508",
+    "descripcion": "ANG.IRRG. 1X3/4 X 1/16 A-46 BRONCE",
+    "categoria": "PERFILERIA",
+    "unidad": "X METRO",
+    "costo_unitario": 4470.588333333333,
+    "precio_pa": 6770.848794180159,
+    "precio_pm": 6442.069731590301,
+    "precio_pb": 6113.290669000442
+  },
+  {
+    "codigo": "VC10MMBPB",
+    "descripcion": "VIDRIO CLARO 10MM CRUDO BPB",
+    "categoria": "VIDRIO",
+    "unidad": "X METRO",
+    "costo_unitario": 10924.37,
+    "precio_pa": 17973.62619282659,
+    "precio_pm": 17060.936717081287,
+    "precio_pb": 16148.247241335986
+  },
+  {
+    "codigo": "ESP4MMBPB",
+    "descripcion": "ESPEJO 4MM BPB",
+    "categoria": "VIDRIO",
+    "unidad": "X METRO",
+    "costo_unitario": 232653.06,
+    "precio_pa": 382778.97334649554,
+    "precio_pm": 363341.69693037815,
+    "precio_pb": 343904.42051426077
+  },
+  {
+    "codigo": "BPB04",
+    "descripcion": "BPB 4-6",
+    "categoria": "ACABADO",
+    "unidad": "X METRO",
+    "costo_unitario": 2400,
+    "precio_pa": 3572.691241324129,
+    "precio_pm": 3314.9739633423233,
+    "precio_pb": 3057.2566853605176
+  },
+  {
+    "codigo": "BPB05",
+    "descripcion": "BPB 8",
+    "categoria": "ACABADO",
+    "unidad": "X METRO",
+    "costo_unitario": 2100,
+    "precio_pa": 3126.1048361586127,
+    "precio_pm": 2900.602217924533,
+    "precio_pb": 2675.099599690453
+  },
+  {
+    "codigo": "BPB10",
+    "descripcion": "BPB 10",
+    "categoria": "ACABADO",
+    "unidad": "X METRO",
+    "costo_unitario": 3500,
+    "precio_pa": 5210.174726931021,
+    "precio_pm": 4834.337029874222,
+    "precio_pb": 4458.499332817421
+  },
+  {
+    "codigo": "BPB07",
+    "descripcion": "BPB REDONDO",
+    "categoria": "ACABADO",
+    "unidad": "X METRO",
+    "costo_unitario": 10000,
+    "precio_pa": 14886.213505517202,
+    "precio_pm": 13812.391513926348,
+    "precio_pb": 12738.56952233549
+  },
+  {
+    "codigo": "BOQN02",
+    "descripcion": "BOQ NORMAL",
+    "categoria": "ACABADO",
+    "unidad": "X METRO",
+    "costo_unitario": 2250,
+    "precio_pa": 3349.398038741371,
+    "precio_pm": 3107.788090633428,
+    "precio_pb": 2866.1781425254853
+  },
+  {
+    "codigo": "BOQN03",
+    "descripcion": "BOQUETE TAQUILLA",
+    "categoria": "ACABADO",
+    "unidad": "X METRO",
+    "costo_unitario": 54000,
+    "precio_pa": 80385.5529297929,
+    "precio_pm": 74586.91417520227,
+    "precio_pb": 68788.27542061165
+  },
+  {
+    "codigo": "PERF01",
+    "descripcion": "PERFORACION HASTA 20MM",
+    "categoria": "ACABADO",
+    "unidad": "X METRO",
+    "costo_unitario": 1050,
+    "precio_pa": 1563.0524180793063,
+    "precio_pm": 1450.3011089622664,
+    "precio_pb": 1337.5497998452265
+  },
+  {
+    "codigo": "PERF02",
+    "descripcion": "PERFORACIONES ESPC",
+    "categoria": "ACABADO",
+    "unidad": "X METRO",
+    "costo_unitario": 2500,
+    "precio_pa": 3721.5533763793005,
+    "precio_pm": 3453.097878481587,
+    "precio_pb": 3184.6423805838726
+  },
+  {
+    "codigo": "PERF03",
+    "descripcion": "PERFORACION 21 A 50 MM",
+    "categoria": "ACABADO",
+    "unidad": "X METRO",
+    "costo_unitario": 5200,
+    "precio_pa": 7740.831022868945,
+    "precio_pm": 7182.443587241701,
+    "precio_pb": 6624.056151614454
+  },
+  {
+    "codigo": "MATI07",
+    "descripcion": "MATIZADO TOTAL",
+    "categoria": "ACABADO",
+    "unidad": "X METRO",
+    "costo_unitario": 12605,
+    "precio_pa": 50000,
+    "precio_pm": 50000,
+    "precio_pb": 50000
+  },
+  {
+    "codigo": "MATI08",
+    "descripcion": "MATIZADO RAYA",
+    "categoria": "ACABADO",
+    "unidad": "X METRO",
+    "costo_unitario": 45000,
+    "precio_pa": 66987.96077482741,
+    "precio_pm": 62155.76181266856,
+    "precio_pb": 57323.562850509705
+  },
+  {
+    "codigo": "MATI09",
+    "descripcion": "MATIZADO DIBUJO",
+    "categoria": "ACABADO",
+    "unidad": "X METRO",
+    "costo_unitario": 100000,
+    "precio_pa": 148862.13505517202,
+    "precio_pm": 138123.91513926347,
+    "precio_pb": 127385.6952233549
+  },
+  {
+    "codigo": "PELI31",
+    "descripcion": "PELICULA NORMAL",
+    "categoria": "ACABADO",
+    "unidad": "X METRO",
+    "costo_unitario": 34000,
+    "precio_pa": 80000,
+    "precio_pm": 80000,
+    "precio_pb": 80000
+  },
+  {
+    "codigo": "BOQE01",
+    "descripcion": "BOQ PASADOCUMENTOS",
+    "categoria": "ACABADO",
+    "unidad": "X METRO",
+    "costo_unitario": 150000,
+    "precio_pa": 223293.20258275804,
+    "precio_pm": 207185.87270889521,
+    "precio_pb": 191078.54283503236
+  },
+  {
+    "codigo": "GPI1102",
+    "descripcion": "GUIA DE PISO NYLON 6-8-10MM",
+    "categoria": "VIDRIO",
+    "unidad": "X METRO",
+    "costo_unitario": 8500,
+    "precio_pa": 13984.863441921683,
+    "precio_pm": 13274.720839296997,
+    "precio_pb": 12564.578236672309
+  }
+]
