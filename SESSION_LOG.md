@@ -1600,6 +1600,83 @@ Sin migración de esquema: `proveedor_codigo_pendiente.estado` ya era `VARCHAR(2
 
 ---
 
+## 2026-09-05 — PV 7085 por script y la causa del "Error al crear pedido PV": PUL A/PUL H mandaban número
+
+**Punto de partida.** El usuario pide crear un Pedido PV para **ODP-24000** (Vitelsa, 3 cristales) pasando una captura del modal ya lleno. Al no poder enviarlo desde el navegador, se crea por script; **después** se descubre que la razón por la que no podía enviarlo era un bug del propio modal.
+
+### 1. Dos verificaciones que cambiaron el pedido antes de crearlo
+
+**Las medidas de la captura estaban incompletas.** El formulario mostraba `110×217`, `112×217`, `119×218` mm, un orden de magnitud por debajo de los 61 ítems ya cargados en la ODP (680–1420 × 2138–2483 mm). El `MTS PT` que el propio modal calculaba (2.401 / 2.453 / 2.598 m²) solo cuadra con las medidas ×10. Consultado, el usuario confirmó las reales: **1104×2175, 1128×2175, 1190×2183 (1 und. c/u)**. Sin ese cruce se habrían pedido 3 vidrios de 11 cm a Vitelsa.
+
+**ODP-24000 ya tenía ruta PV avanzada:** `proveedor_vidrio = Vitelsa`, `LISTO_INSTALAR`, **8 Pedidos PV** (6857 + extensiones −1…−5, 7020, 7060), casi todos VERIFICADO. Se confirmó con el usuario que el noveno era intencional antes de escribir.
+
+### 2. Creación por script
+
+`crear_pedido_pv_odp24000_2026-09-05.ts` replica exactamente `crearPedido()` del frontend: `ODPItem.bulkCreate` (como `agregarItems`) y luego `PedidoPV.create` con la misma generación de consecutivo y reintento ante colisión. Todo en una transacción.
+
+**Resultado:** ítems 1851-1853 y **PV 7085** (id 592), Vitelsa, PENDIENTE, entrega 2026-09-15, espesor 8, `creado_por = 76` (Alejandro Ardila). Los ítems quedan con `pedido_pv_id = null` — igual que en el flujo real, la asignación se hace después desde "Por Gestionar".
+
+⚠️ Al ir por script no se emitió `emitirCambio('pedidos_pv')` (hay que recargar la página) y el `bulkCreate` no dejó rastro en `auditoria_log` — **mismo comportamiento que el endpoint real**, que tampoco pasa `individualHooks: true`.
+
+### 3. La causa raíz del error del modal
+
+`pulidos` y `pulidos_h` son **texto** en todo el sistema (`STRING(10)` en `odp_item.model.ts`, `z.string()` en `odpItemSchema`). Pero el modal los pintaba con `type: 'number'` y su `onChange` genérico hacía `parseInt(e.target.value) || 0`, guardando un **number**. Zod rechazaba → `POST /odp/:id/items` devolvía **400**, y el `catch` ciego de `crearPedido()` lo mostraba como el genérico *"Error al crear pedido PV"*.
+
+**Basta con tocar PUL A o PUL H para romperlo**, incluso al borrarlos: `parseInt('') || 0` da el número `0`. Por eso la captura original —con PUL A=2 y PUL H=2— no se podía enviar, y por eso hubo que crear el 7085 por script.
+
+**Reproducción determinista** (schema verbatim contra el payload real del modal):
+
+| Payload | Antes | Después |
+|---|---|---|
+| Ítem sin tocar | ✅ | ✅ |
+| Con medidas, sin tocar PUL | ✅ | ✅ |
+| **PUL A/H = `2` (number)** | ❌ `expected string, received number` | ✅ |
+| PUL A/H = `'2'` (string, modal corregido) | — | ✅ |
+| PUL A/H borrados (`''`) | — | ✅ |
+
+**Discriminador que evitó adivinar:** `crearPedido()` hace dos peticiones en secuencia. Cero ítems con `id > 1853` en BD ⇒ la primera nunca insertó ⇒ el fallo estaba ahí y no en `/pedidos-pv` (no era permiso `puede_gestionar_pv`).
+
+**Antigüedad:** roto desde `a54e09c` (2026-05-01), el commit que creó el modal. `3a9bc85` (2026-08-25) corrigió el mismo desajuste para `ancho_mm`/`alto_mm` **pero no tocó pulidos**. `ODPForm` nunca falló porque usa `register()` de RHF sin `valueAsNumber`, así que manda string.
+
+### Cambios (commit `712773f`)
+
+| Archivo | Cambio |
+|---|---|
+| `features/pedidos-pv/PedidosPVPage.tsx` | Flag `guardaTexto` en el descriptor de campos: PUL A/PUL H se siguen pintando como número (teclado y alineación) pero se **guardan como string**. Borrar el campo deja `''`, no el `"0"` sucio |
+| `controllers/odp.controller.ts` | `pulidos`/`pulidos_h` → `z.coerce.string()`, mismo patrón que ya tenía `espesor` |
+| `features/pedidos-pv/PedidosPVPage.tsx` | `crearPedido()`: el catch ciego pasa a mostrar el mensaje del backend, filtrando por `string` porque el 400 de `createPedidoPV` devuelve `error` como array de issues de Zod |
+
+### Decisiones técnicas
+
+- **Los dos arreglos son complementarios a propósito, no redundantes.** El de backend acepta lo que manda cualquier cliente viejo (por eso el fix quedó activo en producción incluso antes de confirmar el redespliegue del backend); el de frontend evita guardar `"0"` al borrar el campo. Ninguno depende del otro.
+- **`z.coerce.string()` verificado antes de proponerlo**, no asumido: acepta números y **conserva `null`/`undefined`** sin convertirlos a `"null"`, porque `ZodNullable`/`ZodOptional` cortan antes de la coerción.
+- **`perforaciones` y `boquetes` conservan el `parseInt`**: sí son `INTEGER` en BD.
+- Sin migración: el modelo ya era `STRING(10)`.
+
+### Verificación
+
+`npm --prefix backend-api run build` exit 0 · `tsc --noEmit` de `frontend-web` exit 0.
+
+**En producción, comprobado contra los servicios reales:**
+- **Frontend — prueba directa:** el bundle servido por Cloudflare Pages (`/static/js/main.f366a50b.js`) **contiene** la cadena `"No se pudo crear el pedido PV"`, que solo existe en este commit.
+- **Backend — evidencia fuerte:** `/health` reportó `uptime` de 22.9 min ⇒ el proceso arrancó **18 min después del push**, con latencia de 0.55 s (no fue un despertar por inactividad).
+
+### ⚠️ Corrección importante sobre el despliegue
+
+**El backend NO se redespliega con `docker compose up -d --build`.** Corre en **Render** (`BACKEND_URL=https://vidriostemplex-system.onrender.com`, en `backend-api/.env.example`) y **auto-despliega al detectar el push a `main`**, construyendo desde el `Dockerfile`. El `docker-compose.yml` del repo es para local/autohospedado. Durante esta sesión se dio la instrucción equivocada antes de verificarlo; queda anotado para no repetirla.
+
+Con este deploy **se fueron también los 9 commits de `backend-api/src` pendientes desde el 03-sep**, lo que destraba los pendientes operativos de las dos sesiones anteriores.
+
+### Pendiente al cierre
+
+1. **Volver a subir las 74 facturas** de los 8 proveedores aprobados (venía del 04-sep, ahora ya desplegado el backend que lo permite).
+2. **Reimprimir y reenviar a Templacol los pedidos 7012, 7073 y 7077**, que salieron en formato Vitelsa (venía del 04-sep).
+3. **Asignar los ítems 1851-1853 al PV 7085** desde "Por Gestionar".
+4. **La creación de Pedido PV no es atómica:** `crearPedido()` hace dos peticiones sin transacción. Si la de ítems pasa y la del pedido falla (p. ej. 403 por `puede_gestionar_pv`), quedan **ítems huérfanos** en la ODP y cada reintento los duplica. Hoy no ocurrió porque falló la primera. Sin decidir: documentar en `TECH_DEBT.md`, invertir el orden (un pedido vacío sí es recuperable con `DELETE /api/pedidos-pv/:id`) o hacer un endpoint transaccional.
+5. **Scripts de esta sesión sin commitear** en `backend-api/src/scripts/`: `consultar_odp24000_*`, `consultar_usuarios_pv_*`, `crear_pedido_pv_odp24000_*`, `diagnostico_crear_pedido_pv_*`, `verificar_coerce_zod_*`. Los tres últimos fueron diagnóstico desechable.
+
+---
+
 ## 2026-09-07 — Nuevo módulo Cotizador: Etapa 1 de 4 (BD + migración de datos)
 
 ### Contexto

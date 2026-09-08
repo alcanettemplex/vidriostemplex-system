@@ -4,12 +4,13 @@ import {
   FileText, History, Ruler, CheckCircle2, Package, DollarSign, Truck, CreditCard,
   Archive, Calendar, Camera, AlertCircle, AlertTriangle, Shield, MessageSquare,
   ChevronDown, ChevronUp, User, ArrowRight, RefreshCw, Loader2, ExternalLink,
-  X, Plus, TrendingUp, Images, Printer, Tag, Wrench, Film, Box, Sparkles,
-  MapPin, Phone, Building2, ClipboardList, PenTool, Star
+  Plus, Tag, Wrench,
 } from 'lucide-react';
 import axios from 'axios';
+import { toast } from 'react-toastify';
 import { fmt } from './ODPFichaModal.utils';
 import { getEstadoODP } from '../../../utils/estadosODP';
+import { useSoloLectura } from '../../../utils/permisos';
 import API from '../../../services/config';
 
 const TIPO_VISUAL: Record<string, { icon: (cls: string) => React.ReactNode; dot: string; peso: 'alto' | 'medio' | 'bajo' }> = {
@@ -225,6 +226,9 @@ const TabHistorial: React.FC<{ odp: any; onOpenLightbox?: (src: string) => void 
   const [error, setError]       = useState<string | null>(null);
   const [filtros, setFiltros]   = useState<string[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [nuevaNota, setNuevaNota]     = useState('');
+  const [enviandoNota, setEnviandoNota] = useState(false);
+  const soloLectura = useSoloLectura();
 
   const fetchHistorial = useCallback(async () => {
     try {
@@ -237,6 +241,27 @@ const TabHistorial: React.FC<{ odp: any; onOpenLightbox?: (src: string) => void 
   }, [odp.id]);
 
   useEffect(() => { fetchHistorial(); }, [fetchHistorial]);
+
+  const handleAgregarNota = async () => {
+    const texto = nuevaNota.trim();
+    if (!texto || enviandoNota) return;
+    try {
+      setEnviandoNota(true);
+      const token = sessionStorage.getItem('token');
+      await axios.post(
+        `${API}/api/notas-produccion`,
+        { odp_id: odp.id, texto },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setNuevaNota('');
+      toast.success('Nota agregada');
+      await fetchHistorial();
+    } catch {
+      toast.error('No se pudo agregar la nota');
+    } finally {
+      setEnviandoNota(false);
+    }
+  };
 
   const toggleFiltro  = (cat: string) => setFiltros(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
   const toggleExpanded = (key: string) => setExpanded(prev => { const s = new Set(prev); s.has(key) ? s.delete(key) : s.add(key); return s; });
@@ -283,6 +308,31 @@ const TabHistorial: React.FC<{ odp: any; onOpenLightbox?: (src: string) => void 
   return (
     <div className="p-6">
       {eventos.length > 0 && renderHistStats(eventos)}
+
+      {!soloLectura && (
+        <div className="relative mb-5">
+          <textarea
+            rows={2}
+            className="w-full p-3 pr-10 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 resize-none bg-white transition-all"
+            placeholder="Agregar una nota de producción..."
+            value={nuevaNota}
+            onChange={e => setNuevaNota(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleAgregarNota();
+              }
+            }}
+          />
+          <button
+            onClick={handleAgregarNota}
+            disabled={enviandoNota || !nuevaNota.trim()}
+            className="absolute right-2 bottom-2 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md shadow-indigo-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       <div className="flex items-center gap-2 mb-5 flex-wrap">
         <button
