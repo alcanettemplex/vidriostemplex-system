@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSelector } from 'react-redux';
+import { flushSync } from 'react-dom';
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'react-toastify';
@@ -37,9 +38,15 @@ import {
     MessageCircle,
     PauseCircle,
     Bot,
+    Printer,
+    CheckSquare,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PrintableSAP from '../odp/components/PrintableSAP';
+import PrintableProduccion from '../odp/components/PrintableProduccion';
+import PrintableOA from '../odp/components/PrintableOA';
+import { ESTILOS_IMPRESION_ODP } from '../odp/components/printStyles';
+import { abrirVentanaImpresion } from '../../utils/printWindow';
 import ProgramacionWhatsAppModal from './components/ProgramacionWhatsAppModal';
 import MovimientosAutomaticosTab from './components/MovimientosAutomaticosTab';
 import socket from '../../store/socket';
@@ -125,6 +132,10 @@ interface ODP {
     tipo_odp?: string;
     color_taller?: string | null;
     odp_padre_id?: number | null;
+    sin_items?: boolean;
+    /** NULL = la OP todavía no se ha impreso → cae en la pestaña "Por Imprimir". */
+    fecha_impresion_op?: string | null;
+    impresa_por?: { id: number; nombre_completo: string } | null;
 }
 
 const activeStates = [
@@ -156,6 +167,21 @@ const TALLER_COLORS = [
     { hex: '#FFE4E6', label: 'Rojo' },
     { hex: '#F3E8FF', label: 'Violeta' },
 ];
+
+/**
+ * Amarillo de "OP ya impresa". Es el mismo hex que el taller venía pintando a mano en
+ * `color_taller` (TALLER_COLORS[0]) para no cambiarle la lectura del tablero a nadie: la
+ * diferencia es que ahora se deriva de `fecha_impresion_op` y el color manual queda libre.
+ * La migración 2026-09-09_impresion_op.ts tradujo las 414 filas amarillas de entonces.
+ */
+const AMARILLO_IMPRESA = '#FEF9C3';
+
+const fmtFechaHora = (iso?: string | null): string => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        + ' ' + d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+};
 
 const COLUMNS = [
     { key: 'chk_medicion',  label: 'Medición',  Icon: Ruler },
@@ -238,7 +264,7 @@ const getPaymentInfo = (odp: ODP): { label: string; cls: string } => {
 };
 
 const ProduccionPage: React.FC = () => {
-    const [mainTab, setMainTab]           = useState<'activas' | 'pedido_mano' | 'nc_garantias' | 'pausadas' | 'automaticos'>('activas');
+    const [mainTab, setMainTab]           = useState<'activas' | 'por_imprimir' | 'pedido_mano' | 'nc_garantias' | 'pausadas' | 'automaticos'>('activas');
     const [manoSubTab, setManoSubTab]     = useState<'listos' | 'espera_pago'>('listos');
 
     // Array maestro (fuente única de verdad) + NC/Garantías (endpoint aparte).
@@ -278,6 +304,18 @@ const ProduccionPage: React.FC = () => {
     const [pvLoadingAccion, setPvLoadingAccion]     = useState(false);
     const [marcandoListo, setMarcandoListo]         = useState(false);
     const [showProgramacion, setShowProgramacion]   = useState(false);
+
+    // ─── Pestaña "Por Imprimir" ─────────────────────────────────────────────
+    // `odpsAImprimir` es lo que se renderiza en el div oculto justo antes de abrir la
+    // ventana: son las ODP COMPLETAS (traídas por id), no las filas ligeras del tablero.
+    const [seleccionImpresion, setSeleccionImpresion] = useState<Set<number>>(new Set());
+    const [odpsAImprimir, setOdpsAImprimir]           = useState<any[]>([]);
+    const [preparandoImpresion, setPreparandoImpresion] = useState(false);
+    // Caché de detalles ya descargados. Si el navegador bloquea el popup en el primer
+    // intento, el reintento no vuelve a pedir nada al servidor y se abre al instante
+    // —dentro del gesto del usuario—, que es justo lo que destraba el bloqueo.
+    const detalleImpresionCache = useRef<Map<number, any>>(new Map());
+    const areaImpresionRef      = useRef<HTMLDivElement | null>(null);
 
     // Role check
     const authUser = useSelector((state: any) => state.auth.user);
@@ -636,6 +674,7 @@ const ProduccionPage: React.FC = () => {
             case 'PELICULA': return odp.pelicula;
             case 'HUACAL':   return odp.huacal;
             case 'NC':       return odp.es_no_conformidad;
+            case 'SIN_IMPRIMIR': return !odp.fecha_impresion_op;
             default:         return true;
         }
     }).sort((a, b) => {
@@ -653,6 +692,120 @@ const ProduccionPage: React.FC = () => {
     const ncOdps = ncGarantiasOdps
         .filter(o => activeStates.includes(o.estado_produccion))
         .sort((a, b) => new Date(a.fecha_creacion || 0).getTime() - new Date(b.fecha_creacion || 0).getTime());
+
+    // ─── Bucket "Por Imprimir" ──────────────────────────────────────────────
+    // Solo la línea de producción (los 6 estados activos) más las NC/Garantías activas:
+    // una ODP PAUSADA o ya LISTO_INSTALAR no baja al taller, así que imprimirla no aporta.
+    // Se deduplica por id a propósito: las NC viven en los DOS arrays —`/api/odp` las trae
+    // con el resto del tablero y `/api/odp/nc-garantias` las vuelve a traer— y sin el Set
+    // saldrían dos veces en la lista y dos veces en el papel.
+    const porImprimirOdps = useMemo(() => {
+        const vistos = new Set<number>();
+        return [...activeOdps, ...ncOdps]
+            .filter(o => {
+                if (o.fecha_impresion_op) return false;
+                if (vistos.has(o.id)) return false;
+                vistos.add(o.id);
+                return true;
+            })
+            .sort((a, b) => new Date(a.fecha_entrega).getTime() - new Date(b.fecha_entrega).getTime());
+    }, [activeOdps, ncOdps]);
+
+    /** Trae el detalle completo de cada ODP (lo que necesita el imprimible), con caché. */
+    const cargarDetallesImpresion = async (ids: number[]): Promise<any[]> => {
+        const faltantes = ids.filter(id => !detalleImpresionCache.current.has(id));
+        if (faltantes.length > 0) {
+            const token = sessionStorage.getItem('token');
+            const headers = { Authorization: `Bearer ${token}` };
+            // Mismo endpoint que usa la ficha para imprimir una sola: garantiza que el
+            // papel del lote salga idéntico al de siempre, sin un segundo formato que
+            // mantener. Son 5-10 peticiones una vez al día.
+            const respuestas = await Promise.all(
+                faltantes.map(id => axios.get(`${API}/api/odp/${id}`, { headers }))
+            );
+            respuestas.forEach(r => detalleImpresionCache.current.set(r.data.id, r.data));
+        }
+        return ids.map(id => detalleImpresionCache.current.get(id)).filter(Boolean);
+    };
+
+    /** Registra en el servidor que estas OP ya salieron a papel (o las devuelve a la cola). */
+    const marcarImpresas = async (ids: number[], impresa: boolean) => {
+        if (!puedeEditarTaller) { avisarSinEdicion(); return; }
+        if (ids.length === 0) return;
+        try {
+            const token = sessionStorage.getItem('token');
+            await axios.patch(
+                `${API}/api/odp/marcar-impresas`,
+                { ids, impresa },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            // Pintado optimista: el socket llega igual y reemplaza la fila con la versión
+            // del servidor, pero la pestaña debe vaciarse en el mismo clic.
+            const fecha = impresa ? new Date().toISOString() : null;
+            const autor = impresa
+                ? { id: authUser?.id, nombre_completo: authUser?.nombre_completo || 'Tú' }
+                : null;
+            const aplicar = (o: ODP): ODP => ids.includes(o.id)
+                ? { ...o, fecha_impresion_op: fecha, impresa_por: autor }
+                : o;
+            setOdps(prev => prev.map(aplicar));
+            setNcGarantiasOdps(prev => prev.map(aplicar));
+            setSeleccionImpresion(prev => {
+                const next = new Set(prev);
+                ids.forEach(id => next.delete(id));
+                return next;
+            });
+            toast.success(impresa
+                ? `${ids.length} ODP marcada${ids.length > 1 ? 's' : ''} como impresa${ids.length > 1 ? 's' : ''}`
+                : 'ODP devuelta a Por Imprimir');
+        } catch (error: any) {
+            toast.error(error.response?.data?.error
+                || 'No se pudo registrar la impresión. Revisa tu conexión e inténtalo de nuevo.');
+            fetchData(true);
+        }
+    };
+
+    /**
+     * Imprime N órdenes de producción en un solo documento y un solo diálogo.
+     *
+     * El marcado es optimista por necesidad: el navegador no avisa si el papel salió
+     * —`afterprint` dispara también al cancelar—, así que lo único fiable es si la
+     * ventana llegó a abrirse. Si el popup viene bloqueado, `abrirVentanaImpresion`
+     * devuelve false y no se marca nada; el detalle queda en caché y el reintento abre
+     * de inmediato. Para el resto de casos está "Devolver a Por Imprimir" en cada fila.
+     */
+    const handleImprimirLote = async (ids: number[]) => {
+        if (ids.length === 0) return;
+        setPreparandoImpresion(true);
+        try {
+            const detalles = await cargarDetallesImpresion(ids);
+            if (detalles.length === 0) {
+                toast.error('No se pudieron cargar las órdenes seleccionadas. Inténtalo de nuevo.');
+                return;
+            }
+            // flushSync y no un setTimeout: hay que leer el innerHTML del div oculto en
+            // cuanto React lo pinte, y un temporizador fijo es exactamente el error que
+            // originó `abrirVentanaImpresion` (ver utils/printWindow.ts).
+            flushSync(() => setOdpsAImprimir(detalles));
+            const area = areaImpresionRef.current;
+            if (!area) { toast.error('No se pudo preparar la impresión.'); return; }
+
+            const abierta = abrirVentanaImpresion({
+                titulo: detalles.length === 1
+                    ? `Orden de Producción ${detalles[0].numero_odp}`
+                    : `Órdenes de Producción (${detalles.length})`,
+                contenidoHtml: area.innerHTML,
+                estilos: ESTILOS_IMPRESION_ODP,
+            });
+            setOdpsAImprimir([]);
+            if (abierta) await marcarImpresas(detalles.map(d => d.id), true);
+        } catch (error) {
+            console.error('Error al imprimir lote de OP:', error);
+            toast.error('No se pudo preparar la impresión de las órdenes.');
+        } finally {
+            setPreparandoImpresion(false);
+        }
+    };
 
     const pagoOkOdps     = manoOdps.filter(o => isPagoOk(o));
     const esperaPagoOdps = manoOdps.filter(o => !isPagoOk(o));
@@ -1063,7 +1216,13 @@ const ProduccionPage: React.FC = () => {
                             : 0;
                         const borderColor = urgency.color === 'rose' ? 'border-rose-400'
                             : urgency.color === 'orange' ? 'border-orange-400' : 'border-emerald-400';
-                        const hasColor = !!odp.color_taller;
+                        // El amarillo de "ya impresa" es DERIVADO de fecha_impresion_op, no un
+                        // color guardado. Si además hay color manual, manda el manual: pintar
+                        // una fila de rojo por urgencia debe seguir siendo posible sobre una
+                        // orden ya impresa.
+                        const impresa   = !!odp.fecha_impresion_op;
+                        const bgFila    = odp.color_taller || (impresa ? AMARILLO_IMPRESA : null);
+                        const hasColor  = !!bgFila;
                         const rowBg = isSelected ? 'bg-indigo-50/60'
                             : urgency.color === 'rose' ? 'hover:bg-rose-50/20'
                             : urgency.color === 'orange' ? 'hover:bg-orange-50/20' : 'hover:bg-slate-50';
@@ -1073,11 +1232,11 @@ const ProduccionPage: React.FC = () => {
                                 key={odp.id}
                                 onClick={() => handleSelectOdp(odp)}
                                 className={`cursor-pointer transition-colors border-l-4 ${borderColor} ${hasColor ? '' : rowBg}`}
-                                style={hasColor ? { backgroundColor: odp.color_taller! } : undefined}
+                                style={hasColor ? { backgroundColor: bgFila! } : undefined}
                             >
                                 <td
                                     className={`px-4 py-3 sticky left-0 z-10 border-r border-slate-100 ${isSelected ? 'bg-indigo-50/60' : ''}`}
-                                    style={!isSelected ? { backgroundColor: odp.color_taller || 'white' } : undefined}
+                                    style={!isSelected ? { backgroundColor: bgFila || 'white' } : undefined}
                                 >
                                     <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                                         {/* Círculo de color / selector */}
@@ -1104,6 +1263,26 @@ const ProduccionPage: React.FC = () => {
                                                                            'bg-emerald-50 text-emerald-600'}`}>
                                             {urgency.label}
                                         </span>
+                                        {impresa && (
+                                            /* Única vía de vuelta: la impresión se marca de forma optimista
+                                               —el navegador no confirma que el papel salió— así que hay que
+                                               poder devolver la orden a la cola desde donde se ve el estado. */
+                                            <button
+                                                className="text-slate-400 flex-shrink-0 hover:text-indigo-600 transition-colors"
+                                                title={`OP impresa el ${fmtFechaHora(odp.fecha_impresion_op)}`
+                                                    + (odp.impresa_por?.nombre_completo ? ` · ${odp.impresa_por.nombre_completo}` : '')
+                                                    + '\nClic para devolverla a "Por Imprimir"'}
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    if (!puedeEditarTaller) { avisarSinEdicion(); return; }
+                                                    if (window.confirm(`¿Devolver la ${odp.numero_odp} a la pestaña "Por Imprimir"?`)) {
+                                                        marcarImpresas([odp.id], false);
+                                                    }
+                                                }}
+                                            >
+                                                <Printer className="w-3 h-3" />
+                                            </button>
+                                        )}
                                         {odp.es_no_conformidad && (
                                             <span className="text-[8px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded-full">NC</span>
                                         )}
@@ -1222,6 +1401,7 @@ const ProduccionPage: React.FC = () => {
                 <FolderTabs
                     tabs={[
                         { key: 'activas',      label: 'Control Taller',    icon: <Wrench className="w-4 h-4" /> },
+                        { key: 'por_imprimir', label: 'Por Imprimir',      icon: <Printer className="w-4 h-4" />,       badge: porImprimirOdps.length || undefined, badgeClassName: 'bg-indigo-100 text-indigo-600' },
                         { key: 'pedido_mano',  label: 'Pedido en la mano', icon: <Inbox className="w-4 h-4" /> },
                         { key: 'nc_garantias', label: 'NC / Garantías',    icon: <AlertTriangle className="w-4 h-4" />, badge: ncOdps.length || undefined, badgeClassName: 'bg-rose-100 text-rose-600' },
                         { key: 'pausadas',     label: 'ODP Pausadas',      icon: <PauseCircle className="w-4 h-4" />,   badge: pausadasOdps.length || undefined, badgeClassName: 'bg-amber-100 text-amber-600' },
@@ -1257,6 +1437,7 @@ const ProduccionPage: React.FC = () => {
                                 { id: 'PELICULA', label: 'Película',  icon: Film },
                                 { id: 'HUACAL',   label: 'Huacal',   icon: Box },
                                 { id: 'NC',       label: 'NC',        icon: AlertCircle },
+                                { id: 'SIN_IMPRIMIR', label: 'Sin imprimir', icon: Printer },
                             ].map(f => (
                                 <button
                                     key={f.id}
@@ -1364,6 +1545,156 @@ const ProduccionPage: React.FC = () => {
                     )}
                 </>
             )}
+
+            {/* ══════════════════════════════════════════════
+                TAB: POR IMPRIMIR
+                Cola de órdenes de producción que aún no han salido a papel. Al imprimirlas
+                desaparecen de aquí y quedan resaltadas de amarillo en Control Taller.
+            ══════════════════════════════════════════════ */}
+            {mainTab === 'por_imprimir' && (() => {
+                // Una ODP sin ítems imprime una OP en blanco: se puede imprimir a propósito,
+                // pero se queda fuera de "seleccionar todas" para no botar papel sin querer.
+                const imprimibles = porImprimirOdps.filter(o => !o.sin_items);
+                const seleccionadas = porImprimirOdps.filter(o => seleccionImpresion.has(o.id));
+                const todasMarcadas = imprimibles.length > 0 && imprimibles.every(o => seleccionImpresion.has(o.id));
+
+                const alternar = (id: number) => setSeleccionImpresion(prev => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id); else next.add(id);
+                    return next;
+                });
+
+                return (
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap justify-between items-center gap-3">
+                            <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                                <Printer className="w-4 h-4 text-indigo-500" />
+                                Pendientes de imprimir ({porImprimirOdps.length})
+                            </h2>
+                            <div className="flex items-center gap-2">
+                                {imprimibles.length > 0 && (
+                                    <button
+                                        onClick={() => setSeleccionImpresion(
+                                            todasMarcadas ? new Set() : new Set(imprimibles.map(o => o.id))
+                                        )}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all"
+                                    >
+                                        <CheckSquare className="w-3.5 h-3.5" />
+                                        {todasMarcadas ? 'Quitar selección' : 'Seleccionar todas'}
+                                    </button>
+                                )}
+                                <button
+                                    disabled={seleccionadas.length === 0 || preparandoImpresion || !puedeEditarTaller}
+                                    onClick={() => handleImprimirLote(seleccionadas.map(o => o.id))}
+                                    className="flex items-center gap-2 px-5 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed"
+                                >
+                                    {preparandoImpresion
+                                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Preparando…</>
+                                        : <><Printer className="w-3.5 h-3.5" /> Imprimir seleccionadas ({seleccionadas.length})</>}
+                                </button>
+                            </div>
+                        </div>
+
+                        {porImprimirOdps.length === 0 ? (
+                            <div className="p-12 text-center">
+                                <CheckCircle2 className="w-12 h-12 text-emerald-100 mx-auto mb-3" />
+                                <p className="text-slate-400 text-sm font-medium">
+                                    Todas las órdenes de la línea de producción ya están impresas.
+                                </p>
+                            </div>
+                        ) : (
+                            <table className="w-full text-left">
+                                <thead className="bg-white border-b border-slate-100">
+                                    <tr>
+                                        <th className="px-4 py-3 w-10"></th>
+                                        <th className="px-2 py-3 text-[9px] font-black text-slate-400 uppercase tracking-wider">ODP / Cliente</th>
+                                        <th className="px-2 py-3 text-[9px] font-black text-slate-400 uppercase tracking-wider">Tipo</th>
+                                        <th className="px-2 py-3 text-[9px] font-black text-slate-400 uppercase tracking-wider">Etapa</th>
+                                        <th className="px-2 py-3 text-[9px] font-black text-slate-400 uppercase tracking-wider">Entrega</th>
+                                        <th className="px-2 py-3 text-right text-[9px] font-black text-slate-400 uppercase tracking-wider">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {porImprimirOdps.map(odp => {
+                                        const urgency = getUrgency(odp.fecha_entrega);
+                                        const marcada = seleccionImpresion.has(odp.id);
+                                        const tipo = odp.es_garantia ? { label: 'Garantía', cls: 'bg-orange-50 text-orange-600' }
+                                            : odp.es_no_conformidad ? { label: 'NC', cls: 'bg-rose-50 text-rose-600' }
+                                            : odp.tipo_odp === 'OA' ? { label: 'OA', cls: 'bg-violet-50 text-violet-600' }
+                                            : { label: 'ODP', cls: 'bg-slate-100 text-slate-500' };
+                                        return (
+                                            <tr key={odp.id} className={`transition-colors ${marcada ? 'bg-indigo-50/50' : 'hover:bg-slate-50'}`}>
+                                                <td className="px-4 py-3">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={marcada}
+                                                        onChange={() => alternar(odp.id)}
+                                                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                                    />
+                                                </td>
+                                                <td className="px-2 py-3">
+                                                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                                        <span
+                                                            className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors cursor-pointer"
+                                                            onClick={() => setFichaOdpId(odp.id)}
+                                                        >
+                                                            {odp.numero_odp}
+                                                        </span>
+                                                        {odp.sin_items && (
+                                                            <span className="text-[8px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full"
+                                                                title="Esta ODP no tiene requerimientos cargados: la OP saldría en blanco.">
+                                                                SIN ÍTEMS
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm font-bold text-slate-700 truncate max-w-[280px]">
+                                                        {odp.cliente.nombre_razon_social}
+                                                    </p>
+                                                </td>
+                                                <td className="px-2 py-3">
+                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${tipo.cls}`}>{tipo.label}</span>
+                                                </td>
+                                                <td className="px-2 py-3">
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                                        {odp.estado_produccion.replace(/_/g, ' ')}
+                                                    </span>
+                                                </td>
+                                                <td className="px-2 py-3">
+                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded
+                                                        ${urgency.color === 'rose'   ? 'bg-rose-50 text-rose-600' :
+                                                          urgency.color === 'orange' ? 'bg-orange-50 text-orange-600' :
+                                                                                       'bg-emerald-50 text-emerald-600'}`}>
+                                                        {urgency.label}
+                                                    </span>
+                                                </td>
+                                                <td className="px-2 py-3">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            disabled={preparandoImpresion || !puedeEditarTaller}
+                                                            onClick={() => handleImprimirLote([odp.id])}
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                                        >
+                                                            <Printer className="w-3 h-3" /> Imprimir
+                                                        </button>
+                                                        <button
+                                                            disabled={!puedeEditarTaller}
+                                                            title="Marcarla como impresa sin sacarla por impresora (ya salió por otro lado, se imprimió a mano, etc.)"
+                                                            onClick={() => marcarImpresas([odp.id], true)}
+                                                            className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-500 bg-slate-100 hover:bg-slate-200 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                                        >
+                                                            Ya impresa
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                );
+            })()}
 
             {/* ══════════════════════════════════════════════
                 TAB: PEDIDO EN LA MANO
@@ -1704,6 +2035,32 @@ const ProduccionPage: React.FC = () => {
                     </div>
                 </div>
             )}
+        </div>
+
+        {/* Área oculta de impresión por lote.
+            Se monta solo mientras dura la preparación y se lee su innerHTML para pasarlo a
+            `abrirVentanaImpresion`. Cada ODP entra con su propio imprimible —OA lleva otro
+            formato— y `PrintableProduccion` ya emite `page-break-after: always` por página,
+            así que N órdenes concatenadas salen paginadas correctamente en un solo diálogo.
+            Fuera de pantalla con `left:-10000px` y no con `display:none`: un nodo oculto por
+            display no rinde y su innerHTML saldría igual, pero las medidas de layout que
+            algunos navegadores necesitan para las tablas sí dependen de estar renderizado. */}
+        <div ref={areaImpresionRef} aria-hidden="true"
+             style={{ position: 'fixed', left: '-10000px', top: 0, width: '215mm' }}>
+            {/* El salto entre órdenes lo fuerza el contenedor, no el imprimible.
+                Los dos formatos evitan el salto en su última página —`PrintableProduccion` con
+                `.produccion-page:last-child { page-break-after: avoid }` y `PrintableOA` no
+                poniendo la clase `page-break`— para no sacar una hoja en blanco al final. En un
+                lote eso pega el arranque de la siguiente orden a la cola de la anterior, así que
+                cada envoltorio salvo el último impone su propio `page-break-after: always`; un
+                salto forzado tiene precedencia sobre un `avoid`, y la última orden se queda sin
+                salto, que es justo lo que evita la hoja en blanco del final. */}
+            {odpsAImprimir.map((o, idx) => (
+                <div key={o.id}
+                     style={idx < odpsAImprimir.length - 1 ? { pageBreakAfter: 'always', breakAfter: 'page' } : undefined}>
+                    {o.tipo_odp === 'OA' ? <PrintableOA odp={o} /> : <PrintableProduccion odp={o} />}
+                </div>
+            ))}
         </div>
 
         {fichaOdpId && <ODPFichaModal odpId={fichaOdpId} onClose={() => setFichaOdpId(null)} />}

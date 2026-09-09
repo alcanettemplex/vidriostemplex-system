@@ -1805,9 +1805,100 @@ Secuencia: calcula → **si nada cambia se detiene** (sin escritura, sin auditor
 | **ODP-24286** | desmarcar Herrajes | **LISTO_INSTALAR → VIDRIO_RECIBIDO** |
 | **ODP-24316** | desmarcar Herrajes | **LISTO_INSTALAR → VIDRIO_RECIBIDO** |
 
-Ninguna saltaría a LISTO_INSTALAR. **Dos saldrían de Instalaciones** (24286 y 24316): son la decisión que falta. Aplicar con `--aplicar`.
+Ninguna saltaría a LISTO_INSTALAR. **Dos saldrían de Instalaciones** (24286 y 24316).
+
+**Decisión del usuario: NO se aplica la reconciliación.** Las 8 quedan como están; él las verifica y las gestiona a mano. El script se conserva commiteado y en modo informe por defecto.
+
+⚠️ **Consecuencia a tener presente:** "dejarlas como están" no las congela. El motor ya está activo, así que **la primera acción de Compras o de Pedidos PV que toque una de esas ODP recalculará su check**. Concretamente, ODP-24286 y ODP-24316 saldrán de LISTO_INSTALAR en cuanto alguien mueva una línea de su SAP —recibir una ODC, marcar o quitar una "S", editar la SAP—, no antes. No hay proceso de fondo que las revise por su cuenta.
 
 ### Pendiente
-1. Decidir sobre las 8 ODP del informe, en particular ODP-24286 y ODP-24316.
-2. Pruebas manuales dirigidas: recibir ODC completa y parcial, marcar/quitar la "S", cobertura parcial, revertir existencia, eliminar/editar ODC, verificar PV, marcar problema y reposición, y marcar un check en una ODP con PV pendiente (el hallazgo 2).
-3. Working tree sin commitear.
+1. Pruebas manuales dirigidas: recibir ODC completa y parcial, marcar/quitar la "S", cobertura parcial, revertir existencia, eliminar/editar ODC, verificar PV, marcar problema y reposición, y marcar un check en una ODP con PV pendiente (el hallazgo 2).
+2. Revisión manual del usuario sobre las 8 ODP descuadradas (ver arriba).
+
+---
+
+## 2026-09-09 (tarde) — Producción: pestaña "Por Imprimir" e impresión de OP por lote
+
+### Problema
+El taller imprime a diario todas las órdenes de producción nuevas (5-7). Para saber cuáles ya
+habían salido a papel, se pintaba la fila de amarillo a mano con el selector de `color_taller`.
+Dos costos: se gastaba el único canal de color libre del tablero (6 colores, sin significado
+propio) y no quedaba rastro de quién imprimió ni cuándo. Además imprimir era ~5 clics y un modal
+por ODP: abrir la ficha → tab Imprimir ODP → formato OP → IMPRIMIR → cerrar.
+
+### Decisiones de diseño
+- **Campo propio, amarillo derivado.** `fecha_impresion_op` + `impresa_por_id` en `odp`. El
+  amarillo del tablero se calcula desde el campo, no se guarda. Se ve idéntico a antes, pero
+  `color_taller` queda libre otra vez y hay tooltip con autor y fecha.
+- **Precedencia:** si hay `color_taller` manual, manda el manual. Pintar de rojo una ODP ya
+  impresa debe seguir siendo posible.
+- **Alcance de la pestaña:** solo la línea de producción (los 6 estados de `activeStates`) más
+  NC/Garantías activas. Se excluyen `PAUSADA` y `LISTO_INSTALAR`: no bajan al taller.
+- **Marcado al imprimir, no botón aparte.** Marcar a mano sería el mismo doble trabajo movido de
+  sitio. Es optimista por necesidad: el navegador no confirma que el papel salió (`afterprint`
+  dispara también al cancelar), así que lo único fiable es si la ventana llegó a abrirse.
+  `abrirVentanaImpresion` devuelve `false` con el popup bloqueado → no se marca nada.
+- **Impresión por lote:** N órdenes en un solo documento y un solo diálogo, reusando
+  `GET /api/odp/:id` (el mismo que alimenta la ficha) para que el papel salga idéntico.
+- Descartado: estado "Reimprimir" cuando la ODP cambia después de impresa — el usuario lo
+  descartó explícitamente.
+
+### Cambios
+
+**BD** — `2026-09-09_impresion_op.ts` (con `--aplicar`; por defecto dry-run):
+- `odp.fecha_impresion_op TIMESTAMPTZ NULL`, `odp.impresa_por_id INTEGER NULL`.
+- Backfill: 414 ODP amarillas → `fecha_impresion_op = fecha_creacion`, `color_taller = NULL`.
+  Un solo formato de hex en toda la tabla (`#FEF9C3`, 414 filas; 104 sin color). Quedaron 10 ODP
+  pendientes en la línea de producción.
+- `impresa_por_id` queda NULL en el backfill: no existe el dato histórico e inventarlo ensuciaría
+  la trazabilidad.
+
+**Backend**
+- `odp.model.ts` — dos campos nuevos.
+- `models/index.ts` — `ODP.belongsTo(Usuario, { as: 'impresa_por' })`.
+- `odp.controller.ts` — include `impresa_por` en `vista=produccion`; nuevo `marcarImpresasODP`.
+- `utils/notificaciones.ts` — mismo include en `getODPListaIncludes` (sin esto, el primer
+  `odp_patch` borra el autor de la fila; es el bug que ya ocurrió con `facturas_adicionales`).
+- `odp.routes.ts` — `PATCH /api/odp/marcar-impresas`, declarada **antes** de `/:id`.
+- Endpoint propio y no un campo de `PUT /:id`: 7 PUT serían 7 pasadas completas de `updateODP`
+  (motor de checks, transiciones, propagación de proveedor, creación de PV) para escribir un
+  timestamp. `individualHooks: true` obligatorio o la auditoría no dispara en el update masivo.
+  Tras el commit, un `emitirODPPatch` por id: invalida la caché de 90 s y reparte el socket, que
+  es lo que hace la marca **global** entre usuarios.
+
+**Frontend**
+- `ProduccionPage.tsx` — pestaña "Por Imprimir" (2ª, con badge), tabla con selección múltiple,
+  "Imprimir seleccionadas", "Imprimir" y "Ya impresa" por fila; amarillo derivado en Control
+  Taller; ícono de impresora con tooltip y clic para devolver a la cola; chip de filtro
+  "Sin imprimir".
+- El bucket **deduplica por id**: las NC viven en los dos arrays (`/api/odp` y `/api/odp/nc-garantias`)
+  y sin el `Set` saldrían dos veces en la lista y dos veces en el papel.
+- `printStyles.ts` (nuevo) — el bloque CSS de impresión estaba duplicado literal en
+  `ODPTabImprimir`; con un segundo emisor dejaba de ser un detalle.
+
+### Hallazgo durante la implementación
+Los dos imprimibles evitan el salto de página en su última hoja para no sacar una hoja en blanco
+al final (`PrintableProduccion` con `.produccion-page:last-child { page-break-after: avoid }`,
+`PrintableOA` no poniendo la clase `page-break`). En un lote eso pega el arranque de la siguiente
+orden a la cola de la anterior. Solución: el salto lo impone el **contenedor** de cada orden salvo
+la última — un salto forzado tiene precedencia sobre un `avoid`, y la última se queda sin salto.
+
+### Verificación
+- `tsc` backend: limpio. `tsc --noEmit` frontend: limpio (183 archivos).
+- Build CRA: OK (`main.d16709dc.js`, 976.83 kB gzip, +45 B). Único warning en los archivos
+  tocados: el `panelOdp` de `ProduccionPage`, **preexistente**.
+- ⚠️ `npm --prefix frontend-web run build` **falla desde cmd**: el script empieza con `CI=false`,
+  sintaxis POSIX que cmd.exe no acepta. Hay que pasar `--script-shell=bash`. Preexistente.
+- **End-to-end contra el backend real** (servidor local + JWT firmado, 15 asserts, todos OK):
+  ruta montada y protegida (401 sin token, no la captura `/:id`), campos nuevos en el listado,
+  Zod `.strict()` rechaza body vacío y campo desconocido, marcado y desmarcado con persistencia
+  verificada, `impresa_por` resuelto por el include, deduplicación de ids repetidos, 404 con ids
+  inexistentes, y **estado del tablero restaurado** al terminar (la verificación no dejó rastro).
+- Auditoría comprobada en `auditoria_log`: dos filas UPDATE con `datos_anteriores`/`datos_nuevos`
+  correctos y `usuario_id` del actor → `individualHooks` funciona.
+
+### Pendiente
+1. Prueba manual del papel: imprimir un lote mixto (ODP + OA + NC) y confirmar que cada orden
+   arranca en hoja nueva y que no sale hoja en blanco al final.
+2. Confirmar que el popup no lo bloquee el navegador del taller en el primer intento (si pasa, el
+   reintento abre al instante: el detalle queda en caché y no se marca nada en el intento fallido).

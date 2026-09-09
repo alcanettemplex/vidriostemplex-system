@@ -173,6 +173,20 @@ EN_ESPERA → VISITA_TECNICA → MEDICION → ALUMINIO_CORTADO
 - El motor **se detiene sin escribir si nada cambia** — se llama desde 19 sitios y no puede generar auditoría ni sockets en cada guardado. Con transacción, la emisión se aplaza vía `transaction.afterCommit`.
 - `historial_estados_odp.automatico` (BOOLEAN, 2026-09-09) marca estos movimientos. Los alimenta a `GET /api/odp/movimientos-automaticos` → pestaña **"Automáticos"** del tablero de Producción (últimos 10).
 
+### Impresión de la OP (pestaña "Por Imprimir")
+`fecha_impresion_op` (NULL = pendiente) + `impresa_por_id`, 2026-09-09. **El amarillo del tablero
+es derivado, no un color guardado**: antes el taller pintaba `color_taller = '#FEF9C3'` a mano para
+marcar "ya impresa" y la migración tradujo esas 414 filas. Si hay `color_taller` manual, manda el
+manual. Se marca solo al abrir la ventana de impresión —el navegador no confirma que el papel
+salió (`afterprint` dispara también al cancelar)— y se revierte con el ícono de impresora de la
+fila. Escribe por `PATCH /api/odp/marcar-impresas` (endpoint propio, declarado **antes** de `/:id`;
+`individualHooks: true` o la auditoría no dispara) y **no** por `PUT /:id`: pasar por `updateODP`
+arrastraría el motor de checks, las transiciones de estado y la creación de Pedidos PV para
+escribir un timestamp. La marca es global vía `emitirODPPatch`. ⚠️ Al imprimir en lote, el salto
+de página entre órdenes lo impone el contenedor de cada una salvo la última: los dos imprimibles
+evitan el salto en su última hoja para no sacar una página en blanco, y concatenados sin eso la
+siguiente orden arranca pegada a la anterior.
+
 ### ODP No Conformidad
 Hija con `odp_padre_id` + `es_no_conformidad: true`. Padre → PAUSADA. Se reactiva a **INSTALADA** cuando la hija llega a `INSTALADA` **o a `ENTREGADA`** — ese es su estado terminal, no avanza a ENTREGADA. NC no cobran al cliente → `estado_caja = CANCELADO`.
 
@@ -295,7 +309,7 @@ Cada módulo en `frontend-web/src/features/<nombre>/`: página principal + `comp
 | `auth` | `/login` | Login JWT |
 | `odp` ⭐ | `/odp` | CRUD + modal detalle (`ODPFichaModal`) |
 | `crm` | `/crm` | Hub comercial: tabs pipeline (Kanban leads), métricas, gerencial, sin_respuesta, reportes, prospectos, monitor, embudo. Distinto de `/prospectos` (CRUD/pipeline clásico de captación) |
-| `produccion` | `/produccion` | Kanban + tabs Pausadas y **Automáticos** (bitácora de los últimos 10 movimientos que hizo el sistema solo) |
+| `produccion` | `/produccion` | Kanban + tabs **Por Imprimir** (cola de OP sin imprimir, con impresión por lote), Pausadas y **Automáticos** (bitácora de los últimos 10 movimientos que hizo el sistema solo) |
 | `instalaciones` | `/instalaciones` | JefeView (incluye tab AgendaTab), InstaladorView, ConductorView |
 | `compras` | `/compras` | ODC: SAPs, Órdenes, Perfilería, Vidrios |
 | `contabilidad` | `/contabilidad` | Facturación y caja |

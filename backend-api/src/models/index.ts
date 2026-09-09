@@ -76,6 +76,11 @@ ODP.belongsTo(Cliente, { foreignKey: 'cliente_id', as: 'cliente' });
 Usuario.hasMany(ODP, { foreignKey: 'asesor_id', as: 'odps_gestionadas' });
 ODP.belongsTo(Usuario, { foreignKey: 'asesor_id', as: 'asesor' });
 
+// Quién imprimió la Orden de Producción (pestaña "Por Imprimir" del tablero de Taller).
+// Solo se incluye en la vista `produccion` y en el patch de socket — ambos deben llevarlo
+// o el nombre desaparece de la fila en cuanto llega el primer odp_patch.
+ODP.belongsTo(Usuario, { foreignKey: 'impresa_por_id', as: 'impresa_por' });
+
 // Cliente creado_por
 Usuario.hasMany(Cliente, { foreignKey: 'creado_por', as: 'clientes_creados' });
 Cliente.belongsTo(Usuario, { foreignKey: 'creado_por', as: 'creador' });

@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, getNcGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha, getHistorialODP, agregarFacturaAdicional, eliminarFacturaAdicional, anularODP, reactivarODP, getMovimientosAutomaticos } from '../controllers/odp.controller';
+import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, getNcGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha, getHistorialODP, agregarFacturaAdicional, eliminarFacturaAdicional, anularODP, reactivarODP, getMovimientosAutomaticos, marcarImpresasODP } from '../controllers/odp.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { uploadConfig } from '../config/upload';
@@ -46,6 +46,11 @@ router.get('/garantias/all', authMiddleware, cacheListados(TTL_LISTADOS_ODP), ge
 router.get('/nc-garantias', authMiddleware, cacheListados(TTL_LISTADOS_ODP), getNcGarantias);
 // Antes de '/:id' o Express lo tomaría por un id de ODP.
 router.get('/movimientos-automaticos', authMiddleware, getMovimientosAutomaticos);
+
+// Impresión de la OP (pestaña "Por Imprimir" del tablero de Taller). Segmento fijo:
+// también debe ir antes de '/:id'. Mismo grupo de roles que PUT /:id — quien puede
+// mover el tablero puede declarar que la orden ya salió a papel.
+router.patch('/marcar-impresas', authMiddleware, requireRole('admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion'), marcarImpresasODP);
 
 router.get('/:id/historial', authMiddleware, getHistorialODP);
 router.get('/:id', authMiddleware, getODP);

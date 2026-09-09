@@ -75,6 +75,12 @@ ODP.init({
   sin_items: { type: DataTypes.BOOLEAN, defaultValue: false }, // ODP creada sin requerimientos (pago adelantado)
   fecha_listo_instalar: { type: DataTypes.DATE, allowNull: true },
   color_taller: { type: DataTypes.STRING(20), allowNull: true },
+  // Impresión de la Orden de Producción (tablero de Taller → pestaña "Por Imprimir").
+  // Antes esto se llevaba pintando la fila de amarillo a mano en `color_taller`, lo que
+  // gastaba el único canal de color libre del taller y no dejaba rastro de quién ni cuándo.
+  // NULL = pendiente de imprimir. Ver `2026-09-09_impresion_op.ts`.
+  fecha_impresion_op: { type: DataTypes.DATE, allowNull: true },
+  impresa_por_id: { type: DataTypes.INTEGER, allowNull: true },
 }, {
   sequelize,
   modelName: 'ODP',

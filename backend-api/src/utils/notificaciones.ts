@@ -43,6 +43,9 @@ const getODPListaIncludes = async (): Promise<any[]> => {
     // Sin este include, el patch reemplazaba la fila de Contabilidad con un objeto sin
     // facturas_adicionales: el badge "+N" desaparecía y el modal FE abría con la lista vacía.
     { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura', 'monto'], separate: true },
+    // Mismo motivo: el tablero de Producción muestra quién imprimió la OP. Si el patch
+    // no lo trae, la fila pierde el dato justo después de marcarla como impresa.
+    { model: Usr, as: 'impresa_por', attributes: ['id', 'nombre_completo'] },
   ];
 };
 

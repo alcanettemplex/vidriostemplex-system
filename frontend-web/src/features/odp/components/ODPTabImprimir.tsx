@@ -16,6 +16,7 @@ import AbonoFormModal from '../../contabilidad/components/AbonoFormModal';
 import AbonosODPModal from '../../contabilidad/components/AbonosODPModal';
 import { fmtFecha, puedeGestionarCobros } from '../../contabilidad/components/contabilidad.utils';
 import { abrirVentanaImpresion } from '../../../utils/printWindow';
+import { ESTILOS_IMPRESION_ODP } from './printStyles';
 import API from '../../../services/config';
 
 type FormatId = 'compra' | 'op' | 'tecnico' | 'det_sap' | 'garantia' | 'noconformidad' | 'sap';
@@ -72,25 +73,7 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
     abrirVentanaImpresion({
       titulo: `Impresión ODP ${odp?.numero_odp || ''}`,
       contenidoHtml: area.innerHTML,
-      estilos: `
-        @page { size: letter portrait; margin: 4mm; }
-        body { font-family: sans-serif; }
-        .excel-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
-        .excel-table th, .excel-table td { border: 1px solid #000; padding: 2px 4px; }
-        .excel-table th { font-weight: bold; text-align: center; }
-        .sap-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
-        .sap-table th, .sap-table td { border: 1px solid #000; padding: 2px 4px; }
-        .sap-table th { font-weight: bold; text-align: center; background-color: #f0f0f0; }
-        .thick-b { border-bottom: 2px solid #000 !important; }
-        /* Ancho/alto fijos solo para la vista en pantalla: en papel la hoja la
-           define @page, y forzar 21.5cm x 29cm (alto A4) sobre una Carta
-           desbordaba y sacaba una hoja extra en blanco. */
-        .sap-page { display: block; width: 100%; background: white; color: black; font-family: sans-serif; font-size: 14px; margin: 0 auto; page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .sap-page:last-child { page-break-after: avoid; }
-        .print-container { padding: 8px; }
-        .bg-blue-100 { background-color: #dbeafe !important; }
-        .bg-slate-50 { background-color: #f8fafc !important; }
-      `,
+      estilos: ESTILOS_IMPRESION_ODP,
     });
   };
 

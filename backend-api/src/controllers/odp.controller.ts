@@ -195,6 +195,10 @@ const construirVistaODP = (vista?: string) => {
         { model: ODPItem, as: 'items', attributes: ['id', 'odp_id', 'cantidad', 'tipo_vidrio', 'espesor', 'ancho_mm', 'alto_mm'], separate: true, order: [['id', 'ASC']] },
         { model: TomaMedidas, as: 'tomas_medidas', attributes: ['id', 'odp_id', 'numero_tm', 'croquis_url'], separate: true },
         { model: SAP, as: 'saps', attributes: ['id', 'odp_id'], separate: true },
+        // Quién imprimió la OP: alimenta el tooltip de la fila amarilla del tablero.
+        // Dos campos por fila; el mismo include debe existir en getODPListaIncludes
+        // (utils/notificaciones.ts) o el primer odp_patch borra el nombre de la fila.
+        { model: Usuario, as: 'impresa_por', attributes: ['id', 'nombre_completo'] },
       ],
     };
   }
@@ -2338,5 +2342,75 @@ export const getHistorialODP = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error getHistorialODP:', error.message);
     res.status(500).json({ error: 'Error al obtener historial de ODP' });
+  }
+};
+
+// ─── PATCH /odp/marcar-impresas ────────────────────────────────────────────────
+/**
+ * Marca (o desmarca) un lote de ODP como impresas en el tablero de Taller.
+ *
+ * Existe como endpoint propio y no como un campo más de `PUT /odp/:id` por cuatro
+ * razones, en orden de peso:
+ *  1. Marcar 7 ODP por PUT serían 7 pasadas completas de `updateODP` —motor de checks
+ *     automáticos, transiciones de estado, propagación de proveedor_vidrio, creación de
+ *     Pedidos PV— para escribir un timestamp. Efecto colateral desproporcionado.
+ *  2. El campo no debe ser editable desde ODPForm.
+ *  3. Un solo request para el lote: una transacción, un toast, un patch por ODP.
+ *  4. La ruta se declara ANTES de '/:id' o Express la toma por un id de ODP.
+ *
+ * `individualHooks: true` no es opcional: los hooks de auditoría son de instancia y no
+ * disparan en un update masivo (ver TECH_DEBT.md 2026-07-02). Con lotes de 5-10 ODP el
+ * costo es irrelevante frente a perder el rastro de quién imprimió qué.
+ *
+ * No escribe en `historial_estados_odp` (no es un cambio de estado) ni emite notificación
+ * (sería ruido diario); la trazabilidad vive en auditoria_log y en las dos columnas.
+ */
+export const marcarImpresasODP = async (req: Request, res: Response) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const schema = z.object({
+      ids: z.array(z.number().int().positive()).min(1, 'Selecciona al menos una ODP').max(100),
+      impresa: z.boolean().default(true),
+    }).strict();
+    const { ids, impresa } = schema.parse(req.body);
+
+    // Sin duplicados: el frontend une el tablero con NC/Garantías, donde una NC aparece
+    // en ambas listas. Un id repetido marcaría dos veces y duplicaría la auditoría.
+    const idsUnicos = Array.from(new Set(ids));
+
+    const existentes = await ODP.findAll({
+      where: { id: { [Op.in]: idsUnicos } },
+      attributes: ['id'],
+      transaction,
+    });
+    if (existentes.length === 0) {
+      await transaction.rollback();
+      return res.status(404).json({ error: 'Ninguna de las ODP indicadas existe' });
+    }
+    const idsValidos = existentes.map((o: any) => Number(o.getDataValue('id')));
+
+    await ODP.update(
+      impresa
+        ? { fecha_impresion_op: new Date(), impresa_por_id: req.user!.id }
+        : { fecha_impresion_op: null, impresa_por_id: null },
+      { where: { id: { [Op.in]: idsValidos } }, individualHooks: true, transaction },
+    );
+
+    await transaction.commit();
+
+    // Tras el commit: invalida la caché de listados (90 s) y reparte el socket, para que
+    // la ODP salga de "Por Imprimir" en TODAS las pantallas, no solo en la de quien imprimió.
+    import('../utils/notificaciones').then(({ emitirODPPatch }) => {
+      idsValidos.forEach((id) => emitirODPPatch(id, 'update'));
+    }).catch(err => console.error('Error al emitir patch de impresión de OP:', err));
+
+    res.json({ actualizadas: idsValidos.length, ids: idsValidos, impresa });
+  } catch (error: any) {
+    try { await transaction.rollback(); } catch { /* ya cerrada */ }
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Datos inválidos', detalles: (error as any).errors });
+    }
+    console.error('Error al marcar ODP como impresas:', error);
+    res.status(500).json({ error: 'No se pudo registrar la impresión de las órdenes' });
   }
 };
