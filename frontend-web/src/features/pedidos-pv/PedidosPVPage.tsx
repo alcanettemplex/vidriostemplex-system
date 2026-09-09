@@ -8,7 +8,7 @@ import {
   DialogContent, DialogActions, TextField, MenuItem, Select, FormControl,
   InputLabel, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Tooltip, IconButton, Stack, Tabs, Tab, Card, CardContent, Divider,
-  Menu, FormControlLabel, Switch, TablePagination, InputAdornment,
+  Menu, FormControlLabel, Switch, TablePagination, InputAdornment, TableSortLabel,
 } from '@mui/material';
 import {
   Add, Refresh, MoreVert, Search, CheckCircleOutline, LocalShipping,
@@ -134,6 +134,29 @@ const calcEspesorResumen = (p: PedidoPV): string => {
   return p.espesor_vidrio || '—';
 };
 
+// ─── Calcular m² totales (misma fórmula que la columna "m²") ─────────────────
+// Se extrae aparte —en vez de dejarla inline en el render— para que el comparador
+// de orden use exactamente el mismo número que se muestra en pantalla.
+
+const calcM2Pedido = (p: PedidoPV): number => {
+  const items = p.items_asignados || [];
+  if (items.length > 0) {
+    return items.reduce((acc, it) => {
+      const ancho = Number(it.ancho_mm) || 0;
+      const alto = Number(it.alto_mm) || 0;
+      const cant = Number(it.cantidad) || 1;
+      return acc + (ancho * alto / 1_000_000) * cant;
+    }, 0);
+  }
+  return toFloat(p.metraje_venta);
+};
+
+// ─── Orden lógico del pipeline de estados (no alfabético) ────────────────────
+
+const ESTADO_ORDEN: Record<string, number> = Object.fromEntries(
+  Object.keys(ESTADO_CONFIG).map((estado, i) => [estado, i])
+);
+
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 
 const KPICard: React.FC<{
@@ -251,6 +274,11 @@ const PedidosPVPage: React.FC = () => {
   const [filtroAsesor, setFiltroAsesor] = useState('');
   const [soloRetrasos, setSoloRetrasos] = useState(false);
   const [filtrosAplicados, setFiltrosAplicados] = useState({ estado: '', proveedor: '', asesor: '' });
+
+  // Orden Gestión PV — por defecto igual al orden que ya entrega el backend
+  // (numero_base DESC), así que sin tocar nada la tabla se ve como hoy.
+  const [sortField, setSortField] = useState<string>('numero_base');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Paginación Gestión PV (server-side)
   const [pagina, setPagina] = useState(1);
@@ -388,7 +416,53 @@ const PedidosPVPage: React.FC = () => {
     return matchBusqueda && matchEstado && matchProveedor && matchAsesor && matchRetraso;
   });
 
+  // ─── Orden Gestión PV ─────────────────────────────────────────────────────
+  // Ordena solo lo ya cargado/filtrado (misma página de 100 del servidor), igual
+  // que el resto de los filtros de esta pestaña. Los nulos van siempre al final,
+  // sin importar la dirección, para no intercalar "sin fecha" entre fechas reales.
 
+  const valorOrden = (p: PedidoPV, field: string): string | number | null => {
+    switch (field) {
+      case 'numero_base': return p.numero_base;
+      case 'odp': return p.odp?.numero_odp || p.odp_numero_excel || null;
+      case 'fecha_odp': return p.odp?.fecha_creacion || null;
+      case 'cliente': return p.odp?.cliente?.nombre_razon_social || p.nombre_cliente_excel || null;
+      case 'asesor': return p.odp?.asesor?.nombre_completo || null;
+      case 'proveedor': return p.proveedor || null;
+      case 'estado': return ESTADO_ORDEN[p.estado] ?? -1;
+      case 'fecha_envio': return p.fecha_envio || null;
+      case 'fecha_entrega_prometida': return p.fecha_entrega_prometida || null;
+      case 'fecha_llegada_real': return p.fecha_llegada_real || null;
+      case 'dias_transito': return calcDiasTransito(p);
+      case 'm2': return calcM2Pedido(p) || null;
+      default: return null;
+    }
+  };
+
+  const compararPedidos = (a: PedidoPV, b: PedidoPV, field: string): number => {
+    const va = valorOrden(a, field);
+    const vb = valorOrden(b, field);
+    if (va === null && vb === null) return 0;
+    if (va === null) return 1;  // nulos siempre al final
+    if (vb === null) return -1;
+    if (typeof va === 'number' && typeof vb === 'number') return va - vb;
+    return String(va).localeCompare(String(vb), 'es', { sensitivity: 'base' });
+  };
+
+  const pedidosOrdenados = useMemo(() => {
+    const arr = [...pedidosFiltrados];
+    arr.sort((a, b) => {
+      const cmp = compararPedidos(a, b, sortField);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedidosFiltrados, sortField, sortDir]);
+
+  const manejarOrden = (field: string) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('asc'); }
+  };
 
   // ─── Filtrado Vista Excel ─────────────────────────────────────────────────
 
@@ -846,32 +920,56 @@ const PedidosPVPage: React.FC = () => {
                       <TableRow sx={{ '& th': { bgcolor: 'grey.50', fontWeight: 700, fontSize: 13, borderBottom: '2px solid', borderColor: 'divider' } }}>
                         <TableCell sx={{ width: 4, p: 0 }} />
                         <TableCell>Color</TableCell>
-                        <TableCell>Pedido</TableCell>
-                        <TableCell>ODP</TableCell>
-                        <TableCell>Fecha ODP</TableCell>
-                        <TableCell>Cliente</TableCell>
-                        <TableCell>Asesor</TableCell>
-                        <TableCell>Proveedor</TableCell>
-                        <TableCell>Estado</TableCell>
-                        <TableCell>Envío</TableCell>
-                        <TableCell>Entrega Prometida</TableCell>
-                        <TableCell>Llegada</TableCell>
-                        <TableCell align="center">Días tránsito</TableCell>
+                        <TableCell sortDirection={sortField === 'numero_base' ? sortDir : false}>
+                          <TableSortLabel active={sortField === 'numero_base'} direction={sortField === 'numero_base' ? sortDir : 'asc'} onClick={() => manejarOrden('numero_base')}>Pedido</TableSortLabel>
+                        </TableCell>
+                        <TableCell sortDirection={sortField === 'odp' ? sortDir : false}>
+                          <TableSortLabel active={sortField === 'odp'} direction={sortField === 'odp' ? sortDir : 'asc'} onClick={() => manejarOrden('odp')}>ODP</TableSortLabel>
+                        </TableCell>
+                        <TableCell sortDirection={sortField === 'fecha_odp' ? sortDir : false}>
+                          <TableSortLabel active={sortField === 'fecha_odp'} direction={sortField === 'fecha_odp' ? sortDir : 'asc'} onClick={() => manejarOrden('fecha_odp')}>Fecha ODP</TableSortLabel>
+                        </TableCell>
+                        <TableCell sortDirection={sortField === 'cliente' ? sortDir : false}>
+                          <TableSortLabel active={sortField === 'cliente'} direction={sortField === 'cliente' ? sortDir : 'asc'} onClick={() => manejarOrden('cliente')}>Cliente</TableSortLabel>
+                        </TableCell>
+                        <TableCell sortDirection={sortField === 'asesor' ? sortDir : false}>
+                          <TableSortLabel active={sortField === 'asesor'} direction={sortField === 'asesor' ? sortDir : 'asc'} onClick={() => manejarOrden('asesor')}>Asesor</TableSortLabel>
+                        </TableCell>
+                        <TableCell sortDirection={sortField === 'proveedor' ? sortDir : false}>
+                          <TableSortLabel active={sortField === 'proveedor'} direction={sortField === 'proveedor' ? sortDir : 'asc'} onClick={() => manejarOrden('proveedor')}>Proveedor</TableSortLabel>
+                        </TableCell>
+                        <TableCell sortDirection={sortField === 'estado' ? sortDir : false}>
+                          <TableSortLabel active={sortField === 'estado'} direction={sortField === 'estado' ? sortDir : 'asc'} onClick={() => manejarOrden('estado')}>Estado</TableSortLabel>
+                        </TableCell>
+                        <TableCell sortDirection={sortField === 'fecha_envio' ? sortDir : false}>
+                          <TableSortLabel active={sortField === 'fecha_envio'} direction={sortField === 'fecha_envio' ? sortDir : 'asc'} onClick={() => manejarOrden('fecha_envio')}>Envío</TableSortLabel>
+                        </TableCell>
+                        <TableCell sortDirection={sortField === 'fecha_entrega_prometida' ? sortDir : false}>
+                          <TableSortLabel active={sortField === 'fecha_entrega_prometida'} direction={sortField === 'fecha_entrega_prometida' ? sortDir : 'asc'} onClick={() => manejarOrden('fecha_entrega_prometida')}>Entrega Prometida</TableSortLabel>
+                        </TableCell>
+                        <TableCell sortDirection={sortField === 'fecha_llegada_real' ? sortDir : false}>
+                          <TableSortLabel active={sortField === 'fecha_llegada_real'} direction={sortField === 'fecha_llegada_real' ? sortDir : 'asc'} onClick={() => manejarOrden('fecha_llegada_real')}>Llegada</TableSortLabel>
+                        </TableCell>
+                        <TableCell align="center" sortDirection={sortField === 'dias_transito' ? sortDir : false}>
+                          <TableSortLabel active={sortField === 'dias_transito'} direction={sortField === 'dias_transito' ? sortDir : 'asc'} onClick={() => manejarOrden('dias_transito')}>Días tránsito</TableSortLabel>
+                        </TableCell>
                         <TableCell>Espesor</TableCell>
-                        <TableCell align="right">m²</TableCell>
+                        <TableCell align="right" sortDirection={sortField === 'm2' ? sortDir : false}>
+                          <TableSortLabel active={sortField === 'm2'} direction={sortField === 'm2' ? sortDir : 'asc'} onClick={() => manejarOrden('m2')}>m²</TableSortLabel>
+                        </TableCell>
                         <TableCell sx={{ minWidth: 140 }}>Observaciones</TableCell>
                         <TableCell align="right">Acciones</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {pedidosFiltrados.length === 0 && (
+                      {pedidosOrdenados.length === 0 && (
                         <TableRow>
                           <TableCell colSpan={17} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                             No hay pedidos con los filtros seleccionados
                           </TableCell>
                         </TableRow>
                       )}
-                      {pedidosFiltrados.map((p) => {
+                      {pedidosOrdenados.map((p) => {
                         const cfg = ESTADO_CONFIG[p.estado] ?? ESTADO_CONFIG['PENDIENTE'];
                         const retrasado = p.dias_diferencia !== null && p.dias_diferencia < 0;
                         const barColor = getBarColor(p);
@@ -988,19 +1086,9 @@ const PedidosPVPage: React.FC = () => {
                             </TableCell>
                             {/* m² */}
                             <TableCell align="right" sx={{ fontSize: 12 }}>
-                              {(() => {
-                                const items = p.items_asignados || [];
-                                if (items.length > 0) {
-                                  const total = items.reduce((acc, it) => {
-                                    const ancho = Number(it.ancho_mm) || 0;
-                                    const alto = Number(it.alto_mm) || 0;
-                                    const cant = Number(it.cantidad) || 1;
-                                    return acc + (ancho * alto / 1_000_000) * cant;
-                                  }, 0);
-                                  return <Typography fontWeight={600} fontSize={12} color="primary.main">{total.toFixed(3)}</Typography>;
-                                }
-                                return p.metraje_venta ? toFloat(p.metraje_venta).toFixed(2) : '—';
-                              })()}
+                              {(p.items_asignados?.length ?? 0) > 0 ? (
+                                <Typography fontWeight={600} fontSize={12} color="primary.main">{calcM2Pedido(p).toFixed(3)}</Typography>
+                              ) : (p.metraje_venta ? toFloat(p.metraje_venta).toFixed(2) : '—')}
                             </TableCell>
                             {/* Observaciones (inline editable) */}
                             <TableCell sx={{ minWidth: 140 }}>
