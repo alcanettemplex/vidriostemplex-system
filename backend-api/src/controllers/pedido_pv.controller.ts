@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Op } from 'sequelize';
+import { Op, literal } from 'sequelize';
 import { z } from 'zod';
 import path from 'path';
 import ExcelJS from 'exceljs';
@@ -38,7 +38,7 @@ const generarNumeroPedido = async (sufijo?: string | null): Promise<{ numero_ped
 
 // ─── Helper: include estándar ─────────────────────────────────────────────────
 
-const INCLUDE_COMPLETO = [
+const INCLUDE_COMPLETO: any[] = [
   {
     model: ODP,
     as: 'odp',
@@ -58,8 +58,76 @@ const INCLUDE_COMPLETO = [
     attributes: ['id', 'item', 'color', 'espesor', 'cantidad', 'ancho_mm', 'alto_mm',
       'tipo_vidrio', 'pulidos', 'pulidos_h', 'perforaciones', 'boquetes',
       'descuentos', 'otros', 'mts_pt_a', 'mts_pt_h', 'accesorios', 'prod', 'dt', 'observaciones_pv'],
+    // `separate: true`: es una relación hasMany — sin esto, `findAndCountAll` arma un
+    // JOIN y el COUNT queda inflado (cuenta filas de ítems, no pedidos distintos: con
+    // ~350 pedidos y varios ítems c/u, el conteo salía en ~760 y `totalPages` mostraba
+    // el doble de páginas reales). Además, sin `separate`, el modo subquery que Sequelize
+    // activa automáticamente por este include no arrastra el JOIN a `odp`/`asesor`, así
+    // que cualquier filtro por columnas asociadas (`$odp.asesor...$`) rompía con
+    // "missing FROM-clause entry". Mismo patrón que ya usa `odp.controller.ts` para sus
+    // propias relaciones hasMany. Verificado contra la BD real 2026-09-09.
+    separate: true,
+    order: [['id', 'ASC']],
   },
 ];
+
+// ─── Helper: filtros compartidos entre el listado y los KPIs ─────────────────
+// Único lugar donde se arma el `where` de "Gestión PV" — evita que el listado y los
+// KPIs (que deben coincidir con lo que se ve filtrado en pantalla) diverjan.
+
+interface FiltrosPedidosPV {
+  estado?: string;
+  proveedor?: string;
+  odp_id?: string | number;
+  origen?: string;
+  search?: string;
+  // Nombre completo del asesor comercial dueño de la ODP (columna que se ve en la
+  // tabla) — no confundir con `asesor_iniciales` (solo se llena en pedidos importados
+  // de Excel) ni con `creador` (quien creó el registro del pedido PV en el sistema).
+  asesor?: string;
+  solo_retrasos?: string | boolean;
+  // Excluye pedidos SISTEMA que siguen en la pestaña "Por Gestionar" (PENDIENTE y sin
+  // ítems asignados) — mismo criterio que `estaPorGestionar` en el frontend y que
+  // `getPorGestionar` en este archivo.
+  excluir_por_gestionar?: string | boolean;
+}
+
+const esTrue = (v: string | boolean | undefined) => v === true || v === 'true';
+
+const construirWherePedidosPV = (f: FiltrosPedidosPV) => {
+  const and: Record<string, unknown>[] = [];
+
+  if (f.estado) and.push({ estado: f.estado });
+  if (f.proveedor) and.push({ proveedor: { [Op.iLike]: `%${f.proveedor}%` } });
+  if (f.odp_id) and.push({ odp_id: f.odp_id });
+  if (f.origen) and.push({ origen: f.origen });
+  if (f.asesor) and.push({ '$odp.asesor.nombre_completo$': f.asesor });
+  if (esTrue(f.solo_retrasos)) and.push({ dias_diferencia: { [Op.lt]: 0 } });
+
+  if (f.search) {
+    const like = { [Op.iLike]: `%${f.search}%` };
+    and.push({
+      [Op.or]: [
+        { numero_pedido: like },
+        { nombre_cliente_excel: like },
+        { odp_numero_excel: like },
+        { '$odp.numero_odp$': like },
+        { '$odp.cliente.nombre_razon_social$': like },
+      ],
+    });
+  }
+
+  if (esTrue(f.excluir_por_gestionar)) {
+    and.push({
+      [Op.or]: [
+        { estado: { [Op.ne]: 'PENDIENTE' } },
+        literal(`EXISTS (SELECT 1 FROM odp_items oi WHERE oi.pedido_pv_id = "PedidoPV"."id")`),
+      ],
+    });
+  }
+
+  return and.length > 0 ? { [Op.and]: and } : {};
+};
 
 
 // ─── Helper: avanzar ODP a VIDRIO_RECIBIDO si todos los PV están verificados ──
@@ -122,16 +190,24 @@ const verificarAvanceODP = async (odp_id: number, usuario_id: number) => {
 // GET /api/pedidos-pv
 export const getPedidosPV = async (req: Request, res: Response) => {
   try {
-    const { estado, proveedor, odp_id, origen, page: pageRaw, limit: limitRaw } = req.query;
+    const {
+      estado, proveedor, odp_id, origen, search, asesor, solo_retrasos, excluir_por_gestionar,
+      page: pageRaw, limit: limitRaw,
+    } = req.query;
     const page = Math.max(1, parseInt(pageRaw as string) || 1);
     const limit = Math.max(1, Math.min(500, parseInt(limitRaw as string) || 100));
     const offset = (page - 1) * limit;
-    const where: Record<string, unknown> = {};
 
-    if (estado) where.estado = estado;
-    if (proveedor) where.proveedor = { [Op.iLike]: `%${proveedor}%` };
-    if (odp_id) where.odp_id = odp_id;
-    if (origen) where.origen = origen;
+    const where = construirWherePedidosPV({
+      estado: estado as string,
+      proveedor: proveedor as string,
+      odp_id: odp_id as string,
+      origen: origen as string,
+      search: search as string,
+      asesor: asesor as string,
+      solo_retrasos: solo_retrasos as string,
+      excluir_por_gestionar: excluir_por_gestionar as string,
+    });
 
     const { rows, count } = await PedidoPV.findAndCountAll({
       where,
@@ -145,6 +221,95 @@ export const getPedidosPV = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error getPedidosPV:', error);
     res.status(500).json({ error: 'Error al obtener pedidos PV' });
+  }
+};
+
+// GET /api/pedidos-pv/kpis — agregados de "Gestión PV" (origen SISTEMA, excluye Por
+// Gestionar) con los mismos filtros que el listado, para que los KPIs reflejen el
+// subconjunto ya filtrado en pantalla sin traer todas las filas al navegador.
+export const getPedidosPVKpis = async (req: Request, res: Response) => {
+  try {
+    const { estado, proveedor, search, asesor, solo_retrasos } = req.query;
+    const where = construirWherePedidosPV({
+      origen: 'SISTEMA',
+      excluir_por_gestionar: 'true',
+      estado: estado as string,
+      proveedor: proveedor as string,
+      search: search as string,
+      asesor: asesor as string,
+      solo_retrasos: solo_retrasos as string,
+    });
+    // Solo belongsTo (odp → cliente/asesor): no duplica filas, así que count/sum con
+    // este include no necesitan `distinct`. `attributes: []` — no se seleccionan
+    // columnas de estos modelos, solo sirven para que Sequelize arme el JOIN que los
+    // filtros `$odp.asesor...$` / `$odp.cliente...$` de `where` necesitan.
+    const includeFiltro = [{
+      model: ODP, as: 'odp', attributes: [], required: false,
+      include: [
+        { model: Cliente, as: 'cliente', attributes: [], required: false },
+        { model: Usuario, as: 'asesor', attributes: [], required: false },
+      ],
+    }];
+
+    const [total, verificados, enTransito, conRetraso, metrajeTotal] = await Promise.all([
+      PedidoPV.count({ where, include: includeFiltro }),
+      PedidoPV.count({ where: { [Op.and]: [where, { estado: 'VERIFICADO' }] }, include: includeFiltro }),
+      PedidoPV.count({ where: { [Op.and]: [where, { estado: { [Op.in]: ['ENVIADO', 'CONFIRMADO_PROVEEDOR'] } }] }, include: includeFiltro }),
+      PedidoPV.count({ where: { [Op.and]: [where, { dias_diferencia: { [Op.lt]: 0 } }] }, include: includeFiltro }),
+      // El tipado de Sequelize para `.sum()` no declara `include` (sí lo acepta en
+      // runtime, igual que `.count()`) — se castea como en el resto del archivo.
+      PedidoPV.sum('metraje_venta', { where, include: includeFiltro } as any),
+    ]);
+
+    res.json({ total, verificados, enTransito, conRetraso, metraje: Number(metrajeTotal || 0) });
+  } catch (error) {
+    console.error('Error getPedidosPVKpis:', error);
+    res.status(500).json({ error: 'Error al obtener KPIs de pedidos PV' });
+  }
+};
+
+// GET /api/pedidos-pv/opciones-filtro — proveedores y asesores que realmente tienen
+// pedidos en "Gestión PV" (origen SISTEMA, excluye Por Gestionar). Deliberadamente
+// ignora los filtros que ya estén aplicados en pantalla: siempre el universo
+// completo, para que los dropdowns no se vacíen a medida que el usuario filtra.
+// No reusa GET /api/usuarios porque ese endpoint está restringido a
+// admin/gerencia/asistente_administrativo/asesor_comercial/root — la mayoría de
+// quienes usan Gestión PV (produccion, compras, auxiliar_produccion, jefe_produccion)
+// no tiene acceso a él.
+export const getPedidosPVOpcionesFiltro = async (_req: Request, res: Response) => {
+  try {
+    const where = construirWherePedidosPV({ origen: 'SISTEMA', excluir_por_gestionar: 'true' });
+
+    const rows = await PedidoPV.findAll({
+      where,
+      attributes: ['proveedor'],
+      include: [{
+        // `attributes: ['id']` — no solo `[]`: sin el PK del modelo intermedio,
+        // Sequelize no arma el objeto anidado `odp.asesor` en el resultado y el
+        // dropdown de asesores queda vacío aunque el JOIN sí haya traído los datos
+        // (verificado contra la BD real 2026-09-09).
+        model: ODP, as: 'odp', attributes: ['id'], required: false,
+        include: [{ model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'], required: false }],
+      }],
+    });
+
+    const proveedores = new Set<string>();
+    const asesoresPorId = new Map<number, string>();
+    for (const r of rows as any[]) {
+      const proveedor = r.getDataValue('proveedor');
+      if (proveedor) proveedores.add(proveedor);
+      const asesor = r.odp?.asesor;
+      if (asesor) asesoresPorId.set(asesor.id, asesor.nombre_completo);
+    }
+
+    res.json({
+      proveedores: Array.from(proveedores).sort((a, b) => a.localeCompare(b, 'es')),
+      asesores: Array.from(asesoresPorId, ([id, nombre_completo]) => ({ id, nombre_completo }))
+        .sort((a, b) => a.nombre_completo.localeCompare(b.nombre_completo, 'es')),
+    });
+  } catch (error) {
+    console.error('Error getPedidosPVOpcionesFiltro:', error);
+    res.status(500).json({ error: 'Error al obtener opciones de filtro' });
   }
 };
 

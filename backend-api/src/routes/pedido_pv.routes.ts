@@ -4,6 +4,8 @@ import { requireRole } from '../middlewares/rbacMiddleware';
 import {
   getPedidosPV,
   getPedidoPV,
+  getPedidosPVKpis,
+  getPedidosPVOpcionesFiltro,
   createPedidoPV,
   updatePedidoPV,
   marcarEnviado,
@@ -27,6 +29,9 @@ router.use(authMiddleware);
 router.get('/', getPedidosPV);
 router.get('/siguiente-numero', getSiguienteNumero);
 router.get('/por-gestionar', getPorGestionar);
+// Declaradas antes de '/:id' — si no, Express las confunde con un :id literal.
+router.get('/kpis', getPedidosPVKpis);
+router.get('/opciones-filtro', getPedidosPVOpcionesFiltro);
 router.get('/:id', getPedidoPV);
 
 // Creación y edición — solo quien tiene puede_gestionar_pv (verificado dentro del controller)

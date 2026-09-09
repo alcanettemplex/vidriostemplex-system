@@ -267,13 +267,33 @@ const PedidosPVPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filtros Gestión PV
+  // Filtros Gestión PV — se mandan al backend (búsqueda, estado, proveedor, asesor y
+  // "solo retrasos" filtran contra TODO el histórico, no solo la página cargada; antes
+  // cada uno filtraba nada más los 100 registros ya traídos, lo que además desalineaba
+  // "Página X de Y" con lo que el filtro realmente encontraba). El texto libre se manda
+  // con debounce para no pegarle al backend en cada tecla.
   const [busqueda, setBusqueda] = useState('');
+  const [busquedaDebounced, setBusquedaDebounced] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroProveedor, setFiltroProveedor] = useState('');
   const [filtroAsesor, setFiltroAsesor] = useState('');
   const [soloRetrasos, setSoloRetrasos] = useState(false);
   const [filtrosAplicados, setFiltrosAplicados] = useState({ estado: '', proveedor: '', asesor: '' });
+
+  useEffect(() => {
+    const t = setTimeout(() => { setBusquedaDebounced(busqueda); setPagina(1); }, 450);
+    return () => clearTimeout(t);
+  }, [busqueda]);
+
+  // Opciones de los dropdowns Proveedor/Asesor — universo completo de "Gestión PV"
+  // (GET /opciones-filtro), no derivadas de la página cargada: si no, un proveedor o
+  // asesor que solo aparece en otra página no se podía ni seleccionar como filtro.
+  const [opcionesFiltro, setOpcionesFiltro] = useState<{ proveedores: string[]; asesores: { id: number; nombre_completo: string }[] }>({ proveedores: [], asesores: [] });
+
+  // KPIs Gestión PV — agregados en servidor con los mismos filtros aplicados a la
+  // tabla (antes se calculaban sumando solo la página cargada: "Total Pedidos" mostraba
+  // como mucho 100 aunque hubiera cientos de pedidos reales).
+  const [kpis, setKpis] = useState({ total: 0, verificados: 0, enTransito: 0, conRetraso: 0, metraje: 0 });
 
   // Orden Gestión PV — por defecto igual al orden que ya entrega el backend
   // (numero_base DESC), así que sin tocar nada la tabla se ve como hoy.
@@ -360,19 +380,39 @@ const PedidosPVPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [resExcel, resSistema] = await Promise.all([
+      const filtrosSistema = {
+        origen: 'SISTEMA',
+        page: pagina,
+        limit: 100,
+        // Un pedido SISTEMA está "por gestionar" mientras siga PENDIENTE y sin ítems
+        // asignados (mismo criterio que `getPorGestionar`). Esos viven solo en la
+        // pestaña "Por Gestionar"; acá se excluyen para que ambas sean excluyentes.
+        excluir_por_gestionar: true,
+        search: busquedaDebounced || undefined,
+        estado: filtrosAplicados.estado || undefined,
+        proveedor: filtrosAplicados.proveedor || undefined,
+        asesor: filtrosAplicados.asesor || undefined,
+        solo_retrasos: soloRetrasos || undefined,
+      };
+      const [resExcel, resSistema, resKpis] = await Promise.all([
         axios.get(`${API}/api/pedidos-pv`, { headers, params: { origen: 'EXCEL', limit: 5000 } }),
-        axios.get(`${API}/api/pedidos-pv`, { headers, params: { origen: 'SISTEMA', page: pagina, limit: 100 } }),
+        axios.get(`${API}/api/pedidos-pv`, { headers, params: filtrosSistema }),
+        axios.get(`${API}/api/pedidos-pv/kpis`, { headers, params: {
+          search: filtrosSistema.search, estado: filtrosSistema.estado,
+          proveedor: filtrosSistema.proveedor, asesor: filtrosSistema.asesor,
+          solo_retrasos: filtrosSistema.solo_retrasos,
+        } }),
       ]);
       setPedidosExcel(resExcel.data.rows ?? []);
       setPedidosSistema(resSistema.data.rows ?? []);
       setTotalPaginas(resSistema.data.totalPages ?? 1);
+      setKpis(resKpis.data ?? { total: 0, verificados: 0, enTransito: 0, conRetraso: 0, metraje: 0 });
     } catch {
       setError('Error al cargar pedidos PV');
     } finally {
       setLoading(false);
     }
-  }, [headers, pagina]);
+  }, [headers, pagina, busquedaDebounced, filtrosAplicados, soloRetrasos]);
 
   const cargarPorGestionar = useCallback(async () => {
     if (!user?.puede_gestionar_pv) return;
@@ -382,44 +422,26 @@ const PedidosPVPage: React.FC = () => {
     } catch { /* silencioso */ }
   }, [headers, user]);
 
+  // Universo completo de proveedores/asesores con pedidos en Gestión PV — se carga una
+  // sola vez (no depende de los filtros aplicados), para que los dropdowns no se vacíen
+  // a medida que se filtra.
+  const cargarOpcionesFiltro = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${API}/api/pedidos-pv/opciones-filtro`, { headers });
+      setOpcionesFiltro({ proveedores: data.proveedores ?? [], asesores: data.asesores ?? [] });
+    } catch { /* silencioso: los dropdowns quedan sin opciones, no bloquea la pantalla */ }
+  }, [headers]);
+
   useEffect(() => { cargarDatos(); cargarPorGestionar(); }, [cargarDatos, cargarPorGestionar]);
+  useEffect(() => { cargarOpcionesFiltro(); }, [cargarOpcionesFiltro]);
   useDataChangedSocket('pedidos_pv', cargarDatos);
 
-  // ─── Pedidos ya gestionados (excluye los que aún están en "Por Gestionar") ──
-  // Un pedido SISTEMA está "por gestionar" mientras siga PENDIENTE y sin ítems
-  // asignados (mismo criterio que el backend en getPorGestionar). Esos viven solo
-  // en la pestaña "Por Gestionar"; la pestaña "Gestión PV" y sus KPIs los excluyen
-  // para que ambas pestañas sean excluyentes.
-  const estaPorGestionar = (p: PedidoPV) => p.estado === 'PENDIENTE' && (p.items_asignados?.length ?? 0) === 0;
-  const pedidosGestionados = pedidosSistema.filter(p => !estaPorGestionar(p));
-
-  // ─── Proveedores y asesores únicos (para filtros) ─────────────────────────
-
-  const proveedoresUnicos = Array.from(new Set(pedidosGestionados.map(p => p.proveedor).filter(Boolean)));
-  const asesoresUnicos = Array.from(new Set(pedidosGestionados.map(p => p.asesor_iniciales || p.creador?.nombre_completo || '').filter(Boolean)));
-
-  // ─── Filtrado Gestión PV ──────────────────────────────────────────────────
-
-  const pedidosFiltrados = pedidosGestionados.filter(p => {
-    const q = busqueda.toLowerCase();
-    const matchBusqueda = !busqueda || (
-      p.numero_pedido.toLowerCase().includes(q) ||
-      (p.odp?.cliente?.nombre_razon_social || '').toLowerCase().includes(q) ||
-      (p.nombre_cliente_excel || '').toLowerCase().includes(q) ||
-      (p.odp?.numero_odp || p.odp_numero_excel || '').toLowerCase().includes(q)
-    );
-    const matchEstado = !filtrosAplicados.estado || p.estado === filtrosAplicados.estado;
-    const matchProveedor = !filtrosAplicados.proveedor || p.proveedor === filtrosAplicados.proveedor;
-    const matchAsesor = !filtrosAplicados.asesor ||
-      (p.asesor_iniciales || p.creador?.nombre_completo || '') === filtrosAplicados.asesor;
-    const matchRetraso = !soloRetrasos || (p.dias_diferencia !== null && p.dias_diferencia < 0);
-    return matchBusqueda && matchEstado && matchProveedor && matchAsesor && matchRetraso;
-  });
-
   // ─── Orden Gestión PV ─────────────────────────────────────────────────────
-  // Ordena solo lo ya cargado/filtrado (misma página de 100 del servidor), igual
-  // que el resto de los filtros de esta pestaña. Los nulos van siempre al final,
-  // sin importar la dirección, para no intercalar "sin fecha" entre fechas reales.
+  // El filtrado (búsqueda, estado, proveedor, asesor, retrasos) y la exclusión de
+  // "Por Gestionar" ya los aplicó el backend — `pedidosSistema` es exactamente lo que
+  // corresponde mostrar. El orden por columna sí sigue siendo client-side, sobre esa
+  // misma página ya filtrada. Los nulos van siempre al final, sin importar la
+  // dirección, para no intercalar "sin fecha" entre fechas reales.
 
   const valorOrden = (p: PedidoPV, field: string): string | number | null => {
     switch (field) {
@@ -450,14 +472,14 @@ const PedidosPVPage: React.FC = () => {
   };
 
   const pedidosOrdenados = useMemo(() => {
-    const arr = [...pedidosFiltrados];
+    const arr = [...pedidosSistema];
     arr.sort((a, b) => {
       const cmp = compararPedidos(a, b, sortField);
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return arr;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pedidosFiltrados, sortField, sortDir]);
+  }, [pedidosSistema, sortField, sortDir]);
 
   const manejarOrden = (field: string) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -482,17 +504,10 @@ const PedidosPVPage: React.FC = () => {
   const pedidosExcelPaginados = pedidosExcelFiltrados.slice(pageExcel * 10, pageExcel * 10 + 10);
 
   // ─── KPIs ─────────────────────────────────────────────────────────────────
+  // `kpis` viene del backend (GET /api/pedidos-pv/kpis), ya agregado sobre el
+  // subconjunto filtrado — ver cargarDatos.
 
-  const total = pedidosGestionados.length;
-  const kpis = {
-    total,
-    verificados: pedidosGestionados.filter(p => p.estado === 'VERIFICADO').length,
-    enTransito: pedidosGestionados.filter(p => ['ENVIADO', 'CONFIRMADO_PROVEEDOR'].includes(p.estado)).length,
-    conRetraso: pedidosGestionados.filter(p => p.dias_diferencia !== null && p.dias_diferencia < 0).length,
-    metraje: pedidosGestionados.reduce((acc, p) => acc + toFloat(p.metraje_venta), 0).toFixed(2),
-  };
-
-  const pct = (n: number) => total > 0 ? `${Math.round(n / total * 100)}% del total` : '0%';
+  const pct = (n: number) => kpis.total > 0 ? `${Math.round(n / kpis.total * 100)}% del total` : '0%';
 
   // ─── Acciones ─────────────────────────────────────────────────────────────
 
@@ -861,7 +876,7 @@ const PedidosPVPage: React.FC = () => {
                   icon={<LocalShipping />} color="#e65100" bgColor="#fff3e0" />
                 <KPICard label="Con Retraso" value={kpis.conRetraso} sub={pct(kpis.conRetraso)}
                   icon={<Cancel />} color="#c62828" bgColor="#ffebee" />
-                <KPICard label="m² Vendidos" value={kpis.metraje} sub="Total acumulado"
+                <KPICard label="m² Vendidos" value={kpis.metraje.toFixed(2)} sub="Total acumulado"
                   icon={<Typography fontWeight={800} fontSize={14}>m²</Typography>} color="#00695c" bgColor="#e0f2f1" />
               </Stack>
 
@@ -870,7 +885,7 @@ const PedidosPVPage: React.FC = () => {
               {/* Búsqueda + toggle */}
               <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5} flexWrap="wrap" gap={1.5}>
                 <TextField size="small" placeholder="Buscar pedido, cliente o referencia..."
-                  value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }}
+                  value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
                   sx={{ minWidth: 340 }}
                   InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18, color: 'text.secondary' }} /></InputAdornment> }} />
                 <FormControlLabel control={<Switch checked={soloRetrasos} onChange={(e) => { setSoloRetrasos(e.target.checked); setPagina(1); }} size="small" />}
@@ -892,14 +907,14 @@ const PedidosPVPage: React.FC = () => {
                   <InputLabel>Proveedor</InputLabel>
                   <Select value={filtroProveedor} label="Proveedor" onChange={(e) => setFiltroProveedor(e.target.value)}>
                     <MenuItem value="">Todos</MenuItem>
-                    {proveedoresUnicos.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                    {opcionesFiltro.proveedores.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
                   </Select>
                 </FormControl>
                 <FormControl size="small" sx={{ minWidth: 130 }}>
                   <InputLabel>Asesor</InputLabel>
                   <Select value={filtroAsesor} label="Asesor" onChange={(e) => setFiltroAsesor(e.target.value)}>
                     <MenuItem value="">Todos</MenuItem>
-                    {asesoresUnicos.map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+                    {opcionesFiltro.asesores.map(a => <MenuItem key={a.id} value={a.nombre_completo}>{a.nombre_completo}</MenuItem>)}
                   </Select>
                 </FormControl>
                 <Button variant="outlined" size="small"
