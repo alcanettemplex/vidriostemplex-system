@@ -2,6 +2,13 @@ import { Request, Response } from 'express';
 import { OrdenCompra, ODCItem, SAP, SAPItem, ODP, ODPItem, Cliente, Usuario, InventarioPerfileria, PedidoPV } from '../models';
 import sequelize from '../config/database';
 import { Op } from 'sequelize';
+import {
+  recalcularChecksODP,
+  recalcularHerrajesDeSapItems,
+  recalcularVidrioDeOdpItems,
+  odpIdsDeSapItems,
+  odpIdsDeOdpItems,
+} from '../utils/checksAutomaticos';
 
 // Snapshot de una pieza de inventario consumida al cubrir un SAPItem por existencia.
 // Se persiste en SAPItem.existencia_piezas para poder revertir (recrear el inventario).
@@ -418,6 +425,15 @@ export const createODC = async (req: Request, res: Response) => {
         if (oid) odpIdsAfectados.push(oid);
       }
       sapsCompletadas = await verificarYMarcarSAPsCompletas(sapIdsAfectados, t);
+
+      // Las líneas pasan de 'en_existencia' o 'pendiente' a 'en_odc': el material se
+      // pidió pero todavía no llegó. Si el check de Herrajes estaba puesto, cae aquí.
+      await recalcularHerrajesDeSapItems(sapItemIdsSel, {
+        usuarioId: req.user?.id ?? null,
+        origen: 'SAP',
+        detalle: `material incluido en ODC ${numero_odc}`,
+        transaction: t,
+      });
     }
 
     await t.commit();
@@ -485,6 +501,22 @@ export const updateODC = async (req: Request, res: Response) => {
           { estado_compra: 'en_existencia', modificado: false, datos_anteriores: null },
           { where: { id: { [Op.in]: sapItemIds } } }
         );
+      }
+
+      // ─── Checks automáticos ───
+      // Esta vía (recepción desde la cabecera de la ODC) nunca tocó los checks: solo
+      // `recibirItems` lo hacía, y mal. Ahora las dos convergen en el mismo motor.
+      const numeroOdc = odc.getDataValue('numero_odc');
+      const usuarioId = req.user?.id ?? null;
+      await recalcularHerrajesDeSapItems(sapItemIds, {
+        usuarioId, origen: 'SAP', detalle: `ODC ${numeroOdc} recibida`,
+      });
+      // ODC de vidrio: no pasa por SAP, la trazabilidad va por ODCItem.odp_item_id.
+      if (odc.getDataValue('tipo') === 'vidrio') {
+        const odpItemIds = odcItems.map((i: any) => i.getDataValue('odp_item_id')).filter(Boolean);
+        await recalcularVidrioDeOdpItems(odpItemIds, true, {
+          usuarioId, origen: 'ODC_VIDRIO', detalle: `ODC ${numeroOdc} recibida`,
+        });
       }
 
       // Resolver el odp_id dueño: la cabecera de la ODC (sap_id/odp_id) casi siempre
@@ -574,14 +606,15 @@ export const recibirItems = async (req: Request, res: Response) => {
     const todosLosItems = await ODCItem.findAll({
       where: { odc_id: id },
       transaction: t,
-      attributes: ['id', 'recibido', 'sap_item_id'],
+      // odp_item_id es la trazabilidad de las ODC de vidrio, que no pasan por SAP.
+      attributes: ['id', 'recibido', 'sap_item_id', 'odp_item_id'],
     });
 
     const todosRecibidos = todosLosItems.length > 0 &&
       todosLosItems.every((it: any) => it.getDataValue('recibido') === true);
 
-    // odp_id afectado, para notificar en tiempo real tras el commit (badge C→E del imprimible SAP)
-    let odpIdNotificar: number | null = null;
+    // odp_ids afectados, para notificar en tiempo real tras el commit (badge C→E del imprimible SAP)
+    let odpIdsNotificar: number[] = [];
 
     if (todosRecibidos) {
       // ODC completa → estado recibido + SAPItems a en_existencia
@@ -590,27 +623,35 @@ export const recibirItems = async (req: Request, res: Response) => {
       const sapItemIds = todosLosItems
         .map((it: any) => it.getDataValue('sap_item_id'))
         .filter(Boolean);
+      const odpItemIds = todosLosItems
+        .map((it: any) => it.getDataValue('odp_item_id'))
+        .filter(Boolean);
+
       if (sapItemIds.length > 0) {
         await SAPItem.update(
           { estado_compra: 'en_existencia', modificado: false, datos_anteriores: null },
           { where: { id: { [Op.in]: sapItemIds } }, transaction: t },
         );
+      }
 
-        // Auto-activar chk_accesorios en la ODP: trazar SAPItem → SAP → ODP
-        const sapItem = await SAPItem.findOne({
-          where: { id: { [Op.in]: sapItemIds } },
-          include: [{ model: SAP, attributes: ['id', 'odp_id'] }],
-          transaction: t,
+      // ─── Checks automáticos ───
+      // Antes, este bloque resolvía **una sola** ODP tomando el primer SAPItem de la
+      // orden y le marcaba chk_accesorios a ciegas. Como una ODC de perfilería agrupa
+      // material de varias ODP, eso dejaba sin marcar a todas las demás y marcaba a esa
+      // aunque le quedaran líneas pendientes en otra orden. Ahora se recalcula la regla
+      // completa (todas las líneas de todas sus SAP en `en_existencia`) en cada ODP
+      // afectada, dentro de la misma transacción; el motor emite tras el commit.
+      const numeroOdc = odc.getDataValue('numero_odc');
+      const usuarioId = req.user?.id ?? null;
+      odpIdsNotificar = await odpIdsDeSapItems(sapItemIds, t);
+      await recalcularHerrajesDeSapItems(sapItemIds, {
+        usuarioId, origen: 'SAP', detalle: `ODC ${numeroOdc} recibida`, transaction: t,
+      });
+      if (odc.getDataValue('tipo') === 'vidrio') {
+        await recalcularVidrioDeOdpItems(odpItemIds, true, {
+          usuarioId, origen: 'ODC_VIDRIO', detalle: `ODC ${numeroOdc} recibida`, transaction: t,
         });
-        const sapData = (sapItem as any)?.SAP ?? (sapItem as any)?.dataValues?.SAP;
-        const odpId: number | null = sapData?.odp_id ?? sapData?.getDataValue?.('odp_id') ?? null;
-        odpIdNotificar = odpId;
-        if (odpId) {
-          await ODP.update(
-            { chk_accesorios: true },
-            { where: { id: odpId, chk_accesorios: false }, transaction: t },
-          );
-        }
+        odpIdsNotificar = [...new Set([...odpIdsNotificar, ...(await odpIdsDeOdpItems(odpItemIds, t))])];
       }
     } else {
       // Recepción parcial → mantener pendiente
@@ -620,9 +661,11 @@ export const recibirItems = async (req: Request, res: Response) => {
     await t.commit();
 
     // Notificar en tiempo real: sin esto, el badge C→E y el sombreado azul del imprimible
-    // SAP solo se verían tras F5 en cualquier ODPFichaModal ya abierto.
-    if (odpIdNotificar) {
-      import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpIdNotificar!, 'update')).catch(() => {});
+    // SAP solo se verían tras F5 en cualquier ODPFichaModal ya abierto. El motor de checks
+    // ya emite lo suyo cuando algo cambia; esto cubre a las ODP cuyo check no se movió pero
+    // cuyos ítems sí pasaron a "en existencia".
+    for (const odpId of odpIdsNotificar) {
+      import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'update')).catch(() => {});
     }
 
     // Retornar ODC actualizada
@@ -762,6 +805,15 @@ export const toggleExistencia = async (req: Request, res: Response) => {
 
     import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
     if (odpId) {
+      // Marcar o quitar la "S" a mano cuenta igual que recibir la ODC: es la misma
+      // pregunta —¿está cubierta esta línea?— y el motor la responde en las dos
+      // direcciones. Emite el patch por su cuenta si el check cambió.
+      await recalcularChecksODP(odpId, {
+        usuarioId: req.user?.id ?? null,
+        origen: 'SAP',
+        detalle: nuevoEstado === 'en_existencia' ? 'línea cubierta por existencia' : 'existencia revertida',
+        herrajes: true,
+      });
       import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'update')).catch(() => {});
     }
 
@@ -833,6 +885,19 @@ export const dividirPorExistencia = async (req: Request, res: Response) => {
     const sapId = original.getDataValue('sap_id');
     const odpId = await resolverOdpIdDesdeSapId(sapId, t);
     const sapsCompletadas = await verificarYMarcarSAPsCompletas([sapId], t);
+
+    // Cobertura parcial: el original queda cubierto pero nace un "faltante" en
+    // 'pendiente', así que el recálculo dará false mientras ese faltante no se reciba.
+    // Se llama igual para cubrir el caso inverso —que el check estuviera marcado a mano.
+    if (odpId) {
+      await recalcularChecksODP(odpId, {
+        usuarioId: req.user?.id ?? null,
+        origen: 'SAP',
+        detalle: 'cobertura parcial por existencia',
+        herrajes: true,
+        transaction: t,
+      });
+    }
 
     await t.commit();
     import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
@@ -1110,6 +1175,14 @@ export const createODCVidrios = async (req: Request, res: Response) => {
       { where: { id: odp_item_ids }, transaction: t }
     );
 
+    // El vidrio se pidió pero aún no llegó: si el check estaba puesto, cae.
+    await recalcularVidrioDeOdpItems(odp_item_ids, false, {
+      usuarioId: req.user?.id ?? null,
+      origen: 'ODC_VIDRIO',
+      detalle: `vidrio incluido en ODC ${String(numero_odc).trim()}`,
+      transaction: t,
+    });
+
     await t.commit();
 
     const odcCompleta = await OrdenCompra.findByPk(odcId, {
@@ -1299,6 +1372,18 @@ export const asignarExistencia = async (req: Request, res: Response) => {
     const odpId = await resolverOdpIdDesdeSapId(sapId, t);
     const sapsCompletadas = await verificarYMarcarSAPsCompletas([sapId], t);
 
+    // Cobertura total: si era la última línea sin cubrir, este es el momento en que
+    // los herrajes quedan completos.
+    if (odpId) {
+      await recalcularChecksODP(odpId, {
+        usuarioId: req.user?.id ?? null,
+        origen: 'SAP',
+        detalle: 'línea cubierta por existencia',
+        herrajes: true,
+        transaction: t,
+      });
+    }
+
     await t.commit();
     import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
     if (odpId) {
@@ -1385,6 +1470,19 @@ export const revertirExistencia = async (req: Request, res: Response) => {
     }, { transaction: t });
 
     const odpId = await resolverOdpIdDesdeSapId(item.getDataValue('sap_id'), t);
+
+    // La línea vuelve a estar sin cubrir: el check de Herrajes cae aunque lo hubiera
+    // puesto una persona (el automático manda), y si la ODP estaba LISTO_INSTALAR
+    // regresa a producción. Se notifica para que nadie lo descubra por sorpresa.
+    if (odpId) {
+      await recalcularChecksODP(odpId, {
+        usuarioId: req.user?.id ?? null,
+        origen: 'SAP',
+        detalle: 'existencia revertida en Compras',
+        herrajes: true,
+        transaction: t,
+      });
+    }
 
     await t.commit();
     import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
@@ -1487,6 +1585,21 @@ export const eliminarODC = async (req: Request, res: Response) => {
       }
     }
 
+    // Checks automáticos ANTES del borrado físico: después, los ODCItem ya no existen
+    // y no habría forma de resolver a qué ODP pertenecían.
+    // La ODC no puede estar recibida (se rechaza arriba), así que el material vuelve a
+    // estar sin cubrir: los checks solo pueden caer, nunca subir.
+    const numeroOdc = odc.getDataValue('numero_odc');
+    const usuarioId = req.user?.id ?? null;
+    await recalcularHerrajesDeSapItems(sapItemIds, {
+      usuarioId, origen: 'SAP', detalle: `ODC ${numeroOdc} eliminada`, transaction: t,
+    });
+    if (odc.getDataValue('tipo') === 'vidrio') {
+      await recalcularVidrioDeOdpItems(odpItemIds, false, {
+        usuarioId, origen: 'ODC_VIDRIO', detalle: `ODC ${numeroOdc} eliminada`, transaction: t,
+      });
+    }
+
     // Borrado físico: primero los ítems, luego la cabecera
     await ODCItem.destroy({ where: { odc_id: id }, transaction: t });
     await odc.destroy({ transaction: t });
@@ -1569,6 +1682,11 @@ export const editarItemsODC = async (req: Request, res: Response) => {
     const existentesPorId = new Map<number, any>(existentes.map((i: any) => [i.getDataValue('id'), i]));
     const idsEnSet = new Set<number>(items.filter((l) => l.id != null).map((l) => Number(l.id)));
 
+    // Líneas de SAP que entran o salen de la orden en esta edición: son las únicas
+    // cuyo estado_compra se mueve, y por tanto las únicas que pueden cambiar el check
+    // de Herrajes de su ODP.
+    const sapItemsTocados: number[] = [];
+
     // ─── 1. Eliminar líneas existentes ausentes del set final ───
     for (const existente of existentes) {
       const odcItemId = existente.getDataValue('id');
@@ -1576,6 +1694,7 @@ export const editarItemsODC = async (req: Request, res: Response) => {
       const sapItemId = existente.getDataValue('sap_item_id');
       await existente.destroy({ transaction: t });
       if (sapItemId) {
+        sapItemsTocados.push(sapItemId);
         const enOtraODCActiva = await ODCItem.count({
           where: { sap_item_id: sapItemId, odc_id: { [Op.ne]: id } },
           include: [{ model: OrdenCompra, attributes: [], required: true, where: { estado: { [Op.ne]: 'cancelado' } } }],
@@ -1648,6 +1767,7 @@ export const editarItemsODC = async (req: Request, res: Response) => {
             recibido: false,
           }, { transaction: t });
           await sapItem.update({ estado_compra: 'en_odc', modificado: false, datos_anteriores: null }, { transaction: t });
+          sapItemsTocados.push(sapItem.getDataValue('id'));
         } else {
           // consumible: línea libre
           await ODCItem.create({
@@ -1671,6 +1791,15 @@ export const editarItemsODC = async (req: Request, res: Response) => {
       await t.rollback();
       return res.status(400).json({ error: 'La ODC quedaría sin ítems. Operación cancelada.' });
     }
+
+    // Quitar una línea la devuelve a 'pendiente' y agregar una la pone 'en_odc': en
+    // ambos casos deja de estar cubierta, así que el check de Herrajes puede caer.
+    await recalcularHerrajesDeSapItems(sapItemsTocados, {
+      usuarioId: req.user?.id ?? null,
+      origen: 'SAP',
+      detalle: `líneas editadas en ODC ${odc.getDataValue('numero_odc')}`,
+      transaction: t,
+    });
 
     await t.commit();
     import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});

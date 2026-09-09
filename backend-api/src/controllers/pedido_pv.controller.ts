@@ -3,11 +3,12 @@ import { Op, literal } from 'sequelize';
 import { z } from 'zod';
 import path from 'path';
 import ExcelJS from 'exceljs';
-import { PedidoPV, ODP, ODPItem, Usuario, HistorialEstadoODP, sequelize } from '../models';
+import { PedidoPV, ODP, ODPItem, Usuario, sequelize } from '../models';
 import Cliente from '../models/cliente.model';
 import { emitirNotificacion } from '../server';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { esTemplacol, bloquesPorProveedor, proveedorParaFormato, mismoProveedor } from '../utils/pedidoPvCapacidad';
+import { recalcularChecksODP } from '../utils/checksAutomaticos';
 
 // ─── Esquema de validación ────────────────────────────────────────────────────
 
@@ -130,59 +131,44 @@ const construirWherePedidosPV = (f: FiltrosPedidosPV) => {
 };
 
 
-// ─── Helper: avanzar ODP a VIDRIO_RECIBIDO si todos los PV están verificados ──
+// ─── Helper: reflejar el estado de los Pedido PV en el check de Vidrio ────────
+//
+// La lógica de qué hacer con el check (marcarlo, mover el estado de la ODP, evaluar
+// LISTO_INSTALAR, dejar historial, notificar y emitir el patch de socket) vive en
+// `utils/checksAutomaticos.ts`. Aquí solo se decide **si la vía del vidrio quedó
+// cerrada o se reabrió**, que es lo único que este módulo sabe.
+//
+// La versión anterior escribía `chk_vidrio` a mano y no emitía `odp_patch`: el check
+// quedaba bien en BD y el tablero de Producción no lo pintaba hasta un F5.
 
-// Estados en los que la ODP ya pasó VIDRIO_RECIBIDO (o está fuera del flujo normal):
-// escribirle ese estado sería un RETROCESO. Pasa cuando se agrega un pedido PV a una
-// ODP que ya estaba lista: al verificarlo, la ODP volvía de LISTO_INSTALAR a
-// VIDRIO_RECIBIDO y desaparecía de Instalaciones. Se conserva el chk_vidrio, que sí
-// es información válida. (El valor 'VERIFICADO' que había aquí no existe como estado
-// de ODP —es un estado de PedidoPV— así que nunca protegió nada.)
-const ESTADOS_POSTERIORES_A_VIDRIO = [
-  'VIDRIO_RECIBIDO', 'ACCESORIOS_SEPARADOS', 'LISTO_INSTALAR',
-  'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA', 'PAUSADA',
-];
+/** ¿Todos los Pedido PV de la ODP están verificados? */
+const todosLosPVVerificados = async (odp_id: number): Promise<boolean> => {
+  const pedidos = await PedidoPV.findAll({ where: { odp_id }, attributes: ['estado'] });
+  if (pedidos.length === 0) return false;
+  return pedidos.every((p) => p.getDataValue('estado') === 'VERIFICADO');
+};
 
-const verificarAvanceODP = async (odp_id: number, usuario_id: number) => {
-  const pedidos = await PedidoPV.findAll({ where: { odp_id } });
-  const todosVerificados = pedidos.every(
-    (p) => p.getDataValue('estado') === 'VERIFICADO'
-  );
-  if (!todosVerificados) return;
-
-  const odp = await ODP.findByPk(odp_id);
-  if (!odp) return;
-
-  const estadoActual = odp.getDataValue('estado_produccion');
-  if (ESTADOS_POSTERIORES_A_VIDRIO.includes(estadoActual)) {
-    // La ODP ya avanzó más allá: solo se marca el check, sin tocar el estado.
-    if (!odp.getDataValue('chk_vidrio')) await odp.update({ chk_vidrio: true });
-    return;
-  }
-
-  await odp.update({ chk_vidrio: true, estado_produccion: 'VIDRIO_RECIBIDO' });
-
-  await HistorialEstadoODP.create({
-    odp_id,
-    usuario_id,
-    estado_anterior: estadoActual,
-    estado_nuevo: 'VIDRIO_RECIBIDO',
-    observacion: 'Avance automático: todos los pedidos PV verificados',
-  });
-
-  const numero_odp = odp.getDataValue('numero_odp');
-  const asesor_id = odp.getDataValue('asesor_id');
-
-  emitirNotificacion(
-    { userId: asesor_id, roles: ['jefe_produccion', 'produccion', 'compras', 'gerencia'] },
-    {
-      titulo: `ODP ${numero_odp}`,
-      mensaje: 'Todos los vidrios verificados — ODP avanzó a Vidrio Recibido',
-      odp_id,
-      numero_odp,
-      tipo: 'VIDRIO_RECIBIDO',
-    }
-  );
+/**
+ * Sincroniza el check de Vidrio tras un cambio de estado de un Pedido PV.
+ *
+ * `reabrir = true` (PROBLEMA, reposición pendiente de re-verificar) desmarca siempre:
+ * el vidrio dejó de estar completo, sin importar cómo se hubiera marcado el check.
+ *
+ * `reabrir = false` (verificación, eliminación de un pedido) solo marca cuando **todos**
+ * los pedidos de la ODP quedaron verificados; si aún falta alguno **no toca nada**.
+ * Deliberadamente no desmarca: verificar un pedido es un avance, y usar ese avance para
+ * borrar una marca que puso el taller a mano sería absurdo. El desmarcado queda
+ * reservado a los eventos que de verdad reabren la vía.
+ */
+const sincronizarCheckVidrio = async (
+  odp_id: number,
+  usuario_id: number | null,
+  detalle: string,
+  reabrir = false,
+) => {
+  const vidrio = reabrir ? false : (await todosLosPVVerificados(odp_id) ? true : undefined);
+  if (vidrio === undefined) return;
+  await recalcularChecksODP(odp_id, { usuarioId: usuario_id, origen: 'PV', detalle, vidrio });
 };
 
 // ─── CONTROLADORES ────────────────────────────────────────────────────────────
@@ -475,8 +461,8 @@ export const verificarPedido = async (req: Request, res: Response) => {
         }
       );
 
-      // Intentar avanzar ODP automáticamente
-      await verificarAvanceODP(odp.id, user.id);
+      // Vía del vidrio cerrada si con este ya no queda ningún pedido sin verificar.
+      await sincronizarCheckVidrio(odp.id, user.id, `PV ${pedido.getDataValue('numero_pedido')} verificado`);
     }
 
     const pedidoActualizado = await PedidoPV.findByPk(req.params.id, { include: INCLUDE_COMPLETO });
@@ -514,6 +500,15 @@ export const marcarProblema = async (req: Request, res: Response) => {
           numero_odp: odp.numero_odp,
           tipo: 'PV_PROBLEMA',
         }
+      );
+
+      // El vidrio dejó de estar completo: el check cae y, si la ODP ya estaba lista,
+      // vuelve a producción.
+      await sincronizarCheckVidrio(
+        odp.id,
+        (req.user as { id: number } | undefined)?.id ?? null,
+        `PV ${pedido.getDataValue('numero_pedido')} con problema`,
+        true,
       );
     }
 
@@ -576,6 +571,17 @@ export const registrarReposicion = async (req: Request, res: Response) => {
           numero_odp: odp.numero_odp,
           tipo: 'PV_REPUESTO',
         }
+      );
+
+      // El repuesto vuelve a LLEGADO: falta re-verificarlo, así que la vía sigue
+      // abierta. Normalmente el check ya cayó al marcar el problema y esto no cambia
+      // nada (el motor se detiene solo); cubre el caso de que alguien lo hubiera
+      // vuelto a marcar a mano entretanto.
+      await sincronizarCheckVidrio(
+        odp.id,
+        (req.user as { id: number } | undefined)?.id ?? null,
+        `PV ${pedido.getDataValue('numero_pedido')} repuesto, pendiente de verificar`,
+        true,
       );
     }
 
@@ -736,6 +742,15 @@ export const eliminarPedidoPV = async (req: Request, res: Response) => {
 
     import('../server').then(({ emitirCambio }) => emitirCambio('pedidos_pv')).catch(() => {});
     if (odp_id) {
+      // Si el pedido eliminado era el único que faltaba por verificar, la vía del
+      // vidrio queda cerrada. `sincronizarCheckVidrio` ya emite el patch cuando algo
+      // cambia; el emitirODPPatch de abajo cubre el caso en que no cambió nada pero
+      // sí se movieron proveedor_vidrio / numero_pedido_proveedor.
+      await sincronizarCheckVidrio(
+        odp_id,
+        (req.user as { id: number } | undefined)?.id ?? null,
+        `PV ${numero_pedido} eliminado`,
+      );
       import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odp_id, 'update')).catch(() => {});
     }
 

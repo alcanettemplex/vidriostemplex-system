@@ -3,6 +3,7 @@ import { SAP, SAPItem, ODP, Usuario, CatalogoProducto, ODCItem } from '../models
 import sequelize from '../config/database';
 import { Op } from 'sequelize';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
+import { recalcularChecksODP } from '../utils/checksAutomaticos';
 
 // Recalcular tiene_aluminio en ODP según todos sus SAP items
 const recalcularAluminioODP = async (odp_id: number): Promise<void> => {
@@ -82,6 +83,16 @@ export const createSAP = async (req: Request, res: Response) => {
     });
 
     await recalcularAluminioODP(odp_id);
+
+    // Una SAP nueva mete líneas sin cubrir en la ODP: si el check de Herrajes estaba
+    // marcado, deja de ser cierto. Una SAP creada sin ítems también bloquea, por
+    // diseño: todavía no se sabe qué material hace falta.
+    await recalcularChecksODP(odp_id, {
+      usuarioId: userId ?? null,
+      origen: 'SAP',
+      detalle: `SAP ${sap.getDataValue('numero_sap')} creada`,
+      herrajes: true,
+    });
 
     const sapWithItems = await SAP.findByPk(sap.getDataValue('id'), {
       include: [{ model: SAPItem, as: 'items' }, { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
@@ -230,6 +241,15 @@ export const updateSAP = async (req: Request, res: Response) => {
     const odp_id = sap.getDataValue('odp_id');
     await recalcularAluminioODP(odp_id);
 
+    // Agregar una línea nueva a la SAP la deja en 'pendiente' y quita la cobertura
+    // completa; quitar la última línea sin cubrir la restituye. El motor decide.
+    await recalcularChecksODP(odp_id, {
+      usuarioId: req.user?.id ?? null,
+      origen: 'SAP',
+      detalle: `SAP ${sap.getDataValue('numero_sap')} editada`,
+      herrajes: true,
+    });
+
     const updated = await SAP.findByPk(id, {
       include: [{ model: SAPItem, as: 'items' }, { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] }],
     });
@@ -246,8 +266,19 @@ export const deleteSAP = async (req: Request, res: Response) => {
     const { id } = req.params;
     const sap = await SAP.findByPk(id);
     if (!sap) return res.status(404).json({ error: 'SAP no encontrada' });
+    const odpId = sap.getDataValue('odp_id');
     await SAPItem.destroy({ where: { sap_id: id } });
     await sap.destroy();
+
+    // Al desaparecer la SAP, Herrajes puede pasar a "no aplica" (si era la única) o
+    // quedar completo (si la que se borró era la que tenía líneas sin cubrir).
+    await recalcularChecksODP(odpId, {
+      usuarioId: req.user?.id ?? null,
+      origen: 'SAP',
+      detalle: `SAP ${sap.getDataValue('numero_sap')} eliminada`,
+      herrajes: true,
+    });
+
     res.json({ ok: true });
   } catch (error: any) {
     res.status(500).json({ error: 'Error al eliminar SAP', detail: error.message });

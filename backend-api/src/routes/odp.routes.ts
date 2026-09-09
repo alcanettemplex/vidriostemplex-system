@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, getNcGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha, getHistorialODP, agregarFacturaAdicional, eliminarFacturaAdicional, anularODP, reactivarODP } from '../controllers/odp.controller';
+import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, getNcGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha, getHistorialODP, agregarFacturaAdicional, eliminarFacturaAdicional, anularODP, reactivarODP, getMovimientosAutomaticos } from '../controllers/odp.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { uploadConfig } from '../config/upload';
@@ -44,6 +44,8 @@ router.get('/carga-por-fecha', authMiddleware, getCargaPorMes);
 router.get('/carga-por-fecha/:fecha', authMiddleware, getCargaPorFecha);
 router.get('/garantias/all', authMiddleware, cacheListados(TTL_LISTADOS_ODP), getGarantias);
 router.get('/nc-garantias', authMiddleware, cacheListados(TTL_LISTADOS_ODP), getNcGarantias);
+// Antes de '/:id' o Express lo tomaría por un id de ODP.
+router.get('/movimientos-automaticos', authMiddleware, getMovimientosAutomaticos);
 
 router.get('/:id/historial', authMiddleware, getHistorialODP);
 router.get('/:id', authMiddleware, getODP);

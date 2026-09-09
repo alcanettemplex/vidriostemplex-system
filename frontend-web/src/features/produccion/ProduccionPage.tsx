@@ -36,10 +36,12 @@ import {
     TriangleAlert,
     MessageCircle,
     PauseCircle,
+    Bot,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PrintableSAP from '../odp/components/PrintableSAP';
 import ProgramacionWhatsAppModal from './components/ProgramacionWhatsAppModal';
+import MovimientosAutomaticosTab from './components/MovimientosAutomaticosTab';
 import socket from '../../store/socket';
 import API from '../../services/config';
 import { useSoloLectura } from '../../utils/permisos';
@@ -209,6 +211,19 @@ const isColLocked = (odp: ODP, key: string): boolean => {
     return ['chk_pelicula', 'chk_matizado', 'chk_huacal', 'chk_carton'].includes(key) && !odp.chk_vidrio;
 };
 
+/**
+ * Etapas que el sistema marca y desmarca por su cuenta. Siguen siendo clicables a
+ * mano —decisión del usuario— pero conviene que el operario sepa que se mueven solas,
+ * y sobre todo que pueden CAER solas si Compras revierte el material: el automático
+ * manda sobre la marca manual.
+ */
+const TOOLTIP_AUTOMATICO: Record<string, string> = {
+    chk_vidrio: 'Se marca sola al verificar el pedido de vidrio (o al recibir la ODC de vidrio), '
+        + 'y se desmarca si el pedido queda con problema. También puedes marcarla a mano.',
+    chk_accesorios: 'Se marca sola cuando todas las líneas de la SAP quedan cubiertas —en existencia '
+        + 'o por una ODC recibida— y cae si el material se revierte. También puedes marcarla a mano.',
+};
+
 const isPagoOk = (odp: ODP): boolean =>
     odp.forma_pago === 'credito' ||
     odp.estado_caja === 'CANCELADO' ||
@@ -223,7 +238,7 @@ const getPaymentInfo = (odp: ODP): { label: string; cls: string } => {
 };
 
 const ProduccionPage: React.FC = () => {
-    const [mainTab, setMainTab]           = useState<'activas' | 'pedido_mano' | 'nc_garantias' | 'pausadas'>('activas');
+    const [mainTab, setMainTab]           = useState<'activas' | 'pedido_mano' | 'nc_garantias' | 'pausadas' | 'automaticos'>('activas');
     const [manoSubTab, setManoSubTab]     = useState<'listos' | 'espera_pago'>('listos');
 
     // Array maestro (fuente única de verdad) + NC/Garantías (endpoint aparte).
@@ -406,6 +421,19 @@ const ProduccionPage: React.FC = () => {
                 return;
             }
         }
+        // Pintado optimista, igual que handleSetColor. Antes esta función no tocaba el
+        // estado local y confiaba del todo en el socket; cuando el backend no emitía el
+        // patch (ODP con un Pedido PV sin llegar), la celda no cambiaba ni para quien
+        // acababa de marcarla: salía "Proceso actualizado" y todo seguía igual.
+        // El socket sigue mandando — cuando llegue, reemplaza la fila entera con la
+        // versión del servidor, incluidos los cambios de estado que dispare el check.
+        const aplicarLocal = (valor: boolean) => {
+            setOdps(prev => prev.map(o => o.id === odp.id ? { ...o, [field]: valor } as ODP : o));
+            setNcGarantiasOdps(prev => prev.map(o => o.id === odp.id ? { ...o, [field]: valor } as ODP : o));
+            setPanelOdp(prev => (prev && prev.id === odp.id ? { ...prev, [field]: valor } as ODP : prev));
+        };
+        aplicarLocal(newValue);
+
         try {
             const token = sessionStorage.getItem('token');
             await axios.put(
@@ -413,9 +441,9 @@ const ProduccionPage: React.FC = () => {
                 { [field]: newValue },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            // La lista se actualiza vía socket (odp_patch); no se re-descarga.
             toast.success('Proceso actualizado');
         } catch (error: any) {
+            aplicarLocal(!newValue); // revertir
             toast.error(error.response?.data?.error || 'Error al actualizar');
         }
     };
@@ -1110,7 +1138,9 @@ const ProduccionPage: React.FC = () => {
                                     }
                                     return (
                                         <td key={col.key} className="px-2 py-3 text-center"
-                                            title={puedeEditarTaller ? undefined : 'Solo consulta: tu rol no modifica las etapas'}
+                                            title={!puedeEditarTaller
+                                                ? 'Solo consulta: tu rol no modifica las etapas'
+                                                : (TOOLTIP_AUTOMATICO[col.key] || undefined)}
                                             onClick={e => { e.stopPropagation(); toggleCheck(odp, col.key); }}>
                                             <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border-2 transition-all mx-auto
                                                 ${checked ? 'bg-emerald-50 border-emerald-400 text-emerald-600'
@@ -1195,6 +1225,7 @@ const ProduccionPage: React.FC = () => {
                         { key: 'pedido_mano',  label: 'Pedido en la mano', icon: <Inbox className="w-4 h-4" /> },
                         { key: 'nc_garantias', label: 'NC / Garantías',    icon: <AlertTriangle className="w-4 h-4" />, badge: ncOdps.length || undefined, badgeClassName: 'bg-rose-100 text-rose-600' },
                         { key: 'pausadas',     label: 'ODP Pausadas',      icon: <PauseCircle className="w-4 h-4" />,   badge: pausadasOdps.length || undefined, badgeClassName: 'bg-amber-100 text-amber-600' },
+                        { key: 'automaticos',  label: 'Automáticos',       icon: <Bot className="w-4 h-4" /> },
                     ]}
                     activeKey={mainTab}
                     onChange={(k) => setMainTab(k as any)}
@@ -1590,6 +1621,13 @@ const ProduccionPage: React.FC = () => {
                         {renderPanel()}
                     </div>
                 </div>
+            )}
+
+            {/* ══════════════════════════════════════════════
+                TAB: AUTOMÁTICOS (bitácora de lo que el sistema movió solo)
+            ══════════════════════════════════════════════ */}
+            {mainTab === 'automaticos' && (
+                <MovimientosAutomaticosTab onOpenOdp={(odpId) => setFichaOdpId(odpId)} />
             )}
 
             {/* ── Modal QR ── */}

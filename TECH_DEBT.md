@@ -4,6 +4,28 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-09 — ESLint del backend inoperante (config v9 pendiente de migrar)
+
+**Severidad:** media · **Estimación:** 30-45 min
+
+`npm --prefix backend-api run lint` (y `lint:fix`) **fallan siempre**, sin analizar un solo archivo:
+
+```
+ESLint: 10.0.3
+ESLint couldn't find an eslint.config.(js|mjs|cjs) file.
+```
+
+El repo tiene configuración en formato `.eslintrc`, que ESLint dejó de leer en la v9. La versión instalada es la 10.0.3.
+
+**Impacto:** el proyecto no tiene tests automatizados y la verificación se apoya en compilación + pruebas manuales; el linter era la tercera pata y hoy no existe en el backend. Nadie lo nota porque el comando falla rápido y con un mensaje que parece de entorno. El frontend sí lo corre (vía `react-scripts`) y ahí sigue funcionando.
+
+**Detectado:** 2026-09-09, al intentar lintar los archivos tocados por el motor de checks automáticos. **No introducido en esa sesión** — es anterior.
+
+**Solución:** migrar a `eslint.config.js` (flat config) con la guía oficial, o fijar `eslint@8` en `devDependencies` si se prefiere aplazar. Lo primero es lo correcto; lo segundo devuelve el linter en 5 minutos.
+
+---
+
+
 ## 2026-09-04 (2) — Proveedores: aprobar a un emisor no recupera sus facturas ya cargadas
 
 **Severidad:** Media — **abierta**. Detalle en `SESSION_LOG.md` 2026-09-04 (3).

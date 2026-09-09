@@ -11,6 +11,11 @@ HistorialEstadoODP.init({
   usuario_id: { type: DataTypes.INTEGER, allowNull: false },
   fecha: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   observacion: { type: DataTypes.TEXT, allowNull: true },
+  // true = el movimiento lo hizo el sistema solo (checks automáticos de vidrio/herrajes,
+  // avance a LISTO_INSTALAR, retroceso por material revertido). Alimenta la pestaña
+  // "Automáticos" del tablero de Producción. Se distingue por columna y no por el texto
+  // de `observacion` para que reescribir un mensaje no rompa la consulta.
+  automatico: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
 }, {
   sequelize,
   modelName: 'HistorialEstadoODP',

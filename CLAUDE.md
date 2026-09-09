@@ -163,6 +163,16 @@ EN_ESPERA → VISITA_TECNICA → MEDICION → ALUMINIO_CORTADO
 ### Campos chk_* (booleanos de progreso, independientes del estado)
 `chk_medicion`, `chk_corte`, `chk_vidrio`, `chk_accesorios`, `chk_ensamble`, `chk_matizado`, `chk_pelicula`, `chk_huacal`, `chk_carton`
 
+⚠️ **Toda la lógica de checks vive en `utils/checksAutomaticos.ts` — no duplicarla.** Desde el 2026-09-09 hay un motor único (`recalcularChecksODP`) que concentra: cálculo del check, `fecha_chk_accesorios`, avance de estado, auto-transición a `LISTO_INSTALAR`, retroceso, `historial_estados_odp` y `emitirODPPatch`. `updateODP` consume de ahí `evaluarListoInstalar()` y `evaluarRetroceso()`, así que el marcado manual y el automático comparten criterio por construcción. Vive en `utils/` por el mismo ciclo que `pedidoPvCapacidad.ts` (`server → app → routes → controller`); `../server` y `./notificaciones` entran por import dinámico.
+
+- **`chk_accesorios` (Herrajes) es calculable**: marcado ⇔ la ODP tiene ≥1 SAP, ninguna SAP vacía y **todas** las líneas de **todas** sus SAP en `estado_compra = 'en_existencia'`. Recibir una ODC ya pasa sus `SAPItem` a `en_existencia`, así que "todos en S" y "todos en una ODC recibida" son la misma condición. Una SAP en borrador sin ítems **bloquea**.
+- **`chk_vidrio` es dirigido por evento, no calculable**: marca cuando una vía se cierra (todos los `PedidoPV` en `VERIFICADO`, o una ODC `tipo='vidrio'` recibida) y desmarca cuando cualquier vía se reabre (`PROBLEMA`, reposición, ODC revertida o eliminada). Verificar un PV cuando aún faltan otros **no toca nada** — el desmarcado está reservado a los eventos que reabren la vía.
+- **El automático manda sobre la marca manual** (decisión del usuario, 2026-09-09): el check cae aunque lo hubiera puesto una persona. Las celdas siguen siendo clicables a mano.
+- **El retroceso de estado solo ocurre desde `LISTO_INSTALAR`.** Una ODP ya `PROGRAMADA` o más allá pierde el check pero conserva el estado.
+- **19 puntos de llamada** en `odc.controller` (10), `sap.controller` (3) y `pedido_pv.controller` (4), más los dos consumos de `updateODP`. `sincronizarItemODC` queda fuera a propósito: solo limpia `modificado`, no mueve `estado_compra`.
+- El motor **se detiene sin escribir si nada cambia** — se llama desde 19 sitios y no puede generar auditoría ni sockets en cada guardado. Con transacción, la emisión se aplaza vía `transaction.afterCommit`.
+- `historial_estados_odp.automatico` (BOOLEAN, 2026-09-09) marca estos movimientos. Los alimenta a `GET /api/odp/movimientos-automaticos` → pestaña **"Automáticos"** del tablero de Producción (últimos 10).
+
 ### ODP No Conformidad
 Hija con `odp_padre_id` + `es_no_conformidad: true`. Padre → PAUSADA. Se reactiva a **INSTALADA** cuando la hija llega a `INSTALADA` **o a `ENTREGADA`** — ese es su estado terminal, no avanza a ENTREGADA. NC no cobran al cliente → `estado_caja = CANCELADO`.
 
@@ -243,7 +253,7 @@ Hija con `odp_padre_id` + `es_no_conformidad: true`. Padre → PAUSADA. Se react
 | `EvidenciaInstalacion` | `evidencias_instalacion` | Cloudinary. **`EvidenciasPage.tsx` no está enrutada en frontend — módulo huérfano**, ver Arquitectura Frontend |
 | `NoConformidad` | `no_conformidades` | |
 | `NotaProduccion` | `notas_produccion` | |
-| `HistorialEstadoODP` | `historial_estados_odp` | |
+| `HistorialEstadoODP` | `historial_estados_odp` | `usuario_id` es **NOT NULL** — siempre pasar el actor. `automatico` (2026-09-09) marca los movimientos que hizo el sistema solo |
 | `Vehiculo` | `vehiculos` | |
 | `RutaInstalacion` / `RutaODP` | `rutas_instalacion` / `ruta_odp` ⚠️ | `RutaODP` en singular — mismo bug de revertir auditoría |
 | `Prospecto` | `prospectos` | `odp_id` al aprobarse |
@@ -285,7 +295,7 @@ Cada módulo en `frontend-web/src/features/<nombre>/`: página principal + `comp
 | `auth` | `/login` | Login JWT |
 | `odp` ⭐ | `/odp` | CRUD + modal detalle (`ODPFichaModal`) |
 | `crm` | `/crm` | Hub comercial: tabs pipeline (Kanban leads), métricas, gerencial, sin_respuesta, reportes, prospectos, monitor, embudo. Distinto de `/prospectos` (CRUD/pipeline clásico de captación) |
-| `produccion` | `/produccion` | Kanban + tab Pausadas |
+| `produccion` | `/produccion` | Kanban + tabs Pausadas y **Automáticos** (bitácora de los últimos 10 movimientos que hizo el sistema solo) |
 | `instalaciones` | `/instalaciones` | JefeView (incluye tab AgendaTab), InstaladorView, ConductorView |
 | `compras` | `/compras` | ODC: SAPs, Órdenes, Perfilería, Vidrios |
 | `contabilidad` | `/contabilidad` | Facturación y caja |

@@ -1736,3 +1736,78 @@ El primer intento de verificación reportó **129 fallos falsos** (todos los per
 1. **Etapa 2** (la más grande, ~4.700 LOC ESM→TS sin cambios de lógica): motores de cálculo (`motorCalculo`, `motorDespiece`, `cotizarPorDiseno`, `aptitudOrden`, `calibracion`, `planoProducto`, `codigoDiseno`, `ordenCorte`, `accesoriosPorDiseno`), los 6 módulos de producto, `cache.ts` (precarga síncrona), `proveedorSequelize.ts` (mismo contrato de 5 métodos que `lib/catalogo.ts` ya esperaba), endpoints en `routes/cotizador.routes.ts`, instalar `pdfmake@0.3.11` exacto. Verificar con golden-master contra el standalone antes de dar por buena la conversión.
 2. Etapa 3: frontend (cotizar/guardar). Etapa 4: PDF/calibración/precios/accesorios/empresa.
 3. Working tree con cambios sin commitear (ver recordatorio de cierre de sesión) — agrupar en un solo commit cuando el usuario lo pida, probablemente al cerrar una etapa completa.
+
+---
+
+## 2026-09-09 — Checks automáticos de Vidrio y Herrajes: motor único, tiempo real y bitácora
+
+### Requerimiento
+Que el check de **Herrajes** se rija por la SAP (todas las líneas en existencia o en una ODC ya recibida) y el de **Vidrio** por Pedidos PV y ODC de vidrio, con actualización en vivo sin refrescar la página.
+
+### Hallazgos de la auditoría previa
+Los dos automatismos **ya existían y estaban rotos**:
+
+1. **`verificarPedido` marcaba `chk_vidrio` pero no emitía `emitirODPPatch`** — solo `emitirCambio('pedidos_pv')`. El tablero de Producción únicamente escucha `odp_patch`: el check quedaba correcto en BD y la celda no cambiaba hasta un F5.
+2. **`updateODP` tenía un `return` que se saltaba la emisión.** Si la ODP estaba en estado productivo y tenía un Pedido PV en `PENDIENTE/ENVIADO/CONFIRMADO_PROVEEDOR`, hacía `commit` y respondía **antes** del `emitirODPPatch` final. Afectaba a **los nueve checks**, no solo a estos dos, y también se saltaba el retroceso, la propagación de proveedor a PV, la regla VERIFICADO→ENTREGADO y la reactivación de la ODP padre. `toggleCheck` no hacía update optimista, así que no se repintaba ni para quien marcaba.
+3. **`recibirItems` resolvía una sola ODP** tomando el primer `SAPItem` de la orden. Como una ODC de perfilería agrupa material de varias ODP: falso negativo en todas las demás, y falso positivo en esa (se marcaba con líneas pendientes en otra orden).
+4. **Las otras tres vías a `en_existencia` no tocaban el check**: recepción desde la cabecera (`updateODC`), la "S" manual (`toggleExistencia`) y la cobertura por inventario (`asignarExistencia` / `dividirPorExistencia`).
+5. **Ambos automatismos escribían con `Model.update({ where })`**, que no dispara hooks de instancia: sin auditoría, sin `fecha_chk_accesorios`, sin avance de estado y sin evaluación de `LISTO_INSTALAR`.
+
+### Decisiones de negocio (confirmadas con el usuario)
+- **Herrajes**: marcado ⇔ la ODP tiene ≥1 SAP, **ninguna** SAP vacía y **todas** las líneas de **todas** sus SAP en `en_existencia`. Una SAP en borrador sin ítems **bloquea**.
+- **Vidrio**: dirigido por evento, no calculable. **Marca** cuando una vía se cierra (todos los PV verificados, o ODC de vidrio recibida) y **desmarca** cuando cualquier vía se reabre (PROBLEMA, reposición, ODC revertida). Optimista al marcar, pesimista al desmarcar.
+- **El automático manda sobre la marca manual**: si el material se revierte, el check cae aunque lo hubiera puesto una persona, con notificación. Las celdas siguen siendo clicables a mano.
+- **El retroceso solo ocurre desde `LISTO_INSTALAR`.** Una ODP ya `PROGRAMADA` o más allá pierde el check pero conserva el estado: sacarla de una ruta armada por un movimiento de bodega es peor que el problema que resuelve.
+- Verificar un pedido **nunca desmarca**: si aún faltan PV por verificar, no toca nada.
+
+### Backend
+**Nuevo — `utils/checksAutomaticos.ts` (motor único).** Vive en `utils/` por el ciclo `server → app → routes → controller` que documenta CLAUDE.md; `../server` y `./notificaciones` entran por import dinámico. Expone `recalcularChecksODP()` como entrada única, más `herrajesCubiertos`, `odpIdsDeSapItems`, `odpIdsDeOdpItems`, `recalcularHerrajesDeSapItems` y `recalcularVidrioDeOdpItems`.
+
+Secuencia: calcula → **si nada cambia se detiene** (sin escritura, sin auditoría, sin socket: se llama desde 19 puntos y no puede hacer ruido) → escribe con `odp.update()` de instancia → `fecha_chk_accesorios` → avance de estado → `LISTO_INSTALAR` o retroceso → historial → notificación → `emitirODPPatch`. Con transacción, la emisión se aplaza con `transaction.afterCommit` para no publicar una fila que aún no existe.
+
+**Extracción desde `updateODP`:** `evaluarListoInstalar()` y `evaluarRetroceso()` salieron al motor **sin cambiar ninguna regla**, y `updateODP` pasa a llamarlas. El marcado manual y el automático comparten ahora el mismo criterio por construcción. El `return` del hallazgo 2 pasó a ser un `return false` dentro de la función: la regla de negocio se conserva y el flujo llega hasta la emisión.
+
+**Avance `chk_vidrio → VIDRIO_RECIBIDO`** heredado de `verificarAvanceODP`, con su guarda original (`ESTADOS_POSTERIORES_A_VIDRIO`) y no `ESTADOS_PRODUCTIVOS`: desde `ACCESORIOS_SEPARADOS`, escribir `VIDRIO_RECIBIDO` sería mandar la orden hacia atrás.
+
+**Puntos de llamada (19):**
+- `odc.controller` — `createODC`, `updateODC`, `recibirItems`, `toggleExistencia`, `dividirPorExistencia`, `asignarExistencia`, `revertirExistencia`, `eliminarODC`, `editarItemsODC`, `createODCVidrios`.
+- `sap.controller` — `createSAP`, `updateSAP`, `deleteSAP`.
+- `pedido_pv.controller` — `verificarPedido`, `marcarProblema`, `registrarReposicion`, `eliminarPedidoPV`. `verificarAvanceODP` eliminada.
+- `sincronizarItemODC` **no** se tocó: solo limpia `modificado`, no mueve `estado_compra`.
+
+**Nuevo endpoint:** `GET /api/odp/movimientos-automaticos?limit=10`, declarado **antes** de `/:id`.
+
+### Base de datos
+`historial_estados_odp.automatico BOOLEAN NOT NULL DEFAULT false` + índice parcial `idx_historial_automatico_fecha`. Script `2026-09-09_agregar_automatico_historial.ts`, **ya ejecutado** (1762 registros históricos quedan en `false`: no se puede saber a posteriori cuáles fueron automáticos). Se descartó distinguirlos por `observacion LIKE 'Automático:%'` — funciona hasta que alguien reescriba un mensaje.
+
+### Frontend
+- `ProduccionPage.toggleCheck` — **update optimista** con reversión en error (mismo patrón que `handleSetColor`).
+- Tooltip en las celdas Vidrio y Herrajes explicando que se mueven solas y que pueden **caer** solas.
+- **Nueva pestaña "Automáticos"** en el tablero → `components/MovimientosAutomaticosTab.tsx`. Últimos 10 movimientos, refresco por socket con debounce de 600 ms, retrocesos resaltados en ámbar, clic abre la ficha.
+
+### Verificación
+- `tsc --noEmit` backend y frontend: limpio. `npm run build` backend: OK.
+- Build CRA: OK (`main.c13d4d8f.js`, 974.89 kB gzip, +1.38 kB). Único warning: `HardHat` sin usar en `Sidebar.tsx`, **preexistente**. Los archivos tocados: 0 warnings.
+- ⚠️ `npm run lint` del backend **no corre**: ESLint 10.0.3 instalado exige `eslint.config.js` y el repo tiene `.eslintrc`. Preexistente, no introducido aquí.
+- **Sin pruebas manuales todavía** (no hay tests automatizados).
+
+### Informe de reconciliación — pendiente de decisión del usuario
+`2026-09-09_reconciliar_checks_automaticos.ts` corrido en **modo informe** (transacción revertida). 56 ODP vivas, **8 descuadres**:
+
+| ODP | Cambio | Estado → después |
+|---|---|---|
+| G-0016 | marcar Herrajes | LISTO_INSTALAR (igual) |
+| OA-3842 | marcar Herrajes | MEDICION → ACCESORIOS_SEPARADOS |
+| ODP-24291 | marcar Herrajes | MEDICION → ACCESORIOS_SEPARADOS |
+| ODP-24301 | desmarcar Herrajes | MEDICION (igual) |
+| ODP-24309 | desmarcar Herrajes | MEDICION (igual) |
+| ODP-24311 | desmarcar Herrajes | MEDICION (igual) |
+| **ODP-24286** | desmarcar Herrajes | **LISTO_INSTALAR → VIDRIO_RECIBIDO** |
+| **ODP-24316** | desmarcar Herrajes | **LISTO_INSTALAR → VIDRIO_RECIBIDO** |
+
+Ninguna saltaría a LISTO_INSTALAR. **Dos saldrían de Instalaciones** (24286 y 24316): son la decisión que falta. Aplicar con `--aplicar`.
+
+### Pendiente
+1. Decidir sobre las 8 ODP del informe, en particular ODP-24286 y ODP-24316.
+2. Pruebas manuales dirigidas: recibir ODC completa y parcial, marcar/quitar la "S", cobertura parcial, revertir existencia, eliminar/editar ODC, verificar PV, marcar problema y reposición, y marcar un check en una ODP con PV pendiente (el hallazgo 2).
+3. Working tree sin commitear.
