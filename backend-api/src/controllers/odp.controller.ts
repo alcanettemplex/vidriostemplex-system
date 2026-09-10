@@ -33,6 +33,10 @@ import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { generarNumeroODP } from '../utils/generarNumeroODP';
 import { propagarProveedorAPedidosPV, normalizarProveedor, mismoProveedor } from '../utils/pedidoPvCapacidad';
 import { evaluarListoInstalar, evaluarRetroceso } from '../utils/checksAutomaticos';
+import {
+  construirWhereODP, includeBuscadorODP, mapearFilaBuscadorODP, calcularTotalesODP,
+  CAMPOS_ORDEN_ODP,
+} from '../utils/odpFiltros';
 
 const aEnteroOPosibleNull = (val: unknown) => {
   if (val === '' || val === null || val === undefined) return null;
@@ -303,6 +307,70 @@ export const getODPs = async (req: Request, res: Response) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener ODPs' });
+  }
+};
+
+/**
+ * GET /api/odp/explorador — pestaña "Consultar" del módulo ODP (solo rol `admin`).
+ *
+ * Consulta transversal con 11 filtros combinables sobre TODAS las ODPs: estado de taller
+ * (multi-selección), facturación, caja, tipo de registro, asesor, texto, rango de fechas
+ * sobre 4 campos distintos, forma de pago, monto, saldo pendiente y cartera vencida.
+ *
+ * Existe porque el listado de ODPListPage no puede responder estas preguntas: pide
+ * `excluir_completadas=true` y reparte 200 filas en tabs del lado del cliente, así que
+ * deja fuera justo el ~78% terminado que hay que cruzar contra facturación. La pregunta
+ * que motivó la pestaña —"¿qué está entregado y todavía sin facturar?"— vive entera en
+ * ese 78%.
+ *
+ * El motor de filtrado es el mismo que alimenta el Buscador Avanzado de /supervision-crm
+ * (utils/odpFiltros.ts): una sola definición de "cartera vencida" y de "facturado en el
+ * rango" para todo el sistema.
+ *
+ * ⚠️ Esta ruta NO pasa por `cacheListados` — ver el comentario en odp.routes.ts.
+ */
+export const getExploradorODP = async (req: Request, res: Response) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
+
+    const campoOrden = (CAMPOS_ORDEN_ODP as readonly string[]).includes(req.query.orden_campo as string)
+      ? (req.query.orden_campo as string)
+      : 'fecha_creacion';
+    const dirOrden = String(req.query.orden_dir).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+    const where = await construirWhereODP(req.query);
+
+    // En paralelo: la página visible y los totales del conjunto COMPLETO. Los totales no
+    // se derivan de `rows` a propósito —sumar 50 filas de 300 daría una cifra falsa— y
+    // por eso tampoco se usa `findAndCountAll`: `calcularTotalesODP` ya devuelve el
+    // conteo, así que una segunda consulta COUNT sería trabajo duplicado.
+    const [rows, totales] = await Promise.all([
+      ODP.findAll({
+        where,
+        include: includeBuscadorODP,
+        order: [[campoOrden, dirOrden]],
+        limit,
+        offset: (page - 1) * limit,
+      }),
+      calcularTotalesODP(where),
+    ]);
+
+    // El umbral de días de cartera NO viaja aquí: sería una lectura de
+    // `configuracion_global` en cada página de resultados para un dato que no cambia
+    // durante la sesión. El frontend lo pide una vez a GET /api/configuracion, que ya
+    // admite el rol `admin` — el único que llega a esta pestaña.
+    res.json({
+      items: rows.map(mapearFilaBuscadorODP),
+      total: totales.count,
+      page,
+      limit,
+      totalPages: Math.ceil(totales.count / limit),
+      totales,
+    });
+  } catch (error) {
+    console.error('Error en getExploradorODP:', error);
+    res.status(500).json({ error: 'No se pudo ejecutar la consulta. Revisa los filtros e intenta de nuevo.' });
   }
 };
 

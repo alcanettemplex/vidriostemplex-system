@@ -4,7 +4,7 @@ import ExcelJS from 'exceljs';
 import sequelize from '../config/database';
 import {
   Lead, LeadEvento, LeadImagen, Usuario, Cliente, Prospecto, TomaMedidas,
-  SupervisionLineamiento, SupervisionLineamientoItem, FacturaAdicionalODP,
+  SupervisionLineamiento, SupervisionLineamientoItem,
   ConfiguracionGlobal, MetaUsuarioMensual,
 } from '../models';
 import ODP from '../models/odp.model';
@@ -13,7 +13,11 @@ import '../config/upload'; // garantiza que cloudinary está configurado
 import { diasDesde, calcularAccionSugerida, FECHA_POR_ESTADO, hoyBogotaISO } from '../utils/crmSupervision';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { generarNumeroODP } from '../utils/generarNumeroODP';
-import { whereTieneFacturaEnRango } from '../utils/facturacion';
+import { construirFiltroFecha } from '../utils/rangoFechas';
+// Motor de filtrado de ODPs compartido con la pestaña "Consultar" del módulo ODP
+// (odp.controller → getExploradorODP). Antes vivía aquí abajo; se extrajo el 2026-09-10
+// para que no existan dos definiciones de "cartera vencida" ni de "facturado en el rango".
+import { construirWhereODP, includeBuscadorODP, mapearFilaBuscadorODP } from '../utils/odpFiltros';
 
 // Preview de los textos largos del Lead para LISTADOS. El tablero/monitor/radar solo
 // muestran 1-2 líneas de estos campos (TEXT), así que se traen recortados a 160 caracteres
@@ -1832,17 +1836,9 @@ export const getMonitorAsesores = async (req: Request, res: Response) => {
 
 // ─── Módulo Supervisión CRM (exclusivo rol admin) ────────────────────────────
 
-const construirFiltroFecha = (fecha_desde: any, fecha_hasta: any) => {
-  if (!fecha_desde || !fecha_hasta) return null;
-  const start = new Date(fecha_desde as string);
-  const end = new Date(fecha_hasta as string);
-  // setUTCHours (no setHours): fecha_desde/fecha_hasta llegan como "YYYY-MM-DD" y se
-  // parsean en medianoche UTC. Mutar con setters de hora LOCAL en un servidor con TZ
-  // distinto de UTC desfasa el límite del período — mismo bug corregido en getCRMStats
-  // (ver TECH_DEBT 2026-07-12).
-  end.setUTCHours(23, 59, 59, 999);
-  return { [Op.between]: [start, end] };
-};
+// `construirFiltroFecha` se movió a utils/rangoFechas.ts (2026-09-10): lo comparten este
+// controlador y utils/odpFiltros.ts, y dos copias significarían que el CRM y el módulo
+// ODP puedan acabar contando "agosto" con límites distintos.
 
 // Calcula el rango [inicio, fin) del período inmediatamente anterior, de la misma
 // duración que [fecha_desde, fecha_hasta] — mismo patrón que dashboard.controller.ts
@@ -2434,124 +2430,22 @@ export const getAdherenciaLineamiento = async (req: Request, res: Response) => {
   }
 };
 
-// ─── Buscador Avanzado (admin) — búsqueda cruzada de ODPs y Leads con filtros ─
+// ─── Buscador Avanzado (root) — búsqueda cruzada de ODPs y Leads con filtros ──
 // detallados de facturación/caja/acarreo-instalación (ODP) y pipeline/fuente (Lead).
-// construirWhereBuscador* se comparte entre el endpoint JSON y su export a Excel
-// para no duplicar la lógica de filtros.
-
-const CAMPOS_FECHA_ODP: Record<string, string> = {
-  fecha_factura: 'fecha_factura',
-  fecha_creacion: 'fecha_creacion',
-  fecha_entrega: 'fecha_entrega',
-};
+//
+// El motor de filtrado de ODPs (construirWhereODP + includeBuscadorODP +
+// mapearFilaBuscadorODP) se extrajo a utils/odpFiltros.ts el 2026-09-10, cuando la
+// pestaña "Consultar" del módulo ODP necesitó exactamente los mismos filtros desde otro
+// controlador. Aquí queda solo lo propio de Leads y de los exports a Excel.
 
 const TOPE_FILAS_EXCEL = 5000;
-
-async function construirWhereBuscadorODP(query: Record<string, any>) {
-  const {
-    fecha_desde, fecha_hasta, campo_fecha, asesor_id, estado_facturacion, estado_caja, acarreo, instalacion, tipo_odp, search,
-    estado_produccion, monto_min, monto_max, incluir_garantias, es_no_conformidad, forma_pago, cartera_vencida,
-  } = query;
-  const where: any = {};
-  // es_garantia se excluye por defecto (comportamiento original); incluir_garantias=true lo levanta.
-  if (incluir_garantias !== 'true') where.es_garantia = false;
-
-  const campoFecha = CAMPOS_FECHA_ODP[campo_fecha as string] || 'fecha_factura';
-  const rangoFecha = construirFiltroFecha(fecha_desde, fecha_hasta);
-  if (rangoFecha) {
-    if (campoFecha === 'fecha_factura') {
-      // Filtro por presencia de FE (principal o adicional) en el rango, consistente con el
-      // KPI Pedidos Facturados y el Informe Ejecutivo (monto real por factura).
-      const [start, end] = (rangoFecha as any)[Op.between];
-      where[Op.and] = [...(where[Op.and] || []), whereTieneFacturaEnRango(start, end)];
-    } else {
-      where[campoFecha] = rangoFecha;
-    }
-  }
-
-  if (asesor_id) where.asesor_id = parseInt(asesor_id as string, 10);
-  if (estado_facturacion) where.estado_facturacion = estado_facturacion;
-  if (estado_caja) where.estado_caja = estado_caja;
-  if (acarreo !== undefined) where.acarreo = acarreo === 'true';
-  if (instalacion !== undefined) where.instalacion = instalacion === 'true';
-  if (tipo_odp) where.tipo_odp = tipo_odp;
-  if (estado_produccion) where.estado_produccion = estado_produccion;
-  if (es_no_conformidad !== undefined) where.es_no_conformidad = es_no_conformidad === 'true';
-  if (forma_pago) where.forma_pago = forma_pago;
-
-  if (monto_min || monto_max) {
-    where.valor_total = {
-      ...(monto_min ? { [Op.gte]: parseFloat(monto_min as string) } : {}),
-      ...(monto_max ? { [Op.lte]: parseFloat(monto_max as string) } : {}),
-    };
-  }
-
-  // Cartera vencida: misma definición que el dashboard (getResumenGerencial) —
-  // créditos con FE emitida cuya fecha_factura supera el umbral de días configurado.
-  if (cartera_vencida === 'true') {
-    const config = await ConfiguracionGlobal.findOne({ where: { id: 1 } });
-    const diasAlertaCartera = Number((config as any)?.dias_alerta_cartera_vencida) || 60;
-    const fechaUmbralCartera = new Date(Date.now() - diasAlertaCartera * 24 * 3600 * 1000);
-    where.forma_pago = 'credito';
-    where.pendiente = { [Op.gt]: 0 };
-    where.factura_electronica = { [Op.ne]: null };
-    where.fecha_factura = { [Op.lt]: fechaUmbralCartera };
-    where.estado_caja = { [Op.ne]: 'CANCELADO' };
-  }
-
-  if (search) {
-    const like = { [Op.iLike]: `%${search}%` };
-    where[Op.or] = [{ numero_odp: like }, { '$cliente.nombre_razon_social$': like }];
-  }
-
-  return where;
-}
-
-const includeBuscadorODP = [
-  { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'fuente'] },
-  { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
-  { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['numero_fe', 'fecha_factura'], separate: true },
-  // Sin `limit` aquí: en un include hasMany con separate:true, `limit` topa el total
-  // de filas devueltas entre TODOS los padres de la página, no por-padre — se toma
-  // el primer resultado ya en la capa de mapeo (mapearFilaBuscadorODP).
-  { model: Lead, as: 'leads_origen', attributes: ['fuente_lead'], separate: true },
-];
-
-function mapearFilaBuscadorODP(odp: any) {
-  const data = odp.toJSON ? odp.toJSON() : odp;
-  const leadOrigen = (data.leads_origen || [])[0];
-  const fuente = leadOrigen?.fuente_lead || data.cliente?.fuente || null;
-  return {
-    id: data.id,
-    numero_odp: data.numero_odp,
-    cliente_nombre: data.cliente?.nombre_razon_social || null,
-    fuente,
-    asesor_nombre: data.asesor?.nombre_completo || null,
-    estado_produccion: data.estado_produccion,
-    estado_facturacion: data.estado_facturacion,
-    estado_caja: data.estado_caja,
-    tipo_odp: data.tipo_odp,
-    forma_pago: data.forma_pago,
-    es_no_conformidad: data.es_no_conformidad,
-    valor_total: parseFloat(data.valor_total || '0'),
-    abono: parseFloat(data.abono || '0'),
-    pendiente: parseFloat(data.pendiente || '0'),
-    factura_electronica: data.factura_electronica,
-    fecha_factura: data.fecha_factura,
-    facturas_adicionales: (data.facturas_adicionales || []).map((f: any) => ({ numero_fe: f.numero_fe, fecha_factura: f.fecha_factura })),
-    acarreo: data.acarreo,
-    instalacion: data.instalacion,
-    fecha_entrega: data.fecha_entrega,
-    fecha_creacion: data.fecha_creacion,
-  };
-}
 
 // GET /api/supervision-crm/buscador/odp
 export const getBuscadorODP = async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
-    const where = await construirWhereBuscadorODP(req.query);
+    const where = await construirWhereODP(req.query);
 
     const { count, rows } = await ODP.findAndCountAll({
       where,
@@ -2577,7 +2471,7 @@ export const getBuscadorODP = async (req: Request, res: Response) => {
 // GET /api/supervision-crm/buscador/odp/excel
 export const exportarBuscadorODPExcel = async (req: Request, res: Response) => {
   try {
-    const where = await construirWhereBuscadorODP(req.query);
+    const where = await construirWhereODP(req.query);
     const rows = await ODP.findAll({
       where,
       include: includeBuscadorODP,

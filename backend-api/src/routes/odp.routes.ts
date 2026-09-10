@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, getNcGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha, getHistorialODP, agregarFacturaAdicional, eliminarFacturaAdicional, anularODP, reactivarODP, getMovimientosAutomaticos, marcarImpresasODP } from '../controllers/odp.controller';
+import { getODPs, getODP, createODP, updateODP, deleteODP, finalizarInstalacionODP, uploadCroquisODP, revisarDano, getGarantias, getNcGarantias, crearGarantia, facturarODP, actualizarEstadoCaja, aprobarSinItems, agregarItems, getCargaPorMes, getCargaPorFecha, getHistorialODP, agregarFacturaAdicional, eliminarFacturaAdicional, anularODP, reactivarODP, getMovimientosAutomaticos, marcarImpresasODP, getExploradorODP } from '../controllers/odp.controller';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRole } from '../middlewares/rbacMiddleware';
 import { uploadConfig } from '../config/upload';
@@ -46,6 +46,19 @@ router.get('/garantias/all', authMiddleware, cacheListados(TTL_LISTADOS_ODP), ge
 router.get('/nc-garantias', authMiddleware, cacheListados(TTL_LISTADOS_ODP), getNcGarantias);
 // Antes de '/:id' o Express lo tomaría por un id de ODP.
 router.get('/movimientos-automaticos', authMiddleware, getMovimientosAutomaticos);
+
+// Explorador de ODPs — pestaña "Consultar" del módulo ODP. Segmento fijo: también debe
+// ir antes de '/:id'.
+//
+// SIN `cacheListados` a propósito. La clave del caché es método+URL y el store es un Map
+// acotado por número de entradas: 11 filtros combinables generan claves prácticamente
+// únicas que lo llenarían de entradas de un solo uso, desalojando justo los listados que
+// sí comparten los 13 usuarios concurrentes. Es la misma razón por la que las búsquedas
+// (`?search=`) se dejan pasar sin cachear.
+//
+// Solo `admin`: cruza producción contra cartera en un mismo lugar. El bloqueo vive aquí y
+// no solo en el frontend — ocultar la pestaña no protege el endpoint.
+router.get('/explorador', authMiddleware, requireRole('admin'), getExploradorODP);
 
 // Impresión de la OP (pestaña "Por Imprimir" del tablero de Taller). Segmento fijo:
 // también debe ir antes de '/:id'. Mismo grupo de roles que PUT /:id — quien puede

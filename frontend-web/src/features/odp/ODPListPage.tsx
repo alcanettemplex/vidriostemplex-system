@@ -20,6 +20,7 @@ import SeleccionarTipoODPModal from './components/SeleccionarTipoODPModal';
 import SAPModal from './components/SAPModal';
 import COTModal from './components/COTModal';
 import TMModal from './components/TMModal';
+import ExploradorODPPanel from './components/ExploradorODPPanel';
 
 interface ODP {
     id: number;
@@ -183,7 +184,7 @@ const ODPListPage: React.FC = () => {
     const [searchResults, setSearchResults] = useState<{ rows: ODP[], count: number, page: number, totalPages: number } | null>(null);
     // Total de ODPs completadas: lo informa el backend porque el listado ya no las trae.
     const [countCompletadas, setCountCompletadas] = useState<number>(0);
-    const [activeTab, setActiveTab] = useState<'activas' | 'visita' | 'listas' | 'completadas' | 'con_dano' | 'garantia' | 'anuladas'>('activas');
+    const [activeTab, setActiveTab] = useState<'activas' | 'visita' | 'listas' | 'completadas' | 'con_dano' | 'garantia' | 'anuladas' | 'explorador'>('activas');
     const [garantiaSubTab, setGarantiaSubTab] = useState<'activas' | 'realizadas'>('activas');
     const [garantias, setGarantias] = useState<ODP[]>([]);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -324,7 +325,8 @@ const ODPListPage: React.FC = () => {
         if (activeTab === 'completadas') {
             setSearchResults(null);
             setLoading(false);
-        } else if (activeTab === 'garantia') {
+        } else if (activeTab === 'garantia' || activeTab === 'explorador') {
+            // 'explorador' tiene su propio ciclo de carga dentro de ExploradorODPPanel.
             setLoading(false);
         }
     }, [activeTab]);
@@ -525,6 +527,12 @@ const ODPListPage: React.FC = () => {
                         { key: 'con_dano',    label: 'Con Daños',            icon: <AlertTriangle className="w-4 h-4" />, badge: odpsConDano.length || undefined },
                         { key: 'garantia',    label: 'Garantías',            icon: <Shield className="w-4 h-4" />,        badge: garantias.length || undefined },
                         { key: 'anuladas',    label: 'Anuladas',             icon: <Ban className="w-4 h-4" />,           badge: odpsAnuladas.length || undefined },
+                        // Consulta transversal con 11 filtros. Solo `admin`: cruza producción
+                        // contra cartera. El backend lo exige también (requireRole en la ruta);
+                        // esto solo evita mostrar una pestaña que devolvería 403.
+                        ...(userRole === 'admin' ? [
+                            { key: 'explorador', label: 'Consultar', icon: <Search className="w-4 h-4" /> },
+                        ] : []),
                     ]}
                     activeKey={activeTab}
                     onChange={(k) => {
@@ -557,6 +565,17 @@ const ODPListPage: React.FC = () => {
                 </div>
             )}
 
+            {/* Pestaña "Consultar" (solo admin): panel propio con consulta server-side.
+                No se alimenta del `listado` de arriba — ese pide excluir_completadas y
+                deja fuera el ~78% terminado, que es justo lo que hay que cruzar contra
+                facturación. Ver ExploradorODPPanel. */}
+            {activeTab === 'explorador' && (
+                <div className="glass-panel overflow-hidden">
+                    <ExploradorODPPanel onAbrirODP={(id) => setSelectedOdpDetail(id)} />
+                </div>
+            )}
+
+            {activeTab !== 'explorador' && (
             <div className="glass-panel overflow-hidden">
                 {/* Barra de búsqueda y filtros */}
                 <div className="p-4 border-b border-slate-100 bg-white/50 space-y-3">
@@ -963,6 +982,7 @@ const ODPListPage: React.FC = () => {
                     </div>
                 )}
             </div>
+            )}
 
             {/* Paso 1: asignar asesor */}
             {showAsignarAsesor && (

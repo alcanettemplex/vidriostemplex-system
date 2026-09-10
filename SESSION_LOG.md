@@ -1902,3 +1902,111 @@ la última — un salto forzado tiene precedencia sobre un `avoid`, y la última
    arranca en hoja nueva y que no sale hoja en blanco al final.
 2. Confirmar que el popup no lo bloquee el navegador del taller en el primer intento (si pasa, el
    reintento abre al instante: el detalle queda en caché y no se marca nada en el intento fallido).
+
+---
+
+## 2026-09-10 — Pestaña "Consultar" del módulo ODP (explorador con 11 filtros)
+
+### Origen
+Pedido del usuario: una pestaña en `/odp` para filtrar por estado de taller, facturadas, estado
+de pago, no conformidades y garantías — "ver las que están por facturar y en qué proceso están".
+
+### Hallazgo que cambió el planteamiento
+El motor ya existía. `BuscadorAvanzadoPanel.tsx` + `crm.controller.ts` tenían **13 filtros
+funcionando** sobre ODP (fechas con selector de campo, asesor, producción, facturación, caja,
+tipo, NC, garantías, forma de pago, cartera vencida, montos, texto) con export a Excel — pero
+encerrados tras `router.use(requireRole('root'))` en `/supervision-crm`. Se decidió **extraer el
+motor a un util compartido** en vez de construir de cero o duplicarlo.
+
+Le faltaban al motor tres cosas para cubrir el pedido: multi-selección de estados (sin ella no se
+puede pedir "INSTALADA + ENTREGADA", que es literalmente la consulta "por facturar"), "solo
+garantías" (solo tenía incluir/excluir) y filtros por saldo.
+
+### Decisiones del usuario
+- Backend: extraer a util compartido.
+- Filtros: núcleo operativo + comercial/tiempo + dinero (11). Se descartó el paquete "taller fino"
+  (checks pendientes, proveedor de vidrio, con daño).
+- Estado de taller: 13 estados multi-selección + 5 grupos rápidos.
+- **Acceso: solo rol `admin`.** Sin export a Excel.
+- Período **obligatorio**: la pestaña no consulta hasta elegir uno.
+- Cartera vencida: atajo que pre-llena filtros a la vista, no filtro oculto.
+- Resultados: columnas + barra de totales.
+
+Dos avisos quedaron sin respuesta explícita y se resolvieron por supuesto declarado: **`root`
+queda fuera** (coherente con "solo admin", y `root` tampoco está en los `allowedRoles` de `/odp`
+en `AppRoutes.tsx`), y se **añadió el atajo "Todo el histórico"** como mitigación del rango
+obligatorio — sin él, una ODP entregada en marzo y nunca facturada queda invisible, que es justo
+el caso de uso que originó la pestaña.
+
+### Cambios realizados
+
+**Backend**
+- `utils/rangoFechas.ts` (nuevo) — `construirFiltroFecha` movido desde `crm.controller`. Lo
+  comparten el CRM y el explorador; dos copias significarían contar "agosto" con límites
+  distintos según el módulo.
+- `utils/odpFiltros.ts` (nuevo, ~290 líneas) — motor único: `construirWhereODP`,
+  `includeBuscadorODP`, `mapearFilaBuscadorODP`, `calcularTotalesODP`, `CAMPOS_FECHA_ODP`
+  (+`fecha_listo_instalar`), `CAMPOS_ORDEN_ODP`. Params nuevos, todos opcionales y sin efecto si
+  no se envían: `estados_produccion[]`, `tipo_registro`, `solo_con_saldo`, `excluir_estado_caja`,
+  `facturada_antes_de`, `orden_campo`/`orden_dir`.
+- `crm.controller.ts` — borradas ~120 líneas del motor local; ahora importa del util. Los dos
+  endpoints de supervisión quedan idénticos por fuera.
+- `odp.controller.ts` — `getExploradorODP`. Totales del conjunto **completo** (no de la página) en
+  consulta agregada paralela; por eso usa `findAll` + `calcularTotalesODP` y no `findAndCountAll`
+  (ese COUNT sería trabajo duplicado).
+- `odp.routes.ts` — `GET /api/odp/explorador` con `requireRole('admin')`, declarada **antes de
+  `/:id`** y **sin `cacheListados`**.
+
+**Frontend**
+- `features/odp/exploradorService.ts` (nuevo) — cliente tipado con serializador de arrays sin
+  corchetes (`estados_produccion=X&estados_produccion=Y`); con el `qs` por defecto de Axios el
+  backend recibiría `estados_produccion[]` y filtraría por nada en silencio.
+- `features/odp/components/ExploradorODPPanel.tsx` (nuevo, ~490 líneas).
+- `ODPListPage.tsx` — 8ª pestaña `Consultar` condicionada a `userRole === 'admin'` y render del
+  panel. No se tocó la lógica de las 7 pestañas existentes.
+
+**BD:** cero migraciones. Todos los campos ya existían.
+
+### Deuda resuelta de paso
+`if (acarreo !== undefined) where.acarreo = acarreo === 'true'` filtraba por `false` ante un
+`acarreo=''` (lo que manda un `<select>` sin elegir). No explotaba porque el único cliente mandaba
+`undefined`, pero era una trampa para el siguiente consumidor. Sustituido por `leerBooleano()`,
+que solo reconoce `'true'`/`'false'` explícitos.
+
+### Detalles no obvios
+- **Fechas locales, no UTC.** El panel usa un formateador propio en vez de
+  `toISOString().slice(0,10)`: en Bogotá (UTC-5) esa conversión retrocede un día. Misma clase de
+  bug que TECH_DEBT 2026-07-12.
+- **`calcularTotalesODP` incluye `Cliente` con `attributes: []`** aunque no lea ninguna columna
+  suya: el filtro de búsqueda referencia `$cliente.nombre_razon_social$` y sin el include ese
+  `where` no resuelve. Y **no** incluye las asociaciones `separate: true`, porque
+  `whereTieneFacturaEnRango` emite SQL literal contra el alias `"ODP"`.
+- **El panel no se suscribe al socket** a propósito: es consulta puntual, y `useODPSocketPatch`
+  pelearía con un estado que no es el `listado` de la página.
+- El umbral de días de cartera se pide **una vez por montaje** a `GET /api/configuracion` (que ya
+  admite `admin`), no en cada página de resultados.
+- `PEDIDO_PROVEEDOR` **no** se ofrece como filtro pese a existir en el ENUM de Postgres: está
+  retirado del código desde el 2026-08-01.
+
+### Verificación
+- `tsc` backend: limpio. `tsc --noEmit` frontend: limpio; confirmado con `--listFiles` que ambos
+  archivos nuevos entran al programa.
+- ESLint sobre los 3 archivos frontend tocados: limpio.
+- Build CRA (`--script-shell=bash`): OK, 981.13 kB gzip (+4.3 kB). Los únicos warnings son
+  preexistentes (`Sidebar.tsx`, `index.tsx`).
+- **No-regresión del motor extraído** (2 scripts contra el artefacto compilado en `dist/`, sin
+  tocar la BD): 18 combinaciones de filtros comparadas contra la semántica anterior — default,
+  rango por `fecha_factura` (literal SQL idéntico), rango por `fecha_creacion`, estado singular,
+  `incluir_garantias`, NC, acarreo/instalación, montos, search, tipo_odp. Todas correctas.
+- **`cartera_vencida=true` verificado con `ConfiguracionGlobal.findOne` stubeado**: el `where`
+  generado es **idéntico** al de la implementación anterior, y el atajo del explorador armado con
+  filtros atómicos produce el mismo conjunto.
+- Casos de regresión del fix: `acarreo=''` y `estados_produccion=[]` ya no filtran.
+
+### Pendiente
+1. **Prueba manual del usuario** — no hay tests automatizados. Confirmar sobre todo:
+   "Terminadas + Facturación pendiente + Todo el histórico" (la consulta que originó la pestaña),
+   y abrir `/supervision-crm` con filtros conocidos para verificar que los conteos no cambiaron.
+2. Decidir si `root` debe ver la pestaña (hoy no: recibiría 403, y tampoco entra a `/odp`).
+3. TECH_DEBT 2026-09-10: migrar `BuscadorAvanzadoPanel` al pre-llenado y retirar el parámetro
+   `cartera_vencida` del util.

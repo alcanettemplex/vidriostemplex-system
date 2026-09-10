@@ -4,6 +4,28 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-10 — `cartera_vencida=true` pisa en silencio otros filtros (solo /supervision-crm)
+
+**Severidad:** baja · **Estimación:** 20 min
+
+En `utils/odpFiltros.ts`, el parámetro `cartera_vencida=true` no es un filtro más: reescribe
+`forma_pago` a `'credito'` y fuerza `estado_caja ≠ CANCELADO`, descartando lo que el llamador
+hubiera enviado en esos dos campos. Pedir "contado + cartera vencida" devuelve créditos.
+
+Es el comportamiento histórico y **el Buscador Avanzado de `/supervision-crm` depende de él**,
+por eso se conservó tal cual al extraer el motor. La pestaña "Consultar" del módulo ODP **no**
+manda este parámetro: su atajo de Cartera Vencida escribe los cuatro filtros atómicos
+equivalentes (`forma_pago`, `solo_con_saldo`, `excluir_estado_caja`, `facturada_antes_de`) a la
+vista del usuario, que puede ajustarlos uno a uno. La equivalencia entre ambos caminos está
+verificada: el bloque `cartera_vencida` se reescribe internamente en esos mismos cuatro filtros.
+
+**Solución:** migrar `BuscadorAvanzadoPanel.tsx` al mismo esquema de pre-llenado y retirar el
+parámetro `cartera_vencida` del util. Mientras tanto no hay divergencia de criterio — hay una
+sola implementación—, solo una UI que miente sobre lo que filtró.
+
+---
+
+
 ## 2026-09-09 — ESLint del backend inoperante (config v9 pendiente de migrar)
 
 **Severidad:** media · **Estimación:** 30-45 min
