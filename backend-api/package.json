@@ -10,7 +10,9 @@
     "lint": "eslint src/ --ext .ts",
     "lint:fix": "eslint src/ --ext .ts --fix",
     "format": "prettier --write src/",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:cotizador": "node -r ts-node/register --test --test-concurrency=1 src/scripts/pruebas_cotizador/codigoDiseno.test.ts src/scripts/pruebas_cotizador/plano.test.ts src/scripts/pruebas_cotizador/humo.test.ts src/scripts/pruebas_cotizador/accesorios.test.ts",
+    "test:cotizador:golden": "node -r ts-node/register --test --test-concurrency=1 src/scripts/pruebas_cotizador/golden.test.ts"
   },
   "keywords": [],
   "author": "",

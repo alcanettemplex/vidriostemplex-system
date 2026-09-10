@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import cron from 'node-cron';
 import { Op } from 'sequelize';
 import PedidoPV from './models/pedido_pv.model';
+import { precargar as precargarCotizador } from './cotizador/cache';
 
 const PORT = process.env.PORT || 3001;
 const server = http.createServer(app);
@@ -153,6 +154,17 @@ cron.schedule('0 8 * * *', async () => {
     }
 
     console.log('Conexión a la base de datos exitosa.');
+
+    // Módulo Cotizador: sus motores son síncronos y leen todo de esta caché en
+    // RAM (ver plan de migración). Si falla, el módulo queda indisponible
+    // (sus rutas responden 503) pero el resto del ERP sigue arrancando.
+    try {
+      await precargarCotizador();
+      console.log('Caché del cotizador precargada.');
+    } catch (cotizadorErr) {
+      console.error('No se pudo precargar la caché del cotizador:', cotizadorErr);
+    }
+
     server.listen(PORT, () => {
       console.log(`Servidor backend (REST + WS) escuchando en puerto ${PORT}`);
     });
