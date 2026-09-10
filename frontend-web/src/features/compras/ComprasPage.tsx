@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, X, Layers, Plus, Printer, RotateCw, Trash2, RotateCcw } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, X, Layers, Plus, Printer, RotateCw, Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import ODCModal, { SAPItemConContexto } from './components/ODCModal';
 import ODCVidriosModal, { ODPItemConContexto } from './components/ODCVidriosModal';
@@ -196,6 +196,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
   const [editNotas, setEditNotas] = useState(odc.notas || '');
   const [editEstado, setEditEstado] = useState<string>(odc.estado);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDesrecepcion, setConfirmDesrecepcion] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [sincronizandoItem, setSincronizandoItem] = useState<number | null>(null);
   // Edición de ítems (perfilería/consumible) dentro del modal Editar
@@ -240,6 +241,29 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
   const odp = odc.sap?.ODP ?? odc.odp;
   const estadoProd = odp?.estado_produccion || '';
   const est = ODC_ESTADO_STYLE[odc.estado] || ODC_ESTADO_STYLE['pendiente'];
+  // Todos los ítems ya están en recibido=true pero la cabecera no dice 'recibido'.
+  // Pasa cuando una recepción se revirtió por el selector de estado: no queda nada
+  // que marcar, y sin esto el modal se quedaba sin salida (botón siempre inhabilitado).
+  const sinPendientesPorMarcar = odc.items.length > 0 && odc.items.every(it => it.recibido);
+  // Devolver una ODC recibida a 'pendiente' revierte el material a "en ODC" y puede
+  // tumbar checks de producción. Nunca en silencio: se confirma antes de mandar el PUT.
+  const esDesrecepcion = editEstado !== 'recibido' && odc.estado === 'recibido';
+
+  const guardarEdicion = async () => {
+    setLoading(true);
+    try {
+      await axios.put(
+        `${API}/api/compras/odc/${odc.id}`,
+        { proveedor: editProveedor, notas: editNotas, estado: editEstado },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setConfirmDesrecepcion(false);
+      setEditando(false);
+      onActualizar();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || 'Error al guardar la orden');
+    } finally { setLoading(false); }
+  };
 
   const handleGuardarEdicion = async () => {
     // Si el usuario seleccionó "Recibido" y la ODC no está recibida → abrir modal de items
@@ -268,22 +292,15 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
       return;
     }
 
-    setLoading(true);
-    try {
-      await axios.put(
-        `${API}/api/compras/odc/${odc.id}`,
-        { proveedor: editProveedor, notas: editNotas, estado: editEstado },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setEditando(false);
-      onActualizar();
-    } catch (e: any) {
-      console.error('Error al guardar ODC:', e?.response?.data || e?.message);
-    } finally { setLoading(false); }
+    if (esDesrecepcion) { setConfirmDesrecepcion(true); return; }
+
+    await guardarEdicion();
   };
 
   const handleConfirmarRecepcion = async () => {
-    if (itemsSeleccionados.size === 0) return;
+    // `items_recibidos: []` es válido: el backend recalcula `todosRecibidos` sobre el
+    // estado real de la tabla, así que repone la cabecera sin marcar nada nuevo.
+    if (itemsSeleccionados.size === 0 && !sinPendientesPorMarcar) return;
     setRecibiendoItems(true);
     try {
       await axios.put(
@@ -982,6 +999,13 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                   ))}
                 </div>
 
+                {sinPendientesPorMarcar && (
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
+                    <strong>Todos los ítems ya figuran como recibidos.</strong> Solo falta reponer el
+                    estado de la orden. Al confirmar, la ODC pasará a <em>Recibida</em> sin volver a
+                    mover el material.
+                  </div>
+                )}
                 {itemsSeleccionados.size > 0 && itemsSeleccionados.size < odc.items.filter(it => !it.recibido).length && (
                   <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
                     <strong>Recepción parcial:</strong> La ODC permanecerá en estado <em>Pendiente</em> con los ítems no seleccionados resaltados en amarillo.
@@ -1003,10 +1027,14 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                 </button>
                 <button
                   onClick={handleConfirmarRecepcion}
-                  disabled={recibiendoItems || itemsSeleccionados.size === 0}
+                  disabled={recibiendoItems || (itemsSeleccionados.size === 0 && !sinPendientesPorMarcar)}
                   className="flex-1 py-2.5 font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 transition disabled:opacity-40"
                 >
-                  {recibiendoItems ? 'Procesando...' : `Confirmar recepción (${itemsSeleccionados.size})`}
+                  {recibiendoItems
+                    ? 'Procesando...'
+                    : sinPendientesPorMarcar
+                    ? 'Marcar ODC como recibida'
+                    : `Confirmar recepción (${itemsSeleccionados.size})`}
                 </button>
               </div>
             </motion.div>
@@ -1043,6 +1071,47 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                   className="flex-1 py-2.5 font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition disabled:opacity-50"
                 >
                   {eliminando ? 'Eliminando...' : 'Sí, eliminar'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {confirmDesrecepcion && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200"
+            >
+              <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+              <h3 className="font-bold text-slate-800 mb-2 text-center">
+                ¿Revertir la recepción de {odc.numero_odc}?
+              </h3>
+              <p className="text-sm text-slate-500 mb-4 text-center">
+                Los <strong>{odc.items.length} ítems</strong> volverán a <strong>en ODC</strong> y
+                dejarán de contar como material en existencia
+                {odpsInfo.length > 0 && (
+                  <>. Esto puede tumbar el check de <strong>Herrajes</strong> en {odpsInfo.length === 1
+                    ? <strong>{odpsInfo[0].numero_odp}</strong>
+                    : <strong>{odpsInfo.length} ODP</strong>} y devolver la orden a producción</>
+                )}.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmDesrecepcion(false)}
+                  disabled={loading}
+                  className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+                >
+                  Volver
+                </button>
+                <button
+                  onClick={guardarEdicion}
+                  disabled={loading}
+                  className="flex-1 py-2.5 font-bold text-white bg-amber-600 rounded-xl hover:bg-amber-700 transition disabled:opacity-50"
+                >
+                  {loading ? 'Revirtiendo...' : 'Sí, revertir'}
                 </button>
               </div>
             </motion.div>

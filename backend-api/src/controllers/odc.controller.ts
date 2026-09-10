@@ -461,92 +461,151 @@ export const createODC = async (req: Request, res: Response) => {
 };
 
 // PUT /odc/:id — Actualizar estado o proveedor de ODC
+//
+// Recibir y des-recibir son simétricas. Antes solo la recepción aplicaba efectos:
+// devolver la cabecera a 'pendiente' dejaba el material en 'en_existencia' y los checks
+// marcados, así que la ODC mentía y el almacén quedaba descuadrado en silencio
+// (incidente ODC-9355, 2026-09-10). Ahora la reversión devuelve el material a 'en_odc',
+// desmarca los ítems y deja que el motor de checks tumbe lo que corresponda.
 export const updateODC = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
   try {
     const { id } = req.params;
     const { estado, proveedor, notas } = req.body;
 
     const odc = await OrdenCompra.findByPk(id, {
       include: [{ model: SAP, as: 'sap', include: [{ model: ODP }] }],
+      transaction: t,
     });
-    if (!odc) return res.status(404).json({ error: 'ODC no encontrada' });
+    if (!odc) { await t.rollback(); return res.status(404).json({ error: 'ODC no encontrada' }); }
 
     // ─── Verificación de ownership (solo creador o admin) ───
     if (req.user?.rol !== 'admin') {
       if (Number(odc.getDataValue('creado_por')) !== Number(req.user?.id)) {
+        await t.rollback();
         return res.status(403).json({ error: 'Solo el creador de la ODC puede editarla' });
       }
     }
 
     const estadoAnterior = odc.getDataValue('estado');
+    // `estado` puede no venir en el body: un PUT que solo toca proveedor/notas NO puede
+    // interpretarse como una des-recepción. Solo un string presente cuenta como intención.
+    const estadoPedido: string | undefined = typeof estado === 'string' && estado ? estado : undefined;
+    const vaARecibir = estadoPedido === 'recibido' && estadoAnterior !== 'recibido';
+    const vaADesrecibir = estadoPedido !== undefined && estadoPedido !== 'recibido' && estadoAnterior === 'recibido';
+
+    const numeroOdc = odc.getDataValue('numero_odc');
+    const usuarioId = req.user?.id ?? null;
+    const esVidrio = odc.getDataValue('tipo') === 'vidrio';
 
     // No se puede recibir una ODC con material modificado sin actualizar
-    if (estado === 'recibido' && estadoAnterior !== 'recibido') {
-      if (await hayItemsModificadosEnODC(id)) {
-        return res.status(400).json({ error: 'Hay materiales modificados sin actualizar. Actualiza la orden antes de marcarla como recibida.' });
+    if (vaARecibir && await hayItemsModificadosEnODC(id, t)) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Hay materiales modificados sin actualizar. Actualiza la orden antes de marcarla como recibida.' });
+    }
+
+    const fechaRecepcion = vaARecibir ? new Date()
+      : vaADesrecibir ? null
+      : odc.getDataValue('fecha_recepcion');
+
+    await odc.update({
+      ...(estadoPedido !== undefined ? { estado: estadoPedido } : {}),
+      ...(proveedor !== undefined ? { proveedor } : {}),
+      ...(notas !== undefined ? { notas } : {}),
+      fecha_recepcion: fechaRecepcion,
+    }, { transaction: t });
+
+    // odp_ids afectados, para emitir tras el commit (badge C→E del imprimible SAP)
+    let odpIdsNotificar: number[] = [];
+
+    if (vaARecibir || vaADesrecibir) {
+      const odcItems = await ODCItem.findAll({ where: { odc_id: id }, transaction: t });
+      const sapItemIds = odcItems.map((i: any) => i.getDataValue('sap_item_id')).filter(Boolean);
+      const odpItemIds = odcItems.map((i: any) => i.getDataValue('odp_item_id')).filter(Boolean);
+
+      odpIdsNotificar = await odpIdsDeSapItems(sapItemIds, t);
+      if (esVidrio) {
+        odpIdsNotificar = [...new Set([...odpIdsNotificar, ...(await odpIdsDeOdpItems(odpItemIds, t))])];
+      }
+
+      if (vaARecibir) {
+        // Recibir por cabecera equivale a que llegó todo: los ítems también quedan
+        // recibidos. Sin esto, una ODC 'recibido' con sus líneas en recibido=false
+        // rompía la simetría con `recibirItems` y confundía al modal de recepción.
+        await ODCItem.update(
+          { recibido: true },
+          { where: { odc_id: id }, individualHooks: true, transaction: t },
+        );
+        if (sapItemIds.length > 0) {
+          await SAPItem.update(
+            { estado_compra: 'en_existencia', modificado: false, datos_anteriores: null },
+            { where: { id: { [Op.in]: sapItemIds } }, transaction: t },
+          );
+        }
+        await recalcularHerrajesDeSapItems(sapItemIds, {
+          usuarioId, origen: 'SAP', detalle: `ODC ${numeroOdc} recibida`, transaction: t,
+        });
+        // ODC de vidrio: no pasa por SAP, la trazabilidad va por ODCItem.odp_item_id.
+        if (esVidrio) {
+          await recalcularVidrioDeOdpItems(odpItemIds, true, {
+            usuarioId, origen: 'ODC_VIDRIO', detalle: `ODC ${numeroOdc} recibida`, transaction: t,
+          });
+        }
+      } else {
+        // ─── Des-recepción ───
+        // El material vuelve a 'en_odc', no a 'pendiente': la orden sigue viva y el
+        // material sigue asignado a ella. 'pendiente' es la reversión correcta solo
+        // cuando la ODC se elimina (ver eliminarODC).
+        await ODCItem.update(
+          { recibido: false },
+          { where: { odc_id: id }, individualHooks: true, transaction: t },
+        );
+        if (sapItemIds.length > 0) {
+          await SAPItem.update(
+            { estado_compra: 'en_odc', modificado: false, datos_anteriores: null },
+            { where: { id: { [Op.in]: sapItemIds } }, transaction: t },
+          );
+        }
+        if (esVidrio && odpItemIds.length > 0) {
+          await ODPItem.update(
+            { estado_compra: 'en_odc' },
+            { where: { id: { [Op.in]: odpItemIds } }, transaction: t },
+          );
+        }
+        const detalle = `ODC ${numeroOdc} revertida a ${estadoPedido}`;
+        await recalcularHerrajesDeSapItems(sapItemIds, {
+          usuarioId, origen: 'SAP', detalle, transaction: t,
+        });
+        if (esVidrio) {
+          await recalcularVidrioDeOdpItems(odpItemIds, false, {
+            usuarioId, origen: 'ODC_VIDRIO', detalle, transaction: t,
+          });
+        }
       }
     }
 
-    const fechaRecepcion = estado === 'recibido' && estadoAnterior !== 'recibido'
-      ? new Date() : odc.getDataValue('fecha_recepcion');
+    await t.commit();
 
-    await odc.update({ estado, proveedor, notas, ...(fechaRecepcion ? { fecha_recepcion: fechaRecepcion } : {}) });
-
-    // Al marcar como recibida: pasar SAPItems de esta ODC a en_existencia y limpiar modificado
-    if (estado === 'recibido' && estadoAnterior !== 'recibido') {
-      const odcItems = await ODCItem.findAll({ where: { odc_id: id } });
-      const sapItemIds = odcItems.map((i: any) => i.getDataValue('sap_item_id')).filter(Boolean);
-      if (sapItemIds.length > 0) {
-        await SAPItem.update(
-          { estado_compra: 'en_existencia', modificado: false, datos_anteriores: null },
-          { where: { id: { [Op.in]: sapItemIds } } }
-        );
-      }
-
-      // ─── Checks automáticos ───
-      // Esta vía (recepción desde la cabecera de la ODC) nunca tocó los checks: solo
-      // `recibirItems` lo hacía, y mal. Ahora las dos convergen en el mismo motor.
-      const numeroOdc = odc.getDataValue('numero_odc');
-      const usuarioId = req.user?.id ?? null;
-      await recalcularHerrajesDeSapItems(sapItemIds, {
-        usuarioId, origen: 'SAP', detalle: `ODC ${numeroOdc} recibida`,
-      });
-      // ODC de vidrio: no pasa por SAP, la trazabilidad va por ODCItem.odp_item_id.
-      if (odc.getDataValue('tipo') === 'vidrio') {
-        const odpItemIds = odcItems.map((i: any) => i.getDataValue('odp_item_id')).filter(Boolean);
-        await recalcularVidrioDeOdpItems(odpItemIds, true, {
-          usuarioId, origen: 'ODC_VIDRIO', detalle: `ODC ${numeroOdc} recibida`,
-        });
-      }
-
-      // Resolver el odp_id dueño: la cabecera de la ODC (sap_id/odp_id) casi siempre
-      // es null para ODCs de perfilería (createODC las crea así) — la trazabilidad real
-      // es ODCItem.sap_item_id → SAPItem.sap_id → SAP.odp_id, igual que en recibirItems().
-      if (sapItemIds.length > 0) {
-        const sapItemConSap = await SAPItem.findOne({
-          where: { id: { [Op.in]: sapItemIds } },
-          include: [{ model: SAP, attributes: ['id', 'odp_id'] }],
-        });
-        const sapDataN = (sapItemConSap as any)?.SAP ?? (sapItemConSap as any)?.dataValues?.SAP;
-        const odpIdNotif: number | null = sapDataN?.odp_id ?? sapDataN?.getDataValue?.('odp_id') ?? null;
-
-        if (odpIdNotif) {
-          const odpNotif = await ODP.findByPk(odpIdNotif, { attributes: ['id', 'numero_odp', 'asesor_id', 'estado_produccion'] });
-          if (odpNotif) {
-            import('../utils/notificaciones').then(({ notificarCambioEstadoODP }) => {
-              notificarCambioEstadoODP({
-                numero_odp: odpNotif.getDataValue('numero_odp'),
-                odp_id: odpNotif.getDataValue('id'),
-                asesor_id: odpNotif.getDataValue('asesor_id'),
-                estado_nuevo: odpNotif.getDataValue('estado_produccion'),
-                mensaje: `ODC ${odc.getDataValue('numero_odc')} recibida — proveedor: ${proveedor || odc.getDataValue('proveedor')}`,
-              });
-            }).catch(err => console.error('Error notificación ODC recibida:', err));
-          }
-          // Sin esto, el badge C→E y el sombreado azul del imprimible SAP solo se
-          // verían tras F5 en cualquier ODPFichaModal ya abierto.
-          import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpIdNotif, 'update')).catch(() => {});
-        }
+    // ─── Emisión tras el commit ───
+    // Antes esto resolvía UNA sola ODP (el primer SAPItem de la orden) y dejaba sin
+    // avisar a las demás — una ODC de perfilería agrupa material de varias ODP.
+    import('../server').then(({ emitirCambio }) => emitirCambio('compras')).catch(() => {});
+    for (const odpId of odpIdsNotificar) {
+      import('../utils/notificaciones').then(({ emitirODPPatch }) => emitirODPPatch(odpId, 'update')).catch(() => {});
+    }
+    if (vaARecibir) {
+      for (const odpId of odpIdsNotificar) {
+        const odpNotif = await ODP.findByPk(odpId, { attributes: ['id', 'numero_odp', 'asesor_id', 'estado_produccion'] });
+        if (!odpNotif) continue;
+        import('../utils/notificaciones').then(({ notificarCambioEstadoODP }) => {
+          notificarCambioEstadoODP({
+            numero_odp: odpNotif.getDataValue('numero_odp'),
+            odp_id: odpNotif.getDataValue('id'),
+            asesor_id: odpNotif.getDataValue('asesor_id'),
+            estado_nuevo: odpNotif.getDataValue('estado_produccion'),
+            mensaje: `ODC ${numeroOdc} recibida — proveedor: ${proveedor || odc.getDataValue('proveedor')}`,
+          });
+        }).catch(err => console.error('Error notificación ODC recibida:', err));
       }
     }
 
@@ -558,6 +617,7 @@ export const updateODC = async (req: Request, res: Response) => {
     });
     res.json(updated);
   } catch (error: any) {
+    try { await t.rollback(); } catch { /* ya hecho */ }
     res.status(500).json({ error: 'Error al actualizar ODC', detail: error.message });
   }
 };

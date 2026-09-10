@@ -2010,3 +2010,80 @@ que solo reconoce `'true'`/`'false'` explícitos.
 2. Decidir si `root` debe ver la pestaña (hoy no: recibiría 403, y tampoco entra a `/odp`).
 3. TECH_DEBT 2026-09-10: migrar `BuscadorAvanzadoPanel` al pre-llenado y retirar el parámetro
    `cartera_vencida` del util.
+
+---
+
+## 2026-09-10 (2) — ODC-9355: recepción revertida en silencio y des-recepción simétrica
+
+### El incidente
+La ODC-9355 (`ordenes_compra.id=398`, VEA, perfilería) figuraba como `pendiente` pero con
+`fecha_recepcion` puesta, sus 4 ODCItem en `recibido=true` y sus 4 SAPItem en `en_existencia`.
+La cabecera mentía. `auditoria_log` reconstruyó la secuencia exacta:
+
+- **14:58:13** — `recibirItems` la recibió bien: SAPItems a `en_existencia`, motor de checks
+  recalculado sobre las 3 ODP afectadas (499 / ODP-24264, 552 / ODP-24307, 554 / ODP-24309).
+- **15:18:24** — un `PUT /api/compras/odc/398` la devolvió a `pendiente`. Acción deliberada del
+  usuario (quiso des-recibirla), pero **`updateODC` no tenía rama de des-recepción**: no revirtió
+  el material ni los checks. Resultado: cabecera en `pendiente`, almacén en existencia.
+
+`sap_items` no aparece en la auditoría de ese día porque el paso a `en_existencia` es un
+`Model.update({where})` sin `individualHooks` — los hooks de instancia no disparan en bulk
+(TECH_DEBT 2026-07-02). Confirma por descarte que la vía fue `recibirItems`.
+
+### Bug secundario: la UI no permitía arreglarlo
+Con todos los ítems ya en `recibido=true`, elegir "Recibido" en el selector abría el modal de
+recepción con **cero** ítems por marcar, y `handleConfirmarRecepcion` cortaba en
+`if (itemsSeleccionados.size === 0) return`. Botón muerto: no había forma de reponer el estado
+desde la interfaz.
+
+### Cambios
+1. **Script one-off** `2026-09-10_recibir_odc9355.ts` — repone `estado='recibido'` con
+   precondiciones verificadas (aborta si el estado cambió, si hay ítems sin recibir o si algún
+   SAPItem no está en `en_existencia`). **No toca `fecha_recepcion`**: conserva las 14:58 reales.
+   Envuelto en `requestContext.run` para que la auditoría registre el actor y no `null`.
+2. **`ComprasPage.tsx`** — `sinPendientesPorMarcar` destraba el modal cuando no queda nada que
+   marcar; el backend ya aceptaba `items_recibidos: []` y recalcula `todosRecibidos` sobre la
+   tabla. Botón "Marcar ODC como recibida" + aviso explicativo.
+3. **`updateODC`** — reescrito con transacción y rama de des-recepción simétrica: ODCItems a
+   `recibido=false` (`individualHooks: true`), SAPItems y ODPItems a `en_odc`,
+   `fecha_recepcion=null` y motor de checks para que caiga lo que corresponda.
+4. **Confirmación en UI** antes de revertir, nombrando el daño (N ítems y las ODP cuyo check
+   de Herrajes puede caer). Antes revertía en silencio — la causa raíz del incidente.
+
+### Decisiones técnicas
+- **`en_odc`, no `pendiente`, al des-recibir.** La orden sigue viva y el material sigue asignado
+  a ella; `pendiente` es la reversión correcta solo en `eliminarODC`, donde la ODC desaparece.
+- **No se prohibió des-recibir.** El usuario confirmó que la usa a propósito; bloquearla con un
+  409 le quitaba una herramienta. Se hizo funcionar de verdad.
+- **Guarda contra `undefined`.** `odc.update({estado: undefined})` no toca el campo, pero una
+  condición ingenua `estado !== 'recibido'` **sí** se dispararía con `undefined` y revertiría
+  material en cualquier PUT que solo cambie proveedor/notas. La rama exige `typeof estado ===
+  'string'` y valor no vacío.
+- **Recibir por cabecera ahora marca los ODCItem como `recibido=true`.** Antes no lo hacía, y
+  dejaba ODCs `recibido` con líneas en `recibido=false` — el estado inverso al de este incidente.
+- **La notificación ya no resuelve una sola ODP.** El bloque anterior tomaba el primer SAPItem y
+  avisaba solo a esa ODP; una ODC de perfilería agrupa material de varias (esta, 3). Ahora usa
+  `odpIdsDeSapItems`, el mismo camino que `recibirItems`.
+- **El script no emite sockets** a propósito: `emitirCambio`/`emitirODPPatch` importan `../server`
+  y ejecutar ese módulo desde un script levantaría un segundo `http.Server` en el 3001.
+
+### BD
+Cero migraciones. Una sola columna escrita: `ordenes_compra.estado` de la fila 398.
+
+### Verificación
+- `tsc` backend: limpio. `tsc --noEmit` frontend: limpio.
+- Estado final de la 398 releído contra Supabase: `recibido`, `fecha_recepcion` intacta (14:58),
+  4 ítems recibidos, 4 SAPItems en existencia.
+- **Ningún check se movió**, como se esperaba: ODP-24264 sigue en `chk_accesorios=false` (correcto:
+  su línea 1817 de SAP-7964 está en otra ODC, `en_odc`); 24307 y 24309 siguen en `true`.
+- Los dos únicos consumidores de `PUT /odc/:id` están en `ComprasPage`; el de la rama "ir a
+  recibido" manda `estado: odc.estado` (sin cambio), así que no dispara ninguna rama nueva.
+
+### Pendiente
+1. **La des-recepción (cambio 3) no está probada en runtime.** Verificarla exige recibir y revertir
+   una ODC real, lo que mueve material en producción. Falta prueba manual dirigida: recibir por
+   cabecera → revertir → confirmar que los SAPItems vuelven a `en_odc` y el check de Herrajes cae →
+   re-recibir y confirmar que sube.
+2. `ODP-24309` tiene `chk_accesorios=true` con `fecha_chk_accesorios=null`: consistente con el
+   motor (si el check ya estaba en `true`, retorna sin escribir y no sella la fecha), pero deja
+   una fecha en blanco que el tablero podría querer mostrar.
