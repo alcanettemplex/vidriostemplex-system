@@ -61,7 +61,7 @@ El repo vive en `C:\dev\vidrios-templex-system` (fuera de OneDrive desde el 2026
 
 - **Al iniciar sesión:** el hook `SessionStart` de `.claude/settings.json` corre `git fetch` e informa si la rama está atrás o adelante del remoto. Si avisa que hay commits por traer, **decírselo al usuario y esperar su orden** — nunca hacer `pull` por iniciativa propia; un pull sobre un working tree sucio puede mezclar sin que él lo vea.
 - **Al cerrar sesión:** si quedan commits locales sin pushear, **recordárselo**. El riesgo real de trabajar en dos máquinas no es olvidar el pull, es olvidar el push: al día siguiente se arranca sobre código viejo y se generan dos `main` divergentes que hay que mergear a mano.
-- El hook vive en `.claude/`, que está en `.gitignore` — **no viaja por git**. Al configurar la otra máquina hay que replicarlo a mano.
+- El hook vive en `.claude/`, que está en `.gitignore` — **no viaja por git**. Hay una copia versionada en `tooling/claude-code/` con las instrucciones para instalarlo en la otra máquina.
 
 ---
 
@@ -386,6 +386,8 @@ Existen además dos listas más, menores: `ROLES_VALIDOS` en `server.ts` (12, in
 
 **Includes Sequelize:** al agregar campo a modelo, revisar TODOS los includes con `attributes: [...]` que retornan ese modelo y agregar el campo.
 
+**Tokens de color (frontend):** definidos en `index.css` bajo `:root` desde el 2026-09-11 — superficies (`--bg`, `--surface`, `--surface-subtle`, `--surface-sunken`), bordes en tres pesos (`--border` tarjetas, `--border-strong` campos, `--border-subtle` separadores de fila), texto en cuatro (`--text`, `--text-muted`, `--text-subtle`, `--text-faint`) y semánticos (`--primary`, `--positive`, `--warning`, `--danger`, cada uno con su `-soft`). Hoy solo los consume el módulo Proveedores; al tocar ese módulo, usarlos en vez de repetir el hex. El bloque oscuro cuelga de `[data-theme="dark"]` **a propósito, no de `prefers-color-scheme`**: `ProveedoresPage.tsx` usa la variante `dark:` de Tailwind y `tailwind.config.js` no declara `darkMode`, así que Tailwind la resuelve por preferencia del sistema — atarlo ahí dejaría ese módulo a medio oscurecer mientras los otros 20 siguen claros. Nada escribe ese atributo todavía. El sistema completo (tipografía, radios, sombras) está en `design/proveedores/`.
+
 ---
 
 ## Notas Importantes
@@ -431,4 +433,4 @@ Lo que **sí** sigue frenando, y es lo único que queda:
 - Las 4 reglas `deny` de `.claude/settings.json` (`rm -rf`, `git reset --hard`, `git clean`, `Remove-Item -Recurse`). **No preguntan: bloquean.** Son el único candado técnico que impide borrar el working tree por un comando mal formado.
 - La metodología "propongo → preguntas → plan → **procede**" de este documento, que es una regla de comportamiento y no depende de los permisos. Que `git push` ya no pida confirmación **no cambia** la regla de Commits: sigo sin hacer commit ni push por iniciativa propia.
 
-El `allow` de `.claude/settings.json` (51 entradas: herramientas a secas, scripts npm del monorepo, `tsc`/`eslint`, `ts-node` limitado a `src/scripts/` y al scratchpad, git, y cmdlets de PowerShell) queda como respaldo por si alguna vez se vuelve a modo `default`. Ni `.claude/` (en `.gitignore`) ni `~/.claude/` viajan por git — **al configurar la otra máquina hay que replicar los dos archivos a mano**, y sin el `defaultMode` del global la otra máquina seguirá preguntando.
+El `allow` de `.claude/settings.json` (51 entradas: herramientas a secas, scripts npm del monorepo, `tsc`/`eslint`, `ts-node` limitado a `src/scripts/` y al scratchpad, git, y cmdlets de PowerShell) queda como respaldo por si alguna vez se vuelve a modo `default`. Ni `.claude/` (en `.gitignore`) ni `~/.claude/` viajan por git, así que hay **plantillas versionadas en `tooling/claude-code/`** con ambos archivos y el procedimiento de instalación. Copiarlas sigue siendo manual y deliberado; sin el `defaultMode` del global, la otra máquina seguirá preguntando.

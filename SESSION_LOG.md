@@ -2441,3 +2441,72 @@ buscador de texto libre, no un rankeador.
 - Decidir si se construye lo marcado `BACKEND NUEVO` (5 bloques) y con qué costo.
 - El tema oscuro queda definido en `Tokens.dc.html` pero dormido: no hay interruptor en la app y los
   otros 20 módulos no lo soportan.
+
+---
+
+## 2026-09-11 (4) — Tokens de color aplicados + plantillas de configuración versionadas
+
+Aplicación de dos de los tres pendientes que dejó la sesión anterior.
+
+### 1. Los tokens existen (arregla ConsultarPreciosTab)
+
+Antes de escribir nada se contaron los usos reales de cada variable en los 12 archivos del módulo, y
+apareció el dato que decidía el diseño: **`--border` se usaba con tres fallbacks distintos** —
+`#e2e8f0` (38×, tarjetas), `#cbd5e1` (17×, campos y botones) y `#f1f5f9` (14×, separadores de fila)—
+y `--text-muted` con dos (`#64748b` 92× y `#94a3b8` 31×). Definir una sola variable por nombre habría
+colapsado distinciones que hoy funcionan: los campos habrían perdido su contorno más oscuro.
+
+Solución en dos movimientos:
+
+**a) `frontend-web/src/index.css`** — bloque `:root` con 12 tokens de superficie/borde/texto en los
+pesos que el módulo ya distinguía, más los semánticos (`--primary`, `--positive`, `--warning`,
+`--danger` con sus `-soft`).
+
+**b) 63 renombres quirúrgicos** en los 12 `.tsx`, cada uno **conservando su fallback**, así que son
+provablemente neutros hoy y correctos una vez definidos los tokens:
+
+| Antes | Después | Usos |
+|---|---|---|
+| `var(--border, #cbd5e1)` | `var(--border-strong, #cbd5e1)` | 17 |
+| `var(--border, #f1f5f9)` | `var(--border-subtle, #f1f5f9)` | 14 |
+| `var(--text-muted, #94a3b8)` | `var(--text-subtle, #94a3b8)` | 31 |
+| `var(--text-muted, #cbd5e1)` | `var(--text-faint, #cbd5e1)` | 1 |
+| `var(--surface-subtle, #f1f5f9)` | `var(--surface-sunken, #f1f5f9)` | 1 |
+
+Tras esto, las 12 variables referenciadas están definidas y los cambios visibles se reducen a dos:
+los ~155 usos **sin fallback** empiezan a funcionar (ConsultarPreciosTab recupera fondos, bordes y el
+color del botón «Consultar»), y 23 usos de `var(--text, …)` con fallback slate-600/700/800 pasan a
+slate-900 — la unificación buscada, coherente con el `text-slate-900` del resto del ERP.
+
+⚠️ **El bloque oscuro cuelga de `[data-theme="dark"]`, no de `prefers-color-scheme`.**
+`ProveedoresPage.tsx:14` usa `dark:bg-[var(--surface)]` y `tailwind.config.js` no declara `darkMode`,
+así que Tailwind lo resuelve por preferencia del sistema: atarlo ahí habría dejado este módulo a
+medio oscurecer para cualquiera con el SO en oscuro, mientras los otros 20 siguen claros. Nada
+escribe ese atributo todavía — el bloque queda listo y dormido.
+
+### 2. La configuración de Claude Code viaja por git
+
+El pendiente «replicar los settings en la máquina de la oficina» no se puede ejecutar desde aquí. Lo
+que sí se hizo es quitarle el filo: `tooling/claude-code/` versiona ambos archivos
+(`user-settings.json`, `project-settings.json` con el hook `SessionStart`) y un README con el
+procedimiento. Copiarlos sigue siendo manual y deliberado — nada se auto-aplica.
+
+Del `user-settings.json` se podaron 9 reglas `allow` que eran residuo de sesiones viejas (dos
+apuntaban a SHAs concretos, `9c72c1e..f6071f6`) y que además son redundantes bajo `bypassPermissions`.
+
+### Verificación
+- `react-scripts build` limpio. CSS +564 B (el bloque de tokens). Solo warnings de `no-unused-vars`
+  preexistentes, ninguno introducido aquí.
+- Recuento de variables posterior al `sed`: los cinco patrones dan exactamente 17/14/31/1/1.
+- ⚠️ `npm --prefix frontend-web run build` **falla en Windows**, y es previo a este trabajo: el
+  script es `CI=false react-scripts build`, sintaxis POSIX que npm pasa por `cmd.exe`. Funciona
+  invocándolo desde Bash. No se tocó `package.json`.
+- No se verificó en navegador: no hay uno en el entorno.
+
+### Pendientes
+- **Mirar el módulo Proveedores en el navegador.** Es la primera vez que sus paneles se pintan; el
+  cambio es correcto por construcción pero nadie lo ha visto.
+- Decidir los cinco bloques `BACKEND NUEVO` de `design/proveedores/` (ver su README).
+- Extraer los componentes repetidos a `features/proveedores/components/ui/` usando ya los tokens:
+  siguen ~2.500 líneas de `style={{}}` inline con hex duplicados.
+- El tema oscuro sigue dormido: falta un selector de tema y el soporte de los otros 20 módulos.

@@ -182,13 +182,13 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
 
   const botonSecundario: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 6,
-    background: 'var(--surface, #fff)', border: '1px solid var(--border, #cbd5e1)',
+    background: 'var(--surface, #fff)', border: '1px solid var(--border-strong, #cbd5e1)',
     padding: '7px 14px', borderRadius: 8, fontSize: 12.5, fontWeight: 600,
     color: 'var(--text, #334155)', cursor: 'pointer',
   };
 
   const inputStyle: React.CSSProperties = {
-    padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border, #cbd5e1)',
+    padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-strong, #cbd5e1)',
     fontSize: 13, background: 'var(--surface, #fff)', color: 'var(--text, #0f172a)',
   };
 
@@ -233,7 +233,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
           <div
             style={{
               display: 'flex', background: 'var(--surface, #fff)',
-              border: '1px solid var(--border, #cbd5e1)', borderRadius: 9, padding: 3, gap: 3,
+              border: '1px solid var(--border-strong, #cbd5e1)', borderRadius: 9, padding: 3, gap: 3,
             }}
           >
             {([
@@ -264,7 +264,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
       {/* ── Filtros ── */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
-          <Search size={15} style={{ position: 'absolute', left: 12, top: 10, color: 'var(--text-muted, #94a3b8)' }} />
+          <Search size={15} style={{ position: 'absolute', left: 12, top: 10, color: 'var(--text-subtle, #94a3b8)' }} />
           <input
             type="text"
             value={q}
@@ -391,7 +391,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
             </thead>
             <tbody>
               {pendientes.map((item) => (
-                <tr key={item.id} style={{ borderBottom: '1px solid var(--border, #f1f5f9)' }}>
+                <tr key={item.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
                   <td style={{ padding: '12px 10px 12px 16px' }}>
                     <input
                       type="checkbox"
@@ -415,7 +415,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
                         title="Dejar de seguir precios de este proveedor y limpiar sus códigos"
                         style={{
                           marginTop: 4, background: 'none', border: 'none', padding: 0,
-                          color: 'var(--text-muted, #94a3b8)', fontSize: 11, fontWeight: 600,
+                          color: 'var(--text-subtle, #94a3b8)', fontSize: 11, fontWeight: 600,
                           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
                         }}
                       >
@@ -449,7 +449,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
                       {item.descripcion_proveedor || 'Sin descripción'}
                     </div>
                     {item.documento_ref && (
-                      <div style={{ fontSize: 11, color: 'var(--text-muted, #94a3b8)', marginTop: 2 }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-subtle, #94a3b8)', marginTop: 2 }}>
                         Ref: {item.documento_ref}
                       </div>
                     )}
@@ -515,8 +515,8 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
                           disabled={descartandoId === item.id}
                           title="Descartar código (fletes, papelería, gastos que no son producto)"
                           style={{
-                            background: 'transparent', color: 'var(--text-muted, #94a3b8)',
-                            border: '1px solid var(--border, #cbd5e1)', padding: '6px 10px',
+                            background: 'transparent', color: 'var(--text-subtle, #94a3b8)',
+                            border: '1px solid var(--border-strong, #cbd5e1)', padding: '6px 10px',
                             borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
                             display: 'flex', alignItems: 'center', gap: 4,
                           }}
@@ -533,7 +533,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
           </table>
 
           {total > pendientes.length && (
-            <div style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-muted, #64748b)', borderTop: '1px solid var(--border, #f1f5f9)' }}>
+            <div style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-muted, #64748b)', borderTop: '1px solid var(--border-subtle, #f1f5f9)' }}>
               Mostrando {pendientes.length} de {total}. Usa el buscador o el filtro de proveedor para acotar la lista.
             </div>
           )}

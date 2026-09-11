@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions"
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "model": "opus",
+  "autoUpdatesChannel": "latest",
+  "agentPushNotifEnabled": true,
+  "effortLevel": "xhigh"
+}

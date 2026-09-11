@@ -90,7 +90,7 @@ const FacturasProcesadasPanel: React.FC<Props> = ({ proveedores, busquedaInicial
   useEffect(() => { if (abierto) cargar(); }, [abierto, cargar]);
 
   const inputStyle: React.CSSProperties = {
-    padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border, #cbd5e1)',
+    padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border-strong, #cbd5e1)',
     fontSize: 12.5, background: 'var(--surface, #fff)', color: 'var(--text, #0f172a)',
   };
 
@@ -126,7 +126,7 @@ const FacturasProcesadasPanel: React.FC<Props> = ({ proveedores, busquedaInicial
         <div style={{ padding: '0 20px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
-              <Search size={14} style={{ position: 'absolute', left: 11, top: 9, color: 'var(--text-muted, #94a3b8)' }} />
+              <Search size={14} style={{ position: 'absolute', left: 11, top: 9, color: 'var(--text-subtle, #94a3b8)' }} />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
@@ -158,7 +158,7 @@ const FacturasProcesadasPanel: React.FC<Props> = ({ proveedores, busquedaInicial
               Cargando historial…
             </div>
           ) : items.length === 0 ? (
-            <div style={{ padding: '26px 0', textAlign: 'center', color: 'var(--text-muted, #94a3b8)', fontSize: 13 }}>
+            <div style={{ padding: '26px 0', textAlign: 'center', color: 'var(--text-subtle, #94a3b8)', fontSize: 13 }}>
               {qAplicado || filtroProveedor
                 ? 'Ningún documento coincide con el filtro.'
                 : 'Todavía no se ha procesado ninguna factura electrónica.'}
@@ -176,14 +176,14 @@ const FacturasProcesadasPanel: React.FC<Props> = ({ proveedores, busquedaInicial
                 </thead>
                 <tbody>
                   {items.map((f) => (
-                    <tr key={f.id} style={{ borderBottom: '1px solid var(--border, #f1f5f9)' }}>
+                    <tr key={f.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
                       <td style={{ padding: '8px 12px' }}>
                         <div style={{ fontWeight: 700, color: 'var(--text, #1e293b)' }}>
                           {f.tipo_documento === 'FACTURA' ? 'FE' : f.tipo_documento === 'NOTA_CREDITO' ? 'NC' : 'ND'}{' '}
                           {f.numero_factura ?? '—'}
                         </div>
                         {f.archivo_origen && (
-                          <div style={{ fontSize: 11, color: 'var(--text-muted, #94a3b8)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: 11, color: 'var(--text-subtle, #94a3b8)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {f.archivo_origen}
                           </div>
                         )}

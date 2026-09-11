@@ -267,7 +267,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
         onDragLeave={handleDragLeave}
         onClick={() => fileInputRef.current?.click()}
         style={{
-          border: `2px dashed ${isDragOver ? '#6366f1' : 'var(--border, #cbd5e1)'}`,
+          border: `2px dashed ${isDragOver ? '#6366f1' : 'var(--border-strong, #cbd5e1)'}`,
           background: isDragOver ? 'rgba(99, 102, 241, 0.06)' : 'var(--surface-subtle, #f8fafc)',
           borderRadius: 18,
           padding: '36px 24px',
@@ -356,7 +356,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                 disabled={procesando}
                 style={{
                   background: 'transparent',
-                  border: '1px solid var(--border, #cbd5e1)',
+                  border: '1px solid var(--border-strong, #cbd5e1)',
                   padding: '7px 14px',
                   borderRadius: 8,
                   fontSize: 12.5,
@@ -437,7 +437,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                   padding: '8px 12px',
                   borderRadius: 10,
                   background: 'var(--surface-subtle, #f8fafc)',
-                  border: '1px solid var(--border, #f1f5f9)',
+                  border: '1px solid var(--border-subtle, #f1f5f9)',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
@@ -453,7 +453,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text, #0f172a)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                       {item.nombre}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted, #94a3b8)' }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-subtle, #94a3b8)' }}>
                       {formatBytes(item.size)} • {item.tipo.toUpperCase()}
                       {item.mensajeError && <span style={{ color: '#ef4444', marginLeft: 6 }}>({item.mensajeError})</span>}
                     </div>
@@ -481,7 +481,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                       style={{
                         background: 'none',
                         border: 'none',
-                        color: 'var(--text-muted, #94a3b8)',
+                        color: 'var(--text-subtle, #94a3b8)',
                         cursor: 'pointer',
                         padding: 4,
                         display: 'flex',
@@ -583,7 +583,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                 <div style={{ fontSize: 22, fontWeight: 800, color: '#64748b', marginTop: 4 }}>
                   {resumen.notas_credito}
                 </div>
-                <div style={{ fontSize: 10.5, color: 'var(--text-muted, #94a3b8)', marginTop: 2 }}>
+                <div style={{ fontSize: 10.5, color: 'var(--text-subtle, #94a3b8)', marginTop: 2 }}>
                   Registradas sin mover precios
                 </div>
               </div>
@@ -627,7 +627,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                       display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
                       padding: '7px 11px', borderRadius: 9,
                       background: 'var(--surface, #fff)',
-                      border: '1px solid var(--border, #f1f5f9)',
+                      border: '1px solid var(--border-subtle, #f1f5f9)',
                     }}
                   >
                     <input
@@ -709,7 +709,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                         display: 'flex', alignItems: 'flex-start', gap: 10,
                         padding: '8px 12px', borderRadius: 9,
                         background: 'var(--surface-subtle, #f8fafc)',
-                        border: '1px solid var(--border, #f1f5f9)',
+                        border: '1px solid var(--border-subtle, #f1f5f9)',
                       }}
                     >
                       <span
@@ -800,7 +800,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                       const Icon = p.variacion_pct > 0 ? TrendingUp : p.variacion_pct < 0 ? TrendingDown : Minus;
                       const colorVar = p.anomalo ? '#ef4444' : p.variacion_pct > 0 ? '#f59e0b' : '#22c55e';
                       return (
-                        <tr key={idx} style={{ borderBottom: '1px solid var(--border, #f1f5f9)' }}>
+                        <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
                           <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--text, #1e293b)' }}>
                             {p.proveedor_nombre}
                           </td>

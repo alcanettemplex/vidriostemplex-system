@@ -126,7 +126,7 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
   };
 
   const inputStyle: React.CSSProperties = {
-    padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border, #cbd5e1)',
+    padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-strong, #cbd5e1)',
     fontSize: 13, background: 'var(--surface, #fff)', color: 'var(--text, #0f172a)', width: '100%',
   };
 
@@ -266,7 +266,7 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
             type="button"
             onClick={limpiar}
             style={{
-              background: 'transparent', border: '1px solid var(--border, #cbd5e1)',
+              background: 'transparent', border: '1px solid var(--border-strong, #cbd5e1)',
               padding: '8px 14px', borderRadius: 9, fontSize: 12.5, fontWeight: 600,
               color: 'var(--text-muted, #64748b)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: 6,
@@ -351,7 +351,7 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
                       const Icon = pct > 0 ? TrendingUp : pct < 0 ? TrendingDown : Minus;
                       const color = c.anomalo ? '#ef4444' : pct > 0 ? '#f59e0b' : '#22c55e';
                       return (
-                        <tr key={idx} style={{ borderBottom: '1px solid var(--border, #f1f5f9)', background: c.anomalo ? 'rgba(239, 68, 68, 0.04)' : 'transparent' }}>
+                        <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)', background: c.anomalo ? 'rgba(239, 68, 68, 0.04)' : 'transparent' }}>
                           <td style={{ padding: '8px 12px' }}>
                             <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 11.5, color: '#6366f1' }}>{c.codigo}</div>
                             <div style={{ fontSize: 12, color: 'var(--text-muted, #64748b)' }}>{c.descripcion}</div>
@@ -372,7 +372,7 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
                                 {c.anomalo && <AlertTriangle size={11} style={{ marginLeft: 2 }} />}
                               </span>
                             ) : (
-                              <span style={{ fontSize: 11.5, color: 'var(--text-muted, #94a3b8)' }}>primer precio</span>
+                              <span style={{ fontSize: 11.5, color: 'var(--text-subtle, #94a3b8)' }}>primer precio</span>
                             )}
                             {c.retroactivo && (
                               <div

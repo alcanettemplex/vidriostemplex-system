@@ -2,6 +2,85 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Tokens de color — los consume hoy el módulo Proveedores
+   (frontend-web/src/features/proveedores/, 12 archivos).
+
+   Existían como referencias desde el 2026-08-30 pero nunca se definieron: donde
+   el código escribió fallback funcionaba por accidente, y donde no lo escribió la
+   declaración era inválida — `background: var(--surface)` quedaba transparente y
+   `border: 1px solid var(--border)` desaparecía entero. Por eso ConsultarPreciosTab
+   se renderizaba sin fondos ni bordes y el botón «Consultar» sin color.
+
+   Los valores son los de la escala slate/indigo que el módulo ya usaba a mano, así
+   que definirlos no cambia lo que hoy se ve bien: solo hace aparecer lo que faltaba.
+
+   ⚠️ El tema oscuro cuelga de [data-theme="dark"] a propósito, NO de
+   prefers-color-scheme. ProveedoresPage.tsx usa la variante `dark:` de Tailwind y
+   tailwind.config.js no declara `darkMode`, así que Tailwind la resuelve por
+   preferencia del sistema: atarlo ahí dejaría este módulo a medio oscurecer
+   mientras los otros 20 siguen claros. Nada pone ese atributo todavía — el bloque
+   queda listo y dormido hasta que exista un selector de tema real.
+
+   Ver design/proveedores/ para el sistema completo (tipografía, radios, sombras).
+   ───────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Superficies */
+  --bg: #f8fafc;              /* slate-50  — fondo de página */
+  --surface: #ffffff;         /*           — tarjetas, tablas, cuerpo de carpeta */
+  --surface-subtle: #f8fafc;  /* slate-50  — cabecera de tabla, franjas de filtro */
+  --surface-sunken: #f1f5f9;  /* slate-100 — campos, fila expandida, zona de arrastre */
+
+  /* Bordes — tres pesos: el módulo ya los distinguía con fallbacks distintos */
+  --border: #e2e8f0;          /* slate-200 — contorno de tarjeta y separador principal */
+  --border-strong: #cbd5e1;   /* slate-300 — campos y botones secundarios */
+  --border-subtle: #f1f5f9;   /* slate-100 — separador entre filas de tabla */
+
+  /* Texto */
+  --text: #0f172a;            /* slate-900 — cifras, nombres, cuerpo */
+  --text-muted: #64748b;      /* slate-500 — etiquetas de columna, metadatos */
+  --text-subtle: #94a3b8;     /* slate-400 — marcas de agua, referencias */
+  --text-faint: #cbd5e1;      /* slate-300 — guiones de celda vacía */
+
+  /* Acento y semánticos */
+  --primary: #6366f1;
+  --primary-strong: #4338ca;
+  --primary-soft: rgba(99, 102, 241, 0.10);
+  --positive: #059669;
+  --positive-soft: rgba(5, 150, 105, 0.10);
+  --warning: #d97706;
+  --warning-soft: rgba(217, 119, 6, 0.10);
+  --danger: #ef4444;
+  --danger-soft: rgba(239, 68, 68, 0.10);
+}
+
+/* Dormido: ningún componente escribe data-theme todavía. Ver aviso arriba. */
+:root[data-theme='dark'] {
+  --bg: #0b1120;
+  --surface: #151c2c;
+  --surface-subtle: #111827;
+  --surface-sunken: #0e1523;
+
+  --border: #1f2a3c;
+  --border-strong: #2c3a50;
+  --border-subtle: #172033;
+
+  --text: #e6edf7;
+  --text-muted: #8a99b0;
+  --text-subtle: #64748b;
+  --text-faint: #475569;
+
+  --primary: #818cf8;
+  --primary-strong: #a5b4fc;
+  --primary-soft: rgba(129, 140, 248, 0.16);
+  --positive: #34d399;
+  --positive-soft: rgba(52, 211, 153, 0.14);
+  --warning: #fbbf24;
+  --warning-soft: rgba(251, 191, 36, 0.14);
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.14);
+}
+
 @layer base {
   body {
     @apply bg-slate-50 text-slate-900 font-sans antialiased;

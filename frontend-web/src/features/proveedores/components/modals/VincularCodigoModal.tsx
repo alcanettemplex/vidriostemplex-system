@@ -195,7 +195,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
 
   const inputChico: React.CSSProperties = {
     width: '100%', padding: '8px 10px', borderRadius: 8,
-    border: '1px solid var(--border, #cbd5e1)', fontSize: 12.5,
+    border: '1px solid var(--border-strong, #cbd5e1)', fontSize: 12.5,
     background: 'var(--surface, #fff)', color: 'var(--text, #0f172a)',
   };
 
@@ -256,7 +256,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
               onClick={onClose}
               style={{
                 background: 'transparent', border: 'none', cursor: 'pointer',
-                color: 'var(--text-muted, #94a3b8)', padding: 6, borderRadius: 8,
+                color: 'var(--text-subtle, #94a3b8)', padding: 6, borderRadius: 8,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
@@ -335,7 +335,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                       </span>
                     )}
                     {pendiente.documento_ref && (
-                      <span style={{ color: 'var(--text-muted, #94a3b8)' }}>Doc ref: {pendiente.documento_ref}</span>
+                      <span style={{ color: 'var(--text-subtle, #94a3b8)' }}>Doc ref: {pendiente.documento_ref}</span>
                     )}
                   </div>
                 </div>
@@ -463,7 +463,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                   <>
                     {/* Buscador */}
                     <div style={{ position: 'relative' }}>
-                      <Search size={16} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-muted, #94a3b8)' }} />
+                      <Search size={16} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-subtle, #94a3b8)' }} />
                       <input
                         type="text"
                         value={busqueda}
@@ -471,7 +471,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                         placeholder="Buscar por código (ej. TUB0103), nombre o sinónimo…"
                         style={{
                           width: '100%', padding: '10px 36px 10px 38px',
-                          borderRadius: 10, border: '1px solid var(--border, #cbd5e1)',
+                          borderRadius: 10, border: '1px solid var(--border-strong, #cbd5e1)',
                           fontSize: 13, outline: 'none', background: 'var(--surface, #fff)',
                           color: 'var(--text, #0f172a)',
                         }}
@@ -483,7 +483,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                           style={{
                             position: 'absolute', right: 10, top: 10,
                             background: 'none', border: 'none', cursor: 'pointer',
-                            color: 'var(--text-muted, #94a3b8)', padding: 2,
+                            color: 'var(--text-subtle, #94a3b8)', padding: 2,
                           }}
                           title="Limpiar búsqueda"
                         >
@@ -503,7 +503,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                       }}
                     >
                       {productos.length === 0 ? (
-                        <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: 12.5, color: 'var(--text-muted, #94a3b8)' }}>
+                        <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: 12.5, color: 'var(--text-subtle, #94a3b8)' }}>
                           {loadingBusqueda
                             ? 'Buscando coincidencias en tu catálogo…'
                             : busqueda.trim().length >= 2
@@ -522,7 +522,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                 background: isSelected ? '#6366f1' : 'var(--surface, #fff)',
                                 color: isSelected ? '#fff' : 'var(--text, #1e293b)',
-                                border: isSelected ? '1px solid #6366f1' : '1px solid var(--border, #f1f5f9)',
+                                border: isSelected ? '1px solid #6366f1' : '1px solid var(--border-subtle, #f1f5f9)',
                                 marginBottom: 5, transition: 'all 0.15s',
                                 boxShadow: isSelected ? '0 2px 8px rgba(99, 102, 241, 0.2)' : 'none',
                               }}
@@ -669,7 +669,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
               onClick={onClose}
               disabled={guardando}
               style={{
-                padding: '9px 18px', borderRadius: 10, border: '1px solid var(--border, #cbd5e1)',
+                padding: '9px 18px', borderRadius: 10, border: '1px solid var(--border-strong, #cbd5e1)',
                 background: 'transparent', color: 'var(--text, #475569)', fontSize: 13,
                 fontWeight: 600, cursor: 'pointer',
               }}
