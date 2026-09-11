@@ -1,0 +1,386 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    a { color: #4338CA; } a:hover { color: #312E81; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .btn { cursor: pointer; display: inline-flex; align-items: center; gap: 7px; border-radius: 8px; font-size: 13px; }
+    .paso { cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 1180px; min-height: 900px; box-sizing: border-box; padding: 26px 30px 40px; background: {{t.bg}}; color: {{t.text}}">
+
+  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 22px">
+    <div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: {{t.textMuted}}">PROVEEDORES · CARGAR FACTURAS</div>
+      <h1 style="font-size: 22px; font-weight: 800; margin: 6px 0 0; letter-spacing: -0.01em">Ingesta de facturación electrónica</h1>
+      <p style="font-size: 13px; color: {{t.textMuted}}; margin: 7px 0 0; max-width: 680px; line-height: 1.5">Hoy esto es un scroll de novecientas líneas donde la decisión importante queda enterrada bajo el resumen. Partido en tres pasos, cada pantalla pide una sola cosa.</p>
+    </div>
+    <div style="display: flex; gap: 8px; flex-shrink: 0">
+      <div class="btn" onClick="{{s.verLista}}" style="font-weight: 600; padding: 8px 14px; background: {{s.bgLista}}; border: 1px solid {{s.bordeLista}}; color: {{s.colorLista}}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M9 21V9"></path></svg>
+        Lista de precios
+      </div>
+      <div class="btn" onClick="{{s.verBitacora}}" style="font-weight: 600; padding: 8px 14px; background: {{s.bgBit}}; border: 1px solid {{s.bordeBit}}; color: {{s.colorBit}}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path><path d="M12 8v4l3 2"></path></svg>
+        Bitácora
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Stepper ══ -->
+  <div style="display: flex; align-items: stretch; gap: 0; background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 16px; overflow: hidden; margin-bottom: 22px; box-shadow: {{t.shadowSm}}">
+    <sc-for list="{{s.pasos}}" as="p" hint-placeholder-count="3">
+      <div class="paso" onClick="{{p.ir}}" style="flex-grow: 1; display: flex; align-items: center; gap: 13px; padding: 15px 20px; background: {{p.bg}}; border-left: 1px solid {{p.sep}}; border-bottom: 3px solid {{p.marca}}">
+        <div style="width: 30px; height: 30px; flex-shrink: 0; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; background: {{p.numBg}}; color: {{p.numColor}}">{{p.n}}</div>
+        <div style="min-width: 0">
+          <div style="font-size: 14px; font-weight: 700; color: {{p.titColor}}">{{p.titulo}}</div>
+          <div style="font-size: 11.5px; color: {{t.textMuted}}; margin-top: 2px">{{p.sub}}</div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- ══ PASO 1 ══ -->
+  <sc-if value="{{s.p1}}" hint-placeholder-val="{{ true }}">
+  <div style="display: grid; grid-template-columns: 1.35fr 1fr; gap: 20px">
+
+    <div>
+      <div style="border: 2px dashed {{t.borderStrong}}; background: {{t.surfaceSunken}}; border-radius: 16px; padding: 44px 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 14px">
+        <div style="width: 58px; height: 58px; border-radius: 16px; background: {{t.primarySoft}}; color: {{t.primary}}; display: flex; align-items: center; justify-content: center">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V9"></path><path d="m8 13 4-4 4 4"></path><path d="M20 17.6A4 4 0 0 0 18 10h-1.3A7 7 0 1 0 5 16.3"></path></svg>
+        </div>
+        <div>
+          <div style="font-size: 16px; font-weight: 700; color: {{t.text}}">Arrastra los .zip o .xml de la DIAN</div>
+          <div style="font-size: 13px; color: {{t.textMuted}}; margin-top: 5px">o haz clic para elegirlos desde tu equipo</div>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px">
+          <span style="font-size: 11.5px; font-weight: 600; padding: 4px 9px; border-radius: 6px; background: {{t.primarySoft}}; color: {{t.primaryStrong}}">Paquete .zip con PDF + XML</span>
+          <span style="font-size: 11.5px; font-weight: 600; padding: 4px 9px; border-radius: 6px; background: {{t.positiveSoft}}; color: {{t.positive}}">XML UBL 2.1 suelto</span>
+          <span style="font-size: 11.5px; font-weight: 600; padding: 4px 9px; border-radius: 6px; background: {{t.warningSoft}}; color: {{t.warning}}">100 archivos · 8 MB c/u</span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: flex-start; gap: 11px; background: {{t.primarySoft}}; border: 1px solid {{t.primary}}; border-radius: 12px; padding: 13px 16px; margin-top: 16px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{t.primaryStrong}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+        <div style="font-size: 12.5px; line-height: 1.55; color: {{t.text}}">
+          El proveedor se identifica por <strong>NIT</strong>, los duplicados se rechazan por <strong>CUFE completo</strong> y los precios se aplican en <strong>orden de fecha de factura</strong>, no de carga: una factura vieja se archiva sin desplazar al precio vigente.
+        </div>
+      </div>
+    </div>
+
+    <div style="background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: {{t.shadowSm}}">
+      <div style="display: flex; align-items: center; justify-content: space-between">
+        <div>
+          <div style="font-size: 14px; font-weight: 700; color: {{t.text}}">Cola de archivos</div>
+          <div style="font-size: 11.5px; color: {{t.textMuted}}; margin-top: 2px">4 listos · 1 rechazado · 3,1 MB</div>
+        </div>
+        <div class="btn" style="font-weight: 600; color: {{t.textMuted}}; border: 1px solid {{t.borderStrong}}; padding: 6px 12px; font-size: 12.5px">Limpiar</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <sc-for list="{{s.cola}}" as="c" hint-placeholder-count="5">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; background: {{t.surfaceSubtle}}; border: 1px solid {{t.border}}">
+            <div style="width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; background: {{c.punto}}"></div>
+            <div style="flex-grow: 1; min-width: 0">
+              <div class="mono" style="font-size: 12px; font-weight: 600; color: {{t.text}}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{c.nombre}}</div>
+              <div style="font-size: 11px; color: {{c.notaColor}}; margin-top: 2px">{{c.nota}}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div class="btn" onClick="{{s.irP2}}" style="justify-content: center; font-weight: 700; color: #FFFFFF; background: {{t.primary}}; padding: 11px 16px; box-shadow: {{t.shadowPrimary}}; margin-top: auto">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+        Procesar 4 facturas
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ══ PASO 2 ══ -->
+  <sc-if value="{{s.p2}}" hint-placeholder-val="{{ false }}">
+  <div>
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px">
+      <sc-for list="{{s.metricas}}" as="m" hint-placeholder-count="5">
+        <div style="background: {{m.bg}}; border: 1px solid {{m.borde}}; border-radius: 12px; padding: 14px 16px">
+          <div style="font-size: 11.5px; font-weight: 600; color: {{m.labelColor}}; line-height: 1.3">{{m.label}}</div>
+          <div style="font-size: 26px; font-weight: 800; color: {{m.color}}; margin-top: 6px; font-variant-numeric: tabular-nums">{{m.valor}}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1.55fr 1fr; gap: 20px">
+
+      <div style="border: 1px solid {{t.border}}; border-radius: 16px; overflow: hidden; background: {{t.surface}}">
+        <div style="padding: 14px 20px; border-bottom: 1px solid {{t.border}}; background: {{t.surfaceSubtle}}">
+          <div style="font-size: 14px; font-weight: 700; color: {{t.text}}">Precios que se movieron</div>
+          <div style="font-size: 11.5px; color: {{t.textMuted}}; margin-top: 2px">El histórico solo registra cambios, no apariciones: 34 líneas llegaron al mismo precio y no dejaron rastro.</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1.1fr 1.5fr 1fr 1fr 0.9fr; gap: 10px; padding: 9px 20px; border-bottom: 1px solid {{t.border}}">
+          <div style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">PROVEEDOR</div>
+          <div style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">CÓDIGO</div>
+          <div style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">ANTES</div>
+          <div style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">AHORA</div>
+          <div style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">VAR.</div>
+        </div>
+        <sc-for list="{{s.cambios}}" as="c" hint-placeholder-count="5">
+          <div style="display: grid; grid-template-columns: 1.1fr 1.5fr 1fr 1fr 0.9fr; gap: 10px; align-items: center; padding: 11px 20px; border-bottom: 1px solid {{t.border}}; border-left: 3px solid {{c.marca}}">
+            <div style="font-size: 13px; font-weight: 600; color: {{t.text}}">{{c.proveedor}}</div>
+            <div style="min-width: 0">
+              <div class="mono" style="font-size: 11.5px; font-weight: 700; color: {{t.primaryStrong}}">{{c.codigo}}</div>
+              <div style="font-size: 11.5px; color: {{t.textMuted}}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{c.desc}}</div>
+            </div>
+            <div style="font-size: 12.5px; color: {{t.textMuted}}; text-align: right; font-variant-numeric: tabular-nums">{{c.antes}}</div>
+            <div style="font-size: 13.5px; font-weight: 700; color: {{t.text}}; text-align: right; font-variant-numeric: tabular-nums">{{c.ahora}}</div>
+            <div style="text-align: right">
+              <span style="font-size: 12px; font-weight: 700; color: {{c.varColor}}">{{c.variacion}}</span>
+              <sc-if value="{{c.retro}}" hint-placeholder-val="{{ false }}">
+                <div style="font-size: 10px; color: {{t.textMuted}}; margin-top: 2px">archivado</div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="border: 1px solid {{t.border}}; border-radius: 16px; overflow: hidden; background: {{t.surface}}">
+        <div style="padding: 14px 18px; border-bottom: 1px solid {{t.border}}; background: {{t.surfaceSubtle}}">
+          <div style="font-size: 14px; font-weight: 700; color: {{t.text}}">Requieren criterio humano</div>
+          <div style="font-size: 11.5px; color: {{t.textMuted}}; margin-top: 2px">Nada de esto movió un precio por su cuenta</div>
+        </div>
+        <div style="padding: 14px 18px; display: flex; flex-direction: column; gap: 9px">
+          <sc-for list="{{s.avisos}}" as="a" hint-placeholder-count="4">
+            <div style="display: flex; align-items: flex-start; gap: 10px">
+              <span style="flex-shrink: 0; font-size: 10px; font-weight: 800; letter-spacing: 0.03em; padding: 3px 7px; border-radius: 5px; background: {{a.bg}}; color: {{a.color}}; white-space: nowrap">{{a.tipo}}</span>
+              <div style="font-size: 12px; line-height: 1.45; color: {{t.text}}"><strong>{{a.proveedor}}</strong> · {{a.detalle}}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px">
+      <div class="btn" onClick="{{s.irP1}}" style="font-weight: 600; color: {{t.text}}; border: 1px solid {{t.borderStrong}}; padding: 9px 15px; background: {{t.surface}}">Volver</div>
+      <div class="btn" onClick="{{s.irP3}}" style="font-weight: 700; color: #FFFFFF; background: {{t.primary}}; padding: 10px 18px; box-shadow: {{t.shadowPrimary}}">
+        Resolver lo que quedó abierto
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ══ PASO 3 ══ -->
+  <sc-if value="{{s.p3}}" hint-placeholder-val="{{ false }}">
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px">
+
+    <div style="background: {{t.surface}}; border: 1px solid {{t.warning}}; border-radius: 16px; overflow: hidden">
+      <div style="padding: 15px 20px; background: {{t.warningSoft}}; border-bottom: 1px solid {{t.border}}">
+        <div style="display: flex; align-items: center; gap: 8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{t.warning}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg>
+          <div style="font-size: 14px; font-weight: 700; color: {{t.text}}">Emisores nuevos · 3 por decidir</div>
+        </div>
+        <div style="font-size: 12px; color: {{t.textMuted}}; margin-top: 5px; line-height: 1.5">Sus facturas ya quedaron registradas, pero sus productos <strong>no entran a Por Mapear</strong> hasta que decidas. Es el filtro que evita que la bandeja se llene de combustible y papelería.</div>
+      </div>
+
+      <div style="padding: 14px 18px; display: flex; flex-direction: column; gap: 7px">
+        <sc-for list="{{s.emisores}}" as="e" hint-placeholder-count="3">
+          <div onClick="{{e.alternar}}" style="cursor: pointer; display: flex; align-items: center; gap: 11px; padding: 10px 13px; border-radius: 8px; background: {{e.bg}}; border: 1px solid {{e.borde}}">
+            <div style="width: 17px; height: 17px; flex-shrink: 0; border-radius: 5px; border: 2px solid {{e.cajaBorde}}; background: {{e.cajaBg}}; display: flex; align-items: center; justify-content: center">
+              <sc-if value="{{e.marcado}}" hint-placeholder-val="{{ true }}">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4 10-10"></path></svg>
+              </sc-if>
+            </div>
+            <div style="flex-grow: 1; min-width: 0">
+              <div style="font-size: 13px; font-weight: 600; color: {{t.text}}">{{e.nombre}}</div>
+              <div class="mono" style="font-size: 11px; color: {{t.textMuted}}; margin-top: 2px">{{e.nit}} · {{e.lineas}} líneas en este lote</div>
+            </div>
+            <div style="font-size: 11px; color: {{t.textSubtle}}; flex-shrink: 0; text-align: right; max-width: 130px; line-height: 1.35">{{e.pista}}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="padding: 0 18px 18px; display: flex; gap: 8px; flex-wrap: wrap">
+        <div class="btn" style="font-weight: 700; padding: 8px 14px; background: {{t.positiveSoft}}; border: 1px solid {{t.positive}}; color: {{t.positive}}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12.5 2.5 2.5 4.5-5"></path></svg>
+          Seguir precios de {{s.marcados}}
+        </div>
+        <div class="btn" style="font-weight: 600; padding: 8px 14px; border: 1px solid {{t.borderStrong}}; color: {{t.textMuted}}; background: {{t.surface}}">Ignorar los marcados</div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 20px">
+      <div style="background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 16px; padding: 22px; box-shadow: {{t.shadowSm}}">
+        <div style="display: flex; align-items: center; gap: 14px">
+          <div style="width: 52px; height: 52px; flex-shrink: 0; border-radius: 999px; background: {{t.warningSoft}}; color: {{t.warning}}; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800">23</div>
+          <div>
+            <div style="font-size: 15px; font-weight: 700; color: {{t.text}}">códigos sin equivalencia</div>
+            <div style="font-size: 12.5px; color: {{t.textMuted}}; margin-top: 3px; line-height: 1.45">De los cuales <strong>9 ya habían aparecido antes</strong> en otras facturas. Esos son los que cuestan dinero cada vez que no se mapean.</div>
+          </div>
+        </div>
+        <div class="btn" style="width: 100%; box-sizing: border-box; justify-content: center; font-weight: 700; color: #FFFFFF; background: {{t.warning}}; padding: 11px 16px; margin-top: 18px">
+          Ir a la bandeja Por Mapear
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+        </div>
+      </div>
+
+      <div style="background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 16px; padding: 18px 20px; box-shadow: {{t.shadowSm}}">
+        <div style="font-size: 14px; font-weight: 700; color: {{t.text}}; margin-bottom: 12px">No se pudieron procesar · 1</div>
+        <div style="display: flex; align-items: flex-start; gap: 10px; background: {{t.dangerSoft}}; border: 1px solid {{t.danger}}; border-radius: 8px; padding: 11px 13px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{t.danger}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><path d="m15 9-6 6M9 9l6 6"></path></svg>
+          <div style="font-size: 12px; line-height: 1.5; color: {{t.text}}">
+            <span class="mono" style="font-weight: 700">FE-ARQ-0092.zip</span> — el paquete no contiene ningún XML UBL, solo el PDF representativo. Pídele al proveedor el archivo completo.
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: auto">
+        <div class="btn" onClick="{{s.irP2}}" style="font-weight: 600; color: {{t.text}}; border: 1px solid {{t.borderStrong}}; padding: 9px 15px; background: {{t.surface}}">Volver al resumen</div>
+        <div class="btn" onClick="{{s.irP1}}" style="font-weight: 700; color: #FFFFFF; background: {{t.primary}}; padding: 10px 18px; box-shadow: {{t.shadowPrimary}}">Cargar otro lote</div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{}'>
+const T = {
+  bg: '#F8FAFC', surface: '#FFFFFF', surfaceSubtle: '#F8FAFC', surfaceSunken: '#F1F5F9',
+  border: '#E2E8F0', borderStrong: '#CBD5E1',
+  text: '#0F172A', textMuted: '#64748B', textSubtle: '#94A3B8',
+  primary: '#6366F1', primarySoft: 'rgba(99,102,241,0.10)', primaryStrong: '#4338CA',
+  positive: '#059669', positiveSoft: 'rgba(5,150,105,0.10)',
+  warning: '#D97706', warningSoft: 'rgba(217,119,6,0.09)',
+  danger: '#EF4444', dangerSoft: 'rgba(239,68,68,0.07)',
+  shadowSm: '0 1px 3px rgba(15,23,42,0.05)',
+  shadowPrimary: '0 2px 8px rgba(99,102,241,0.28)',
+};
+
+const PASOS = [
+  { n: '1', titulo: 'Cargar', sub: 'Arrastra los archivos de la DIAN' },
+  { n: '2', titulo: 'Revisar el lote', sub: 'Qué se movió y qué necesita tu criterio' },
+  { n: '3', titulo: 'Resolver', sub: 'Emisores nuevos y códigos sin mapear' },
+];
+
+const COLA = [
+  { nombre: 'FV-A-40218_Vitelsa.zip', nota: '412 KB · listo', ok: true },
+  { nombre: 'FE-TC-11934_Templacol.zip', nota: '388 KB · listo', ok: true },
+  { nombre: 'FA-2291_Arquiluz.xml', nota: '96 KB · listo', ok: true },
+  { nombre: 'FV-ADN-7742.zip', nota: '507 KB · listo', ok: true },
+  { nombre: 'cotizacion_septiembre.pdf', nota: 'Formato no soportado — solo .zip o .xml', ok: false },
+];
+
+const CAMBIOS = [
+  { proveedor: 'Aluminios del Norte', codigo: 'ADN-0510', desc: 'Brazo hidráulico 6M', antes: '$128.600', ahora: '$152.300', variacion: '+18,4%', anomalo: true, retro: false },
+  { proveedor: 'Vitelsa', codigo: 'AL-2245', desc: 'Brazo hidráulico negro', antes: '$125.700', ahora: '$128.400', variacion: '+2,1%', anomalo: false, retro: false },
+  { proveedor: 'Vitelsa', codigo: 'AL-0918', desc: 'Felpa de cepillo 5 mm', antes: '$3.120', ahora: '$3.480', variacion: '+11,5%', anomalo: false, retro: false },
+  { proveedor: 'Templacol', codigo: 'TC-8891', desc: 'Cierrapuertas tira 6 m', antes: '$132.400', ahora: '$131.900', variacion: '−0,4%', anomalo: false, retro: false },
+  { proveedor: 'Templacol', codigo: 'TC-4410', desc: 'Vidrio templado 6 mm', antes: '$61.900', ahora: '$58.700', variacion: '−5,2%', anomalo: false, retro: true },
+];
+
+const AVISOS = [
+  { tipo: 'UNIDAD', proveedor: 'Arquiluz', detalle: 'el XML declara MTR y la equivalencia guardada es TIRA_6M. No se tocó el precio.', bg: 'rgba(217,119,6,0.12)', color: '#B45309' },
+  { tipo: 'IVA', proveedor: 'Vitelsa', detalle: 'la línea trae 5% y el catálogo dice 19%. Verifica si cambió la clasificación.', bg: 'rgba(99,102,241,0.12)', color: '#4338CA' },
+  { tipo: 'NOTA CRÉDITO', proveedor: 'Templacol', detalle: 'NC-1182 registrada en la bitácora, sin efecto sobre precios.', bg: 'rgba(100,116,139,0.12)', color: '#475569' },
+  { tipo: 'MONEDA', proveedor: 'Aluminios del Norte', detalle: 'factura en USD. Queda registrada pero no alimenta el comparador.', bg: 'rgba(217,119,6,0.12)', color: '#B45309' },
+];
+
+const EMISORES = [
+  { id: 1, nombre: 'Ferretería La 30 S.A.S.', nit: '900.412.887-1', lineas: 14, pista: 'tornillería y anclajes' },
+  { id: 2, nombre: 'Estación de Servicio El Portal', nit: '811.029.774-6', lineas: 2, pista: 'parece combustible' },
+  { id: 3, nombre: 'Papelería Multiprint', nit: '901.556.230-4', lineas: 6, pista: 'parece gasto de oficina' },
+];
+
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { paso: 2, marcados: { 1: true }, panel: '' }; }
+
+  renderVals() {
+    const st = this.state;
+
+    const pasos = PASOS.map((p, i) => {
+      const n = i + 1;
+      const activo = st.paso === n;
+      const hecho = st.paso > n;
+      return {
+        n: p.n, titulo: p.titulo, sub: p.sub,
+        ir: () => this.setState({ paso: n }),
+        bg: activo ? T.surface : T.surfaceSubtle,
+        sep: i === 0 ? 'transparent' : T.border,
+        marca: activo ? T.primary : 'transparent',
+        numBg: activo ? T.primary : hecho ? T.positiveSoft : T.surfaceSunken,
+        numColor: activo ? '#FFFFFF' : hecho ? T.positive : T.textMuted,
+        titColor: activo ? T.text : T.textMuted,
+      };
+    });
+
+    const metricas = [
+      { label: 'Facturas procesadas', valor: '4', color: T.text, bg: T.surface, borde: T.border, labelColor: T.textMuted },
+      { label: 'Rechazadas por CUFE repetido', valor: '1', color: T.textMuted, bg: T.surface, borde: T.border, labelColor: T.textMuted },
+      { label: 'Precios sin cambio', valor: '34', color: T.positive, bg: T.surface, borde: T.border, labelColor: T.textMuted },
+      { label: 'Precios actualizados', valor: '5', color: T.primaryStrong, bg: 'rgba(99,102,241,0.06)', borde: 'rgba(99,102,241,0.35)', labelColor: T.primaryStrong },
+      { label: 'Códigos nuevos detectados', valor: '23', color: T.warning, bg: T.warningSoft, borde: 'rgba(217,119,6,0.4)', labelColor: '#B45309' },
+    ];
+
+    const cambios = CAMBIOS.map((c) => ({
+      ...c,
+      marca: c.anomalo ? T.danger : 'transparent',
+      varColor: c.anomalo ? T.danger : c.variacion.charAt(0) === '+' ? T.warning : T.positive,
+    }));
+
+    const emisores = EMISORES.map((e) => {
+      const marcado = !!st.marcados[e.id];
+      return {
+        nombre: e.nombre, nit: e.nit, lineas: String(e.lineas), pista: e.pista, marcado,
+        alternar: () => this.setState({ marcados: { ...st.marcados, [e.id]: !marcado } }),
+        bg: marcado ? 'rgba(5,150,105,0.06)' : T.surfaceSubtle,
+        borde: marcado ? 'rgba(5,150,105,0.4)' : T.border,
+        cajaBorde: marcado ? T.positive : T.borderStrong,
+        cajaBg: marcado ? T.positive : 'transparent',
+      };
+    });
+
+    const nMarcados = Object.values(st.marcados).filter(Boolean).length;
+
+    const panelActivo = (k) => st.panel === k;
+    const chip = (k) => ({
+      bg: panelActivo(k) ? T.primarySoft : T.surface,
+      borde: panelActivo(k) ? T.primary : T.borderStrong,
+      color: panelActivo(k) ? T.primaryStrong : T.text,
+    });
+    const cl = chip('lista');
+    const cb = chip('bitacora');
+
+    return {
+      t: T,
+      s: {
+        pasos, metricas, cambios, avisos: AVISOS, emisores,
+        cola: COLA.map((c) => ({
+          nombre: c.nombre, nota: c.nota,
+          punto: c.ok ? T.positive : T.danger,
+          notaColor: c.ok ? T.textMuted : T.danger,
+        })),
+        p1: st.paso === 1, p2: st.paso === 2, p3: st.paso === 3,
+        irP1: () => this.setState({ paso: 1 }),
+        irP2: () => this.setState({ paso: 2 }),
+        irP3: () => this.setState({ paso: 3 }),
+        marcados: nMarcados === 1 ? '1 emisor' : nMarcados + ' emisores',
+        verLista: () => this.setState({ panel: st.panel === 'lista' ? '' : 'lista' }),
+        verBitacora: () => this.setState({ panel: st.panel === 'bitacora' ? '' : 'bitacora' }),
+        bgLista: cl.bg, bordeLista: cl.borde, colorLista: cl.color,
+        bgBit: cb.bg, bordeBit: cb.borde, colorBit: cb.color,
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

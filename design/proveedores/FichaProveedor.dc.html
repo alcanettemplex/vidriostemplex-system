@@ -1,0 +1,334 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    a { color: #4338CA; } a:hover { color: #312E81; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .btn { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; }
+    .row:hover { filter: brightness(0.985); }
+  </style>
+</helmet>
+
+<div style="width: 1180px; min-height: 900px; box-sizing: border-box; padding: 26px 30px 40px; background: {{t.bg}}; color: {{t.text}}">
+
+  <div class="btn" style="font-size: 12.5px; font-weight: 600; color: {{t.textMuted}}; margin-bottom: 16px; padding: 0">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>
+    Volver al maestro
+  </div>
+
+  <!-- ══ Cabecera de la ficha ══ -->
+  <div style="background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 16px; padding: 22px 26px; margin-bottom: 18px; box-shadow: {{t.shadowSm}}">
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap">
+      <div style="display: flex; align-items: center; gap: 16px">
+        <div style="width: 54px; height: 54px; flex-shrink: 0; border-radius: 14px; background: {{t.positiveSoft}}; color: {{t.positive}}; display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 800">VT</div>
+        <div>
+          <div style="display: flex; align-items: center; gap: 11px; flex-wrap: wrap">
+            <h1 style="font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.01em">Vitelsa</h1>
+            <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 999px; background: {{t.positiveSoft}}; color: {{t.positive}}">
+              <div style="width: 6px; height: 6px; border-radius: 999px; background: {{t.positive}}"></div>Siguiendo precios
+            </span>
+          </div>
+          <div style="font-size: 13px; color: {{t.textMuted}}; margin-top: 5px">Vidrios Templados S.A.S. · <span class="mono">NIT 890.315.442-7</span></div>
+          <div style="font-size: 12.5px; color: {{t.textMuted}}; margin-top: 4px">compras@vitelsa.com.co · (602) 885 4410 · Cra. 8 #23-41, Cali</div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; flex-shrink: 0">
+        <div class="btn" style="font-size: 13px; font-weight: 600; padding: 9px 14px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; color: {{t.text}}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg>
+          Editar datos
+        </div>
+        <div class="btn" style="font-size: 13px; font-weight: 600; padding: 9px 14px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; color: {{t.textMuted}}">Dejar de seguir</div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; margin-top: 22px; padding-top: 20px; border-top: 1px solid {{t.border}}">
+      <sc-for list="{{s.kpis}}" as="k" hint-placeholder-count="5">
+        <div style="padding: 0 18px; border-left: 1px solid {{k.sep}}">
+          <div style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; line-height: 1.35">{{k.label}}</div>
+          <div style="font-size: 22px; font-weight: 800; color: {{k.color}}; margin-top: 6px; font-variant-numeric: tabular-nums">{{k.valor}}</div>
+          <div style="font-size: 11px; color: {{t.textSubtle}}; margin-top: 2px">{{k.nota}}</div>
+          <sc-if value="{{k.nuevo}}" hint-placeholder-val="{{ false }}">
+            <span style="display: inline-block; margin-top: 8px; font-size: 8.5px; font-weight: 800; letter-spacing: 0.06em; color: #DB2777; background: rgba(219,39,119,0.09); border: 1px dashed #DB2777; border-radius: 4px; padding: 2px 6px">BACKEND NUEVO</span>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- ══ Pestañas de la ficha ══ -->
+  <div style="display: flex; gap: 2px; border-bottom: 1px solid {{t.border}}; margin-bottom: 18px">
+    <sc-for list="{{s.tabs}}" as="tb" hint-placeholder-count="4">
+      <div onClick="{{tb.ir}}" style="cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 11px 18px; border-bottom: 2px solid {{tb.marca}}; margin-bottom: -1px; color: {{tb.color}}">
+        <span style="font-size: 13.5px; font-weight: {{tb.peso}}">{{tb.label}}</span>
+        <span style="font-size: 11px; font-weight: 800; border-radius: 999px; padding: 1px 7px; background: {{tb.badgeBg}}; color: {{tb.badgeColor}}">{{tb.conteo}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- ══ PRODUCTOS ══ -->
+  <sc-if value="{{s.esProductos}}" hint-placeholder-val="{{ true }}">
+  <div style="background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 16px; overflow: hidden; box-shadow: {{t.shadowSm}}">
+    <div style="display: grid; grid-template-columns: 1.1fr 1.9fr 0.9fr 1fr 1fr 1.1fr; gap: 12px; background: {{t.surfaceSubtle}}; padding: 10px 20px; border-bottom: 1px solid {{t.border}}">
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">SU CÓDIGO</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">TU PRODUCTO</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">MODALIDAD</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">PRECIO VIGENTE</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">ÚLTIMO CAMBIO</div>
+      <div style="text-align: right">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">FRENTE AL MEJOR</div>
+        <span style="display: inline-block; margin-top: 4px; font-size: 8.5px; font-weight: 800; letter-spacing: 0.06em; color: #DB2777; background: rgba(219,39,119,0.09); border: 1px dashed #DB2777; border-radius: 4px; padding: 2px 6px">BACKEND NUEVO</span>
+      </div>
+    </div>
+
+    <sc-for list="{{s.productos}}" as="p" hint-placeholder-count="6">
+      <div class="row" style="display: grid; grid-template-columns: 1.1fr 1.9fr 0.9fr 1fr 1fr 1.1fr; gap: 12px; align-items: center; padding: 12px 20px; border-bottom: 1px solid {{t.border}}">
+        <div><span class="mono" style="font-size: 11.5px; font-weight: 700; color: {{t.primaryStrong}}; background: {{t.primarySoft}}; border-radius: 5px; padding: 3px 8px">{{p.codigo}}</span></div>
+        <div style="min-width: 0">
+          <div style="display: flex; align-items: center; gap: 8px">
+            <span class="mono" style="font-size: 11.5px; font-weight: 800; color: {{t.text}}">{{p.interno}}</span>
+            <span style="font-size: 12.5px; color: {{t.textMuted}}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{p.nombre}}</span>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: {{t.textMuted}}">{{p.modalidad}}</div>
+        <div style="font-size: 14px; font-weight: 700; color: {{t.text}}; text-align: right; font-variant-numeric: tabular-nums">{{p.precio}}</div>
+        <div>
+          <div style="font-size: 12px; color: {{t.textMuted}}">{{p.fecha}}</div>
+          <div style="font-size: 11px; font-weight: 700; color: {{p.varColor}}; margin-top: 1px">{{p.variacion}}</div>
+        </div>
+        <div style="text-align: right">
+          <span style="display: inline-block; font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: {{p.posBg}}; color: {{p.posColor}}">{{p.posicion}}</span>
+        </div>
+      </div>
+    </sc-for>
+
+    <div style="padding: 12px 20px; background: {{t.surfaceSubtle}}; font-size: 12px; color: {{t.textMuted}}">Mostrando 6 de 184 productos con precio registrado.</div>
+  </div>
+  </sc-if>
+
+  <!-- ══ FACTURAS ══ -->
+  <sc-if value="{{s.esFacturas}}" hint-placeholder-val="{{ false }}">
+  <div style="background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 16px; overflow: hidden; box-shadow: {{t.shadowSm}}">
+    <div style="display: grid; grid-template-columns: 1.1fr 1fr 2.2fr 1fr 1.1fr; gap: 12px; background: {{t.surfaceSubtle}}; padding: 10px 20px; border-bottom: 1px solid {{t.border}}">
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">DOCUMENTO</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">EMITIDA</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">CUFE</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">LÍNEAS</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">EFECTO</div>
+    </div>
+    <sc-for list="{{s.facturas}}" as="f" hint-placeholder-count="5">
+      <div class="row" style="display: grid; grid-template-columns: 1.1fr 1fr 2.2fr 1fr 1.1fr; gap: 12px; align-items: center; padding: 12px 20px; border-bottom: 1px solid {{t.border}}">
+        <div class="mono" style="font-size: 12.5px; font-weight: 700; color: {{t.text}}">{{f.numero}}</div>
+        <div style="font-size: 12.5px; color: {{t.textMuted}}">{{f.fecha}}</div>
+        <div class="mono" style="font-size: 11px; color: {{t.textSubtle}}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{f.cufe}}</div>
+        <div style="font-size: 13px; color: {{t.text}}; text-align: right; font-variant-numeric: tabular-nums">{{f.lineas}}</div>
+        <div style="text-align: right">
+          <span style="display: inline-block; font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: {{f.bg}}; color: {{f.color}}">{{f.efecto}}</span>
+        </div>
+      </div>
+    </sc-for>
+    <div style="padding: 12px 20px; background: {{t.surfaceSubtle}}; font-size: 12px; color: {{t.textMuted}}">La bitácora guarda el CUFE completo: por eso una misma factura nunca entra dos veces, aunque el número se repita entre prefijos.</div>
+  </div>
+  </sc-if>
+
+  <!-- ══ HISTÓRICO ══ -->
+  <sc-if value="{{s.esHistorico}}" hint-placeholder-val="{{ false }}">
+  <div style="position: relative; background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 16px; padding: 24px 26px; box-shadow: {{t.shadowSm}}; outline: 1.5px dashed #DB2777; outline-offset: 6px">
+    <span style="position: absolute; top: -18px; right: 10px; font-size: 8.5px; font-weight: 800; letter-spacing: 0.06em; color: #FFFFFF; background: #DB2777; border-radius: 4px; padding: 3px 8px; white-space: nowrap">BACKEND NUEVO · PESTAÑA COMPLETA</span>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap">
+      <div>
+        <div style="font-size: 15px; font-weight: 700; color: {{t.text}}">Variación de precios · últimos 6 meses</div>
+        <div style="font-size: 12.5px; color: {{t.textMuted}}; margin-top: 3px">Solo se grafican los productos cuyo precio efectivamente cambió. Una barra por mes, apilada por sentido del movimiento.</div>
+      </div>
+      <div style="display: flex; gap: 14px">
+        <div style="display: flex; align-items: center; gap: 6px"><div style="width: 10px; height: 10px; border-radius: 3px; background: {{t.warning}}"></div><span style="font-size: 12px; color: {{t.textMuted}}">subieron</span></div>
+        <div style="display: flex; align-items: center; gap: 6px"><div style="width: 10px; height: 10px; border-radius: 3px; background: {{t.positive}}"></div><span style="font-size: 12px; color: {{t.textMuted}}">bajaron</span></div>
+        <div style="display: flex; align-items: center; gap: 6px"><div style="width: 10px; height: 10px; border-radius: 3px; background: {{t.danger}}"></div><span style="font-size: 12px; color: {{t.textMuted}}">fuera de umbral</span></div>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: flex-end; gap: 20px; height: 260px; padding: 0 8px 0 46px; position: relative; border-bottom: 1px solid {{t.border}}">
+      <sc-for list="{{s.meses}}" as="m" hint-placeholder-count="6">
+        <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 8px">
+          <div style="width: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 2px; height: 224px">
+            <div style="width: 100%; max-width: 76px; height: {{m.hAnomalo}}; background: {{t.danger}}; border-radius: 4px 4px 0 0"></div>
+            <div style="width: 100%; max-width: 76px; height: {{m.hSube}}; background: {{t.warning}}"></div>
+            <div style="width: 100%; max-width: 76px; height: {{m.hBaja}}; background: {{t.positive}}; border-radius: 0 0 4px 4px"></div>
+          </div>
+          <div style="font-size: 12px; font-weight: 600; color: {{t.textMuted}}">{{m.mes}}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 24px">
+      <div style="background: {{t.surfaceSubtle}}; border: 1px solid {{t.border}}; border-radius: 12px; padding: 16px 18px">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">SUBIDA ACUMULADA DEL SEMESTRE</div>
+        <div style="font-size: 24px; font-weight: 800; color: {{t.warning}}; margin-top: 7px">+7,4%</div>
+        <div style="font-size: 11.5px; color: {{t.textMuted}}; margin-top: 3px">promedio ponderado por volumen comprado</div>
+      </div>
+      <div style="background: {{t.surfaceSubtle}}; border: 1px solid {{t.border}}; border-radius: 12px; padding: 16px 18px">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">EL QUE MÁS SUBIÓ</div>
+        <div style="font-size: 15px; font-weight: 700; color: {{t.text}}; margin-top: 7px">Felpa de cepillo 5 mm</div>
+        <div style="font-size: 11.5px; color: {{t.danger}}; font-weight: 700; margin-top: 3px">+31,2% en tres movimientos</div>
+      </div>
+      <div style="background: {{t.surfaceSubtle}}; border: 1px solid {{t.border}}; border-radius: 12px; padding: 16px 18px">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">SIN MOVER DESDE</div>
+        <div style="font-size: 15px; font-weight: 700; color: {{t.text}}; margin-top: 7px">marzo de 2025</div>
+        <div style="font-size: 11.5px; color: {{t.textMuted}}; margin-top: 3px">61 de sus 184 productos</div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ══ SIN MAPEAR ══ -->
+  <sc-if value="{{s.esPendientes}}" hint-placeholder-val="{{ false }}">
+  <div style="background: {{t.surface}}; border: 1px solid {{t.warning}}; border-radius: 16px; overflow: hidden">
+    <div style="padding: 16px 20px; background: {{t.warningSoft}}; border-bottom: 1px solid {{t.border}}">
+      <div style="font-size: 14px; font-weight: 700; color: {{t.text}}">3 códigos de Vitelsa esperando equivalencia</div>
+      <div style="font-size: 12.5px; color: {{t.textMuted}}; margin-top: 4px">Es el mismo dato de la bandeja Por Mapear, filtrado por este proveedor. Resolverlo aquí lo resuelve allá.</div>
+    </div>
+    <sc-for list="{{s.pendientes}}" as="p" hint-placeholder-count="3">
+      <div class="row" style="display: grid; grid-template-columns: 1fr 2.4fr 1fr 0.7fr 1fr; gap: 14px; align-items: center; padding: 13px 20px; border-bottom: 1px solid {{t.border}}">
+        <div><span class="mono" style="font-size: 11.5px; font-weight: 700; color: {{t.primaryStrong}}; background: {{t.primarySoft}}; border-radius: 5px; padding: 3px 8px">{{p.codigo}}</span></div>
+        <div style="font-size: 12.5px; color: {{t.text}}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{p.descripcion}}</div>
+        <div style="font-size: 13.5px; font-weight: 700; color: {{t.positive}}; text-align: right; font-variant-numeric: tabular-nums">{{p.precio}}</div>
+        <div style="text-align: center; font-size: 12px; font-weight: 800; color: {{t.warning}}">{{p.veces}}×</div>
+        <div style="text-align: right">
+          <div class="btn" style="font-size: 12px; font-weight: 700; padding: 6px 13px; background: {{t.primary}}; color: #FFFFFF">Vincular</div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{}'>
+const T = {
+  bg: '#F8FAFC', surface: '#FFFFFF', surfaceSubtle: '#F8FAFC', surfaceSunken: '#F1F5F9',
+  border: '#E2E8F0', borderStrong: '#CBD5E1',
+  text: '#0F172A', textMuted: '#64748B', textSubtle: '#94A3B8',
+  primary: '#6366F1', primarySoft: 'rgba(99,102,241,0.10)', primaryStrong: '#4338CA',
+  positive: '#059669', positiveSoft: 'rgba(5,150,105,0.10)',
+  warning: '#D97706', warningSoft: 'rgba(217,119,6,0.09)',
+  danger: '#EF4444',
+  shadowSm: '0 1px 3px rgba(15,23,42,0.05)',
+};
+
+const PRODUCTOS = [
+  { codigo: 'AL-2245', interno: 'TUB0510', nombre: 'Brazo hidráulico cierrapuertas', modalidad: 'Tira 6 m', precio: '$128.400', fecha: '04-sep-25', variacion: '+2,1%', sube: true, pos: 'mejor' },
+  { codigo: 'AL-0918', interno: 'EMP0605', nombre: 'Empaque de burbuja 6 mm', modalidad: 'Metro', precio: '$3.480', fecha: '04-sep-25', variacion: '+11,5%', sube: true, pos: '+8,2%' },
+  { codigo: 'AL-1102', interno: 'PIV0100', nombre: 'Pivote inferior puerta templada', modalidad: 'Unidad', precio: '$39.900', fecha: '12-ago-25', variacion: '−1,8%', sube: false, pos: 'mejor' },
+  { codigo: 'AL-3390', interno: 'VID0600', nombre: 'Vidrio templado incoloro 6 mm', modalidad: 'm²', precio: '$62.400', fecha: '12-ago-25', variacion: '+4,0%', sube: true, pos: '+6,3%' },
+  { codigo: 'AL-5521', interno: 'SIL0300', nombre: 'Silicona estructural 300 ml', modalidad: 'Unidad', precio: '$17.200', fecha: '22-jul-25', variacion: '0,0%', sube: null, pos: 'mejor' },
+  { codigo: 'AL-8814', interno: 'ANG0101', nombre: 'Ángulo de aluminio 1×1 natural', modalidad: 'Tira 6 m', precio: '$34.100', fecha: '03-jun-25', variacion: '+6,7%', sube: true, pos: '+7,6%' },
+];
+
+const FACTURAS = [
+  { numero: 'FV-A-40218', fecha: '04-sep-25', cufe: 'a3f91c77d2e4b810c5f6a9e0d7b4c2318e5f0a1b', lineas: '18', efecto: '3 precios' },
+  { numero: 'FV-A-40109', fecha: '12-ago-25', cufe: '7b2e0d41a9c8f3e6b105d7a2c4f9e8b30a6d1c57', lineas: '22', efecto: '5 precios' },
+  { numero: 'FV-A-39944', fecha: '22-jul-25', cufe: 'c18a4f90e3b7d2c6a5f1908b4e7d0c3a2f6b915e', lineas: '11', efecto: 'sin cambios' },
+  { numero: 'NC-A-00318', fecha: '19-jul-25', cufe: 'f04b9c21d8a7e350b6c1f4a9d2e8b70c5a3f1962', lineas: '2', efecto: 'nota crédito' },
+  { numero: 'FV-A-39701', fecha: '03-jun-25', cufe: '2d6f8b03c5a1e794f0b2d8c6a4e1f9730b5c2a84', lineas: '27', efecto: '9 precios' },
+];
+
+const MESES = [
+  { mes: 'abr', sube: 6, baja: 2, anom: 0 },
+  { mes: 'may', sube: 3, baja: 5, anom: 0 },
+  { mes: 'jun', sube: 9, baja: 1, anom: 1 },
+  { mes: 'jul', sube: 4, baja: 3, anom: 0 },
+  { mes: 'ago', sube: 7, baja: 2, anom: 1 },
+  { mes: 'sep', sube: 3, baja: 1, anom: 1 },
+];
+
+const PENDIENTES = [
+  { codigo: 'AL-7734', descripcion: 'FELPA CEPILLO 5MM X ROLLO 100MT NEGRO', precio: '$186.500', veces: 9 },
+  { codigo: 'AL-6120', descripcion: 'TAPA LATERAL PERFIL VENTANA CORREDIZA', precio: '$4.900', veces: 4 },
+  { codigo: 'AL-9902', descripcion: 'RODACHINA DOBLE NYLON REGULABLE', precio: '$12.800', veces: 2 },
+];
+
+const TABS = [
+  { k: 'productos', l: 'Productos', c: '184' },
+  { k: 'historico', l: 'Histórico', c: '6 m' },
+  { k: 'facturas', l: 'Facturas', c: '31' },
+  { k: 'pendientes', l: 'Sin mapear', c: '3' },
+];
+
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { tab: 'productos' }; }
+
+  renderVals() {
+    const st = this.state;
+
+    const tabs = TABS.map((tb) => {
+      const on = st.tab === tb.k;
+      return {
+        label: tb.l, conteo: tb.c,
+        ir: () => this.setState({ tab: tb.k }),
+        marca: on ? T.primary : 'transparent',
+        color: on ? T.primaryStrong : T.textMuted,
+        peso: on ? 700 : 500,
+        badgeBg: on ? T.primarySoft : T.surfaceSunken,
+        badgeColor: on ? T.primaryStrong : T.textMuted,
+      };
+    });
+
+    const kpis = [
+      { label: 'PRODUCTOS CON PRECIO', valor: '184', nota: '3 sin mapear', color: T.text, sep: 'transparent', nuevo: false },
+      { label: 'DONDE ES EL MÁS BARATO', valor: '71', nota: '39% de su catálogo', color: T.positive, sep: T.border, nuevo: true },
+      { label: 'FACTURAS PROCESADAS', valor: '31', nota: 'desde marzo de 2025', color: T.text, sep: T.border, nuevo: false },
+      { label: 'SUBIDA MEDIA 6 MESES', valor: '+7,4%', nota: 'ponderada por volumen', color: T.warning, sep: T.border, nuevo: true },
+      { label: 'ÚLTIMA FACTURA', valor: '04-sep', nota: 'hace 7 días', color: T.text, sep: T.border, nuevo: false },
+    ];
+
+    const productos = PRODUCTOS.map((p) => ({
+      codigo: p.codigo, interno: p.interno, nombre: p.nombre, modalidad: p.modalidad,
+      precio: p.precio, fecha: p.fecha, variacion: p.variacion,
+      varColor: p.sube === null ? T.textMuted : p.sube ? T.warning : T.positive,
+      posicion: p.pos === 'mejor' ? 'el más barato' : p.pos + ' más caro',
+      posBg: p.pos === 'mejor' ? T.positiveSoft : T.surfaceSunken,
+      posColor: p.pos === 'mejor' ? T.positive : T.textMuted,
+    }));
+
+    const facturas = FACTURAS.map((f) => {
+      const nota = f.efecto === 'nota crédito';
+      const sin = f.efecto === 'sin cambios';
+      return {
+        ...f,
+        bg: nota ? T.surfaceSunken : sin ? T.surfaceSunken : T.primarySoft,
+        color: nota ? T.textMuted : sin ? T.textMuted : T.primaryStrong,
+      };
+    });
+
+    const maxTotal = Math.max.apply(null, MESES.map((m) => m.sube + m.baja + m.anom));
+    const meses = MESES.map((m) => ({
+      mes: m.mes,
+      hSube: Math.round((m.sube / maxTotal) * 210) + 'px',
+      hBaja: Math.round((m.baja / maxTotal) * 210) + 'px',
+      hAnomalo: Math.round((m.anom / maxTotal) * 210) + 'px',
+    }));
+
+    return {
+      t: T,
+      s: {
+        tabs, kpis, productos, facturas, meses,
+        pendientes: PENDIENTES.map((p) => ({ ...p, veces: String(p.veces) })),
+        esProductos: st.tab === 'productos',
+        esHistorico: st.tab === 'historico',
+        esFacturas: st.tab === 'facturas',
+        esPendientes: st.tab === 'pendientes',
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

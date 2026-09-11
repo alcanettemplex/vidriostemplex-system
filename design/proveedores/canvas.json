@@ -1,0 +1,61 @@
+{
+  "pages": [
+    { "id": "pantallas", "name": "Pantallas" },
+    { "id": "fundamentos", "name": "Fundamentos" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "page": "pantallas", "title": "Shell + Consultar Precios", "x": 0, "y": 0, "w": 1180, "h": 1000 },
+    { "file": "CargarFacturas.dc.html", "page": "pantallas", "title": "Cargar Facturas", "x": 1300, "y": 0, "w": 1180, "h": 950 },
+    { "file": "PorMapear.dc.html", "page": "pantallas", "title": "Por Mapear", "x": 2600, "y": 0, "w": 1180, "h": 1090 },
+
+    { "file": "Proveedores.dc.html", "page": "pantallas", "title": "Proveedores (maestro)", "x": 0, "y": 1250, "w": 1180, "h": 930 },
+    { "file": "FichaProveedor.dc.html", "page": "pantallas", "title": "Ficha de proveedor (nueva)", "x": 1300, "y": 1250, "w": 1180, "h": 1010 },
+    { "file": "Equivalencias.dc.html", "page": "pantallas", "title": "Equivalencias", "x": 2600, "y": 1250, "w": 1180, "h": 1030 },
+
+    { "file": "Tokens.dc.html", "page": "fundamentos", "title": "Tokens light + dark", "x": 0, "y": 0, "w": 1180, "h": 1050 },
+    { "file": "Componentes.dc.html", "page": "fundamentos", "title": "Piezas reutilizables", "x": 1300, "y": 0, "w": 1180, "h": 1230 }
+  ],
+  "annotations": [
+    {
+      "id": "nota-alcance",
+      "page": "pantallas",
+      "x": 0,
+      "y": -150,
+      "w": 520,
+      "text": "Mismo lenguaje del ERP: carpetas manila, índigo #6366F1, slate-200, radios 12/16.\nLo que cambia es la ejecución, no el estilo.\n\nLas pestañas de esta pantalla son clicables. Cada una tiene además su propio artboard con el detalle."
+    },
+    {
+      "id": "nota-pormapear",
+      "page": "pantallas",
+      "x": 2600,
+      "y": -150,
+      "w": 480,
+      "text": "El cambio de fondo: vincular ya no abre un modal.\nLos tres candidatos y la modalidad caben en la propia fila, así que se resuelven diez códigos sin perder el contexto de la lista."
+    },
+    {
+      "id": "nota-ficha",
+      "page": "pantallas",
+      "x": 1300,
+      "y": 1100,
+      "w": 480,
+      "text": "Vista nueva: hoy no existe.\nToda la información de un proveedor está repartida entre cuatro pestañas; aquí se abre desde su fila en el maestro.\n\nProductos, facturas e histórico de una equivalencia ya tienen endpoint. Los KPIs marcados y la pestaña Histórico, no."
+    },
+    {
+      "id": "leyenda-backend",
+      "page": "pantallas",
+      "x": 640,
+      "y": -290,
+      "w": 620,
+      "text": "CÓMO LEER ESTE CANVAS\n\nTodo lo que ves sin marcar se puede aplicar con los endpoints que ya existen: es reorganización y CSS.\n\nLo rodeado en rosa con la etiqueta BACKEND NUEVO no existe todavía. Está dibujado para decidir si vale la pena construirlo, no para copiarlo tal cual.\n\nSon cinco cosas: los candidatos con porcentaje de confianza al vincular, los dos contadores derivados de la bandeja, dos de los cinco KPIs de la ficha, la columna «frente al mejor» y la pestaña Histórico completa."
+    },
+    {
+      "id": "nota-tokens",
+      "page": "fundamentos",
+      "x": 0,
+      "y": -140,
+      "w": 560,
+      "text": "Estas siete variables se usan en los 12 archivos del módulo y no están definidas en ninguna parte del proyecto.\nDonde el código puso fallback, funciona por accidente. Donde no, la declaración es inválida: ConsultarPreciosTab pinta sus paneles transparentes y sin borde ahora mismo."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "pantallas" }
+}

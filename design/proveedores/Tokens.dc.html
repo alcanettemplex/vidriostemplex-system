@@ -1,0 +1,235 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    a { color: #4338CA; } a:hover { color: #312E81; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  </style>
+</helmet>
+
+<div style="width: 1180px; min-height: 1000px; box-sizing: border-box; padding: 32px 36px; background: {{t.bg}}; color: {{t.text}}">
+
+  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 8px">
+    <div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: {{t.textMuted}}">FUNDAMENTOS</div>
+      <h1 style="font-size: 22px; font-weight: 800; margin: 6px 0 0; letter-spacing: -0.01em">Tokens del módulo Proveedores</h1>
+      <p style="font-size: 13px; color: {{t.textMuted}}; margin: 8px 0 0; max-width: 720px; line-height: 1.5">Hoy el módulo referencia siete variables CSS que nadie define. Donde el código escribió un fallback, funciona por accidente; donde no, la declaración es inválida y el panel se pinta transparente. Esta es la definición que falta, en sus dos temas.</p>
+    </div>
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 12px; padding: 8px 14px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{t.primary}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"></path></svg>
+      <span style="font-size: 12px; font-weight: 700; color: {{t.text}}">{{t.nombreModo}}</span>
+    </div>
+  </div>
+
+  <div style="height: 1px; background: {{t.border}}; margin: 24px 0 28px"></div>
+
+  <!-- ══ Superficies y texto ══ -->
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; margin-bottom: 32px">
+
+    <div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: {{t.textMuted}}; margin-bottom: 12px">SUPERFICIES</div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <sc-for list="{{t.superficies}}" as="s" hint-placeholder-count="5">
+          <div style="display: flex; align-items: center; gap: 14px; background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 12px; padding: 10px 14px">
+            <div style="width: 44px; height: 44px; border-radius: 8px; flex-shrink: 0; background: {{s.valor}}; border: 1px solid {{t.borderStrong}}"></div>
+            <div style="flex-grow: 1; min-width: 0">
+              <div class="mono" style="font-size: 12.5px; font-weight: 700; color: {{t.text}}">{{s.nombre}}</div>
+              <div style="font-size: 11.5px; color: {{t.textMuted}}; margin-top: 2px">{{s.uso}}</div>
+            </div>
+            <div class="mono" style="font-size: 11.5px; color: {{t.textSubtle}}; flex-shrink: 0">{{s.valor}}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: {{t.textMuted}}; margin-bottom: 12px">TEXTO Y BORDES</div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <sc-for list="{{t.textos}}" as="s" hint-placeholder-count="5">
+          <div style="display: flex; align-items: center; gap: 14px; background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 12px; padding: 10px 14px">
+            <div style="width: 44px; height: 44px; border-radius: 8px; flex-shrink: 0; background: {{s.valor}}; border: 1px solid {{t.borderStrong}}"></div>
+            <div style="flex-grow: 1; min-width: 0">
+              <div class="mono" style="font-size: 12.5px; font-weight: 700; color: {{t.text}}">{{s.nombre}}</div>
+              <div style="font-size: 11.5px; color: {{t.textMuted}}; margin-top: 2px">{{s.uso}}</div>
+            </div>
+            <div class="mono" style="font-size: 11.5px; color: {{t.textSubtle}}; flex-shrink: 0">{{s.valor}}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Semánticos ══ -->
+  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: {{t.textMuted}}; margin-bottom: 12px">SEMÁNTICOS — cada uno con su versión sólida y su velo al 10%</div>
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 32px">
+    <sc-for list="{{t.semanticos}}" as="s" hint-placeholder-count="4">
+      <div style="background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 12px; overflow: hidden">
+        <div style="height: 52px; background: {{s.valor}}"></div>
+        <div style="height: 28px; background: {{s.soft}}; border-bottom: 1px solid {{t.border}}"></div>
+        <div style="padding: 11px 14px">
+          <div class="mono" style="font-size: 12.5px; font-weight: 700; color: {{t.text}}">{{s.nombre}}</div>
+          <div style="font-size: 11.5px; color: {{t.textMuted}}; margin-top: 3px; line-height: 1.45">{{s.uso}}</div>
+          <div class="mono" style="font-size: 11px; color: {{t.textSubtle}}; margin-top: 6px">{{s.valor}}</div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- ══ Escalas ══ -->
+  <div style="display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 24px">
+
+    <div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: {{t.textMuted}}; margin-bottom: 12px">TIPOGRAFÍA — 6 pasos, hoy hay 16</div>
+      <div style="background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 12px; padding: 6px 16px">
+        <sc-for list="{{t.tipos}}" as="ty" hint-placeholder-count="6">
+          <div style="display: flex; align-items: baseline; gap: 14px; padding: 10px 0; border-bottom: 1px solid {{t.border}}">
+            <div class="mono" style="width: 86px; flex-shrink: 0; font-size: 11px; color: {{t.textSubtle}}">{{ty.token}}</div>
+            <div style="flex-grow: 1; font-size: {{ty.px}}; font-weight: {{ty.peso}}; color: {{t.text}}">{{ty.muestra}}</div>
+            <div class="mono" style="flex-shrink: 0; font-size: 11px; color: {{t.textMuted}}">{{ty.px}}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: {{t.textMuted}}; margin-bottom: 12px">RADIOS — 3 + píldora, hoy hay 10</div>
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <sc-for list="{{t.radios}}" as="r" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 14px; background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 12px; padding: 10px 14px">
+            <div style="width: 40px; height: 40px; flex-shrink: 0; background: {{t.primarySoft}}; border: 1px solid {{t.primary}}; border-radius: {{r.px}}"></div>
+            <div style="flex-grow: 1">
+              <div class="mono" style="font-size: 12px; font-weight: 700; color: {{t.text}}">{{r.token}}</div>
+              <div style="font-size: 11.5px; color: {{t.textMuted}}; margin-top: 2px">{{r.uso}}</div>
+            </div>
+            <div class="mono" style="font-size: 11px; color: {{t.textSubtle}}">{{r.px}}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: {{t.textMuted}}; margin-bottom: 12px">ELEVACIÓN</div>
+      <div style="display: flex; flex-direction: column; gap: 14px">
+        <sc-for list="{{t.sombras}}" as="sh" hint-placeholder-count="3">
+          <div style="background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 12px; padding: 16px 14px; box-shadow: {{sh.valor}}">
+            <div class="mono" style="font-size: 12px; font-weight: 700; color: {{t.text}}">{{sh.token}}</div>
+            <div style="font-size: 11.5px; color: {{t.textMuted}}; margin-top: 3px; line-height: 1.45">{{sh.uso}}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 30px; display: flex; align-items: flex-start; gap: 12px; background: {{t.warningSoft}}; border: 1px solid {{t.warning}}; border-radius: 12px; padding: 14px 18px">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="{{t.warning}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><path d="M12 9v4M12 17h.01"></path></svg>
+    <div style="font-size: 12.5px; line-height: 1.55; color: {{t.text}}">
+      <strong>Estos tokens van en <span class="mono">index.css</span> bajo <span class="mono">:root</span>, no en el módulo.</strong>
+      Los doce archivos de <span class="mono">features/proveedores/</span> son hoy los únicos del ERP que los nombran, así que definirlos no altera ningún otro módulo — pero deja el camino abierto para que los demás los adopten sin volver a inventar colores.
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"modo":{"editor":"enum","options":["Claro","Oscuro"],"default":"Claro","section":"Tema"}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const oscuro = (this.props.modo ?? 'Claro') === 'Oscuro';
+
+    const claro = {
+      nombreModo: 'Tema claro',
+      bg: '#F8FAFC', surface: '#FFFFFF', surfaceSubtle: '#F8FAFC', surfaceSunken: '#F1F5F9',
+      border: '#E2E8F0', borderStrong: '#CBD5E1',
+      text: '#0F172A', textMuted: '#64748B', textSubtle: '#94A3B8',
+      primary: '#6366F1', primarySoft: 'rgba(99,102,241,0.10)',
+      warning: '#D97706', warningSoft: 'rgba(217,119,6,0.09)',
+      superficies: [
+        { nombre: '--bg', valor: '#F8FAFC', uso: 'Fondo de la página, detrás de todo' },
+        { nombre: '--surface', valor: '#FFFFFF', uso: 'Tarjetas, tablas, el cuerpo de la carpeta' },
+        { nombre: '--surface-subtle', valor: '#F8FAFC', uso: 'Cabecera de tabla, franjas de filtro' },
+        { nombre: '--surface-sunken', valor: '#F1F5F9', uso: 'Campos, fila expandida, zona de arrastre' },
+      ],
+      textos: [
+        { nombre: '--text', valor: '#0F172A', uso: 'Cifras, nombres, todo lo que se lee' },
+        { nombre: '--text-muted', valor: '#64748B', uso: 'Etiquetas de columna, metadatos' },
+        { nombre: '--text-subtle', valor: '#94A3B8', uso: 'Marcas de agua, guiones de vacío' },
+        { nombre: '--border', valor: '#E2E8F0', uso: 'Separadores y contorno de tarjeta' },
+        { nombre: '--border-strong', valor: '#CBD5E1', uso: 'Contorno de campo y botón secundario' },
+      ],
+      semanticos: [
+        { nombre: '--primary', valor: '#6366F1', soft: 'rgba(99,102,241,0.10)', uso: 'Acción principal, código de proveedor, pestaña activa' },
+        { nombre: '--positive', valor: '#059669', soft: 'rgba(5,150,105,0.10)', uso: 'Dinero, precio más bajo, seguimiento activo' },
+        { nombre: '--warning', valor: '#D97706', soft: 'rgba(217,119,6,0.10)', uso: 'Subida de precio, pendientes, sin decidir' },
+        { nombre: '--danger', valor: '#EF4444', soft: 'rgba(239,68,68,0.10)', uso: 'Variación anómala, descartar, ignorado' },
+      ],
+    };
+
+    const oscuroT = {
+      nombreModo: 'Tema oscuro',
+      bg: '#0B1120', surface: '#151C2C', surfaceSubtle: '#111827', surfaceSunken: '#0E1523',
+      border: '#1F2A3C', borderStrong: '#2C3A50',
+      text: '#E6EDF7', textMuted: '#8A99B0', textSubtle: '#64748B',
+      primary: '#818CF8', primarySoft: 'rgba(129,140,248,0.14)',
+      warning: '#FBBF24', warningSoft: 'rgba(251,191,36,0.10)',
+      superficies: [
+        { nombre: '--bg', valor: '#0B1120', uso: 'Fondo de la página, detrás de todo' },
+        { nombre: '--surface', valor: '#151C2C', uso: 'Tarjetas, tablas, el cuerpo de la carpeta' },
+        { nombre: '--surface-subtle', valor: '#111827', uso: 'Cabecera de tabla, franjas de filtro' },
+        { nombre: '--surface-sunken', valor: '#0E1523', uso: 'Campos, fila expandida, zona de arrastre' },
+      ],
+      textos: [
+        { nombre: '--text', valor: '#E6EDF7', uso: 'Cifras, nombres, todo lo que se lee' },
+        { nombre: '--text-muted', valor: '#8A99B0', uso: 'Etiquetas de columna, metadatos' },
+        { nombre: '--text-subtle', valor: '#64748B', uso: 'Marcas de agua, guiones de vacío' },
+        { nombre: '--border', valor: '#1F2A3C', uso: 'Separadores y contorno de tarjeta' },
+        { nombre: '--border-strong', valor: '#2C3A50', uso: 'Contorno de campo y botón secundario' },
+      ],
+      semanticos: [
+        { nombre: '--primary', valor: '#818CF8', soft: 'rgba(129,140,248,0.16)', uso: 'Acción principal, código de proveedor, pestaña activa' },
+        { nombre: '--positive', valor: '#34D399', soft: 'rgba(52,211,153,0.14)', uso: 'Dinero, precio más bajo, seguimiento activo' },
+        { nombre: '--warning', valor: '#FBBF24', soft: 'rgba(251,191,36,0.14)', uso: 'Subida de precio, pendientes, sin decidir' },
+        { nombre: '--danger', valor: '#F87171', soft: 'rgba(248,113,113,0.14)', uso: 'Variación anómala, descartar, ignorado' },
+      ],
+    };
+
+    const base = oscuro ? oscuroT : claro;
+
+    const tipos = [
+      { token: '--fs-micro', px: '11px', peso: 700, muestra: 'PROVEEDOR · MODALIDAD' },
+      { token: '--fs-xs', px: '12px', peso: 500, muestra: 'Ref: FV-A-40218 · visto 3 veces' },
+      { token: '--fs-sm', px: '13px', peso: 500, muestra: 'Cuerpo de tabla y descripciones' },
+      { token: '--fs-md', px: '14px', peso: 600, muestra: 'Controles, nombres, botones' },
+      { token: '--fs-lg', px: '17px', peso: 700, muestra: 'Título de sección' },
+      { token: '--fs-xl', px: '22px', peso: 800, muestra: 'Título de página' },
+    ];
+
+    const radios = [
+      { token: '--r-sm', px: '8px', uso: 'Campos, botones, chips' },
+      { token: '--r-md', px: '12px', uso: 'Tarjetas y paneles internos' },
+      { token: '--r-lg', px: '16px', uso: 'Contenedor de tabla, carpeta' },
+      { token: '--r-pill', px: '999px', uso: 'Contadores y badges' },
+    ];
+
+    const sombras = oscuro ? [
+      { token: '--shadow-sm', valor: '0 1px 2px rgba(0,0,0,0.5)', uso: 'Reposo de tarjeta' },
+      { token: '--shadow-md', valor: '0 6px 18px rgba(0,0,0,0.45)', uso: 'Menú, sugerencias del buscador' },
+      { token: '--shadow-lg', valor: '0 18px 40px rgba(0,0,0,0.55)', uso: 'Modales' },
+    ] : [
+      { token: '--shadow-sm', valor: '0 1px 3px rgba(15,23,42,0.05)', uso: 'Reposo de tarjeta' },
+      { token: '--shadow-md', valor: '0 10px 24px -10px rgba(15,23,42,0.18)', uso: 'Menú, sugerencias del buscador' },
+      { token: '--shadow-lg', valor: '0 24px 48px -16px rgba(15,23,42,0.28)', uso: 'Modales' },
+    ];
+
+    return { t: { ...base, tipos, radios, sombras } };
+  }
+}
+</script>
+</body>
+</html>

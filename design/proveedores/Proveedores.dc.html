@@ -1,0 +1,260 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    a { color: #4338CA; } a:hover { color: #312E81; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .btn { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; }
+    .row:hover { filter: brightness(0.985); }
+  </style>
+</helmet>
+
+<div style="width: 1180px; min-height: 880px; box-sizing: border-box; padding: 26px 30px 40px; background: {{t.bg}}; color: {{t.text}}">
+
+  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 20px">
+    <div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: {{t.textMuted}}">PROVEEDORES · MAESTRO</div>
+      <h1 style="font-size: 22px; font-weight: 800; margin: 6px 0 0; letter-spacing: -0.01em">1.011 emisores, 42 que importan</h1>
+      <p style="font-size: 13px; color: {{t.textMuted}}; margin: 7px 0 0; max-width: 700px; line-height: 1.5">La ingesta da de alta a todo el que emite una factura, así que el maestro se llena de estaciones de servicio y papelerías. Las tres pestañas separan lo que alimenta precios de lo que solo es ruido contable.</p>
+    </div>
+    <div style="display: flex; gap: 8px; flex-shrink: 0">
+      <div class="btn" style="font-size: 13px; font-weight: 600; padding: 9px 14px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; color: {{t.text}}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M9 21V9"></path></svg>
+        Importar Excel
+      </div>
+      <div class="btn" style="font-size: 13px; font-weight: 700; padding: 9px 16px; background: {{t.primary}}; color: #FFFFFF; box-shadow: {{t.shadowPrimary}}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+        Nuevo proveedor
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Sub-pestañas de seguimiento ══ -->
+  <div style="display: flex; gap: 2px; border-bottom: 1px solid {{t.border}}; margin-bottom: 18px">
+    <sc-for list="{{s.subtabs}}" as="st" hint-placeholder-count="3">
+      <div onClick="{{st.ir}}" style="cursor: pointer; display: flex; align-items: center; gap: 9px; padding: 11px 20px; border-bottom: 2px solid {{st.marca}}; margin-bottom: -1px">
+        <div style="width: 8px; height: 8px; border-radius: 999px; background: {{st.punto}}"></div>
+        <span style="font-size: 14px; font-weight: {{st.peso}}; color: {{st.color}}">{{st.label}}</span>
+        <span style="font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 8px; background: {{st.badgeBg}}; color: {{st.badgeColor}}; font-variant-numeric: tabular-nums">{{st.conteo}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display: flex; align-items: flex-start; gap: 11px; background: {{s.avisoBg}}; border: 1px solid {{s.avisoBorde}}; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px">
+    <div style="width: 8px; height: 8px; border-radius: 999px; background: {{s.avisoPunto}}; flex-shrink: 0; margin-top: 5px"></div>
+    <div style="font-size: 12.5px; line-height: 1.5; color: {{t.text}}">{{s.avisoTexto}}</div>
+  </div>
+
+  <!-- ══ Filtros ══ -->
+  <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px">
+    <div style="display: flex; align-items: center; gap: 9px; flex-grow: 1; min-width: 280px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; border-radius: 8px; padding: 9px 13px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{t.textMuted}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+      <span style="font-size: 13px; color: {{t.textSubtle}}">Buscar por nombre comercial, razón social o NIT</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; border-radius: 8px; padding: 9px 13px">
+      <span style="font-size: 13px; color: {{t.text}}">Solo activos</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{t.textMuted}}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+    </div>
+  </div>
+
+  <sc-if value="{{s.haySeleccion}}" hint-placeholder-val="{{ true }}">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; background: {{t.primarySoft}}; border: 1px solid {{t.primary}}; border-radius: 12px; padding: 11px 18px; margin-bottom: 14px">
+      <span style="font-size: 13px; font-weight: 700; color: {{t.primaryStrong}}">{{s.nSeleccion}} seleccionados · resuelve la cola de una vez</span>
+      <div style="display: flex; gap: 8px">
+        <div class="btn" style="font-size: 12.5px; font-weight: 700; padding: 7px 13px; background: {{t.positiveSoft}}; border: 1px solid {{t.positive}}; color: {{t.positive}}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12.5 2.5 2.5 4.5-5"></path></svg>
+          Seguir precios
+        </div>
+        <div class="btn" style="font-size: 12.5px; font-weight: 700; padding: 7px 13px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; color: {{t.textMuted}}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m15 9-6 6M9 9l6 6"></path></svg>
+          Ignorar
+        </div>
+        <div class="btn" onClick="{{s.limpiar}}" style="font-size: 12.5px; font-weight: 600; padding: 7px 13px; color: {{t.textMuted}}">Limpiar</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ══ Tabla ══ -->
+  <div style="background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 16px; overflow: hidden; box-shadow: {{t.shadowSm}}">
+    <div style="display: grid; grid-template-columns: 32px 2.1fr 1.1fr 1fr 0.9fr 1.5fr; gap: 12px; align-items: center; background: {{t.surfaceSubtle}}; padding: 10px 18px; border-bottom: 1px solid {{t.border}}">
+      <div></div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">PROVEEDOR</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">NIT</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">PRODUCTOS</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">ÚLT. FACTURA</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">SEGUIMIENTO</div>
+    </div>
+
+    <sc-for list="{{s.filas}}" as="f" hint-placeholder-count="6">
+      <div class="row" style="display: grid; grid-template-columns: 32px 2.1fr 1.1fr 1fr 0.9fr 1.5fr; gap: 12px; align-items: center; padding: 13px 18px; border-bottom: 1px solid {{t.border}}; background: {{f.fondo}}; opacity: {{f.opacidad}}">
+        <div onClick="{{f.alternarSel}}" style="cursor: pointer; width: 17px; height: 17px; border-radius: 5px; border: 2px solid {{f.cajaBorde}}; background: {{f.cajaBg}}; display: flex; align-items: center; justify-content: center">
+          <sc-if value="{{f.seleccionado}}" hint-placeholder-val="{{ false }}">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4 10-10"></path></svg>
+          </sc-if>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 11px; min-width: 0">
+          <div style="width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; background: {{f.avatarBg}}; color: {{f.avatarColor}}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800">{{f.iniciales}}</div>
+          <div style="min-width: 0">
+            <div style="font-size: 14px; font-weight: 600; color: {{t.text}}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{f.nombre}}</div>
+            <div style="display: flex; align-items: center; gap: 7px; margin-top: 3px">
+              <sc-if value="{{f.porIngesta}}" hint-placeholder-val="{{ false }}">
+                <span style="font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: {{t.warningSoft}}; color: {{t.warning}}">creado por factura</span>
+              </sc-if>
+              <span style="font-size: 11px; color: {{t.textMuted}}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{f.razon}}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mono" style="font-size: 12px; color: {{t.textMuted}}">{{f.nit}}</div>
+
+        <div style="text-align: right">
+          <div style="font-size: 14px; font-weight: 700; color: {{f.prodColor}}; font-variant-numeric: tabular-nums">{{f.productos}}</div>
+          <div style="font-size: 10.5px; color: {{t.textSubtle}}; margin-top: 1px">con precio</div>
+        </div>
+
+        <div style="font-size: 12px; color: {{t.textMuted}}; text-align: right">{{f.ultima}}</div>
+
+        <div style="display: flex; align-items: center; gap: 8px; justify-content: flex-end">
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: {{f.estadoBg}}; color: {{f.estadoColor}}; white-space: nowrap">
+            <div style="width: 6px; height: 6px; border-radius: 999px; background: {{f.estadoColor}}"></div>{{f.estado}}
+          </span>
+          <div class="btn" onClick="{{f.alternarEstado}}" style="font-size: 11.5px; font-weight: 600; padding: 5px 10px; border: 1px solid {{t.borderStrong}}; color: {{f.accionColor}}">{{f.accion}}</div>
+          <div class="btn" style="padding: 5px 8px; border: 1px solid {{t.borderStrong}}; color: {{t.textMuted}}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"></path></svg>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 18px; background: {{t.surfaceSubtle}}">
+      <span style="font-size: 12px; color: {{t.textMuted}}">Mostrando 6 de {{s.conteoActual}}</span>
+      <div class="btn" style="font-size: 12px; font-weight: 600; padding: 6px 14px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; color: {{t.text}}">Mostrar 200 más</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{}'>
+const T = {
+  bg: '#F8FAFC', surface: '#FFFFFF', surfaceSubtle: '#F8FAFC', surfaceSunken: '#F1F5F9',
+  border: '#E2E8F0', borderStrong: '#CBD5E1',
+  text: '#0F172A', textMuted: '#64748B', textSubtle: '#94A3B8',
+  primary: '#6366F1', primarySoft: 'rgba(99,102,241,0.10)', primaryStrong: '#4338CA',
+  positive: '#059669', positiveSoft: 'rgba(5,150,105,0.10)',
+  warning: '#D97706', warningSoft: 'rgba(217,119,6,0.09)',
+  danger: '#EF4444', dangerSoft: 'rgba(239,68,68,0.08)',
+  shadowSm: '0 1px 3px rgba(15,23,42,0.05)',
+  shadowPrimary: '0 2px 8px rgba(99,102,241,0.28)',
+};
+
+const DATOS = {
+  SIGUIENDO: [
+    { id: 1, nombre: 'Vitelsa', razon: 'Vidrios Templados S.A.S.', nit: '890.315.442-7', productos: 184, ultima: '04-sep-25', ingesta: false, activo: true },
+    { id: 2, nombre: 'Templacol', razon: 'Templacol Colombia Ltda.', nit: '900.118.209-3', productos: 147, ultima: '01-sep-25', ingesta: false, activo: true },
+    { id: 3, nombre: 'Arquiluz', razon: 'Arquitectura y Luz S.A.S.', nit: '901.033.771-8', productos: 96, ultima: '28-ago-25', ingesta: false, activo: true },
+    { id: 4, nombre: 'Aluminios del Norte', razon: 'Aluminios del Norte S.A.', nit: '811.447.902-1', productos: 61, ultima: '06-sep-25', ingesta: true, activo: true },
+    { id: 5, nombre: 'Herrajes Andinos', razon: 'Herrajes Andinos Ltda.', nit: '900.774.116-5', productos: 38, ultima: '19-ago-25', ingesta: false, activo: true },
+    { id: 6, nombre: 'Selladores Pacífico', razon: 'Selladores del Pacífico S.A.S.', nit: '901.290.554-2', productos: 22, ultima: '11-ago-25', ingesta: true, activo: true },
+  ],
+  SIN_DECIDIR: [
+    { id: 11, nombre: 'Ferretería La 30', razon: 'Ferretería La 30 S.A.S.', nit: '900.412.887-1', productos: 0, ultima: '05-sep-25', ingesta: true, activo: true },
+    { id: 12, nombre: 'Estación El Portal', razon: 'Estación de Servicio El Portal', nit: '811.029.774-6', productos: 0, ultima: '05-sep-25', ingesta: true, activo: true },
+    { id: 13, nombre: 'Papelería Multiprint', razon: 'Multiprint Soluciones S.A.S.', nit: '901.556.230-4', productos: 0, ultima: '03-sep-25', ingesta: true, activo: true },
+    { id: 14, nombre: 'Transportes Cauca', razon: 'Transportes del Cauca Ltda.', nit: '891.900.221-9', productos: 0, ultima: '02-sep-25', ingesta: true, activo: true },
+    { id: 15, nombre: 'Vidrios del Valle', razon: 'Vidrios del Valle S.A.S.', nit: '900.881.334-0', productos: 0, ultima: '30-ago-25', ingesta: true, activo: true },
+    { id: 16, nombre: 'Aseo Integral SAS', razon: 'Aseo Integral S.A.S.', nit: '901.112.008-7', productos: 0, ultima: '27-ago-25', ingesta: true, activo: true },
+  ],
+  IGNORADO: [
+    { id: 21, nombre: 'Comcel', razon: 'Comunicación Celular S.A.', nit: '800.153.993-7', productos: 0, ultima: '01-sep-25', ingesta: true, activo: true },
+    { id: 22, nombre: 'Terpel', razon: 'Organización Terpel S.A.', nit: '830.095.213-0', productos: 0, ultima: '04-sep-25', ingesta: true, activo: true },
+    { id: 23, nombre: 'Parqueadero Centro', razon: 'Parqueaderos del Centro Ltda.', nit: '805.012.447-3', productos: 0, ultima: '28-ago-25', ingesta: true, activo: true },
+    { id: 24, nombre: 'Alambres Sur', razon: 'Alambres del Sur S.A.S.', nit: '900.220.118-4', productos: 12, ultima: '14-jun-25', ingesta: false, activo: false },
+    { id: 25, nombre: 'Emcali', razon: 'Empresas Municipales de Cali', nit: '890.399.003-2', productos: 0, ultima: '01-sep-25', ingesta: true, activo: true },
+    { id: 26, nombre: 'Seguros Bolívar', razon: 'Seguros Comerciales Bolívar S.A.', nit: '860.002.180-7', productos: 0, ultima: '15-ago-25', ingesta: true, activo: true },
+  ],
+};
+
+const META = {
+  SIGUIENDO: { label: 'Activos', color: '#059669', conteo: '42', aviso: 'Sus facturas actualizan precios y sus códigos nuevos entran a Por Mapear. Son los únicos que alimentan el comparador.' },
+  SIN_DECIDIR: { label: 'Pendientes', color: '#D97706', conteo: '7', aviso: 'La ingesta los descubrió y nadie ha decidido si interesan. Mientras tanto se ignoran: sus productos no llegan a la bandeja, aunque sus facturas sí quedan registradas.' },
+  IGNORADO: { label: 'Ignorados', color: '#EF4444', conteo: '962', aviso: 'Aquí caen los que marcaste como «no seguir» y los dados de baja. Sus facturas se registran en la bitácora pero no mueven ni un precio.' },
+};
+
+const iniciales = (n) => n.split(' ').filter((w) => w.length > 2).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { sub: 'SIN_DECIDIR', sel: { 11: true, 12: true }, cambiados: {} }; }
+
+  renderVals() {
+    const st = this.state;
+    const meta = META[st.sub];
+
+    const subtabs = ['SIGUIENDO', 'SIN_DECIDIR', 'IGNORADO'].map((k) => {
+      const m = META[k];
+      const on = st.sub === k;
+      return {
+        label: m.label, conteo: m.conteo,
+        ir: () => this.setState({ sub: k, sel: {} }),
+        marca: on ? m.color : 'transparent',
+        color: on ? m.color : T.textMuted,
+        peso: on ? 700 : 500,
+        punto: on ? m.color : T.borderStrong,
+        badgeBg: on ? m.color + '22' : T.surfaceSunken,
+        badgeColor: on ? m.color : T.textMuted,
+      };
+    });
+
+    const filas = (DATOS[st.sub] || []).map((p) => {
+      const seleccionado = !!st.sel[p.id];
+      const estadoReal = st.cambiados[p.id] || st.sub;
+      const m = META[estadoReal];
+      const siguiendo = estadoReal === 'SIGUIENDO';
+      return {
+        nombre: p.nombre, razon: p.razon, nit: p.nit, ultima: p.ultima,
+        productos: p.productos > 0 ? String(p.productos) : '—',
+        prodColor: p.productos > 0 ? T.text : T.textSubtle,
+        porIngesta: p.ingesta, iniciales: iniciales(p.nombre),
+        avatarBg: siguiendo ? T.positiveSoft : estadoReal === 'SIN_DECIDIR' ? T.warningSoft : T.surfaceSunken,
+        avatarColor: siguiendo ? T.positive : estadoReal === 'SIN_DECIDIR' ? T.warning : T.textMuted,
+        estado: siguiendo ? 'Siguiendo' : estadoReal === 'SIN_DECIDIR' ? 'Sin decidir' : p.activo ? 'Ignorado' : 'Dado de baja',
+        estadoBg: m.color + '1A', estadoColor: m.color,
+        accion: siguiendo ? 'Ignorar' : p.activo ? 'Seguir' : 'Reactivar',
+        accionColor: siguiendo ? T.textMuted : T.positive,
+        alternarEstado: () => this.setState({ cambiados: { ...st.cambiados, [p.id]: siguiendo ? 'IGNORADO' : 'SIGUIENDO' } }),
+        seleccionado, alternarSel: () => this.setState({ sel: { ...st.sel, [p.id]: !seleccionado } }),
+        cajaBorde: seleccionado ? T.primary : T.borderStrong,
+        cajaBg: seleccionado ? T.primary : 'transparent',
+        fondo: seleccionado ? 'rgba(99,102,241,0.04)' : 'transparent',
+        opacidad: p.activo ? '1' : '0.55',
+      };
+    });
+
+    const nSel = Object.values(st.sel).filter(Boolean).length;
+
+    return {
+      t: T,
+      s: {
+        subtabs, filas,
+        conteoActual: meta.conteo,
+        avisoTexto: meta.aviso,
+        avisoBg: meta.color + '0F',
+        avisoBorde: meta.color + '44',
+        avisoPunto: meta.color,
+        haySeleccion: nSel > 0, nSeleccion: String(nSel),
+        limpiar: () => this.setState({ sel: {} }),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

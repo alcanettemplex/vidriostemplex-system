@@ -2346,3 +2346,98 @@ precio quedó clavado a mano en 50.000 para PA, PM y PB por igual: margen 3,97×
 - Decidir el precio de `MATI07`.
 - No existe pantalla de parámetros en el frontend: `PUT /api/cotizador/parametros` no tiene consumidor.
 - `PELI31` sigue con dos productos bajo un mismo código (película normal y ultravisión).
+
+---
+
+## 2026-09-11 (3) — Permisos en bypass + auditoría y rediseño del módulo Proveedores
+
+### 1. La sesión deja de pedir permiso
+
+El usuario reportó fricción por los diálogos de permiso. El allowlist de `.claude/settings.json` ya
+era casi total (`Bash`, `PowerShell(*)`, `Edit`, `Write`, `Skill` a secas), así que el problema no
+era de reglas sino de **modo**: `~/.claude/settings.json` tenía `defaultMode: "auto"` pero
+`skipAutoPermissionPrompt` no existía en ningún archivo — el diálogo de opt-in del modo auto nunca
+se aceptó, así que la sesión caía a `default`.
+
+Decisión del usuario, elegida sobre la alternativa que preservaba `git push`: **bypass total, sin
+excepciones**, escrito en global y proyecto.
+
+- `~/.claude/settings.json`: `defaultMode` → `bypassPermissions` + `skipDangerousModePermissionPrompt: true`
+  (sin esto el modo pide confirmación al arrancar: se cambia un prompt por otro).
+- `.claude/settings.json`: se elimina el bloque `ask` (las 2 reglas de `git push`) y se suman 9
+  herramientas al `allow` (`ToolSearch`, `Cron*`, `RemoteTrigger`, `PushNotification`,
+  `EnterWorktree`/`ExitWorktree`, `DesignSync`) como respaldo por si se vuelve a modo `default`.
+- Se **conservan** los 4 `deny` (`rm -rf`, `git reset --hard`, `git clean`, `Remove-Item -Recurse`):
+  bloquean, no preguntan, y son el único candado técnico contra un comando mal formado.
+- El modo se fija al arrancar la sesión: editarlo no afecta a la sesión en curso.
+
+⚠️ Ninguno de los dos archivos viaja por git (`.claude/` está en `.gitignore`, `~/.claude/` está
+fuera del repo). **Hay que replicarlos a mano en la máquina de la oficina**, y sin el `defaultMode`
+del global esa máquina seguirá preguntando.
+
+### 2. Hallazgo: el sistema de tokens del módulo Proveedores no existe
+
+Auditando el módulo para rediseñarlo apareció un bug real, no cosmético. Las siete variables CSS que
+usa —`--surface`, `--border`, `--text`, `--text-muted`, `--primary`, `--bg`, `--surface-subtle`—
+**no están definidas en ninguna parte del proyecto**: `index.css` solo carga Tailwind, no hay
+`:root`, no hay `setProperty` y `tailwind.config.js` tampoco las declara. Los 12 archivos de
+`features/proveedores/` son los únicos del ERP que las nombran.
+
+- Donde el código escribió fallback (`var(--border, #cbd5e1)`) funciona por accidente.
+- Donde no lo escribió, la declaración es **inválida al calcular el valor**: `background: var(--surface)`
+  queda transparente y `border: 1px solid var(--border)` desaparece entero.
+
+`ConsultarPreciosTab.tsx` usa la forma sin fallback casi en todo el archivo, igual que el shell de
+`ProveedoresPage.tsx`. **La pestaña principal del módulo se renderiza hoy sin fondos ni bordes**, y
+el botón «Consultar» sin color de fondo. No se corrigió en esta pasada — la definición propuesta
+está en el artboard `Tokens.dc.html` y va en `index.css` bajo `:root`.
+
+Otra deuda del mismo módulo, documentada pero no tocada: ~2.500 líneas de `style={{}}` inline con
+`#6366f1` repetido decenas de veces, tres gramáticas de tabla distintas (grid / `<table>` / grid),
+10 radios de borde, 16 tamaños de fuente, y 5 `window.confirm()` nativos para acciones destructivas.
+
+### 3. Rediseño en `design/proveedores/`
+
+Ocho artboards interactivos hechos con Claude Design, versionados en el repo. Dirección elegida por
+el usuario: **mismo lenguaje visual del ERP** (carpetas manila de `FolderTabs`, índigo `#6366F1`,
+escala slate, radios 12/16), ejecutado de forma coherente — no un salto visual que dejaría el módulo
+desalineado con los otros 20.
+
+Cuatro decisiones de fondo, más allá de repintar:
+
+1. **Vincular sin modal** en Por Mapear: candidatos y modalidad caben en la propia fila.
+2. **Ficha de proveedor** (`FichaProveedor.dc.html`): vista que hoy no existe. Productos con su
+   posición frente al mejor precio, histórico, facturas con CUFE y pendientes, en un solo sitio.
+3. **Cargar Facturas en tres pasos**: el scroll de ~900 líneas se parte en cargar → revisar →
+   resolver. `POST /facturas/cargar` **ya devuelve el `ResumenLote` completo**, así que esto es
+   reorganización pura: cero backend.
+4. **El impacto se ve**: la bandeja ya ordenaba por `veces_visto`, pero el número iba en un badge
+   igual que los demás. Ahora lleva barra proporcional.
+
+Lo que **no** se tocó a propósito: ninguna regla de negocio. Fecha de factura sobre orden de carga,
+idempotencia por CUFE completo, la modalidad decide qué precio se actualiza, notas crédito sin mover
+precios, `siguePrecios() = activo && seguir_precios === true`, mapeo confirmado por humano.
+
+**Marca `BACKEND NUEVO`** (rosa punteado en el canvas): lo que se dibujó y no existe todavía. Son
+cinco cosas, detalladas en `design/proveedores/README.md`. La más importante: los candidatos con
+porcentaje de confianza al vincular — hoy `VincularCodigoModal.tsx` hace `GET /api/catalogo?q=`, un
+buscador de texto libre, no un rankeador.
+
+### Verificación
+- Canvas: 8 artboards con etiquetas `sc-if`/`sc-for` balanceadas, `x-dc` cerrado, `support.js` y
+  clase `DCLogic` presentes en los 8, 0 bindings `innerHTML`, 27 handlers `onClick` resueltos desde
+  `renderVals()`, `data-props` válidos. `seed-canvas.mjs --check` pasa.
+- **No se pudo hacer clic en la versión publicada**: no hay navegador en el entorno. La verificación
+  es estructural, no visual.
+- Ningún archivo de `backend-api/` ni `frontend-web/` fue modificado. Impacto en BD: ninguno.
+
+### Commits
+- `26344fa` — `chore:` documentación del modo bypass en CLAUDE.md.
+
+### Pendientes
+- **Replicar los dos `settings.json` en la máquina de la oficina.**
+- Definir los tokens en `index.css` bajo `:root` — arregla la pestaña Consultar Precios, que está
+  rota ahora mismo. Alcance verificado: no afecta a ningún otro módulo.
+- Decidir si se construye lo marcado `BACKEND NUEVO` (5 bloques) y con qué costo.
+- El tema oscuro queda definido en `Tokens.dc.html` pero dormido: no hay interruptor en la app y los
+  otros 20 módulos no lo soportan.

@@ -1,0 +1,376 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    a { color: #4338CA; } a:hover { color: #312E81; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .tab { display: flex; align-items: center; gap: 7px; border-radius: 12px 12px 0 0; border-style: solid; border-width: 1px; border-bottom-width: 0; cursor: pointer; white-space: nowrap; }
+    .row { cursor: pointer; }
+    .row:hover { filter: brightness(0.98); }
+    .btn { cursor: pointer; display: inline-flex; align-items: center; gap: 7px; border-radius: 8px; font-size: 13px; }
+  </style>
+</helmet>
+
+<div style="width: 1180px; min-height: 960px; box-sizing: border-box; padding: 26px 30px 40px; background: {{t.bg}}; color: {{t.text}}">
+
+  <!-- ══ Encabezado ══ -->
+  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 18px">
+    <div>
+      <h1 style="font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.01em">Proveedores</h1>
+      <p style="font-size: 13px; color: {{t.textMuted}}; margin: 6px 0 0">Precios comparados · Ingesta de facturas electrónicas · Maestro de equivalencias</p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0">
+      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: {{t.positive}}; background: {{t.positiveSoft}}; border-radius: 999px; padding: 5px 11px">42 SIGUIENDO</span>
+      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: {{t.warning}}; background: {{t.warningSoft}}; border-radius: 999px; padding: 5px 11px">7 SIN DECIDIR</span>
+    </div>
+  </div>
+
+  <!-- ══ Buscador transversal ══ -->
+  <div style="display: flex; align-items: center; gap: 11px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; border-radius: 12px; padding: 11px 16px; box-shadow: {{t.shadowSm}}; margin-bottom: 18px">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="{{t.textMuted}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+    <div style="flex-grow: 1; font-size: 14px; color: {{t.textMuted}}">Un producto, un proveedor, un código sin mapear o un número de factura</div>
+    <div style="display: flex; gap: 6px; flex-shrink: 0">
+      <span class="mono" style="font-size: 10.5px; font-weight: 700; color: {{t.textMuted}}; background: {{t.surfaceSunken}}; border: 1px solid {{t.border}}; border-radius: 6px; padding: 3px 7px">productos</span>
+      <span class="mono" style="font-size: 10.5px; font-weight: 700; color: {{t.textMuted}}; background: {{t.surfaceSunken}}; border: 1px solid {{t.border}}; border-radius: 6px; padding: 3px 7px">proveedores</span>
+      <span class="mono" style="font-size: 10.5px; font-weight: 700; color: {{t.textMuted}}; background: {{t.surfaceSunken}}; border: 1px solid {{t.border}}; border-radius: 6px; padding: 3px 7px">códigos</span>
+      <span class="mono" style="font-size: 10.5px; font-weight: 700; color: {{t.textMuted}}; background: {{t.surfaceSunken}}; border: 1px solid {{t.border}}; border-radius: 6px; padding: 3px 7px">facturas</span>
+    </div>
+  </div>
+
+  <!-- ══ Pestañas carpeta ══ -->
+  <div style="display: flex; align-items: flex-end; gap: 4px; padding: 0 8px">
+
+    <div class="tab" onClick="{{s.a.ir}}" style="padding: {{s.a.pad}}; background: {{s.a.bg}}; border-color: {{s.a.borde}}; color: {{s.a.color}}; margin-bottom: {{s.a.mb}}; box-shadow: {{s.a.sombra}}; position: relative; z-index: {{s.a.z}}">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+      <span style="font-size: 13.5px; font-weight: {{s.a.peso}}">Consultar Precios</span>
+    </div>
+
+    <div class="tab" onClick="{{s.b.ir}}" style="padding: {{s.b.pad}}; background: {{s.b.bg}}; border-color: {{s.b.borde}}; color: {{s.b.color}}; margin-bottom: {{s.b.mb}}; box-shadow: {{s.b.sombra}}; position: relative; z-index: {{s.b.z}}">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5"></path><path d="m7 10 5-5 5 5"></path><path d="M20 16v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3"></path></svg>
+      <span style="font-size: 13.5px; font-weight: {{s.b.peso}}">Cargar Facturas</span>
+    </div>
+
+    <div class="tab" onClick="{{s.c.ir}}" style="padding: {{s.c.pad}}; background: {{s.c.bg}}; border-color: {{s.c.borde}}; color: {{s.c.color}}; margin-bottom: {{s.c.mb}}; box-shadow: {{s.c.sombra}}; position: relative; z-index: {{s.c.z}}">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+      <span style="font-size: 13.5px; font-weight: {{s.c.peso}}">Por Mapear</span>
+      <span style="font-size: 11px; font-weight: 800; border-radius: 999px; padding: 1px 7px; background: {{s.c.badgeBg}}; color: {{s.c.badgeColor}}">23</span>
+    </div>
+
+    <div class="tab" onClick="{{s.d.ir}}" style="padding: {{s.d.pad}}; background: {{s.d.bg}}; border-color: {{s.d.borde}}; color: {{s.d.color}}; margin-bottom: {{s.d.mb}}; box-shadow: {{s.d.sombra}}; position: relative; z-index: {{s.d.z}}">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16"></path><path d="M15 9h3a2 2 0 0 1 2 2v10"></path><path d="M8 7h3M8 11h3M8 15h3"></path><path d="M2 21h20"></path></svg>
+      <span style="font-size: 13.5px; font-weight: {{s.d.peso}}">Proveedores</span>
+    </div>
+
+    <div class="tab" onClick="{{s.e.ir}}" style="padding: {{s.e.pad}}; background: {{s.e.bg}}; border-color: {{s.e.borde}}; color: {{s.e.color}}; margin-bottom: {{s.e.mb}}; box-shadow: {{s.e.sombra}}; position: relative; z-index: {{s.e.z}}">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"></circle><circle cx="18" cy="18" r="3"></circle><path d="M6 9v3a3 3 0 0 0 3 3h3"></path><path d="M12 15h3"></path></svg>
+      <span style="font-size: 13.5px; font-weight: {{s.e.peso}}">Equivalencias</span>
+    </div>
+
+  </div>
+
+  <!-- ══ Cuerpo de la carpeta ══ -->
+  <div style="background: {{t.surface}}; border: 1px solid {{t.border}}; border-top: 0; border-radius: 0 16px 16px 16px; padding: 24px 26px 28px; min-height: 650px; box-shadow: {{t.shadowSm}}">
+
+    <sc-if value="{{s.esConsultar}}" hint-placeholder-val="{{ true }}">
+    <div>
+
+      <!-- Barra de consulta -->
+      <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; background: {{t.surfaceSubtle}}; border: 1px solid {{t.border}}; border-radius: 12px; padding: 16px 18px; margin-bottom: 20px">
+        <div style="flex-grow: 1; min-width: 320px">
+          <label style="display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; margin-bottom: 7px">CÓDIGO, NOMBRE, SINÓNIMO O CÓDIGO DEL PROVEEDOR</label>
+          <div style="display: flex; align-items: center; gap: 9px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; border-radius: 8px; padding: 9px 13px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{t.textMuted}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+            <span class="mono" style="font-size: 13px; font-weight: 700; color: {{t.primary}}">TUB0510</span>
+            <span style="font-size: 13.5px; color: {{t.text}}">Brazo hidráulico cierrapuertas</span>
+          </div>
+        </div>
+
+        <div>
+          <label style="display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; margin-bottom: 7px">MODALIDADES REGISTRADAS PARA ESTE PRODUCTO</label>
+          <div style="display: flex; gap: 3px; background: {{t.surfaceSunken}}; border: 1px solid {{t.border}}; border-radius: 8px; padding: 3px">
+            <sc-for list="{{s.modalidades}}" as="m" hint-placeholder-count="3">
+              <div onClick="{{m.ir}}" style="cursor: pointer; font-size: 12.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; background: {{m.bg}}; color: {{m.color}}; white-space: nowrap; box-shadow: {{m.sombra}}">{{m.label}}</div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cabecera del producto -->
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-bottom: 14px">
+        <div>
+          <div style="display: flex; align-items: baseline; gap: 11px">
+            <span class="mono" style="font-size: 14px; font-weight: 800; color: {{t.primary}}">TUB0510</span>
+            <span style="font-size: 17px; font-weight: 700; color: {{t.text}}">Brazo hidráulico cierrapuertas</span>
+          </div>
+          <div style="font-size: 12px; color: {{t.textMuted}}; margin-top: 4px">Unidad de catálogo: TIRA · IVA 19% · umbral de alerta ±15%</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px">
+          <div style="text-align: right">
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: {{t.textMuted}}">MÁS BAJO · {{s.etiquetaAmbito}}</div>
+            <div style="font-size: 20px; font-weight: 800; color: {{t.positive}}; margin-top: 2px; font-variant-numeric: tabular-nums">{{s.precioMin}}</div>
+          </div>
+          <div style="width: 1px; height: 36px; background: {{t.border}}"></div>
+          <div style="text-align: right">
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: {{t.textMuted}}">PROVEEDORES</div>
+            <div style="font-size: 20px; font-weight: 800; color: {{t.text}}; margin-top: 2px">{{s.conteo}}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Aviso de modalidades mezcladas -->
+      <sc-if value="{{s.mezcla}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; align-items: flex-start; gap: 11px; background: {{t.warningSoft}}; border: 1px solid {{t.warning}}; border-radius: 12px; padding: 12px 16px; margin-bottom: 14px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{t.warning}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><path d="M12 9v4M12 17h.01"></path></svg>
+          <div style="font-size: 12.5px; line-height: 1.5; color: {{t.text}}">
+            <strong>Estás comparando modalidades distintas.</strong> Una tira de 6 m no es comparable con un metro suelto: el «más bajo» solo vale dentro de su modalidad. Elige una arriba para que la comparación signifique algo.
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- Tabla de precios -->
+      <div style="border: 1px solid {{t.border}}; border-radius: 16px; overflow: hidden">
+        <div style="display: grid; grid-template-columns: 2.1fr 0.9fr 1fr 1fr 1fr 0.9fr; gap: 10px; background: {{t.surfaceSubtle}}; padding: 10px 20px; border-bottom: 1px solid {{t.border}}">
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">PROVEEDOR</div>
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">MODALIDAD</div>
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">SIN IVA</div>
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">CON IVA 19%</div>
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">VARIACIÓN</div>
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">VIGENTE</div>
+        </div>
+
+        <sc-for list="{{s.filas}}" as="f" hint-placeholder-count="4">
+          <div>
+            <div class="row" onClick="{{f.alternar}}" style="display: grid; grid-template-columns: 2.1fr 0.9fr 1fr 1fr 1fr 0.9fr; gap: 10px; align-items: center; padding: {{t.filaPad}}; border-bottom: 1px solid {{t.border}}; background: {{f.fondo}}; border-left: 3px solid {{f.marca}}">
+              <div style="display: flex; align-items: center; gap: 9px; min-width: 0">
+                <sc-if value="{{f.abierta}}" hint-placeholder-val="{{ false }}">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{t.textMuted}}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m18 15-6-6-6 6"></path></svg>
+                </sc-if>
+                <sc-if value="{{f.cerrada}}" hint-placeholder-val="{{ true }}">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{t.textMuted}}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m6 9 6 6 6-6"></path></svg>
+                </sc-if>
+                <div style="min-width: 0">
+                  <div style="display: flex; align-items: center; gap: 7px">
+                    <span style="font-size: 14px; font-weight: 600; color: {{t.text}}">{{f.proveedor}}</span>
+                    <sc-if value="{{f.esMin}}" hint-placeholder-val="{{ true }}">
+                      <span style="font-size: 9.5px; font-weight: 800; letter-spacing: 0.05em; color: #FFFFFF; background: {{t.positive}}; border-radius: 4px; padding: 2px 6px">MÁS BAJO</span>
+                    </sc-if>
+                    <sc-if value="{{f.anomalo}}" hint-placeholder-val="{{ false }}">
+                      <span style="font-size: 9.5px; font-weight: 800; letter-spacing: 0.05em; color: #FFFFFF; background: {{t.danger}}; border-radius: 4px; padding: 2px 6px">REVISAR</span>
+                    </sc-if>
+                  </div>
+                  <div class="mono" style="font-size: 11px; color: {{t.textMuted}}; margin-top: 2px">{{f.codigo}}</div>
+                </div>
+              </div>
+              <div style="font-size: 12.5px; color: {{t.textMuted}}">{{f.modalidad}}</div>
+              <div style="font-size: 15px; font-weight: 700; color: {{t.text}}; text-align: right; font-variant-numeric: tabular-nums">{{f.sinIva}}</div>
+              <div style="font-size: 13.5px; color: {{t.textMuted}}; text-align: right; font-variant-numeric: tabular-nums">{{f.conIva}}</div>
+              <div>
+                <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; border-radius: 6px; padding: 3px 8px; color: {{f.varColor}}; background: {{f.varFondo}}">
+                  <sc-if value="{{f.sube}}" hint-placeholder-val="{{ true }}">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 6-6 4 4 8-8"></path><path d="M17 7h4v4"></path></svg>
+                  </sc-if>
+                  <sc-if value="{{f.baja}}" hint-placeholder-val="{{ false }}">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 7 6 6 4-4 8 8"></path><path d="M17 17h4v-4"></path></svg>
+                  </sc-if>
+                  <sc-if value="{{f.plano}}" hint-placeholder-val="{{ false }}">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"></path></svg>
+                  </sc-if>
+                  {{f.variacion}}
+                </span>
+              </div>
+              <div style="font-size: 12px; color: {{t.textMuted}}; text-align: right">{{f.fecha}}</div>
+            </div>
+
+            <sc-if value="{{f.abierta}}" hint-placeholder-val="{{ false }}">
+              <div style="background: {{t.surfaceSunken}}; border-bottom: 1px solid {{t.border}}; padding: 16px 20px 18px 36px; display: grid; grid-template-columns: 1.4fr 1fr 1.1fr; gap: 28px">
+                <div>
+                  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; margin-bottom: 6px">DESCRIPCIÓN EN LA FACTURA</div>
+                  <div style="font-size: 13px; color: {{t.text}}; line-height: 1.45">{{f.descripcion}}</div>
+                  <div style="font-size: 11.5px; color: {{t.textMuted}}; margin-top: 8px">Última factura: <span class="mono">{{f.documento}}</span></div>
+                </div>
+                <div>
+                  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; margin-bottom: 6px">EQUIVALENTE POR METRO</div>
+                  <div style="font-size: 15px; font-weight: 700; color: {{t.text}}; font-variant-numeric: tabular-nums">{{f.porMetro}}</div>
+                  <div style="font-size: 11.5px; color: {{t.textMuted}}; margin-top: 4px">{{f.notaMetro}}</div>
+                </div>
+                <div>
+                  <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; margin-bottom: 6px">HISTÓRICO</div>
+                  <sc-if value="{{f.sinHistorico}}" hint-placeholder-val="{{ false }}">
+                    <div style="font-size: 12.5px; color: {{t.textSubtle}}; font-style: italic">Primer precio registrado</div>
+                  </sc-if>
+                  <div style="display: flex; flex-direction: column; gap: 5px">
+                    <sc-for list="{{f.historico}}" as="h" hint-placeholder-count="2">
+                      <div style="display: flex; align-items: baseline; gap: 8px; font-size: 12.5px">
+                        <span style="font-weight: 700; color: {{t.text}}; font-variant-numeric: tabular-nums">{{h.precio}}</span>
+                        <span style="color: {{t.textMuted}}">hasta {{h.hasta}}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px">
+        <div style="font-size: 12px; color: {{t.textMuted}}">Click en una fila para ver su histórico, el equivalente por metro y la factura de origen.</div>
+        <div style="display: flex; gap: 9px">
+          <div class="btn" style="font-weight: 600; color: {{t.text}}; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; padding: 8px 14px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5M12 15V3"></path></svg>
+            Exportar comparativa
+          </div>
+          <div class="btn" style="font-weight: 700; color: #FFFFFF; background: {{t.primary}}; padding: 9px 16px; box-shadow: {{t.shadowPrimary}}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+            Registrar precio a mano
+          </div>
+        </div>
+      </div>
+
+    </div>
+    </sc-if>
+
+    <sc-if value="{{s.esOtra}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 170px 24px; text-align: center">
+        <div style="width: 54px; height: 54px; border-radius: 999px; background: {{t.primarySoft}}; color: {{t.primary}}; display: flex; align-items: center; justify-content: center">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
+        </div>
+        <div style="font-size: 17px; font-weight: 700; color: {{t.text}}">{{s.otraTitulo}}</div>
+        <p style="font-size: 13px; color: {{t.textMuted}}; max-width: 480px; margin: 0; line-height: 1.55">{{s.otraTexto}}</p>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"densidad":{"editor":"enum","options":["Cómoda","Compacta"],"default":"Cómoda","section":"Tabla"}}'>
+const T = {
+  bg: '#F8FAFC', surface: '#FFFFFF', surfaceSubtle: '#F8FAFC', surfaceSunken: '#F1F5F9',
+  border: '#E2E8F0', borderStrong: '#CBD5E1',
+  text: '#0F172A', textMuted: '#64748B', textSubtle: '#94A3B8',
+  primary: '#6366F1', primarySoft: 'rgba(99,102,241,0.10)', primaryStrong: '#4338CA',
+  positive: '#059669', positiveSoft: 'rgba(5,150,105,0.10)',
+  warning: '#D97706', warningSoft: 'rgba(217,119,6,0.09)',
+  danger: '#EF4444', dangerSoft: 'rgba(239,68,68,0.07)',
+  shadowSm: '0 1px 3px rgba(15,23,42,0.05)',
+  shadowPrimary: '0 2px 8px rgba(99,102,241,0.28)',
+};
+
+const PASTEL = {
+  consultar: { bg: '#E0F2FE', borde: '#BAE6FD', color: '#0369A1' },
+  cargar: { bg: '#D1FAE5', borde: '#A7F3D0', color: '#047857' },
+  mapear: { bg: '#EDE9FE', borde: '#DDD6FE', color: '#6D28D9' },
+  maestro: { bg: '#CCFBF1', borde: '#99F6E4', color: '#0F766E' },
+  equivalencias: { bg: '#CFFAFE', borde: '#A5F3FC', color: '#0E7490' },
+};
+
+const PRECIOS = [
+  { id: 1, proveedor: 'Vitelsa', codigo: 'AL-2245', modalidad: 'TIRA_6M', etiqueta: 'Tira 6 m', sinIva: 128400, variacion: 2.1, anomalo: false, fecha: '04-sep-25', descripcion: 'BRAZO HIDRAULICO CIERRAPUERTAS 6MT NEGRO', documento: 'FV-A-40218', porMetro: 21400,
+    historico: [{ precio: '$125.700', hasta: '12-ago-25' }, { precio: '$121.300', hasta: '03-jun-25' }] },
+  { id: 2, proveedor: 'Templacol', codigo: 'TC-8891', modalidad: 'TIRA_6M', etiqueta: 'Tira 6 m', sinIva: 131900, variacion: -0.4, anomalo: false, fecha: '01-sep-25', descripcion: 'CIERRAPUERTAS HIDRAULICO TIRA 6 METROS', documento: 'FE-TC-11934', porMetro: 21983,
+    historico: [{ precio: '$132.400', hasta: '18-jul-25' }] },
+  { id: 3, proveedor: 'Arquiluz', codigo: '94-BRZ', modalidad: 'METRO', etiqueta: 'Metro', sinIva: 21980, variacion: 0, anomalo: false, fecha: '28-ago-25', descripcion: 'BRAZO HIDRAULICO X METRO LINEAL', documento: 'FA-2291', porMetro: 21980,
+    historico: [] },
+  { id: 4, proveedor: 'Aluminios del Norte', codigo: 'ADN-0510', modalidad: 'TIRA_6M', etiqueta: 'Tira 6 m', sinIva: 152300, variacion: 18.4, anomalo: true, fecha: '06-sep-25', descripcion: 'BRAZO HIDRAULICO CIERRAPUERTA 6M', documento: 'FV-ADN-7742', porMetro: 25383,
+    historico: [{ precio: '$128.600', hasta: '22-jul-25' }] },
+];
+
+const ETIQUETAS = { TIRA_6M: 'Tira 6 m', METRO: 'Metro', UNIDAD: 'Unidad', KG: 'Kilogramo', M2: 'm²' };
+const cop = (n) => '$' + Math.round(n).toLocaleString('es-CO');
+
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { tab: 'consultar', modalidad: '', abierta: 4 }; }
+
+  solapa(key) {
+    const activa = this.state.tab === key;
+    const p = PASTEL[key];
+    return {
+      ir: () => this.setState({ tab: key }),
+      bg: activa ? T.surface : p.bg,
+      borde: activa ? T.border : p.borde,
+      color: activa ? T.primaryStrong : p.color,
+      peso: activa ? 700 : 500,
+      pad: activa ? '11px 17px 13px' : '9px 17px 11px',
+      mb: activa ? '-1px' : '0',
+      z: activa ? 10 : 1,
+      sombra: activa ? '0 -2px 6px rgba(15,23,42,0.06)' : 'none',
+      badgeBg: activa ? T.primarySoft : '#FEF3C7',
+      badgeColor: activa ? T.primaryStrong : '#92400E',
+    };
+  }
+
+  renderVals() {
+    const st = this.state;
+    const compacta = (this.props.densidad ?? 'Cómoda') === 'Compacta';
+
+    const esConsultar = st.tab === 'consultar';
+    const otras = {
+      cargar: { t: 'Cargar Facturas', x: 'Tiene su propio artboard en este canvas: la ingesta reorganizada en tres pasos, con la bitácora y el importador de listas fuera del scroll principal.' },
+      mapear: { t: 'Por Mapear', x: 'Su artboard muestra la bandeja ordenada por impacto real —cuántas veces apareció ese código en tus facturas— y el vínculo resuelto sin salir de la fila.' },
+      maestro: { t: 'Proveedores', x: 'Su artboard añade la ficha de proveedor que hoy no existe: productos, histórico de precios, facturas y decisión de seguimiento en un solo sitio.' },
+      equivalencias: { t: 'Equivalencias', x: 'Su artboard concentra la auditoría de los mapeos aprendidos, con el histórico completo accesible desde la propia fila.' },
+    };
+    const otra = otras[st.tab] ?? otras.cargar;
+
+    const visibles = PRECIOS.filter((p) => !st.modalidad || p.modalidad === st.modalidad);
+    const minimo = visibles.reduce((a, b) => (a === null || b.sinIva < a.sinIva ? b : a), null);
+    const mezcla = new Set(visibles.map((p) => p.modalidad)).size > 1;
+
+    const presentes = [...new Set(PRECIOS.map((p) => p.modalidad))];
+    const modalidades = [{ v: '', l: 'Todas' }].concat(presentes.map((v) => ({ v, l: ETIQUETAS[v] || v }))).map((m) => {
+      const on = st.modalidad === m.v;
+      return {
+        label: m.l,
+        ir: () => this.setState({ modalidad: m.v, abierta: null }),
+        bg: on ? T.surface : 'transparent',
+        color: on ? T.primaryStrong : T.textMuted,
+        sombra: on ? '0 1px 2px rgba(15,23,42,0.10)' : 'none',
+      };
+    });
+
+    const filas = visibles.map((p) => {
+      const abierta = st.abierta === p.id;
+      const esMin = !!(minimo && p.id === minimo.id);
+      return {
+        proveedor: p.proveedor, codigo: p.codigo, modalidad: p.etiqueta,
+        descripcion: p.descripcion, documento: p.documento,
+        sinIva: cop(p.sinIva), conIva: cop(p.sinIva * 1.19), porMetro: cop(p.porMetro) + ' / m',
+        notaMetro: p.modalidad === 'METRO' ? 'El precio ya viene por metro' : 'Derivado de la tira de 6 m',
+        variacion: (p.variacion > 0 ? '+' : '') + p.variacion.toFixed(1) + '%',
+        sube: p.variacion > 0, baja: p.variacion < 0, plano: p.variacion === 0,
+        varColor: p.anomalo ? T.danger : p.variacion > 0 ? T.warning : p.variacion < 0 ? T.positive : T.textMuted,
+        varFondo: p.anomalo ? T.dangerSoft : 'transparent',
+        fecha: p.fecha, historico: p.historico, sinHistorico: p.historico.length === 0,
+        abierta, cerrada: !abierta, esMin, anomalo: p.anomalo,
+        marca: esMin ? T.positive : p.anomalo ? T.danger : 'transparent',
+        fondo: abierta ? T.surfaceSubtle : 'transparent',
+        alternar: () => this.setState({ abierta: abierta ? null : p.id }),
+      };
+    });
+
+    return {
+      t: { ...T, filaPad: compacta ? '9px 20px' : '13px 20px' },
+      s: {
+        a: this.solapa('consultar'), b: this.solapa('cargar'), c: this.solapa('mapear'),
+        d: this.solapa('maestro'), e: this.solapa('equivalencias'),
+        esConsultar, esOtra: !esConsultar,
+        otraTitulo: otra.t, otraTexto: otra.x,
+        modalidades, filas, mezcla,
+        conteo: String(visibles.length),
+        precioMin: minimo ? cop(minimo.sinIva) : '—',
+        etiquetaAmbito: st.modalidad ? (ETIQUETAS[st.modalidad] || st.modalidad).toUpperCase() : 'TODAS',
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

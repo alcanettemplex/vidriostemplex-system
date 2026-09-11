@@ -1,0 +1,235 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    a { color: #4338CA; } a:hover { color: #312E81; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .btn { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; }
+    .row:hover { filter: brightness(0.985); }
+  </style>
+</helmet>
+
+<div style="width: 1180px; min-height: 860px; box-sizing: border-box; padding: 26px 30px 40px; background: {{t.bg}}; color: {{t.text}}">
+
+  <div style="margin-bottom: 20px">
+    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: {{t.textMuted}}">PROVEEDORES · EQUIVALENCIAS</div>
+    <h1 style="font-size: 22px; font-weight: 800; margin: 6px 0 0; letter-spacing: -0.01em">Lo que el sistema aprendió a reconocer</h1>
+    <p style="font-size: 13px; color: {{t.textMuted}}; margin: 7px 0 0; max-width: 740px; line-height: 1.5">Cada fila es un mapeo confirmado por una persona: el código del proveedor, tu producto y la modalidad en que se compra. La clave es única por esas tres cosas juntas, así que un mismo producto puede tener precio por tira y por metro sin pisarse.</p>
+  </div>
+
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 16px; padding: 16px 20px; margin-bottom: 16px; box-shadow: {{t.shadowSm}}">
+    <div style="display: flex; align-items: center; gap: 22px">
+      <div>
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: {{t.textMuted}}">MAPEOS ACTIVOS</div>
+        <div style="font-size: 24px; font-weight: 800; color: {{t.primaryStrong}}; margin-top: 2px; font-variant-numeric: tabular-nums">648</div>
+      </div>
+      <div style="width: 1px; height: 38px; background: {{t.border}}"></div>
+      <div>
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: {{t.textMuted}}">SINÓNIMOS APRENDIDOS</div>
+        <div style="font-size: 24px; font-weight: 800; color: {{t.text}}; margin-top: 2px; font-variant-numeric: tabular-nums">912</div>
+      </div>
+      <div style="width: 1px; height: 38px; background: {{t.border}}"></div>
+      <div>
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: {{t.textMuted}}">SIN PRECIO DESDE HACE 6 MESES</div>
+        <div style="font-size: 24px; font-weight: 800; color: {{t.warning}}; margin-top: 2px; font-variant-numeric: tabular-nums">57</div>
+      </div>
+    </div>
+    <div class="btn" style="font-size: 12.5px; font-weight: 600; padding: 8px 14px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; color: {{t.text}}">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 1 3 6.7"></path><path d="M3 18v-5h5"></path></svg>
+      Refrescar
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px">
+    <div style="display: flex; align-items: center; gap: 9px; flex-grow: 1; min-width: 260px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; border-radius: 8px; padding: 9px 13px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{t.textMuted}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+      <span style="font-size: 13px; color: {{t.textSubtle}}">Buscar por código interno, código del proveedor o nombre</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; border-radius: 8px; padding: 9px 13px">
+      <span style="font-size: 13px; color: {{t.text}}">Todos los proveedores</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{t.textMuted}}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+    </div>
+    <div style="display: flex; gap: 3px; background: {{t.surfaceSunken}}; border: 1px solid {{t.border}}; border-radius: 8px; padding: 3px">
+      <sc-for list="{{s.filtros}}" as="fl" hint-placeholder-count="4">
+        <div onClick="{{fl.ir}}" style="cursor: pointer; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 6px; background: {{fl.bg}}; color: {{fl.color}}; box-shadow: {{fl.sombra}}; white-space: nowrap">{{fl.label}}</div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 16px; overflow: hidden; box-shadow: {{t.shadowSm}}">
+    <div style="display: grid; grid-template-columns: 1.15fr 1.35fr 1.75fr 0.8fr 1fr 1.15fr; gap: 12px; align-items: center; background: {{t.surfaceSubtle}}; padding: 10px 20px; border-bottom: 1px solid {{t.border}}">
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">PROVEEDOR</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">SU CÓDIGO</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">TU PRODUCTO</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">MODALIDAD</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">PRECIO VIGENTE</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">ACCIONES</div>
+    </div>
+
+    <sc-for list="{{s.filas}}" as="f" hint-placeholder-count="6">
+      <div>
+        <div class="row" style="display: grid; grid-template-columns: 1.15fr 1.35fr 1.75fr 0.8fr 1fr 1.15fr; gap: 12px; align-items: center; padding: 13px 20px; border-bottom: 1px solid {{t.border}}; background: {{f.fondo}}">
+          <div style="font-size: 13px; font-weight: 600; color: {{t.text}}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{f.proveedor}}</div>
+
+          <div style="min-width: 0">
+            <span class="mono" style="display: inline-block; font-size: 11.5px; font-weight: 700; color: {{t.primaryStrong}}; background: {{t.primarySoft}}; border-radius: 5px; padding: 3px 8px">{{f.codigo}}</span>
+            <div style="font-size: 11px; color: {{t.textSubtle}}; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{f.descripcion}}</div>
+          </div>
+
+          <div style="min-width: 0">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{t.positive}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m7.5 4.2 9 5.2v9.4l-9 5.2-9-5.2V9.4z" transform="translate(4.5 -1)"></path></svg>
+              <span class="mono" style="font-size: 12px; font-weight: 800; color: {{t.text}}">{{f.interno}}</span>
+            </div>
+            <div style="font-size: 11.5px; color: {{t.textMuted}}; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{f.nombre}}</div>
+          </div>
+
+          <div><span style="font-size: 11.5px; font-weight: 600; padding: 4px 9px; border-radius: 6px; background: {{t.surfaceSunken}}; color: {{t.text}}">{{f.modalidad}}</span></div>
+
+          <div style="text-align: right">
+            <div style="font-size: 14px; font-weight: 700; color: {{t.positive}}; font-variant-numeric: tabular-nums">{{f.precio}}</div>
+            <div style="font-size: 10.5px; color: {{f.fechaColor}}; margin-top: 2px">desde {{f.fecha}}</div>
+          </div>
+
+          <div style="display: flex; gap: 6px; justify-content: flex-end">
+            <div class="btn" style="font-size: 11.5px; font-weight: 600; padding: 6px 11px; border: 1px solid {{t.borderStrong}}; color: {{t.primaryStrong}}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg>
+              Precio
+            </div>
+            <div class="btn" onClick="{{f.alternar}}" style="padding: 6px 9px; border: 1px solid {{f.histBorde}}; background: {{f.histBg}}; color: {{f.histColor}}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path><path d="M12 8v4l3 2"></path></svg>
+            </div>
+            <div class="btn" style="padding: 6px 9px; border: 1px solid {{t.borderStrong}}; color: {{t.danger}}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M7 6l1 14h8l1-14"></path></svg>
+            </div>
+          </div>
+        </div>
+
+        <sc-if value="{{f.abierta}}" hint-placeholder-val="{{ false }}">
+          <div style="background: {{t.surfaceSunken}}; border-bottom: 1px solid {{t.border}}; border-left: 3px solid {{t.primary}}; padding: 16px 22px 18px">
+            <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.05em; color: {{t.textMuted}}; margin-bottom: 10px">HISTÓRICO COMPLETO · {{f.codigo}}</div>
+            <div style="background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 10px; overflow: hidden">
+              <div style="display: grid; grid-template-columns: 1fr 1fr 0.9fr 1.1fr 1.4fr; gap: 12px; padding: 8px 16px; background: {{t.surfaceSubtle}}; border-bottom: 1px solid {{t.border}}">
+                <div style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; color: {{t.textMuted}}">VIGENCIA</div>
+                <div style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; color: {{t.textMuted}}; text-align: right">PRECIO</div>
+                <div style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; color: {{t.textMuted}}; text-align: right">VARIACIÓN</div>
+                <div style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; color: {{t.textMuted}}">ORIGEN</div>
+                <div style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; color: {{t.textMuted}}">DOCUMENTO</div>
+              </div>
+              <sc-for list="{{f.historico}}" as="h" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 0.9fr 1.1fr 1.4fr; gap: 12px; align-items: center; padding: 9px 16px; border-bottom: 1px solid {{t.border}}">
+                  <div>
+                    <span style="font-size: 12.5px; color: {{t.text}}">{{h.fecha}}</span>
+                    <sc-if value="{{h.retroactivo}}" hint-placeholder-val="{{ false }}">
+                      <div style="font-size: 10px; font-weight: 700; color: {{t.warning}}">retroactivo · no desplazó al vigente</div>
+                    </sc-if>
+                  </div>
+                  <div style="font-size: 13px; font-weight: 700; color: {{t.text}}; text-align: right; font-variant-numeric: tabular-nums">{{h.precio}}</div>
+                  <div style="font-size: 12px; font-weight: 700; color: {{h.varColor}}; text-align: right">{{h.variacion}}</div>
+                  <div style="font-size: 12px; color: {{t.textMuted}}">{{h.origen}}</div>
+                  <div class="mono" style="font-size: 11px; color: {{t.textSubtle}}">{{h.documento}}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+
+    <div style="padding: 12px 20px; background: {{t.surfaceSubtle}}; font-size: 12px; color: {{t.textMuted}}">Mostrando 6 de 648. Desvincular devuelve el código a Por Mapear y conserva su histórico intacto.</div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{}'>
+const T = {
+  bg: '#F8FAFC', surface: '#FFFFFF', surfaceSubtle: '#F8FAFC', surfaceSunken: '#F1F5F9',
+  border: '#E2E8F0', borderStrong: '#CBD5E1',
+  text: '#0F172A', textMuted: '#64748B', textSubtle: '#94A3B8',
+  primary: '#6366F1', primarySoft: 'rgba(99,102,241,0.10)', primaryStrong: '#4338CA',
+  positive: '#059669', positiveSoft: 'rgba(5,150,105,0.10)',
+  warning: '#D97706', warningSoft: 'rgba(217,119,6,0.09)',
+  danger: '#EF4444',
+  shadowSm: '0 1px 3px rgba(15,23,42,0.05)',
+};
+
+const FILAS = [
+  { id: 1, proveedor: 'Vitelsa', codigo: 'AL-2245', descripcion: 'BRAZO HIDRAULICO CIERRAPUERTAS 6MT', interno: 'TUB0510', nombre: 'Brazo hidráulico cierrapuertas', modalidad: 'Tira 6 m', precio: '$128.400', fecha: '04-sep-25', viejo: false,
+    historico: [
+      { fecha: '04-sep-25', precio: '$128.400', variacion: '+2,1%', origen: 'Factura DIAN', documento: 'FV-A-40218', retro: false },
+      { fecha: '12-ago-25', precio: '$125.700', variacion: '+3,6%', origen: 'Factura DIAN', documento: 'FV-A-40109', retro: false },
+      { fecha: '28-jul-25', precio: '$121.300', variacion: '−1,2%', origen: 'Lista de precios', documento: 'lista_vitelsa_jul.xlsx', retro: true },
+      { fecha: '03-jun-25', precio: '$122.800', variacion: '—', origen: 'Registro manual', documento: '—', retro: false },
+    ] },
+  { id: 2, proveedor: 'Templacol', codigo: 'TC-8891', descripcion: 'CIERRAPUERTAS HIDRAULICO TIRA 6 METROS', interno: 'TUB0510', nombre: 'Brazo hidráulico cierrapuertas', modalidad: 'Tira 6 m', precio: '$131.900', fecha: '01-sep-25', viejo: false, historico: [] },
+  { id: 3, proveedor: 'Arquiluz', codigo: '94-BRZ', descripcion: 'BRAZO HIDRAULICO X METRO LINEAL', interno: 'TUB0510', nombre: 'Brazo hidráulico cierrapuertas', modalidad: 'Metro', precio: '$21.980', fecha: '28-ago-25', viejo: false, historico: [] },
+  { id: 4, proveedor: 'Vitelsa', codigo: 'AL-3390', descripcion: 'VIDRIO TEMPLADO INCOLORO 6MM M2', interno: 'VID0600', nombre: 'Vidrio templado incoloro 6 mm', modalidad: 'm²', precio: '$62.400', fecha: '12-ago-25', viejo: false, historico: [] },
+  { id: 5, proveedor: 'Herrajes Andinos', codigo: 'HA-1180', descripcion: 'PIVOTE INFERIOR REGULABLE ACERO INOX', interno: 'PIV0100', nombre: 'Pivote inferior puerta templada', modalidad: 'Unidad', precio: '$44.100', fecha: '19-feb-25', viejo: true, historico: [] },
+  { id: 6, proveedor: 'Selladores Pacífico', codigo: 'SP-0300', descripcion: 'SILICONA ESTRUCTURAL NEUTRA 300ML', interno: 'SIL0300', nombre: 'Silicona estructural 300 ml', modalidad: 'Unidad', precio: '$16.400', fecha: '11-ago-25', viejo: false, historico: [] },
+];
+
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { filtro: '', abierta: 1 }; }
+
+  renderVals() {
+    const st = this.state;
+
+    const seg = (on) => ({
+      bg: on ? T.surface : 'transparent',
+      color: on ? T.primaryStrong : T.textMuted,
+      sombra: on ? '0 1px 2px rgba(15,23,42,0.10)' : 'none',
+    });
+
+    const filtros = [
+      { k: '', l: 'Todas' },
+      { k: 'TIRA_6M', l: 'Tira 6 m' },
+      { k: 'METRO', l: 'Metro' },
+      { k: 'viejo', l: 'Sin mover 6 m' },
+    ].map((f) => {
+      const e = seg(st.filtro === f.k);
+      return { label: f.l, ir: () => this.setState({ filtro: f.k }), bg: e.bg, color: e.color, sombra: e.sombra };
+    });
+
+    const visibles = FILAS.filter((f) => {
+      if (!st.filtro) return true;
+      if (st.filtro === 'viejo') return f.viejo;
+      if (st.filtro === 'TIRA_6M') return f.modalidad === 'Tira 6 m';
+      if (st.filtro === 'METRO') return f.modalidad === 'Metro';
+      return true;
+    });
+
+    const filas = visibles.map((f) => {
+      const abierta = st.abierta === f.id;
+      return {
+        proveedor: f.proveedor, codigo: f.codigo, descripcion: f.descripcion,
+        interno: f.interno, nombre: f.nombre, modalidad: f.modalidad,
+        precio: f.precio, fecha: f.fecha,
+        fechaColor: f.viejo ? T.warning : T.textSubtle,
+        abierta,
+        alternar: () => this.setState({ abierta: abierta ? null : f.id }),
+        fondo: abierta ? T.surfaceSubtle : 'transparent',
+        histBg: abierta ? T.primarySoft : 'transparent',
+        histBorde: abierta ? T.primary : T.borderStrong,
+        histColor: abierta ? T.primaryStrong : T.textMuted,
+        historico: f.historico.map((h) => ({
+          fecha: h.fecha, precio: h.precio, variacion: h.variacion,
+          origen: h.origen, documento: h.documento, retroactivo: h.retro,
+          varColor: h.variacion.charAt(0) === '+' ? T.warning : h.variacion.charAt(0) === '−' ? T.positive : T.textMuted,
+        })),
+      };
+    });
+
+    return { t: T, s: { filas, filtros } };
+  }
+}
+</script>
+</body>
+</html>

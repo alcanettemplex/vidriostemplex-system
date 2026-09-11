@@ -17,3 +17,8 @@ backend-api/src/scripts/importar_buscador_leads_2026-07-06.js
 # WhatsApp Web Session Cache
 .wwebjs_auth/
 backend-api/.wwebjs_auth/
+
+# Canvas de diseño construido (~2 MB, editor embebido). Se regenera desde las
+# fuentes .dc.html + canvas.json de design/ — ver design/proveedores/README.md
+design/**/*.html
+!design/**/*.dc.html

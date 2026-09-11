@@ -1,0 +1,343 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    a { color: #4338CA; } a:hover { color: #312E81; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .btn { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; }
+    .row:hover { filter: brightness(0.985); }
+  </style>
+</helmet>
+
+<div style="width: 1180px; min-height: 900px; box-sizing: border-box; padding: 26px 30px 40px; background: {{t.bg}}; color: {{t.text}}">
+
+  <div style="margin-bottom: 20px">
+    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: {{t.textMuted}}">PROVEEDORES · POR MAPEAR</div>
+    <h1 style="font-size: 22px; font-weight: 800; margin: 6px 0 0; letter-spacing: -0.01em">Bandeja de códigos sin equivalencia</h1>
+    <p style="font-size: 13px; color: {{t.textMuted}}; margin: 7px 0 0; max-width: 740px; line-height: 1.5">Cada código aquí es un precio que la ingesta vio y no pudo usar. El orden por defecto es el impacto real —cuántas veces ya apareció— porque mapear el que salió nueve veces vale nueve veces más que el que salió una.</p>
+  </div>
+
+  <!-- ══ Cabecera de la bandeja ══ -->
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 16px; padding: 16px 20px; margin-bottom: 16px; box-shadow: {{t.shadowSm}}">
+    <div style="display: flex; align-items: center; gap: 22px">
+      <div>
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: {{t.textMuted}}">{{s.rotuloTotal}}</div>
+        <div style="font-size: 24px; font-weight: 800; color: {{s.colorTotal}}; margin-top: 2px; font-variant-numeric: tabular-nums">{{s.total}}</div>
+      </div>
+      <div style="width: 1px; height: 38px; background: {{t.border}}"></div>
+
+      <div style="position: relative; display: flex; align-items: center; gap: 22px; outline: 1.5px dashed #DB2777; outline-offset: 9px; border-radius: 6px">
+        <span style="position: absolute; top: -25px; left: -9px; font-size: 8.5px; font-weight: 800; letter-spacing: 0.06em; color: #FFFFFF; background: #DB2777; border-radius: 4px; padding: 2px 7px; white-space: nowrap">BACKEND NUEVO</span>
+        <div>
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: {{t.textMuted}}">REPETIDOS EN VARIAS FACTURAS</div>
+          <div style="font-size: 24px; font-weight: 800; color: {{t.warning}}; margin-top: 2px; font-variant-numeric: tabular-nums">9</div>
+        </div>
+        <div style="width: 1px; height: 38px; background: {{t.border}}"></div>
+        <div>
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: {{t.textMuted}}">SIN CÓDIGO EN EL XML</div>
+          <div style="font-size: 24px; font-weight: 800; color: {{t.textMuted}}; margin-top: 2px; font-variant-numeric: tabular-nums">4</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 3px; background: {{t.surfaceSunken}}; border: 1px solid {{t.border}}; border-radius: 8px; padding: 3px">
+      <div onClick="{{s.verPendientes}}" style="cursor: pointer; font-size: 12.5px; font-weight: 700; padding: 7px 15px; border-radius: 6px; background: {{s.bgPend}}; color: {{s.colorPend}}; box-shadow: {{s.sombraPend}}">Por mapear</div>
+      <div onClick="{{s.verDescartados}}" style="cursor: pointer; font-size: 12.5px; font-weight: 700; padding: 7px 15px; border-radius: 6px; background: {{s.bgDesc}}; color: {{s.colorDesc}}; box-shadow: {{s.sombraDesc}}">Descartados</div>
+    </div>
+  </div>
+
+  <!-- ══ Filtros ══ -->
+  <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px">
+    <div style="display: flex; align-items: center; gap: 9px; flex-grow: 1; min-width: 280px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; border-radius: 8px; padding: 9px 13px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{t.textMuted}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+      <span style="font-size: 13px; color: {{t.textSubtle}}">Buscar por código del proveedor o por descripción de la factura</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; border-radius: 8px; padding: 9px 13px">
+      <span style="font-size: 13px; color: {{t.text}}">Todos los proveedores</span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{t.textMuted}}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+    </div>
+    <div style="display: flex; gap: 3px; background: {{t.surfaceSunken}}; border: 1px solid {{t.border}}; border-radius: 8px; padding: 3px">
+      <sc-for list="{{s.ordenes}}" as="o" hint-placeholder-count="3">
+        <div onClick="{{o.ir}}" style="cursor: pointer; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 6px; background: {{o.bg}}; color: {{o.color}}; box-shadow: {{o.sombra}}; white-space: nowrap">{{o.label}}</div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- ══ Barra de selección ══ -->
+  <sc-if value="{{s.haySeleccion}}" hint-placeholder-val="{{ true }}">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; background: {{t.primarySoft}}; border: 1px solid {{t.primary}}; border-radius: 12px; padding: 11px 18px; margin-bottom: 14px">
+      <span style="font-size: 13px; font-weight: 700; color: {{t.primaryStrong}}">{{s.nSeleccion}} seleccionados</span>
+      <div style="display: flex; gap: 8px">
+        <div class="btn" onClick="{{s.limpiar}}" style="font-size: 12.5px; font-weight: 600; padding: 7px 13px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; color: {{t.text}}">Quitar selección</div>
+        <div class="btn" style="font-size: 12.5px; font-weight: 700; padding: 7px 13px; background: {{t.danger}}; color: #FFFFFF">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M7 6l1 14h8l1-14"></path></svg>
+          Descartar seleccionados
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ══ Tabla ══ -->
+  <div style="background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 16px; overflow: hidden; box-shadow: {{t.shadowSm}}">
+    <div style="display: grid; grid-template-columns: 32px 1.25fr 1.1fr 1.9fr 1fr 0.75fr 1.15fr; gap: 10px; align-items: center; background: {{t.surfaceSubtle}}; padding: 10px 18px; border-bottom: 1px solid {{t.border}}">
+      <div></div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">PROVEEDOR</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">CÓDIGO</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}">DESCRIPCIÓN EN LA FACTURA</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">PRECIO VISTO</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: center">IMPACTO</div>
+      <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; text-align: right">ACCIÓN</div>
+    </div>
+
+    <sc-for list="{{s.filas}}" as="f" hint-placeholder-count="6">
+      <div>
+        <div class="row" style="display: grid; grid-template-columns: 32px 1.25fr 1.1fr 1.9fr 1fr 0.75fr 1.15fr; gap: 10px; align-items: center; padding: 12px 18px; border-bottom: 1px solid {{t.border}}; background: {{f.fondo}}">
+          <div onClick="{{f.alternarSel}}" style="cursor: pointer; width: 17px; height: 17px; border-radius: 5px; border: 2px solid {{f.cajaBorde}}; background: {{f.cajaBg}}; display: flex; align-items: center; justify-content: center">
+            <sc-if value="{{f.seleccionado}}" hint-placeholder-val="{{ false }}">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4 10-10"></path></svg>
+            </sc-if>
+          </div>
+
+          <div style="min-width: 0">
+            <div style="font-size: 13px; font-weight: 600; color: {{t.text}}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{f.proveedor}}</div>
+            <div class="btn" style="font-size: 10.5px; font-weight: 600; color: {{t.textSubtle}}; margin-top: 3px; padding: 0">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.7 3A6 6 0 0 1 18 8v3l2 4H9"></path><path d="M13.7 19a2 2 0 0 1-3.4 0"></path><path d="m2 2 20 20"></path></svg>
+              No seguir precios
+            </div>
+          </div>
+
+          <div style="min-width: 0">
+            <span class="mono" style="display: inline-block; font-size: 11.5px; font-weight: 700; color: {{t.primaryStrong}}; background: {{t.primarySoft}}; border-radius: 5px; padding: 3px 8px">{{f.codigo}}</span>
+            <sc-if value="{{f.derivado}}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; align-items: center; gap: 4px; font-size: 10.5px; color: {{t.warning}}; margin-top: 4px">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><path d="M12 9v4M12 17h.01"></path></svg>
+                deducido de la descripción
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="min-width: 0">
+            <div style="font-size: 12.5px; color: {{t.text}}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{f.descripcion}}</div>
+            <div class="mono" style="font-size: 10.5px; color: {{t.textSubtle}}; margin-top: 3px">{{f.documento}}</div>
+          </div>
+
+          <div style="text-align: right">
+            <div style="font-size: 13.5px; font-weight: 700; color: {{t.positive}}; font-variant-numeric: tabular-nums">{{f.precio}}</div>
+            <div style="font-size: 10.5px; color: {{t.textMuted}}; margin-top: 2px">por {{f.unidad}}</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+            <span style="font-size: 12px; font-weight: 800; color: {{f.impColor}}; font-variant-numeric: tabular-nums">{{f.veces}}×</span>
+            <div style="width: 44px; height: 4px; border-radius: 999px; background: {{t.surfaceSunken}}; overflow: hidden">
+              <div style="width: {{f.impAncho}}; height: 100%; background: {{f.impColor}}"></div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 6px; justify-content: flex-end">
+            <div class="btn" onClick="{{f.alternarVinculo}}" style="font-size: 12px; font-weight: 700; padding: 6px 12px; background: {{f.vincBg}}; color: {{f.vincColor}}; box-shadow: {{f.vincSombra}}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"></path><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"></path></svg>
+              Vincular
+            </div>
+            <div class="btn" style="padding: 6px 9px; border: 1px solid {{t.borderStrong}}; color: {{t.textMuted}}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M9 6V4h6v2M7 6l1 14h8l1-14"></path></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vinculación en la propia fila -->
+        <sc-if value="{{f.vinculando}}" hint-placeholder-val="{{ false }}">
+          <div style="background: {{t.surfaceSunken}}; border-bottom: 1px solid {{t.border}}; border-left: 3px solid {{t.primary}}; padding: 18px 22px 20px 46px">
+            <div style="position: relative; outline: 1.5px dashed #DB2777; outline-offset: 8px; border-radius: 8px; margin-bottom: 26px">
+              <span style="position: absolute; top: -22px; right: -8px; font-size: 8.5px; font-weight: 800; letter-spacing: 0.06em; color: #FFFFFF; background: #DB2777; border-radius: 4px; padding: 2px 7px; white-space: nowrap">BACKEND NUEVO · HOY ES UN BUSCADOR DE TEXTO LIBRE</span>
+
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{t.primary}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M12 2a7 7 0 0 1 4 12.7V17H8v-2.3A7 7 0 0 1 12 2z"></path></svg>
+                <span style="font-size: 13px; font-weight: 700; color: {{t.text}}">El sistema propone tres candidatos de tu catálogo</span>
+                <span style="font-size: 11.5px; color: {{t.textMuted}}">— al confirmar, la descripción se guarda como sinónimo y el próximo código igual se resuelve solo</span>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+                <sc-for list="{{f.candidatos}}" as="c" hint-placeholder-count="3">
+                  <div onClick="{{c.elegir}}" style="cursor: pointer; background: {{c.bg}}; border: 1.5px solid {{c.borde}}; border-radius: 10px; padding: 12px 14px">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+                      <span class="mono" style="font-size: 12px; font-weight: 800; color: {{t.primaryStrong}}">{{c.codigo}}</span>
+                      <span style="font-size: 10.5px; font-weight: 700; color: {{c.confColor}}; background: {{c.confBg}}; border-radius: 999px; padding: 2px 8px">{{c.confianza}}</span>
+                    </div>
+                    <div style="font-size: 12.5px; color: {{t.text}}; margin-top: 6px; line-height: 1.4">{{c.nombre}}</div>
+                    <div style="font-size: 11px; color: {{t.textMuted}}; margin-top: 6px">{{c.motivo}}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="font-size: 11.5px; color: {{t.textMuted}}; line-height: 1.5; margin-bottom: 14px; max-width: 780px">
+              El formulario en línea sí es aplicable hoy: <span class="mono">POST /codigos-pendientes/:id/vincular</span> ya existe y recibe lo mismo. Lo que no existe es quien puntúe los candidatos — hoy <span class="mono">VincularCodigoModal</span> consulta <span class="mono">GET /api/catalogo?q=</span> con lo que escribas. La materia prima está (<span class="mono">ProductoAlias</span> guarda los sinónimos aprendidos), falta el rankeador.
+            </div>
+
+            <div style="display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap">
+              <div>
+                <label style="display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; margin-bottom: 5px">MODALIDAD DE COMPRA</label>
+                <div style="display: flex; gap: 3px; background: {{t.surface}}; border: 1px solid {{t.border}}; border-radius: 8px; padding: 3px">
+                  <sc-for list="{{f.unidades}}" as="u" hint-placeholder-count="4">
+                    <div onClick="{{u.ir}}" style="cursor: pointer; font-size: 11.5px; font-weight: 700; padding: 6px 11px; border-radius: 6px; background: {{u.bg}}; color: {{u.color}}">{{u.label}}</div>
+                  </sc-for>
+                </div>
+              </div>
+              <div>
+                <label style="display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; color: {{t.textMuted}}; margin-bottom: 5px">PRECIO A REGISTRAR</label>
+                <div style="background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; border-radius: 8px; padding: 8px 14px; font-size: 14px; font-weight: 700; color: {{t.text}}; font-variant-numeric: tabular-nums">{{f.precio}}</div>
+              </div>
+              <div style="display: flex; gap: 8px; margin-left: auto">
+                <div class="btn" onClick="{{f.alternarVinculo}}" style="font-size: 13px; font-weight: 600; padding: 9px 15px; background: {{t.surface}}; border: 1px solid {{t.borderStrong}}; color: {{t.text}}">Cancelar</div>
+                <div class="btn" style="font-size: 13px; font-weight: 700; padding: 9px 17px; background: {{t.primary}}; color: #FFFFFF; box-shadow: {{t.shadowPrimary}}">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4 10-10"></path></svg>
+                  Confirmar equivalencia
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+
+    <div style="padding: 11px 18px; font-size: 12px; color: {{t.textMuted}}">Mostrando 6 de {{s.total}}. Acota con el buscador o el filtro de proveedor.</div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{}'>
+const T = {
+  bg: '#F8FAFC', surface: '#FFFFFF', surfaceSubtle: '#F8FAFC', surfaceSunken: '#F1F5F9',
+  border: '#E2E8F0', borderStrong: '#CBD5E1',
+  text: '#0F172A', textMuted: '#64748B', textSubtle: '#94A3B8',
+  primary: '#6366F1', primarySoft: 'rgba(99,102,241,0.10)', primaryStrong: '#4338CA',
+  positive: '#059669', positiveSoft: 'rgba(5,150,105,0.10)',
+  warning: '#D97706', warningSoft: 'rgba(217,119,6,0.09)',
+  danger: '#EF4444',
+  shadowSm: '0 1px 3px rgba(15,23,42,0.05)',
+  shadowPrimary: '0 2px 8px rgba(99,102,241,0.28)',
+};
+
+const FILAS = [
+  { id: 1, proveedor: 'Vitelsa', codigo: 'AL-7734', descripcion: 'FELPA CEPILLO 5MM X ROLLO 100MT NEGRO', documento: 'FV-A-40218 · 04-sep', precio: '$186.500', unidad: 'unidad', veces: 9, derivado: false },
+  { id: 2, proveedor: 'Templacol', codigo: 'SD-3f9a21', descripcion: 'SILICONA ESTRUCTURAL TRANSPARENTE 300ML', documento: 'FE-TC-11934 · 01-sep', precio: '$18.900', unidad: 'unidad', veces: 7, derivado: true },
+  { id: 3, proveedor: 'Vitelsa', codigo: 'AL-0918', descripcion: 'EMPAQUE BURBUJA VIDRIO 6MM X METRO', documento: 'FV-A-40218 · 04-sep', precio: '$3.480', unidad: 'metro', veces: 5, derivado: false },
+  { id: 4, proveedor: 'Arquiluz', codigo: '94-PIV', descripcion: 'PIVOTE INFERIOR PUERTA TEMPLADA', documento: 'FA-2291 · 28-ago', precio: '$42.300', unidad: 'unidad', veces: 3, derivado: false },
+  { id: 5, proveedor: 'Aluminios del Norte', codigo: 'ADN-2201', descripcion: 'ANGULO ALUMINIO 1X1 NATURAL TIRA 6M', documento: 'FV-ADN-7742 · 06-sep', precio: '$31.700', unidad: 'tira 6 m', veces: 2, derivado: false },
+  { id: 6, proveedor: 'Ferretería La 30', codigo: 'SD-c81e04', descripcion: 'TORNILLO AUTOPERFORANTE 8X1/2 CAJA X500', documento: 'FL30-0441 · 05-sep', precio: '$67.900', unidad: 'unidad', veces: 1, derivado: true },
+];
+
+const CANDIDATOS = {
+  1: [
+    { codigo: 'FEL0100', nombre: 'Felpa de cepillo 5 mm — rollo 100 m', confianza: '94%', motivo: 'sinónimo aprendido en un mapeo anterior' },
+    { codigo: 'FEL0050', nombre: 'Felpa de cepillo 5 mm — rollo 50 m', confianza: '71%', motivo: 'coincide en tipo, difiere la presentación' },
+    { codigo: 'EMP0605', nombre: 'Empaque de burbuja 6 mm', confianza: '38%', motivo: 'misma familia de accesorio' },
+  ],
+};
+const POR_DEFECTO = [
+  { codigo: 'SIL0300', nombre: 'Silicona estructural 300 ml', confianza: '88%', motivo: 'coincidencia por palabras de la descripción' },
+  { codigo: 'SIL0080', nombre: 'Silicona estructural 80 ml', confianza: '64%', motivo: 'mismo producto, otra presentación' },
+  { codigo: 'ADH0300', nombre: 'Adhesivo de montaje 300 ml', confianza: '41%', motivo: 'volumen y envase equivalentes' },
+];
+
+const UNIDADES = ['Unidad', 'Tira 6 m', 'Metro', 'Kg', 'm²'];
+
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    this.state = { vista: 'PENDIENTE', orden: 'frecuencia', sel: {}, vinculando: 1, elegido: 'FEL0100', unidad: 'Unidad' };
+  }
+
+  renderVals() {
+    const st = this.state;
+    const enDescartados = st.vista === 'DESCARTADO';
+
+    const seg = (on) => ({
+      bg: on ? T.surface : 'transparent',
+      color: on ? T.primaryStrong : T.textMuted,
+      sombra: on ? '0 1px 2px rgba(15,23,42,0.10)' : 'none',
+    });
+    const sp = seg(!enDescartados);
+    const sd = seg(enDescartados);
+
+    const ordenes = [
+      { k: 'frecuencia', l: 'Impacto' },
+      { k: 'reciente', l: 'Recientes' },
+      { k: 'precio', l: 'Mayor precio' },
+    ].map((o) => {
+      const on = st.orden === o.k;
+      const e = seg(on);
+      return { label: o.l, ir: () => this.setState({ orden: o.k }), bg: e.bg, color: e.color, sombra: e.sombra };
+    });
+
+    const maxVeces = Math.max.apply(null, FILAS.map((f) => f.veces));
+
+    const filas = FILAS.map((f) => {
+      const seleccionado = !!st.sel[f.id];
+      const vinculando = st.vinculando === f.id;
+      const impColor = f.veces >= 5 ? T.warning : f.veces >= 3 ? T.primary : T.textSubtle;
+
+      const lista = (CANDIDATOS[f.id] || POR_DEFECTO).map((c, i) => {
+        const on = vinculando && st.elegido === c.codigo;
+        const alto = i === 0;
+        return {
+          codigo: c.codigo, nombre: c.nombre, confianza: c.confianza, motivo: c.motivo,
+          elegir: () => this.setState({ elegido: c.codigo }),
+          bg: on ? 'rgba(99,102,241,0.07)' : T.surface,
+          borde: on ? T.primary : T.border,
+          confColor: alto ? T.positive : T.textMuted,
+          confBg: alto ? T.positiveSoft : T.surfaceSunken,
+        };
+      });
+
+      const unidades = UNIDADES.map((u) => {
+        const on = st.unidad === u;
+        return { label: u, ir: () => this.setState({ unidad: u }), bg: on ? T.primarySoft : 'transparent', color: on ? T.primaryStrong : T.textMuted };
+      });
+
+      return {
+        proveedor: f.proveedor, codigo: f.codigo, descripcion: f.descripcion, documento: f.documento,
+        precio: f.precio, unidad: f.unidad, veces: String(f.veces), derivado: f.derivado,
+        impColor, impAncho: Math.round((f.veces / maxVeces) * 100) + '%',
+        seleccionado, alternarSel: () => this.setState({ sel: { ...st.sel, [f.id]: !seleccionado } }),
+        cajaBorde: seleccionado ? T.primary : T.borderStrong,
+        cajaBg: seleccionado ? T.primary : 'transparent',
+        fondo: vinculando ? T.surfaceSubtle : seleccionado ? 'rgba(99,102,241,0.04)' : 'transparent',
+        vinculando, candidatos: lista, unidades,
+        alternarVinculo: () => this.setState({ vinculando: vinculando ? null : f.id }),
+        vincBg: vinculando ? T.primaryStrong : T.primary,
+        vincColor: '#FFFFFF',
+        vincSombra: vinculando ? 'none' : '0 2px 6px rgba(99,102,241,0.25)',
+      };
+    });
+
+    const nSel = Object.values(st.sel).filter(Boolean).length;
+
+    return {
+      t: T,
+      s: {
+        filas, ordenes,
+        total: enDescartados ? '14' : '23',
+        rotuloTotal: enDescartados ? 'CÓDIGOS DESCARTADOS' : 'CÓDIGOS SIN EQUIVALENCIA',
+        colorTotal: enDescartados ? T.textMuted : T.warning,
+        verPendientes: () => this.setState({ vista: 'PENDIENTE' }),
+        verDescartados: () => this.setState({ vista: 'DESCARTADO' }),
+        bgPend: sp.bg, colorPend: sp.color, sombraPend: sp.sombra,
+        bgDesc: sd.bg, colorDesc: sd.color, sombraDesc: sd.sombra,
+        haySeleccion: nSel > 0, nSeleccion: String(nSel),
+        limpiar: () => this.setState({ sel: {} }),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
