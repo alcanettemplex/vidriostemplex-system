@@ -89,21 +89,45 @@ export const meta = {
     "Calcula automáticamente brazo, empaque, manija, jamba, nave y sillar cabezal a partir " +
     "del número de naves y sus medidas (único método de aluminio: por naves, sin metros manuales).",
   campos: [
-    { nombre: "segmentoCliente", tipo: "string", etiqueta: "Tipo de cliente (PA/PM/PB)", requerido: true },
-    { nombre: "numeroNaves", tipo: "number", etiqueta: "Número de naves", requerido: true },
-    { nombre: "anchoNaveCm", tipo: "number", etiqueta: "Ancho de cada nave (cm)", requerido: true },
-    { nombre: "altoNaveCm", tipo: "number", etiqueta: "Alto de cada nave (cm)", requerido: true },
+    { nombre: "segmentoCliente", tipo: "select", opciones: ["PA", "PM", "PB"], etiqueta: "Tipo de cliente", requerido: true, grupo: "cliente" },
+    { nombre: "numeroNaves", tipo: "number", etiqueta: "Número de naves", requerido: true, grupo: "medidas" },
+    // "...Cm" en el nombre por compatibilidad con calcular(); la etiqueta en mm
+    // es sólo presentación — el frontend convierte antes de enviar el valor.
+    { nombre: "anchoNaveCm", tipo: "number", etiqueta: "Ancho de cada nave (mm)", requerido: true, grupo: "medidas" },
+    { nombre: "altoNaveCm", tipo: "number", etiqueta: "Alto de cada nave (mm)", requerido: true, grupo: "medidas" },
     {
+      // "crudo" NO está en la lista a propósito: COLORES_DISPONIBLES.jamba/nave
+      // (más abajo) no tienen código para ese color — pedirlo genera líneas en
+      // error, no una ventana crudo válida. Ver el check de la línea ~196.
       nombre: "colorPerfileria",
-      tipo: "string",
-      etiqueta: "Color de perfilería (mate/gris plata/bronce/blanco/crudo)",
+      tipo: "select",
+      opciones: [
+        { value: "mate", label: "Mate" },
+        { value: "gris plata", label: "Gris plata" },
+        { value: "bronce", label: "Bronce" },
+        { value: "blanco", label: "Blanco" },
+      ],
+      etiqueta: "Color de perfilería",
       requerido: true,
+      grupo: "cliente",
     },
-    { nombre: "codigoVidrio", tipo: "string", etiqueta: "Código de vidrio", requerido: false },
-    { nombre: "matizado", tipo: "boolean", etiqueta: "Incluir matizado", requerido: false },
-    { nombre: "pelicula", tipo: "boolean", etiqueta: "Incluir película", requerido: false },
-    { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de ventanas idénticas", requerido: false },
-    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (fracción 0-1)", requerido: false },
+    {
+      // Whitelist real que valida `calcular()` más abajo (VIDRIOS_VALIDOS).
+      nombre: "codigoVidrio",
+      tipo: "select",
+      opciones: [
+        { value: "CL4MM01CR", label: "Claro 4mm crudo" },
+        { value: "CL5MM01CR", label: "Claro 5mm crudo" },
+        { value: "CL6MM01CR", label: "Claro 6mm crudo" },
+      ],
+      etiqueta: "Tipo de vidrio",
+      requerido: false,
+      grupo: "vidrio",
+    },
+    { nombre: "matizado", tipo: "boolean", etiqueta: "Incluir matizado", requerido: false, grupo: "vidrio" },
+    { nombre: "pelicula", tipo: "boolean", etiqueta: "Incluir película", requerido: false, grupo: "vidrio" },
+    { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de ventanas idénticas", requerido: false, grupo: "comercial" },
+    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (fracción 0-1)", requerido: false, grupo: "comercial" },
   ],
 };
 

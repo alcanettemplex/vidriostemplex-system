@@ -27,6 +27,10 @@ module.exports = {
             },
             fontFamily: {
                 apple: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+                // Exclusivas del módulo Cotizador (features/cotizador) — no tocar el
+                // font-sans por defecto del resto del ERP.
+                cotizador: ['Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                'cotizador-head': ['"Space Grotesk"', 'Manrope', 'sans-serif'],
             },
             boxShadow: {
                 apple: '0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.04)',

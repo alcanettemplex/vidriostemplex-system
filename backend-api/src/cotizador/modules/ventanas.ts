@@ -136,24 +136,51 @@ export const meta = {
     "7038-Interior. Por medidas libres (sin diseño): sólo 5020, 744 y 8025 (corrediza pesada); " +
     "para la variante '8025 tres corredizas' use sistema 8025 con alasCorredizas=3.",
   campos: [
-    { nombre: "segmentoCliente", tipo: "string", etiqueta: "Tipo de cliente (PA/PM/PB)", requerido: true },
-    { nombre: "sistema", tipo: "string", etiqueta: "Sistema (5020 / 744 / 8025)", requerido: true },
+    { nombre: "segmentoCliente", tipo: "select", opciones: ["PA", "PM", "PB"], etiqueta: "Tipo de cliente", requerido: true, grupo: "cliente" },
+    { nombre: "sistema", tipo: "select", opciones: ["5020", "744", "8025"], etiqueta: "Sistema", requerido: true, grupo: "cliente" },
     {
       nombre: "colorPerfileria",
-      tipo: "string",
-      etiqueta: "Color de perfilería (mate/bronce/gris plata/blanco/crudo)",
+      tipo: "select",
+      opciones: [
+        { value: "mate", label: "Mate" },
+        { value: "bronce", label: "Bronce" },
+        { value: "gris plata", label: "Gris plata" },
+        { value: "blanco", label: "Blanco" },
+        { value: "crudo", label: "Crudo" },
+      ],
+      etiqueta: "Color de perfilería",
       requerido: true,
+      grupo: "cliente",
     },
-    { nombre: "anchoCm", tipo: "number", etiqueta: "Ancho (cm)", requerido: true },
-    { nombre: "altoCm", tipo: "number", etiqueta: "Alto (cm)", requerido: true },
-    { nombre: "cuerpos", tipo: "number", etiqueta: "Cuerpos", requerido: true },
-    { nombre: "alasCorredizas", tipo: "number", etiqueta: "Alas corredizas", requerido: false },
-    { nombre: "alfajia", tipo: "number", etiqueta: "Alfajía (0 = no, 1 = sí)", requerido: false },
-    { nombre: "codigoVidrio", tipo: "string", etiqueta: "Código de vidrio", requerido: false },
-    { nombre: "matizado", tipo: "boolean", etiqueta: "Incluir matizado", requerido: false },
-    { nombre: "pelicula", tipo: "boolean", etiqueta: "Incluir película", requerido: false },
-    { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de ventanas idénticas", requerido: false },
-    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (fracción 0-1)", requerido: false },
+    // El campo se llama "...Cm" porque así lo interpreta calcular() más abajo
+    // (compatibilidad con el motor ya verificado); la etiqueta en mm es sólo
+    // presentación — el frontend convierte antes de enviar el valor.
+    { nombre: "anchoCm", tipo: "number", etiqueta: "Ancho (mm)", requerido: true, grupo: "medidas" },
+    { nombre: "altoCm", tipo: "number", etiqueta: "Alto (mm)", requerido: true, grupo: "medidas" },
+    { nombre: "cuerpos", tipo: "number", etiqueta: "Cuerpos", requerido: true, grupo: "medidas" },
+    { nombre: "alasCorredizas", tipo: "number", etiqueta: "Alas corredizas", requerido: false, grupo: "medidas" },
+    { nombre: "alfajia", tipo: "number", etiqueta: "Alfajía (0 = no, 1 = sí)", requerido: false, grupo: "medidas" },
+    {
+      // Whitelist real que valida `calcular()` más abajo (VIDRIOS_VALIDOS) — si
+      // se agrega un código aquí sin agregarlo también allá, el backend lo
+      // ignora en silencio y cae al vidrio por defecto (CL4MM01CR).
+      nombre: "codigoVidrio",
+      tipo: "select",
+      opciones: [
+        { value: "CL4MM01CR", label: "Claro 4mm crudo" },
+        { value: "CL5MM01CR", label: "Claro 5mm crudo" },
+        { value: "CL10MM01CR", label: "Claro 10mm crudo" },
+        { value: "CL5MM03SP", label: "Claro 5mm templado SP" },
+        { value: "CL6MM03SP", label: "Claro 6mm templado SP" },
+      ],
+      etiqueta: "Tipo de vidrio",
+      requerido: false,
+      grupo: "vidrio",
+    },
+    { nombre: "matizado", tipo: "boolean", etiqueta: "Incluir matizado", requerido: false, grupo: "vidrio" },
+    { nombre: "pelicula", tipo: "boolean", etiqueta: "Incluir película", requerido: false, grupo: "vidrio" },
+    { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de ventanas idénticas", requerido: false, grupo: "comercial" },
+    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (fracción 0-1)", requerido: false, grupo: "comercial" },
   ],
 };
 

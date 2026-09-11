@@ -77,19 +77,22 @@ export const meta = {
   descripcion:
     "Tablero de vidrio templado (6mm u 8mm) con BPB, perforaciones y elevadores según el ancho real, más matizado y película opcionales. Medidas libres en centímetros.",
   campos: [
-    { nombre: "anchoCm", tipo: "number", etiqueta: "Ancho (cm)", requerido: true },
-    { nombre: "altoCm", tipo: "number", etiqueta: "Alto (cm)", requerido: true },
-    { nombre: "espesorMm", tipo: "select", opciones: [6, 8], etiqueta: "Espesor (mm)", requerido: true },
-    { nombre: "matizado", tipo: "boolean", etiqueta: "Matizado total (MATI07)", requerido: false },
+    // "...Cm" en el nombre por compatibilidad con calcular(); la etiqueta en mm
+    // es sólo presentación — el frontend convierte antes de enviar el valor.
+    { nombre: "anchoCm", tipo: "number", etiqueta: "Ancho (mm)", requerido: true, grupo: "medidas" },
+    { nombre: "altoCm", tipo: "number", etiqueta: "Alto (mm)", requerido: true, grupo: "medidas" },
+    { nombre: "espesorMm", tipo: "select", opciones: [6, 8], etiqueta: "Espesor (mm)", requerido: true, grupo: "vidrio" },
+    { nombre: "matizado", tipo: "boolean", etiqueta: "Matizado total (MATI07)", requerido: false, grupo: "vidrio" },
     {
       nombre: "pelicula",
       tipo: "boolean",
       etiqueta: "Película de seguridad (solo variante Normal disponible)",
       requerido: false,
+      grupo: "vidrio",
     },
-    { nombre: "segmentoCliente", tipo: "select", opciones: ["PA", "PM", "PB"], etiqueta: "Tipo de cliente", requerido: true },
-    { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de piezas iguales", requerido: true },
-    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (fracción 0-1)", requerido: false },
+    { nombre: "segmentoCliente", tipo: "select", opciones: ["PA", "PM", "PB"], etiqueta: "Tipo de cliente", requerido: true, grupo: "cliente" },
+    { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de piezas iguales", requerido: true, grupo: "comercial" },
+    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (fracción 0-1)", requerido: false, grupo: "comercial" },
   ],
 };
 

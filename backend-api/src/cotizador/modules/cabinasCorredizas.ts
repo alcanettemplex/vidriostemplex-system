@@ -56,14 +56,17 @@ export const meta = {
   descripcion:
     "Cabina de baño en vidrio templado con puertas corredizas (deslizantes), a medida libre.",
   campos: [
-    { nombre: "anchoCm", tipo: "number", etiqueta: "Ancho (cm)", requerido: true },
-    { nombre: "altoCm", tipo: "number", etiqueta: "Alto (cm)", requerido: true },
+    // "...Cm" en el nombre por compatibilidad con calcular(); la etiqueta en mm
+    // es sólo presentación — el frontend convierte antes de enviar el valor.
+    { nombre: "anchoCm", tipo: "number", etiqueta: "Ancho (mm)", requerido: true, grupo: "medidas" },
+    { nombre: "altoCm", tipo: "number", etiqueta: "Alto (mm)", requerido: true, grupo: "medidas" },
     {
       nombre: "espesorVidrioMm",
       tipo: "select",
       opciones: [6, 8],
       etiqueta: "Espesor de vidrio (mm)",
       requerido: true,
+      grupo: "vidrio",
     },
     {
       nombre: "tipoSistema",
@@ -76,6 +79,7 @@ export const meta = {
       ],
       etiqueta: "Sistema / riel",
       requerido: true,
+      grupo: "vidrio",
     },
   ],
 };
