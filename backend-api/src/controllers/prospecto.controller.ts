@@ -289,13 +289,30 @@ export const aprobarProspecto = async (req: Request, res: Response) => {
 
     const odp_id = odp.getDataValue('id');
 
-    // Vincular todas las TMs del prospecto a la ODP
+    // Vincular todas las TMs del prospecto a la ODP.
+    // El estado de cada TM se respeta: 'convertida' significa "prospecto convertido a ODP
+    // DESPUÉS de visita realizada" (ver frontend-web/src/utils/tmEstado.ts), así que una TM
+    // en 'solicitada'/'programada' solo hereda odp_id y conserva su estado — de lo contrario
+    // desaparece de la cola del jefe de producción y la visita nunca se llega a agendar.
+    // `individualHooks: true` porque los hooks de instancia (auditoría) no disparan en
+    // updates masivos: sin esto el cambio de estado no queda en auditoria_log.
     if (tms.length > 0) {
       const { Op: OpTM } = require('sequelize');
-      await TomaMedidas.update(
-        { odp_id, estado: 'convertida' },
-        { where: { id: { [OpTM.in]: tms.map((tmItem: any) => tmItem.id) } }, transaction: t }
-      );
+      const idsRealizadas = tms.filter((tmItem: any) => tmItem.estado === 'realizada').map((tmItem: any) => tmItem.id);
+      const idsPendientes = tms.filter((tmItem: any) => tmItem.estado !== 'realizada').map((tmItem: any) => tmItem.id);
+
+      if (idsRealizadas.length > 0) {
+        await TomaMedidas.update(
+          { odp_id, estado: 'convertida' },
+          { where: { id: { [OpTM.in]: idsRealizadas } }, transaction: t, individualHooks: true }
+        );
+      }
+      if (idsPendientes.length > 0) {
+        await TomaMedidas.update(
+          { odp_id },
+          { where: { id: { [OpTM.in]: idsPendientes } }, transaction: t, individualHooks: true }
+        );
+      }
     }
 
     // Marcar prospecto como aprobado y vincularlo a la ODP

@@ -2183,3 +2183,75 @@ Wiring en `AppRoutes.tsx` + `Sidebar.tsx` (ítem "Cotizador", sección comercial
    empezar.
 3. Working tree con los cambios de esta entrada, sin commitear al momento de escribirla — el
    commit de cierre de sesión debe recogerlos todos.
+
+---
+
+## 2026-09-11 — TM aprobada como "Realizada" sin visita al generar la ODP del prospecto
+
+### Síntoma reportado
+Un usuario reporta que al crear un prospecto y solicitar visita técnica, la TM queda en
+`solicitada`, pero **al generar la ODP desde ahí la TM salta sola al panel "Realizadas"**. Se pidió
+verificar si era real o mala percepción.
+
+### Verificación — era real, y ya estaba documentado
+Bug conocido desde el 2026-07-27 (`TECH_DEBT.md`), nunca corregido. Cadena confirmada por lectura
+estática:
+1. `createTM` deja la TM en `solicitada` (sin `fecha_visita`).
+2. `aprobarProspecto` ejecutaba `TomaMedidas.update({ odp_id, estado: 'convertida' }, { where })`
+   sobre **todas** las TMs del prospecto, sin mirar su estado previo.
+3. `getTMPanel` agrupa `realizada` + `convertida` bajo "REALIZADAS", y `tmEstado.ts` rotula
+   `convertida` con la misma etiqueta verde "✓ Realizada".
+
+**El daño real no era el rótulo sino la pérdida de la cola operativa**: en `convertida` la tarjeta
+pierde los botones Programar, Editar, Eliminar y Retornar (todos condicionados a
+`solicitada`/`programada`), así que **la visita técnica ya no se podía agendar**. La ODP, en
+cambio, nacía correcta en `VISITA_TECNICA` con `chk_medicion = false` — todo el sistema decía
+"visita pendiente"; solo el estado de la TM mentía. Mismo cuadro que TM-0178/ODP-24201 en julio.
+
+### Cambios realizados
+
+**1. `prospecto.controller.ts` — causa raíz**
+- El update masivo se partió en dos dentro de la misma transacción `t`: las TMs en `realizada`
+  pasan a `convertida`; las de estado `solicitada`/`programada`/`archivada` **solo heredan
+  `odp_id`** y conservan su estado.
+- Ambos con `individualHooks: true` — los hooks de instancia no disparan en updates masivos, así
+  que hasta hoy este cambio de estado **no quedaba en `auditoria_log`** (deuda 2026-07-02). El
+  rastro se cortaba justo en el cambio que causaba el problema.
+- Engranaje cerrado: `estadoInicialProspecto` ya usaba el mismo criterio, así que TM `solicitada`
+  + ODP `VISITA_TECNICA` quedan coherentes, y al subir la foto `uploadFotoTM` avanza la ODP a
+  `MEDICION` y marca `chk_medicion` sola.
+
+**2. `toma_medidas.controller.ts` — válvula de escape**
+- `retornarTM` acepta ahora `realizada`/`convertida` además de `programada`, pero **solo si no hay
+  croquis ni fotos** (mismo criterio de guarda que `fix_tm_0178_2026-07-27.ts`); con archivos
+  registrados devuelve 409 con mensaje contextual. Conserva `odp_id` y **no toca la ODP**.
+- Deuda incremental del mismo archivo: `retornarTM` dejaba `hora_visita` colgada al retornar (solo
+  limpiaba `fecha_visita`) — corregido. `retornarTM` y `programarTM` no emitían socket; se les
+  agregó `emitirCambio('toma_medidas')` como ya hacían `createTM` y `vincularTMaODP`.
+
+**3. Frontend**
+- `tmEstado.ts`: helpers nuevos `tmSinRegistro()` y `tmRetornable()` — fuente única del criterio,
+  espejo de la guarda del backend, para que front y back no diverjan.
+- `TomaMedidasPage.tsx`: botón "Retornar" habilitado en el panel Realizadas para TMs sin registro;
+  `medidas_json` agregado a la interfaz `TMItem` (el backend ya lo enviaba); texto del `confirm`
+  diferenciado para el caso "figura como realizada pero no tiene fotos".
+- Code smell corregido de paso: el panel Realizadas pasaba `onOpenTM` **sin el guard `isReadOnly`**
+  que sí tenían Solicitadas y Programadas — `asistente_administrativo` y `marketing` podían abrir
+  el modal de TM y toparse con un 403 del backend.
+
+### Decisión técnica — datos históricos
+Se ofreció script de corrección masiva; **el usuario eligió no correrlo**. Las TMs ya atrapadas en
+`convertida` las destraba producción caso por caso con el botón nuevo, con criterio humano.
+Asunción explícita heredada del script de julio: **retornar una TM no revierte `chk_medicion` de
+su ODP** si ya estaba en `true`.
+
+### Verificación
+- `npm --prefix backend-api run build` limpio.
+- `tsc --noEmit` limpio en frontend.
+- Sin migración de BD: no hay cambios de ENUM, constraint ni columnas.
+- Pendiente prueba manual dirigida del flujo prospecto → ODP (no hay entorno de prueba separado).
+
+### Pendientes
+- Probar en vivo: crear prospecto → solicitar TM → aprobar prospecto y confirmar que la TM sigue en
+  "Solicitadas"; y retornar desde "Realizadas" una TM sin fotos.
+- `TECH_DEBT.md` 2026-07-27 marcado como ✅ RESUELTO.

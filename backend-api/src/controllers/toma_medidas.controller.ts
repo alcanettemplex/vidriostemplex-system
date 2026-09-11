@@ -94,6 +94,8 @@ export const programarTM = async (req: Request, res: Response) => {
     if (!tm) return res.status(404).json({ error: 'TM no encontrada' });
 
     await tm.update({ fecha_visita, hora_visita: hora_visita || null, estado: 'programada' });
+
+    import('../server').then(({ emitirCambio }) => emitirCambio('toma_medidas')).catch(() => {});
     res.json(tm);
   } catch (error: any) {
     res.status(500).json({ error: 'Error al programar TM', detail: error.message });
@@ -221,15 +223,42 @@ export const deleteTM = async (req: Request, res: Response) => {
   }
 };
 
+// Retornar una TM al panel "Solicitadas".
+//   - 'programada'               → siempre permitido (se descarta la fecha/hora de visita).
+//   - 'realizada' | 'convertida' → solo si la visita NO se realizó de verdad, es decir, sin
+//     croquis ni fotos. Cubre las TMs que quedaron marcadas como realizadas sin haberse
+//     visitado; con fotos se rechaza, porque retornarla obligaría a decidir qué hacer con
+//     esas fotos (mismo criterio que el script fix_tm_0178_2026-07-27).
+// No toca la ODP vinculada: `odp_id` se conserva para que al subir la foto `uploadFotoTM`
+// avance la ODP a MEDICION y marque chk_medicion.
+const ESTADOS_RETORNABLES = ['programada', 'realizada', 'convertida'];
+
 export const retornarTM = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const tm = await TomaMedidas.findByPk(id);
     if (!tm) return res.status(404).json({ error: 'TM no encontrada' });
-    if (tm.getDataValue('estado') !== 'programada') {
-      return res.status(400).json({ error: 'Solo se puede retornar una TM en estado programada' });
+
+    const estado = tm.getDataValue('estado');
+    if (!ESTADOS_RETORNABLES.includes(estado)) {
+      return res.status(400).json({
+        error: `No se puede retornar una toma de medidas en estado "${estado}". Solo aplica a visitas programadas o marcadas como realizadas sin registrar.`,
+      });
     }
-    await tm.update({ estado: 'solicitada', fecha_visita: null });
+
+    if (estado !== 'programada') {
+      const fotos = tm.getDataValue('medidas_json');
+      const numFotos = Array.isArray(fotos) ? fotos.length : 0;
+      if (tm.getDataValue('croquis_url') || numFotos > 0) {
+        return res.status(409).json({
+          error: `Esta toma de medidas ya tiene ${numFotos || 1} archivo(s) registrado(s), así que la visita sí se realizó. Para devolverla a Solicitadas primero hay que decidir qué hacer con esas fotos.`,
+        });
+      }
+    }
+
+    await tm.update({ estado: 'solicitada', fecha_visita: null, hora_visita: null });
+
+    import('../server').then(({ emitirCambio }) => emitirCambio('toma_medidas')).catch(() => {});
     res.json(tm);
   } catch {
     res.status(500).json({ error: 'Error al retornar TM a solicitada' });

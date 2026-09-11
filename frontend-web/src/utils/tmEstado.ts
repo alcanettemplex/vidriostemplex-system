@@ -52,3 +52,16 @@ export const getTmEstadoConfig = (estado: string): TmEstadoConfig =>
 /** true si la visita ya fue realizada (con o sin conversión posterior) */
 export const tmVisitaRealizada = (estado: string) =>
   estado === 'realizada' || estado === 'convertida';
+
+/** true si no hay ningún registro de la visita: ni croquis ni fotos */
+export const tmSinRegistro = (tm: { croquis_url?: string | null; medidas_json?: string[] | null }) =>
+  !tm.croquis_url && !(tm.medidas_json && tm.medidas_json.length > 0);
+
+/**
+ * true si la TM puede devolverse al panel "Solicitadas".
+ * Espeja la guarda de `retornarTM` en backend-api/src/controllers/toma_medidas.controller.ts:
+ * una visita programada siempre; una marcada como realizada solo si nunca se registró nada
+ * (caso típico: aprobar el prospecto la dio por realizada sin que nadie visitara).
+ */
+export const tmRetornable = (tm: { estado: string; croquis_url?: string | null; medidas_json?: string[] | null }) =>
+  tm.estado === 'programada' || (tmVisitaRealizada(tm.estado) && tmSinRegistro(tm));

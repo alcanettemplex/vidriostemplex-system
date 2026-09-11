@@ -256,7 +256,7 @@ Script `backend-api/src/scripts/2026_08_30_fix_ingesta_proveedores.ts` (ya ejecu
 
 ---
 
-## 2026-07-27 — Aprobar prospecto marca sus TMs como `convertida` aunque la visita no se haya realizado
+## 2026-07-27 — Aprobar prospecto marca sus TMs como `convertida` aunque la visita no se haya realizado — ✅ RESUELTO 2026-09-11
 
 **Severidad:** Media
 
@@ -280,6 +280,13 @@ Esto contradice la definición del propio sistema en `frontend-web/src/utils/tmE
 **Fix propuesto:** separar en dos updates dentro de la misma transacción — las TMs ya en `realizada` pasan a `convertida`; las que estén en `solicitada`/`programada` solo heredan `odp_id` y conservan su estado. Alternativa complementaria: agregar botón "Retornar" en el panel Realizadas para TMs sin fotos y ampliar `retornarTM` para aceptarlas.
 
 **Estimación:** 15 min el fix en `prospecto.controller.ts`; +30 min si se agrega también el botón "Retornar" en `TomaMedidasPage.tsx` + backend. No requiere migración de BD.
+
+**✅ Resuelto el 2026-09-11** — lo volvió a reportar un usuario desde el flujo vivo (crear prospecto → solicitar TM → generar ODP y ver la TM saltar a "Realizadas"). Se aplicaron las dos ramas del fix propuesto:
+
+1. `prospecto.controller.ts` — el update masivo se partió en dos dentro de la misma transacción: las TMs en `realizada` pasan a `convertida`; las demás (`solicitada`/`programada`/`archivada`) **solo heredan `odp_id`** y conservan su estado. Ambos updates con `individualHooks: true`, así que el cambio ya queda en `auditoria_log`.
+2. `retornarTM` + `TomaMedidasPage.tsx` — el botón "Retornar" ya aparece en el panel Realizadas para TMs sin croquis ni fotos, con la misma guarda en backend (409 si tiene archivos registrados). El criterio vive en `tmRetornable()` (`utils/tmEstado.ts`) para que front y back no diverjan.
+
+**Decisión de datos:** no se corrió script de corrección masiva. Las TMs que ya quedaron atrapadas en `convertida` las destraba producción caso por caso con el botón nuevo. **`retornarTM` no toca la ODP**: si una ODP ya tenía `chk_medicion = true`, retornar su TM no lo revierte (mismo criterio que `fix_tm_0178_2026-07-27.ts`).
 
 ---
 

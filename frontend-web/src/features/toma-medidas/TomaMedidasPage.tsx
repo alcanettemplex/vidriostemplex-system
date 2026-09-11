@@ -12,6 +12,7 @@ import TMModal from '../odp/components/TMModal';
 import ProspectoModal from '../prospectos/components/ProspectoModal';
 
 import API from '../../services/config';
+import { tmRetornable, tmVisitaRealizada } from '../../utils/tmEstado';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,7 @@ interface TMItem {
   telefono_obra: string | null;
   observaciones: string | null;
   croquis_url: string | null;
+  medidas_json: string[] | null;
   realizador: { id: number; nombre_completo: string } | null;
   odp: ODPInfo | null;
   prospecto: ProspectoInfo | null;
@@ -485,7 +487,7 @@ const CardTM: React.FC<{
               <Ruler className="w-3.5 h-3.5" /> Abrir TM
             </button>
           )}
-          {tm.estado === 'programada' && onRetornar && (
+          {tmRetornable(tm) && onRetornar && (
             <button onClick={() => onRetornar(tm)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200 transition shadow-sm whitespace-nowrap"
               title="Retornar a Solicitadas">
@@ -735,7 +737,10 @@ const TomaMedidasPage: React.FC = () => {
   };
 
   const handleRetornarTM = async (tm: TMItem) => {
-    if (!window.confirm(`¿Retornar "${tm.numero_tm}" a Solicitadas? Se eliminará la fecha de visita programada.`)) return;
+    const mensaje = tmVisitaRealizada(tm.estado)
+      ? `"${tm.numero_tm}" figura como realizada pero no tiene fotos ni croquis. ¿Devolverla a Solicitadas para programar la visita?`
+      : `¿Retornar "${tm.numero_tm}" a Solicitadas? Se eliminará la fecha de visita programada.`;
+    if (!window.confirm(mensaje)) return;
     try {
       await axios.patch(`${API}/api/documentos/tm/${tm.id}/retornar`, {}, {
         headers: { Authorization: `Bearer ${token}` },
@@ -991,7 +996,12 @@ const TomaMedidasPage: React.FC = () => {
           emptyMsg="No hay tomas de medidas completadas"
         >
           {datosFiltrados.realizadas.map(tm => (
-            <CardTM key={tm.id} tm={tm} onOpenTM={abrirTMModal} />
+            <CardTM
+              key={tm.id}
+              tm={tm}
+              onOpenTM={isReadOnly ? undefined : abrirTMModal}
+              onRetornar={isReadOnly ? undefined : handleRetornarTM}
+            />
           ))}
         </Panel>
       </div>
