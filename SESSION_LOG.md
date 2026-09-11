@@ -2087,3 +2087,99 @@ Cero migraciones. Una sola columna escrita: `ordenes_compra.estado` de la fila 3
 2. `ODP-24309` tiene `chk_accesorios=true` con `fecha_chk_accesorios=null`: consistente con el
    motor (si el check ya estaba en `true`, retorna sin escribir y no sella la fecha), pero deja
    una fecha en blanco que el tablero podría querer mostrar.
+---
+
+## 2026-09-10 (3) — Cotizador Etapa 3: frontend completo + rediseño visual
+
+### Contexto
+Con la Etapa 1 (BD, 2026-09-07) y Etapa 2 (motores/caché/endpoints, commit `f6071f6`, sesión
+anterior) ya cerradas, esta sesión implementó la Etapa 3 del plan de migración (frontend: cotizar
+y guardar) y, a pedido del usuario tras revisar el resultado ("el diseño es pésimo"), un rediseño
+visual completo del módulo antes de darla por cerrada.
+
+### Etapa 3 — build funcional (4 agentes en paralelo + integración propia)
+Contrato compartido escrito primero, a mano, para que los agentes no divergieran: `types.ts`
+(espejo de los tipos del backend — `ResultadoCalculo`, `Plano`, `Cotizacion`, `Aptitud`...),
+`services/cotizadorApi.ts`, `format.ts`. Encima, el shell `CotizadorPage.tsx` (3 pestañas
+Cotizar/Actual/Guardadas vía `FolderTabs`, carrito y cabecera en estado local — **sin Redux**,
+mismo criterio que el Explorador ODP de esta misma jornada) y `TabCotizar.tsx`, compuestos por mí
+como punto de integración entre las piezas de los agentes.
+
+4 agentes en paralelo, cada uno dueño de archivos que no se pisaban entre sí:
+1. `CampoDinamico`/`SelectorDiseno`/`FormularioModulo` — formulario 100% data-driven desde
+   `meta.campos` del backend (evita 6 formularios hardcodeados casi idénticos).
+2. `usePlano`/`ResultadoCalculo`/`DiagramaProducto` — hook de previsualización del plano con
+   debounce y cancelación de condición de carrera (contador de petición, sin `AbortController`
+   porque `cotizadorApi.ts` no lo expone), tabla de BOM, SVG del plano dibujado a partir de
+   `Plano` (exterior + paneles + paños de vidrio + cotas).
+3. `TabActual` — carrito editable (cliente, comercial, ítems, totales, guardar).
+4. `TabGuardadas`/`ModalDetalleCotizacion` — listado con filtros y orden client-side, vista
+   Normal y vista Técnica (sin un solo dato de plata, mismo principio que `PrintableProduccion`
+   de Producción), evaluación de aptitud para orden de corte.
+
+Wiring en `AppRoutes.tsx` + `Sidebar.tsx` (ítem "Cotizador", sección comercial,
+`allowedRoles: ['root','admin']`).
+
+**Bug real encontrado en la propia verificación**: `ModalDetalleCotizacion` mostraba
+`descuentoPct` (fracción 0-1) sin convertir — un descuento del 5% (`0.05`) se veía como
+"0.05%". Corregido con el helper `fmtPct` que ya existía en `format.ts`.
+
+### Feedback de campos y rediseño visual (a pedido del usuario)
+1. **Bug de metadata en 2 módulos backend**: `ventanas.ts`/`proyectantes.ts` declaraban
+   `segmentoCliente`/`sistema`/`colorPerfileria` como texto libre (`tipo:"string"`) en el `meta`
+   que arma el formulario, pese a ser enumeraciones cerradas que `calcular()` valida contra una
+   lista fija — corregido en los 6 módulos, cambiándolos a `tipo:"select"`. De paso, `codigoVidrio`
+   pasó de campo de texto libre a select con las etiquetas legibles del catálogo ("Claro 4mm
+   crudo" en vez de "CL4MM01CR"), limitado a la whitelist real que cada módulo acepta
+   (`VIDRIOS_VALIDOS` — distinta por módulo, pedir cualquier otro código el backend lo ignoraba en
+   silencio y caía al vidrio por defecto). Bug adicional encontrado de paso: en Proyectantes,
+   "crudo" figuraba como color válido en la descripción del campo pero el catálogo no tiene código
+   de jamba ni de nave para ese color — sacado de las opciones.
+2. **Mockup en Claude Design**: 2 direcciones sobre un canvas ("Opción A", cercana al look actual
+   del ERP; "Opción B", con tipografía propia, barra de contexto, riel de pasos, selector de
+   módulo tipo "spotlight" y tarjetas agrupadas por tema) — el usuario eligió la Opción B tras
+   verlas lado a lado, con dos rondas de ajuste (mm en vez de cm y medidas de vidrio visibles en el
+   plano) y una revisión propia que encontró y corrigió inconsistencias entre las dos opciones
+   antes de consolidar.
+3. **Implementación de la Opción B en el código real**, otra vez con 4 agentes en paralelo +
+   cambios propios:
+   - Backend: campo nuevo `grupo` (`'cliente'|'medidas'|'vidrio'|'comercial'`) agregado a
+     `meta.campos` de los 6 módulos — puramente visual, ningún motor de cálculo lo lee; si un
+     campo llegara sin `grupo`, el frontend cae a un layout plano sin arriesgar dejarlo fuera del
+     formulario. Etiquetas de medida cambiadas de "(cm)" a "(mm)".
+   - **Unidades mm**: el vendedor ve y teclea milímetros, pero el campo sigue llamándose
+     `anchoCm`/`altoCm`/etc. y viajando en centímetros hacia el backend — el motor de cálculo de
+     la Etapa 2, verificado contra golden master, no se toca. La conversión ×10 (mostrar) / ÷10
+     (guardar) vive **enteramente en `CampoDinamico.tsx`**, detectando
+     `campo.nombre.endsWith('Cm')`; ningún otro archivo del árbol conoce la conversión.
+   - Tipografía Space Grotesk (números/títulos) + Manrope (texto), cargadas en `public/index.html`
+     y expuestas como `font-cotizador`/`font-cotizador-head` en `tailwind.config.js`, sin tocar la
+     tipografía del resto del ERP.
+   - `FormularioModulo` agrupa los campos por `grupo` en tarjetas con tinte propio (violeta para
+     cliente, celeste para vidrio, blanco para medidas/comercial), con chips de especificación en
+     vivo y de área calculada (`≈ X.XX m²`).
+   - `TabCotizar` con riel de pasos (puramente orientativo, no bloquea nada) y selector de módulo
+     "spotlight" (el activo en tarjeta grande con degradado, el resto como chips compactos).
+   - `DiagramaProducto` con fondo de cuadrícula tipo plano técnico, badge de confianza (solo a
+     partir de `plano.confianza`, sin inventar datos que el tipo no trae) y medidas de cada paño de
+     vidrio visibles en mm dentro del propio dibujo.
+   - `ResultadoCalculo` con zebra striping y un punto de color por categoría de línea (vidrio,
+     aluminio, error).
+   - `TabActual`/`TabGuardadas`/`ModalDetalleCotizacion` con la misma paleta y tipografía, tile de
+     Total acentuado con degradado en `TabActual`.
+
+### Verificación
+- `tsc --noEmit` limpio en backend y frontend en cada punto de control (build base, arreglos de
+  metadata, rediseño).
+- Backend recargado en caliente (nodemon) sin errores tras cada tanda de cambios; caché del
+  cotizador precargada correctamente.
+- Frontend probado en vivo por el usuario contra la Supabase real (no hay entorno de prueba
+  separado) en ambas rondas — confirmó que el nuevo diseño le gusta más.
+
+### Pendiente — próxima sesión
+1. **El usuario reportó "muchos detalles" a corregir** sobre el rediseño ya implementado, sin
+   enumerarlos todavía — es lo primero que hay que recoger al retomar.
+2. Etapa 4 del plan de migración (PDF, calibración, precios, accesorios, empresa) sigue sin
+   empezar.
+3. Working tree con los cambios de esta entrada, sin commitear al momento de escribirla — el
+   commit de cierre de sesión debe recogerlos todos.

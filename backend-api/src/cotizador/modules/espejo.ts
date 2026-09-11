@@ -74,18 +74,21 @@ export const meta = {
   descripcion:
     "Espejo de 4mm en acabado BPB (borde pulido brillado) o BISELADO (excluyentes), con soporte tubular T-76 opcional. Medidas libres en centímetros.",
   campos: [
-    { nombre: "anchoCm", tipo: "number", etiqueta: "Ancho (cm)", requerido: true },
-    { nombre: "altoCm", tipo: "number", etiqueta: "Alto (cm)", requerido: true },
-    { nombre: "acabado", tipo: "select", opciones: ACABADOS_VALIDOS, etiqueta: "Acabado de borde", requerido: true },
+    // "...Cm" en el nombre por compatibilidad con calcular(); la etiqueta en mm
+    // es sólo presentación — el frontend convierte antes de enviar el valor.
+    { nombre: "anchoCm", tipo: "number", etiqueta: "Ancho (mm)", requerido: true, grupo: "medidas" },
+    { nombre: "altoCm", tipo: "number", etiqueta: "Alto (mm)", requerido: true, grupo: "medidas" },
+    { nombre: "acabado", tipo: "select", opciones: ACABADOS_VALIDOS, etiqueta: "Acabado de borde", requerido: true, grupo: "vidrio" },
     {
       nombre: "tubularCantidad",
       tipo: "number",
       etiqueta: "Soportes tubulares T-76 (unidades, 0 = sin tubular)",
       requerido: false,
+      grupo: "vidrio",
     },
-    { nombre: "segmentoCliente", tipo: "select", opciones: ["PA", "PM", "PB"], etiqueta: "Tipo de cliente", requerido: true },
-    { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de piezas iguales", requerido: true },
-    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (fracción 0-1)", requerido: false },
+    { nombre: "segmentoCliente", tipo: "select", opciones: ["PA", "PM", "PB"], etiqueta: "Tipo de cliente", requerido: true, grupo: "cliente" },
+    { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de piezas iguales", requerido: true, grupo: "comercial" },
+    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (fracción 0-1)", requerido: false, grupo: "comercial" },
   ],
 };
 

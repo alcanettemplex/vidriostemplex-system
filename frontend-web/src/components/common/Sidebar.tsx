@@ -24,6 +24,7 @@ import {
   BarChart2,
   Crosshair,
   Building2,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { TemplexLogo } from '../ui/TemplexLogo';
 
@@ -104,6 +105,14 @@ const MENU_ITEMS_CONFIG = [
     path: '/proveedores',
     allowedRoles: ['root', 'admin'],
     section: 'logistica'
+  },
+  {
+    // Módulo aislado del flujo del ERP (no genera ODP) — ver plan de migración
+    text: 'Cotizador',
+    icon: FileSpreadsheet,
+    path: '/cotizador',
+    allowedRoles: ['root', 'admin'],
+    section: 'comercial'
   },
   {
     text: 'Inventario Perfilería',
