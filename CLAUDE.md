@@ -425,4 +425,10 @@ npm --prefix frontend-web run build   # CI=false
 - **git:** se ejecuta desde la raíz; si hace falta apuntar a otro sitio, `git -C <ruta> <subcomando>`.
 - **Temporales:** al directorio scratchpad de la sesión, nunca a la raíz del repo ni a `/tmp`.
 
-Los permisos viven en `.claude/settings.json` (55 entradas: scripts npm del monorepo, `tsc`/`eslint`, `ts-node` limitado a `src/scripts/` y al scratchpad, git de lectura + `add`/`commit`, y cmdlets de lectura de PowerShell). **`git push` queda deliberadamente fuera**: es la única acción que sale de la máquina y el prompt es la última red de seguridad. `.claude/` está en `.gitignore` — al configurar la otra máquina hay que replicar ese archivo a mano.
+**Desde el 2026-09-11 la sesión corre en `bypassPermissions`** (`defaultMode` en `~/.claude/settings.json`, junto con `skipDangerousModePermissionPrompt: true` para que el modo no pida confirmación al arrancar). No hay prompts de permiso: ni para archivos, ni para npm/scripts, ni para git —**`git push` incluido**, decisión explícita del usuario—. El modo se fija al arrancar la sesión: editarlo no afecta la sesión en curso, que se cambia con `shift+tab` en el selector de modo.
+
+Lo que **sí** sigue frenando, y es lo único que queda:
+- Las 4 reglas `deny` de `.claude/settings.json` (`rm -rf`, `git reset --hard`, `git clean`, `Remove-Item -Recurse`). **No preguntan: bloquean.** Son el único candado técnico que impide borrar el working tree por un comando mal formado.
+- La metodología "propongo → preguntas → plan → **procede**" de este documento, que es una regla de comportamiento y no depende de los permisos. Que `git push` ya no pida confirmación **no cambia** la regla de Commits: sigo sin hacer commit ni push por iniciativa propia.
+
+El `allow` de `.claude/settings.json` (51 entradas: herramientas a secas, scripts npm del monorepo, `tsc`/`eslint`, `ts-node` limitado a `src/scripts/` y al scratchpad, git, y cmdlets de PowerShell) queda como respaldo por si alguna vez se vuelve a modo `default`. Ni `.claude/` (en `.gitignore`) ni `~/.claude/` viajan por git — **al configurar la otra máquina hay que replicar los dos archivos a mano**, y sin el `defaultMode` del global la otra máquina seguirá preguntando.
