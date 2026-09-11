@@ -516,3 +516,84 @@ En un shell POSIX (Git Bash) sí corre. El build de Cloudflare Pages corre en Li
 No es la fuga actual —registró Δ0 llamadas en el período medido, o sea que no hubo desarrollo local en esos días— pero **cada sesión de `npm run dev` consume de la misma cuota de 5 GB que usa la empresa en producción**, y además opera sobre datos reales.
 
 **Solución a evaluar con el usuario:** base de datos de desarrollo separada, o al menos condicionar el `sync()` a una variable explícita (`SYNC_SCHEMA=true`) en vez de deducirlo de `NODE_ENV`.
+
+---
+
+## 2026-09-11 — Cotizador: 13 accesorios sin referencia de catálogo y 5 SKU por crear para Sistema7038-Interior
+
+**Severidad:** media · **Estimación:** ver desglose (no es una tarea de código: son decisiones de taller y altas de catálogo)
+
+Arbitrando las 54 descripciones de `disenos.json` contra el **Excel matriz del que nació el módulo**
+se resolvieron 9 (8 a `MAPEADO` y 1 a `IGNORADO`), y el recuento de `mapeo-accesorios.json` quedó en
+**17 MAPEADO / 9 INSUMO_NO_FACTURADO / 27 PENDIENTE / 1 IGNORADO**. Lo que sigue es lo que el Excel
+**no** pudo zanjar, con el efecto exacto que tiene sobre la cotización: en `lib/accesoriosPorDiseno.ts`
+un accesorio `PENDIENTE` produce una línea con `error: true`, así que **un solo pendiente basta para
+que ningún diseño de ese sistema se pueda cotizar por esta vía**.
+
+### 1. `E.universa. Empaque Universal` — bloquea los 17 diseños de los dos sistemas ya activados
+
+El Excel CONFIRMA que esta descripción del extractor no es un producto sino tres: `EMP5020` en
+Sistema5020, `EMP1305`/`EMP1306` en Sistema744, `EMPA8025` en Sistema8025. El mapeo va **por
+descripción única**, así que el esquema actual no puede representarlo.
+
+⚠️ **Es el único bloqueador que le queda a `Sistema5020` y `Sistema5020Reforzado`**, los dos sistemas
+que `sistemasActivos` acaba de declarar. Verificado ejecutando `accesoriosPorDiseno` sobre los 138
+diseños: los 17 de esos dos sistemas siguen produciendo exactamente una línea en error, la de este
+empaque. **Activarlos no los deja cotizables todavía** — resolver esto es el paso que falta.
+
+**Dos salidas posibles:** (a) partir la clave del mapeo por sistema (campo nuevo en
+`cotizador_mapeo_accesorio` + `MapeoAccesorio` en `tipos.ts`), o (b) reescribir la descripción en
+`disenos.json` para que cada sistema traiga la suya. **Estimación:** 2-3 h la opción (a), que es la
+que no toca datos de origen.
+
+### 2. Doce accesorios que ni el catálogo ni el Excel cubren — requieren referencia del taller
+
+Ninguno tiene candidato entre los 430 productos, y el Excel matriz tampoco los despieza: no es un
+error de mapeo, es que **la referencia no existe en ninguna fuente escrita**. Bloqueo medido por
+sistema:
+
+| Accesorio | Sistema que deja sin cotizar |
+|---|---|
+| `Cerrojo Media Luna` | Sistema8025 (25 diseños) — es su **único** bloqueador |
+| `Union VP010` | Vidrios y Espejos (3 diseños) — es su **único** bloqueador |
+| `Chapeta Anudal` | Sistema3831-Semireforzado (1 diseño) |
+| `Rodamiento Orquilla` | Cabina Batiente (4 diseños) |
+| `Chapetas Fijo Primavera` | Cabina Deslizante Primavera (4 diseños) |
+| `Sujecion Fijo Torino`, `Guia Torino`, `Union 90° Torino`, `Trinquete Inoxidable` | Cabina Deslizante Torino (5 diseños) |
+| `Soporte de Toallero`, `Platina para Rodamiento de cabina`, `Empaque de Cabina` | Cabina Corrediza (5 diseños) |
+
+**Nota sobre Sistema8025:** con `Cerrojo Media Luna` resuelto queda a un paso de ser cotizable por
+esta vía, pero antes hay que atender un detalle del mapeo por descripción: sus diseños dicen
+`Chapa de Impacto Alpha`, que quedó mapeada a `CHJ0101` (chapa Jaguar, la del 744), mientras el
+Excel usa `CH8025S` (chapa 8025 con seguro) para el 8025. Mismo problema estructural que el
+empaque universal, en menor escala.
+
+**Estimación:** 1-2 h de taller para identificar las 12 referencias, más el alta de catálogo de las
+que no existan.
+
+### 3. Cinco SKU por crear para `Sistema7038-Interior` (23 diseños, hoy sin ningún accesorio)
+
+`Chapa Overseas Doble Cilindro`, `Guia 7038`, `Rodamiento 7038`, `E7038_6mm Empaque monumental 6mm`
+y `Manija 744-8025`. El sistema no existe como clave en `CATALOGO_SISTEMAS` de `modules/ventanas.ts`,
+así que hoy cotiza con la advertencia "No hay accesorios configurados" — es decir, **sale sin cobrar
+accesorio alguno**, que es peor que bloquear.
+
+El Excel matriz **sí** los despieza, pero sus precios vienen de un **libro externo con un factor
+plano de 1,3674** que no distingue PA/PM/PB. El catálogo de Templex exige los tres precios de
+segmento, así que no se pueden dar de alta derivándolos del Excel sin inventar dos de los tres.
+Hacen falta los precios reales del proveedor.
+
+`Manija 744-8025` quedó en `IGNORADO` porque el Excel confirma que en ventanas 744/8025 **no se
+cobra** — pero sí la lista en el despiece de 7038. Si algún día se activa ese sistema, esa decisión
+hay que partirla por sistema (mismo patrón que el punto 1).
+
+**Estimación:** depende de compras (lista de precios del proveedor de 7038), no de desarrollo.
+
+### 4. Consumo del cerrojo con número impar de cuerpos — sin criterio de redondeo
+
+`Cerrojo de Embutir` quedó mapeado a `CPTOR` con el consumo del Excel, `cuerpos / 2`. Con 3 cuerpos
+da 1,5 y el Excel no dice hacia dónde redondear; los propios diseños extraídos se contradicen
+(`Sistema5020::XOX` trae 2 y `Sistema5020::OXO` trae 1, ambos de 3 cuerpos). Se dejó la fórmula
+exacta, **sin redondeo inventado**, para que la regla la fije el taller en el mapeo y no el motor.
+
+**Estimación:** 5 min una vez que el taller responda.

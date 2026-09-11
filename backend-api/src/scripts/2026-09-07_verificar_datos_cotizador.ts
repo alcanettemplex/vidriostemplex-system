@@ -71,8 +71,11 @@ async function verificarConteos() {
   const producto = await CotizadorProducto.count();
   const catalogo = await CotizadorProducto.count({ where: { origen: 'CATALOGO' } });
   const provisional = await CotizadorProducto.count({ where: { origen: 'PROVISIONAL' } });
-  assert(producto === 556, `cotizador_producto = 556 (obtenido: ${producto})`);
-  assert(catalogo === 430, `  de los cuales CATALOGO = 430 (obtenido: ${catalogo})`);
+  // 558 / 432 desde el 2026-09-11: la regeneración contra el Excel matriz dio
+  // de alta dos códigos que la siembra original no tenía (KDG1106 y KOP0102).
+  // Los 126 provisionales no se movieron.
+  assert(producto === 558, `cotizador_producto = 558 (obtenido: ${producto})`);
+  assert(catalogo === 432, `  de los cuales CATALOGO = 432 (obtenido: ${catalogo})`);
   assert(provisional === 126, `  de los cuales PROVISIONAL = 126 (obtenido: ${provisional})`);
 
   const diseno = await CotizadorDiseno.count();
@@ -102,7 +105,13 @@ async function verificarConteos() {
   assert(!!parametro, 'cotizador_parametro tiene 1 fila');
   assert(numIguales(parametro?.getDataValue('aiu'), 0.96), `  aiu = 0.96 (obtenido: ${parametro?.getDataValue('aiu')})`);
   assert(numIguales(parametro?.getDataValue('iva'), 0.19), `  iva = 0.19 (obtenido: ${parametro?.getDataValue('iva')})`);
-  assert(numIguales(parametro?.getDataValue('flete_fijo'), 25000), `  flete_fijo = 25000 (obtenido: ${parametro?.getDataValue('flete_fijo')})`);
+  // 40000 = GTFA26 del Excel matriz. Antes se afirmaba 25000, valor heredado de
+  // la siembra de 2026-09-07 y corregido por la migración del 2026-09-11.
+  assert(numIguales(parametro?.getDataValue('flete_fijo'), 40000), `  flete_fijo = 40000 (obtenido: ${parametro?.getDataValue('flete_fijo')})`);
+  assert(numIguales(parametro?.getDataValue('smo_cabinas'), 120000), `  smo_cabinas = 120000 (obtenido: ${parametro?.getDataValue('smo_cabinas')})`);
+  assert(numIguales(parametro?.getDataValue('smo_fachadas'), 85000), `  smo_fachadas = 85000 (obtenido: ${parametro?.getDataValue('smo_fachadas')})`);
+  assert(numIguales(parametro?.getDataValue('smo_armada_ventanas'), 60000), `  smo_armada_ventanas = 60000 (obtenido: ${parametro?.getDataValue('smo_armada_ventanas')})`);
+  assert(numIguales(parametro?.getDataValue('smo_persiana'), 110000), `  smo_persiana = 110000 (obtenido: ${parametro?.getDataValue('smo_persiana')})`);
 
   const consecutivo = await CotizadorConsecutivo.findByPk('cotizacion');
   assert(!!consecutivo, 'cotizador_consecutivo tiene la fila "cotizacion"');

@@ -31,7 +31,7 @@
 // ancho/alto/cuerpos/alasCorredizas) y es `totalizar()` quien multiplica el
 // conjunto por `cantidadPiezas` **una única vez**, al final.
 
-import { lineaCatalogo, totalizar, areaM2, round2 } from "../lib/motorCalculo";
+import { lineaCatalogo, totalizar, areaM2, round2, tarifaSMO } from "../lib/motorCalculo";
 import { getParametros } from "../lib/catalogo";
 import { cotizarPorDiseno, hacerAgregarRol } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
@@ -235,6 +235,7 @@ function calcularPorDiseno(
     // Qué midió el vendedor: el vano de obra (lo normal) o directamente la
     // ventana terminada. De ahí depende si se descuenta la holgura.
     medidaEs: input.medidaEs,
+    tipoObra: "armadaVentanas",
     holguraAnchoMm: input.holguraAnchoMm,
     holguraAltoMm: input.holguraAltoMm,
     colorPerfileria: color,
@@ -403,8 +404,9 @@ export function calcular(input: InputModulo = {}) {
   // (no varían por tipo de cliente PA/PM/PB), por la misma razón documentada en
   // tablero.js — no existen como códigos reales en el catálogo de 430 productos.
   const parametros = getParametros();
-  const smoRate = parametros.smo?.tarifaMinima ?? 58000;
-  const fleteFijo = parametros.flete_fijo ?? 25000;
+  // SMO03 del Excel: armar una ventana no cuesta lo mismo que instalar una cabina.
+  const smoRate = tarifaSMO(parametros, "armadaVentanas");
+  const fleteFijo = parametros.flete_fijo ?? 40000;
   const smoValor = Math.max(round2(areaUnaPieza * smoRate), smoRate);
   items.push(
     lineaManual({

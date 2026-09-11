@@ -2255,3 +2255,94 @@ su ODP** si ya estaba en `true`.
 - Probar en vivo: crear prospecto → solicitar TM → aprobar prospecto y confirmar que la TM sigue en
   "Solicitadas"; y retornar desde "Realizadas" una TM sin fotos.
 - `TECH_DEBT.md` 2026-07-27 marcado como ✅ RESUELTO.
+
+---
+
+## 2026-09-11 — Cotizador: alineación con el Excel matriz
+
+Se analizó `documentation/cotizador excel.xlsb` (20 hojas, 37.057 fórmulas), el Excel del que nació
+el módulo, y se alineó el motor con él. El `.xlsb` se convirtió a `.xlsx` **sobre una copia** en el
+scratchpad; el original en OneDrive no se tocó.
+
+### Modelo de precios decodificado
+`U (costo compra) → W = U×(1−%desc) → N = tipo="PERFILERIA" ? W/6 : W` (la barra de aluminio viene
+de 6 m) y `precio_segmento = N × factor(tipo, segmento)`. Los factores **no son constantes**: salen
+de los gastos fijos (PRODUCC 18,55 %, ADMON 20,39 %, VTAS 12,08 %, FNROS 3,99 %, UTILIDAD 11/10/9 %),
+ponderados distinto por cada tipo de material. `PM = (PA+PB)/2`. AIU 0,96 e IVA 19 % ya coincidían.
+
+### Catálogo — `catalogo.json` 430 → 432
+415 códigos cambian precio y/o costo: el catálogo se había sembrado con factores viejos (−1,3 % a
+−3,0 %) y costos sin refrescar. Mediana de perfilería **+13,0 %**. Altas: `KDG1106`, `KOP0102`.
+
+**Regla de oro impuesta: nunca degradar a cero un precio que hoy funciona.** El Excel dejó 15
+códigos sin costo derivable —incluido **`ES0001`, el único código de espejo**—; regenerar a ciegas
+habría roto el módulo Espejo entero. En esos 15 se conserva la fila completa del catálogo anterior.
+
+Filas contaminadas detectadas: 5 códigos duplicados en un bloque de cola con el `tipo` mal puesto
+(a `HOR0408`, perfilería, le pusieron `VIDRIO` y sin el `/6` su precio salía **6,4× inflado**). Se
+toma la primera aparición.
+
+### SMO — de una tarifa a cuatro
+El Excel nunca cobró un SMO único: SMO01 Cabinas 120.000, SMO02 Fachadas 85.000, SMO03 solo armada
+ventanas 60.000, SMO04 Persiana 110.000. La app cobraba 58.000 para todo. Nuevo helper
+`tarifaSMO()` en `motorCalculo.ts` (los 7 puntos de llamada tenían la misma línea repetida) y
+`tipoObra` en `cotizarPorDiseno`. Flete `GTFA26` 25.000 → 40.000. Se agregan `alquiler_andamio` y
+`huacal`, que no estaban modelados.
+
+### Espejo biselado
+El Excel distingue `ESP01` 146.000 de `ESP02` 168.000; la app cobraba lo mismo por ambos acabados.
+Se aplica el **diferencial (15,07 %) sobre el precio ya segmentado**, no el precio plano del Excel:
+meter los 168.000 tal cual haría que un PB pagara igual que un PA, rompiendo la segmentación que
+rige todo el catálogo. Lo correcto de fondo es un SKU `ES0002` propio.
+
+### Accesorios — 9 arbitrajes + guardarraíl nuevo
+`MAPEADO` 9 → 18, `PENDIENTE` 36 → 26, `IGNORADO` 0 → 1. El Excel arbitró, entre otros: las guías
+744/8025 se cobran `alasCorredizas × 2` (**4** en una XX, no 2 — el diseño extraído tenía razón y el
+hardcodeado estaba mal), `Chapa de Impacto Alpha` → `CHJ0101` (el hardcodeado sí estaba bien),
+`Cerrojo de Embutir` → `CPTOR` (`cuerpos/2`), elevadores `ancho ≥ 1,51 m ? 6 : 4`. `Manija 744-8025`
+pasa a IGNORADO: el Excel tampoco la cobra.
+
+**Campo nuevo `MapeoAccesorio.sistemas`.** El extractor dejó descripciones genéricas que significan
+productos distintos según el sistema: `E.universa. Empaque Universal` es `EMP5020` en 5020,
+`EMP1305/06` en 744 y `EMPA8025` en 8025. Mapearla sin restricción le cobraría el empaque equivocado
+a los otros sistemas **en silencio**. Ahora un mapeo restringido **bloquea** fuera de sus sistemas.
+
+Con eso, los **17 diseños** de `Sistema5020` + `Sistema5020Reforzado` quedan cotizables (0
+bloqueados). Los demás siguen apagados: 12 accesorios no tienen candidato en los 432 productos y
+`Sistema7038-Interior` necesita 5 SKU nuevos.
+
+### Scripts de migración creados (NO ejecutados)
+1. `2026-09-11_migrar_parametros_smo.ts` — `ALTER TABLE` +6 columnas, flete a 40.000.
+2. `2026-09-11_regenerar_catalogo_cotizador.ts` — upsert de 432 productos, sólo `origen='CATALOGO'`,
+   nunca toca `cotizador_precio_override`. Idempotente (2ª corrida: 0 escrituras).
+3. `2026-09-11_migrar_mapeo_accesorios.ts` — `ALTER TABLE` +`sistemas` y empuja las 54 filas. Hacía
+   falta porque la siembra usa `ignoreDuplicates: true` y no actualiza lo ya existente.
+
+**Orden obligatorio: migraciones primero, reinicio del backend después.** La caché ahora hace
+`SELECT` de las columnas nuevas; al revés, el módulo Cotizador arranca indisponible.
+
+**No activan ningún sistema a propósito**: `cotizador_accesorio_sistema_activo` está vacía por regla
+del proyecto y activar es un INSERT manual, deliberado y auditable. El script imprime el SQL.
+
+### Hallazgo de negocio
+**`MATI07` (Matizado Total) se vende casi al costo.** El costo subió 12.605 → 45.000 (×3,57) y el
+precio quedó clavado a mano en 50.000 para PA, PM y PB por igual: margen 3,97× → **1,11×**. Es el
+único producto bajo 1,25× del catálogo. No se tocó — es decisión de precio del usuario.
+
+### Verificación
+- `npm --prefix backend-api run build` limpio; `tsc --noEmit` limpio en frontend.
+- Validación independiente contra `git show HEAD`: 0 precios vivos degradados a cero, `ES0001`
+  intacto, 0 códigos perdidos, sin duplicados.
+- 17/17 diseños de los sistemas activos resuelven sin bloqueo.
+- Pruebas actualizadas: centinela de `humo.test` 430 → 432; `accesorios.test` reescrito (el ejemplo
+  de PENDIENTE pasó a `Cerrojo Media Luna` porque `Cerrojo de Embutir` ya se mapeó) + test nuevo del
+  guardarraíl por sistema.
+- **Las 4 pruebas no se pudieron ejecutar**: conectan a Postgres y la caché ya lee las columnas
+  nuevas, que no existen hasta correr la migración. `golden.test` se salta solo (sin
+  `COTIZADOR_GOLDEN_DIR`).
+
+### Pendientes
+- Ejecutar las 3 migraciones contra Supabase, en orden, y luego `npm --prefix backend-api run test:cotizador`.
+- Decidir el precio de `MATI07`.
+- No existe pantalla de parámetros en el frontend: `PUT /api/cotizador/parametros` no tiene consumidor.
+- `PELI31` sigue con dos productos bajo un mismo código (película normal y ultravisión).

@@ -14,7 +14,7 @@
 // espesor fijo; ver advertencias que se generan cuando se usa una combinación que el
 // Excel original no tabulaba).
 
-import { lineaCatalogo, totalizar, areaM2, perimetroM, round2 } from "../lib/motorCalculo";
+import { lineaCatalogo, totalizar, areaM2, perimetroM, round2, tarifaSMO } from "../lib/motorCalculo";
 import { getParametros } from "../lib/catalogo";
 import { cotizarPorDiseno } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
@@ -143,6 +143,7 @@ export function calcular(input: InputModulo) {
       // En cabina el "vano" es el nicho del baño: también hay holgura, y aquí
       // importa más que en ventanería porque el muro rara vez está a plomo.
       medidaEs: input.medidaEs,
+      tipoObra: "cabinas",
       holguraAnchoMm: input.holguraAnchoMm,
       holguraAltoMm: input.holguraAltoMm,
       codigoVidrio: vidrioCodigo,
@@ -288,8 +289,9 @@ export function calcular(input: InputModulo) {
   // (mismo patrón que ventanas.js/proyectantes.js/tablero.js/espejo.js) en vez de
   // omitirlos.
   const parametros = getParametros();
-  const smoRate = parametros.smo?.tarifaMinima ?? 58000;
-  const fleteFijo = parametros.flete_fijo ?? 25000;
+  // SMO01 del Excel ($120.000): la cabina es la obra más cara de instalar.
+  const smoRate = tarifaSMO(parametros, "cabinas");
+  const fleteFijo = parametros.flete_fijo ?? 40000;
   const smoValor = Math.max(round2(areaVidrioTotal * smoRate), smoRate);
   items.push(
     lineaManual({

@@ -21,7 +21,7 @@
 // manija, jamba, nave (perfil) y sillar cabezal. No existe ningún campo de
 // "metros lineales manuales", así que no hay forma de duplicar el cálculo.
 
-import { lineaCatalogo, totalizar, round2 } from "../lib/motorCalculo";
+import { lineaCatalogo, totalizar, round2, tarifaSMO } from "../lib/motorCalculo";
 import { getParametros } from "../lib/catalogo";
 import { cotizarPorDiseno } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
@@ -162,6 +162,7 @@ export function calcular(input: InputModulo = {}) {
       anchoCm: Number.isFinite(anchoTotalCm) && anchoTotalCm > 0 ? anchoTotalCm : 100,
       altoCm: Number.isFinite(altoTotalCm) && altoTotalCm > 0 ? altoTotalCm : 100,
       medidaEs: input.medidaEs,
+      tipoObra: "armadaVentanas",
       holguraAnchoMm: input.holguraAnchoMm,
       holguraAltoMm: input.holguraAltoMm,
       colorPerfileria: color,
@@ -265,8 +266,9 @@ export function calcular(input: InputModulo = {}) {
 
   // Mano de obra (SMO) y flete: valores fijos centralizados en parametros.json.
   const parametros = getParametros();
-  const smoRate = parametros.smo?.tarifaMinima ?? 58000;
-  const fleteFijo = parametros.flete_fijo ?? 25000;
+  // SMO03 del Excel: un proyectante es ventanería, misma tarifa de armada.
+  const smoRate = tarifaSMO(parametros, "armadaVentanas");
+  const fleteFijo = parametros.flete_fijo ?? 40000;
   const smoValor = Math.max(round2(areaUnaPieza * smoRate), smoRate);
   items.push(
     lineaManual({

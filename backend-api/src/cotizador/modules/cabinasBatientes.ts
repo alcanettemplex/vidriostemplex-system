@@ -19,7 +19,7 @@
 // (a diferencia de una cabina corrediza, aquí no hay traslape ni borde embebido en
 // riel: puerta y panel fijo están enmarcados por bisagras/chapetas en todo su borde).
 
-import { lineaCatalogo, totalizar, round2 } from "../lib/motorCalculo";
+import { lineaCatalogo, totalizar, round2, tarifaSMO } from "../lib/motorCalculo";
 import { getParametros } from "../lib/catalogo";
 import { cotizarPorDiseno } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
@@ -172,6 +172,7 @@ export function calcular(input: InputModulo) {
       anchoCm,
       altoCm,
       medidaEs: input.medidaEs,
+      tipoObra: "cabinas",
       holguraAnchoMm: input.holguraAnchoMm,
       holguraAltoMm: input.holguraAltoMm,
       codigoVidrio: vidrioCodigo,
@@ -274,8 +275,9 @@ export function calcular(input: InputModulo) {
   // Decisión de producto: centralizarlos como valores fijos en parametros.json (mismo
   // patrón que los demás módulos) en vez de omitirlos.
   const parametros = getParametros();
-  const smoRate = parametros.smo?.tarifaMinima ?? 58000;
-  const fleteFijo = parametros.flete_fijo ?? 25000;
+  // SMO01 del Excel ($120.000), igual que en cabinas corredizas.
+  const smoRate = tarifaSMO(parametros, "cabinas");
+  const fleteFijo = parametros.flete_fijo ?? 40000;
   const smoValor = Math.max(round2(areaVidrioTotal * smoRate), smoRate);
   items.push(
     lineaManual({

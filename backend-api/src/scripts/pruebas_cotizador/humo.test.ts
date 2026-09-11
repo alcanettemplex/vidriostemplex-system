@@ -37,9 +37,14 @@ test("cotizar Sistema5020::OX a 150x120 da un total positivo sin errores", () =>
   assert.ok(r.total > 0, `el total debería ser positivo, dio ${r.total}`);
 });
 
-test("el catálogo tiene los 430 productos extraídos del Excel", () => {
+// 432 y no 430 desde el 2026-09-11: al regenerar el catálogo contra el Excel
+// matriz entraron dos códigos que la siembra original no tenía (KDG1106, kit
+// deslizante Glasvit negro, y KOP0102, kit Optiglas de 60 kg). El número sigue
+// siendo un centinela a propósito — si cambia sin que nadie lo espere, es que
+// se mezclaron los precios provisionales con el catálogo real.
+test("el catálogo tiene los 432 productos extraídos del Excel", () => {
   const productos = listarCatalogo();
-  assert.equal(productos.length, 430);
+  assert.equal(productos.length, 432);
 });
 
 test("el catálogo de diseños tiene los 138 diseños generados", () => {

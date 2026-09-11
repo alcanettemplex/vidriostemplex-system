@@ -2,11 +2,17 @@
   "aiu": 0.96,
   "iva": 0.19,
   "clientes": ["PA", "PM", "PB"],
-  "flete_fijo": 25000,
+  "flete_fijo": 40000,
   "smo": {
     "tarifaMinima": 58000,
-    "pisoTableroGrande": 87000
+    "pisoTableroGrande": 87000,
+    "cabinas": 120000,
+    "fachadas": 85000,
+    "armadaVentanas": 60000,
+    "persiana": 110000
   },
+  "alquiler_andamio": 90000,
+  "huacal": 80000,
   "asesores": ["Alba Lucia", "Bryam", "Alejandro", "Luz Adriana", "Oscar"],
   "estados_cotizacion": ["PENDIENTE", "APROBADA", "CANCELADO", "PERDIDO"]
 }

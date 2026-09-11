@@ -143,10 +143,19 @@ async function cargarParametros(): Promise<Parametros> {
     iva: fila.iva as number,
     clientes: fila.clientes as string[],
     flete_fijo: fila.flete_fijo as number,
+    // El Excel no cobra un SMO único: cobra uno por tipo de obra (SMO01..SMO04
+    // de la tabla "GASTOS DE INSTALACION"). `tarifaMinima` queda como piso
+    // genérico del módulo que no declara tipo de obra propio.
     smo: {
       tarifaMinima: fila.smo_tarifa_minima as number,
       pisoTableroGrande: fila.smo_piso_tablero_grande as number,
+      cabinas: fila.smo_cabinas as number,
+      fachadas: fila.smo_fachadas as number,
+      armadaVentanas: fila.smo_armada_ventanas as number,
+      persiana: fila.smo_persiana as number,
     },
+    alquiler_andamio: fila.alquiler_andamio as number,
+    huacal: fila.huacal as number,
     asesores: fila.asesores as string[],
     estados_cotizacion: fila.estados_cotizacion as string[],
   };
@@ -293,6 +302,7 @@ async function cargarAccesorios(): Promise<MapeoAccesorios> {
     const entrada: MapeoAccesorio = { estado: f.estado as MapeoAccesorio['estado'] };
     if (f.codigo != null) entrada.codigo = f.codigo as string;
     if (f.consumo != null) entrada.consumo = f.consumo as MapeoAccesorio['consumo'];
+    if (Array.isArray(f.sistemas)) entrada.sistemas = f.sistemas as string[];
     if (f.nota != null) entrada.nota = f.nota as string;
     if (f.confianza != null) entrada.confianza = f.confianza as string;
     accesorios[f.descripcion as string] = entrada;

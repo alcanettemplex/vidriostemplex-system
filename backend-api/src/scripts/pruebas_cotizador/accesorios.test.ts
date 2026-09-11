@@ -81,22 +81,42 @@ test('accesorio INSUMO_NO_FACTURADO ("Felpa") no produce línea de BOM cobrable,
   assert.ok(insumoFelpa, "Felpa debería quedar disponible en desgloseAccesorios().insumos para el documento de taller");
 });
 
-test('accesorio PENDIENTE ("Cerrojo de Embutir") produce una línea con error:true, nunca $0 en silencio', () => {
-  const diseno = getDiseno("Sistema5020::OX")!;
+// Antes este test usaba "Cerrojo de Embutir", que dejó de servir de ejemplo el
+// 2026-09-11: el Excel matriz lo arbitró a CPTOR y pasó a MAPEADO. Se cambió a
+// "Cerrojo Media Luna", que sigue sin candidato en los 432 productos.
+test('accesorio PENDIENTE ("Cerrojo Media Luna") produce una línea con error:true, nunca $0 en silencio', () => {
+  const diseno = getDiseno("Sistema8025::XOX_BOLSILLO_CERROJOPR")!;
   assert.ok(
-    diseno.accesorios.some((a) => a.descripcion === "Cerrojo de Embutir"),
-    "este diseño debería traer Cerrojo de Embutir en su seed"
+    diseno.accesorios.some((a) => a.descripcion === "Cerrojo Media Luna"),
+    "este diseño debería traer Cerrojo Media Luna en su seed"
   );
 
   const lineas = accesoriosPorDiseno(ctxDe(diseno));
-  const lineaPendiente = lineas.find((l) => l.codigo === "Cerrojo de Embutir");
-  assert.ok(lineaPendiente, 'debería haber una línea visible para "Cerrojo de Embutir"');
+  const lineaPendiente = lineas.find((l) => l.codigo === "Cerrojo Media Luna");
+  assert.ok(lineaPendiente, 'debería haber una línea visible para "Cerrojo Media Luna"');
   assert.equal(lineaPendiente.error, true);
   assert.equal(lineaPendiente.valorTotal, 0);
   assert.equal(lineaPendiente.precioUnitario, 0);
 
   const desglose = desgloseAccesorios(diseno);
-  assert.ok(desglose.pendientes.some((p) => p.descripcion === "Cerrojo de Embutir"));
+  assert.ok(desglose.pendientes.some((p) => p.descripcion === "Cerrojo Media Luna"));
+});
+
+// Un mapeo restringido por `sistemas` debe BLOQUEAR en los demás sistemas, no
+// cobrarles el código del sistema para el que se fijó. Es la red que evita que
+// activar Sistema744 le cobre en silencio el empaque de 5020.
+test("un mapeo restringido a otros sistemas bloquea con error:true en vez de cobrar el código ajeno", () => {
+  const diseno = getDiseno("Sistema744::XX")!;
+  const lineas = accesoriosPorDiseno(ctxDe(diseno, { anchoCm: 150, altoCm: 120 }));
+
+  const empaque = lineas.find((l) => l.codigo === "E.universa. Empaque Universal");
+  assert.ok(empaque, "el empaque restringido debe seguir siendo visible como línea");
+  assert.equal(empaque.error, true);
+  assert.equal(empaque.valorTotal, 0);
+  assert.ok(
+    !lineas.some((l) => l.codigo === "EMP5020"),
+    "un diseño de Sistema744 nunca debe cobrar EMP5020, que es el empaque de 5020"
+  );
 });
 
 test('descripción que no existe en el mapeo también bloquea con error:true (no sólo "PENDIENTE" explícito)', () => {
@@ -115,8 +135,14 @@ test('Sistema744::XX (caso señalado en el análisis): mapeados/insumos/pendient
   assert.ok(diseno);
 
   const desglose = desgloseAccesorios(diseno);
+  // Desde el arbitraje contra el Excel matriz (2026-09-11), "Chapa de Impacto
+  // Alpha" se cobra con CHJ0101 en 744 — el Excel confirmó que el código
+  // hardcodeado siempre estuvo bien y que la descripción del diseño despistaba.
   const descripcionesMapeadas = desglose.mapeados.map((m) => m.descripcion).sort();
-  assert.deepEqual(descripcionesMapeadas, ["Guia Inferior 744", "Guia Superior 744", "Rodamiento 744"].sort());
+  assert.deepEqual(
+    descripcionesMapeadas,
+    ["Chapa de Impacto Alpha", "Guia Inferior 744", "Guia Superior 744", "Rodamiento 744"].sort()
+  );
 
   const descripcionesInsumo = desglose.insumos.map((i) => i.descripcion).sort();
   assert.deepEqual(
@@ -124,18 +150,28 @@ test('Sistema744::XX (caso señalado en el análisis): mapeados/insumos/pendient
     ["Felpa", "Tornillo n10 x 1 1_2", "Tornillo n8 x 1_2", "Tornillo n8 x 3_4"].sort()
   );
 
+  // Sólo queda bloqueado el empaque, y no por falta de mapeo sino porque el
+  // suyo está restringido a 5020 (la descripción del extractor es genérica y
+  // significa un producto distinto en cada sistema).
   const descripcionesPendientes = desglose.pendientes.map((p) => p.descripcion).sort();
-  assert.deepEqual(
-    descripcionesPendientes,
-    ["Chapa de Impacto Alpha", "Manija 744-8025", "E.universa. Empaque Universal"].sort()
-  );
+  assert.deepEqual(descripcionesPendientes, ["E.universa. Empaque Universal"]);
+
+  // "Manija 744-8025" pasó a IGNORADO: el Excel matriz tampoco la cobra en
+  // ventanas, así que no cobrarla nunca fue un olvido.
+  const descripcionesIgnoradas = desglose.ignorados.map((i) => i.descripcion).sort();
+  assert.deepEqual(descripcionesIgnoradas, ["Manija 744-8025"]);
 
   const lineas = accesoriosPorDiseno(ctxDe(diseno, { anchoCm: 150, altoCm: 120 }));
   const porCodigo = Object.fromEntries(lineas.filter((l) => !l.error).map((l) => [l.codigo, l]));
   assert.equal(porCodigo.ROD744.error, false);
   assert.equal(porCodigo.GSU0101.error, false);
   assert.equal(porCodigo.GIN0101.error, false);
-  assert.equal(lineas.filter((l) => l.error).length, 3, "las 3 descripciones PENDIENTE deben producir 3 líneas en error");
+  assert.equal(porCodigo.CHJ0101.error, false);
+  // Las guías se cobran `alasCorredizas × 2`: en una XX de dos corredizas son 4,
+  // no 2. Es el arbitraje del Excel sobre la discrepancia que estaba abierta.
+  assert.equal(porCodigo.GSU0101.cantidad, 4);
+  assert.equal(porCodigo.GIN0101.cantidad, 4);
+  assert.equal(lineas.filter((l) => l.error).length, 1, "sólo el empaque restringido debe quedar en error");
 });
 
 test("accesoriosPorDiseno no lanza excepción para ninguno de los 138 diseños del catálogo", () => {

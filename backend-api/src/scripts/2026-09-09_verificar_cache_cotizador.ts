@@ -81,7 +81,9 @@ async function main() {
   const mapeo = cache.getMapeoAccesorios();
 
   const esperados: Array<[string, number, number]> = [
-    ['productos', productos.size, 556],
+    // 558 desde el 2026-09-11: 432 de catálogo (dos altas del Excel matriz,
+    // KDG1106 y KOP0102) + 126 provisionales, que no se movieron.
+    ['productos', productos.size, 558],
     ['diseños', disenos.length, 138],
     ['perfiles', totalPerfiles, 983],
     ['vidrios', totalVidrios, 218],
@@ -165,8 +167,15 @@ async function main() {
   const dm = primeraDiferencia(mapeoOrigen.accesorios, mapeo.accesorios, 'accesorios');
   if (dm) fallar(dm);
   else ok('54/54 idénticos');
-  if (mapeo.sistemasActivos.length === 0) ok('sistemasActivos vacío (como el origen)');
-  else fallar(`sistemasActivos tiene ${mapeo.sistemasActivos.length} entradas, el origen 0`);
+  // Desde el 2026-09-11 el JSON de origen SÍ propone dos sistemas
+  // (Sistema5020, Sistema5020Reforzado), pero la autoridad en runtime es la
+  // tabla cotizador_accesorio_sistema_activo, que está vacía a propósito:
+  // activar un sistema es un INSERT manual y deliberado, nunca parte de una
+  // siembra ni de una migración. Por eso ya no se comparan JSON y caché aquí.
+  if (mapeo.sistemasActivos.length === 0)
+    ok('sistemasActivos vacío en BD (activar es un INSERT manual y deliberado)');
+  else
+    ok(`sistemasActivos: ${mapeo.sistemasActivos.join(', ')} — activados a mano en BD`);
 
   // ─── AUSENTE ≠ CERO ──────────────────────────────────────────────────────
   console.log('\nInvariante AUSENTE ≠ CERO (calibración vacía):');

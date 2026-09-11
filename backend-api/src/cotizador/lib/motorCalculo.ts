@@ -17,6 +17,36 @@
 // pieza, nunca dentro de cada línea del BOM Y otra vez al final.
 
 import { getPrecio, getProducto } from './catalogo';
+import type { Parametros } from '../tipos';
+
+/**
+ * Tipo de obra que determina qué tarifa de mano de obra se cobra.
+ *
+ * El Excel matriz (hoja COSTOS, tabla "GASTOS DE INSTALACION") nunca cobró un
+ * SMO único: tiene SMO01 Cabinas, SMO02 Fachadas, SMO03 solo armada de ventanas
+ * y SMO04 Persiana, con precios que van de $60.000 a $120.000. La webapp
+ * modelaba una sola tarifa de $58.000, así que cobraba lo mismo instalar una
+ * cabina que armar una ventana (corregido 2026-09-11).
+ */
+export type TipoObra = 'cabinas' | 'fachadas' | 'armadaVentanas' | 'persiana';
+
+/**
+ * Tarifa de SMO para un tipo de obra. Centralizada aquí y no repetida en cada
+ * módulo porque son SIETE los puntos que la piden (los 6 módulos de producto
+ * más `cotizarPorDiseno`), y antes de esto los siete tenían escrita a mano la
+ * misma línea con el mismo literal de respaldo.
+ *
+ * Si el tipo de obra no trae tarifa cargada se cae a `tarifaMinima`, que es el
+ * piso genérico: preferimos cobrar de menos y que se note, antes que romper la
+ * cotización por un parámetro sin sembrar.
+ */
+export function tarifaSMO(parametros: Parametros, tipoObra?: TipoObra): number {
+  if (tipoObra) {
+    const propia = parametros.smo?.[tipoObra];
+    if (typeof propia === 'number' && Number.isFinite(propia) && propia > 0) return propia;
+  }
+  return parametros.smo?.tarifaMinima ?? 58000;
+}
 
 export interface LineaBOM {
   codigo: string;

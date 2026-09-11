@@ -23,7 +23,7 @@ import {
   CotizadorParametro,
 } from '../models';
 import { listar, getProducto, getParametros, recargarPrecios } from '../cotizador/lib/catalogo';
-import type { Producto } from '../cotizador/tipos';
+import type { Parametros, Producto } from '../cotizador/tipos';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Fila = Record<string, any>;
@@ -288,16 +288,41 @@ export const darDeBajaPrecio = async (req: Request, res: Response) => {
   return editarPrecio(req, res);
 };
 
+/** Campos numéricos de primer nivel editables por PUT /parametros. */
+const CAMPOS_NUMERICOS_RAIZ = ['aiu', 'iva', 'flete_fijo', 'alquiler_andamio', 'huacal'] as const;
+
+/**
+ * Las 6 tarifas de SMO y la columna que respalda a cada una.
+ *
+ * La lista vive en UN solo sitio y de ahí se derivan la validación, el UPDATE y
+ * el "antes/después" del historial: antes estaban escritas a mano en los tres,
+ * y con 6 tarifas en vez de 2 eso es una omisión silenciosa esperando ocurrir
+ * (un campo validado pero no guardado no da error, simplemente no cambia nada).
+ *
+ * El tipo `Record<keyof Parametros['smo'], string>` hace que agregar un tipo de
+ * obra en `tipos.ts` sin mapearlo aquí sea un error de compilación, no un campo
+ * que el PUT ignora en silencio.
+ */
+const CAMPOS_SMO: Record<keyof Parametros['smo'], string> = {
+  tarifaMinima: 'smo_tarifa_minima',
+  pisoTableroGrande: 'smo_piso_tablero_grande',
+  cabinas: 'smo_cabinas',
+  fachadas: 'smo_fachadas',
+  armadaVentanas: 'smo_armada_ventanas',
+  persiana: 'smo_persiana',
+};
+const CLAVES_SMO = Object.keys(CAMPOS_SMO) as (keyof Parametros['smo'])[];
+
+const CAMPOS_PARAMETROS_PERMITIDOS = new Set<string>(['por', 'motivo', ...CAMPOS_NUMERICOS_RAIZ, 'smo']);
+
 /**
  * PUT /parametros — sólo los parámetros de NEGOCIO son editables aquí (aiu,
- * iva, flete_fijo, smo.tarifaMinima, smo.pisoTableroGrande).
+ * iva, flete_fijo, alquiler_andamio, huacal y las 6 tarifas de `smo`).
  *
  * `clientes`, `asesores` y `estados_cotizacion` son catálogos cerrados de la
  * aplicación, no parámetros de precio: se rechazan explícitamente si vienen en
  * el body, en vez de ignorarse en silencio.
  */
-const CAMPOS_PARAMETROS_PERMITIDOS = new Set(['por', 'motivo', 'aiu', 'iva', 'flete_fijo', 'smo']);
-
 export const editarParametros = async (req: Request, res: Response) => {
   const b: Fila = req.body ?? {};
 
@@ -312,30 +337,44 @@ export const editarParametros = async (req: Request, res: Response) => {
         `precio: ${prohibidos.join(', ')}.`,
     });
   }
-  for (const campo of ['aiu', 'iva', 'flete_fijo']) {
+  for (const campo of CAMPOS_NUMERICOS_RAIZ) {
     if (b[campo] !== undefined && !Number.isFinite(Number(b[campo]))) {
       return res.status(400).json({ error: `El campo "${campo}" debe ser un número.` });
     }
   }
   if (b.smo !== undefined) {
     if (typeof b.smo !== 'object' || b.smo === null || Array.isArray(b.smo)) {
-      return res
-        .status(400)
-        .json({ error: 'El campo "smo" debe ser un objeto con tarifaMinima y/o pisoTableroGrande.' });
+      return res.status(400).json({
+        error: `El campo "smo" debe ser un objeto con una o más de estas tarifas: ${CLAVES_SMO.join(', ')}.`,
+      });
     }
-    for (const campo of ['tarifaMinima', 'pisoTableroGrande']) {
+    // Se rechaza la clave desconocida en vez de ignorarla: un "smo.cabina" mal
+    // escrito guardaría OK y no cambiaría el precio, que es peor que fallar.
+    const desconocidas = Object.keys(b.smo).filter((k) => !(k in CAMPOS_SMO));
+    if (desconocidas.length) {
+      return res.status(400).json({
+        error: `Estas tarifas de SMO no existen: ${desconocidas.join(', ')}. Las válidas son: ${CLAVES_SMO.join(', ')}.`,
+      });
+    }
+    for (const campo of CLAVES_SMO) {
       if (b.smo[campo] !== undefined && !Number.isFinite(Number(b.smo[campo]))) {
         return res.status(400).json({ error: `El campo "smo.${campo}" debe ser un número.` });
       }
     }
   }
 
-  const pick = (p: Fila) => ({
-    aiu: p.aiu,
-    iva: p.iva,
-    flete_fijo: p.flete_fijo,
-    smo: { tarifaMinima: p.smo?.tarifaMinima, pisoTableroGrande: p.smo?.pisoTableroGrande },
-  });
+  const pick = (p: Fila): Fila => {
+    const smo: Fila = {};
+    for (const clave of CLAVES_SMO) smo[clave] = p.smo?.[clave];
+    return {
+      aiu: p.aiu,
+      iva: p.iva,
+      flete_fijo: p.flete_fijo,
+      alquiler_andamio: p.alquiler_andamio,
+      huacal: p.huacal,
+      smo,
+    };
+  };
 
   const t = await sequelize.transaction();
   try {
@@ -347,26 +386,25 @@ export const editarParametros = async (req: Request, res: Response) => {
     }
 
     const ahora = new Date();
+    // El PUT es parcial: sólo entra al UPDATE el campo que de verdad llegó.
+    // Omitir un campo significa "no lo toques", nunca "ponlo en 0".
     const cambios: Fila = { actualizado_en: ahora, actualizado_por: b.por ?? null };
-    if (b.aiu !== undefined) cambios.aiu = Number(b.aiu);
-    if (b.iva !== undefined) cambios.iva = Number(b.iva);
-    if (b.flete_fijo !== undefined) cambios.flete_fijo = Number(b.flete_fijo);
-    if (b.smo?.tarifaMinima !== undefined) cambios.smo_tarifa_minima = Number(b.smo.tarifaMinima);
-    if (b.smo?.pisoTableroGrande !== undefined) {
-      cambios.smo_piso_tablero_grande = Number(b.smo.pisoTableroGrande);
+    for (const campo of CAMPOS_NUMERICOS_RAIZ) {
+      if (b[campo] !== undefined) cambios[campo] = Number(b[campo]);
+    }
+    for (const clave of CLAVES_SMO) {
+      if (b.smo?.[clave] !== undefined) cambios[CAMPOS_SMO[clave]] = Number(b.smo[clave]);
     }
     await (fila as unknown as Fila).update(cambios, { transaction: t });
 
-    const despues = {
-      ...antes,
-      ...(cambios.aiu !== undefined ? { aiu: cambios.aiu } : {}),
-      ...(cambios.iva !== undefined ? { iva: cambios.iva } : {}),
-      ...(cambios.flete_fijo !== undefined ? { flete_fijo: cambios.flete_fijo } : {}),
-      smo: {
-        tarifaMinima: cambios.smo_tarifa_minima ?? antes.smo.tarifaMinima,
-        pisoTableroGrande: cambios.smo_piso_tablero_grande ?? antes.smo.pisoTableroGrande,
-      },
-    };
+    const smoDespues: Fila = {};
+    for (const clave of CLAVES_SMO) {
+      smoDespues[clave] = cambios[CAMPOS_SMO[clave]] ?? antes.smo[clave];
+    }
+    const despues: Fila = { ...antes, smo: smoDespues };
+    for (const campo of CAMPOS_NUMERICOS_RAIZ) {
+      if (cambios[campo] !== undefined) despues[campo] = cambios[campo];
+    }
 
     await CotizadorPrecioHistorial.create(
       {

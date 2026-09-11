@@ -70,10 +70,33 @@ export function leerMapeoAccesorios(): MapeoAccesorios {
   return cache.getMapeoAccesorios();
 }
 
-/** Los cuatro tipos de `consumo.tipo` que sabe calcular esta infraestructura.
- * Si algún día hace falta uno más, se añade aquí Y se documenta arriba en el
- * comentario de cabecera -- no se debe adivinar un tipo no soportado. */
-export const TIPOS_CONSUMO_SOPORTADOS = ["unidad", "perimetroVidrio", "perimetroMarco", "altoPorHoja"];
+/** Los tipos de `consumo.tipo` que sabe calcular esta infraestructura.
+ * Si algún día hace falta uno más, se añade aquí Y se documenta abajo en el
+ * `switch` de `calcularCantidad` -- no se debe adivinar un tipo no soportado.
+ *
+ * Los tres últimos (2026-09-11) traducen las fórmulas del Excel matriz del que
+ * nació el módulo, que despieza en función de `alasCorredizas` y `cuerpos` --
+ * las dos entradas que `cotizarPorDiseno` ya deriva del código del diseño con
+ * `parsearCodigo()` y pasa al callback. Se añaden porque leer la cantidad
+ * cruda del extractor ("unidad") no reproduce el despiece original: el
+ * extractor congela un número por diseño, y varias piezas cambian con la
+ * geometría (las guías de 744/8025 son 2 por ala, el elevador de tablero son 4
+ * o 6 según el ancho).
+ *
+ * NO se añadió un tipo para la fórmula de empaque del Excel
+ * ("2×ancho + 2×alto×cuerpos"): desarrollada, ésa es exactamente la suma de
+ * los perímetros de los paños, que `perimetroVidrio` ya calcula -- y mejor,
+ * porque parte del despiece real y no de la medida nominal. Duplicarla sería
+ * código muerto con dos verdades. */
+export const TIPOS_CONSUMO_SOPORTADOS = [
+  "unidad",
+  "perimetroVidrio",
+  "perimetroMarco",
+  "altoPorHoja",
+  "porAlasCorredizas",
+  "porCuerpos",
+  "porAnchoEscalonado",
+];
 
 /**
  * Calcula la cantidad de UN accesorio MAPEADO a partir de su `consumo` y del
@@ -85,8 +108,23 @@ export const TIPOS_CONSUMO_SOPORTADOS = ["unidad", "perimetroVidrio", "perimetro
  */
 /** Contexto de la pieza que necesitan los cálculos de consumo. Es un
  * subconjunto del que arma cotizarPorDiseno. */
+/**
+ * ¿Este mapeo aplica al sistema del diseño?
+ *
+ * Una entrada sin `sistemas` vale para todos (el caso normal). Cuando la trae,
+ * el mapeo sólo es válido para los sistemas listados: la descripción es
+ * genérica y significa un producto distinto en cada sistema. Ver el JSDoc de
+ * `MapeoAccesorio.sistemas` en tipos.ts.
+ */
+function aplicaAlSistema(entrada: MapeoAccesorio, sistema: string | undefined): boolean {
+  if (!Array.isArray(entrada.sistemas) || entrada.sistemas.length === 0) return true;
+  return typeof sistema === 'string' && entrada.sistemas.includes(sistema);
+}
+
 export interface ContextoAccesoriosDiseno {
-  diseno?: { accesorios?: DisenoAccesorio[] } | null;
+  /** El diseño CRUDO del catálogo. `sistema` se usa para respetar
+   * `MapeoAccesorio.sistemas`; sin él, una entrada restringida bloquea. */
+  diseno?: { accesorios?: DisenoAccesorio[]; sistema?: string } | null;
   segmentoCliente?: string;
   cuerpos?: number;
   alasCorredizas?: number;
@@ -150,6 +188,63 @@ function calcularCantidad(
       }
       const factor = Number.isFinite(Number(consumo.factor)) ? Number(consumo.factor) : 1;
       return { ok: true, cantidad: (altoCm / 100) * alasCorredizas * factor };
+    }
+    case "porAlasCorredizas": {
+      // Piezas que van por HOJA CORREDIZA, no por cuerpo ni por unidad fija:
+      // guías de 744/8025 (2 por ala), rodamientos (2 por ala), chapa (1 por
+      // ala). Es la fórmula del Excel matriz; el `factor` es su multiplicador.
+      //
+      // Cero alas NO es un error: un diseño todo fijo ("OO") legítimamente no
+      // lleva ninguna de estas piezas, y accesoriosPorDiseno ya omite la línea
+      // cuando la cantidad sale en cero. Lo que sí es error es que el contexto
+      // no traiga el dato -- entonces no se sabe si son cero o son diez.
+      const alasCorredizas = Number(ctx.alasCorredizas);
+      if (!Number.isFinite(alasCorredizas)) {
+        return { ok: false, motivo: "alasCorredizas no está disponible en este contexto de cotización." };
+      }
+      const factor = Number.isFinite(Number(consumo.factor)) ? Number(consumo.factor) : 1;
+      return { ok: true, cantidad: alasCorredizas * factor };
+    }
+    case "porCuerpos": {
+      // Piezas que van por CUERPO (paño), corredizo o fijo: la guía plástica
+      // del 5020 (2 por cuerpo) y el cerrojo (cuerpos/2, o sea factor 0,5).
+      //
+      // No se redondea a propósito: con un número impar de cuerpos el cerrojo
+      // da media unidad y el Excel no dice hacia dónde va; redondear aquí
+      // sería inventar la regla de negocio en el motor en vez de dejarla
+      // escrita en el mapeo, que es donde la puede ver y corregir el taller.
+      const cuerpos = Number(ctx.cuerpos);
+      if (!Number.isFinite(cuerpos)) {
+        return { ok: false, motivo: "cuerpos no está disponible en este contexto de cotización." };
+      }
+      const factor = Number.isFinite(Number(consumo.factor)) ? Number(consumo.factor) : 1;
+      return { ok: true, cantidad: cuerpos * factor };
+    }
+    case "porAnchoEscalonado": {
+      // Escalón por ancho: el Excel cobra 4 elevadores de tablero por debajo
+      // de 1,51 m y 6 a partir de ahí. No es proporcional al ancho sino un
+      // salto, así que no se puede expresar con un factor.
+      //
+      // Los tres parámetros son obligatorios y sin default: un umbral o una
+      // cantidad ausentes harían que el motor eligiera un escalón a ciegas, y
+      // en este proyecto un número inventado es peor que un error visible.
+      const anchoCm = Number(ctx.anchoCm);
+      if (!Number.isFinite(anchoCm)) {
+        return { ok: false, motivo: "anchoCm no está disponible en este contexto de cotización." };
+      }
+      const umbralM = Number(consumo.umbralM);
+      const cantidadBajo = Number(consumo.cantidadBajo);
+      const cantidadAlto = Number(consumo.cantidadAlto);
+      if (!Number.isFinite(umbralM) || !Number.isFinite(cantidadBajo) || !Number.isFinite(cantidadAlto)) {
+        return {
+          ok: false,
+          motivo:
+            'es de tipo "porAnchoEscalonado" pero su consumo no trae los tres números que necesita ' +
+            "(umbralM, cantidadBajo, cantidadAlto). Revisa mapeo-accesorios.json.",
+        };
+      }
+      // El umbral es inclusivo por el lado alto: el Excel dice "1,51 m o más → 6".
+      return { ok: true, cantidad: anchoCm / 100 >= umbralM ? cantidadAlto : cantidadBajo };
     }
     default:
       // Inalcanzable: TIPOS_CONSUMO_SOPORTADOS ya filtró arriba. Se deja como
@@ -252,6 +347,19 @@ export function accesoriosPorDiseno(ctx: ContextoAccesoriosDiseno) {
       continue;
     }
 
+    // El mapeo existe pero está restringido a otros sistemas: bloquear, nunca
+    // cobrar el código de otro sistema por parecerse la descripción.
+    if (!aplicaAlSistema(entrada, ctx?.diseno?.sistema)) {
+      lineas.push(
+        lineaError(
+          a.descripcion,
+          `"${a.descripcion}" está mapeado a ${entrada.codigo} sólo para ${entrada.sistemas!.join(", ")}, y este diseño es de ${ctx?.diseno?.sistema ?? "un sistema sin identificar"}. La descripción es genérica y significa un producto distinto en cada sistema: hay que mapearla para éste antes de cobrarla.`,
+          a.cantidad
+        )
+      );
+      continue;
+    }
+
     // estado === "MAPEADO"
     const validacion = validarEntradaMapeada(entrada);
     if (!validacion.ok) {
@@ -289,7 +397,9 @@ export function accesoriosPorDiseno(ctx: ContextoAccesoriosDiseno) {
  * @param {Object} diseno - diseño crudo del catálogo (con accesorios[]).
  * @returns {{mapeados: Array, insumos: Array, pendientes: Array, ignorados: Array}}
  */
-export function desgloseAccesorios(diseno: { accesorios?: DisenoAccesorio[] } | null | undefined) {
+export function desgloseAccesorios(
+  diseno: { accesorios?: DisenoAccesorio[]; sistema?: string } | null | undefined
+) {
   const lista = Array.isArray(diseno?.accesorios) ? diseno.accesorios : [];
   const mapeo = leerMapeoAccesorios();
 
@@ -314,6 +424,17 @@ export function desgloseAccesorios(diseno: { accesorios?: DisenoAccesorio[] } | 
         insumos.push({ descripcion: a.descripcion, cantidad: a.cantidad ?? null, nota: entrada.nota ?? null });
         break;
       case "MAPEADO": {
+        // Mismo guardarraíl que en accesoriosPorDiseno: un mapeo restringido a
+        // otros sistemas no cuenta como resuelto para éste.
+        if (!aplicaAlSistema(entrada, diseno?.sistema)) {
+          pendientes.push({
+            descripcion: a.descripcion,
+            cantidad: a.cantidad ?? null,
+            enMapeo: true,
+            motivo: `Mapeado a ${entrada.codigo} sólo para ${entrada.sistemas!.join(", ")}; este diseño es de ${diseno?.sistema ?? "un sistema sin identificar"}.`,
+          });
+          break;
+        }
         const validacion = validarEntradaMapeada(entrada);
         if (validacion.ok) {
           mapeados.push({

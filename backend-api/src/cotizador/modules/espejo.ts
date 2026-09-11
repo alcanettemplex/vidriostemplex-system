@@ -13,13 +13,11 @@
 //   - Bug #3 (etiqueta "antes de IVA" engañosa): no se inventan etiquetas propias;
 //     se usan tal cual las claves de `totalizar()` (subtotalConAiu, baseIva, iva,
 //     total).
-//   - Bug #5 (PELI31 duplicado): no aplica directamente a Espejo (no usa película),
-//     pero se documenta el mismo criterio de catálogo único: el catálogo maestro
-//     tampoco tiene un código propio para "espejo biselado" (el histórico ESP02 de
-//     la tabla ACABADOS del Excel era un precio fijo de $150.000 que nunca llegó a
-//     la tabla de costos real por segmento de cliente). Se usa el precio real de
-//     ES0001 para ambas variantes y se advierte explícitamente esta limitación
-//     (ver advertencias más abajo), en vez de inventar un precio no verificado.
+//   - Bug #5 (PELI31 duplicado): no aplica directamente a Espejo (no usa película).
+//     Sobre el biselado: el catálogo maestro sigue sin un SKU propio, pero el Excel
+//     matriz SÍ distingue ESP01 ($146.000) de ESP02 ($168.000) en su tabla ACABADOS.
+//     Desde 2026-09-11 se cobra ES0001 más el diferencial del 15,07% (ver
+//     RECARGO_BISELADO), en vez de cobrar lo mismo por ambos acabados.
 //   - Bug #10 (doble conteo de cantidad): en el Excel, el campo final "Cantidad de
 //     unidades" (C5) volvía a multiplicar un subtotal que YA incluía las
 //     cantidades de espejo BPB/biselado de cada línea. Aquí NO existe ningún campo
@@ -30,13 +28,33 @@
 //     como un único campo `acabado` de tipo select (no dos checkboxes
 //     independientes), evitando el bug #11 ("se pueden marcar varias opciones a
 //     la vez sin que el sistema avise") que afecta a otros módulos del Excel.
-import { lineaCatalogo, totalizar, areaM2, perimetroM, round2 } from "../lib/motorCalculo";
-import { getParametros, segmentosValidos } from "../lib/catalogo";
+import { lineaCatalogo, totalizar, areaM2, perimetroM, round2, tarifaSMO } from "../lib/motorCalculo";
+import { getParametros, getPrecio, segmentosValidos } from "../lib/catalogo";
 import { cotizarPorDiseno } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
 import type { LineaBOM } from "../lib/motorCalculo";
 
 const ACABADOS_VALIDOS = ["BPB", "BISELADO"];
+
+/**
+ * Recargo del espejo biselado sobre el espejo estándar.
+ *
+ * El Excel matriz SÍ diferencia los dos productos en la tabla ACABADOS de la
+ * hoja COSTOS: `ESP01` "ESPEJO" a $146.000 y `ESP02` "ESPEJO BISELADO" a
+ * $168.000. Hasta el 2026-09-11 este módulo cobraba el mismo precio para ambos
+ * acabados, o sea regalaba el 15% del bisel en cada cotización.
+ *
+ * Se aplica como RAZÓN y no como precio fijo a propósito: los $168.000 del
+ * Excel son un precio plano que no distingue PA/PM/PB, y meterlo tal cual haría
+ * que un cliente PB pagara lo mismo que un PA — justo lo contrario del modelo
+ * de precios por segmento que rige todo el resto del catálogo. Aplicando la
+ * razón sobre el precio ya segmentado de ES0001 se conserva la segmentación y
+ * se cobra la prima real.
+ *
+ * Lo correcto de fondo es un SKU propio (ES0002) con sus tres precios reales;
+ * mientras no exista, esto es lo más fiel que se puede ser sin inventar datos.
+ */
+const RECARGO_BISELADO = 168000 / 146000;
 
 /** Línea de BOM "manual" (sin código de catálogo) para cargos fijos de
  * instalación (SMO, flete), centralizados en parametros.json (ver misma nota en
@@ -132,8 +150,11 @@ export function calcular(input: InputModulo) {
   }
 
   const parametros = getParametros();
-  const smoRate = parametros.smo?.tarifaMinima ?? 58000;
-  const fleteFijo = parametros.flete_fijo ?? 25000;
+  // SMO02 del Excel: la hoja "Espejo" toma la mano de obra de COSTOS!$AC$33,
+  // que es justamente SMO Fachadas. No es un descuido: el espejo se instala
+  // sobre muro, con el mismo oficio que una fachada.
+  const smoRate = tarifaSMO(parametros, "fachadas");
+  const fleteFijo = parametros.flete_fijo ?? 40000;
 
   const area = areaM2(ancho, alto);
   const perimetro = perimetroM(ancho, alto);
@@ -153,6 +174,7 @@ export function calcular(input: InputModulo) {
       // Un espejo no se mete en un hueco de obra: la medida que da el vendedor
       // ES el espejo. No hay holgura de instalación que descontar.
       medidaEs: "fabricacion",
+      tipoObra: "fachadas",
       // El catálogo sólo tiene un código de espejo (ES0001), así que es el que
       // se cobra por m² sea cual sea la variante del diseño.
       codigoVidrio: "ES0001",
@@ -172,7 +194,30 @@ export function calcular(input: InputModulo) {
             lineas.push(lineaCatalogo("BPB04", round2(perimetroReal), seg, { unidadOverride: "ML" }));
           }
         } else {
-          adv.push("Acabado biselado: no se cobra BPB porque el bisel ya trata el borde.");
+          // Mismo criterio que en el camino de medidas libres: el bisel no
+          // lleva BPB pero sí cuesta más. Aquí el recargo se calcula sobre el
+          // área REAL de los paños cortados, no sobre el vano.
+          const areaReal = (cortes.vidrios || []).reduce(
+            (acc, v) => acc + ((v.anchoMm / 1000) * (v.altoMm / 1000)) * v.cantidad,
+            0
+          );
+          const precioEspejo = getPrecio("ES0001", seg);
+          if (areaReal > 0 && precioEspejo !== null) {
+            lineas.push(
+              lineaManual({
+                codigo: "ESP02",
+                descripcion: "Recargo por espejo biselado",
+                categoria: "ACABADO",
+                unidad: "M2",
+                cantidad: 1,
+                precioUnitario: round2(areaReal * precioEspejo * (RECARGO_BISELADO - 1)),
+              })
+            );
+          }
+          adv.push(
+            "Acabado biselado: no se cobra BPB porque el bisel ya trata el borde, pero sí el " +
+              "recargo del 15,07% (diferencial ESP02/ESP01 del Excel matriz)."
+          );
         }
         return lineas;
       },
@@ -185,10 +230,11 @@ export function calcular(input: InputModulo) {
   }
 
   // Espejo base (área). El catálogo maestro solo tiene un código de espejo
-  // (ES0001, con precio real por segmento PA/PM/PB); no existe un código
-  // independiente para "espejo biselado" con precio propio verificado, así que
-  // se usa ES0001 para ambas variantes y se advierte la limitación.
-  items.push(lineaCatalogo("ES0001", area, segmentoCliente, { unidadOverride: "M2" }));
+  // (ES0001, con precio real por segmento PA/PM/PB); el biselado no tiene SKU
+  // propio, así que se cobra ES0001 y, si el acabado es biselado, el recargo
+  // aparte (ver RECARGO_BISELADO).
+  const lineaEspejo = lineaCatalogo("ES0001", area, segmentoCliente, { unidadOverride: "M2" });
+  items.push(lineaEspejo);
 
   if (acabado === "BPB") {
     // BPB solo aplica a la variante normal/flotante: el biselado ya incluye su
@@ -196,12 +242,28 @@ export function calcular(input: InputModulo) {
     // documentada en espejo.md, sección 5).
     items.push(lineaCatalogo("BPB04", perimetro, segmentoCliente, { unidadOverride: "ML" }));
   } else {
+    // El bisel no lleva BPB (ya trata el borde), pero SÍ cuesta más que el
+    // espejo plano: se cobra el diferencial ESP02/ESP01 del Excel sobre el
+    // precio segmentado del espejo, como línea propia y visible en el BOM.
+    const recargo = round2(lineaEspejo.valorTotal * (RECARGO_BISELADO - 1));
+    if (recargo > 0) {
+      items.push(
+        lineaManual({
+          codigo: "ESP02",
+          descripcion: "Recargo por espejo biselado",
+          categoria: "ACABADO",
+          unidad: "M2",
+          cantidad: 1,
+          precioUnitario: recargo,
+        })
+      );
+    }
     advertencias.push(
       "Acabado BISELADO: no se carga BPB adicional (el bisel ya incluye el tratamiento de borde). " +
-        'El catálogo maestro no tiene un código propio de "espejo biselado" con precio verificado por ' +
-        "segmento de cliente (el histórico ESP02 = $150.000 fijo del Excel provenía de una tabla de " +
-        "respaldo sin variación PA/PM/PB); se cotiza con el mismo precio de espejo estándar (ES0001). " +
-        "Si el negocio requiere un precio distinto para biselado, debe crearse un SKU dedicado en el catálogo."
+        "El catálogo maestro todavía no tiene un SKU propio de espejo biselado, así que se cobra el " +
+        "espejo estándar (ES0001) más un recargo del 15,07% — el diferencial real entre ESP02 ($168.000) " +
+        "y ESP01 ($146.000) de la tabla ACABADOS del Excel. Conviene crear el SKU dedicado con sus " +
+        "precios PA/PM/PB reales para dejar de derivarlo."
     );
   }
 

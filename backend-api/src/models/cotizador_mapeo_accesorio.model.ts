@@ -15,7 +15,15 @@ CotizadorMapeoAccesorio.init({
     allowNull: false,
   },
   codigo: { type: DataTypes.STRING(20) },
-  consumo: { type: DataTypes.JSONB }, // {tipo: 'unidad'|'perimetroVidrio'|'perimetroMarco'|'altoPorHoja', ...}
+  // {tipo: 'unidad'|'perimetroVidrio'|'perimetroMarco'|'altoPorHoja'
+  //        |'porAlasCorredizas'|'porCuerpos'|'porAnchoEscalonado', ...}
+  consumo: { type: DataTypes.JSONB },
+  // Restringe el mapeo a estos sistemas (2026-09-11). NULL o [] = vale para
+  // todos. Existe porque el extractor dejó descripciones genéricas que
+  // significan un producto distinto en cada sistema ("E.universa. Empaque
+  // Universal" es EMP5020 en 5020 y EMPA8025 en 8025): sin esta lista, mapear
+  // la clave cobraría el código equivocado a los demás sistemas en silencio.
+  sistemas: { type: DataTypes.JSONB },
   nota: { type: DataTypes.TEXT },
   confianza: { type: DataTypes.STRING(20) },
   actualizado_en: { type: DataTypes.DATE },

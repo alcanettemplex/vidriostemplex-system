@@ -29,7 +29,7 @@
 //     real, no por "cantidad de piezas de 6mm"): la ÚNICA multiplicación por
 //     "cuántas piezas iguales se cotizan" ocurre una vez, dentro de `totalizar()`
 //     vía `cantidadPiezas`. Ninguna línea del BOM se multiplica por esa cantidad.
-import { lineaCatalogo, totalizar, areaM2, perimetroM, round2 } from "../lib/motorCalculo";
+import { lineaCatalogo, totalizar, areaM2, perimetroM, round2, tarifaSMO } from "../lib/motorCalculo";
 import { getParametros, segmentosValidos } from "../lib/catalogo";
 import type { InputModulo } from "../tipos";
 import type { LineaBOM } from "../lib/motorCalculo";
@@ -134,9 +134,11 @@ export function calcular(input: InputModulo) {
   }
 
   const parametros = getParametros();
-  const smoRate = parametros.smo?.tarifaMinima ?? 58000;
+  // SMO02 del Excel: el tablero se instala en fachada. `pisoTableroGrande` se
+  // conserva porque es un piso propio de este módulo que el Excel no modela.
+  const smoRate = tarifaSMO(parametros, "fachadas");
   const smoPisoGrande = parametros.smo?.pisoTableroGrande ?? 87000;
-  const fleteFijo = parametros.flete_fijo ?? 25000;
+  const fleteFijo = parametros.flete_fijo ?? 40000;
 
   const area = areaM2(ancho, alto);
   const perimetro = perimetroM(ancho, alto);

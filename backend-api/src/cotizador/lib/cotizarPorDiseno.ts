@@ -7,13 +7,13 @@
 // Lo único que cambia de un módulo a otro son los accesorios, porque el catálogo
 // de diseños no trae códigos de accesorio con precio en Templex: cada módulo
 // sabe qué códigos usa su sistema. Por eso se pasan como función.
-import { lineaCatalogo, totalizar, areaM2, round2 } from "./motorCalculo";
+import { lineaCatalogo, totalizar, areaM2, round2, tarifaSMO } from "./motorCalculo";
 import { getParametros } from "./catalogo";
 import { calcularDespiece, getDiseno } from "./motorDespiece";
 import { holguraEfectiva } from "./calibracion";
 import { getHolguras } from "../store/calibracionStore";
 import { parsearCodigo } from "./codigoDiseno";
-import type { LineaBOM } from "./motorCalculo";
+import type { LineaBOM, TipoObra } from "./motorCalculo";
 import type { CortePerfil, CorteVidrio, Diseno } from "../tipos";
 
 const ACABADOS = { matizado: "MATI07", pelicula: "PELI31" };
@@ -104,6 +104,10 @@ export interface ParamsCotizarPorDiseno {
   matizado?: boolean;
   pelicula?: boolean;
   incluirAlfajia?: boolean;
+  /** Tipo de obra que decide qué tarifa de SMO se cobra. Lo declara el módulo
+   * que llama (cabinas cobran distinto que armar una ventana); si no llega, se
+   * usa el piso genérico `tarifaMinima`. */
+  tipoObra?: TipoObra;
   /** Callback del módulo para añadir sus propias líneas de accesorios. Recibe
    * el contexto ya calculado de la pieza; el módulo suele construir sus
    * líneas con `hacerAgregarRol`. */
@@ -125,6 +129,7 @@ export function cotizarPorDiseno({
   matizado = false,
   pelicula = false,
   incluirAlfajia = false,
+  tipoObra,
   accesorios,
 }: ParamsCotizarPorDiseno) {
   const diseno = getDiseno(disenoId);
@@ -245,7 +250,7 @@ export function cotizarPorDiseno({
   // La mano de obra se cobra por el hueco que se tapa, no por la ventana: si el
   // vendedor midió el vano, es ése el que manda.
   const areaVano = areaM2(anchoVanoCm ?? anchoFabCm, altoVanoCm ?? altoFabCm);
-  const smoRate = parametros.smo?.tarifaMinima ?? 58000;
+  const smoRate = tarifaSMO(parametros, tipoObra);
   items.push(
     lineaManual({
       codigo: "SMO",
@@ -263,7 +268,7 @@ export function cotizarPorDiseno({
       categoria: "INSTALACION",
       unidad: "UND",
       cantidad: 1,
-      precioUnitario: parametros.flete_fijo ?? 25000,
+      precioUnitario: parametros.flete_fijo ?? 40000,
     })
   );
 

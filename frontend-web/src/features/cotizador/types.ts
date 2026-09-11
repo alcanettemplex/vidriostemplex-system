@@ -248,7 +248,19 @@ export interface Parametros {
     iva: number;
     clientes: string[];
     flete_fijo: number;
-    smo: { tarifaMinima: number; pisoTableroGrande: number };
+    /** El SMO no es una tarifa única: el Excel matriz cobra una por tipo de obra
+     * (Cabinas, Fachadas, solo armada de ventanas, Persiana). Debe seguir
+     * reflejando `Parametros['smo']` del backend (backend-api/src/cotizador/tipos.ts). */
+    smo: {
+        tarifaMinima: number;
+        pisoTableroGrande: number;
+        cabinas: number;
+        fachadas: number;
+        armadaVentanas: number;
+        persiana: number;
+    };
+    alquiler_andamio: number;
+    huacal: number;
     asesores: string[];
     estados_cotizacion: string[];
 }

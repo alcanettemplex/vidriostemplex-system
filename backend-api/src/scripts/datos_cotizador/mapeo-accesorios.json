@@ -1,69 +1,76 @@
 {
-  "_comentario": "Mapeo de las 54 descripciones de accesorio que trae disenos.json (campo accesorios[], hoy nunca leído por el motor) al catálogo real de Templex. Ver lib/accesoriosPorDiseno.js para cómo se usa y webapp/CONTINUAR.md para la explicación completa. NO se toca data/: éste es material derivado, editable desde pantalla.",
-  "sistemasActivos": [],
-  "_sistemasActivos_nota": "Mientras un sistema no esté aquí, sus accesorios los sigue cobrando el mapa hardcodeado del módulo (CATALOGO_SISTEMAS en ventanas.js, las constantes de proyectantes.js, los literales de cabinasCorredizas/cabinasBatientes/espejo.js). Activar un sistema es una decisión de negocio deliberada, después de comparar en /accesorios/comparar — nunca automática.",
+  "_comentario": "Mapeo de las 54 descripciones de accesorio que trae disenos.json (campo accesorios[], hoy nunca leído por el motor) al catálogo real de Templex. Ver lib/accesoriosPorDiseno.ts para cómo se usa y webapp/CONTINUAR.md para la explicación completa. NO se toca data/: éste es material derivado, editable desde pantalla.",
+  "sistemasActivos": ["Sistema5020", "Sistema5020Reforzado"],
+  "_sistemasActivos_nota": "Mientras un sistema no esté aquí, sus accesorios los sigue cobrando el mapa hardcodeado del módulo (CATALOGO_SISTEMAS en ventanas.ts, las constantes de proyectantes.ts, los literales de cabinasCorredizas/cabinasBatientes/espejo.ts). Activar un sistema es una decisión de negocio deliberada, después de comparar en /accesorios/comparar — nunca automática. ⚠️ ADVERTENCIA 2026-09-11: los 17 diseños de Sistema5020 + Sistema5020Reforzado quedan con UN solo bloqueador, \"E.universa. Empaque Universal\", que sigue PENDIENTE por diseño del esquema (se mapea por descripción y el Excel confirma que esa descripción es un producto DISTINTO en cada sistema). Mientras no se resuelva, los 17 diseños siguen produciendo una línea con error:true y NO se pueden cotizar por esta vía. Ver TECH_DEBT.md 2026-09-11.",
   "accesorios": {
     "Rodamiento 5020 Nylon": {
       "estado": "MAPEADO",
       "codigo": "RODA5020",
-      "consumo": { "tipo": "unidad" },
-      "nota": "Coincidencia exacta de descripción con el catálogo, y es el mismo código que ya usa el rol \"rodamiento\" de Sistema5020 en ventanas.js.",
+      "consumo": { "tipo": "porAlasCorredizas", "factor": 2 },
+      "nota": "Coincidencia exacta de descripción con el catálogo, y es el mismo código que ya usa el rol \"rodamiento\" de Sistema5020 en ventanas.ts. CONSUMO ARBITRADO 2026-09-11 contra el Excel matriz del que nació el módulo: alasCorredizas × 2 (dos rodamientos por hoja corrediza). Se cambió de \"unidad\" a fórmula tras verificar que reproduce EXACTAMENTE la cantidad extraída en los 17 diseños de Sistema5020 + Sistema5020Reforzado (2 en OX/XO/OXO, 4 en XX/XOX/XOX2/OXXO, 8 en XXXX): la fórmula no cambia ningún precio, sólo deja de depender de un dato crudo del extractor.",
       "confianza": "alta"
     },
     "Rodamiento 8025": {
       "estado": "MAPEADO",
       "codigo": "ROD8025",
-      "consumo": { "tipo": "unidad" },
-      "nota": "Coincidencia exacta de descripción, y es el mismo código que ya usa el rol \"rodamiento\" de Sistema8025.",
+      "consumo": { "tipo": "porAlasCorredizas", "factor": 2 },
+      "nota": "Coincidencia exacta de descripción, y es el mismo código que ya usa el rol \"rodamiento\" de Sistema8025. CONSUMO ARBITRADO 2026-09-11 contra el Excel matriz: alasCorredizas × 2, igual que los otros dos rodamientos de corredera.",
       "confianza": "alta"
     },
     "Rodamiento 744": {
       "estado": "MAPEADO",
       "codigo": "ROD744",
-      "consumo": { "tipo": "unidad" },
-      "nota": "Mismo código que ya usa el rol \"rodamiento\" de Sistema744 en ventanas.js.",
+      "consumo": { "tipo": "porAlasCorredizas", "factor": 2 },
+      "nota": "Mismo código que ya usa el rol \"rodamiento\" de Sistema744 en ventanas.ts. CONSUMO ARBITRADO 2026-09-11 contra el Excel matriz: alasCorredizas × 2.",
       "confianza": "alta"
     },
     "Guia Superior 744": {
       "estado": "MAPEADO",
       "codigo": "GSU0101",
-      "consumo": { "tipo": "unidad" },
-      "nota": "Mismo código que ya usa el rol \"guiaSuperior\" de Sistema744. HALLAZGO (verificado por comparación real, Sistema744::XX 150x120): el hardcodeado cobra 2 (una por cuerpo, cuerpos=2) y este mapeo por \"unidad\" cobra 4 (la cantidad cruda que trae el diseño extraído) -- mismo código, cantidad distinta 2x. No activar este sistema sin resolver cuál de los dos criterios es el correcto con el taller.",
-      "confianza": "media"
+      "consumo": { "tipo": "porAlasCorredizas", "factor": 2 },
+      "nota": "Mismo código que ya usa el rol \"guiaSuperior\" de Sistema744. VEREDICTO 2026-09-11 — el Excel matriz del que nació el módulo zanja la discrepancia documentada antes: el consumo real es alasCorredizas × 2, o sea 4 en una ventana XX de dos corredizas. El mapa hardcodeado de ventanas.ts cobra 2 (una por cuerpo) y se queda CORTO: corregirlo SUBE el costo de todas las ventanas 744. La cantidad cruda del diseño extraído (4) coincidía con el Excel; el hardcodeado era el equivocado.",
+      "confianza": "alta"
     },
     "Guia Inferior 744": {
       "estado": "MAPEADO",
       "codigo": "GIN0101",
-      "consumo": { "tipo": "unidad" },
-      "nota": "Mismo código que ya usa el rol \"guiaInferior\" de Sistema744. Mismo hallazgo que \"Guia Superior 744\": el hardcodeado cobra 2, este mapeo cobra 4.",
-      "confianza": "media"
+      "consumo": { "tipo": "porAlasCorredizas", "factor": 2 },
+      "nota": "Mismo código que ya usa el rol \"guiaInferior\" de Sistema744. Mismo veredicto 2026-09-11 que \"Guia Superior 744\": el Excel matriz manda alasCorredizas × 2 (4 en una XX), contra los 2 del hardcodeado. Sube el costo.",
+      "confianza": "alta"
     },
     "Guia Superior 8025": {
       "estado": "MAPEADO",
       "codigo": "GSU8025",
-      "consumo": { "tipo": "unidad" },
-      "nota": "Mismo código que ya usa el rol \"guiaSuperior\" de Sistema8025. No verificado directamente, pero es la misma forma de mapeo (\"unidad\") que en 744, donde SÍ se confirmó una discrepancia 2x -- revisar con el mismo cuidado antes de activar.",
-      "confianza": "media"
+      "consumo": { "tipo": "porAlasCorredizas", "factor": 2 },
+      "nota": "Mismo código que ya usa el rol \"guiaSuperior\" de Sistema8025. VEREDICTO 2026-09-11: el Excel matriz trae el mismo despiece que en 744 — alasCorredizas × 2. La cautela que pedía esta nota queda resuelta: el hardcodeado cobra 2 y se queda corto, igual que en 744.",
+      "confianza": "alta"
     },
     "Guia Inferior 8025": {
       "estado": "MAPEADO",
       "codigo": "GIN8025",
-      "consumo": { "tipo": "unidad" },
-      "nota": "Mismo código que ya usa el rol \"guiaInferior\" de Sistema8025. Ver \"Guia Superior 8025\": misma cautela.",
-      "confianza": "media"
+      "consumo": { "tipo": "porAlasCorredizas", "factor": 2 },
+      "nota": "Mismo código que ya usa el rol \"guiaInferior\" de Sistema8025. Mismo veredicto 2026-09-11 que \"Guia Superior 8025\": el Excel matriz manda alasCorredizas × 2.",
+      "confianza": "alta"
     },
     "Guia Platica 5020": {
       "estado": "MAPEADO",
       "codigo": "GUIA5020",
-      "consumo": { "tipo": "unidad" },
-      "nota": "\"Platica\" = plástica. Mismo código que ya usa el único rol \"guia\" de Sistema5020.",
+      "consumo": { "tipo": "porCuerpos", "factor": 2 },
+      "nota": "\"Platica\" = plástica. Mismo código que ya usa el único rol \"guia\" de Sistema5020. CONSUMO ARBITRADO 2026-09-11 contra el Excel matriz: cuerpos × 2 — ojo, esta guía va por CUERPO, no por ala corrediza, a diferencia de las guías de 744/8025. Reproduce la cantidad extraída en 16 de los 17 diseños de 5020 + 5020Reforzado; la única divergencia es Sistema5020::XOX2, donde el extractor trae 4 y la fórmula da 6 (su gemelo Sistema5020Reforzado::XOX2 sí trae 6, así que el 4 parece el dato malo). Manda el Excel.",
       "confianza": "alta"
     },
     "E.8025 Empaque 5 y 6 mm": {
       "estado": "MAPEADO",
       "codigo": "EMPA8025",
       "consumo": { "tipo": "perimetroVidrio", "desperdicioPct": 5 },
-      "nota": "El nombre indica explícitamente \"8025\": mismo código que ya usa el rol \"empaque\" de ese sistema. Se mide por el perímetro real de cada paño de vidrio, no por unidad -- perimetroVidrioM ya viene calculado por cotizarPorDiseno.js.",
+      "nota": "El nombre indica explícitamente \"8025\": mismo código que ya usa el rol \"empaque\" de ese sistema, y el Excel matriz lo confirma (2026-09-11). Se mide por el perímetro real de cada paño de vidrio, no por unidad -- perimetroVidrioM ya viene calculado por cotizarPorDiseno.ts. El Excel expresa el empaque como \"2×ancho + 2×alto×cuerpos\", que es algebraicamente el perímetro de los paños; se conserva \"perimetroVidrio\" porque sale del despiece real y no de la medida nominal.",
+      "confianza": "alta"
+    },
+    "Chapa de Impacto Alpha": {
+      "estado": "MAPEADO",
+      "codigo": "CHJ0101",
+      "consumo": { "tipo": "porAlasCorredizas", "factor": 1 },
+      "nota": "RESUELTO 2026-09-11 contra el Excel matriz: el código hardcodeado en el rol \"chapa\" de Sistema744 (CHJ0101, Chapa Jaguar) ESTABA BIEN — la descripción del diseño extraído (\"de Impacto Alpha\") es la que despista, no hay dos productos. Consumo: una chapa por ala corrediza. Reproduce la cantidad extraída en 7 de los 8 diseños de Sistema5020Reforzado (la excepción es XXXX, con 4 alas y cantidad extraída 3). Nota aparte: el Excel usa CH8025S (chapa 8025 con seguro) para Sistema8025, pero no existe una descripción de diseño distinta para ella — los diseños de 8025 también dicen \"Chapa de Impacto Alpha\", así que este mapeo por descripción única le cobraría CHJ0101 también a 8025. Resolver antes de activar Sistema8025.",
       "confianza": "alta"
     },
 
@@ -77,56 +84,100 @@
     "Anclaje Primavera": { "estado": "INSUMO_NO_FACTURADO", "nota": "Cero referencias en el catálogo (categoría \"anclaje\")." },
     "Anclaje Torino": { "estado": "INSUMO_NO_FACTURADO", "nota": "Ver Anclaje Primavera." },
 
-    "E.universa. Empaque Universal": {
-      "estado": "PENDIENTE",
-      "nota": "Aparece en diseños de VARIOS sistemas (744, 5020, 8025...), y cada uno ya cobra su propio código de empaque (EMP1305 en 744, EMP5020 en 5020, EMPA8025 en 8025): no es un único producto sino una descripción genérica del extractor. El esquema de mapeo por descripción-única no puede resolver esto sin partirlo por sistema; requiere decisión aparte, no automatizar."
+    "Cerrojo de Embutir": {
+      "estado": "MAPEADO",
+      "codigo": "CPTOR",
+      "consumo": { "tipo": "porCuerpos", "factor": 0.5 },
+      "nota": "RESUELTO 2026-09-11 contra el Excel matriz: el cerrojo del despiece original ES el CPTOR (cerrojo punto rojo) que ya cobra el rol \"cerrojo\" de Sistema8025; \"de Embutir\" es nomenclatura del extractor, no otro producto. Consumo del Excel: cuerpos / 2 (un cerrojo por cada par de cuerpos que se cruzan). ⚠️ Con un número IMPAR de cuerpos la fórmula da media unidad (3 cuerpos → 1,5) y el Excel no dice cómo redondear; los diseños extraídos tampoco se ponen de acuerdo entre sí (Sistema5020::XOX trae 2 y Sistema5020::OXO trae 1, ambos de 3 cuerpos). Se deja la fórmula exacta, sin redondeo inventado, hasta que el taller diga para qué lado va.",
+      "confianza": "media"
     },
     "Empaque Gallinazo": {
-      "estado": "PENDIENTE",
-      "nota": "Aparece en proyectantes (Sistema3831). Candidato probable: EMP1301, que ya usa proyectantes.js como único código de empaque -- pero no está confirmado que sea el mismo producto físico ('Gallinazo' es una forma de empaque específica). Verificar con el taller antes de fijar."
+      "estado": "MAPEADO",
+      "codigo": "EMP1301",
+      "consumo": { "tipo": "perimetroVidrio", "desperdicioPct": 5 },
+      "nota": "RESUELTO 2026-09-11 contra el Excel matriz: es el EMP1301 (empaque espaguetti 3831) que proyectantes.ts ya usa como único código de empaque. Consumo por perímetro de vidrio y NO por \"unidad\": los 24 diseños que lo traen (Sistema3831 / -Reforzado / -Semireforzado) tienen cantidad null en el extractor, así que \"unidad\" bloquearía siempre. El Excel expresa el empaque como \"2×ancho + 2×alto×cuerpos\", que es el perímetro de los paños; se usa perimetroVidrio porque sale del despiece real. El 5 % de desperdicio replica el criterio ya fijado para \"E.8025 Empaque 5 y 6 mm\" — si el taller maneja otro porcentaje para el espaguetti, es el número a cambiar.",
+      "confianza": "media"
     },
-    "Chapa de Impacto Alpha": {
-      "estado": "PENDIENTE",
-      "nota": "HALLAZGO: para Sistema744 hoy se cobra CHJ0101 (Chapa Jaguar) en el rol \"chapa\" -- es un producto DISTINTO al que describe el diseño. No unificar sin confirmar cuál es el que realmente se instala; unificar a ciegas cambiaría qué chapa factura cada ventana."
+    "Bisagra Sencilla de Cabina": {
+      "estado": "MAPEADO",
+      "codigo": "BSE0301",
+      "consumo": { "tipo": "unidad" },
+      "nota": "RESUELTO 2026-09-11 contra el Excel matriz: es el BSE0301 que cabinasBatientes.ts ya tiene en BISAGRA_POR_TIPO.sencilla. Consumo por \"unidad\" porque el Excel no da fórmula para bisagras de cabina y los 4 diseños de Cabina Batiente traen una cantidad explícita y constante (2).",
+      "confianza": "alta"
+    },
+    "BIsagra Doble 180°": {
+      "estado": "MAPEADO",
+      "codigo": "BDO0302",
+      "consumo": { "tipo": "unidad" },
+      "nota": "RESUELTO 2026-09-11 contra el Excel matriz: es el BDO0302 que cabinasBatientes.ts ya tiene en BISAGRA_POR_TIPO.doble. Consumo por \"unidad\": los 2 diseños plegables que la traen dan cantidad explícita (2).",
+      "confianza": "alta"
+    },
+    "Rodamiento de Cabina": {
+      "estado": "MAPEADO",
+      "codigo": "ROD0401",
+      "consumo": { "tipo": "unidad" },
+      "nota": "RESUELTO 2026-09-11 contra el Excel matriz: es el ROD0401 (rodachina) que cabinasCorredizas.ts ya usa en su callback de accesorios. Consumo por \"unidad\": el Excel no trae fórmula para cabinas y los 5 diseños de Cabina Corrediza dan cantidad explícita (2, salvo OXXO_CABINA que da 4). No confundir con la regla \"4 por par de paños\" del hardcodeado, que sobrecobra en los diseños de 2 y 3 cuerpos.",
+      "confianza": "media"
+    },
+    "Porta Chapa + Chapa PIcoloro": {
+      "estado": "MAPEADO",
+      "codigo": "CPDC0101",
+      "consumo": { "tipo": "unidad" },
+      "nota": "RESUELTO 2026-09-11 contra el Excel matriz: es el CPDC0101 (chapa picoloro doble cilindro niquelada) — una sola referencia, no las dos piezas sueltas que sugería el nombre. Lo usa un único diseño (Cabina Deslizante Torino::OXXO_FACHADA_TORINO), con cantidad explícita 1.",
+      "confianza": "alta"
+    },
+    "Elevador Inoxidable de 1 Pulg x 20mm": {
+      "estado": "MAPEADO",
+      "codigo": "ELE1101",
+      "consumo": { "tipo": "porAnchoEscalonado", "umbralM": 1.51, "cantidadBajo": 4, "cantidadAlto": 6 },
+      "nota": "RESUELTO 2026-09-11 contra el Excel matriz (despiece de Tablero): es el ELE1101. El Excel NO lo cobra por unidad sino por tramo de ancho — 6 elevadores si el tablero mide 1,51 m o más, 4 si mide menos —, que es la razón por la que el único diseño que lo trae (Vidrios y Espejos::ESP_ELEV_1) tiene la cantidad congelada en 4: es el caso chico. Ojo con la descripción: el catálogo dice ELE1101 = \"ELEVADORES DE 1\\\" X 3 CM\", no 20 mm; el Excel lo trata como la misma pieza.",
+      "confianza": "media"
+    },
+
+    "E.universa. Empaque Universal": {
+      "estado": "MAPEADO",
+      "codigo": "EMP5020",
+      "sistemas": ["Sistema5020", "Sistema5020Reforzado"],
+      "consumo": {
+        "tipo": "perimetroVidrio",
+        "desperdicioPct": 5
+      },
+      "nota": "Restringido por `sistemas` a 5020 / 5020Reforzado. El Excel matriz usa un empaque DISTINTO por sistema bajo esta misma descripción genérica del extractor: EMP5020 en Sistema5020 y Sistema5020Reforzado, EMP1305/EMP1306 en Sistema744, EMPA8025 en Sistema8025. El esquema mapea por descripción única y no puede expresar esa bifurcación; se fija EMP5020 porque dentro del conjunto ACTIVO la descripción no es ambigua — es el empaque de 5020 y de ningún otro. ANTES DE ACTIVAR Sistema744 O Sistema8025 hay que partir esta clave por sistema (campo nuevo en el esquema, o descripción propia en disenos.json): activarlos sin eso les cobraría el empaque equivocado EN SILENCIO, que es peor que bloquear. Consumo por perímetro real de los paños, mismo criterio que EMPA8025. Ver TECH_DEBT.md 2026-09-11.",
+      "confianza": "alta"
     },
     "Chapa Overseas Doble Cilindro": {
       "estado": "PENDIENTE",
-      "nota": "HALLAZGO IMPORTANTE: pertenece a Sistema7038-Interior, que NO existe como clave en CATALOGO_SISTEMAS (ventanas.js) -- hoy ese sistema entero (23 diseños) no cobra NINGÚN accesorio, sale con advertencia 'No hay accesorios configurados'. Ésta y las dos siguientes son candidatas a ser la primera vez que Sistema7038-Interior cobre accesorios."
+      "nota": "HALLAZGO IMPORTANTE: pertenece a Sistema7038-Interior, que NO existe como clave en CATALOGO_SISTEMAS (ventanas.ts) -- hoy ese sistema entero (23 diseños) no cobra NINGÚN accesorio, sale con advertencia 'No hay accesorios configurados'. 2026-09-11: el Excel matriz SÍ despieza 7038, pero sus precios salen de un libro externo con un factor plano de 1,3674 que no distingue PA/PM/PB, así que no se puede derivar un producto de catálogo con los tres precios de segmento. Falta crear el SKU. Ver TECH_DEBT.md 2026-09-11."
     },
-    "Guia 7038": { "estado": "PENDIENTE", "nota": "Ver Chapa Overseas Doble Cilindro -- mismo hallazgo, Sistema7038-Interior no tiene accesorios configurados hoy." },
-    "Rodamiento 7038": { "estado": "PENDIENTE", "nota": "Ver Chapa Overseas Doble Cilindro." },
-    "E7038_6mm Empaque monumental 6mm": { "estado": "PENDIENTE", "nota": "Ver Chapa Overseas Doble Cilindro -- también de Sistema7038-Interior." },
+    "Guia 7038": { "estado": "PENDIENTE", "nota": "Ver Chapa Overseas Doble Cilindro -- mismo hallazgo, Sistema7038-Interior no tiene accesorios configurados hoy y el Excel sólo aporta un precio con factor plano 1,3674, sin segmentos. Falta crear el SKU (2026-09-11)." },
+    "Rodamiento 7038": { "estado": "PENDIENTE", "nota": "Ver Chapa Overseas Doble Cilindro. Falta crear el SKU (2026-09-11)." },
+    "E7038_6mm Empaque monumental 6mm": { "estado": "PENDIENTE", "nota": "Ver Chapa Overseas Doble Cilindro -- también de Sistema7038-Interior. Falta crear el SKU (2026-09-11)." },
     "Manija 744-8025": {
-      "estado": "PENDIENTE",
-      "nota": "HALLAZGO: no existe ningún rol \"manija\" en CATALOGO_SISTEMAS de ventanas.js -- ningún sistema de ventanas cobra manija hoy, en ninguna cotización."
+      "estado": "IGNORADO",
+      "nota": "RESUELTO 2026-09-11 contra el Excel matriz: el Excel TAMPOCO cobra manija en los despieces de ventana 744/8025, así que la ausencia de un rol \"manija\" en CATALOGO_SISTEMAS de ventanas.ts NO era un olvido — no cobrarla era y sigue siendo lo correcto. Se pasa a IGNORADO para que deje de bloquear. ⚠️ Matiz: el Excel sí la lista en el despiece de Sistema7038-Interior, donde es uno de los 5 SKU que faltan por crear; si algún día se activa 7038 habrá que volver sobre esta decisión y partirla por sistema.",
+      "confianza": "alta"
     },
-    "Manija Alpha": { "estado": "PENDIENTE", "nota": "Ver Manija 744-8025." },
-    "Pomo-Haladera": { "estado": "PENDIENTE", "nota": "Candidatos con nombre parecido en el catálogo: BHA1101/BHA0901/BHA0301 (botón haladera, distintos acabados) -- no hay forma de saber cuál sin preguntar." },
-    "Manija Roma 40-20": { "estado": "PENDIENTE", "nota": "Ver Manija 744-8025." },
-    "Chapeta * 30 mm ref a15": { "estado": "PENDIENTE", "nota": "Para cabinas. Candidatos: CPI0101, CHA0301, CCE1101 -- ninguno coincide con seguridad." },
-    "Cerrojo de Embutir": { "estado": "PENDIENTE", "nota": "Sistema8025 ya cobra CPTOR en su rol \"cerrojo\", pero es un cerrojo distinto (\"punto rojo\", no \"de embutir\"): no asumir que son el mismo producto." },
-    "Burbuja de pvc": { "estado": "PENDIENTE", "nota": "Candidato con nombre parecido: PBU0901 (perfil burbuja) -- verificar antes de fijar." },
-    "Brazo escualizable 10 pulg": { "estado": "PENDIENTE", "nota": "Proyectantes. El catálogo sólo tiene BRES0301 de 12 pulgadas (proyectantes.js ya la usa como único BRAZO); este diseño pide 10 pulgadas, que es una referencia distinta." },
-    "Bisagra Sencilla de Cabina": { "estado": "PENDIENTE", "nota": "cabinasBatientes.js ya tiene BISAGRA_POR_TIPO.sencilla = BSE0301 para el formulario de cabinas batientes -- candidato razonable pero no confirmado como el mismo producto." },
-    "BIsagra Doble 180°": { "estado": "PENDIENTE", "nota": "cabinasBatientes.js ya tiene BISAGRA_POR_TIPO.doble = BDO0302 -- candidato, no confirmado." },
-    "Rodamiento de Cabina": { "estado": "PENDIENTE", "nota": "cabinasCorredizas.js usa ROD0401 (4 por par de paños) en su callback de accesorios -- candidato razonable." },
-    "Rodamientos Primavera": { "estado": "PENDIENTE", "nota": "Podría ser el mismo ROD0401 de Cabina Deslizante Primavera, o una referencia propia -- verificar." },
-    "Rodamiento Torino": { "estado": "PENDIENTE", "nota": "Ídem para Cabina Deslizante Torino." },
-    "Rodamiento Orquilla": { "estado": "PENDIENTE", "nota": "Sin candidato claro en el catálogo." },
-    "Chapetas Fijo Primavera": { "estado": "PENDIENTE", "nota": "Sin candidato claro." },
-    "Sujecion Fijo Torino": { "estado": "PENDIENTE", "nota": "Sin candidato claro." },
-    "Tope Torino": { "estado": "PENDIENTE", "nota": "Candidatos: TCA0301 (tope cazuela/media luna), TOR1101 (tope con oring) -- verificar." },
-    "Guia Torino": { "estado": "PENDIENTE", "nota": "Sin candidato claro; no confundir con GUIA5020 (es de otro sistema)." },
-    "Union 90° Torino": { "estado": "PENDIENTE", "nota": "Sin candidato claro." },
-    "Union VP010": { "estado": "PENDIENTE", "nota": "Sin candidato claro." },
-    "Cerrojo Media Luna": { "estado": "PENDIENTE", "nota": "Sin candidato claro (hay bisagras \"media luna\" en el catálogo, pero un cerrojo es otra pieza)." },
-    "Chapeta Anudal": { "estado": "PENDIENTE", "nota": "Sin candidato claro." },
-    "Chapeta Central": { "estado": "PENDIENTE", "nota": "Catálogo tiene CCE1101 (chapeta central acero 30-35) como candidato -- verificar espesor/acabado." },
-    "Soporte de Toallero": { "estado": "PENDIENTE", "nota": "Espejo/vidrios. Sin candidato claro." },
-    "Platina para Rodamiento de cabina": { "estado": "PENDIENTE", "nota": "Sin candidato claro." },
-    "Empaque de Cabina": { "estado": "PENDIENTE", "nota": "Un solo diseño lo usa (ESP_FLOT_1). Sin candidato claro." },
-    "Porta Chapa + Chapa PIcoloro": { "estado": "PENDIENTE", "nota": "Candidato: CPI0101 (chapeta con cerradura Picoloro) -- pero el nombre sugiere dos piezas juntas (porta-chapa + chapa), no una." },
-    "Trinquete Inoxidable": { "estado": "PENDIENTE", "nota": "Sin candidato claro." },
-    "Elevador Inoxidable de 1 Pulg x 20mm": { "estado": "PENDIENTE", "nota": "Catálogo tiene ELE0801/ELE1103/ELE1101 (elevadores de 1\", distintos altos) -- verificar cuál mide 20mm." }
+    "Manija Alpha": { "estado": "PENDIENTE", "nota": "Proyectantes (Sistema3831 / -Reforzado). Ver \"Manija 744-8025\": ningún sistema de ventanas cobra manija hoy, pero a diferencia de aquélla el Excel matriz no aclara el caso de proyectantes, así que no se puede ignorar por analogía. Requiere referencia del taller." },
+    "Pomo-Haladera": { "estado": "PENDIENTE", "nota": "Candidatos con nombre parecido en el catálogo: BHA1101/BHA0901/BHA0301 (botón haladera, distintos acabados) -- no hay forma de saber cuál sin preguntar. El Excel matriz no despieza cabinas, así que no aporta el desempate (2026-09-11)." },
+    "Manija Roma 40-20": { "estado": "PENDIENTE", "nota": "Cabina Deslizante Torino. Ver Manija 744-8025; el Excel matriz no cubre cabinas (2026-09-11)." },
+    "Chapeta * 30 mm ref a15": { "estado": "PENDIENTE", "nota": "Para cabinas y 3831-Reforzado. Candidatos: CPI0101, CHA0301, CCE1101 -- ninguno coincide con seguridad, y el Excel matriz no lo despieza (2026-09-11)." },
+    "Burbuja de pvc": { "estado": "PENDIENTE", "nota": "Candidato con nombre parecido: PBU0901 (perfil burbuja) -- verificar antes de fijar. El Excel matriz no cubre cabinas (2026-09-11)." },
+    "Brazo escualizable 10 pulg": { "estado": "PENDIENTE", "nota": "Proyectantes. VERIFICADO 2026-09-11 contra el Excel matriz: el Excel sólo tiene BRES0301, de 12 pulgadas (el mismo que proyectantes.ts ya usa como único BRAZO). Este diseño pide 10 pulgadas, que no existe en ninguna parte — no es un error de mapeo sino un HUECO REAL DE CATÁLOGO: falta crear la referencia de 10\", o decidir que el de 12\" la sustituye. Es decisión de compras/taller, no de mapeo." },
+    "Rodamientos Primavera": { "estado": "PENDIENTE", "nota": "Podría ser el mismo ROD0401 de Cabina Deslizante Primavera, o una referencia propia -- verificar. El Excel matriz no despieza cabinas (2026-09-11)." },
+    "Rodamiento Torino": { "estado": "PENDIENTE", "nota": "Ídem para Cabina Deslizante Torino. El Excel matriz no despieza cabinas (2026-09-11)." },
+    "Rodamiento Orquilla": { "estado": "PENDIENTE", "nota": "Sin candidato claro en el catálogo, y VERIFICADO 2026-09-11: el Excel matriz tampoco lo cubre. Requiere referencia del taller antes de poder mapearse. Bloquea Cabina Batiente." },
+    "Chapetas Fijo Primavera": { "estado": "PENDIENTE", "nota": "Sin candidato claro, y VERIFICADO 2026-09-11: el Excel matriz tampoco lo cubre. Requiere referencia del taller. Bloquea Cabina Deslizante Primavera." },
+    "Sujecion Fijo Torino": { "estado": "PENDIENTE", "nota": "Sin candidato claro, y VERIFICADO 2026-09-11: el Excel matriz tampoco lo cubre. Requiere referencia del taller. Bloquea Cabina Deslizante Torino." },
+    "Tope Torino": { "estado": "PENDIENTE", "nota": "Candidatos: TCA0301 (tope cazuela/media luna), TOR1101 (tope con oring) -- verificar. El Excel matriz no despieza cabinas (2026-09-11)." },
+    "Guia Torino": { "estado": "PENDIENTE", "nota": "Sin candidato claro; no confundir con GUIA5020 (es de otro sistema). VERIFICADO 2026-09-11: el Excel matriz tampoco lo cubre. Requiere referencia del taller. Bloquea Cabina Deslizante Torino." },
+    "Union 90° Torino": { "estado": "PENDIENTE", "nota": "Sin candidato claro, y VERIFICADO 2026-09-11: el Excel matriz tampoco lo cubre. Requiere referencia del taller. Bloquea Cabina Deslizante Torino." },
+    "Union VP010": { "estado": "PENDIENTE", "nota": "Sin candidato claro, y VERIFICADO 2026-09-11: el Excel matriz tampoco lo cubre. Requiere referencia del taller. Es el único bloqueador de Vidrios y Espejos (3 diseños)." },
+    "Cerrojo Media Luna": { "estado": "PENDIENTE", "nota": "Sin candidato claro (hay bisagras \"media luna\" en el catálogo, pero un cerrojo es otra pieza), y VERIFICADO 2026-09-11: el Excel matriz tampoco lo cubre — no es el CPTOR, que ya quedó asignado a \"Cerrojo de Embutir\". Requiere referencia del taller. Es el único bloqueador de Sistema8025 (25 diseños)." },
+    "Chapeta Anudal": { "estado": "PENDIENTE", "nota": "Sin candidato claro, y VERIFICADO 2026-09-11: el Excel matriz tampoco lo cubre. Requiere referencia del taller. Bloquea Sistema3831-Semireforzado." },
+    "Chapeta Central": { "estado": "PENDIENTE", "nota": "Catálogo tiene CCE1101 (chapeta central acero 30-35) como candidato -- verificar espesor/acabado. El Excel matriz no despieza cabinas (2026-09-11)." },
+    "Soporte de Toallero": { "estado": "PENDIENTE", "nota": "Espejo/vidrios. Sin candidato claro, y VERIFICADO 2026-09-11: el Excel matriz tampoco lo cubre. Requiere referencia del taller. Bloquea Cabina Corrediza." },
+    "Platina para Rodamiento de cabina": { "estado": "PENDIENTE", "nota": "Sin candidato claro, y VERIFICADO 2026-09-11: el Excel matriz tampoco lo cubre. Requiere referencia del taller. Bloquea Cabina Corrediza." },
+    "Empaque de Cabina": { "estado": "PENDIENTE", "nota": "Un solo diseño lo usa (ESP_FLOT_1). Sin candidato claro, y VERIFICADO 2026-09-11: el Excel matriz tampoco lo cubre. Requiere referencia del taller." },
+    "Trinquete Inoxidable": { "estado": "PENDIENTE", "nota": "Sin candidato claro, y VERIFICADO 2026-09-11: el Excel matriz tampoco lo cubre. Requiere referencia del taller. Bloquea Cabina Deslizante Torino." }
   }
 }

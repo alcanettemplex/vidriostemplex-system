@@ -182,6 +182,8 @@ async function sembrarMapeoAccesorios() {
     estado: v.estado,
     codigo: v.codigo ?? null,
     consumo: v.consumo ?? null,
+    // Restricción por sistema (2026-09-11): ver MapeoAccesorio.sistemas.
+    sistemas: v.sistemas ?? null,
     nota: v.nota ?? null,
     confianza: v.confianza ?? null,
   }));
@@ -205,6 +207,15 @@ async function sembrarParametros() {
     flete_fijo: p.flete_fijo,
     smo_tarifa_minima: p.smo.tarifaMinima,
     smo_piso_tablero_grande: p.smo.pisoTableroGrande,
+    // Un SMO por tipo de obra (2026-09-11). Se pasan explícitamente para que un
+    // entorno nuevo nazca con los valores del Excel matriz y no dependa del
+    // defaultValue del modelo, que es sólo una red de seguridad.
+    smo_cabinas: p.smo.cabinas,
+    smo_fachadas: p.smo.fachadas,
+    smo_armada_ventanas: p.smo.armadaVentanas,
+    smo_persiana: p.smo.persiana,
+    alquiler_andamio: p.alquiler_andamio,
+    huacal: p.huacal,
     clientes: p.clientes,
     asesores: p.asesores,
     estados_cotizacion: p.estados_cotizacion,

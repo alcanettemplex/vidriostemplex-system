@@ -44,7 +44,29 @@ export interface Parametros {
   iva: number;
   clientes: string[];
   flete_fijo: number;
-  smo: { tarifaMinima: number; pisoTableroGrande: number };
+  /**
+   * Servicio Mínimo de Obra. El Excel original (hoja COSTOS, tabla "GASTOS DE
+   * INSTALACION" en Z27:AC38) no cobra un SMO único sino uno por TIPO DE OBRA:
+   * SMO01 Cabinas, SMO02 Fachadas, SMO03 solo armada de ventanas, SMO04
+   * Persiana. La webapp modelaba sólo `tarifaMinima`, así que cobraba lo mismo
+   * instalar una cabina que armar una ventana (2026-09-11).
+   *
+   * `tarifaMinima` se conserva como piso genérico para el módulo que no declare
+   * un tipo de obra propio, y `pisoTableroGrande` es un piso específico de
+   * Tablero que el Excel no modela y que no se quiso perder.
+   */
+  smo: {
+    tarifaMinima: number;
+    pisoTableroGrande: number;
+    cabinas: number;
+    fachadas: number;
+    armadaVentanas: number;
+    persiana: number;
+  };
+  /** ALQU36 — alquiler de andamio. */
+  alquiler_andamio: number;
+  /** HUAC06 — huacal de transporte. */
+  huacal: number;
   asesores: string[];
   estados_cotizacion: string[];
 }
@@ -208,6 +230,20 @@ export interface MapeoAccesorio {
   consumo?: ConsumoAccesorio | null;
   nota?: string | null;
   confianza?: string | null;
+  /**
+   * Restringe el mapeo a estos sistemas (2026-09-11).
+   *
+   * El mapeo va por DESCRIPCIÓN única, pero el extractor produjo descripciones
+   * genéricas que significan productos distintos según el sistema: "E.universa.
+   * Empaque Universal" es EMP5020 en Sistema5020, EMP1305/EMP1306 en
+   * Sistema744 y EMPA8025 en Sistema8025. Sin esta lista, mapear esa clave a un
+   * código cobraría el producto equivocado a los otros sistemas EN SILENCIO —
+   * que es peor que bloquear.
+   *
+   * Ausente o vacía = vale para todos los sistemas (el caso normal). Si está y
+   * el sistema del diseño no aparece, el accesorio se trata como PENDIENTE.
+   */
+  sistemas?: string[] | null;
 }
 
 export interface MapeoAccesorios {
