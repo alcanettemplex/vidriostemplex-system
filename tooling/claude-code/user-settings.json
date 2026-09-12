@@ -1,10 +1,19 @@
 {
   "permissions": {
-    "defaultMode": "bypassPermissions"
+    "allow": [
+      "Bash(*)",
+      "PowerShell(*)",
+      "Read(//c/Users/User/.claude/**)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\User\\.claude"
+    ]
   },
-  "skipDangerousModePermissionPrompt": true,
-  "model": "opus",
+  "model": "sonnet",
+  "language": "spanish",
+  "effortLevel": "high",
   "autoUpdatesChannel": "latest",
+  "tui": "fullscreen",
   "agentPushNotifEnabled": true,
-  "effortLevel": "xhigh"
+  "remoteControlAtStartup": true
 }

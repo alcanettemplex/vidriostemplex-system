@@ -1,77 +1,32 @@
 {
   "permissions": {
     "allow": [
-      "Bash",
-      "PowerShell",
-      "Read",
-      "Edit",
-      "Write",
-      "NotebookEdit",
-      "Glob",
-      "Grep",
-      "Agent",
-      "Task",
-      "TaskOutput",
-      "TaskStop",
-      "SendMessage",
-      "ListAgents",
-      "Skill",
-      "Artifact",
-      "TodoWrite",
-      "Monitor",
-      "EnterPlanMode",
-      "ExitPlanMode",
-      "SendUserFile",
-      "ToolSearch",
-      "CronCreate",
-      "CronList",
-      "CronDelete",
-      "RemoteTrigger",
-      "PushNotification",
-      "EnterWorktree",
-      "ExitWorktree",
-      "DesignSync",
-      "Bash(npm *)",
-      "Bash(npx *)",
-      "Bash(node *)",
-      "Bash(tsc *)",
-      "Bash(ts-node *)",
-      "Bash(./node_modules/.bin/*)",
-      "Bash(TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' ./node_modules/.bin/ts-node src/scripts/*)",
-      "Bash(TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' ./node_modules/.bin/ts-node --transpile-only \"C:/Users/PRODUC~1/AppData/Local/Temp/claude/*)",
-      "Bash(DOTENV_CONFIG_PATH=backend-api/.env ./backend-api/node_modules/.bin/ts-node *)",
-      "Bash(git *)",
-      "Bash(netstat -ano)",
-      "Bash(taskkill *)",
-      "PowerShell(*)",
-      "WebFetch",
-      "WebSearch",
-      "Read(//c/Users/PRODUCCION/.claude/**)",
-      "Read(//c/Users/PRODUC~1/AppData/Local/Temp/claude/**)",
-      "Skill(run)",
-      "Skill(run:*)",
-      "Skill(update-config)",
-      "Skill(update-config:*)"
-    ],
-    "deny": [
-      "Bash(git reset --hard*)",
-      "Bash(git clean *)",
-      "Bash(rm -rf *)",
-      "PowerShell(Remove-Item -Recurse*)"
-    ]
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "git fetch --quiet 2>/dev/null; b=$(git rev-parse --abbrev-ref HEAD 2>/dev/null); lr=$(git rev-list --left-right --count @{u}...HEAD 2>/dev/null); [ -z \"$lr\" ] && exit 0; behind=$(echo \"$lr\" | cut -f1); ahead=$(echo \"$lr\" | cut -f2); dirty=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' '); [ \"$behind\" = \"0\" ] && [ \"$ahead\" = \"0\" ] && exit 0; printf '{\"systemMessage\":\"Git %s: %s commit(s) por traer de origin, %s sin pushear, %s archivo(s) con cambios locales.\",\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"Estado git al iniciar: rama %s, %s commits detras del remoto, %s commits locales sin pushear, %s archivos modificados. Informar al usuario; no hacer pull ni push sin que lo pida.\"}}' \"$b\" \"$behind\" \"$ahead\" \"$dirty\" \"$b\" \"$behind\" \"$ahead\" \"$dirty\"; exit 0",
-            "timeout": 30,
-            "statusMessage": "Verificando estado del repo..."
-          }
-        ]
-      }
+      "Bash(npm run dev:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run start:*)",
+      "Bash(npm run test:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run format:*)",
+      "Bash(npm start)",
+      "Bash(npm run dev)",
+      "Bash(npm run build)",
+      "Bash(npm run start)",
+      "Bash(npm run test)",
+      "Bash(npm run lint)",
+      "Bash(npm run lint:fix)",
+      "Bash(npm run format)",
+      "Bash(npm install:*)",
+      "Bash(npm install)",
+      "Bash(npm ls:*)",
+      "Bash(npx:*)",
+      "Bash(node:*)",
+      "Bash(nodemon:*)",
+      "Bash(curl:*)",
+      "Bash(git status)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git log)",
+      "Bash(git diff)"
     ]
   }
 }
