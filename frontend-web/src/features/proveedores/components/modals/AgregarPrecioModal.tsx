@@ -1,9 +1,10 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, DollarSign, Search, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
+import { RADIUS, FONT } from '../../styleTokens';
 
 interface Proveedor { id: number; nombre_comercial: string; nit: string | null; }
 interface ProductoCatalogo { id: number; codigo: string; nombre: string; porcentaje_iva: number; es_aluminio: boolean; }
@@ -85,10 +86,10 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '10px 12px', boxSizing: 'border-box',
     background: 'var(--bg)', border: '1px solid var(--border)',
-    borderRadius: 10, color: 'var(--text)', fontSize: 14, outline: 'none',
+    borderRadius: RADIUS.lg, color: 'var(--text)', fontSize: FONT.md, outline: 'none',
   };
   const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: 12, color: 'var(--text-muted)',
+    display: 'block', fontSize: FONT.sm, color: 'var(--text-muted)',
     fontWeight: 700, marginBottom: 5, letterSpacing: .4,
   };
 
@@ -109,7 +110,7 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
         <motion.div
           initial={{ scale: .94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: .94, opacity: 0 }}
           style={{
-            background: 'var(--surface)', borderRadius: 18, width: '100%', maxWidth: 540,
+            background: 'var(--surface)', borderRadius: RADIUS['4xl'], width: '100%', maxWidth: 540,
             border: '1px solid var(--border)', overflow: 'hidden',
           }}
         >
@@ -121,9 +122,9 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                 <DollarSign size={18} color="var(--primary)" />
-                <span style={{ fontWeight: 700, fontSize: 16 }}>Agregar precio</span>
+                <span style={{ fontWeight: 700, fontSize: FONT.xl }}>Agregar precio</span>
               </div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+              <div style={{ fontSize: FONT.base, color: 'var(--text-muted)', marginTop: 2 }}>
                 Proveedor: <strong>{proveedor.nombre_comercial}</strong>
               </div>
             </div>
@@ -142,12 +143,12 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   background: 'var(--primary)18', border: '1px solid var(--primary)40',
-                  borderRadius: 10, padding: '10px 14px',
+                  borderRadius: RADIUS.lg, padding: '10px 14px',
                 }}>
                   <div>
-                    <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--primary)' }}>{productoSeleccionado.codigo}</span>
-                    <span style={{ marginLeft: 8, fontSize: 14, fontWeight: 600 }}>{productoSeleccionado.nombre}</span>
-                    <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-muted)' }}>IVA {productoSeleccionado.porcentaje_iva}%</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: FONT.sm, color: 'var(--primary)' }}>{productoSeleccionado.codigo}</span>
+                    <span style={{ marginLeft: 8, fontSize: FONT.md, fontWeight: 600 }}>{productoSeleccionado.nombre}</span>
+                    <span style={{ marginLeft: 8, fontSize: FONT.xs, color: 'var(--text-muted)' }}>IVA {productoSeleccionado.porcentaje_iva}%</span>
                   </div>
                   <button type="button" onClick={() => setProductoSeleccionado(null)}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
@@ -171,7 +172,7 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
                     <div style={{
                       position: 'absolute', top: '100%', left: 0, right: 0,
                       background: 'var(--surface)', border: '1px solid var(--border)',
-                      borderRadius: 10, zIndex: 100, boxShadow: '0 8px 24px rgba(0,0,0,.2)',
+                      borderRadius: RADIUS.lg, zIndex: 100, boxShadow: '0 8px 24px rgba(0,0,0,.2)',
                       overflow: 'hidden',
                     }}>
                       {productos.map(p => (
@@ -186,9 +187,9 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
                           onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg)')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--primary)' }}>{p.codigo}</span>
-                          <span style={{ fontSize: 13 }}>{p.nombre}</span>
-                          {p.es_aluminio && <span style={{ fontSize: 10, background: '#3b82f618', color: '#3b82f6', borderRadius: 4, padding: '1px 5px' }}>ALUMINIO</span>}
+                          <span style={{ fontFamily: 'monospace', fontSize: FONT.sm, color: 'var(--primary)' }}>{p.codigo}</span>
+                          <span style={{ fontSize: FONT.base }}>{p.nombre}</span>
+                          {p.es_aluminio && <span style={{ fontSize: FONT.tiny, background: '#3b82f618', color: '#3b82f6', borderRadius: RADIUS.xs, padding: '1px 5px' }}>ALUMINIO</span>}
                         </div>
                       ))}
                     </div>
@@ -219,7 +220,7 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
                 {UNIDADES.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
               </select>
               {form.unidad_compra === 'TIRA_6M' && (
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                <div style={{ fontSize: FONT.xs, color: 'var(--text-muted)', marginTop: 4 }}>
                   El precio por metro se calculará automáticamente: precio_tira / 6
                 </div>
               )}
@@ -230,7 +231,7 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
               <div>
                 <label style={labelStyle}>PRECIO SIN IVA *</label>
                 <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 13 }}>$</span>
+                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: FONT.base }}>$</span>
                   <input
                     type="number" min="0" step="1" required
                     value={form.precio} onChange={e => setForm(f => ({ ...f, precio: e.target.value }))}
@@ -238,7 +239,7 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
                   />
                 </div>
                 {precioNum > 0 && (
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                  <div style={{ fontSize: FONT.xs, color: 'var(--text-muted)', marginTop: 4 }}>
                     Con IVA ({pctIva}%): <strong>${precioConIva.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</strong>
                   </div>
                 )}
@@ -254,8 +255,8 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
             {/* Footer */}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
               <button type="button" onClick={onClose} style={{
-                padding: '10px 20px', borderRadius: 10, border: '1px solid var(--border)',
-                background: 'var(--bg)', color: 'var(--text)', fontSize: 14, cursor: 'pointer', fontWeight: 500,
+                padding: '10px 20px', borderRadius: RADIUS.lg, border: '1px solid var(--border)',
+                background: 'var(--bg)', color: 'var(--text)', fontSize: FONT.md, cursor: 'pointer', fontWeight: 500,
               }}>
                 Cancelar
               </button>
@@ -263,9 +264,9 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
                 type="submit"
                 disabled={guardando || !productoSeleccionado || !form.precio}
                 style={{
-                  padding: '10px 24px', borderRadius: 10, border: 'none',
+                  padding: '10px 24px', borderRadius: RADIUS.lg, border: 'none',
                   background: guardando || !productoSeleccionado || !form.precio ? 'var(--border)' : 'var(--primary)',
-                  color: '#fff', fontSize: 14, cursor: 'pointer', fontWeight: 600,
+                  color: '#fff', fontSize: FONT.md, cursor: 'pointer', fontWeight: 600,
                   display: 'flex', alignItems: 'center', gap: 8,
                 }}
               >

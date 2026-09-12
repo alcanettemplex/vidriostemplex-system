@@ -1,4 +1,4 @@
-﻿import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import API from '../../../../services/config';
 import { useBusquedaModulo, MIN_CARACTERES, ProductoSugerido } from '../../hooks/useBusquedaModulo';
+import { RADIUS, FONT } from '../../styleTokens';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -78,14 +79,14 @@ const formatFecha = (val: string | null): string => {
 };
 
 const VariacionBadge: React.FC<{ pct: number | null; anomalo: boolean; umbral: number }> = ({ pct, anomalo, umbral }) => {
-  if (pct === null) return <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>;
+  if (pct === null) return <span style={{ color: 'var(--text-muted)', fontSize: FONT.sm }}>—</span>;
   const Icon = pct > 0 ? TrendingUp : pct < 0 ? TrendingDown : Minus;
   const color = anomalo ? '#ef4444' : pct > 0 ? '#f59e0b' : '#22c55e';
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 3,
-      color, fontWeight: 600, fontSize: 12,
-      background: `${color}18`, borderRadius: 6, padding: '2px 7px',
+      color, fontWeight: 600, fontSize: FONT.sm,
+      background: `${color}18`, borderRadius: RADIUS.sm, padding: '2px 7px',
     }}>
       <Icon size={11} />
       {pct > 0 ? '+' : ''}{pct.toFixed(1)}%
@@ -215,13 +216,13 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
       <div style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',
-        borderRadius: 14,
+        borderRadius: RADIUS['2xl'],
         padding: '20px 24px',
         marginBottom: 24,
         display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap',
       }}>
         <div ref={buscadorRef} style={{ flex: 1, minWidth: 260, position: 'relative' }}>
-          <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>
+          <label style={{ display: 'block', fontSize: FONT.sm, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>
             CÓDIGO, NOMBRE, SINÓNIMO O CÓDIGO DEL PROVEEDOR
           </label>
           <div style={{ position: 'relative' }}>
@@ -234,8 +235,8 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
               placeholder="Ej: TUB0510 · brazo hidráulico · cierrapuertas · AL-2245"
               style={{
                 width: '100%', padding: '10px 34px 10px 38px', boxSizing: 'border-box',
-                background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10,
-                color: 'var(--text)', fontSize: 14, outline: 'none',
+                background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: RADIUS.lg,
+                color: 'var(--text)', fontSize: FONT.md, outline: 'none',
               }}
             />
             {cargandoSugerencias && (
@@ -253,13 +254,13 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                 transition={{ duration: 0.12 }}
                 style={{
                   position: 'absolute', top: 'calc(100% + 5px)', left: 0, right: 0, zIndex: 40,
-                  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
+                  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: RADIUS.xl,
                   boxShadow: '0 16px 36px -12px rgba(15, 23, 42, 0.25)',
                   maxHeight: 320, overflowY: 'auto',
                 }}
               >
                 {productos.length === 0 ? (
-                  <div style={{ padding: '14px 16px', fontSize: 12.5, color: 'var(--text-muted)' }}>
+                  <div style={{ padding: '14px 16px', fontSize: FONT.sm, color: 'var(--text-muted)' }}>
                     Ningún producto coincide. Pulsa Enter para buscar de todas formas.
                   </div>
                 ) : (
@@ -278,15 +279,15 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                     >
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 12, color: 'var(--primary)' }}>
+                          <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: FONT.sm, color: 'var(--primary)' }}>
                             {p.codigo}
                           </span>
-                          <span style={{ fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: FONT.base, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {p.nombre}
                           </span>
                         </div>
                         {(p.motivo?.tipo === 'ALIAS' || p.motivo?.tipo === 'CODIGO_PROVEEDOR') && (
-                          <div style={{ fontSize: 10.5, color: '#7c3aed', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <div style={{ fontSize: FONT.tiny, color: '#7c3aed', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
                             <Sparkles size={10} />
                             {p.motivo.tipo === 'ALIAS' ? `sinónimo · «${p.motivo.detalle}»` : `código del proveedor · ${p.motivo.detalle}`}
                           </div>
@@ -295,16 +296,16 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
                         {p.total_proveedores > 0 ? (
                           <>
-                            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#22c55e' }}>
+                            <div style={{ fontSize: FONT.sm, fontWeight: 700, color: '#22c55e' }}>
                               desde {formatCOP(p.precio_min)}
                             </div>
-                            <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>
+                            <div style={{ fontSize: FONT.tiny, color: 'var(--text-muted)' }}>
                               {p.total_proveedores} proveedor{p.total_proveedores !== 1 ? 'es' : ''}
                               {p.unidad_precio_min ? ` · por ${ETIQUETA_MODALIDAD[p.unidad_precio_min]?.toLowerCase() ?? p.unidad_precio_min}` : ''}
                             </div>
                           </>
                         ) : (
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>sin precios aún</div>
+                          <div style={{ fontSize: FONT.xs, color: 'var(--text-muted)' }}>sin precios aún</div>
                         )}
                       </div>
                     </div>
@@ -316,7 +317,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
         </div>
 
         <div style={{ minWidth: 180 }}>
-          <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>
+          <label style={{ display: 'block', fontSize: FONT.sm, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>
             MODALIDAD
           </label>
           <div style={{ position: 'relative' }}>
@@ -326,8 +327,8 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
               onChange={e => setModalidad(e.target.value)}
               style={{
                 width: '100%', padding: '10px 12px 10px 30px', appearance: 'none',
-                background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10,
-                color: 'var(--text)', fontSize: 14, cursor: 'pointer', outline: 'none',
+                background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: RADIUS.lg,
+                color: 'var(--text)', fontSize: FONT.md, cursor: 'pointer', outline: 'none',
               }}
             >
               {MODALIDADES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
@@ -339,10 +340,10 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
           onClick={buscar}
           disabled={loading || !query.trim()}
           style={{
-            padding: '10px 24px', borderRadius: 10, border: 'none', cursor: 'pointer',
+            padding: '10px 24px', borderRadius: RADIUS.lg, border: 'none', cursor: 'pointer',
             background: loading || !query.trim() ? 'var(--border)' : 'var(--primary)',
             color: loading || !query.trim() ? 'var(--text-muted)' : '#fff',
-            fontWeight: 600, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, transition: 'all .2s',
+            fontWeight: 600, fontSize: FONT.md, display: 'flex', alignItems: 'center', gap: 8, transition: 'all .2s',
           }}
         >
           {loading ? <RefreshCw size={15} className="spin" /> : <Search size={15} />}
@@ -355,15 +356,15 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
         <motion.div
           initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
           style={{
-            border: '1px solid var(--border)', borderRadius: 14,
+            border: '1px solid var(--border)', borderRadius: RADIUS['2xl'],
             overflow: 'hidden', marginBottom: 20,
           }}
         >
           <div style={{ padding: '12px 20px', background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+            <div style={{ fontSize: FONT.md, fontWeight: 700, color: 'var(--text)' }}>
               {candidatos.length} productos coinciden con «{query.trim()}»
             </div>
-            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>
+            <div style={{ fontSize: FONT.sm, color: 'var(--text-muted)', marginTop: 2 }}>
               Elige cuál quieres comparar
             </div>
           </div>
@@ -378,12 +379,12 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
-              <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: FONT.sm, fontWeight: 700, color: 'var(--primary)' }}>
                 {c.codigo}
               </span>
-              <span style={{ fontSize: 13.5, color: 'var(--text)' }}>{c.nombre}</span>
+              <span style={{ fontSize: FONT.base, color: 'var(--text)' }}>{c.nombre}</span>
               {c.unidad_medida && (
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>{c.unidad_medida}</span>
+                <span style={{ fontSize: FONT.xs, color: 'var(--text-muted)', marginLeft: 'auto' }}>{c.unidad_medida}</span>
               )}
             </div>
           ))}
@@ -394,8 +395,8 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
       {!resultado && !candidatos && !error && !loading && (
         <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--text-muted)' }}>
           <Package size={48} style={{ opacity: .3, marginBottom: 12 }} />
-          <p style={{ fontSize: 15 }}>Busca un producto para comparar precios entre proveedores</p>
-          <p style={{ fontSize: 13, marginTop: 4 }}>Puedes buscar por código (TUB0510), nombre o alias del proveedor</p>
+          <p style={{ fontSize: FONT.lg }}>Busca un producto para comparar precios entre proveedores</p>
+          <p style={{ fontSize: FONT.base, marginTop: 4 }}>Puedes buscar por código (TUB0510), nombre o alias del proveedor</p>
         </div>
       )}
 
@@ -404,7 +405,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
         <motion.div
           initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
           style={{
-            background: '#ef444410', border: '1px solid #ef4444', borderRadius: 12,
+            background: '#ef444410', border: '1px solid #ef4444', borderRadius: RADIUS.xl,
             padding: '16px 20px', color: '#ef4444', display: 'flex', alignItems: 'center', gap: 10,
           }}
         >
@@ -421,19 +422,19 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
             {/* Header del producto */}
             <div style={{
               background: 'var(--surface)', border: '1px solid var(--border)',
-              borderRadius: 14, padding: '16px 24px', marginBottom: 16,
+              borderRadius: RADIUS['2xl'], padding: '16px 24px', marginBottom: 16,
               display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12,
             }}>
               <div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>PRODUCTO</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>
-                  <span style={{ color: 'var(--primary)', marginRight: 10, fontSize: 14, fontFamily: 'monospace' }}>
+                <div style={{ fontSize: FONT.sm, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>PRODUCTO</div>
+                <div style={{ fontSize: FONT.xxl, fontWeight: 700, color: 'var(--text)' }}>
+                  <span style={{ color: 'var(--primary)', marginRight: 10, fontSize: FONT.md, fontFamily: 'monospace' }}>
                     {resultado.producto.codigo}
                   </span>
                   {resultado.producto.nombre}
                 </div>
                 {resultado.producto.unidad_medida && (
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
+                  <div style={{ fontSize: FONT.sm, color: 'var(--text-muted)', marginTop: 3 }}>
                     Unidad: {resultado.producto.unidad_medida} · IVA: {resultado.producto.porcentaje_iva}%
                   </div>
                 )}
@@ -441,7 +442,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
               <div style={{
                 background: resultado.precios.length > 0 ? '#22c55e18' : '#f5940018',
                 color: resultado.precios.length > 0 ? '#22c55e' : '#f59400',
-                borderRadius: 8, padding: '6px 14px', fontWeight: 700, fontSize: 14,
+                borderRadius: RADIUS.md, padding: '6px 14px', fontWeight: 700, fontSize: FONT.md,
               }}>
                 {resultado.total} proveedor{resultado.total !== 1 ? 'es' : ''}
               </div>
@@ -454,11 +455,11 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                 style={{
                   display: 'flex', alignItems: 'flex-start', gap: 10,
                   background: '#f59e0b12', border: '1px solid #f59e0b55',
-                  borderRadius: 12, padding: '12px 16px', marginBottom: 16,
+                  borderRadius: RADIUS.xl, padding: '12px 16px', marginBottom: 16,
                 }}
               >
                 <AlertTriangle size={16} color="#b45309" style={{ flexShrink: 0, marginTop: 1 }} />
-                <div style={{ fontSize: 12.5, color: 'var(--text)', lineHeight: 1.45 }}>
+                <div style={{ fontSize: FONT.sm, color: 'var(--text)', lineHeight: 1.45 }}>
                   <strong>Hay precios en distintas modalidades de compra.</strong>{' '}
                   Un precio por tira no es comparable con uno por metro: el marcado como «más bajo»
                   lo es solo dentro de su modalidad. Filtra por una modalidad para comparar de forma válida.
@@ -470,17 +471,17 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
             {resultado.precios.length === 0 && (
               <div style={{
                 textAlign: 'center', padding: '40px 24px',
-                color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: 14,
+                color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: RADIUS['2xl'],
               }}>
                 <Package size={36} style={{ opacity: .3, marginBottom: 12 }} />
                 <p>No hay precios registrados para este producto.</p>
-                <p style={{ fontSize: 13 }}>Agrégalos desde la pestaña <strong>Proveedores</strong></p>
+                <p style={{ fontSize: FONT.base }}>Agrégalos desde la pestaña <strong>Proveedores</strong></p>
               </div>
             )}
 
             {/* Tabla de precios */}
             {resultado.precios.length > 0 && (
-              <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+              <div style={{ border: '1px solid var(--border)', borderRadius: RADIUS['2xl'], overflow: 'hidden' }}>
                 {/* Encabezado de tabla */}
                 <div style={{
                   display: 'grid',
@@ -490,7 +491,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                   borderBottom: '1px solid var(--border)',
                 }}>
                   {['PROVEEDOR', 'MODALIDAD', 'SIN IVA', `+${resultado.producto.porcentaje_iva}% IVA`, 'VARIACIÓN', 'FECHA'].map(h => (
-                    <div key={h} style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: .5 }}>{h}</div>
+                    <div key={h} style={{ fontSize: FONT.xs, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: .5 }}>{h}</div>
                   ))}
                 </div>
 
@@ -521,18 +522,18 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {idx === 0 && (
                           <span style={{
-                            background: '#22c55e', color: '#fff', fontSize: 9, fontWeight: 700,
-                            borderRadius: 4, padding: '2px 5px', letterSpacing: .5,
+                            background: '#22c55e', color: '#fff', fontSize: FONT.tiny, fontWeight: 700,
+                            borderRadius: RADIUS.xs, padding: '2px 5px', letterSpacing: .5,
                           }}>
                             MÁS BAJO
                           </span>
                         )}
                         <div>
-                          <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: 14 }}>
+                          <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: FONT.md }}>
                             {p.proveedor.nombre_comercial}
                           </div>
                           {p.codigo_proveedor && (
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                            <div style={{ fontSize: FONT.xs, color: 'var(--text-muted)', fontFamily: 'monospace' }}>
                               {p.codigo_proveedor}
                             </div>
                           )}
@@ -541,17 +542,17 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                       </div>
 
                       {/* Modalidad */}
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center' }}>
+                      <div style={{ fontSize: FONT.sm, color: 'var(--text-muted)', alignSelf: 'center' }}>
                         {ETIQUETA_MODALIDAD[p.unidad_compra] ?? p.unidad_compra}
                       </div>
 
                       {/* Precio sin IVA */}
-                      <div style={{ fontWeight: 700, color: 'var(--text)', alignSelf: 'center', fontSize: 15 }}>
+                      <div style={{ fontWeight: 700, color: 'var(--text)', alignSelf: 'center', fontSize: FONT.lg }}>
                         {formatCOP(p.precio_sin_iva)}
                       </div>
 
                       {/* Precio con IVA */}
-                      <div style={{ color: 'var(--text-muted)', alignSelf: 'center', fontSize: 14 }}>
+                      <div style={{ color: 'var(--text-muted)', alignSelf: 'center', fontSize: FONT.md }}>
                         {formatCOP(p.precio_con_iva)}
                       </div>
 
@@ -561,7 +562,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                       </div>
 
                       {/* Fecha */}
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center' }}>
+                      <div style={{ fontSize: FONT.sm, color: 'var(--text-muted)', alignSelf: 'center' }}>
                         {formatFecha(p.fecha_precio_actual)}
                       </div>
                     </div>
@@ -583,37 +584,37 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                             {/* Descripción del proveedor */}
                             {p.descripcion_proveedor && (
                               <div>
-                                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 3 }}>DESCRIPCIÓN PROVEEDOR</div>
-                                <div style={{ fontSize: 13, color: 'var(--text)' }}>{p.descripcion_proveedor}</div>
+                                <div style={{ fontSize: FONT.xs, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 3 }}>DESCRIPCIÓN PROVEEDOR</div>
+                                <div style={{ fontSize: FONT.base, color: 'var(--text)' }}>{p.descripcion_proveedor}</div>
                               </div>
                             )}
 
                             {/* Precio por metro derivado (perfilería) */}
                             {p.precio_metro_derivado && (
                               <div>
-                                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 3 }}>PRECIO POR METRO (DERIVADO)</div>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{formatCOP(p.precio_metro_derivado)} / m</div>
+                                <div style={{ fontSize: FONT.xs, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 3 }}>PRECIO POR METRO (DERIVADO)</div>
+                                <div style={{ fontSize: FONT.base, fontWeight: 600, color: 'var(--text)' }}>{formatCOP(p.precio_metro_derivado)} / m</div>
                               </div>
                             )}
 
                             {/* Historial de precios */}
                             <div>
-                              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 6 }}>HISTORIAL DE PRECIOS</div>
+                              <div style={{ fontSize: FONT.xs, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 6 }}>HISTORIAL DE PRECIOS</div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 {p.precio_anterior_1 ? (
-                                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                  <div style={{ fontSize: FONT.sm, color: 'var(--text-muted)' }}>
                                     <span style={{ fontWeight: 600, color: 'var(--text)' }}>{formatCOP(p.precio_anterior_1)}</span>
                                     {' '}hasta {formatFecha(p.fecha_anterior_1)}
                                   </div>
                                 ) : null}
                                 {p.precio_anterior_2 ? (
-                                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                  <div style={{ fontSize: FONT.sm, color: 'var(--text-muted)' }}>
                                     <span style={{ fontWeight: 600 }}>{formatCOP(p.precio_anterior_2)}</span>
                                     {' '}hasta {formatFecha(p.fecha_anterior_2)}
                                   </div>
                                 ) : null}
                                 {!p.precio_anterior_1 && (
-                                  <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Sin historial anterior</div>
+                                  <div style={{ fontSize: FONT.sm, color: 'var(--text-muted)', fontStyle: 'italic' }}>Sin historial anterior</div>
                                 )}
                               </div>
                             </div>
@@ -622,11 +623,11 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                             {p.precio_anomalo && (
                               <div style={{
                                 background: '#ef444410', border: '1px solid #ef4444',
-                                borderRadius: 8, padding: '8px 14px',
+                                borderRadius: RADIUS.md, padding: '8px 14px',
                                 display: 'flex', alignItems: 'center', gap: 8,
                               }}>
                                 <AlertTriangle size={14} color="#ef4444" />
-                                <span style={{ fontSize: 12, color: '#ef4444', fontWeight: 600 }}>
+                                <span style={{ fontSize: FONT.sm, color: '#ef4444', fontWeight: 600 }}>
                                   Variación anómala: {p.variacion_pct !== null ? `${p.variacion_pct > 0 ? '+' : ''}${p.variacion_pct.toFixed(1)}%` : ''}
                                   {' '}(umbral: ±{resultado.umbral_variacion_pct}%)
                                 </span>

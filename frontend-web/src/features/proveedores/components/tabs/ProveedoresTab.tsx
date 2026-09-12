@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import API from '../../../../services/config';
 import NuevoProveedorModal from '../modals/NuevoProveedorModal';
 import AgregarPrecioModal from '../modals/AgregarPrecioModal';
+import { RADIUS, FONT } from '../../styleTokens';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -284,7 +285,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '10px 18px', border: 'none', background: 'none',
-                cursor: 'pointer', fontSize: 14, fontWeight: activa ? 700 : 500,
+                cursor: 'pointer', fontSize: FONT.md, fontWeight: activa ? 700 : 500,
                 color: activa ? meta.color : 'var(--text-muted)',
                 borderBottom: `2px solid ${activa ? meta.color : 'transparent'}`,
                 marginBottom: -1, transition: 'all .2s',
@@ -293,7 +294,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
               {texto}
               <span
                 style={{
-                  fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
+                  fontSize: FONT.xs, fontWeight: 700, padding: '2px 7px', borderRadius: RADIUS.pill,
                   background: activa ? `${meta.color}18` : 'var(--surface)',
                   color: activa ? meta.color : 'var(--text-muted)',
                 }}
@@ -318,8 +319,8 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
             placeholder="Buscar por nombre o NIT…"
             style={{
               width: '100%', padding: '9px 12px 9px 34px', boxSizing: 'border-box',
-              background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10,
-              color: 'var(--text)', fontSize: 14, outline: 'none',
+              background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: RADIUS.lg,
+              color: 'var(--text)', fontSize: FONT.md, outline: 'none',
             }}
           />
         </div>
@@ -330,7 +331,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
           onChange={e => setFiltroActivo(e.target.value === '' ? null : e.target.value === 'true')}
           style={{
             padding: '9px 14px', background: 'var(--bg)', border: '1px solid var(--border)',
-            borderRadius: 10, color: 'var(--text)', fontSize: 14, cursor: 'pointer', outline: 'none',
+            borderRadius: RADIUS.lg, color: 'var(--text)', fontSize: FONT.md, cursor: 'pointer', outline: 'none',
           }}
         >
           <option value="">Todos</option>
@@ -344,8 +345,8 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
           onClick={() => fileInputRef.current?.click()}
           disabled={importando}
           style={{
-            padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border)',
-            background: 'var(--surface)', color: 'var(--text)', fontSize: 14,
+            padding: '9px 16px', borderRadius: RADIUS.lg, border: '1px solid var(--border)',
+            background: 'var(--surface)', color: 'var(--text)', fontSize: FONT.md,
             cursor: importando ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 7,
             fontWeight: 500, transition: 'all .2s',
           }}
@@ -358,8 +359,8 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
         <button
           onClick={() => setModalNuevo(true)}
           style={{
-            padding: '9px 18px', borderRadius: 10, border: 'none',
-            background: 'var(--primary)', color: '#fff', fontSize: 14,
+            padding: '9px 18px', borderRadius: RADIUS.lg, border: 'none',
+            background: 'var(--primary)', color: '#fff', fontSize: FONT.md,
             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
             fontWeight: 600, transition: 'all .2s',
           }}
@@ -376,18 +377,18 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
             initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
             style={{
               background: '#22c55e10', border: '1px solid #22c55e40',
-              borderRadius: 12, padding: '14px 20px', marginBottom: 20,
+              borderRadius: RADIUS.xl, padding: '14px 20px', marginBottom: 20,
               display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center',
             }}
           >
             <CheckCircle2 size={20} color="#22c55e" />
-            <div style={{ fontSize: 13 }}>
+            <div style={{ fontSize: FONT.base }}>
               <strong>{resultadoImport.creados}</strong> creados ·{' '}
               <strong>{resultadoImport.actualizados}</strong> actualizados ·{' '}
               <strong>{resultadoImport.omitidos}</strong> omitidos
             </div>
             {resultadoImport.errores.length > 0 && (
-              <div style={{ fontSize: 12, color: '#f59e0b' }}>
+              <div style={{ fontSize: FONT.sm, color: '#f59e0b' }}>
                 <AlertTriangle size={12} style={{ display: 'inline', marginRight: 4 }} />
                 {resultadoImport.errores.length} errores menores
               </div>
@@ -405,16 +406,16 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
             style={{
               display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
               background: 'var(--surface)', border: '1px solid var(--border)',
-              borderRadius: 12, padding: '10px 16px', marginBottom: 16,
+              borderRadius: RADIUS.xl, padding: '10px 16px', marginBottom: 16,
             }}
           >
-            <strong style={{ fontSize: 13 }}>{seleccion.size} seleccionado(s)</strong>
+            <strong style={{ fontSize: FONT.base }}>{seleccion.size} seleccionado(s)</strong>
             <button
               onClick={() => handleDecidirLote(true)}
               disabled={aplicandoLote}
               style={{
-                padding: '7px 14px', borderRadius: 9, border: '1px solid #22c55e60',
-                background: '#22c55e14', color: '#22c55e', fontSize: 13, fontWeight: 600,
+                padding: '7px 14px', borderRadius: RADIUS.md, border: '1px solid #22c55e60',
+                background: '#22c55e14', color: '#22c55e', fontSize: FONT.base, fontWeight: 600,
                 cursor: aplicandoLote ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 6,
               }}
             >
@@ -424,8 +425,8 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
               onClick={() => handleDecidirLote(false)}
               disabled={aplicandoLote}
               style={{
-                padding: '7px 14px', borderRadius: 9, border: '1px solid #ef444460',
-                background: '#ef444414', color: '#ef4444', fontSize: 13, fontWeight: 600,
+                padding: '7px 14px', borderRadius: RADIUS.md, border: '1px solid #ef444460',
+                background: '#ef444414', color: '#ef4444', fontSize: FONT.base, fontWeight: 600,
                 cursor: aplicandoLote ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 6,
               }}
             >
@@ -433,7 +434,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
             </button>
             <button
               onClick={() => setSeleccion(new Set())}
-              style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12 }}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: FONT.sm }}
             >
               Limpiar selección
             </button>
@@ -449,33 +450,33 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
       ) : proveedores.length === 0 ? (
         <div style={{
           textAlign: 'center', padding: '56px 24px',
-          border: '1px dashed var(--border)', borderRadius: 14, color: 'var(--text-muted)',
+          border: '1px dashed var(--border)', borderRadius: RADIUS['2xl'], color: 'var(--text-muted)',
         }}>
           <Building2 size={40} style={{ opacity: .3, marginBottom: 12 }} />
           {busquedaAplicada || filtroActivo !== null ? (
             <>
               <p>Ningún proveedor de esta pestaña coincide con el filtro.</p>
-              <p style={{ fontSize: 13 }}>Prueba en otra sub-pestaña o limpia la búsqueda.</p>
+              <p style={{ fontSize: FONT.base }}>Prueba en otra sub-pestaña o limpia la búsqueda.</p>
             </>
           ) : subTab === 'SIGUIENDO' ? (
             <>
               <p>Ningún proveedor está siguiendo precios.</p>
-              <p style={{ fontSize: 13 }}>Ve a <strong>Pendientes</strong> y aprueba los que sí sean proveedores de insumo.</p>
+              <p style={{ fontSize: FONT.base }}>Ve a <strong>Pendientes</strong> y aprueba los que sí sean proveedores de insumo.</p>
             </>
           ) : subTab === 'SIN_DECIDIR' ? (
             <>
               <p>No queda ningún proveedor por decidir.</p>
-              <p style={{ fontSize: 13 }}>Los emisores nuevos que detecte la ingesta aparecerán aquí.</p>
+              <p style={{ fontSize: FONT.base }}>Los emisores nuevos que detecte la ingesta aparecerán aquí.</p>
             </>
           ) : (
             <>
               <p>No hay proveedores ignorados.</p>
-              <p style={{ fontSize: 13 }}>Aquí caen los que marcaste como "no seguir" y los dados de baja.</p>
+              <p style={{ fontSize: FONT.base }}>Aquí caen los que marcaste como "no seguir" y los dados de baja.</p>
             </>
           )}
         </div>
       ) : (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+        <div style={{ border: '1px solid var(--border)', borderRadius: RADIUS['2xl'], overflow: 'hidden' }}>
           {/* Encabezado */}
           <div style={{
             display: 'grid', gridTemplateColumns: '34px 2fr 1fr 1fr 1fr 1.6fr',
@@ -490,7 +491,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
               style={{ cursor: 'pointer' }}
             />
             {['NOMBRE COMERCIAL', 'NIT / ID', 'TELÉFONO', 'EMAIL', 'SEGUIMIENTO'].map(h => (
-              <div key={h} style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: .5 }}>{h}</div>
+              <div key={h} style={{ fontSize: FONT.xs, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: .5 }}>{h}</div>
             ))}
           </div>
 
@@ -517,16 +518,16 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
 
               {/* Nombre */}
               <div>
-                <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: 14 }}>{p.nombre_comercial}</div>
+                <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: FONT.md }}>{p.nombre_comercial}</div>
                 {p.razon_social && p.razon_social !== p.nombre_comercial && (
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.razon_social}</div>
+                  <div style={{ fontSize: FONT.xs, color: 'var(--text-muted)' }}>{p.razon_social}</div>
                 )}
                 {p.origen_registro === 'INGESTA_FE' && (
                   <span
                     title="Se creó automáticamente al procesar una factura. Verifica sus datos."
                     style={{
-                      display: 'inline-block', marginTop: 3, fontSize: 10,
-                      fontWeight: 700, padding: '1px 6px', borderRadius: 4,
+                      display: 'inline-block', marginTop: 3, fontSize: FONT.tiny,
+                      fontWeight: 700, padding: '1px 6px', borderRadius: RADIUS.xs,
                       background: '#f59e0b18', color: '#b45309',
                     }}
                   >
@@ -536,16 +537,16 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
               </div>
 
               {/* NIT */}
-              <div style={{ fontSize: 13, fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: FONT.base, fontFamily: 'monospace', color: 'var(--text-muted)' }}>
                 {p.nit ?? `${p.tipo_identificacion} ${p.numero_identificacion ?? '—'}`}
-                {p.nit === null && <div style={{ fontSize: 10, color: '#f59e0b' }}>Sin NIT</div>}
+                {p.nit === null && <div style={{ fontSize: FONT.tiny, color: '#f59e0b' }}>Sin NIT</div>}
               </div>
 
               {/* Teléfono */}
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{p.telefono ?? '—'}</div>
+              <div style={{ fontSize: FONT.base, color: 'var(--text-muted)' }}>{p.telefono ?? '—'}</div>
 
               {/* Email */}
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.email ?? '—'}</div>
+              <div style={{ fontSize: FONT.sm, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.email ?? '—'}</div>
 
               {/* Seguimiento — un solo control. El chip dice el estado real (incluye
                   la baja lógica) y el botón ofrece la única acción que falta. */}
@@ -557,7 +558,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
                     <span
                       title={meta.ayuda}
                       style={{
-                        fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 6,
+                        fontSize: FONT.xs, fontWeight: 700, padding: '3px 9px', borderRadius: RADIUS.sm,
                         background: `${meta.color}18`, color: meta.color,
                         display: 'flex', alignItems: 'center', gap: 4,
                       }}
@@ -573,9 +574,9 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
                           : 'Sus facturas pasarán a actualizar precios y sus códigos entrarán a Por Mapear.'}
                         onClick={() => (p.activo ? handleDecidir(p, true) : handleToggleActivo(p))}
                         style={{
-                          background: 'none', border: '1px solid var(--border)', borderRadius: 7,
+                          background: 'none', border: '1px solid var(--border)', borderRadius: RADIUS.sm,
                           padding: '4px 8px', cursor: 'pointer', color: '#22c55e',
-                          fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4,
+                          fontSize: FONT.xs, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4,
                         }}
                       >
                         <CheckCircle2 size={11} /> {p.activo ? 'Seguir' : 'Reactivar'}
@@ -585,9 +586,9 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
                         title="Dejar de seguirlo: sus facturas se registran pero no llenan la bandeja."
                         onClick={() => handleDecidir(p, false)}
                         style={{
-                          background: 'none', border: '1px solid var(--border)', borderRadius: 7,
+                          background: 'none', border: '1px solid var(--border)', borderRadius: RADIUS.sm,
                           padding: '4px 8px', cursor: 'pointer', color: 'var(--text-muted)',
-                          fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4,
+                          fontSize: FONT.xs, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4,
                         }}
                       >
                         <XCircle size={11} /> Ignorar
@@ -598,9 +599,9 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
                       title="Agregar precio para este proveedor"
                       onClick={() => setModalPrecio({ proveedor: p })}
                       style={{
-                        background: 'none', border: '1px solid var(--border)', borderRadius: 7,
+                        background: 'none', border: '1px solid var(--border)', borderRadius: RADIUS.sm,
                         padding: '4px 8px', cursor: 'pointer', color: 'var(--text-muted)',
-                        fontSize: 11, display: 'flex', alignItems: 'center', gap: 4,
+                        fontSize: FONT.xs, display: 'flex', alignItems: 'center', gap: 4,
                       }}
                     >
                       <Plus size={11} /> Precio
@@ -627,7 +628,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
           {/* Footer con total y paginación */}
           <div
             style={{
-              padding: '10px 20px', background: 'var(--surface)', fontSize: 12,
+              padding: '10px 20px', background: 'var(--surface)', fontSize: FONT.sm,
               color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
             }}
           >
@@ -641,8 +642,8 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
                 onClick={() => cargarPagina(proveedores.length)}
                 disabled={cargandoMas}
                 style={{
-                  padding: '5px 14px', borderRadius: 8, border: '1px solid var(--border)',
-                  background: 'var(--bg)', color: 'var(--text)', fontSize: 12, fontWeight: 600,
+                  padding: '5px 14px', borderRadius: RADIUS.md, border: '1px solid var(--border)',
+                  background: 'var(--bg)', color: 'var(--text)', fontSize: FONT.sm, fontWeight: 600,
                   cursor: cargandoMas ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 6,
                 }}
               >

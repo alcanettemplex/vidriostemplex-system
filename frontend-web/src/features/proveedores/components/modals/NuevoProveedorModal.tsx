@@ -1,9 +1,10 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Building2, Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
+import { RADIUS, FONT } from '../../styleTokens';
 
 interface Props {
   onClose: () => void;
@@ -53,10 +54,10 @@ const NuevoProveedorModal: React.FC<Props> = ({ onClose, onCreado }) => {
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '10px 12px', boxSizing: 'border-box',
     background: 'var(--bg)', border: '1px solid var(--border)',
-    borderRadius: 10, color: 'var(--text)', fontSize: 14, outline: 'none',
+    borderRadius: RADIUS.lg, color: 'var(--text)', fontSize: FONT.md, outline: 'none',
   };
   const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: 12, color: 'var(--text-muted)',
+    display: 'block', fontSize: FONT.sm, color: 'var(--text-muted)',
     fontWeight: 700, marginBottom: 5, letterSpacing: .4,
   };
 
@@ -73,7 +74,7 @@ const NuevoProveedorModal: React.FC<Props> = ({ onClose, onCreado }) => {
         <motion.div
           initial={{ scale: .94, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: .94, opacity: 0 }}
           style={{
-            background: 'var(--surface)', borderRadius: 18, width: '100%', maxWidth: 520,
+            background: 'var(--surface)', borderRadius: RADIUS['4xl'], width: '100%', maxWidth: 520,
             border: '1px solid var(--border)', overflow: 'hidden',
           }}
         >
@@ -84,7 +85,7 @@ const NuevoProveedorModal: React.FC<Props> = ({ onClose, onCreado }) => {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Building2 size={20} color="var(--primary)" />
-              <span style={{ fontWeight: 700, fontSize: 16 }}>Nuevo Proveedor</span>
+              <span style={{ fontWeight: 700, fontSize: FONT.xl }}>Nuevo Proveedor</span>
             </div>
             <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
               <X size={20} />
@@ -119,7 +120,7 @@ const NuevoProveedorModal: React.FC<Props> = ({ onClose, onCreado }) => {
                   placeholder="Ej: 830036921"
                   style={{ ...inputStyle, fontFamily: 'monospace' }} />
                 {!form.nit.trim() && (
-                  <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 4 }}>
+                  <div style={{ fontSize: FONT.xs, color: '#f59e0b', marginTop: 4 }}>
                     ⚠ Sin NIT no habrá match automático con el XML DIAN
                   </div>
                 )}
@@ -156,15 +157,15 @@ const NuevoProveedorModal: React.FC<Props> = ({ onClose, onCreado }) => {
             {/* Footer */}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
               <button type="button" onClick={onClose} style={{
-                padding: '10px 20px', borderRadius: 10, border: '1px solid var(--border)',
-                background: 'var(--bg)', color: 'var(--text)', fontSize: 14, cursor: 'pointer', fontWeight: 500,
+                padding: '10px 20px', borderRadius: RADIUS.lg, border: '1px solid var(--border)',
+                background: 'var(--bg)', color: 'var(--text)', fontSize: FONT.md, cursor: 'pointer', fontWeight: 500,
               }}>
                 Cancelar
               </button>
               <button type="submit" disabled={guardando || !form.nombre_comercial.trim()} style={{
-                padding: '10px 24px', borderRadius: 10, border: 'none',
+                padding: '10px 24px', borderRadius: RADIUS.lg, border: 'none',
                 background: guardando || !form.nombre_comercial.trim() ? 'var(--border)' : 'var(--primary)',
-                color: '#fff', fontSize: 14, cursor: 'pointer', fontWeight: 600,
+                color: '#fff', fontSize: FONT.md, cursor: 'pointer', fontWeight: 600,
                 display: 'flex', alignItems: 'center', gap: 8,
               }}>
                 {guardando ? <Loader2 size={15} className="spin" /> : null}

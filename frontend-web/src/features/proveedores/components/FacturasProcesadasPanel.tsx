@@ -4,6 +4,7 @@ import { FileCheck2, Search, RefreshCw, ChevronDown, ChevronUp, Loader2 } from '
 import { toast } from 'react-toastify';
 import API from '../../../services/config';
 import { ProveedorCompacto } from '../ProveedoresPage';
+import { RADIUS, FONT } from '../styleTokens';
 
 /**
  * Historial de documentos ya ingeridos.
@@ -90,8 +91,8 @@ const FacturasProcesadasPanel: React.FC<Props> = ({ proveedores, busquedaInicial
   useEffect(() => { if (abierto) cargar(); }, [abierto, cargar]);
 
   const inputStyle: React.CSSProperties = {
-    padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border-strong, #cbd5e1)',
-    fontSize: 12.5, background: 'var(--surface, #fff)', color: 'var(--text, #0f172a)',
+    padding: '7px 12px', borderRadius: RADIUS.md, border: '1px solid var(--border-strong, #cbd5e1)',
+    fontSize: FONT.sm, background: 'var(--surface, #fff)', color: 'var(--text, #0f172a)',
   };
 
   return (
@@ -99,7 +100,7 @@ const FacturasProcesadasPanel: React.FC<Props> = ({ proveedores, busquedaInicial
       style={{
         background: 'var(--surface, #ffffff)',
         border: '1px solid var(--border, #e2e8f0)',
-        borderRadius: 16,
+        borderRadius: RADIUS['3xl'],
         overflow: 'hidden',
       }}
     >
@@ -113,9 +114,9 @@ const FacturasProcesadasPanel: React.FC<Props> = ({ proveedores, busquedaInicial
         }}
       >
         <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <FileCheck2 size={17} style={{ color: '#6366f1' }} />
-          <span style={{ fontSize: 14, fontWeight: 700 }}>Documentos ya procesados</span>
-          <span style={{ fontSize: 12, color: 'var(--text-muted, #64748b)', fontWeight: 500 }}>
+          <FileCheck2 size={17} style={{ color: 'var(--primary)' }} />
+          <span style={{ fontSize: FONT.md, fontWeight: 700 }}>Documentos ya procesados</span>
+          <span style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)', fontWeight: 500 }}>
             — consulta si una factura ya entró antes de volver a subirla
           </span>
         </span>
@@ -153,19 +154,19 @@ const FacturasProcesadasPanel: React.FC<Props> = ({ proveedores, busquedaInicial
           </div>
 
           {loading ? (
-            <div style={{ padding: '30px 0', textAlign: 'center', color: 'var(--text-muted, #64748b)', fontSize: 13 }}>
-              <Loader2 size={20} className="animate-spin" style={{ margin: '0 auto 6px', color: '#6366f1', display: 'block' }} />
+            <div style={{ padding: '30px 0', textAlign: 'center', color: 'var(--text-muted, #64748b)', fontSize: FONT.base }}>
+              <Loader2 size={20} className="animate-spin" style={{ margin: '0 auto 6px', color: 'var(--primary)', display: 'block' }} />
               Cargando historial…
             </div>
           ) : items.length === 0 ? (
-            <div style={{ padding: '26px 0', textAlign: 'center', color: 'var(--text-subtle, #94a3b8)', fontSize: 13 }}>
+            <div style={{ padding: '26px 0', textAlign: 'center', color: 'var(--text-subtle, #94a3b8)', fontSize: FONT.base }}>
               {qAplicado || filtroProveedor
                 ? 'Ningún documento coincide con el filtro.'
                 : 'Todavía no se ha procesado ninguna factura electrónica.'}
             </div>
           ) : (
-            <div style={{ border: '1px solid var(--border, #e2e8f0)', borderRadius: 10, overflow: 'auto', maxHeight: 360 }}>
-              <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 12.5, textAlign: 'left' }}>
+            <div style={{ border: '1px solid var(--border, #e2e8f0)', borderRadius: RADIUS.lg, overflow: 'auto', maxHeight: 360 }}>
+              <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: FONT.sm, textAlign: 'left' }}>
                 <thead style={{ position: 'sticky', top: 0 }}>
                   <tr style={{ background: 'var(--surface-subtle, #f8fafc)', borderBottom: '1px solid var(--border, #e2e8f0)' }}>
                     <th style={{ padding: '8px 12px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Documento</th>
@@ -183,7 +184,7 @@ const FacturasProcesadasPanel: React.FC<Props> = ({ proveedores, busquedaInicial
                           {f.numero_factura ?? '—'}
                         </div>
                         {f.archivo_origen && (
-                          <div style={{ fontSize: 11, color: 'var(--text-subtle, #94a3b8)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: FONT.xs, color: 'var(--text-subtle, #94a3b8)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {f.archivo_origen}
                           </div>
                         )}
@@ -194,16 +195,16 @@ const FacturasProcesadasPanel: React.FC<Props> = ({ proveedores, busquedaInicial
                       <td style={{ padding: '8px 12px', color: 'var(--text-muted, #64748b)' }}>
                         {formatFecha(f.fecha_emision)}
                         {f.moneda && f.moneda !== 'COP' && (
-                          <div style={{ fontSize: 11, color: '#b45309', fontWeight: 600 }}>{f.moneda}</div>
+                          <div style={{ fontSize: FONT.xs, color: '#b45309', fontWeight: 600 }}>{f.moneda}</div>
                         )}
                       </td>
                       <td style={{ padding: '8px 12px' }}>
                         {f.motivo_omision ? (
-                          <span style={{ fontSize: 11.5, color: '#64748b', fontWeight: 600 }}>
+                          <span style={{ fontSize: FONT.xs, color: '#64748b', fontWeight: 600 }}>
                             {ETIQUETA_MOTIVO[f.motivo_omision] ?? f.motivo_omision}
                           </span>
                         ) : (
-                          <span style={{ fontSize: 11.5, color: 'var(--text-muted, #64748b)' }}>
+                          <span style={{ fontSize: FONT.xs, color: 'var(--text-muted, #64748b)' }}>
                             <strong style={{ color: '#059669' }}>{f.lineas_actualizadas}</strong> precio(s) ·{' '}
                             <strong style={{ color: '#d97706' }}>{f.lineas_pendientes}</strong> a mapear ·{' '}
                             {f.lineas_totales} línea(s)
@@ -218,7 +219,7 @@ const FacturasProcesadasPanel: React.FC<Props> = ({ proveedores, busquedaInicial
           )}
 
           {items.length > 0 && total > items.length && (
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted, #64748b)' }}>
+            <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #64748b)' }}>
               Mostrando los {items.length} más recientes de {total}. Filtra por proveedor o número para acotar.
             </div>
           )}

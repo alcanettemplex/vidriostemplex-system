@@ -8,6 +8,7 @@ import {
 import { toast } from 'react-toastify';
 import API from '../../../services/config';
 import { ProveedorCompacto } from '../ProveedoresPage';
+import { RADIUS, FONT } from '../styleTokens';
 
 /**
  * Fase 3 del módulo: actualización masiva de precios por lista del proveedor.
@@ -126,12 +127,12 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
   };
 
   const inputStyle: React.CSSProperties = {
-    padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-strong, #cbd5e1)',
-    fontSize: 13, background: 'var(--surface, #fff)', color: 'var(--text, #0f172a)', width: '100%',
+    padding: '8px 12px', borderRadius: RADIUS.md, border: '1px solid var(--border-strong, #cbd5e1)',
+    fontSize: FONT.base, background: 'var(--surface, #fff)', color: 'var(--text, #0f172a)', width: '100%',
   };
 
   const etiqueta: React.CSSProperties = {
-    fontSize: 12, fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: 4,
+    fontSize: FONT.sm, fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: 4,
   };
 
   const yaAplicado = resultado !== null && resultado.dry_run === false;
@@ -141,7 +142,7 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
       style={{
         background: 'var(--surface, #ffffff)',
         border: '1px solid var(--border, #e2e8f0)',
-        borderRadius: 16,
+        borderRadius: RADIUS['3xl'],
         padding: 20,
         display: 'flex',
         flexDirection: 'column',
@@ -152,7 +153,7 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <div
           style={{
-            width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+            width: 40, height: 40, borderRadius: RADIUS.xl, flexShrink: 0,
             background: 'rgba(5, 150, 105, 0.12)', color: '#059669',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
@@ -160,10 +161,10 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
           <FileSpreadsheet size={20} />
         </div>
         <div>
-          <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, color: 'var(--text, #0f172a)' }}>
+          <h3 style={{ fontSize: FONT.lg, fontWeight: 800, margin: 0, color: 'var(--text, #0f172a)' }}>
             Importar lista de precios (Excel)
           </h3>
-          <p style={{ fontSize: 12.5, color: 'var(--text-muted, #64748b)', margin: '3px 0 0', lineHeight: 1.45, maxWidth: 720 }}>
+          <p style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)', margin: '3px 0 0', lineHeight: 1.45, maxWidth: 720 }}>
             La factura dice qué pagaste ese día; la lista dice qué cobra el proveedor. Sube su Excel y el
             sistema reconoce las columnas solo: primero te muestra qué haría, y solo aplica cuando lo confirmas.
           </p>
@@ -216,11 +217,11 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
       </div>
 
       <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, cursor: 'pointer', color: 'var(--text, #334155)' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: FONT.sm, cursor: 'pointer', color: 'var(--text, #334155)' }}>
           <input type="checkbox" checked={preciosConIva} onChange={(e) => { setPreciosConIva(e.target.checked); setResultado(null); }} />
           Los precios del archivo incluyen IVA (se descuenta para guardar la base comparable)
         </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, cursor: 'pointer', color: 'var(--text, #334155)' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: FONT.sm, cursor: 'pointer', color: 'var(--text, #334155)' }}>
           <input type="checkbox" checked={crearPendientes} onChange={(e) => setCrearPendientes(e.target.checked)} />
           Enviar a «Por Mapear» los códigos que aún no tienen equivalencia
         </label>
@@ -233,8 +234,8 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
           onClick={() => enviar(true)}
           disabled={cargando || aplicando || !archivo || !proveedorId}
           style={{
-            background: !archivo || !proveedorId ? '#94a3b8' : '#6366f1', color: '#fff', border: 'none',
-            padding: '8px 18px', borderRadius: 9, fontSize: 13, fontWeight: 700,
+            background: !archivo || !proveedorId ? '#94a3b8' : 'var(--primary)', color: '#fff', border: 'none',
+            padding: '8px 18px', borderRadius: RADIUS.md, fontSize: FONT.base, fontWeight: 700,
             cursor: !archivo || !proveedorId ? 'not-allowed' : 'pointer',
             display: 'flex', alignItems: 'center', gap: 7,
           }}
@@ -250,7 +251,7 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
             disabled={aplicando || resultado.precios_actualizados.length + resultado.codigos_nuevos_pendientes.length === 0}
             style={{
               background: '#059669', color: '#fff', border: 'none',
-              padding: '8px 18px', borderRadius: 9, fontSize: 13, fontWeight: 700,
+              padding: '8px 18px', borderRadius: RADIUS.md, fontSize: FONT.base, fontWeight: 700,
               cursor: aplicando ? 'wait' : 'pointer',
               display: 'flex', alignItems: 'center', gap: 7,
               boxShadow: '0 4px 12px rgba(5, 150, 105, 0.28)',
@@ -267,7 +268,7 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
             onClick={limpiar}
             style={{
               background: 'transparent', border: '1px solid var(--border-strong, #cbd5e1)',
-              padding: '8px 14px', borderRadius: 9, fontSize: 12.5, fontWeight: 600,
+              padding: '8px 14px', borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 600,
               color: 'var(--text-muted, #64748b)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: 6,
             }}
@@ -287,13 +288,13 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
           {/* Banda de estado */}
           <div
             style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10,
+              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: RADIUS.lg,
               background: yaAplicado ? 'rgba(5, 150, 105, 0.08)' : 'rgba(99, 102, 241, 0.07)',
               border: `1px solid ${yaAplicado ? 'rgba(5, 150, 105, 0.25)' : 'rgba(99, 102, 241, 0.25)'}`,
             }}
           >
             {yaAplicado ? <CheckCircle2 size={16} color="#059669" /> : <Info size={16} color="#4338ca" />}
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: yaAplicado ? '#047857' : '#4338ca' }}>
+            <span style={{ fontSize: FONT.sm, fontWeight: 600, color: yaAplicado ? '#047857' : '#4338ca' }}>
               {resultado.message}
             </span>
           </div>
@@ -302,10 +303,10 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
           <div
             style={{
               background: 'var(--surface-subtle, #f8fafc)', border: '1px solid var(--border, #e2e8f0)',
-              borderRadius: 12, padding: '12px 16px',
+              borderRadius: RADIUS.xl, padding: '12px 16px',
             }}
           >
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text, #0f172a)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: FONT.sm, fontWeight: 700, color: 'var(--text, #0f172a)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
               <ListChecks size={13} /> Columnas reconocidas (encabezados en la fila {resultado.fila_encabezado})
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -313,7 +314,7 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
                 <span
                   key={campo}
                   style={{
-                    fontSize: 11.5, padding: '3px 9px', borderRadius: 6, fontWeight: 600,
+                    fontSize: FONT.xs, padding: '3px 9px', borderRadius: RADIUS.sm, fontWeight: 600,
                     background: col ? 'rgba(5, 150, 105, 0.1)' : 'rgba(100, 116, 139, 0.1)',
                     color: col ? '#047857' : '#94a3b8',
                   }}
@@ -322,7 +323,7 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
                 </span>
               ))}
             </div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted, #64748b)', marginTop: 8 }}>
+            <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #64748b)', marginTop: 8 }}>
               {resultado.total_filas_leidas} fila(s) leída(s) · {resultado.filas_ignoradas} sin precio o vacías ·{' '}
               {resultado.precios_sin_cambio} ya estaban en ese precio
             </div>
@@ -331,11 +332,11 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
           {/* Cambios de precio */}
           {resultado.precios_actualizados.length > 0 && (
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text, #0f172a)', marginBottom: 8 }}>
+              <div style={{ fontSize: FONT.base, fontWeight: 700, color: 'var(--text, #0f172a)', marginBottom: 8 }}>
                 {yaAplicado ? 'Precios actualizados' : 'Precios que cambiarían'} ({resultado.precios_actualizados.length})
               </div>
-              <div style={{ border: '1px solid var(--border, #e2e8f0)', borderRadius: 10, overflow: 'hidden', maxHeight: 320, overflowY: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, textAlign: 'left' }}>
+              <div style={{ border: '1px solid var(--border, #e2e8f0)', borderRadius: RADIUS.lg, overflow: 'hidden', maxHeight: 320, overflowY: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FONT.sm, textAlign: 'left' }}>
                   <thead style={{ position: 'sticky', top: 0 }}>
                     <tr style={{ background: 'var(--surface-subtle, #f8fafc)', borderBottom: '1px solid var(--border, #e2e8f0)' }}>
                       <th style={{ padding: '8px 12px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Código / Descripción</th>
@@ -353,10 +354,10 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
                       return (
                         <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)', background: c.anomalo ? 'rgba(239, 68, 68, 0.04)' : 'transparent' }}>
                           <td style={{ padding: '8px 12px' }}>
-                            <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 11.5, color: '#6366f1' }}>{c.codigo}</div>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted, #64748b)' }}>{c.descripcion}</div>
+                            <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: FONT.xs, color: 'var(--primary)' }}>{c.codigo}</div>
+                            <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)' }}>{c.descripcion}</div>
                           </td>
-                          <td style={{ padding: '8px 12px', fontSize: 11.5, color: 'var(--text-muted, #64748b)' }}>{c.unidad_compra}</td>
+                          <td style={{ padding: '8px 12px', fontSize: FONT.xs, color: 'var(--text-muted, #64748b)' }}>{c.unidad_compra}</td>
                           <td style={{ padding: '8px 12px', color: 'var(--text-muted, #64748b)' }}>{formatCOP(c.precio_anterior)}</td>
                           <td style={{ padding: '8px 12px', fontWeight: 700, color: '#059669' }}>{formatCOP(c.precio_nuevo)}</td>
                           <td style={{ padding: '8px 12px' }}>
@@ -364,7 +365,7 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
                               <span
                                 style={{
                                   display: 'inline-flex', alignItems: 'center', gap: 3, color, fontWeight: 700,
-                                  fontSize: 11.5, background: `${color}18`, padding: '2px 6px', borderRadius: 6,
+                                  fontSize: FONT.xs, background: `${color}18`, padding: '2px 6px', borderRadius: RADIUS.sm,
                                 }}
                               >
                                 <Icon size={11} />
@@ -372,12 +373,12 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
                                 {c.anomalo && <AlertTriangle size={11} style={{ marginLeft: 2 }} />}
                               </span>
                             ) : (
-                              <span style={{ fontSize: 11.5, color: 'var(--text-subtle, #94a3b8)' }}>primer precio</span>
+                              <span style={{ fontSize: FONT.xs, color: 'var(--text-subtle, #94a3b8)' }}>primer precio</span>
                             )}
                             {c.retroactivo && (
                               <div
                                 title="La lista es anterior al precio vigente: se archiva en el histórico sin reemplazarlo"
-                                style={{ fontSize: 10.5, color: '#64748b', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}
+                                style={{ fontSize: FONT.tiny, color: '#64748b', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}
                               >
                                 <History size={10} /> archivado
                               </div>
@@ -390,7 +391,7 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
                 </table>
               </div>
               {resultado.precios_actualizados.some((c) => c.anomalo) && (
-                <div style={{ fontSize: 11.5, color: '#b45309', marginTop: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <div style={{ fontSize: FONT.xs, color: '#b45309', marginTop: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
                   <AlertTriangle size={12} />
                   Hay saltos mayores al {resultado.umbral_variacion_pct}% configurado. Verifícalos antes de aplicar.
                 </div>
@@ -403,14 +404,14 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
             <div
               style={{
                 background: 'rgba(245, 158, 11, 0.07)', border: '1px solid rgba(245, 158, 11, 0.25)',
-                borderRadius: 10, padding: '10px 14px',
+                borderRadius: RADIUS.lg, padding: '10px 14px',
               }}
             >
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: '#b45309', marginBottom: 4 }}>
+              <div style={{ fontSize: FONT.sm, fontWeight: 700, color: '#b45309', marginBottom: 4 }}>
                 {resultado.codigos_nuevos_pendientes.length} código(s) sin equivalencia
                 {yaAplicado ? ' enviados a Por Mapear' : crearPendientes ? ' irían a Por Mapear' : ' se ignorarían'}
               </div>
-              <div style={{ fontSize: 11.5, color: 'var(--text-muted, #64748b)', maxHeight: 90, overflowY: 'auto' }}>
+              <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #64748b)', maxHeight: 90, overflowY: 'auto' }}>
                 {resultado.codigos_nuevos_pendientes.slice(0, 25).map((n, i) => (
                   <div key={i}>{n.codigo} — {n.descripcion} ({formatCOP(n.precio)})</div>
                 ))}
@@ -422,10 +423,10 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
           {/* Filas no aplicadas */}
           {resultado.filas_no_aplicadas.length > 0 && (
             <div>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text, #0f172a)', marginBottom: 6 }}>
+              <div style={{ fontSize: FONT.sm, fontWeight: 700, color: 'var(--text, #0f172a)', marginBottom: 6 }}>
                 Filas que no se aplican ({resultado.filas_no_aplicadas.length})
               </div>
-              <div style={{ fontSize: 11.5, color: 'var(--text-muted, #64748b)', maxHeight: 110, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #64748b)', maxHeight: 110, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {resultado.filas_no_aplicadas.slice(0, 25).map((f, i) => (
                   <div key={i}>Fila {f.fila} · {f.codigo}: {f.motivo}</div>
                 ))}
@@ -438,11 +439,11 @@ const ImportarListaPreciosPanel: React.FC<Props> = ({ proveedores, onAplicado })
             <div
               style={{
                 background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)',
-                borderRadius: 10, padding: '10px 14px', maxHeight: 120, overflowY: 'auto',
+                borderRadius: RADIUS.lg, padding: '10px 14px', maxHeight: 120, overflowY: 'auto',
               }}
             >
               {resultado.errores.map((e, i) => (
-                <div key={i} style={{ fontSize: 11.5, color: '#991b1b' }}>{e}</div>
+                <div key={i} style={{ fontSize: FONT.xs, color: '#991b1b' }}>{e}</div>
               ))}
             </div>
           )}

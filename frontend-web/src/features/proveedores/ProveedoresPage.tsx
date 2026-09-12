@@ -9,6 +9,7 @@ import PorMapearTab from './components/tabs/PorMapearTab';
 import EquivalenciasTab from './components/tabs/EquivalenciasTab';
 import BuscadorProveedores, { SeleccionBusqueda } from './components/BuscadorProveedores';
 import API from '../../services/config';
+import { FONT } from './styleTokens';
 
 const FOLDER_BODY =
   'bg-white dark:bg-[var(--surface)] border border-t-0 border-[var(--border)] rounded-b-2xl rounded-tr-2xl p-6 min-h-[450px]';
@@ -136,10 +137,10 @@ const ProveedoresPage: React.FC = () => {
 
       {/* ── Encabezado ── */}
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', margin: 0 }}>
+        <h1 style={{ fontSize: FONT.hero, fontWeight: 800, color: 'var(--text)', margin: 0 }}>
           Módulo de Proveedores
         </h1>
-        <p style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 6 }}>
+        <p style={{ fontSize: FONT.md, color: 'var(--text-muted)', marginTop: 6 }}>
           Consulta comparativa de precios · Ingesta de facturas electrónicas (.zip / XML) · Maestro de equivalencias
         </p>
       </div>

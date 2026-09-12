@@ -7,6 +7,7 @@ import {
   useBusquedaModulo, MIN_CARACTERES,
   ProductoSugerido, ProveedorSugerido, PendienteSugerido, EquivalenciaSugerida, FacturaSugerida,
 } from '../hooks/useBusquedaModulo';
+import { RADIUS, FONT } from '../styleTokens';
 
 /**
  * Barra única del módulo: se escribe una vez y el sistema relaciona producto,
@@ -132,14 +133,14 @@ const BuscadorProveedores: React.FC<Props> = ({ onSeleccion }) => {
     gap: 10,
     cursor: 'pointer',
     background: i === activo ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
-    borderLeft: i === activo ? '3px solid #6366f1' : '3px solid transparent',
+    borderLeft: i === activo ? '3px solid var(--primary)' : '3px solid transparent',
   });
 
   const Encabezado: React.FC<{ icono: React.ReactNode; texto: string; n: number }> = ({ icono, texto, n }) => (
     <div
       style={{
         display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px 5px',
-        fontSize: 10.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase',
+        fontSize: FONT.tiny, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase',
         color: 'var(--text-subtle, #94a3b8)', background: 'var(--surface-subtle, #f8fafc)',
         borderTop: '1px solid var(--border-subtle, #f1f5f9)',
       }}
@@ -166,14 +167,14 @@ const BuscadorProveedores: React.FC<Props> = ({ onSeleccion }) => {
           style={{
             width: '100%', boxSizing: 'border-box',
             padding: '12px 42px 12px 42px',
-            borderRadius: 12,
-            border: `1px solid ${abierto && hayResultados ? '#6366f1' : 'var(--border-strong, #cbd5e1)'}`,
+            borderRadius: RADIUS.xl,
+            border: `1px solid ${abierto && hayResultados ? 'var(--primary)' : 'var(--border-strong, #cbd5e1)'}`,
             background: 'var(--surface, #fff)', color: 'var(--text, #0f172a)',
-            fontSize: 14, outline: 'none', transition: 'border-color .15s',
+            fontSize: FONT.md, outline: 'none', transition: 'border-color .15s',
           }}
         />
         {cargando && (
-          <Loader2 size={16} className="animate-spin" style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: '#6366f1' }} />
+          <Loader2 size={16} className="animate-spin" style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)' }} />
         )}
         {!cargando && termino && (
           <button
@@ -202,18 +203,18 @@ const BuscadorProveedores: React.FC<Props> = ({ onSeleccion }) => {
             style={{
               position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 60,
               background: 'var(--surface, #fff)', border: '1px solid var(--border, #e2e8f0)',
-              borderRadius: 14, boxShadow: '0 18px 40px -12px rgba(15, 23, 42, 0.25)',
+              borderRadius: RADIUS['2xl'], boxShadow: '0 18px 40px -12px rgba(15, 23, 42, 0.25)',
               maxHeight: 460, overflowY: 'auto',
             }}
           >
             {cortoParaBuscar && (
-              <div style={{ padding: '16px', fontSize: 12.5, color: 'var(--text-subtle, #94a3b8)' }}>
+              <div style={{ padding: '16px', fontSize: FONT.sm, color: 'var(--text-subtle, #94a3b8)' }}>
                 Escribe al menos {MIN_CARACTERES} letras.
               </div>
             )}
 
             {sinResultados && (
-              <div style={{ padding: '18px 16px', fontSize: 13, color: 'var(--text-muted, #64748b)' }}>
+              <div style={{ padding: '18px 16px', fontSize: FONT.base, color: 'var(--text-muted, #64748b)' }}>
                 Nada coincide con «{datos?.termino}». Prueba con el código del proveedor, con una palabra
                 del nombre o con el NIT.
               </div>
@@ -237,15 +238,15 @@ const BuscadorProveedores: React.FC<Props> = ({ onSeleccion }) => {
                         >
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 12, color: '#4338ca', background: 'rgba(99, 102, 241, 0.1)', padding: '2px 7px', borderRadius: 5 }}>
+                              <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: FONT.sm, color: '#4338ca', background: 'rgba(99, 102, 241, 0.1)', padding: '2px 7px', borderRadius: RADIUS.xs }}>
                                 {p.codigo}
                               </span>
-                              <span style={{ fontSize: 13.5, color: 'var(--text, #1e293b)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontSize: FONT.base, color: 'var(--text, #1e293b)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {p.nombre}
                               </span>
                             </div>
                             {motivo && (
-                              <div style={{ fontSize: 10.5, color: '#7c3aed', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <div style={{ fontSize: FONT.tiny, color: '#7c3aed', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
                                 <Sparkles size={10} /> {motivo}
                               </div>
                             )}
@@ -253,16 +254,16 @@ const BuscadorProveedores: React.FC<Props> = ({ onSeleccion }) => {
                           <div style={{ textAlign: 'right', flexShrink: 0 }}>
                             {p.total_proveedores > 0 ? (
                               <>
-                                <div style={{ fontSize: 12.5, fontWeight: 700, color: '#059669' }}>
+                                <div style={{ fontSize: FONT.sm, fontWeight: 700, color: '#059669' }}>
                                   desde {formatCOP(p.precio_min)}
                                 </div>
-                                <div style={{ fontSize: 10.5, color: 'var(--text-subtle, #94a3b8)' }}>
+                                <div style={{ fontSize: FONT.tiny, color: 'var(--text-subtle, #94a3b8)' }}>
                                   {p.total_proveedores} proveedor{p.total_proveedores !== 1 ? 'es' : ''}
                                   {p.unidad_precio_min ? ` · por ${ETIQUETA_UNIDAD[p.unidad_precio_min] ?? p.unidad_precio_min}` : ''}
                                 </div>
                               </>
                             ) : (
-                              <div style={{ fontSize: 11, color: 'var(--text-subtle, #94a3b8)' }}>sin precios aún</div>
+                              <div style={{ fontSize: FONT.xs, color: 'var(--text-subtle, #94a3b8)' }}>sin precios aún</div>
                             )}
                           </div>
                         </div>
@@ -285,15 +286,15 @@ const BuscadorProveedores: React.FC<Props> = ({ onSeleccion }) => {
                           style={estiloFila(i)}
                         >
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text, #1e293b)' }}>
+                            <div style={{ fontSize: FONT.base, fontWeight: 600, color: 'var(--text, #1e293b)' }}>
                               {p.nombre_comercial}
                             </div>
-                            <div style={{ fontSize: 11, color: 'var(--text-subtle, #94a3b8)' }}>
+                            <div style={{ fontSize: FONT.xs, color: 'var(--text-subtle, #94a3b8)' }}>
                               {p.nit ? `NIT ${p.nit}` : 'sin NIT'}
                               {!p.seguir_precios && ' · sin seguimiento de precios'}
                             </div>
                           </div>
-                          <div style={{ fontSize: 11.5, color: 'var(--text-muted, #64748b)', flexShrink: 0 }}>
+                          <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #64748b)', flexShrink: 0 }}>
                             {p.total_equivalencias} producto{p.total_equivalencias !== 1 ? 's' : ''}
                           </div>
                         </div>
@@ -317,18 +318,18 @@ const BuscadorProveedores: React.FC<Props> = ({ onSeleccion }) => {
                         >
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 11.5, color: '#b45309', background: 'rgba(245, 158, 11, 0.12)', padding: '2px 7px', borderRadius: 5 }}>
+                              <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: FONT.xs, color: '#b45309', background: 'rgba(245, 158, 11, 0.12)', padding: '2px 7px', borderRadius: RADIUS.xs }}>
                                 {b.codigo_proveedor}
                               </span>
-                              <span style={{ fontSize: 12.5, color: 'var(--text, #334155)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontSize: FONT.sm, color: 'var(--text, #334155)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {b.descripcion_proveedor ?? 'sin descripción'}
                               </span>
                             </div>
-                            <div style={{ fontSize: 10.5, color: 'var(--text-subtle, #94a3b8)', marginTop: 2 }}>
+                            <div style={{ fontSize: FONT.tiny, color: 'var(--text-subtle, #94a3b8)', marginTop: 2 }}>
                               {b.proveedor?.nombre_comercial ?? '—'} · visto {b.veces_visto} vez/veces
                             </div>
                           </div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', flexShrink: 0 }}>
+                          <div style={{ fontSize: FONT.sm, fontWeight: 700, color: '#059669', flexShrink: 0 }}>
                             {formatCOP(b.precio_detectado)}
                           </div>
                         </div>
@@ -350,15 +351,15 @@ const BuscadorProveedores: React.FC<Props> = ({ onSeleccion }) => {
                           onMouseEnter={() => setActivo(i)}
                           style={estiloFila(i)}
                         >
-                          <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--text, #334155)' }}>
+                          <div style={{ flex: 1, minWidth: 0, fontSize: FONT.sm, color: 'var(--text, #334155)' }}>
                             <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#4338ca' }}>{e.codigo_proveedor}</span>
                             {' → '}
                             <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{e.producto?.codigo ?? '—'}</span>
-                            <div style={{ fontSize: 10.5, color: 'var(--text-subtle, #94a3b8)', marginTop: 2 }}>
+                            <div style={{ fontSize: FONT.tiny, color: 'var(--text-subtle, #94a3b8)', marginTop: 2 }}>
                               {e.proveedor?.nombre_comercial ?? '—'} · {e.producto?.nombre ?? ''}
                             </div>
                           </div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', flexShrink: 0 }}>
+                          <div style={{ fontSize: FONT.sm, fontWeight: 700, color: '#059669', flexShrink: 0 }}>
                             {formatCOP(e.precio_actual)}
                           </div>
                         </div>
@@ -380,12 +381,12 @@ const BuscadorProveedores: React.FC<Props> = ({ onSeleccion }) => {
                           onMouseEnter={() => setActivo(i)}
                           style={estiloFila(i)}
                         >
-                          <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--text, #334155)' }}>
+                          <div style={{ flex: 1, minWidth: 0, fontSize: FONT.sm, color: 'var(--text, #334155)' }}>
                             <strong>
                               {f.tipo_documento === 'FACTURA' ? 'FE' : f.tipo_documento === 'NOTA_CREDITO' ? 'NC' : 'ND'}{' '}
                               {f.numero_factura ?? '—'}
                             </strong>
-                            <div style={{ fontSize: 10.5, color: 'var(--text-subtle, #94a3b8)', marginTop: 2 }}>
+                            <div style={{ fontSize: FONT.tiny, color: 'var(--text-subtle, #94a3b8)', marginTop: 2 }}>
                               {f.proveedor?.nombre_comercial ?? '—'}
                               {f.motivo_omision ? ' · registrada sin mover precios' : ''}
                             </div>
@@ -400,7 +401,7 @@ const BuscadorProveedores: React.FC<Props> = ({ onSeleccion }) => {
                 <div
                   style={{
                     padding: '7px 16px', borderTop: '1px solid var(--border-subtle, #f1f5f9)',
-                    background: 'var(--surface-subtle, #f8fafc)', fontSize: 10.5,
+                    background: 'var(--surface-subtle, #f8fafc)', fontSize: FONT.tiny,
                     color: 'var(--text-subtle, #94a3b8)', display: 'flex', alignItems: 'center', gap: 12,
                   }}
                 >
