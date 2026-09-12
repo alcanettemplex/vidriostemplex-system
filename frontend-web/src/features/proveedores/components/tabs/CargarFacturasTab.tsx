@@ -11,6 +11,7 @@ import API from '../../../../services/config';
 import ImportarListaPreciosPanel from '../ImportarListaPreciosPanel';
 import FacturasProcesadasPanel from '../FacturasProcesadasPanel';
 import { ProveedorCompacto } from '../../ProveedoresPage';
+import { RADIUS, FONT } from '../../styleTokens';
 
 interface Props {
   onIrAPorMapear?: () => void;
@@ -246,15 +247,15 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
         style={{
           background: 'rgba(99, 102, 241, 0.05)',
           border: '1px solid rgba(99, 102, 241, 0.2)',
-          borderRadius: 14,
+          borderRadius: RADIUS['2xl'],
           padding: '14px 18px',
           display: 'flex',
           alignItems: 'flex-start',
           gap: 12,
         }}
       >
-        <Info size={20} style={{ color: '#6366f1', flexShrink: 0, marginTop: 2 }} />
-        <div style={{ fontSize: 13, color: 'var(--text, #1e293b)', lineHeight: 1.5 }}>
+        <Info size={20} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 2 }} />
+        <div style={{ fontSize: FONT.base, color: 'var(--text, #1e293b)', lineHeight: 1.5 }}>
           <strong style={{ color: '#4338ca' }}>Ingesta Directa de Facturación Electrónica (.zip / XML):</strong>{' '}
           Sube los archivos <strong>.zip</strong> de tus facturas electrónicas (~20 diarias). El sistema descomprime en memoria y extrae el <strong>XML DIAN (UBL 2.1)</strong> exacto, ignorando el PDF. Identifica al proveedor por su <strong>NIT</strong>, rechaza duplicados por <strong>CUFE</strong> y aplica los precios en <strong>orden de fecha de factura</strong>, no de carga.
         </div>
@@ -267,9 +268,9 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
         onDragLeave={handleDragLeave}
         onClick={() => fileInputRef.current?.click()}
         style={{
-          border: `2px dashed ${isDragOver ? '#6366f1' : 'var(--border-strong, #cbd5e1)'}`,
+          border: `2px dashed ${isDragOver ? 'var(--primary)' : 'var(--border-strong, #cbd5e1)'}`,
           background: isDragOver ? 'rgba(99, 102, 241, 0.06)' : 'var(--surface-subtle, #f8fafc)',
-          borderRadius: 18,
+          borderRadius: RADIUS['4xl'],
           padding: '36px 24px',
           textAlign: 'center',
           cursor: 'pointer',
@@ -294,9 +295,9 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
           style={{
             width: 56,
             height: 56,
-            borderRadius: 16,
+            borderRadius: RADIUS['3xl'],
             background: 'rgba(99, 102, 241, 0.12)',
-            color: '#6366f1',
+            color: 'var(--primary)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -306,22 +307,22 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
         </div>
 
         <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text, #0f172a)' }}>
-            Arrastra tus archivos <span style={{ color: '#6366f1' }}>.zip</span> o <span style={{ color: '#059669' }}>.xml</span> aquí
+          <div style={{ fontSize: FONT.lg, fontWeight: 700, color: 'var(--text, #0f172a)' }}>
+            Arrastra tus archivos <span style={{ color: 'var(--primary)' }}>.zip</span> o <span style={{ color: '#059669' }}>.xml</span> aquí
           </div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted, #64748b)', marginTop: 4 }}>
+          <div style={{ fontSize: FONT.base, color: 'var(--text-muted, #64748b)', marginTop: 4 }}>
             o haz clic para seleccionar múltiples facturas desde tu equipo
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
-          <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 8px', borderRadius: 6, background: 'rgba(99, 102, 241, 0.1)', color: '#4338ca' }}>
+          <span style={{ fontSize: FONT.xs, fontWeight: 600, padding: '3px 8px', borderRadius: RADIUS.sm, background: 'rgba(99, 102, 241, 0.1)', color: '#4338ca' }}>
             📦 Paquetes .ZIP (PDF + XML)
           </span>
-          <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 8px', borderRadius: 6, background: 'rgba(5, 150, 105, 0.1)', color: '#047857' }}>
+          <span style={{ fontSize: FONT.xs, fontWeight: 600, padding: '3px 8px', borderRadius: RADIUS.sm, background: 'rgba(5, 150, 105, 0.1)', color: '#047857' }}>
             📄 XML DIAN Sueltos
           </span>
-          <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 8px', borderRadius: 6, background: 'rgba(245, 158, 11, 0.12)', color: '#b45309' }}>
+          <span style={{ fontSize: FONT.xs, fontWeight: 600, padding: '3px 8px', borderRadius: RADIUS.sm, background: 'rgba(245, 158, 11, 0.12)', color: '#b45309' }}>
             ⚡ Hasta 100 archivos por lote · 8 MB cada uno
           </span>
         </div>
@@ -333,7 +334,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
           style={{
             background: 'var(--surface, #ffffff)',
             border: '1px solid var(--border, #e2e8f0)',
-            borderRadius: 16,
+            borderRadius: RADIUS['3xl'],
             padding: 20,
             display: 'flex',
             flexDirection: 'column',
@@ -342,10 +343,10 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--text, #0f172a)' }}>
+              <h3 style={{ fontSize: FONT.lg, fontWeight: 700, margin: 0, color: 'var(--text, #0f172a)' }}>
                 Archivos en Cola ({cola.length})
               </h3>
-              <span style={{ fontSize: 12, color: 'var(--text-muted, #64748b)' }}>
+              <span style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)' }}>
                 • Total: {formatBytes(cola.reduce((acc, c) => acc + c.size, 0))}
               </span>
             </div>
@@ -358,8 +359,8 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                   background: 'transparent',
                   border: '1px solid var(--border-strong, #cbd5e1)',
                   padding: '7px 14px',
-                  borderRadius: 8,
-                  fontSize: 12.5,
+                  borderRadius: RADIUS.md,
+                  fontSize: FONT.sm,
                   fontWeight: 600,
                   color: 'var(--text-muted, #64748b)',
                   cursor: 'pointer',
@@ -375,11 +376,11 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                 onClick={procesarLote}
                 disabled={procesando || cola.every((c) => c.status !== 'listo')}
                 style={{
-                  background: '#6366f1',
+                  background: 'var(--primary)',
                   border: 'none',
                   padding: '7px 18px',
-                  borderRadius: 8,
-                  fontSize: 13,
+                  borderRadius: RADIUS.md,
+                  fontSize: FONT.base,
                   fontWeight: 700,
                   color: '#fff',
                   cursor: procesando ? 'not-allowed' : 'pointer',
@@ -404,12 +405,12 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
 
           {/* Barra de progreso */}
           {procesando && (
-            <div style={{ width: '100%', height: 6, background: '#e2e8f0', borderRadius: 999, overflow: 'hidden' }}>
+            <div style={{ width: '100%', height: 6, background: '#e2e8f0', borderRadius: RADIUS.pill, overflow: 'hidden' }}>
               <div
                 style={{
                   width: `${progreso}%`,
                   height: '100%',
-                  background: 'linear-gradient(90deg, #6366f1, #059669)',
+                  background: 'linear-gradient(90deg, var(--primary), #059669)',
                   transition: 'width 0.3s ease',
                 }}
               />
@@ -435,14 +436,14 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '8px 12px',
-                  borderRadius: 10,
+                  borderRadius: RADIUS.lg,
                   background: 'var(--surface-subtle, #f8fafc)',
                   border: '1px solid var(--border-subtle, #f1f5f9)',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
                   {item.tipo === 'zip' ? (
-                    <FileArchive size={18} style={{ color: '#6366f1', flexShrink: 0 }} />
+                    <FileArchive size={18} style={{ color: 'var(--primary)', flexShrink: 0 }} />
                   ) : item.tipo === 'xml' ? (
                     <FileCode size={18} style={{ color: '#059669', flexShrink: 0 }} />
                   ) : (
@@ -450,10 +451,10 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                   )}
 
                   <div style={{ overflow: 'hidden' }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text, #0f172a)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                    <div style={{ fontSize: FONT.base, fontWeight: 600, color: 'var(--text, #0f172a)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                       {item.nombre}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-subtle, #94a3b8)' }}>
+                    <div style={{ fontSize: FONT.xs, color: 'var(--text-subtle, #94a3b8)' }}>
                       {formatBytes(item.size)} • {item.tipo.toUpperCase()}
                       {item.mensajeError && <span style={{ color: '#ef4444', marginLeft: 6 }}>({item.mensajeError})</span>}
                     </div>
@@ -462,15 +463,15 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {item.status === 'completado' && (
-                    <span style={{ fontSize: 11.5, fontWeight: 600, color: '#059669', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontSize: FONT.xs, fontWeight: 600, color: '#059669', display: 'flex', alignItems: 'center', gap: 4 }}>
                       <CheckCircle2 size={14} /> Procesado
                     </span>
                   )}
                   {item.status === 'procesando' && (
-                    <Loader2 size={14} className="animate-spin" style={{ color: '#6366f1' }} />
+                    <Loader2 size={14} className="animate-spin" style={{ color: 'var(--primary)' }} />
                   )}
                   {item.status === 'error' && (
-                    <span style={{ fontSize: 11.5, fontWeight: 600, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontSize: FONT.xs, fontWeight: 600, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}>
                       <XCircle size={14} /> Error
                     </span>
                   )}
@@ -506,7 +507,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
           style={{
             background: 'var(--surface, #ffffff)',
             border: '1px solid var(--border, #e2e8f0)',
-            borderRadius: 18,
+            borderRadius: RADIUS['4xl'],
             padding: 24,
             display: 'flex',
             flexDirection: 'column',
@@ -516,21 +517,21 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0, color: 'var(--text, #0f172a)' }}>
+              <h3 style={{ fontSize: FONT.xxl, fontWeight: 800, margin: 0, color: 'var(--text, #0f172a)' }}>
                 Resumen del Lote de Facturas
               </h3>
-              <p style={{ fontSize: 13, color: 'var(--text-muted, #64748b)', margin: '2px 0 0' }}>
+              <p style={{ fontSize: FONT.base, color: 'var(--text-muted, #64748b)', margin: '2px 0 0' }}>
                 Resultados del análisis y reconciliación de precios contra el maestro
               </p>
             </div>
             <span
               style={{
-                fontSize: 12,
+                fontSize: FONT.sm,
                 fontWeight: 700,
                 color: '#059669',
                 background: 'rgba(5, 150, 105, 0.1)',
                 padding: '4px 10px',
-                borderRadius: 8,
+                borderRadius: RADIUS.md,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 5,
@@ -542,81 +543,82 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
 
           {/* Tarjetas de Métricas Rápidas */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
-            <div style={{ background: 'var(--surface-subtle, #f8fafc)', padding: 14, borderRadius: 12, border: '1px solid var(--border, #e2e8f0)' }}>
-              <div style={{ fontSize: 12, color: 'var(--text-muted, #64748b)' }}>Facturas Procesadas</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', marginTop: 4 }}>
+            <div style={{ background: 'var(--surface-subtle, #f8fafc)', padding: 14, borderRadius: RADIUS.xl, border: '1px solid var(--border, #e2e8f0)' }}>
+              <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)' }}>Facturas Procesadas</div>
+              <div style={{ fontSize: FONT.title, fontWeight: 800, color: '#0f172a', marginTop: 4 }}>
                 {resumen.facturas_procesadas}
               </div>
             </div>
 
-            <div style={{ background: 'var(--surface-subtle, #f8fafc)', padding: 14, borderRadius: 12, border: '1px solid var(--border, #e2e8f0)' }}>
-              <div style={{ fontSize: 12, color: 'var(--text-muted, #64748b)' }}>Rechazadas (CUFE duplicado)</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#64748b', marginTop: 4 }}>
+            <div style={{ background: 'var(--surface-subtle, #f8fafc)', padding: 14, borderRadius: RADIUS.xl, border: '1px solid var(--border, #e2e8f0)' }}>
+              <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)' }}>Rechazadas (CUFE duplicado)</div>
+              <div style={{ fontSize: FONT.title, fontWeight: 800, color: '#64748b', marginTop: 4 }}>
                 {resumen.facturas_duplicadas_cufe}
               </div>
             </div>
 
-            <div style={{ background: 'var(--surface-subtle, #f8fafc)', padding: 14, borderRadius: 12, border: '1px solid var(--border, #e2e8f0)' }}>
-              <div style={{ fontSize: 12, color: 'var(--text-muted, #64748b)' }}>Precios sin Cambio</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#059669', marginTop: 4 }}>
+            <div style={{ background: 'var(--surface-subtle, #f8fafc)', padding: 14, borderRadius: RADIUS.xl, border: '1px solid var(--border, #e2e8f0)' }}>
+              <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)' }}>Precios sin Cambio</div>
+              <div style={{ fontSize: FONT.title, fontWeight: 800, color: '#059669', marginTop: 4 }}>
                 {resumen.precios_sin_cambio}
               </div>
             </div>
 
-            <div style={{ background: 'var(--surface-subtle, #f8fafc)', padding: 14, borderRadius: 12, border: '1px solid var(--border, #e2e8f0)' }}>
-              <div style={{ fontSize: 12, color: 'var(--text-muted, #64748b)' }}>Precios Actualizados</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#6366f1', marginTop: 4 }}>
+            <div style={{ background: 'var(--surface-subtle, #f8fafc)', padding: 14, borderRadius: RADIUS.xl, border: '1px solid var(--border, #e2e8f0)' }}>
+              <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)' }}>Precios Actualizados</div>
+              <div style={{ fontSize: FONT.title, fontWeight: 800, color: 'var(--primary)', marginTop: 4 }}>
                 {resumen.precios_actualizados.length}
               </div>
             </div>
 
-            <div style={{ background: 'rgba(245, 158, 11, 0.08)', padding: 14, borderRadius: 12, border: '1px solid rgba(245, 158, 11, 0.2)' }}>
-              <div style={{ fontSize: 12, color: '#b45309', fontWeight: 600 }}>Códigos Nuevos Detectados</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#d97706', marginTop: 4 }}>
+            <div style={{ background: 'rgba(245, 158, 11, 0.08)', padding: 14, borderRadius: RADIUS.xl, border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+              <div style={{ fontSize: FONT.sm, color: '#b45309', fontWeight: 600 }}>Códigos Nuevos Detectados</div>
+              <div style={{ fontSize: FONT.title, fontWeight: 800, color: '#d97706', marginTop: 4 }}>
                 {resumen.codigos_nuevos_pendientes}
               </div>
             </div>
 
             {resumen.notas_credito > 0 && (
-              <div style={{ background: 'var(--surface-subtle, #f8fafc)', padding: 14, borderRadius: 12, border: '1px solid var(--border, #e2e8f0)' }}>
-                <div style={{ fontSize: 12, color: 'var(--text-muted, #64748b)' }}>Notas crédito / débito</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#64748b', marginTop: 4 }}>
+              <div style={{ background: 'var(--surface-subtle, #f8fafc)', padding: 14, borderRadius: RADIUS.xl, border: '1px solid var(--border, #e2e8f0)' }}>
+                <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)' }}>Notas crédito / débito</div>
+                <div style={{ fontSize: FONT.title, fontWeight: 800, color: '#64748b', marginTop: 4 }}>
                   {resumen.notas_credito}
                 </div>
-                <div style={{ fontSize: 10.5, color: 'var(--text-subtle, #94a3b8)', marginTop: 2 }}>
+                <div style={{ fontSize: FONT.tiny, color: 'var(--text-subtle, #94a3b8)', marginTop: 2 }}>
                   Registradas sin mover precios
                 </div>
               </div>
             )}
 
             {resumen.lineas_omitidas_proveedor > 0 && (
-              <div style={{ background: 'var(--surface-subtle, #f8fafc)', padding: 14, borderRadius: 12, border: '1px solid var(--border, #e2e8f0)' }}>
-                <div style={{ fontSize: 12, color: 'var(--text-muted, #64748b)' }}>Líneas de proveedores no seguidos</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#64748b', marginTop: 4 }}>
+              <div style={{ background: 'var(--surface-subtle, #f8fafc)', padding: 14, borderRadius: RADIUS.xl, border: '1px solid var(--border, #e2e8f0)' }}>
+                <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)' }}>Líneas de proveedores no seguidos</div>
+                <div style={{ fontSize: FONT.title, fontWeight: 800, color: '#64748b', marginTop: 4 }}>
                   {resumen.lineas_omitidas_proveedor}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Emisores nuevos: la decisión que evita que la bandeja se llene de ruido.
-              Mientras no se resuelvan, sus productos no entran a Por Mapear. */}
+          {/* Emisores sin decidir (2026-09-12): sus códigos ya entraron a Por Mapear con
+              esta misma carga. Este panel es la decisión de si vale la pena seguir
+              tomando sus precios a futuro, o ignorarlo y limpiar lo que ya cayó. */}
           {(resumen.proveedores_por_decidir?.length ?? 0) > 0 && (
             <div
               style={{
                 background: 'rgba(245, 158, 11, 0.07)',
                 border: '1px solid #fde68a',
-                borderRadius: 12,
+                borderRadius: RADIUS.xl,
                 padding: '14px 18px',
               }}
             >
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text, #0f172a)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontSize: FONT.base, fontWeight: 700, color: 'var(--text, #0f172a)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <HelpCircle size={14} style={{ color: '#d97706' }} />
-                Proveedores nuevos: ¿cuáles te interesan? ({resumen.proveedores_por_decidir!.length})
+                Proveedores sin decidir: ¿cuáles te interesan? ({resumen.proveedores_por_decidir!.length})
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted, #64748b)', marginBottom: 10, lineHeight: 1.45 }}>
-                Sus facturas quedaron registradas, pero sus productos <strong>no entrarán a Por Mapear</strong> hasta
-                que marques cuáles quieres seguir. Al aprobarlos, vuelve a subir sus facturas para que se procesen.
+              <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)', marginBottom: 10, lineHeight: 1.45 }}>
+                Sus códigos <strong>ya entraron a Por Mapear</strong> con esta carga. Marca cuáles te interesa seguir
+                a futuro, o ignora los que no son insumos (combustible, peajes, papelería) para limpiar sus pendientes.
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 220, overflowY: 'auto', marginBottom: 12 }}>
@@ -625,7 +627,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                     key={p.id}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
-                      padding: '7px 11px', borderRadius: 9,
+                      padding: '7px 11px', borderRadius: RADIUS.md,
                       background: 'var(--surface, #fff)',
                       border: '1px solid var(--border-subtle, #f1f5f9)',
                     }}
@@ -641,8 +643,8 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                       style={{ cursor: 'pointer' }}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text, #0f172a)' }}>{p.nombre}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted, #64748b)', fontFamily: 'monospace' }}>
+                      <div style={{ fontSize: FONT.sm, fontWeight: 600, color: 'var(--text, #0f172a)' }}>{p.nombre}</div>
+                      <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #64748b)', fontFamily: 'monospace' }}>
                         {p.nit ?? 'Sin NIT'} · {p.lineas} línea(s) en este lote
                       </div>
                     </div>
@@ -655,9 +657,9 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                   onClick={() => decidirProveedores(Array.from(seleccionProv), true)}
                   disabled={decidiendo || seleccionProv.size === 0}
                   style={{
-                    padding: '7px 14px', borderRadius: 9, border: '1px solid #22c55e60',
+                    padding: '7px 14px', borderRadius: RADIUS.md, border: '1px solid #22c55e60',
                     background: seleccionProv.size === 0 ? 'transparent' : 'rgba(34, 197, 94, 0.12)',
-                    color: '#16a34a', fontSize: 12.5, fontWeight: 700,
+                    color: '#16a34a', fontSize: FONT.sm, fontWeight: 700,
                     cursor: decidiendo || seleccionProv.size === 0 ? 'not-allowed' : 'pointer',
                     opacity: seleccionProv.size === 0 ? .5 : 1,
                   }}
@@ -668,9 +670,9 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                   onClick={() => decidirProveedores(Array.from(seleccionProv), false)}
                   disabled={decidiendo || seleccionProv.size === 0}
                   style={{
-                    padding: '7px 14px', borderRadius: 9, border: '1px solid var(--border, #e2e8f0)',
+                    padding: '7px 14px', borderRadius: RADIUS.md, border: '1px solid var(--border, #e2e8f0)',
                     background: 'transparent', color: 'var(--text-muted, #64748b)',
-                    fontSize: 12.5, fontWeight: 600,
+                    fontSize: FONT.sm, fontWeight: 600,
                     cursor: decidiendo || seleccionProv.size === 0 ? 'not-allowed' : 'pointer',
                     opacity: seleccionProv.size === 0 ? .5 : 1,
                   }}
@@ -681,9 +683,9 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                   onClick={() => decidirProveedores(resumen.proveedores_por_decidir!.map((p) => p.id), false)}
                   disabled={decidiendo}
                   style={{
-                    padding: '7px 14px', borderRadius: 9, border: 'none',
+                    padding: '7px 14px', borderRadius: RADIUS.md, border: 'none',
                     background: 'transparent', color: 'var(--text-muted, #64748b)',
-                    fontSize: 12.5, cursor: decidiendo ? 'wait' : 'pointer', textDecoration: 'underline',
+                    fontSize: FONT.sm, cursor: decidiendo ? 'wait' : 'pointer', textDecoration: 'underline',
                   }}
                 >
                   Ignorar todos
@@ -695,7 +697,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
           {/* Avisos que requieren criterio humano */}
           {resumen.avisos?.length > 0 && (
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text, #0f172a)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontSize: FONT.base, fontWeight: 700, color: 'var(--text, #0f172a)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <AlertTriangle size={14} style={{ color: '#d97706' }} />
                 Requieren tu revisión ({resumen.avisos.length})
               </div>
@@ -707,20 +709,20 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                       key={idx}
                       style={{
                         display: 'flex', alignItems: 'flex-start', gap: 10,
-                        padding: '8px 12px', borderRadius: 9,
+                        padding: '8px 12px', borderRadius: RADIUS.md,
                         background: 'var(--surface-subtle, #f8fafc)',
                         border: '1px solid var(--border-subtle, #f1f5f9)',
                       }}
                     >
                       <span
                         style={{
-                          fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
+                          fontSize: FONT.tiny, fontWeight: 700, padding: '2px 7px', borderRadius: RADIUS.xs,
                           color: estilo.color, background: estilo.fondo, whiteSpace: 'nowrap', flexShrink: 0,
                         }}
                       >
                         {estilo.texto}
                       </span>
-                      <div style={{ fontSize: 12.5, color: 'var(--text, #334155)', lineHeight: 1.4 }}>
+                      <div style={{ fontSize: FONT.sm, color: 'var(--text, #334155)', lineHeight: 1.4 }}>
                         <strong style={{ fontWeight: 600 }}>{a.proveedor_nombre}:</strong> {a.detalle}
                       </div>
                     </div>
@@ -736,7 +738,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
               style={{
                 background: 'linear-gradient(90deg, #fffbeb, #fef3c7)',
                 border: '1px solid #fde68a',
-                borderRadius: 12,
+                borderRadius: RADIUS.xl,
                 padding: '12px 18px',
                 display: 'flex',
                 alignItems: 'center',
@@ -745,7 +747,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <AlertTriangle size={18} style={{ color: '#d97706' }} />
-                <div style={{ fontSize: 13, color: '#92400e', fontWeight: 500 }}>
+                <div style={{ fontSize: FONT.base, color: '#92400e', fontWeight: 500 }}>
                   Se encontraron <strong>{resumen.codigos_nuevos_pendientes} códigos de proveedor</strong> que aún no están vinculados en el catálogo.
                 </div>
               </div>
@@ -757,8 +759,8 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                     color: '#fff',
                     border: 'none',
                     padding: '6px 14px',
-                    borderRadius: 8,
-                    fontSize: 12.5,
+                    borderRadius: RADIUS.md,
+                    fontSize: FONT.sm,
                     fontWeight: 700,
                     cursor: 'pointer',
                     display: 'flex',
@@ -775,17 +777,17 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
           {/* Detalle de precios actualizados */}
           {resumen.precios_actualizados.length > 0 && (
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text, #0f172a)', marginBottom: 8 }}>
+              <div style={{ fontSize: FONT.base, fontWeight: 700, color: 'var(--text, #0f172a)', marginBottom: 8 }}>
                 Detalle de Precios que Cambiaron:
               </div>
               <div
                 style={{
                   border: '1px solid var(--border, #e2e8f0)',
-                  borderRadius: 10,
+                  borderRadius: RADIUS.lg,
                   overflow: 'hidden',
                 }}
               >
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, textAlign: 'left' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FONT.sm, textAlign: 'left' }}>
                   <thead>
                     <tr style={{ background: 'var(--surface-subtle, #f8fafc)', borderBottom: '1px solid var(--border, #e2e8f0)' }}>
                       <th style={{ padding: '8px 12px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Proveedor</th>
@@ -805,10 +807,10 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                             {p.proveedor_nombre}
                           </td>
                           <td style={{ padding: '8px 12px' }}>
-                            <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 11.5, color: '#6366f1' }}>
+                            <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: FONT.xs, color: 'var(--primary)' }}>
                               {p.codigo_proveedor}
                             </div>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted, #64748b)' }}>{p.descripcion}</div>
+                            <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)' }}>{p.descripcion}</div>
                           </td>
                           <td style={{ padding: '8px 12px', color: 'var(--text-muted, #64748b)' }}>
                             {formatCOP(p.precio_anterior)}
@@ -824,10 +826,10 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                                 gap: 3,
                                 color: colorVar,
                                 fontWeight: 700,
-                                fontSize: 11.5,
+                                fontSize: FONT.xs,
                                 background: `${colorVar}18`,
                                 padding: '2px 6px',
-                                borderRadius: 6,
+                                borderRadius: RADIUS.sm,
                               }}
                             >
                               <Icon size={11} />
@@ -837,7 +839,7 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
                             {p.retroactivo && (
                               <div
                                 title="La factura es anterior al precio vigente: se archivó en el histórico sin reemplazarlo"
-                                style={{ fontSize: 10.5, color: '#64748b', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}
+                                style={{ fontSize: FONT.tiny, color: '#64748b', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}
                               >
                                 <History size={10} /> archivado
                               </div>
@@ -855,19 +857,19 @@ const CargarFacturasTab: React.FC<Props> = ({ onIrAPorMapear, onLoteProcesado, p
           {/* Archivos que no se pudieron procesar */}
           {resumen.errores?.length > 0 && (
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#b91c1c', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontSize: FONT.base, fontWeight: 700, color: '#b91c1c', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <XCircle size={14} />
                 No se pudieron procesar ({resumen.errores.length})
               </div>
               <div
                 style={{
                   background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)',
-                  borderRadius: 10, padding: '10px 14px', maxHeight: 160, overflowY: 'auto',
+                  borderRadius: RADIUS.lg, padding: '10px 14px', maxHeight: 160, overflowY: 'auto',
                   display: 'flex', flexDirection: 'column', gap: 4,
                 }}
               >
                 {resumen.errores.map((e, idx) => (
-                  <div key={idx} style={{ fontSize: 12, color: '#991b1b', lineHeight: 1.4 }}>{e}</div>
+                  <div key={idx} style={{ fontSize: FONT.sm, color: '#991b1b', lineHeight: 1.4 }}>{e}</div>
                 ))}
               </div>
             </div>

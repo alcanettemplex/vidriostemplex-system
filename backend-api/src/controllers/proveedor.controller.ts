@@ -75,7 +75,18 @@ function siguePrecios(proveedor: any): boolean {
   return proveedor.getDataValue('activo') === true && proveedor.getDataValue('seguir_precios') === true;
 }
 
-/** Por qué se omitieron las líneas de un proveedor. Cabe en motivo_omision (STRING 40). */
+/** Gate real de la ingesta (decisión 2026-09-12): a diferencia de `siguePrecios()`,
+ *  "Sin decidir" (seguir_precios=null) NO bloquea — sus códigos entran a Por Mapear
+ *  igual que los de un proveedor Activo. Solo un "no" explícito o la baja lógica
+ *  cortan el paso. */
+function bloqueaIngesta(proveedor: any): boolean {
+  return proveedor.getDataValue('activo') !== true || proveedor.getDataValue('seguir_precios') === false;
+}
+
+/** Por qué se omitieron las líneas de un proveedor. Cabe en motivo_omision (STRING 40).
+ *  Solo se llama cuando `bloqueaIngesta` ya cortó el paso, así que el caso "sin decidir"
+ *  quedó inalcanzable desde la ingesta — se conserva el valor por los registros
+ *  históricos que ya lo usan (bitácora de facturas procesadas). */
 function motivoOmision(proveedor: any): string {
   if (proveedor.getDataValue('activo') !== true) return 'PROVEEDOR_INACTIVO';
   if (proveedor.getDataValue('seguir_precios') === false) return 'PROVEEDOR_NO_SEGUIDO';
@@ -1614,8 +1625,8 @@ export const restaurarPendiente = async (req: Request, res: Response) => {
     // Restaurar el código no reanuda el seguimiento del proveedor: son dos decisiones
     // distintas y confundirlas deja al usuario esperando que la próxima factura lo traiga.
     const proveedor: any = pendiente.get('proveedor');
-    const aviso = proveedor && !siguePrecios(proveedor)
-      ? ` Ten en cuenta que "${proveedor.getDataValue('nombre_comercial')}" no está siguiendo precios: sus próximas facturas no volverán a traer este código.`
+    const aviso = proveedor && bloqueaIngesta(proveedor)
+      ? ` Ten en cuenta que "${proveedor.getDataValue('nombre_comercial')}" está ignorado: sus próximas facturas no volverán a traer este código.`
       : '';
 
     res.json({ message: `Código devuelto a Por Mapear.${aviso}`, restaurado: true });
@@ -2455,7 +2466,7 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
       avisos.push({
         tipo: 'PROVEEDOR_NUEVO',
         proveedor_nombre: nuevo.getDataValue('nombre_comercial'),
-        detalle: `Emisor nuevo, detectado en la factura ${fac.numero}. Sus productos no entrarán a Por Mapear hasta que lo apruebes abajo.`,
+        detalle: `Emisor nuevo, detectado en la factura ${fac.numero}. Sus códigos ya entraron a Por Mapear; decide abajo si quieres seguirle los precios o ignorarlo.`,
       });
       return nuevo;
     };
@@ -2527,29 +2538,32 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
           continue;
         }
 
-        // Proveedor que no alimenta la bandeja: ignorado, inactivo o aún sin decidir.
-        // La factura queda registrada igual (trazabilidad), pero con el motivo, que es
-        // lo que permite reabrirla si después se aprueba al proveedor.
-        if (!siguePrecios(proveedor)) {
+        // Proveedor ignorado o inactivo: no alimenta la bandeja. La factura queda
+        // registrada igual (trazabilidad), pero con el motivo, que es lo que permite
+        // reabrirla si después se aprueba al proveedor.
+        if (bloqueaIngesta(proveedor)) {
           lineasOmitidasProveedor += fac.lineas.length;
           const motivo = motivoOmision(proveedor);
-          if (motivo === 'PROVEEDOR_SIN_DECIDIR') {
-            const ficha = proveedoresPorDecidir.get(proveedorId);
-            if (ficha) {
-              ficha.lineas += fac.lineas.length;
-            } else {
-              proveedoresPorDecidir.set(proveedorId, {
-                id: proveedorId,
-                nombre: proveedorNombre,
-                nit: proveedor.getDataValue('nit'),
-                lineas: fac.lineas.length,
-              });
-            }
-          }
           await registrarDocumento(motivo, { act: 0, pend: 0, omit: fac.lineas.length });
           await t.commit();
           facturasProcesadas++;
           continue;
+        }
+
+        // Sin decidir: no bloquea (2026-09-12) — sus códigos entran a Por Mapear en esta
+        // misma factura, pero se deja constancia para pedir la decisión al cierre del lote.
+        if (proveedor.getDataValue('seguir_precios') !== true) {
+          const ficha = proveedoresPorDecidir.get(proveedorId);
+          if (ficha) {
+            ficha.lineas += fac.lineas.length;
+          } else {
+            proveedoresPorDecidir.set(proveedorId, {
+              id: proveedorId,
+              nombre: proveedorNombre,
+              nit: proveedor.getDataValue('nit'),
+              lineas: fac.lineas.length,
+            });
+          }
         }
 
         // Agrupar líneas del mismo producto — manda el precio mayor (compras.md §8),

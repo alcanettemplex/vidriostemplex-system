@@ -8,6 +8,7 @@ import { toast } from 'react-toastify';
 import API from '../../../../services/config';
 import VincularCodigoModal, { CodigoPendienteItem } from '../modals/VincularCodigoModal';
 import { ProveedorCompacto } from '../../ProveedoresPage';
+import { RADIUS, FONT } from '../../styleTokens';
 
 interface Props {
   proveedores: ProveedorCompacto[];
@@ -168,6 +169,22 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
     }
   };
 
+  /** Confirma el seguimiento de un proveedor "sin decidir". No descarta nada, así
+   *  que no hace falta confirmar como sí ocurre al ignorar. */
+  const handleSeguirPrecios = async (proveedorId: number, nombre: string) => {
+    setAccionLote(true);
+    try {
+      const { data } = await axios.patch(`${API}/api/proveedores/${proveedorId}/seguimiento`, { seguir_precios: true });
+      toast.success(data?.message ?? `Ahora se siguen los precios de "${nombre}"`);
+      cargarPendientes();
+      if (onProveedoresCambiados) onProveedoresCambiados();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'No se pudo cambiar el seguimiento del proveedor');
+    } finally {
+      setAccionLote(false);
+    }
+  };
+
   const alternarSeleccion = (id: number) => {
     setSeleccion(prev => {
       const siguiente = new Set(prev);
@@ -183,13 +200,13 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
   const botonSecundario: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 6,
     background: 'var(--surface, #fff)', border: '1px solid var(--border-strong, #cbd5e1)',
-    padding: '7px 14px', borderRadius: 8, fontSize: 12.5, fontWeight: 600,
+    padding: '7px 14px', borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 600,
     color: 'var(--text, #334155)', cursor: 'pointer',
   };
 
   const inputStyle: React.CSSProperties = {
-    padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-strong, #cbd5e1)',
-    fontSize: 13, background: 'var(--surface, #fff)', color: 'var(--text, #0f172a)',
+    padding: '8px 12px', borderRadius: RADIUS.md, border: '1px solid var(--border-strong, #cbd5e1)',
+    fontSize: FONT.base, background: 'var(--surface, #fff)', color: 'var(--text, #0f172a)',
   };
 
   return (
@@ -200,28 +217,28 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           flexWrap: 'wrap', gap: 16, background: 'var(--surface-subtle, #f8fafc)',
-          padding: '16px 20px', borderRadius: 14, border: '1px solid var(--border, #e2e8f0)',
+          padding: '16px 20px', borderRadius: RADIUS['2xl'], border: '1px solid var(--border, #e2e8f0)',
         }}
       >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 800, margin: 0, color: 'var(--text, #0f172a)' }}>
+            <h2 style={{ fontSize: FONT.xl, fontWeight: 800, margin: 0, color: 'var(--text, #0f172a)' }}>
               {enDescartados ? 'Códigos Descartados' : 'Bandeja de Códigos por Mapear'}
             </h2>
             <span
               style={{
-                fontSize: 12, fontWeight: 700,
+                fontSize: FONT.sm, fontWeight: 700,
                 color: enDescartados ? '#64748b' : total > 0 ? '#d97706' : '#059669',
                 background: enDescartados
                   ? 'rgba(100, 116, 139, 0.12)'
                   : total > 0 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(5, 150, 105, 0.1)',
-                padding: '2px 8px', borderRadius: 999,
+                padding: '2px 8px', borderRadius: RADIUS.pill,
               }}
             >
               {total} {enDescartados ? 'descartados' : 'pendientes'}
             </span>
           </div>
-          <p style={{ fontSize: 13, color: 'var(--text-muted, #64748b)', margin: '4px 0 0' }}>
+          <p style={{ fontSize: FONT.base, color: 'var(--text-muted, #64748b)', margin: '4px 0 0' }}>
             {enDescartados
               ? 'Códigos que decidiste no mapear. La ingesta los ignora para siempre: devuélvelos a la bandeja si fue por error.'
               : 'Códigos detectados en facturas electrónicas que aún no tienen equivalencia con tu catálogo interno'}
@@ -233,7 +250,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
           <div
             style={{
               display: 'flex', background: 'var(--surface, #fff)',
-              border: '1px solid var(--border-strong, #cbd5e1)', borderRadius: 9, padding: 3, gap: 3,
+              border: '1px solid var(--border-strong, #cbd5e1)', borderRadius: RADIUS.md, padding: 3, gap: 3,
             }}
           >
             {([
@@ -244,9 +261,9 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
                 key={opcion.valor}
                 onClick={() => setVista(opcion.valor)}
                 style={{
-                  border: 'none', borderRadius: 7, padding: '6px 13px', cursor: 'pointer',
-                  fontSize: 12.5, fontWeight: 700,
-                  background: vista === opcion.valor ? '#6366f1' : 'transparent',
+                  border: 'none', borderRadius: RADIUS.sm, padding: '6px 13px', cursor: 'pointer',
+                  fontSize: FONT.sm, fontWeight: 700,
+                  background: vista === opcion.valor ? 'var(--primary)' : 'transparent',
                   color: vista === opcion.valor ? '#fff' : 'var(--text-muted, #64748b)',
                 }}
               >
@@ -294,10 +311,10 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             gap: 12, flexWrap: 'wrap', background: 'rgba(99, 102, 241, 0.07)',
-            border: '1px solid rgba(99, 102, 241, 0.25)', borderRadius: 12, padding: '10px 16px',
+            border: '1px solid rgba(99, 102, 241, 0.25)', borderRadius: RADIUS.xl, padding: '10px 16px',
           }}
         >
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#4338ca' }}>
+          <span style={{ fontSize: FONT.base, fontWeight: 600, color: '#4338ca' }}>
             {seleccion.size} código(s) seleccionado(s)
           </span>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -310,7 +327,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 background: enDescartados ? '#059669' : '#ef4444',
-                border: 'none', padding: '7px 14px', borderRadius: 8, fontSize: 12.5,
+                border: 'none', padding: '7px 14px', borderRadius: RADIUS.md, fontSize: FONT.sm,
                 fontWeight: 700, color: '#fff', cursor: accionLote ? 'wait' : 'pointer',
               }}
             >
@@ -326,20 +343,20 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
       {/* ── Tabla ── */}
       {loading ? (
         <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: '#6366f1' }} />
+          <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: 'var(--primary)' }} />
           Cargando códigos pendientes…
         </div>
       ) : pendientes.length === 0 ? (
         <div
           style={{
             background: 'var(--surface, #ffffff)', border: '1px solid var(--border, #e2e8f0)',
-            borderRadius: 16, padding: '48px 24px', textAlign: 'center',
+            borderRadius: RADIUS['3xl'], padding: '48px 24px', textAlign: 'center',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
           }}
         >
           <div
             style={{
-              width: 50, height: 50, borderRadius: 999,
+              width: 50, height: 50, borderRadius: RADIUS.pill,
               background: enDescartados ? 'rgba(100, 116, 139, 0.1)' : 'rgba(5, 150, 105, 0.1)',
               color: enDescartados ? '#64748b' : '#059669',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -347,14 +364,14 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
           >
             {enDescartados ? <Trash2 size={26} /> : <CheckCircle2 size={26} />}
           </div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text, #0f172a)' }}>
+          <div style={{ fontSize: FONT.xl, fontWeight: 700, color: 'var(--text, #0f172a)' }}>
             {qAplicado || filtroProveedor
               ? 'Ningún código coincide con el filtro'
               : enDescartados
                 ? 'No hay códigos descartados'
                 : '¡No hay códigos pendientes por mapear!'}
           </div>
-          <p style={{ fontSize: 13, color: 'var(--text-muted, #64748b)', maxWidth: 460, margin: 0 }}>
+          <p style={{ fontSize: FONT.base, color: 'var(--text-muted, #64748b)', maxWidth: 460, margin: 0 }}>
             {qAplicado || filtroProveedor
               ? 'Prueba con otro término o quita el filtro de proveedor.'
               : enDescartados
@@ -366,10 +383,10 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
         <div
           style={{
             background: 'var(--surface, #ffffff)', border: '1px solid var(--border, #e2e8f0)',
-            borderRadius: 16, overflowX: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            borderRadius: RADIUS['3xl'], overflowX: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
           }}
         >
-          <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
+          <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse', fontSize: FONT.base, textAlign: 'left' }}>
             <thead>
               <tr style={{ background: 'var(--surface-subtle, #f8fafc)', borderBottom: '1px solid var(--border, #e2e8f0)' }}>
                 <th style={{ padding: '12px 10px 12px 16px', width: 36 }}>
@@ -403,33 +420,52 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
 
                   <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text, #1e293b)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Building2 size={14} style={{ color: '#6366f1', flexShrink: 0 }} />
+                      <Building2 size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
                       {item.proveedor?.nombre_comercial || `Proveedor #${item.proveedor_id}`}
                     </div>
                     {/* Ignorar al proveedor descarta sus pendientes: no tiene sentido
                         ofrecerlo desde la vista de los que ya están descartados. */}
                     {!enDescartados && (
-                      <button
-                        onClick={() => handleDejarDeSeguir(item.proveedor_id, item.proveedor?.nombre_comercial || 'este proveedor')}
-                        disabled={accionLote}
-                        title="Dejar de seguir precios de este proveedor y limpiar sus códigos"
-                        style={{
-                          marginTop: 4, background: 'none', border: 'none', padding: 0,
-                          color: 'var(--text-subtle, #94a3b8)', fontSize: 11, fontWeight: 600,
-                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-                        }}
-                      >
-                        <BellOff size={11} /> No seguir precios
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                        {/* "Sin decidir" (2026-09-12): sus códigos ya entraron a Por Mapear
+                            sin que nadie lo haya activado. Seguir/Ignorar quedan lado a lado
+                            para resolverlo sin salir de esta pantalla. */}
+                        {item.proveedor?.seguir_precios == null && (
+                          <button
+                            onClick={() => handleSeguirPrecios(item.proveedor_id, item.proveedor?.nombre_comercial || 'este proveedor')}
+                            disabled={accionLote}
+                            title="Confirmar el seguimiento de precios de este proveedor"
+                            style={{
+                              background: 'none', border: 'none', padding: 0,
+                              color: '#16a34a', fontSize: FONT.xs, fontWeight: 600,
+                              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                            }}
+                          >
+                            <CheckCircle2 size={11} /> Seguir precios
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDejarDeSeguir(item.proveedor_id, item.proveedor?.nombre_comercial || 'este proveedor')}
+                          disabled={accionLote}
+                          title="Dejar de seguir precios de este proveedor y limpiar sus códigos"
+                          style={{
+                            background: 'none', border: 'none', padding: 0,
+                            color: 'var(--text-subtle, #94a3b8)', fontSize: FONT.xs, fontWeight: 600,
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                          }}
+                        >
+                          <BellOff size={11} /> No seguir precios
+                        </button>
+                      </div>
                     )}
                   </td>
 
                   <td style={{ padding: '12px 16px' }}>
                     <span
                       style={{
-                        fontFamily: 'monospace', fontWeight: 700, fontSize: 12,
+                        fontFamily: 'monospace', fontWeight: 700, fontSize: FONT.sm,
                         background: 'rgba(99, 102, 241, 0.08)', color: '#4338ca',
-                        padding: '3px 8px', borderRadius: 6,
+                        padding: '3px 8px', borderRadius: RADIUS.sm,
                       }}
                     >
                       {item.codigo_proveedor}
@@ -437,7 +473,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
                     {item.codigo_derivado && (
                       <div
                         title="El XML no traía código de producto: se generó a partir de la descripción"
-                        style={{ fontSize: 10.5, color: '#b45309', marginTop: 4, display: 'flex', alignItems: 'center', gap: 3 }}
+                        style={{ fontSize: FONT.tiny, color: '#b45309', marginTop: 4, display: 'flex', alignItems: 'center', gap: 3 }}
                       >
                         <AlertTriangle size={10} /> Código deducido
                       </div>
@@ -449,7 +485,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
                       {item.descripcion_proveedor || 'Sin descripción'}
                     </div>
                     {item.documento_ref && (
-                      <div style={{ fontSize: 11, color: 'var(--text-subtle, #94a3b8)', marginTop: 2 }}>
+                      <div style={{ fontSize: FONT.xs, color: 'var(--text-subtle, #94a3b8)', marginTop: 2 }}>
                         Ref: {item.documento_ref}
                       </div>
                     )}
@@ -459,7 +495,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
                     {formatCOP(item.precio_detectado)}
                     {item.unidad_detectada && (
                       <div
-                        style={{ fontSize: 11, color: '#4338ca', fontWeight: 600, marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}
+                        style={{ fontSize: FONT.xs, color: '#4338ca', fontWeight: 600, marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}
                         title="Unidad declarada en el XML de la factura"
                       >
                         <Ruler size={10} /> por {ETIQUETA_UNIDAD[item.unidad_detectada] ?? item.unidad_detectada}
@@ -470,10 +506,10 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
                   <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                     <span
                       style={{
-                        fontSize: 11.5, fontWeight: 700,
+                        fontSize: FONT.xs, fontWeight: 700,
                         color: item.veces_visto > 1 ? '#d97706' : '#64748b',
                         background: item.veces_visto > 1 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(100, 116, 139, 0.08)',
-                        padding: '2px 8px', borderRadius: 999,
+                        padding: '2px 8px', borderRadius: RADIUS.pill,
                       }}
                     >
                       {item.veces_visto} ×
@@ -485,8 +521,8 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
                       <button
                         onClick={() => setItemParaVincular(item)}
                         style={{
-                          background: '#6366f1', color: '#fff', border: 'none',
-                          padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                          background: 'var(--primary)', color: '#fff', border: 'none',
+                          padding: '6px 12px', borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 700,
                           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
                           boxShadow: '0 2px 6px rgba(99, 102, 241, 0.25)',
                         }}
@@ -502,7 +538,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
                           style={{
                             background: 'transparent', color: '#059669',
                             border: '1px solid #05966950', padding: '6px 10px',
-                            borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                            borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 700, cursor: 'pointer',
                             display: 'flex', alignItems: 'center', gap: 4,
                           }}
                         >
@@ -517,7 +553,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
                           style={{
                             background: 'transparent', color: 'var(--text-subtle, #94a3b8)',
                             border: '1px solid var(--border-strong, #cbd5e1)', padding: '6px 10px',
-                            borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                            borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 600, cursor: 'pointer',
                             display: 'flex', alignItems: 'center', gap: 4,
                           }}
                         >
@@ -533,7 +569,7 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
           </table>
 
           {total > pendientes.length && (
-            <div style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-muted, #64748b)', borderTop: '1px solid var(--border-subtle, #f1f5f9)' }}>
+            <div style={{ padding: '10px 16px', fontSize: FONT.sm, color: 'var(--text-muted, #64748b)', borderTop: '1px solid var(--border-subtle, #f1f5f9)' }}>
               Mostrando {pendientes.length} de {total}. Usa el buscador o el filtro de proveedor para acotar la lista.
             </div>
           )}
