@@ -92,7 +92,7 @@ export const meta = {
     },
     { nombre: "segmentoCliente", tipo: "select", opciones: ["PA", "PM", "PB"], etiqueta: "Tipo de cliente", requerido: true, grupo: "cliente" },
     { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de piezas iguales", requerido: true, grupo: "comercial" },
-    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (fracción 0-1)", requerido: false, grupo: "comercial" },
+    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (%)", requerido: false, grupo: "comercial" },
   ],
 };
 

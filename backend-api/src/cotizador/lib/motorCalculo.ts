@@ -167,6 +167,18 @@ export function totalizar(
     ivaPct = 0.19,
   }: { cantidadPiezas?: number; descuentoPct?: number; aiu?: number; ivaPct?: number } = {}
 ): Totales {
+  // El descuento es una FRACCIÓN, no un porcentaje: 0,05 es 5%. Sin este tope,
+  // un 5 escrito donde iba 0,05 se aplica como 500% y la cotización sale con
+  // total NEGATIVO, en HTTP 200 y sin una sola advertencia — se podía guardar y
+  // mandar al cliente así. Es el único punto donde se aplica el descuento, así
+  // que validarlo aquí cubre los 6 módulos y el camino por diseño.
+  if (!Number.isFinite(descuentoPct) || descuentoPct < 0 || descuentoPct > 1) {
+    throw new Error(
+      `El descuento debe estar entre 0% y 100% (se recibió ${descuentoPct}). ` +
+        "Si querías un 5%, escribe 5 en el campo de descuento."
+    );
+  }
+
   const hayErrores = items.some((it) => it.error);
   const subtotalPieza = round2(items.reduce((acc, it) => acc + it.valorTotal, 0));
   const subtotal = round2(subtotalPieza * cantidadPiezas);

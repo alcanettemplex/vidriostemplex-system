@@ -148,7 +148,7 @@ export const meta = {
       grupo: "vidrio",
     },
     { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de ventanas idénticas", requerido: false, grupo: "comercial" },
-    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (fracción 0-1)", requerido: false, grupo: "comercial" },
+    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (%)", requerido: false, grupo: "comercial" },
   ],
 };
 

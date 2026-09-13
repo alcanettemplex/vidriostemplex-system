@@ -33,6 +33,12 @@ const CampoDinamico: React.FC<Props> = ({ campo, value, onChange }) => {
     // conoce la unidad de presentación: FormularioModulo sigue leyendo/enviando
     // centímetros exactamente igual que antes.
     const esCampoMedidaCm = campo.tipo === 'number' && campo.nombre.endsWith('Cm');
+    // Misma idea con el descuento: el motor y las cotizaciones ya guardadas lo
+    // manejan como FRACCIÓN (0,05 = 5%), pero el vendedor escribe el porcentaje.
+    // Antes el campo pedía la fracción en crudo, y un 5 escrito donde iba 0,05
+    // se aplicaba como 500%: total negativo, sin error. El backend además lo
+    // rechaza fuera de 0-1 (ver totalizar en motorCalculo.ts).
+    const esCampoPorcentaje = campo.tipo === 'number' && campo.nombre === 'descuentoPct';
     if (campo.tipo === 'boolean') {
         return (
             <div className="flex items-center gap-2 pt-5">
@@ -74,16 +80,24 @@ const CampoDinamico: React.FC<Props> = ({ campo, value, onChange }) => {
                 <input
                     type="number"
                     className={selectClass}
+                    min={esCampoPorcentaje ? 0 : undefined}
+                    max={esCampoPorcentaje ? 100 : undefined}
                     value={
                         esCampoMedidaCm
                             ? (esNumeroFinito(value) ? value * 10 : '')
-                            : (value as number | string ?? '')
+                            // El redondeo evita el ruido de coma flotante:
+                            // 0.05 * 100 da 5.000000000000001 en JS.
+                            : esCampoPorcentaje
+                                ? (esNumeroFinito(value) ? Math.round(value * 10000) / 100 : '')
+                                : (value as number | string ?? '')
                     }
                     onChange={e => {
                         const texto = e.target.value;
                         if (texto === '') { onChange(''); return; }
                         const numero = Number(texto);
-                        onChange(esCampoMedidaCm ? numero / 10 : numero);
+                        if (esCampoMedidaCm) return onChange(numero / 10);
+                        if (esCampoPorcentaje) return onChange(numero / 100);
+                        onChange(numero);
                     }}
                 />
             ) : (

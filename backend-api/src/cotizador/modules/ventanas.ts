@@ -234,7 +234,7 @@ export const meta = {
     // Cuando existan más referencias, esto pasa a select como el matizado.
     { nombre: "pelicula", tipo: "boolean", etiqueta: "Incluir película", requerido: false, grupo: "vidrio" },
     { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de ventanas idénticas", requerido: false, grupo: "comercial" },
-    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (fracción 0-1)", requerido: false, grupo: "comercial" },
+    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (%)", requerido: false, grupo: "comercial" },
   ],
 };
 
