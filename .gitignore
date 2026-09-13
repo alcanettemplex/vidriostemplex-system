@@ -22,3 +22,11 @@ backend-api/.wwebjs_auth/
 # fuentes .dc.html + canvas.json de design/ — ver design/proveedores/README.md
 design/**/*.html
 !design/**/*.dc.html
+
+# Notas de traspaso entre sesiones de trabajo. Se quedan en local a propósito:
+# documentan cómo probar contra el sistema real —incluido firmar un JWT con el
+# JWT_SECRET del .env para entrar como root sin contraseña, porque
+# authMiddleware valida la firma y no consulta la BD— y eso es una receta de
+# escalada de privilegios que no tiene por qué viajar por git. Lo que sí debe
+# quedar versionado es la bitácora: va en SESSION_LOG.md, sin esos detalles.
+HANDOFF.md
