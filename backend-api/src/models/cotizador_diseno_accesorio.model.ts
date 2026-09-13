@@ -19,7 +19,8 @@ CotizadorDisenoAccesorio.init({
 }, {
   sequelize,
   modelName: 'CotizadorDisenoAccesorio',
-  tableName: 'cotizador_diseno_accesorio',
+  tableName: 'diseno_accesorio',
+  schema: 'cotizador',
   timestamps: false,
   indexes: [
     { fields: ['diseno_id', 'orden'], unique: true },

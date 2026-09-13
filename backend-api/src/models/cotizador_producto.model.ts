@@ -33,7 +33,8 @@ CotizadorProducto.init({
 }, {
   sequelize,
   modelName: 'CotizadorProducto',
-  tableName: 'cotizador_producto',
+  tableName: 'producto',
+  schema: 'cotizador',
   timestamps: false,
   indexes: [
     { fields: ['categoria'] },

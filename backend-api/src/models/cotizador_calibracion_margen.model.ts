@@ -32,7 +32,8 @@ CotizadorCalibracionMargen.init({
 }, {
   sequelize,
   modelName: 'CotizadorCalibracionMargen',
-  tableName: 'cotizador_calibracion_margen',
+  tableName: 'calibracion_margen',
+  schema: 'cotizador',
   timestamps: false,
 });
 

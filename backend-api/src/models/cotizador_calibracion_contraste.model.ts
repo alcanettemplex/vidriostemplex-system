@@ -25,7 +25,8 @@ CotizadorCalibracionContraste.init({
 }, {
   sequelize,
   modelName: 'CotizadorCalibracionContraste',
-  tableName: 'cotizador_calibracion_contraste',
+  tableName: 'calibracion_contraste',
+  schema: 'cotizador',
   timestamps: false,
   indexes: [
     { fields: ['sistema', 'ref'] },

@@ -241,11 +241,11 @@ export async function obtener(id: number) {
  */
 async function siguienteNumero(t: Transaction): Promise<number> {
   const filas = (await sequelize.query(
-    `UPDATE cotizador_consecutivo SET valor = valor + 1 WHERE nombre = 'cotizacion' RETURNING valor;`,
+    `UPDATE cotizador.consecutivo SET valor = valor + 1 WHERE nombre = 'cotizacion' RETURNING valor;`,
     { transaction: t, type: QueryTypes.SELECT }
   )) as unknown as Array<{ valor: number }>;
   if (!filas.length) {
-    throw new Error('No existe el contador de cotizaciones (cotizador_consecutivo).');
+    throw new Error('No existe el contador de cotizaciones (cotizador.consecutivo).');
   }
   return filas[0].valor;
 }

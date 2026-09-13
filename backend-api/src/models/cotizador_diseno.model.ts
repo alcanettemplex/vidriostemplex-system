@@ -22,7 +22,8 @@ CotizadorDiseno.init({
 }, {
   sequelize,
   modelName: 'CotizadorDiseno',
-  tableName: 'cotizador_diseno',
+  tableName: 'diseno',
+  schema: 'cotizador',
   timestamps: false,
   indexes: [
     { fields: ['modulo'] },

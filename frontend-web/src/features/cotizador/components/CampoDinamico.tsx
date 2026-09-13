@@ -59,7 +59,12 @@ const CampoDinamico: React.FC<Props> = ({ campo, value, onChange }) => {
 
             {campo.tipo === 'select' ? (
                 <select className={selectClass} value={value as string | number ?? ''} onChange={e => onChange(e.target.value)}>
-                    <option value="" disabled={campo.requerido}>Selecciona…</option>
+                    {/* El placeholder se omite si el campo ya define qué
+                        significa "vacío" (p. ej. "Sin matizado"): si no, se
+                        verían dos opciones distintas con el mismo value="". */}
+                    {!(campo.opciones || []).some(o => (esOpcionObjeto(o) ? o.value : o) === '') && (
+                        <option value="" disabled={campo.requerido}>Selecciona…</option>
+                    )}
                     {(campo.opciones || []).map((o, i) => {
                         const { val, label } = esOpcionObjeto(o) ? { val: o.value, label: o.label } : { val: o, label: o };
                         return <option key={i} value={val}>{label}</option>;

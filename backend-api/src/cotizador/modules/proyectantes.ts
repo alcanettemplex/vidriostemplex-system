@@ -71,7 +71,10 @@ const COLORES_DISPONIBLES = {
 };
 const BRAZO = "BRES0301";
 const EMPAQUE = "EMP1301";
-const MANIJA = "MBL0406";
+// Importada (MBL0406) queda como default: es el código que se cobraba antes de
+// que esto fuera seleccionable. Nacional (MAPR0101) es la alternativa más
+// económica, mismo uso, calidad de importación distinta.
+const MANIJA_POR_TIPO = { importada: "MBL0406", nacional: "MAPR0101" };
 
 const VIDRIOS_VALIDOS = ["CL4MM01CR", "CL5MM01CR", "CL6MM01CR"];
 const ACABADOS = { matizado: "MATI07", pelicula: "PELI31" };
@@ -98,7 +101,13 @@ export const meta = {
     {
       // "crudo" NO está en la lista a propósito: COLORES_DISPONIBLES.jamba/nave
       // (más abajo) no tienen código para ese color — pedirlo genera líneas en
-      // error, no una ventana crudo válida. Ver el check de la línea ~196.
+      // error, no una ventana crudo válida. Ver el check más abajo.
+      //
+      // "negro" sí está, y hoy tampoco tiene código en 3831: se agregó por
+      // decisión explícita (2026-09-12) para que el asesor lo vea y el faltante
+      // salga como error visible, en vez de ocultar que el cliente lo pide y el
+      // catálogo no lo tiene. Se retira esta nota cuando Compras cree las
+      // referencias negras del sistema.
       nombre: "colorPerfileria",
       tipo: "select",
       opciones: [
@@ -106,6 +115,7 @@ export const meta = {
         { value: "gris plata", label: "Gris plata" },
         { value: "bronce", label: "Bronce" },
         { value: "blanco", label: "Blanco" },
+        { value: "negro", label: "Negro" },
       ],
       etiqueta: "Color de perfilería",
       requerido: true,
@@ -126,6 +136,17 @@ export const meta = {
     },
     { nombre: "matizado", tipo: "boolean", etiqueta: "Incluir matizado", requerido: false, grupo: "vidrio" },
     { nombre: "pelicula", tipo: "boolean", etiqueta: "Incluir película", requerido: false, grupo: "vidrio" },
+    {
+      nombre: "tipoManija",
+      tipo: "select",
+      opciones: [
+        { value: "importada", label: "Manija 3831 proyectante importada" },
+        { value: "nacional", label: "Manija 3831 proyectante nacional" },
+      ],
+      etiqueta: "Tipo de manija",
+      requerido: false,
+      grupo: "vidrio",
+    },
     { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de ventanas idénticas", requerido: false, grupo: "comercial" },
     { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (fracción 0-1)", requerido: false, grupo: "comercial" },
   ],
@@ -149,6 +170,8 @@ export function calcular(input: InputModulo = {}) {
 
   const segmentoCliente = ["PA", "PM", "PB"].includes(input.segmentoCliente) ? input.segmentoCliente : "PA";
   const color = normalizarColor(input.colorPerfileria) || "mate";
+  const tipoManija = input.tipoManija === "nacional" ? "nacional" : "importada";
+  const manijaCodigo = MANIJA_POR_TIPO[tipoManija];
 
   // Camino por DISEÑO concreto (O, OO, OOO, W, O_O...): el despiece trae las
   // medidas de corte reales de jamba, nave, sillar-cabezal y pisavidrios, y el
@@ -183,7 +206,7 @@ export function calcular(input: InputModulo = {}) {
         const lineas: LineaBOM[] = [];
         const naves = Math.max(1, cuerpos);
         lineas.push(lineaCatalogo(BRAZO, naves * 2, seg));
-        lineas.push(lineaCatalogo(MANIJA, naves, seg));
+        lineas.push(lineaCatalogo(manijaCodigo, naves, seg));
         if (perimetroVidrioM > 0) lineas.push(lineaCatalogo(EMPAQUE, round2(perimetroVidrioM), seg));
         return lineas;
       },
@@ -247,7 +270,7 @@ export function calcular(input: InputModulo = {}) {
   const cantidadSillarCabezal = anchoNaveM * 2;
 
   agregarCodigo(BRAZO, cantidadBrazo, "Brazo esculizable");
-  agregarCodigo(MANIJA, cantidadManija, "Manija proyectante");
+  agregarCodigo(manijaCodigo, cantidadManija, "Manija proyectante");
   agregarCodigo(COLORES_DISPONIBLES.jamba[color as keyof typeof COLORES_DISPONIBLES.jamba], cantidadJamba, `Jamba 3831 color ${color}`);
   agregarCodigo(COLORES_DISPONIBLES.nave[color as keyof typeof COLORES_DISPONIBLES.nave], cantidadNave, `Nave 3831 color ${color}`);
   agregarCodigo(EMPAQUE, cantidadEmpaque, "Empaque espagueti 3831");

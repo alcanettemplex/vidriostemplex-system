@@ -33,7 +33,7 @@
 
 import { lineaCatalogo, totalizar, areaM2, round2, tarifaSMO } from "../lib/motorCalculo";
 import { getParametros } from "../lib/catalogo";
-import { cotizarPorDiseno, hacerAgregarRol } from "../lib/cotizarPorDiseno";
+import { cotizarPorDiseno, hacerAgregarRol, codigoMatizado } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
 import type { LineaBOM } from "../lib/motorCalculo";
 
@@ -70,8 +70,6 @@ function lineaManual({
     error: false,
   };
 }
-
-const COLORES = ["mate", "bronce", "gris plata", "blanco", "crudo"];
 
 function normalizarColor(color: unknown): string {
   const c = String(color ?? "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -126,8 +124,40 @@ const CATALOGO_SISTEMAS = {
   },
 };
 
-const VIDRIOS_VALIDOS = ["CL4MM01CR", "CL5MM01CR", "CL10MM01CR", "CL5MM03SP", "CL6MM03SP"];
-const ACABADOS = { matizado: "MATI07", pelicula: "PELI31" };
+// Crudo en 4/5/6 y templado (línea SP) en 4/5/6/8/10. Se eligió SP y no la
+// variante "02TE" porque es la única que existe en 8 y 10mm, así que mezclarlas
+// dejaría dos criterios de precio en el mismo selector. Las variantes "08SP"
+// (STV) quedan fuera a propósito: están en el catálogo con precio 0.
+const VIDRIOS_VALIDOS = [
+  "CL4MM01CR",
+  "CL5MM01CR",
+  "CL6MM01CR",
+  "CL4MM03SP",
+  "CL5MM03SP",
+  "CL6MM03SP",
+  "CL8MM03SP",
+  "CL10MM03SP",
+];
+// El matizado ya no vive aquí: tiene tres variantes con precio propio y su mapa
+// es compartido con el camino por diseño (codigoMatizado, en cotizarPorDiseno).
+const ACABADOS = { pelicula: "PELI31" };
+
+/** Avisa cuando el vendedor pidió alfajía pero este sistema/color no puede
+ * cobrarla. `hacerAgregarRol` se salta en silencio un rol que no existe, así
+ * que sin esto la alfajía marcada en 744 u 8025 —que no tienen `sillarAlfajia`—
+ * desaparecería del presupuesto sin que nadie se entere. */
+function avisarAlfajiaNoDisponible(
+  roles: Record<string, Record<string, string>> | undefined,
+  { sistema, color, advertencias }: { sistema: string; color: string; advertencias: string[] }
+) {
+  const mapa = roles?.sillarAlfajia;
+  if (mapa && (mapa[color] || mapa._)) return;
+  advertencias.push(
+    mapa
+      ? `Pediste alfajía, pero el sistema ${sistema} sólo la tiene en otro color (no en "${color}"): no se cobró ninguna alfajía en esta cotización.`
+      : `Pediste alfajía, pero el sistema ${sistema} no tiene referencia de alfajía en el catálogo: no se cobró ninguna alfajía en esta cotización.`
+  );
+}
 
 export const meta = {
   nombre: "Ventanas",
@@ -137,7 +167,9 @@ export const meta = {
     "para la variante '8025 tres corredizas' use sistema 8025 con alasCorredizas=3.",
   campos: [
     { nombre: "segmentoCliente", tipo: "select", opciones: ["PA", "PM", "PB"], etiqueta: "Tipo de cliente", requerido: true, grupo: "cliente" },
-    { nombre: "sistema", tipo: "select", opciones: ["5020", "744", "8025"], etiqueta: "Sistema", requerido: true, grupo: "cliente" },
+    // 7038 sólo existe por diseño: no tiene entrada en CATALOGO_SISTEMAS, así que
+    // el camino de medidas libres lo rechaza explícitamente en calcular().
+    { nombre: "sistema", tipo: "select", opciones: ["5020", "744", "8025", "7038"], etiqueta: "Sistema", requerido: true, grupo: "cliente" },
     {
       nombre: "colorPerfileria",
       tipo: "select",
@@ -147,6 +179,7 @@ export const meta = {
         { value: "gris plata", label: "Gris plata" },
         { value: "blanco", label: "Blanco" },
         { value: "crudo", label: "Crudo" },
+        { value: "negro", label: "Negro" },
       ],
       etiqueta: "Color de perfilería",
       requerido: true,
@@ -159,7 +192,7 @@ export const meta = {
     { nombre: "altoCm", tipo: "number", etiqueta: "Alto (mm)", requerido: true, grupo: "medidas" },
     { nombre: "cuerpos", tipo: "number", etiqueta: "Cuerpos", requerido: true, grupo: "medidas" },
     { nombre: "alasCorredizas", tipo: "number", etiqueta: "Alas corredizas", requerido: false, grupo: "medidas" },
-    { nombre: "alfajia", tipo: "number", etiqueta: "Alfajía (0 = no, 1 = sí)", requerido: false, grupo: "medidas" },
+    { nombre: "alfajia", tipo: "boolean", etiqueta: "Incluir alfajía", requerido: false, grupo: "medidas" },
     {
       // Whitelist real que valida `calcular()` más abajo (VIDRIOS_VALIDOS) — si
       // se agrega un código aquí sin agregarlo también allá, el backend lo
@@ -169,15 +202,36 @@ export const meta = {
       opciones: [
         { value: "CL4MM01CR", label: "Claro 4mm crudo" },
         { value: "CL5MM01CR", label: "Claro 5mm crudo" },
-        { value: "CL10MM01CR", label: "Claro 10mm crudo" },
-        { value: "CL5MM03SP", label: "Claro 5mm templado SP" },
-        { value: "CL6MM03SP", label: "Claro 6mm templado SP" },
+        { value: "CL6MM01CR", label: "Claro 6mm crudo" },
+        { value: "CL4MM03SP", label: "Claro 4mm templado" },
+        { value: "CL5MM03SP", label: "Claro 5mm templado" },
+        { value: "CL6MM03SP", label: "Claro 6mm templado" },
+        { value: "CL8MM03SP", label: "Claro 8mm templado" },
+        { value: "CL10MM03SP", label: "Claro 10mm templado" },
       ],
       etiqueta: "Tipo de vidrio",
       requerido: false,
       grupo: "vidrio",
     },
-    { nombre: "matizado", tipo: "boolean", etiqueta: "Incluir matizado", requerido: false, grupo: "vidrio" },
+    {
+      // Las tres variantes tienen precio propio por metro, así que esto mueve el
+      // total. El valor vacío es "sin matizado"; un `true` de una cotización
+      // vieja sigue valiendo como "total" (ver codigoMatizado).
+      nombre: "matizado",
+      tipo: "select",
+      opciones: [
+        { value: "", label: "Sin matizado" },
+        { value: "total", label: "Matizado total" },
+        { value: "raya", label: "Matizado raya" },
+        { value: "dibujo", label: "Matizado dibujo" },
+      ],
+      etiqueta: "Matizado",
+      requerido: false,
+      grupo: "vidrio",
+    },
+    // Sigue siendo booleano porque el catálogo tiene una sola película con
+    // precio (PELI31, "normal"): la "ultravisión" se descartó en la migración.
+    // Cuando existan más referencias, esto pasa a select como el matizado.
     { nombre: "pelicula", tipo: "boolean", etiqueta: "Incluir película", requerido: false, grupo: "vidrio" },
     { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de ventanas idénticas", requerido: false, grupo: "comercial" },
     { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (fracción 0-1)", requerido: false, grupo: "comercial" },
@@ -265,7 +319,10 @@ function calcularPorDiseno(
       agregar("chapa", alasCorredizas, true);
       // Alfajía: sólo si el vendedor la pidió, y con la referencia que Templex
       // vende para este sistema (no la que traía el diseño extraído).
-      if (Number(input.alfajia) > 0) agregar("sillarAlfajia", anchoCm / 100, true);
+      if (input.alfajia) {
+        avisarAlfajiaNoDisponible(roles, { sistema: diseno.sistema, color, advertencias });
+        agregar("sillarAlfajia", anchoCm / 100, true);
+      }
       return lineas;
     },
   });
@@ -275,7 +332,7 @@ export function calcular(input: InputModulo = {}) {
   const advertencias: string[] = [];
 
   const segmentoCliente = ["PA", "PM", "PB"].includes(input.segmentoCliente) ? input.segmentoCliente : "PA";
-  const sistema = ["5020", "744", "8025"].includes(input.sistema) ? input.sistema : "5020";
+  const sistema = ["5020", "744", "8025", "7038"].includes(input.sistema) ? input.sistema : "5020";
   const color = normalizarColor(input.colorPerfileria) || "mate";
 
   let anchoCm = Number(input.anchoCm);
@@ -300,6 +357,19 @@ export function calcular(input: InputModulo = {}) {
 
   const codigoVidrio = VIDRIOS_VALIDOS.includes(input.codigoVidrio) ? input.codigoVidrio : "CL4MM01CR";
 
+  // El negro entró al selector antes de que el catálogo lo cubriera: sólo 7038
+  // lo tiene casi completo, y con referencias de precio provisional. Se avisa
+  // aquí —y no se bloquea— porque las piezas que no existan en negro ya salen
+  // como línea de error visible, que es la regla del módulo: nunca cobrar $0
+  // en silencio.
+  if (color === "negro") {
+    advertencias.push(
+      'El color "negro" todavía no está completo en el catálogo: sólo el sistema 7038 lo cubre casi entero ' +
+        '(y con precios provisionales), en 744 y 8025 es parcial, y en 5020 no existe ninguna referencia negra. ' +
+        "Las piezas sin código en negro aparecerán abajo como línea de error: no se cotizan hasta que Compras cree la referencia."
+    );
+  }
+
   // Si el vendedor eligió un diseño concreto del catálogo (OX, XOX, OXXO...), se
   // usa el despiece real en vez de las reglas generalizadas de abajo. Si el id no
   // existe, se sigue por el camino de parámetros libres.
@@ -318,6 +388,17 @@ export function calcular(input: InputModulo = {}) {
       return porDiseno;
     }
     advertencias.push(`El diseño "${input.disenoId}" no existe: se calculó con medidas libres.`);
+  }
+
+  // A partir de aquí empieza el cálculo por medidas libres, que se apoya en
+  // CATALOGO_SISTEMAS. 7038 no tiene entrada ahí, así que sin diseño no hay
+  // forma de despiezarlo: se corta con un error explícito en vez de dejar que
+  // el `includes` de arriba lo degrade a 5020 y cotice otro sistema en silencio.
+  if (sistema === "7038") {
+    throw new Error(
+      "El sistema 7038 sólo se puede cotizar eligiendo un diseño del catálogo. " +
+        "Selecciona un diseño en el campo de arriba: este sistema no tiene cálculo por medidas libres."
+    );
   }
 
   if (sistema === "8025" && !["mate", "bronce"].includes(color)) {
@@ -388,6 +469,7 @@ export function calcular(input: InputModulo = {}) {
 
   // Sillar alfajía: sólo si el usuario activó el factor "alfajia".
   if (alfajia > 0) {
+    avisarAlfajiaNoDisponible(roles, { sistema, color, advertencias });
     agregarRol("sillarAlfajia", anchoM * alfajia, { opcional: true });
   }
 
@@ -397,7 +479,8 @@ export function calcular(input: InputModulo = {}) {
   items.push(lineaCatalogo(codigoVidrio, areaUnaPieza, segmentoCliente));
 
   // Acabados opcionales, calculados sobre el área de vidrio de una pieza.
-  if (input.matizado) items.push(lineaCatalogo(ACABADOS.matizado, areaUnaPieza, segmentoCliente));
+  const codMatizado = codigoMatizado(input.matizado);
+  if (codMatizado) items.push(lineaCatalogo(codMatizado, areaUnaPieza, segmentoCliente));
   if (input.pelicula) items.push(lineaCatalogo(ACABADOS.pelicula, areaUnaPieza, segmentoCliente));
 
   // Mano de obra (SMO) y flete: valores fijos centralizados en parametros.json

@@ -16,7 +16,27 @@ import { parsearCodigo } from "./codigoDiseno";
 import type { LineaBOM, TipoObra } from "./motorCalculo";
 import type { CortePerfil, CorteVidrio, Diseno } from "../tipos";
 
-const ACABADOS = { matizado: "MATI07", pelicula: "PELI31" };
+const ACABADOS = { pelicula: "PELI31" };
+
+/** Las tres variantes de matizado que existen en el catálogo, con su código.
+ * Cada una tiene precio propio por metro, así que la elección del cliente sí
+ * mueve el total: total $50.000, raya $76.715, dibujo $23.015 (PA, 2026-09-12). */
+export const MATIZADO_POR_TIPO: Record<string, string> = {
+  total: "MATI07",
+  raya: "MATI08",
+  dibujo: "MATI09",
+};
+
+/** Código de catálogo del matizado pedido, o null si no lleva.
+ *
+ * Acepta `true` además del nombre de la variante por compatibilidad: hasta el
+ * 2026-09-12 el campo era un booleano y las cotizaciones ya guardadas traen
+ * `matizado: true` en su input, que entonces significaba MATI07 (total). */
+export function codigoMatizado(matizado: unknown): string | null {
+  if (!matizado) return null;
+  if (typeof matizado === "string") return MATIZADO_POR_TIPO[matizado] ?? null;
+  return MATIZADO_POR_TIPO.total;
+}
 
 interface ParamsLineaManual {
   codigo: string;
@@ -101,7 +121,9 @@ export interface ParamsCotizarPorDiseno {
   segmentoCliente?: string;
   cantidadPiezas?: number;
   descuentoPct?: number;
-  matizado?: boolean;
+  /** `false`/ausente, o el nombre de la variante ("total" | "raya" | "dibujo").
+   * `true` sigue aceptándose y equivale a "total" (ver codigoMatizado). */
+  matizado?: boolean | string;
   pelicula?: boolean;
   incluirAlfajia?: boolean;
   /** Tipo de obra que decide qué tarifa de SMO se cobra. Lo declara el módulo
@@ -243,7 +265,8 @@ export function cotizarPorDiseno({
   }
 
   const areaVidrio = despiece.areaVidrioM2 ?? 0;
-  if (matizado && areaVidrio > 0) items.push(lineaCatalogo(ACABADOS.matizado, areaVidrio, segmentoCliente));
+  const codMatizado = codigoMatizado(matizado);
+  if (codMatizado && areaVidrio > 0) items.push(lineaCatalogo(codMatizado, areaVidrio, segmentoCliente));
   if (pelicula && areaVidrio > 0) items.push(lineaCatalogo(ACABADOS.pelicula, areaVidrio, segmentoCliente));
 
   const parametros = getParametros();

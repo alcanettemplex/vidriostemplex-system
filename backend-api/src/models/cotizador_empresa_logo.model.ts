@@ -15,7 +15,8 @@ CotizadorEmpresaLogo.init({
 }, {
   sequelize,
   modelName: 'CotizadorEmpresaLogo',
-  tableName: 'cotizador_empresa_logo',
+  tableName: 'empresa_logo',
+  schema: 'cotizador',
   timestamps: false,
 });
 

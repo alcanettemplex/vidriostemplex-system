@@ -34,7 +34,8 @@ CotizadorCotizacion.init({
 }, {
   sequelize,
   modelName: 'CotizadorCotizacion',
-  tableName: 'cotizador_cotizacion',
+  tableName: 'cotizacion',
+  schema: 'cotizador',
   timestamps: false,
   indexes: [
     { fields: ['estado'] },

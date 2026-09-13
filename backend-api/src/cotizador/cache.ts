@@ -137,7 +137,7 @@ async function cargarParametros(): Promise<Parametros> {
     string,
     unknown
   > | null;
-  if (!fila) throw new Error('No existe la fila de parámetros (cotizador_parametro id=1).');
+  if (!fila) throw new Error('No existe la fila de parámetros (cotizador.parametro id=1).');
   return {
     aiu: fila.aiu as number,
     iva: fila.iva as number,

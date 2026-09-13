@@ -3,7 +3,7 @@ import sequelize from '../config/database';
 
 // Numeración de cotizaciones sin condición de carrera. Dentro de la
 // transacción de creación:
-//   UPDATE cotizador_consecutivo SET valor = valor + 1
+//   UPDATE cotizador.consecutivo SET valor = valor + 1
 //     WHERE nombre = 'cotizacion' RETURNING valor;
 // El UPDATE toma row-lock: los creadores concurrentes se encolan y un
 // rollback DEVUELVE el número (a diferencia de un SERIAL, que deja huecos
@@ -17,7 +17,8 @@ CotizadorConsecutivo.init({
 }, {
   sequelize,
   modelName: 'CotizadorConsecutivo',
-  tableName: 'cotizador_consecutivo',
+  tableName: 'consecutivo',
+  schema: 'cotizador',
   timestamps: false,
 });
 

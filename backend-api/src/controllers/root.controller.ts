@@ -29,6 +29,13 @@ const CLOUDINARY_FREE = {
   transformations: 25000,
 };
 
+// Fuente de verdad de los schemas propios de la aplicación: las métricas, el conteo de
+// tablas y sobre todo el respaldo recorren esta lista y no `public` a secas. Filtrar por
+// un solo schema no falla, simplemente deja fuera del .sql las tablas de los demás (hoy
+// las 21 del Cotizador) sin ningún error visible: el archivo se descarga "completo" y la
+// pérdida solo se descubre al restaurar. Al crear un schema nuevo, agregarlo aquí.
+const SCHEMAS_RESPALDADOS = ['public', 'cotizador'];
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function httpGet(url: string, headers: Record<string, string> = {}): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -81,9 +88,9 @@ export const getMetricasSupabase = async (_req: Request, res: Response) => {
          (SELECT COUNT(*) FROM information_schema.columns
           WHERE table_schema = t.schemaname AND table_name = t.tablename) AS column_count
        FROM pg_tables t
-       WHERE schemaname = 'public'
+       WHERE schemaname IN (:schemas)
        ORDER BY size_bytes DESC`,
-      { type: QueryTypes.SELECT }
+      { type: QueryTypes.SELECT, replacements: { schemas: SCHEMAS_RESPALDADOS } }
     );
 
     // Conexiones activas — resumen
@@ -115,8 +122,8 @@ export const getMetricasSupabase = async (_req: Request, res: Response) => {
 
     // Conteo de tablas
     const [tableCount]: any[] = await sequelize.query(
-      `SELECT COUNT(*) AS total FROM pg_tables WHERE schemaname = 'public'`,
-      { type: QueryTypes.SELECT }
+      `SELECT COUNT(*) AS total FROM pg_tables WHERE schemaname IN (:schemas)`,
+      { type: QueryTypes.SELECT, replacements: { schemas: SCHEMAS_RESPALDADOS } }
     );
 
     const dbMb = Math.round(Number(dbSize.db_bytes) / 1024 / 1024);
@@ -299,15 +306,25 @@ const TABLAS_AUDITABLES = new Set([
   'proveedor_codigo_pendiente', 'producto_alias',
   // Agregada 2026-08-30 con la corrección de idempotencia de la ingesta
   'factura_proveedor_procesada',
-  // Módulo Cotizador — agregado en la migración del cotizador standalone.
-  // Nombres exactos de tabla (singular, con prefijo cotizador_): a
-  // diferencia de 'cotizaciones'/'cotizacion_items' de arriba (que no
-  // coinciden con las tablas reales 'cotizacion'/'cotizacion_items' y por
-  // eso revertir Cotizacion falla siempre — ver TECH_DEBT.md 2026-07-10),
-  // este módulo nace sin ese bug.
-  'cotizador_producto', 'cotizador_precio_override',
-  'cotizador_cotizacion', 'cotizador_cotizacion_item', 'cotizador_parametro',
+  // Módulo Cotizador — viven en el schema `cotizador`, así que van calificados
+  // schema.tabla, igual que los graba `auditoria_log`. El punto lo separa
+  // `identificadorSql()` al construir el SQL: entrecomillar la cadena entera
+  // daría un identificador único llamado "cotizador.producto", no schema+tabla.
+  // Los nombres son los reales (singular): a diferencia de
+  // 'cotizaciones'/'cotizacion_items' de arriba, que no coinciden con las
+  // tablas 'cotizacion'/'cotizacion_items' y por eso revertir Cotizacion falla
+  // siempre — ver TECH_DEBT.md 2026-07-10.
+  'cotizador.producto', 'cotizador.precio_override',
+  'cotizador.cotizacion', 'cotizador.cotizacion_item', 'cotizador.parametro',
 ]);
+
+/** Convierte el nombre guardado en `auditoria_log.tabla` en un identificador SQL
+ * válido. Un nombre calificado se parte por el punto y se entrecomilla segmento a
+ * segmento; uno simple queda igual que antes. La entrada ya pasó por el
+ * allow-list `TABLAS_AUDITABLES`. */
+function identificadorSql(tabla: string): string {
+  return tabla.split('.').map((parte) => `"${parte}"`).join('.');
+}
 
 export const revertirAuditoria = async (req: Request, res: Response) => {
   try {
@@ -323,10 +340,11 @@ export const revertirAuditoria = async (req: Request, res: Response) => {
     const operacion = entry.getDataValue('operacion');
     const registroId = entry.getDataValue('registro_id');
     const datosAnteriores = entry.getDataValue('datos_anteriores');
+    const tablaSql = identificadorSql(tabla);
 
     if (operacion === 'INSERT') {
       // Revertir INSERT = DELETE del registro
-      await sequelize.query(`DELETE FROM "${tabla}" WHERE id = :id`, {
+      await sequelize.query(`DELETE FROM ${tablaSql} WHERE id = :id`, {
         replacements: { id: registroId },
         type: QueryTypes.DELETE,
       });
@@ -336,7 +354,7 @@ export const revertirAuditoria = async (req: Request, res: Response) => {
         .filter((k) => k !== 'id')
         .map((k) => `"${k}" = :${k}`)
         .join(', ');
-      await sequelize.query(`UPDATE "${tabla}" SET ${cols} WHERE id = :id`, {
+      await sequelize.query(`UPDATE ${tablaSql} SET ${cols} WHERE id = :id`, {
         replacements: { ...datosAnteriores, id: registroId },
         type: QueryTypes.UPDATE,
       });
@@ -344,7 +362,7 @@ export const revertirAuditoria = async (req: Request, res: Response) => {
       // Revertir DELETE = re-INSERT
       const cols = Object.keys(datosAnteriores).map((k) => `"${k}"`).join(', ');
       const vals = Object.keys(datosAnteriores).map((k) => `:${k}`).join(', ');
-      await sequelize.query(`INSERT INTO "${tabla}" (${cols}) VALUES (${vals})`, {
+      await sequelize.query(`INSERT INTO ${tablaSql} (${cols}) VALUES (${vals})`, {
         replacements: datosAnteriores,
         type: QueryTypes.INSERT,
       });
@@ -388,8 +406,10 @@ export const descargarBackup = async (req: Request, res: Response) => {
     const TABLAS_EXCLUIDAS_POR_DEFECTO = ['auditoria_log'];
 
     const tablas: any[] = await sequelize.query(
-      `SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`,
-      { type: QueryTypes.SELECT }
+      `SELECT schemaname, tablename FROM pg_tables
+       WHERE schemaname IN (:schemas)
+       ORDER BY schemaname, tablename`,
+      { type: QueryTypes.SELECT, replacements: { schemas: SCHEMAS_RESPALDADOS } }
     );
 
     let sql = `-- Backup Vidrios Templex — ${new Date().toISOString()}\n`;
@@ -399,19 +419,28 @@ export const descargarBackup = async (req: Request, res: Response) => {
       : `-- Sin la bitácora de auditoría. Para incluirla: ?incluir_auditoria=true\n\n`;
     sql += `SET client_encoding = 'UTF8';\nBEGIN;\n\n`;
 
-    for (const { tablename } of tablas) {
+    const schemasExtra = [...new Set(tablas.map((t) => String(t.schemaname)))].filter((s) => s !== 'public');
+    if (schemasExtra.length > 0) {
+      for (const schema of schemasExtra) {
+        sql += `CREATE SCHEMA IF NOT EXISTS "${schema}";\n`;
+      }
+      sql += '\n';
+    }
+
+    for (const { schemaname, tablename } of tablas) {
       if (!incluirAuditoria && TABLAS_EXCLUIDAS_POR_DEFECTO.includes(tablename)) {
-        sql += `-- Tabla ${tablename} omitida (bitácora). Usa ?incluir_auditoria=true para incluirla.\n\n`;
+        sql += `-- Tabla ${schemaname}.${tablename} omitida (bitácora). Usa ?incluir_auditoria=true para incluirla.\n\n`;
         continue;
       }
+      const tablaCalificada = `"${schemaname}"."${tablename}"`;
       try {
         const rows: any[] = await sequelize.query(
-          `SELECT * FROM "${tablename}"`,
+          `SELECT * FROM ${tablaCalificada}`,
           { type: QueryTypes.SELECT }
         );
         if (rows.length === 0) continue;
 
-        sql += `-- Tabla: ${tablename}\n`;
+        sql += `-- Tabla: ${schemaname}.${tablename}\n`;
         const cols = Object.keys(rows[0]).map((c) => `"${c}"`).join(', ');
 
         for (const row of rows) {
@@ -424,11 +453,11 @@ export const descargarBackup = async (req: Request, res: Response) => {
               return `'${String(v).replace(/'/g, "''")}'`;
             })
             .join(', ');
-          sql += `INSERT INTO "${tablename}" (${cols}) VALUES (${vals}) ON CONFLICT DO NOTHING;\n`;
+          sql += `INSERT INTO ${tablaCalificada} (${cols}) VALUES (${vals}) ON CONFLICT DO NOTHING;\n`;
         }
         sql += '\n';
       } catch {
-        sql += `-- ERROR al exportar tabla ${tablename}\n\n`;
+        sql += `-- ERROR al exportar tabla ${schemaname}.${tablename}\n\n`;
       }
     }
 
@@ -1155,17 +1184,18 @@ export const getMonitoreo = async (_req: Request, res: Response) => {
 
       // 7. Top 10 tablas más grandes
       sequelize.query<any>(`
-        SELECT t.tablename,
+        SELECT t.schemaname, t.tablename,
                COALESCE(c.reltuples::bigint, 0) AS filas_estimadas,
-               pg_size_pretty(pg_total_relation_size('public.' || t.tablename)) AS size_pretty,
-               pg_total_relation_size('public.' || t.tablename) AS size_bytes
+               pg_size_pretty(pg_total_relation_size(quote_ident(t.schemaname) || '.' || quote_ident(t.tablename))) AS size_pretty,
+               pg_total_relation_size(quote_ident(t.schemaname) || '.' || quote_ident(t.tablename)) AS size_bytes
         FROM pg_tables t
+        LEFT JOIN pg_namespace n ON n.nspname = t.schemaname
         LEFT JOIN pg_class c ON c.relname = t.tablename
-                             AND c.relnamespace = 'public'::regnamespace
-        WHERE t.schemaname = 'public'
+                             AND c.relnamespace = n.oid
+        WHERE t.schemaname IN (:schemas)
         ORDER BY size_bytes DESC
         LIMIT 10
-      `, { type: QueryTypes.SELECT }),
+      `, { type: QueryTypes.SELECT, replacements: { schemas: SCHEMAS_RESPALDADOS } }),
 
       // 8. Estadísticas de crecimiento de auditoria_log
       sequelize.query<any>(`

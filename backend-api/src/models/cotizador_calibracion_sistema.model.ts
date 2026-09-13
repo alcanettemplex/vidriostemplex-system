@@ -18,7 +18,8 @@ CotizadorCalibracionSistema.init({
 }, {
   sequelize,
   modelName: 'CotizadorCalibracionSistema',
-  tableName: 'cotizador_calibracion_sistema',
+  tableName: 'calibracion_sistema',
+  schema: 'cotizador',
   timestamps: false,
 });
 

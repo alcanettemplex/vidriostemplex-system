@@ -86,6 +86,13 @@ function esCampoAlto(campo: CampoMeta): boolean {
     return campo.tipo === 'number' && /^alto.*Cm$/i.test(campo.nombre);
 }
 
+// Campos que el backend deduce del código del diseño y deja de leer del input
+// cuando llega `disenoId` (ver calcularPorDiseno en ventanas.ts). Mientras haya
+// un diseño elegido se ocultan, porque pedirlos sugiere que influyen en el
+// precio — y `cuerpos` es además obligatorio, así que bloqueaba el cálculo por
+// un dato que se iba a ignorar.
+const CAMPOS_DERIVADOS_DEL_DISENO = ['cuerpos', 'alasCorredizas'];
+
 interface Props {
     modulo: ModuloMeta;
     segmentoDefault: SegmentoCliente;
@@ -102,8 +109,14 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
 
     const setCampo = (nombre: string) => (value: unknown) => setInput(prev => ({ ...prev, [nombre]: value }));
 
+    const hayDiseno = Boolean(input.disenoId);
+    const campoOculto = (nombre: string) => hayDiseno && CAMPOS_DERIVADOS_DEL_DISENO.includes(nombre);
+    const camposVisibles = (campos: CampoMeta[]) => campos.filter(c => !campoOculto(c.nombre));
+
     const calcular = async () => {
-        const faltante = modulo.campos.find(c => c.requerido && esVacio(input[c.nombre]));
+        const faltante = modulo.campos.find(
+            c => c.requerido && !campoOculto(c.nombre) && esVacio(input[c.nombre])
+        );
         if (faltante) {
             toast.error(`Completa: ${faltante.etiqueta}`);
             return;
@@ -145,10 +158,11 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
                         modulo="ventanas"
                         value={input.disenoId as string | undefined}
                         onChange={id => setInput(prev => ({ ...prev, disenoId: id }))}
+                        sistema={input.sistema as string | undefined}
                     />
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {modulo.campos.map(campo => (
+                    {camposVisibles(modulo.campos).map(campo => (
                         <CampoDinamico
                             key={campo.nombre}
                             campo={campo}
@@ -220,12 +234,13 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
                                     modulo="ventanas"
                                     value={input.disenoId as string | undefined}
                                     onChange={id => setInput(prev => ({ ...prev, disenoId: id }))}
+                                    sistema={input.sistema as string | undefined}
                                 />
                             </div>
                         )}
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {campos.map(campo => (
+                            {camposVisibles(campos).map(campo => (
                                 <div key={campo.nombre}>
                                     <CampoDinamico
                                         campo={campo}

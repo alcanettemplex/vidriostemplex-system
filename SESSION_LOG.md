@@ -2510,3 +2510,272 @@ apuntaban a SHAs concretos, `9c72c1e..f6071f6`) y que además son redundantes ba
 - Extraer los componentes repetidos a `features/proveedores/components/ui/` usando ya los tokens:
   siguen ~2.500 líneas de `style={{}}` inline con hex duplicados.
 - El tema oscuro sigue dormido: falta un selector de tema y el soporte de los otros 20 módulos.
+
+---
+
+## 2026-09-12 — Cotizador: las 21 tablas se mudan a su propio schema de Postgres
+
+### Motivo
+Pregunta del usuario: ¿hacen falta 21 tablas o se pueden reducir a 3? Tras analizarlo, la
+respuesta fue que **el número de tablas no era el problema**: hay sobre-normalización real
+(el árbol de diseño son 2.250 filas hijas para reconstruir 138 objetos, y hay 4 tablas con
+una sola fila), pero lo que molestaba era **el desorden visual en el panel de Supabase**.
+Para eso, cambiar la forma de los datos habría sido pagar riesgo de regresión por estética.
+Se optó por un schema propio: `public.cotizador_producto` → `cotizador.producto`.
+
+Consolidar a ~11 tablas sigue siendo defendible y quedó **descartado por ahora**, no
+refutado; si algún día pesa el mantenimiento, los candidatos son el árbol de diseño
+(4→1), las singleton (4→1) y las 7 vacías de calibración (7→2).
+
+### Hallazgo crítico: el respaldo del panel ROOT se habría roto en silencio
+`descargarBackup` listaba tablas con `WHERE schemaname = 'public'` y hacía
+`SELECT * FROM "${tablename}"` sin calificar. Mover las tablas habría dejado las 21 fuera
+del `.sql` **sin lanzar ningún error**: un respaldo que se presenta como completo al que le
+faltan 3.010 filas, y que solo se descubre al intentar restaurar. Medido después del
+cambio: la consulta vieja veía 0 tablas del cotizador, la nueva ve las 21.
+
+Era una fragilidad preexistente — cualquier tabla creada fuera de `public` quedaba fuera
+del respaldo. Se corrigió **antes** de mover nada, con `SCHEMAS_RESPALDADOS` como fuente de
+verdad única (al crear un schema nuevo, agregarlo ahí) y el `.sql` ahora emite
+`CREATE SCHEMA IF NOT EXISTS` y califica `"schema"."tabla"` en cada `SELECT`/`INSERT`.
+
+### Segundo hallazgo: revertir auditoría del cotizador
+`TABLAS_AUDITABLES` **sí** contenía las 5 tablas del cotizador (se había afirmado lo
+contrario a partir de un grep truncado). Con el nombre nuevo, `auditoria_log.tabla` guarda
+`cotizador.producto`, y las tres consultas de `revertirAuditoria` interpolan `"${tabla}"`:
+`"cotizador.producto"` entrecomillado entero es **un identificador único**, no schema+tabla.
+Se añadió `identificadorSql()`, que parte por el punto y cita cada segmento; un nombre sin
+punto se comporta igual que antes. Verificado contra la BD, incluido el control negativo.
+
+### Cambios
+- **BD**: `CREATE SCHEMA cotizador` + 21 × (`SET SCHEMA` + `RENAME`), todo en una
+  transacción con verificación previa al COMMIT. Los 8 ENUM `enum_cotizador_*` **se quedan
+  en `public`** a propósito: el pooler en modo transacción no propaga `search_path` y
+  `public` siempre resuelve. Índices, constraints y secuencias viajan solos con la tabla;
+  las FK se resuelven por OID. Los nombres de índices (`cotizador_producto_pkey`) no se
+  renombraron: superficie interna, renombrarlos solo añade riesgo.
+- **Modelos** (21): `tableName` corto + `schema: 'cotizador'`. Archivos y clases intactos.
+- **`cotizacionStore.ts`**: el único raw SQL del módulo (el UPDATE atómico del consecutivo).
+- **`models/index.ts`**: los 5 strings de `MODELOS_AUDITADOS` a `cotizador.<tabla>`.
+- **`root.controller.ts`**: los 6 puntos con `'public'` hardcodeado + `identificadorSql()`.
+- **Script**: `2026-09-12_mover_cotizador_a_schema.ts`, idempotente y con `--revertir`.
+
+### Verificación
+- Conteo de filas idéntico en las **21 tablas** (558 productos, 138 diseños, 983 perfiles…).
+- 4 FK vivas, 10 secuencias migradas, 8 ENUM en `public`, 7 filas de `auditoria_log`
+  renombradas.
+- `npm run build` limpio. **37/37** pruebas de `test:cotizador`.
+- Servidor arranca: `[Cotizador] Caché lista: 558 productos, 138 diseños`. `sync()` no
+  recreó nada (49 tablas en `public`, 21 en `cotizador`, 0 restos).
+- Backup, consecutivo (con ROLLBACK) e `identificadorSql()` probados contra la BD: 0 fallos.
+
+### Deuda detectada, no corregida
+- **El golden master del cotizador está obsoleto desde el 2026-09-11**, no desde hoy: 6 de
+  10 tests fallan por los cambios de datos de esa sesión (catálogo 430→432 con `KDG1106` y
+  `KOP0102`, `flete_fijo` 25000→40000, la estructura `smo` aplanada en 6 campos nuevos).
+  Esa sesión ya anotó que no pudo ejecutarlo. Los 4 que pasan son justo los independientes
+  de precios (provisionales, `listarDisenos`, `parsearCodigo`, PLANO) y dan resultados
+  byte-idénticos leyendo del schema nuevo. **Hay que regenerar el golden** o dejará de
+  servir como red de seguridad. Los artefactos viven fuera del repo (`COTIZADOR_GOLDEN_DIR`).
+- `npm run lint` está roto en todo el repo: ESLint 10 no encuentra `eslint.config.js`
+  (la config sigue en formato `.eslintrc.*`). Preexistente.
+- Sigue sin resolverse el bug de revertir `Cotizacion`/`SAP`/`RutaODP` (plural vs singular).
+
+### Pendientes
+- **Desplegar el backend cuanto antes**: la BD ya está migrada y el contenedor en
+  producción corre código viejo, así que el módulo Cotizador responde `relation does not
+  exist` hasta que salga este commit. El resto del ERP no se ve afectado.
+- Regenerar el golden master del cotizador.
+- Retomar el pulido visual del cotizador (el usuario tenía detalles pendientes sin enumerar).
+
+---
+
+## 2026-09-12 (2) — Cotizador: accesorios seleccionables (bisagra, chapeta, botón, manija)
+
+### Motivo
+Al pasar el código de Pomo-Haladera para el mapeo pendiente, el usuario pidió BHA1101 pero
+señaló que el cliente podría querer otro. Se descubrió que **ese mecanismo ya existe**: 
+`Cabinas Batientes` deja elegir bisagra/chapeta/botón desde 2026-09-10, cada opción con su
+propio código. El resto de módulos no lo tiene. Se auditaron los 6 módulos comparando cada
+`lineaCatalogo()` de código fijo contra el catálogo completo, para separar variantes reales
+(mismo montaje, distinto material/estilo) de falsos positivos (misma palabra, otro producto:
+"chapeta" incluye piezas de unión de perfil de aluminio y escudos de cerradura de puerta,
+sin relación con la chapeta central de una cabina).
+
+### Hallazgo de precio que descartó un candidato
+`BIB0101` (Bisagra Bandera Mate) parecía una alternativa de bisagra sencilla hasta comparar
+precios: cuesta 28× menos que las demás bisagras de cabina ($1.566 vs. ~$44.500). El precio
+delató que es una pieza de mueble pequeña, no una bisagra de vidrio templado — se descartó.
+
+### Cambios (6 de prioridad alta, mismo patrón: campo `select` + mapa `_POR_TIPO`)
+- **`cabinasBatientes.ts`**: 3 opciones nuevas a selects ya existentes, sin tocar ninguna
+  clave vieja — `sencillaAcero`→BSE1201, `doble180`→BDO0301 (bisagra), `acero3035`→CCE1101
+  (chapeta), `acrilicoTransparente`→BHA0901 (botón, la 5ª que faltaba de las 5 del catálogo).
+- **`cabinasCorredizas.ts`**: agregado el campo `tipoBoton` que no existía (antes cobraba
+  `BHA0302` fijo sin opción, a diferencia de Batientes). Mismas 5 opciones que Batientes,
+  mismo mapa duplicado a propósito (cada módulo mantiene el suyo, como ya hacían
+  `VIDRIO_POR_ESPESOR`/`BPB_POR_ESPESOR`). Default `tamborCromo` reproduce el código de antes.
+- **`proyectantes.ts`**: agregado `tipoManija` (`importada`→MBL0406 default, `nacional`→
+  MAPR0101). Nacional es una alternativa real de precio/calidad que no tenía forma de
+  elegirse — el asesor no sabía que existía.
+
+### Verificación
+- `tsc` limpio.
+- Script de prueba directo contra los 3 módulos (sin mock, motor real + caché real):
+  22/22 — el valor por defecto de cada campo nuevo reproduce exactamente el código que se
+  cobraba antes (compatibilidad con cotizaciones ya guardadas), cada opción nueva resuelve
+  al código correcto, un valor inválido lanza error explícito (nunca $0 en silencio, mismo
+  criterio que el resto del motor), y el total cambia cuando el código cambia de precio.
+- `npm run test:cotizador`: 37/37, sin regresión en el resto del motor.
+
+### Las 4 opciones de baja confianza — confirmadas con el taller: NINGUNA aplica
+Se repasaron una por una con el taller. Las 4 quedan descartadas, sin cambio de código:
+- **Chapeta con cerrojo (CCC0101)** — no se usa en cabinas, es de vitrinas.
+- **Chapeta esquinera (CES0301)** — tampoco aplica a cabinas.
+- **Bisagra media luna (BME1101/1102)** — no se usan en cabinas. El precio ya lo insinuaba
+  (2-4× las bisagras actuales): eran de otro tipo de puerta/vitrina, no de cabina de baño.
+- **Brazo hidráulico Dorma (BHD0101)** — no se usa en el sistema 3831.
+
+Confirma el criterio de la auditoría: cuando el precio de un "candidato" se dispara respecto
+a las opciones ya activas de la misma familia, es señal de que es otro producto, no una
+variante de lujo del mismo accesorio. Las 6 opciones que sí se activaron el 2026-09-12 (ver
+entrada anterior) tenían precios en el mismo rango que su par ya ofrecido; estas 4 no.
+
+Con esto se cierra el punto 1 de "Pendiente para retomar" de la entrada anterior. **Corrección
+a esa misma entrada**: "Manija Proyectantes (prioridad media)" ahí aparecía listada también
+como pendiente por error — ya estaba implementada (es el campo `tipoManija`, una de las 6 de
+prioridad alta de esa misma sesión). No hay nada pendiente ahí.
+
+### Sigue abierto: backlog de 26 accesorios de `cotizador_mapeo_accesorio`
+Infraestructura inactiva (no afecta precios hoy — ver entrada del 2026-09-12 anterior),
+**intacta**: el usuario dio BHA1101 para "Pomo-Haladera" (fila 2 de 26) pero el hilo se
+desvió a la auditoría de arriba antes de guardarlo, y esa tabla no se tocó en esta sesión.
+Retomar desde ahí, empezando por confirmar si BHA1101 sigue siendo la respuesta ahora que
+Pomo-Haladera tiene 5 opciones en el motor real (¿la fila del backlog debería guardar una
+sola respuesta, o reflejar que ahora es elegible?).
+
+---
+
+## 2026-09-12 (3) — Cotizador: triaje completo del backlog de 26 accesorios + servicios en local
+
+### Contexto
+Se retomó el backlog de `cotizador_mapeo_accesorio` con el taller al lado, en vivo, con backend
+(puerto 3001) y frontend (puerto 3000) corriendo en local para verificar en el navegador
+mientras se avanzaba. Resultado: **los 26 quedaron triados** — 3 nuevos resueltos en esta
+sesión (más los 2 de la sesión anterior), 21 en pendiente explícito (el taller no tiene el
+dato, no por omisión), 0 sin decisión.
+
+### Resueltos en esta sesión (3, + Pomo-Haladera de la sesión anterior)
+- **Guia 7038 → `GIN7038`** (nuevo). Costo $300, PA/PM/PB = 465.19/432.21/399.24.
+- **Rodamiento 7038 → `ROD7038ABB`** (default) + **`ROD7038NY`** (nuevo, alternativa real
+  de uso casi igual, según lo que pida el cliente — mismo patrón que Pomo-Haladera). Costos
+  $36.891 y $29.582 respectivamente — **~10× más caros que ROD0401/744/8025** ($1.600-3.800);
+  se verificó la magnitud con el taller antes de crear, confirmado como costo real.
+- **Chapeta * 30 mm ref a15 → IGNORADO**. El taller aclaró que es un adicional de perfil
+  genérico para varios sistemas, no una pieza propia de un sistema específico.
+
+### Fórmula de precio verificada (importante para cualquier alta futura)
+`precio_pa/pm/pb` **no son valores independientes**: son el costo × un multiplicador fijo
+**por categoría**, verificado exacto contra 420 productos reales:
+- **ACCESORIO**: ×1.55063 / ×1.44071 / ×1.33080 (PA/PM/PB)
+- **PERFILERIA**: ×1.56... (grupo dominante 205 productos, no se necesitó hoy)
+- **VIDRIO**: ×1.67... (35 productos)
+Confirmado exacto contra `GIN0101`/`GIN8025` antes de aplicarlo a los 3 productos nuevos.
+El endpoint `POST /api/cotizador/precios` (ya existente, `cotizador_precios.controller.ts`)
+**no calcula esto solo** — espera los 3 precios ya calculados. Cualquier alta futura debe
+aplicar la fórmula de la categoría correspondiente antes de llamarlo.
+
+### 21 quedan en PENDIENTE, con razón — no es lo mismo "no se sabe" que "no aplica"
+- **Familia Torino completa (8)**: Guía, Rodamiento, Sujeción Fijo, Tope, Chapeta Central,
+  Manija Roma 40-20, Trinquete Inoxidable, Unión 90° — el taller no maneja esas referencias.
+- **Sistema 7038, 2 de 4**: Chapa Overseas Doble Cilindro, Empaque monumental 6mm — sin dato.
+- **11 sueltos** (Brazo 10", Manija Alpha, Chapetas/Rodamientos Primavera, Cerrojo Media Luna,
+  Chapeta Anudal, Empaque de Cabina, Platina Rodamiento, Rodamiento Orquilla, Soporte
+  Toallero, Unión VP010): el taller no tiene el dato a mano.
+
+### Recordatorio: nada de esto mueve un precio en producción todavía
+`cotizador_mapeo_accesorio` sigue siendo infraestructura inactiva — ningún sistema está en
+`cotizador_accesorio_sistema_activo`. **Sistema7038-Interior en particular tiene un problema
+aparte y más urgente**: `ventanas.ts` no tiene entrada para 7038 en su `CATALOGO_SISTEMAS`
+interno, así que sus 23 diseños cotizan hoy con "no hay accesorios configurados" — cero
+accesorios cobrados, sin importar qué diga esta tabla. Resolver el backlog no arregla eso.
+
+### Verificación en vivo (no solo scripts)
+Primera vez en la migración que se prueba contra el backend/frontend REALES corriendo en
+local, en vez de solo contra Supabase por script:
+- `npm --prefix backend-api run dev` (3001) + `npm --prefix frontend-web run start` (3000),
+  ambos verificados con `curl` (401 en ruta protegida = middleware vivo, 200 en frontend).
+- Los 3 productos nuevos se crearon con un JWT auto-firmado (`{id:30, rol:'root'}` con el
+  `JWT_SECRET` real) contra el **endpoint HTTP real** `POST /api/cotizador/precios` — no un
+  INSERT directo — para ejercitar la transacción completa (`CotizadorProducto` +
+  `CotizadorPrecioHistorial`) y la invalidación de caché del proceso ya corriendo.
+- El usuario navegó la app en paralelo (dashboard, proveedores) mientras se trabajaba —
+  confirmado en los logs del backend.
+
+### Pendiente
+- Los 21 accesorios PENDIENTE quedan documentados en la BD (columna `nota`) — no repetirlos
+  la próxima vez que se retome, ya está la razón de cada uno.
+- El hueco de accesorios de Sistema7038-Interior en `ventanas.ts` (ver arriba) sigue sin
+  resolverse — es el pendiente más urgente si se decide activar ese sistema.
+
+---
+
+## 2026-09-12 (4) — Cotizador Ventanas: 4 ajustes de catálogo + rediseño del selector de diseños
+
+### Cambios pedidos (los 4 implementados)
+1. **Sistema 7038 en el selector.** Entra, pero **sólo por diseño**: `calcular()` lanza un
+   error explícito si llega 7038 sin `disenoId`. Sin ese corte, la línea
+   `["5020","744","8025"].includes(sistema) ? sistema : "5020"` lo habría degradado a 5020
+   y cotizado **otro sistema en silencio** — el riesgo real de este cambio.
+2. **Color negro** en ventanas y proyectantes. Decisión del usuario: mostrarlo en todos los
+   sistemas aunque el catálogo no lo cubra. Cobertura real medida: 5020 **0 de 66**, 744
+   24/222, 8025 7/228, 7038 159/176, proyectantes 3831 **0 de 101**; y los 21 códigos negros
+   existentes son todos de precio provisional. Las piezas sin código negro salen como
+   **línea de ERROR visible** (regla del módulo: nunca $0 en silencio) y se agregó una
+   advertencia que explica la cobertura.
+3. **Diseños filtrados por sistema elegido** (5020 agrupa su variante Reforzado, 16 diseños).
+4. **Vidrios**: crudo 4/5/6 + templado 4/5/6/8/10. Se eligió la línea **SP** y no `02TE`
+   porque SP es la única que existe en 8 y 10mm; mezclarlas dejaría dos criterios de precio
+   en el mismo selector. Las variantes `08SP` (STV) quedan fuera: están en catálogo con
+   **precio 0**.
+
+### Bug encontrado y corregido: la etiqueta "⚠ sin precio" mentía
+El selector marcaba casi todos los diseños con "⚠ sin precio" usando `d.aptoParaCorte`. Pero
+`aptoParaCorte` es `nivelCorte === "A"` (ver `motorDespiece.ts`): mide **la precisión del
+despiece para mandar a cortar**, no si el diseño tiene precio. Todos esos diseños sí tienen
+precio. Como sólo **2 de los 71** diseños de ventanas son nivel A, la etiqueta sembraba una
+advertencia falsa en los otros 69.
+
+### Rediseño del selector de diseños
+Se reemplazó el `<select>` nativo por un dropdown propio: cada diseño son cuatro datos
+(código, forma, paneles, nivel de corte) que un `option` de texto plano aplasta en una línea
+ilegible, y con 25 diseños en 8025 hacía falta buscador. Incluye agrupación por sistema con
+encabezado sticky, buscador por código/forma, código del diseño como chip destacado, chip de
+nivel A/B/C **con su significado correcto** (A en verde como distintivo positivo, en vez de
+advertir sobre los otros 69) y una leyenda al pie que lo explica. Cierra con click fuera y
+con Escape.
+
+### Otros arreglos de paso
+- **Bug propio, detectado antes de darlo por bueno**: el efecto que limpia el diseño al
+  cambiar de sistema lo borraba en el primer render, cuando la lista aún estaba vacía por el
+  fetch pendiente. Se le agregó guard de `disenos.length` y `useMemo` para estabilizar la
+  referencia.
+- `cuerpos`/`alasCorredizas` se ocultan cuando hay diseño (el backend ya los deduce del
+  código del diseño y los ignoraba) y se excluyen de la validación de requeridos: `cuerpos`
+  era obligatorio y **bloqueaba el cálculo por un dato que no se usaba**.
+- Se eliminó `COLORES` de `ventanas.ts`: código muerto, declarado y nunca usado.
+- Centinela de `humo.test` actualizado 432 → 435 por los 3 productos dados de alta hoy.
+- `Array.from(mapa.entries())` en vez de spread: el target de TS del frontend no permite
+  iterar un Map con spread sin `downlevelIteration`.
+
+### Verificación
+`tsc` backend y frontend limpios; webpack sin errores ni advertencias nuevas. 19/19
+comprobaciones propias contra el motor real (7038 sin diseño lanza error, 7038 con diseño
+cotiza, negro genera 5 líneas de error en 5020 y sí cotiza en 7038, `cuerpos:99` no altera el
+total cuando hay diseño, los 8 vidrios existen con precio > 0). 37/37 en `test:cotizador`.
+
+### Pendiente
+- **El templado de 4mm ($177.317) cuesta más que el de 6mm ($125.343) y que el de 5mm.** No
+  tiene sentido físico: o el 4mm está sobrevalorado o los otros dos quedaron desactualizados.
+- 7038 ya cotiza pero **sigue sin cobrar accesorios**: falta su entrada en
+  `CATALOGO_SISTEMAS` de `ventanas.ts`. Ya existen `GIN7038` y `ROD7038ABB/NY`.

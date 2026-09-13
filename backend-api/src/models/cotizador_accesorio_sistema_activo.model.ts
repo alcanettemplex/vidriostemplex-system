@@ -15,7 +15,8 @@ CotizadorAccesorioSistemaActivo.init({
 }, {
   sequelize,
   modelName: 'CotizadorAccesorioSistemaActivo',
-  tableName: 'cotizador_accesorio_sistema_activo',
+  tableName: 'accesorio_sistema_activo',
+  schema: 'cotizador',
   timestamps: false,
 });
 

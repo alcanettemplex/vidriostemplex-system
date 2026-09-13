@@ -37,7 +37,8 @@ CotizadorParametro.init({
 }, {
   sequelize,
   modelName: 'CotizadorParametro',
-  tableName: 'cotizador_parametro',
+  tableName: 'parametro',
+  schema: 'cotizador',
   timestamps: false,
 });
 

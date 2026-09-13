@@ -21,7 +21,8 @@ CotizadorDisenoVidrio.init({
 }, {
   sequelize,
   modelName: 'CotizadorDisenoVidrio',
-  tableName: 'cotizador_diseno_vidrio',
+  tableName: 'diseno_vidrio',
+  schema: 'cotizador',
   timestamps: false,
   indexes: [
     { fields: ['diseno_id', 'orden'], unique: true },

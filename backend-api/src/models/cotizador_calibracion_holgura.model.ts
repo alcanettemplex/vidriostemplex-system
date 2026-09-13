@@ -20,7 +20,8 @@ CotizadorCalibracionHolgura.init({
 }, {
   sequelize,
   modelName: 'CotizadorCalibracionHolgura',
-  tableName: 'cotizador_calibracion_holgura',
+  tableName: 'calibracion_holgura',
+  schema: 'cotizador',
   timestamps: false,
 });
 

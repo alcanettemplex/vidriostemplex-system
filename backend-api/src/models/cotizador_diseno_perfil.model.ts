@@ -26,7 +26,8 @@ CotizadorDisenoPerfil.init({
 }, {
   sequelize,
   modelName: 'CotizadorDisenoPerfil',
-  tableName: 'cotizador_diseno_perfil',
+  tableName: 'diseno_perfil',
+  schema: 'cotizador',
   timestamps: false,
   indexes: [
     { fields: ['diseno_id', 'orden'], unique: true },

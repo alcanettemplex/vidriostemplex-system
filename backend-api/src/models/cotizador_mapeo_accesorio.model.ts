@@ -31,7 +31,8 @@ CotizadorMapeoAccesorio.init({
 }, {
   sequelize,
   modelName: 'CotizadorMapeoAccesorio',
-  tableName: 'cotizador_mapeo_accesorio',
+  tableName: 'mapeo_accesorio',
+  schema: 'cotizador',
   timestamps: false,
 });
 

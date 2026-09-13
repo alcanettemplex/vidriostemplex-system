@@ -14,7 +14,8 @@ CotizadorGeometriaOverride.init({
 }, {
   sequelize,
   modelName: 'CotizadorGeometriaOverride',
-  tableName: 'cotizador_geometria_override',
+  tableName: 'geometria_override',
+  schema: 'cotizador',
   timestamps: false,
 });
 

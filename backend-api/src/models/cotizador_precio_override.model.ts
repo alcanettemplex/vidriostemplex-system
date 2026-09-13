@@ -21,7 +21,8 @@ CotizadorPrecioOverride.init({
 }, {
   sequelize,
   modelName: 'CotizadorPrecioOverride',
-  tableName: 'cotizador_precio_override',
+  tableName: 'precio_override',
+  schema: 'cotizador',
   timestamps: false,
 });
 

@@ -78,7 +78,9 @@ export const meta = {
       tipo: "select",
       opciones: [
         { value: "sencilla", label: "Bisagra sencilla cromo 28-40" },
-        { value: "doble", label: "Bisagra doble cromo 90" },
+        { value: "sencillaAcero", label: "Bisagra sencilla acero 28-40" },
+        { value: "doble", label: "Bisagra doble cromo 90°" },
+        { value: "doble180", label: "Bisagra doble cromo 180°" },
       ],
       etiqueta: "Tipo de bisagra",
       requerido: false,
@@ -90,6 +92,7 @@ export const meta = {
       opciones: [
         { value: "economica", label: "Chapeta central importada económica" },
         { value: "cromo3035", label: "Chapeta central cromo 30-35" },
+        { value: "acero3035", label: "Chapeta central acero 30-35" },
         { value: "cromo90", label: "Chapeta cromo a 90°" },
       ],
       etiqueta: "Tipo de chapeta",
@@ -104,6 +107,7 @@ export const meta = {
         { value: "bolaCromo", label: "Botón haladera cromo bola" },
         { value: "tamborAcero", label: "Botón haladera acero tambor" },
         { value: "tamborAceroTapa", label: "Botón acero tambor con tapa" },
+        { value: "acrilicoTransparente", label: "Botón haladera acrílico transparente" },
       ],
       etiqueta: "Tipo de botón/haladera",
       requerido: false,
@@ -115,13 +119,24 @@ export const meta = {
 const VIDRIO_POR_ESPESOR = { 6: "CL6MM03SP", 8: "CL8MM03SP", 10: "CL10MM03SP" };
 const BPB_POR_ESPESOR = { 6: "BPB04", 8: "BPB05", 10: "BPB10" };
 
-const BISAGRA_POR_TIPO = { sencilla: "BSE0301", doble: "BDO0302" };
-const CHAPETA_POR_TIPO = { economica: "CCE0302", cromo3035: "CCE0301", cromo90: "CHA0303" };
+const BISAGRA_POR_TIPO = {
+  sencilla: "BSE0301",
+  sencillaAcero: "BSE1201",
+  doble: "BDO0302",
+  doble180: "BDO0301",
+};
+const CHAPETA_POR_TIPO = {
+  economica: "CCE0302",
+  cromo3035: "CCE0301",
+  acero3035: "CCE1101",
+  cromo90: "CHA0303",
+};
 const BOTON_POR_TIPO = {
   tamborCromo: "BHA0302",
   bolaCromo: "BHA0301",
   tamborAcero: "BHA1101",
   tamborAceroTapa: "BHA1102",
+  acrilicoTransparente: "BHA0901",
 };
 
 // Ancho estándar de la hoja de puerta batiente (m). Si el ancho total de la cabina es

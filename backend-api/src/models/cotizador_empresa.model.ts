@@ -28,7 +28,8 @@ CotizadorEmpresa.init({
 }, {
   sequelize,
   modelName: 'CotizadorEmpresa',
-  tableName: 'cotizador_empresa',
+  tableName: 'empresa',
+  schema: 'cotizador',
   timestamps: false,
 });
 

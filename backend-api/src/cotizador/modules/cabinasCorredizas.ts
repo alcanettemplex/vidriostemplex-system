@@ -81,12 +81,37 @@ export const meta = {
       requerido: true,
       grupo: "vidrio",
     },
+    {
+      nombre: "tipoBoton",
+      tipo: "select",
+      opciones: [
+        { value: "tamborCromo", label: "Botón haladera cromo tambor" },
+        { value: "bolaCromo", label: "Botón haladera cromo bola" },
+        { value: "tamborAcero", label: "Botón haladera acero tambor" },
+        { value: "tamborAceroTapa", label: "Botón acero tambor con tapa" },
+        { value: "acrilicoTransparente", label: "Botón haladera acrílico transparente" },
+      ],
+      etiqueta: "Tipo de botón/haladera",
+      requerido: false,
+      grupo: "vidrio",
+    },
   ],
 };
 
 // --- Catálogo de vidrio y BPB por espesor ------------------------------------------
 const VIDRIO_POR_ESPESOR = { 6: "CL6MM03SP", 8: "CL8MM03SP" };
 const BPB_POR_ESPESOR = { 6: "BPB04", 8: "BPB05" };
+
+// Mismas 5 opciones y códigos que cabinasBatientes.ts (mismo accesorio físico,
+// duplicado a propósito: cada módulo mantiene sus propios mapas, igual que ya
+// hacían VIDRIO_POR_ESPESOR/BPB_POR_ESPESOR arriba).
+const BOTON_POR_TIPO = {
+  tamborCromo: "BHA0302",
+  bolaCromo: "BHA0301",
+  tamborAcero: "BHA1101",
+  tamborAceroTapa: "BHA1102",
+  acrilicoTransparente: "BHA0901",
+};
 
 // --- Espesor "original" documentado en el Excel para cada sistema ------------------
 // (usado solo para decidir si hay que avisar que la combinación es una extrapolación).
@@ -119,6 +144,7 @@ export function calcular(input: InputModulo) {
     altoCm,
     espesorVidrioMm = 6,
     tipoSistema = "corrediza",
+    tipoBoton = "tamborCromo",
   } = input;
 
   if (!anchoCm || anchoCm <= 0) throw new Error("El ancho (cm) debe ser un número mayor a 0.");
@@ -129,6 +155,8 @@ export function calcular(input: InputModulo) {
   if (!vidrioCodigo || !bpbCodigo) {
     throw new Error(`Espesor de vidrio "${espesorVidrioMm}mm" no soportado en cabinas corredizas (usar 6 u 8).`);
   }
+  const botonCodigo = BOTON_POR_TIPO[tipoBoton as keyof typeof BOTON_POR_TIPO];
+  if (!botonCodigo) throw new Error(`Tipo de botón "${tipoBoton}" no reconocido.`);
 
   const advertencias: string[] = [];
 
@@ -166,7 +194,7 @@ export function calcular(input: InputModulo) {
         lineas.push(lineaCatalogo("ROD0401", 4, seg));
         lineas.push(lineaCatalogo("PERF01", 2, seg));
         lineas.push(lineaCatalogo("BOQN02", 2, seg));
-        lineas.push(lineaCatalogo("BHA0302", 1, seg));
+        lineas.push(lineaCatalogo(botonCodigo, 1, seg));
         return lineas;
       },
     });
@@ -268,9 +296,9 @@ export function calcular(input: InputModulo) {
   items.push(lineaCatalogo("ROD0401", 4, segmentoCliente)); // 2 rodachinas por paño × 2 paños
   items.push(lineaCatalogo("PERF01", 2, segmentoCliente)); // perforación para halador, 1 por paño móvil
   items.push(lineaCatalogo("BOQN02", 2, segmentoCliente)); // boquilla cubre-perforación
-  items.push(lineaCatalogo("BHA0302", 1, segmentoCliente)); // botón haladera cromo tambor (paño móvil)
+  items.push(lineaCatalogo(botonCodigo, 1, segmentoCliente)); // botón haladera del paño móvil, según tipoBoton
   advertencias.push(
-    "Cantidades de rodachinas, perforación, boquilla y botón haladera se tomaron como valores fijos típicos " +
+    "Cantidades de rodachinas, perforación y boquilla se tomaron como valores fijos típicos " +
       "(no había una tabla de cantidades explícita para estos ítems en el análisis del Excel de Cabinas Corredizas); " +
       "ajustar si el equipo técnico define otra cantidad estándar."
   );

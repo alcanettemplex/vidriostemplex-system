@@ -19,7 +19,8 @@ CotizadorPrecioHistorial.init({
 }, {
   sequelize,
   modelName: 'CotizadorPrecioHistorial',
-  tableName: 'cotizador_precio_historial',
+  tableName: 'precio_historial',
+  schema: 'cotizador',
   timestamps: false,
   indexes: [
     { fields: ['codigo', 'fecha'] },

@@ -16,7 +16,8 @@ CotizadorCalibracionHistorial.init({
 }, {
   sequelize,
   modelName: 'CotizadorCalibracionHistorial',
-  tableName: 'cotizador_calibracion_historial',
+  tableName: 'calibracion_historial',
+  schema: 'cotizador',
   timestamps: false,
   indexes: [
     { fields: ['fecha'] },

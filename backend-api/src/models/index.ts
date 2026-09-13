@@ -404,13 +404,14 @@ const MODELOS_AUDITADOS = [
   // Módulo Cotizador — solo precios y cotizaciones (tocan dinero). Calibración
   // y datos de origen (diseños, empresa, mapeo) quedan fuera por volumen y
   // porque no son operaciones de negocio (decisión 9 del plan de migración).
-  // Nombres de tabla exactos en singular para no heredar el bug de
-  // revertirAuditoria documentado en TECH_DEBT.md (Cotizacion/SAP/RutaODP).
-  { model: CotizadorProducto, tabla: 'cotizador_producto', pk: 'codigo' },
-  { model: CotizadorPrecioOverride, tabla: 'cotizador_precio_override', pk: 'codigo' },
-  { model: CotizadorCotizacion, tabla: 'cotizador_cotizacion', pk: 'id' },
-  { model: CotizadorCotizacionItem, tabla: 'cotizador_cotizacion_item', pk: 'id' },
-  { model: CotizadorParametro, tabla: 'cotizador_parametro', pk: 'id' },
+  // Nombres calificados `schema.tabla` (viven fuera de public) y exactos, para
+  // no heredar el bug de revertirAuditoria documentado en TECH_DEBT.md
+  // (Cotizacion/SAP/RutaODP). root.controller los parte por el punto.
+  { model: CotizadorProducto, tabla: 'cotizador.producto', pk: 'codigo' },
+  { model: CotizadorPrecioOverride, tabla: 'cotizador.precio_override', pk: 'codigo' },
+  { model: CotizadorCotizacion, tabla: 'cotizador.cotizacion', pk: 'id' },
+  { model: CotizadorCotizacionItem, tabla: 'cotizador.cotizacion_item', pk: 'id' },
+  { model: CotizadorParametro, tabla: 'cotizador.parametro', pk: 'id' },
 ];
 
 function registrarAuditoria(
