@@ -1,0 +1,6842 @@
+{
+  "tomadoEn": "2026-09-13T14:49:25.847Z",
+  "perfiles": [
+    {
+      "diseno_id": "Cabina Batiente::PP_PLEGABLE",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Batiente::PP_PLEGABLE_RODAMIENTO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Batiente::PP_PLEGABLE_RODAMIENTO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Batiente::Z_CABINA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Batiente::Z1_CABINA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OX_CABINA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OX_CABINA",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OX_CABINA",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OX_CABINA",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXO_CABINA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXO_CABINA",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXO_CABINA",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXO_CABINA",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXXO_CABINA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXXO_CABINA",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXXO_CABINA",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXXO_CABINA",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXXO_CABINA",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXXO_CABINA",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXXO_CABINA",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::XO_CABINA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::XO_CABINA",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::XO_CABINA",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::XO_CABINA",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::XO_CABINA_MARCO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::XO_CABINA_MARCO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::XO_CABINA_MARCO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::XO_CABINA_MARCO",
+      "orden": 3,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::XO_CABINA_MARCO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::XO_CABINA_MARCO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::XO_CABINA_MARCO",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Primavera::OX_PRIMAVERA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Primavera::OXO_PRIMAVERA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Primavera::OXXO_PRIMAVERA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Primavera::OXXO_PRIMAVERA",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Primavera::XO_PRIMAVERA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::OX_TORINO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::OXO_TORINO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::OXXO_FACHADA_TORINO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::OXXO_TORINO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::OXXO_TORINO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::XO_TORINO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::O",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::O",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::O",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::O",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::O",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::O_O",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::O_O",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::O_O",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::O_O",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::O_O",
+      "orden": 4,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::O_O",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OO",
+      "orden": 3,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OO_OO_OO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OO_OO_OO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OO_OO_OO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OO_OO_OO",
+      "orden": 3,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OO_OO_OO",
+      "orden": 4,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OO_OO_OO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OO_OO_OO",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOO",
+      "orden": 3,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOO",
+      "orden": 3,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOOO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOOO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOOO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOOO",
+      "orden": 3,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOOO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOOO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOOOO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOOOO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOOOO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOOOO",
+      "orden": 3,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOOOO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOOOO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::W",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::W",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::W",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::W",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::W",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::W",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::W",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WW",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WW",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WW",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WW",
+      "orden": 3,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WW",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WW",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WW",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WW",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWW",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWW",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWW",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWW",
+      "orden": 3,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWW",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWW",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWW",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWW",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWWW",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWWW",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWWW",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWWW",
+      "orden": 3,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWWW",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWWW",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWWW",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWWW",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Semireforzado::O",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Semireforzado::O",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Semireforzado::O",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Semireforzado::O",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831-Semireforzado::O",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O_O",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O_O",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O_O",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O_O",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O_O",
+      "orden": 4,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831::O_O",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O_O_O",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O_O_O",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O_O_O",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O_O_O",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O_O_O",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::O_O_O",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OO",
+      "orden": 3,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831::OO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OO_OO_OO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OO_OO_OO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OO_OO_OO",
+      "orden": 2,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831::OO_OO_OO",
+      "orden": 3,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831::OO_OO_OO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OO_OO_OO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OO_OO_OO",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOO",
+      "orden": 3,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema3831::OOO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOO",
+      "orden": 3,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOOO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOOO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOOO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOOO",
+      "orden": 3,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOOO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOOO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOOOO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOOOO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOOOO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOOOO",
+      "orden": 3,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOOOO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOOOO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::W",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::W",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::W",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::W",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::W",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::W",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::W",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WW",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WW",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WW",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WW",
+      "orden": 3,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831::WW",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WW",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831::WW",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WW",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWW",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWW",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWW",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWW",
+      "orden": 3,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema3831::WWW",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWW",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema3831::WWW",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWW",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWW",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWW",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWW",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWW",
+      "orden": 3,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWW",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWW",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWW",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWW",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWW",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWW",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWW",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWW",
+      "orden": 3,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWW",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWW",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWW",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWW",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWWW",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWWW",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWWW",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWWW",
+      "orden": 3,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWWW",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWWW",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWWW",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWWW",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OX",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020::OX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OXO",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema5020::OXO",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OXXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OXXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OXXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OXXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OXXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::OXXO",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020::OXXO",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XO",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020::XO",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX2",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX2",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX2",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX2",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX2",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX2",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX2",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX2",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XX",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020::XX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XX_RETICULA2",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XX_RETICULA2",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XX_RETICULA2",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XX_RETICULA2",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XX_RETICULA2",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XX_RETICULA2",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020::XX_RETICULA2",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XX_RETICULA2",
+      "orden": 7,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020::XX_RETICULA2",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XXXX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XXXX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XXXX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XXXX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XXXX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020::XXXX",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020::XXXX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OX",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OX",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OX",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXO",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXO",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXXO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXXO",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXXO",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XO",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XO",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX2",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX2",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX2",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX2",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX2",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX2",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX2",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX2",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XX",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XXXX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XXXX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XXXX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XXXX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XXXX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XXXX",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XXXX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MX",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXX",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXXX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXXX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXXX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXXX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXXX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXXX",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXXX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OX",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXO",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXO",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX_3P",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX_3P",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXO",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXO",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXX_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXX_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXX_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXX_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXX_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXX_3P",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXX_3P",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXX_3P",
+      "orden": 7,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXX_3P",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO",
+      "orden": 8,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO_3P",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO_3P",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO_3P",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XM",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XM",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XM",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XM",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XM",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XM",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XM",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XO",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XO",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XOX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XOX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XOX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XOX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XOX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XOX",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XOX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XX",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXM",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXM",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXM",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXM",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXM",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXM",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXM",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO",
+      "orden": 7,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO_3P",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO_3P",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXX_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXX_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXX_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXX_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXX_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXX_3P",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXX_3P",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXM",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXM",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXM",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXM",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXM",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXM",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXM",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXO_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXO_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXO_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXO_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXO_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXO_3P",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXO_3P",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXO_3P",
+      "orden": 7,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXO_3P",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX2",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX2",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX2",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX2",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX2",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX2",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX2",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::MXX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::MXX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::MXX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::MXX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::MXX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::MXX",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::MXX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::MXX",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OX",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::OX",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::OX",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXO",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::OXO",
+      "orden": 7,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::OXO",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXX",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXX",
+      "orden": 7,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::OXX",
+      "orden": 8,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::OXX",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXX_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXX_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXX_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXX_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXX_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXX_3P",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::OXX_3P",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::OXX_3P",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO",
+      "orden": 7,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO_RETICULA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO_RETICULA",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO_RETICULA",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO_RETICULA",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO_RETICULA",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO_RETICULA",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO_RETICULA",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO_RETICULA",
+      "orden": 7,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO_RETICULA",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO_RETICULA",
+      "orden": 9,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO_RETICULA",
+      "orden": 10,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXX_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXX_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXX_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXX_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXX_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXX_3P",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXX_3P",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXX_3P",
+      "orden": 7,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::OXXX_3P",
+      "orden": 8,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::OXXX_3P",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO",
+      "orden": 8,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO",
+      "orden": 9,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO",
+      "orden": 10,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO_3P",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO_3P",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO_3P",
+      "orden": 7,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO_3P",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXXXO_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXXXO_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXXXO_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXXXO_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXXXO_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXXXO_3P",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXXXO_3P",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXXXO_3P",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXXXO_3P",
+      "orden": 8,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXXXO_3P",
+      "orden": 9,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXXXO_3P",
+      "orden": 10,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XO",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XO",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XO",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XOX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XOX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XOX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XOX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XOX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XOX",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::XOX",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::XOX",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XOX2",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XOX2",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XOX2",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XOX2",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XOX2",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XOX2",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XOX2",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XOX2",
+      "orden": 7,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XOX2",
+      "orden": 8,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XOX2",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XX",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XX",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA",
+      "orden": 8,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA_2x5",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA_2x5",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA_2x5",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA_2x5",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA_2x5",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA_2x5",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA_2x5",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA_2x5",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA_2x5",
+      "orden": 8,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA_2x5",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXO",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXO",
+      "orden": 7,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::XXO",
+      "orden": 8,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::XXO",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXO_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXO_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXO_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXO_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXO_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXO_3P",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::XXO_3P",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::XXO_3P",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P_RETICULA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P_RETICULA",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P_RETICULA",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P_RETICULA",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P_RETICULA",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P_RETICULA",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P_RETICULA",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P_RETICULA",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P_RETICULA",
+      "orden": 8,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P_RETICULA",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXO_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXO_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXO_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXO_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXO_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXO_3P",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXO_3P",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXO_3P",
+      "orden": 7,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XXXO_3P",
+      "orden": 8,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XXXO_3P",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXX",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXX",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XXXX",
+      "orden": 7,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema744::XXXX",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXXXX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXXXX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXXXX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXXXX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXXXX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXXXX",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema744::XXXXXX",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::XXXXXX",
+      "orden": 7,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema744::XXXXXX",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::MXXX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::MXXX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::MXXX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::MXXX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::MXXX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::MXXX",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::MXXX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::MXXX",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OX",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::OX",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::OX",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OX_RETICULA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OX_RETICULA",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OX_RETICULA",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OX_RETICULA",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OX_RETICULA",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OX_RETICULA",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::OX_RETICULA",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::OX_RETICULA",
+      "orden": 7,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::OX_RETICULA",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OX_RETICULA",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXO",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::OXO",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::OXO",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXO",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX",
+      "orden": 7,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX",
+      "orden": 8,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX_3P",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX_3P",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX_3P",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXO",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXO",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXO",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXO",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXX_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXX_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXX_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXX_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXX_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXX_3P",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXX_3P",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXX_3P",
+      "orden": 7,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXX_3P",
+      "orden": 8,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXX_3P",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO",
+      "orden": 7,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO",
+      "orden": 8,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO",
+      "orden": 10,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO_3P",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO_3P",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO_3P",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO_3P",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXXXO_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXXXO_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXXXO_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXXXO_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXXXO_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXXXO_3P",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXXXO_3P",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXXXO_3P",
+      "orden": 7,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXXXO_3P",
+      "orden": 8,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXXXO_3P",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXXXO_3P",
+      "orden": 10,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XO",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XO",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XO",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX_BOLSILLO_CERROJOPR",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX_BOLSILLO_CERROJOPR",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX_BOLSILLO_CERROJOPR",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX_BOLSILLO_CERROJOPR",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX_BOLSILLO_CERROJOPR",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX_BOLSILLO_CERROJOPR",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX_BOLSILLO_CERROJOPR",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX_BOLSILLO_CERROJOPR",
+      "orden": 7,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX_BOLSILLO_CERROJOPR",
+      "orden": 8,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX_BOLSILLO_CERROJOPR",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX2",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX2",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX2",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX2",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX2",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX2",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX2",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX2",
+      "orden": 7,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX2",
+      "orden": 8,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX2",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XX",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XX",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XX",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XX_RETICULA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XX_RETICULA",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XX_RETICULA",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XX_RETICULA",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XX_RETICULA",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XX_RETICULA",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XX_RETICULA",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XX_RETICULA",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XX_RETICULA",
+      "orden": 8,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XX_RETICULA",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO",
+      "orden": 7,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO",
+      "orden": 8,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO_3P",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO_3P",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO_3P",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_3P",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_3P",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_3P",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_RETICULA",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_RETICULA",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_RETICULA",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_RETICULA",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_RETICULA",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_RETICULA",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_RETICULA",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_RETICULA",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_RETICULA",
+      "orden": 8,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_RETICULA",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXO_3P",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXO_3P",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXO_3P",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXO_3P",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXO_3P",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXO_3P",
+      "orden": 5,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXO_3P",
+      "orden": 6,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXO_3P",
+      "orden": 7,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXO_3P",
+      "orden": 8,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXO_3P",
+      "orden": 9,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX_INTERIOR_DOBLE_MARCO",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX_INTERIOR_DOBLE_MARCO",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX_INTERIOR_DOBLE_MARCO",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX_INTERIOR_DOBLE_MARCO",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX_INTERIOR_DOBLE_MARCO",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX_INTERIOR_DOBLE_MARCO",
+      "orden": 5,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX_INTERIOR_DOBLE_MARCO",
+      "orden": 6,
+      "nivel_corte": "B"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXXXX",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXXXX",
+      "orden": 1,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXXXX",
+      "orden": 2,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXXXX",
+      "orden": 3,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXXXX",
+      "orden": 4,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXXXX",
+      "orden": 5,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXXXX",
+      "orden": 6,
+      "nivel_corte": "C"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXXXX",
+      "orden": 7,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXXXX",
+      "orden": 8,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Vidrios y Espejos::ESP_FLOT_1",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Vidrios y Espejos::ESP_MARCO_1",
+      "orden": 0,
+      "nivel_corte": "A"
+    },
+    {
+      "diseno_id": "Vidrios y Espejos::ESP_MARCO_1",
+      "orden": 1,
+      "nivel_corte": "A"
+    }
+  ],
+  "vidrios": [
+    {
+      "diseno_id": "Cabina Batiente::PP_PLEGABLE",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Batiente::PP_PLEGABLE_RODAMIENTO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Batiente::Z_CABINA",
+      "orden": 0,
+      "nivel_riesgo": "A_EXACTA"
+    },
+    {
+      "diseno_id": "Cabina Batiente::Z1_CABINA",
+      "orden": 0,
+      "nivel_riesgo": "A_EXACTA"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OX_CABINA",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OX_CABINA",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXO_CABINA",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXO_CABINA",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXXO_CABINA",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXXO_CABINA",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXXO_CABINA",
+      "orden": 2,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::OXXO_CABINA",
+      "orden": 3,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::XO_CABINA",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::XO_CABINA",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::XO_CABINA_MARCO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Corrediza::XO_CABINA_MARCO",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Primavera::OX_PRIMAVERA",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Primavera::OX_PRIMAVERA",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Primavera::OXO_PRIMAVERA",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Primavera::OXO_PRIMAVERA",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Primavera::OXXO_PRIMAVERA",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Primavera::OXXO_PRIMAVERA",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Primavera::OXXO_PRIMAVERA",
+      "orden": 2,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Primavera::OXXO_PRIMAVERA",
+      "orden": 3,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Primavera::XO_PRIMAVERA",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Primavera::XO_PRIMAVERA",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::OX_TORINO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::OX_TORINO",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::OXO_TORINO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::OXO_TORINO",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::OXXO_FACHADA_TORINO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::OXXO_FACHADA_TORINO",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::OXXO_TORINO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::OXXO_TORINO",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::OXXO_TORINO",
+      "orden": 2,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::OXXO_TORINO",
+      "orden": 3,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::XO_TORINO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Cabina Deslizante Torino::XO_TORINO",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::O",
+      "orden": 0,
+      "nivel_riesgo": "A_EXACTA"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::O_O",
+      "orden": 0,
+      "nivel_riesgo": "A_EXACTA"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OO_OO_OO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOOO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::OOOOOO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::W",
+      "orden": 0,
+      "nivel_riesgo": "A_EXACTA"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WW",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWW",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema3831-Reforzado::WWWW",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema3831-Semireforzado::O",
+      "orden": 0,
+      "nivel_riesgo": "A_EXACTA"
+    },
+    {
+      "diseno_id": "Sistema3831::O",
+      "orden": 0,
+      "nivel_riesgo": "A_EXACTA"
+    },
+    {
+      "diseno_id": "Sistema3831::O_O",
+      "orden": 0,
+      "nivel_riesgo": "A_EXACTA"
+    },
+    {
+      "diseno_id": "Sistema3831::O_O_O",
+      "orden": 0,
+      "nivel_riesgo": "A_EXACTA"
+    },
+    {
+      "diseno_id": "Sistema3831::OO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema3831::OO_OO_OO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema3831::OOO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOOO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema3831::OOOOOO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema3831::W",
+      "orden": 0,
+      "nivel_riesgo": "A_EXACTA"
+    },
+    {
+      "diseno_id": "Sistema3831::WW",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema3831::WWW",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWW",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWW",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema3831::WWWWWW",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema5020::OX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020::OXO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema5020::OXO",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema5020::OXXO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020::XO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX2",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020::XOX2",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020::XX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020::XX_RETICULA2",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020::XXXX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OX",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXO",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXO",
+      "orden": 2,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXXO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::OXXO",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XO",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX2",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XOX2",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema5020Reforzado::XXXX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MX",
+      "orden": 0,
+      "nivel_riesgo": "A_EXACTA"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::MXXX",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXX_3P",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXX_3P",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXX_3P",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::OXXXXO_3P",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XM",
+      "orden": 0,
+      "nivel_riesgo": "A_EXACTA"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XOX",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXM",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXO_3P",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXX_3P",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXM",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXO_3P",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXO_3P",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema7038-Interior::XXXX2",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::MXX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::OX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::OXO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::OXO",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::OXX",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::OXX",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::OXX",
+      "orden": 2,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::OXX_3P",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::OXX_3P",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::OXXO_RETICULA",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::OXXX_3P",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::OXXX_3P",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::OXXX_3P",
+      "orden": 2,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO",
+      "orden": 2,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO_3P",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXO_3P",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXXXO_3P",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXXXO_3P",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::OXXXXXXO_3P",
+      "orden": 2,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::XO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::XOX",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::XOX",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::XOX2",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::XOX2",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::XX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::XX_RETICULA_2x5",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::XXO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::XXO",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::XXO",
+      "orden": 2,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::XXO_3P",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::XXO_3P",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P_RETICULA",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::XXX_3P_RETICULA",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::XXXO_3P",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::XXXO_3P",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::XXXO_3P",
+      "orden": 2,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::XXXX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema744::XXXXXX",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema744::XXXXXX",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::MXXX",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::MXXX",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::OX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::OX_RETICULA",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::OXO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::OXO",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX",
+      "orden": 2,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX_3P",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::OXX_3P",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXX_3P",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXX_3P",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXX_3P",
+      "orden": 2,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO",
+      "orden": 2,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO_3P",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXO_3P",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXXXO_3P",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXXXO_3P",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::OXXXXXXO_3P",
+      "orden": 2,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::XO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX_BOLSILLO_CERROJOPR",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX_BOLSILLO_CERROJOPR",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX2",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::XOX2",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::XX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::XX_RETICULA",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO",
+      "orden": 2,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO_3P",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::XXO_3P",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_3P",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_3P",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_RETICULA",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::XXX_RETICULA",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXO_3P",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXO_3P",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXO_3P",
+      "orden": 2,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX_INTERIOR_DOBLE_MARCO",
+      "orden": 0,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXX_INTERIOR_DOBLE_MARCO",
+      "orden": 1,
+      "nivel_riesgo": "B_DIVISION_LIMPIA"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXXXX",
+      "orden": 0,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Sistema8025::XXXXXX",
+      "orden": 1,
+      "nivel_riesgo": "C_MODELO_LINEAL_INCORRECTO"
+    },
+    {
+      "diseno_id": "Vidrios y Espejos::ESP_ELEV_1",
+      "orden": 0,
+      "nivel_riesgo": "A_EXACTA"
+    },
+    {
+      "diseno_id": "Vidrios y Espejos::ESP_FLOT_1",
+      "orden": 0,
+      "nivel_riesgo": "A_EXACTA"
+    },
+    {
+      "diseno_id": "Vidrios y Espejos::ESP_MARCO_1",
+      "orden": 0,
+      "nivel_riesgo": "A_EXACTA"
+    }
+  ],
+  "disenos": [
+    {
+      "id": "Cabina Batiente::PP_PLEGABLE",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Batiente::PP_PLEGABLE_RODAMIENTO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Batiente::Z_CABINA",
+      "nivel_corte": "A",
+      "nivel_vidrio": "A",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Batiente::Z1_CABINA",
+      "nivel_corte": "A",
+      "nivel_vidrio": "A",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Corrediza::OX_CABINA",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Corrediza::OXO_CABINA",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Corrediza::OXXO_CABINA",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Corrediza::XO_CABINA",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Corrediza::XO_CABINA_MARCO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Cabina Deslizante Primavera::OX_PRIMAVERA",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Deslizante Primavera::OXO_PRIMAVERA",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Deslizante Primavera::OXXO_PRIMAVERA",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Deslizante Primavera::XO_PRIMAVERA",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Deslizante Torino::OX_TORINO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Deslizante Torino::OXO_TORINO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Deslizante Torino::OXXO_FACHADA_TORINO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Deslizante Torino::OXXO_TORINO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Cabina Deslizante Torino::XO_TORINO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Sistema3831-Reforzado::O",
+      "nivel_corte": "A",
+      "nivel_vidrio": "A",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Sistema3831-Reforzado::O_O",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema3831-Reforzado::OO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema3831-Reforzado::OO_OO_OO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema3831-Reforzado::OOO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema3831-Reforzado::OOOO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema3831-Reforzado::OOOOO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema3831-Reforzado::OOOOOO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema3831-Reforzado::W",
+      "nivel_corte": "A",
+      "nivel_vidrio": "A",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Sistema3831-Reforzado::WW",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema3831-Reforzado::WWW",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema3831-Reforzado::WWWW",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema3831-Semireforzado::O",
+      "nivel_corte": "A",
+      "nivel_vidrio": "A",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Sistema3831::O",
+      "nivel_corte": "A",
+      "nivel_vidrio": "A",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Sistema3831::O_O",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema3831::O_O_O",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Sistema3831::OO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema3831::OO_OO_OO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema3831::OOO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema3831::OOOO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema3831::OOOOO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema3831::OOOOOO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema3831::W",
+      "nivel_corte": "A",
+      "nivel_vidrio": "A",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Sistema3831::WW",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema3831::WWW",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema3831::WWWW",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema3831::WWWWW",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema3831::WWWWWW",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema5020::OX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema5020::OXO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema5020::OXXO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema5020::XO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema5020::XOX",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema5020::XOX2",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema5020::XX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema5020::XX_RETICULA2",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema5020::XXXX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema5020Reforzado::OX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema5020Reforzado::OXO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema5020Reforzado::OXXO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema5020Reforzado::XO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema5020Reforzado::XOX",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema5020Reforzado::XOX2",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema5020Reforzado::XX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema5020Reforzado::XXXX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema7038-Interior::MX",
+      "nivel_corte": "A",
+      "nivel_vidrio": "A",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Sistema7038-Interior::MXX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Sistema7038-Interior::MXXX",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Sistema7038-Interior::OX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema7038-Interior::OXO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema7038-Interior::OXX",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema7038-Interior::OXX_3P",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema7038-Interior::OXXO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema7038-Interior::OXXX_3P",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema7038-Interior::OXXXXO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema7038-Interior::OXXXXO_3P",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema7038-Interior::XM",
+      "nivel_corte": "A",
+      "nivel_vidrio": "A",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Sistema7038-Interior::XO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema7038-Interior::XOX",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema7038-Interior::XX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema7038-Interior::XXM",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Sistema7038-Interior::XXO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema7038-Interior::XXO_3P",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema7038-Interior::XXX_3P",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema7038-Interior::XXXM",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Sistema7038-Interior::XXXO_3P",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema7038-Interior::XXXX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema7038-Interior::XXXX2",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema744::MXX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Sistema744::OX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema744::OXO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema744::OXX",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema744::OXX_3P",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema744::OXXO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema744::OXXO_RETICULA",
+      "nivel_corte": "C",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema744::OXXX_3P",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema744::OXXXXO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema744::OXXXXO_3P",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema744::OXXXXXXO_3P",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema744::XO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema744::XOX",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema744::XOX2",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema744::XX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema744::XX_RETICULA",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema744::XX_RETICULA_2x5",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema744::XXO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema744::XXO_3P",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema744::XXX_3P",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema744::XXX_3P_RETICULA",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema744::XXXO_3P",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema744::XXXX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema744::XXXXXX",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema8025::MXXX",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Sistema8025::OX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema8025::OX_RETICULA",
+      "nivel_corte": "C",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema8025::OXO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema8025::OXX",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema8025::OXX_3P",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema8025::OXXO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema8025::OXXX_3P",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema8025::OXXXXO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema8025::OXXXXO_3P",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema8025::OXXXXXXO_3P",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema8025::XO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema8025::XOX",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema8025::XOX_BOLSILLO_CERROJOPR",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema8025::XOX2",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema8025::XX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema8025::XX_RETICULA",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema8025::XXO",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema8025::XXO_3P",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema8025::XXX_3P",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema8025::XXX_RETICULA",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Sistema8025::XXXO_3P",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema8025::XXXX",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema8025::XXXX_INTERIOR_DOBLE_MARCO",
+      "nivel_corte": "B",
+      "nivel_vidrio": "B",
+      "nivel_perfiles": "B"
+    },
+    {
+      "id": "Sistema8025::XXXXXX",
+      "nivel_corte": "C",
+      "nivel_vidrio": "C",
+      "nivel_perfiles": "C"
+    },
+    {
+      "id": "Vidrios y Espejos::ESP_ELEV_1",
+      "nivel_corte": "A",
+      "nivel_vidrio": "A",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Vidrios y Espejos::ESP_FLOT_1",
+      "nivel_corte": "A",
+      "nivel_vidrio": "A",
+      "nivel_perfiles": "A"
+    },
+    {
+      "id": "Vidrios y Espejos::ESP_MARCO_1",
+      "nivel_corte": "A",
+      "nivel_vidrio": "A",
+      "nivel_perfiles": "A"
+    }
+  ]
+}

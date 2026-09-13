@@ -91,6 +91,33 @@ export interface Formula {
   c: number;
 }
 
+/** Operación de redondeo de un modelo de corte. `exacto` = la división da
+ * entero por construcción y no hay nada que redondear. */
+export type OperacionCorte = "exacto" | "trunc" | "round" | "ceil";
+
+/**
+ * Cálculo de corte tal como lo hace el software de origen:
+ *
+ *     medida = op( (p*anchoMm + q*altoMm + r) / n )
+ *
+ * Sustituye a la recta `Formula` cuando está disponible. La diferencia importa:
+ * una recta ajustada sobre 3 observaciones absorbe el truncamiento desplazando
+ * la pendiente (1/3 acaba como 0,334), y ese desplazamiento produce un error que
+ * crece con el tamaño del vano. El modelo entero no lo tiene.
+ */
+export interface ModeloCorte {
+  p: number;
+  q: number;
+  r: number;
+  n: number;
+  op: OperacionCorte;
+  /** Separación máxima entre todos los modelos que reproducen las mismas
+   * observaciones, medida en vanos reales. Cota de incertidumbre, no error
+   * medido: 0 significa que la aritmética está determinada, y no dice nada
+   * sobre si el taller corta a esa medida. */
+  dispersionMm: number;
+}
+
 export interface DisenoPerfil {
   ref: string;
   refOriginal: string | null;
@@ -98,6 +125,9 @@ export interface DisenoPerfil {
   cantidad: number;
   desperdicioPct: number;
   formula: Formula;
+  /** Cálculo entero reconstruido. `null` = esta pieza no lo admite y se sigue
+   * calculando con `formula`. */
+  modelo: ModeloCorte | null;
   nivelCorte: string;
   /** `null` cuando el perfil no tiene códigos por acabado. La columna es
    * NOT NULL y guarda `{}` en ese caso, pero se reconstruye como `null` para
@@ -115,6 +145,9 @@ export interface DisenoVidrio {
   desperdicioPct: number;
   formulaAncho: Formula;
   formulaAlto: Formula;
+  /** Cálculo entero por lado. `null` = ese lado sigue con su recta. */
+  modeloAncho: ModeloCorte | null;
+  modeloAlto: ModeloCorte | null;
   nivelRiesgo: string | null;
 }
 

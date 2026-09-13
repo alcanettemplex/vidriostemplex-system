@@ -36,16 +36,25 @@ function nombreSistema(sistema: string): string {
         .replace(/([a-z])([A-Z])/g, '$1 $2');
 }
 
-// El nivel de corte dice qué tan exacto es el despiece, NO si el diseño tiene
-// precio (ver `aptoParaCorte: d.nivelCorte === "A"` en motorDespiece.ts). Para
-// cotizar sirve cualquiera: unos milímetros no mueven el precio. Solo el nivel A
-// es defendible para mandar a cortar vidrio templado, que es irreversible — y
-// hoy solo 2 de los 71 diseños de ventanas lo alcanzan, así que se marca el A
-// como distintivo positivo en vez de sembrar una advertencia en los otros 69.
+// El nivel de corte dice cuánto puede equivocarse la MEDIDA del despiece, NO si
+// el diseño tiene precio: para cotizar sirve cualquiera, porque un milímetro no
+// mueve el total.
+//
+// Desde 2026-09-13 el nivel se calcula sobre el modelo de corte entero
+// reconstruido (backend: scripts/2026-09-13_reconstruir_modelos_corte.ts), no
+// sobre la recta ajustada de antes. Los rótulos cambiaron con él: B ya no es
+// "aproximado" sin más — es una cota conocida de ±1 mm, y solo afecta a las
+// piezas que se dividen entre el número de cuerpos, no al despiece entero. El
+// reparto real hoy es A=14, B=118, C=6 sobre 138 diseños.
+//
+// Ojo con el nivel A: dice que la aritmética está determinada, no que la medida
+// sea la de cortar — el margen de corte de cada perfil se calibra aparte y sigue
+// sin medir. Quien decide si se puede emitir una orden es `aptitudOrden.ts` en
+// el backend, con ocho condiciones de las que ésta es una.
 const NIVEL_ESTILO: Record<string, { chip: string; titulo: string }> = {
-    A: { chip: 'bg-emerald-50 text-emerald-700 ring-emerald-200', titulo: 'Nivel A — medidas exactas, apto para orden de corte' },
-    B: { chip: 'bg-amber-50 text-amber-700 ring-amber-200', titulo: 'Nivel B — aproximado; sirve para cotizar, no para cortar' },
-    C: { chip: 'bg-slate-100 text-slate-500 ring-slate-200', titulo: 'Nivel C — estimado; sirve para cotizar, no para cortar' },
+    A: { chip: 'bg-emerald-50 text-emerald-700 ring-emerald-200', titulo: 'Nivel A — todas las medidas determinadas al milímetro' },
+    B: { chip: 'bg-amber-50 text-amber-700 ring-amber-200', titulo: 'Nivel B — alguna pieza que divide puede variar ±1 mm; el resto está determinado' },
+    C: { chip: 'bg-slate-100 text-slate-500 ring-slate-200', titulo: 'Nivel C — alguna pieza sigue con la fórmula aproximada: su desviación no está acotada' },
 };
 
 const labelClass = 'block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1';
@@ -286,8 +295,11 @@ const SelectorDiseno: React.FC<Props> = ({ modulo, value, onChange, sistema }) =
                     </div>
 
                     <p className="px-3 py-2 border-t border-slate-100 bg-slate-50/60 text-[10.5px] text-slate-400 leading-snug">
-                        <span className="font-bold text-slate-500">A · B · C</span> = precisión del despiece.
-                        Todos cotizan igual; solo el <span className="font-bold text-emerald-600">A</span> sirve para orden de corte.
+                        <span className="font-bold text-slate-500">A · B · C</span> = cuánto puede variar la medida.
+                        <span className="font-bold text-emerald-600"> A</span> determinada,
+                        <span className="font-bold text-amber-600"> B</span> ±1 mm en las piezas que dividen,
+                        <span className="font-bold text-slate-500"> C</span> sin acotar.
+                        Todos cotizan igual — la diferencia solo importa al cortar.
                     </p>
                 </div>
             )}

@@ -11,28 +11,42 @@
 // cada diseño, sus perfiles con fórmula y el código de catálogo Templex que le
 // corresponde a cada color.
 //
+// DOS FORMAS DE CALCULAR UNA MEDIDA, Y POR QUÉ IMPORTA CUÁL SE USA
+// El software de origen no calcula con una recta: calcula
+// `trunc((ancho - k) / nº de paneles)`. La extracción original sólo tomó 3
+// medidas por diseño, todas múltiplos de 100, así que esa división caía exacta y
+// el truncamiento nunca se hizo visible; la regresión lo absorbió desplazando la
+// pendiente (donde el modelo real es 1/3 = 0,3333…, la recta quedó en 0,334).
+// Ese desplazamiento es un error que CRECE con el tamaño del vano.
+//
+// Desde 2026-09-13 cada pieza lleva, además de la recta, el `modelo` entero
+// reconstruido a partir de esas mismas observaciones (ver
+// scripts/2026-09-13_reconstruir_modelos_corte.ts). El motor usa el modelo
+// cuando existe y cae a la recta cuando no — hoy 8 perfiles de 983 no admiten
+// modelo entero.
+//
+// QUÉ SIGNIFICA EL `nivelCorte` DE CADA PIEZA
+//   A -> el modelo entero está determinado: todos los que reproducen las
+//        observaciones dan el mismo número.
+//   B -> hay varios modelos compatibles y difieren como mucho en 1 mm.
+//   C -> no hay modelo entero; sigue con la recta y su error no está acotado.
+//
 // LÍMITE IMPORTANTE — leer antes de usar esto para cortar material:
-// las fórmulas se ajustaron sobre 3 medidas por diseño con 3 incógnitas, así que
-// reproducen sus muestras por construcción y NO están validadas. Cada diseño
-// lleva un `nivelCorte`:
-//
-//   A -> coeficientes enteros; la medida siempre cae en milímetro exacto.
-//   B -> hay una división (mitades, cuartos) cuyo modo de redondeo se desconoce;
-//        el error puede llegar a ~0.8 mm.
-//   C -> el modelo lineal es demostrablemente falso para ese diseño (esconde una
-//        división entera o un recorte a cero); puede desviarse hasta ~3.3 mm.
-//
-// Para COTIZAR, cualquier nivel sirve: unos milímetros no mueven el precio.
-// Para CORTAR (sobre todo vidrio templado, que es irreversible) sólo el nivel A
-// es defendible hoy, y aun ése debería pasar por la calibración contra taller.
-// Por eso `calcularDespiece` devuelve `aptoParaCorte` y `advertencias`, y nunca
-// decide por su cuenta que un despiece se puede mandar a producción.
+// el nivel habla de la ARITMÉTICA del software de origen, no del taller. Nivel A
+// significa "esta cuenta está determinada", no "ésta es la medida a la que hay
+// que cortar": el margen de corte de cada perfil se calibra aparte contra piezas
+// reales (cotizador.calibracion_margen) y sigue sin medir. Para COTIZAR
+// cualquier nivel sirve — un milímetro no mueve el precio. Para CORTAR (sobre
+// todo vidrio templado, que es irreversible) el nivel es una condición de ocho:
+// las decide `aptitudOrden.ts`, no este archivo. Por eso `calcularDespiece`
+// devuelve `aptoParaCorte` y `advertencias` y nunca manda nada a producción por
+// su cuenta.
 import { lineaCatalogo, round2 } from "./motorCalculo";
 import { getProducto } from "./catalogo";
 import { margenEfectivo } from "./calibracion";
 import { getMargenes } from "../store/calibracionStore";
 import * as cache from "../cache";
-import type { Diseno, DisenoResumen } from "../tipos";
+import type { Diseno, DisenoResumen, Formula, ModeloCorte, OperacionCorte } from "../tipos";
 
 // Los diseños ya no se leen de disco: vienen de la caché en memoria, que los
 // reconstruye desde Postgres al arrancar con exactamente la misma forma que
@@ -78,11 +92,34 @@ function claveColor(color: unknown): string {
     .replace(/\s+/g, "");
 }
 
+const OPS_CORTE: Record<OperacionCorte, (x: number) => number> = {
+  exacto: (x) => x,
+  trunc: (x) => Math.floor(x),
+  round: (x) => Math.round(x),
+  ceil: (x) => Math.ceil(x),
+};
+
+/**
+ * Medida de una pieza. Usa el modelo entero si la pieza lo tiene; si no, la
+ * recta ajustada.
+ *
+ * Un `op` que no esté en OPS_CORTE (columna editada a mano en la base, valor de
+ * una versión futura) devuelve `null` en vez de NaN: el llamador ya sabe tratar
+ * "sin fórmula utilizable" como una advertencia visible, mientras que un NaN se
+ * propagaría hasta el corte y produciría una medida vacía sin que nadie se
+ * entere. Es la misma regla del módulo: nunca un cero ni un hueco en silencio.
+ */
 function evaluar(
-  formula: { a: number; b: number; c: number } | null | undefined,
+  formula: Formula | null | undefined,
+  modelo: ModeloCorte | null | undefined,
   anchoMm: number,
   altoMm: number
 ): number | null {
+  if (modelo) {
+    const op = OPS_CORTE[modelo.op];
+    if (!op || !modelo.n) return null;
+    return op((modelo.p * anchoMm + modelo.q * altoMm + modelo.r) / modelo.n);
+  }
   if (!formula) return null;
   return formula.a * anchoMm + formula.b * altoMm + formula.c;
 }
@@ -150,13 +187,34 @@ export function calcularDespiece({
   const cortesPerfil = [];
   const cortesVidrio = [];
 
+  // Incertidumbre de ESTE despiece, recogida pieza a pieza mientras se calcula.
+  // Se nombran las piezas concretas en vez de emitir un veredicto sobre el
+  // diseño entero: un diseño donde seis de siete perfiles son exactos y sólo el
+  // horizontal divide entre 3 no es "un diseño dudoso", es un diseño con una
+  // pieza dudosa — y quien corta necesita saber cuál.
+  const piezasConDuda: Array<{ nombre: string; mm: number }> = [];
+  const piezasSinModelo: string[] = [];
+  // Piezas cuya medida no cambia con el tamaño de la ventana. El modelo las
+  // reproduce exactamente (son constantes en el origen), pero una pieza que no
+  // escala delata que al despiece le falta un dato de entrada — no es un
+  // problema de precisión, y por eso se avisa aparte en vez de degradar el nivel.
+  const piezasConstantes: string[] = [];
+
   // --- Perfiles -----------------------------------------------------------
   for (const p of diseno.perfiles) {
     // La alfajía es opcional y su código lo pone el módulo (Templex vende para
     // cada sistema una referencia distinta de la que trae el diseño extraído).
     if (p.esAlfajia && !incluirAlfajia) continue;
 
-    const medidaMm = evaluar(p.formula, anchoMm, altoMm);
+    const medidaMm = evaluar(p.formula, p.modelo, anchoMm, altoMm);
+    const nombrePieza = `${p.descripcion ?? "perfil"} (${p.ref})`;
+    if (!p.modelo) piezasSinModelo.push(nombrePieza);
+    else {
+      if (p.modelo.dispersionMm > 0) {
+        piezasConDuda.push({ nombre: nombrePieza, mm: p.modelo.dispersionMm });
+      }
+      if (p.modelo.p === 0 && p.modelo.q === 0) piezasConstantes.push(nombrePieza);
+    }
 
     if (medidaMm === null || !Number.isFinite(medidaMm)) {
       advertencias.push(`El perfil ${p.ref} (${p.descripcion}) no tiene fórmula utilizable.`);
@@ -217,6 +275,9 @@ export function calcularDespiece({
       margenMm: cal.margenMm,
       origenMargen: cal.origen,
       nivelCorte: p.nivelCorte ?? null,
+      // Cota de incertidumbre de la cuenta, para que la orden de corte pueda
+      // decir "±1 mm" en la pieza que lo tiene en vez de callarlo.
+      incertidumbreMm: p.modelo ? p.modelo.dispersionMm : null,
       cantidad: p.cantidad,
       metrosNetos: round2(metrosNetos),
     });
@@ -242,8 +303,15 @@ export function calcularDespiece({
   // vendedor eligió (se cobra por m²), no del vidrio que traía el diseño.
   let areaTotalM2 = 0;
   for (const v of diseno.vidrios) {
-    const anchoV = evaluar(v.formulaAncho, anchoMm, altoMm);
-    const altoV = evaluar(v.formulaAlto, anchoMm, altoMm);
+    const anchoV = evaluar(v.formulaAncho, v.modeloAncho, anchoMm, altoMm);
+    const altoV = evaluar(v.formulaAlto, v.modeloAlto, anchoMm, altoMm);
+
+    const nombreV = v.descripcion && !/sin vidrio/i.test(v.descripcion) ? v.descripcion : "paño de vidrio";
+    if (!v.modeloAncho || !v.modeloAlto) piezasSinModelo.push(nombreV);
+    else {
+      const dudaV = Math.max(v.modeloAncho.dispersionMm, v.modeloAlto.dispersionMm);
+      if (dudaV > 0) piezasConDuda.push({ nombre: nombreV, mm: dudaV });
+    }
 
     if (anchoV === null || altoV === null) {
       advertencias.push(`El paño de vidrio "${v.descripcion}" no tiene fórmula de tamaño utilizable.`);
@@ -276,6 +344,10 @@ export function calcularDespiece({
       cantidad: v.cantidad,
       areaM2: round2(areaPano * v.cantidad),
       nivelRiesgo: v.nivelRiesgo,
+      incertidumbreMm:
+        v.modeloAncho && v.modeloAlto
+          ? Math.max(v.modeloAncho.dispersionMm, v.modeloAlto.dispersionMm)
+          : null,
     });
   }
 
@@ -287,16 +359,35 @@ export function calcularDespiece({
   const hayMedidasInvalidas = items.some((it) => it.error);
   const aptoParaCorte = diseno.nivelCorte === "A" && !hayMedidasInvalidas;
 
-  if (diseno.nivelCorte === "B") {
+  // Las piezas sin modelo entero son las únicas con error no acotado: siguen
+  // calculándose con la recta ajustada, que se desvía más cuanto más grande es
+  // el vano. Se nombran una a una porque son pocas y son las que de verdad
+  // frenan una orden de corte.
+  if (piezasSinModelo.length > 0) {
     advertencias.push(
-      "Las medidas de vidrio de este diseño salen de una división cuyo redondeo no se ha " +
-        "verificado: sirven para cotizar, pero pueden desviarse hasta ~0,8 mm. No cortar sin calibrar."
+      `Estas piezas todavía se calculan con la fórmula aproximada y su desviación no está acotada: ` +
+        `${piezasSinModelo.join(", ")}. Sirven para cotizar; no las uses para cortar sin medir una pieza real.`
     );
-  } else if (diseno.nivelCorte === "C") {
+  }
+  // Una medida que no cambia al cambiar el vano no es un error de precisión: el
+  // software de origen la devuelve así de verdad. Lo que indica es que ese diseño
+  // se calcula con un parámetro que este formulario no pregunta (en los casos
+  // reales, el ancho del marco de los diseños "M"). La medida sale exacta y el
+  // precio es correcto, pero no sirve para cortar esa pieza.
+  if (piezasConstantes.length > 0) {
     advertencias.push(
-      "El cálculo de vidrio de este diseño usa un modelo lineal que se sabe incorrecto para él " +
-        "(esconde una división entera o un recorte): puede desviarse hasta ~3,3 mm. Sirve para " +
-        "cotizar; NO usar para cortar."
+      `Estas piezas dan siempre la misma medida sin importar el tamaño de la ventana: ` +
+        `${piezasConstantes.join(", ")}. Este diseño se calcula con un dato que el formulario todavía ` +
+        `no pide, así que esa medida no sirve para cortar — el resto del despiece sí.`
+    );
+  }
+  if (piezasConDuda.length > 0) {
+    const peor = Math.max(...piezasConDuda.map((p) => p.mm));
+    const nombres = piezasConDuda.map((p) => p.nombre).join(", ");
+    advertencias.push(
+      `Hay ${piezasConDuda.length} pieza(s) cuya medida sale de una división y puede variar ±${peor} mm: ` +
+        `${nombres}. El resto del despiece está determinado. Para cerrar ese milímetro hace falta medir ` +
+        `una pieza real de esas y registrarla en la calibración.`
     );
   }
   if (huboMargen) {
@@ -306,12 +397,15 @@ export function calcularDespiece({
         "seguir contrastándola."
     );
   }
-  if (diseno.medidasRespaldo && diseno.medidasRespaldo <= 3) {
-    advertencias.push(
-      `Las fórmulas de este diseño se ajustaron con ${diseno.medidasRespaldo} medidas y tienen ` +
-        `${diseno.medidasRespaldo} incógnitas, así que todavía no están validadas contra el taller.`
-    );
-  }
+  // Antes había aquí una advertencia que salía en el 93% de los diseños: "las
+  // fórmulas se ajustaron con 3 medidas y tienen 3 incógnitas, así que todavía
+  // no están validadas". Describía el ajuste por regresión, que ya no es cómo se
+  // calcula: el modelo entero se deriva de esas mismas 3 observaciones pero no
+  // tiene incógnitas continuas que ajustar, y lo que queda de ambigüedad se
+  // reporta arriba, pieza por pieza y con su cota en milímetros. Repetirla sería
+  // avisar dos veces de lo mismo, y en términos que ya no corresponden al
+  // cálculo. `medidasRespaldo` se conserva en el catálogo como dato de
+  // procedencia; no genera advertencia por sí solo.
 
   return {
     diseno: {

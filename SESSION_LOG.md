@@ -2779,3 +2779,186 @@ total cuando hay diseño, los 8 vidrios existen con precio > 0). 37/37 en `test:
   tiene sentido físico: o el 4mm está sobrevalorado o los otros dos quedaron desactualizados.
 - 7038 ya cotiza pero **sigue sin cobrar accesorios**: falta su entrada en
   `CATALOGO_SISTEMAS` de `ventanas.ts`. Ya existen `GIN7038` y `ROD7038ABB/NY`.
+
+---
+
+## 2026-09-12 (5) — Cotizador: el descuento admitía 500% y sacaba totales negativos
+
+### El bug
+Encontrado probando, no reportado. `descuentoPct` es una **fracción** (0,05 = 5%) pero el campo
+del formulario la pedía en crudo, con la etiqueta "Descuento (fracción 0-1)". Un vendedor que
+escribiera `5` queriendo un 5% obtenía un descuento del **500%**: la cotización salía con total
+**−$2.083.681**, en **HTTP 200**, sin una sola advertencia, y se podía guardar y mandar al
+cliente. No es el mismo bug que el de 2026-09-10 (allí el modal *mostraba* "0,05%"); éste es de
+entrada y sí movía el dinero.
+
+### El arreglo, en dos capas
+- **Backend** (`motorCalculo.ts`, `totalizar`): rechaza cualquier `descuentoPct` fuera de 0-1 con
+  un mensaje que dice qué escribir. Es el **único** punto donde se aplica el descuento, así que
+  una sola guarda cubre los 6 módulos y el camino por diseño.
+- **Frontend** (`CampoDinamico.tsx`): el campo pasa a pedir el **porcentaje real** con `min=0` y
+  `max=100`, y convierte a fracción al enviar. Las cotizaciones ya guardadas siguen leyéndose
+  igual porque lo que viaja al backend no cambió de unidad. El valor mostrado se redondea
+  (`Math.round(v*10000)/100`) porque `0.05 * 100` da `5.000000000000001` en coma flotante.
+- Etiqueta actualizada a "Descuento (%)" en los 4 módulos que la declaraban.
+
+Enfoque confirmado con el usuario antes de implementar ("Porcentaje real + tope"). Verificado con
+7 casos: 0, 0,05, 1, 1,5, 5, 50 y −0,1 — los cuatro inválidos ahora dan 400 en vez de 200.
+
+---
+
+## 2026-09-13 — Cotizador: el despiece deja de calcularse con una recta y pasa al modelo real
+
+### De dónde salió esto
+El usuario preguntó qué eran los "3 puntos y 3 incógnitas" de la advertencia que aparecía en
+129 de 138 diseños, y después pasó la ruta del proyecto donde trabajó los despieces:
+`C:\Users\User\Desktop\AlcanetPro\Aplicaciones\AlumSoftware`. Es el **origen** del catálogo:
+1.992 extracciones reales de AlumSoftware, 652 diseños, 561 con fórmulas. Se comprobó pieza
+por pieza que los 137 diseños con perfiles del ERP tienen el despiece **idéntico** al de allí
+(multiconjunto de fórmulas por diseño): cero drift desde la importación.
+
+### El diagnóstico: la recta nunca fue el cálculo real
+La extracción tomó 3 medidas por diseño (1000×1200, 500×1200, 1000×600) y ajustó por mínimos
+cuadrados `medida = a*ancho + b*alto + c`. Con 3 puntos y 3 incógnitas el ajuste encaja por
+álgebra, no por acierto — de ahí la advertencia.
+
+Pero el problema de fondo era otro. AlumSoftware calcula `trunc((ancho − k) / nº de paneles)`.
+**Las 3 medidas de extracción son todas múltiplos de 100**, así que esa división caía exacta y
+el truncamiento nunca se hizo visible: se verificó que en las 3 medidas extraídas ninguna
+fórmula del catálogo produce un decimal. La regresión absorbió el redondeo desplazando la
+pendiente — donde el modelo real es 1/3 = 0,3333…, la recta quedó en **0,334** (59 usos en el
+origen; 0,166 por 1/6, 19 usos). Ese desplazamiento produce un error que **crece con el tamaño
+del vano**, y es el origen literal del "puede desviarse hasta 3,3 mm" del nivel C.
+
+Ejemplo real, `Sistema5020::OXO`, paño de vidrio: vano 1000 → 297 mm ( = (1000−109)/3 exacto );
+vano 500 → 130 mm ( = (500−109)/3 = 130,33 truncado ). R² del ajuste: 0,9942, no 1.
+
+### Evidencia de que la forma del modelo sí generalizaba (validación cruzada, sin costo)
+12 diseños del origen se extrajeron con **6** medidas en vez de 3. Eso permitió el experimento
+que nunca se había hecho: ajustar con las 3 medidas base y **predecir** las otras 3, que el
+ajuste no vio. Resultado: **234/234 cortes de perfil y 66/66 medidas de vidrio exactos, error
+0,00 mm**, cubriendo un diseño de cada sistema (5020, 5020R, 744, 8025, 3831 ×3, 7038 int/ext,
+Puerta Batiente). Lo que fallaba no era la forma del modelo: era representarla con una recta de
+coeficientes continuos.
+
+### Lo que se hizo
+Se reconstruyó, por búsqueda entera acotada sobre las observaciones reales, el modelo
+`op((p*ancho + q*alto + r) / n)` de cada pieza —`op ∈ {exacto, trunc, round, ceil}`— y se
+guardó junto a la recta, que se conserva intacta.
+
+- `scripts/2026-09-13_reconstruir_modelos_corte.ts` — genera
+  `datos_cotizador/modelos_corte.json` (versionado, para que aplicar no exija tener el otro
+  proyecto). **Candado de emparejamiento**: sólo acepta el modelo si la recta guardada en la BD
+  reproduce las observaciones que se le están asignando; si no, la pieza queda sin modelo. Dio
+  0 fallos sobre 1.201 piezas.
+- `scripts/2026-09-13_aplicar_modelos_corte.ts` — columnas nuevas (`modelo_*` en
+  `diseno_perfil`, `modelo_ancho_*`/`modelo_alto_*` en `diseno_vidrio`), aplica el JSON,
+  recalcula niveles, verifica antes del COMMIT que no haya modelos a medias ni divisor 0.
+  `--revertir` restaura desde `niveles_previos_2026-09-13.json`.
+- `motorDespiece.ts` usa el modelo entero cuando existe y cae a la recta cuando no. Un `op`
+  desconocido devuelve `null` (advertencia visible), nunca NaN.
+- `cache.ts`: `modeloDesdeFila()` reconstruye el modelo; `modelo_n IS NULL` es la señal única
+  de "sin modelo".
+
+### Un fallo propio del espacio de búsqueda: las piezas constantes
+La primera pasada dejaba 8 perfiles "sin modelo entero" y los mandaba a nivel C con el motivo
+genérico "desviación no acotada". Al mirar sus observaciones, el motivo era otro: **su medida es
+una constante** (`0*A + 0*H + 15`) — 15, 30, 4 y 13 mm en los cuatro casos, idéntica en las tres
+medidas extraídas. La búsqueda excluía `p = q = 0`, así que no podía encontrarlas. Admitido ese
+caso, los **983 perfiles tienen modelo** y ninguno cae ya a la recta.
+
+Siguen en nivel C, pero por la razón correcta y dicha en voz alta: una pieza que no escala con la
+ventana significa que el diseño se calcula con un parámetro que el formulario no pide (el ancho
+del marco de los diseños "M"). `nivelDe()` las degrada aunque su dispersión sea 0 —la aritmética
+es exacta, la medida no sirve para cortar— y `motorDespiece` emite una advertencia propia que lo
+explica en vez de hablar de precisión. Afecta a 6 diseños: `Sistema7038-Interior::MXX/MXXX/XXM/XXXM`,
+`Sistema744::MXX`, `Sistema8025::MXXX`.
+
+### Un filtro que salió de mirar el HTML crudo
+La primera pasada emitía medidas como **595,5 mm**. Un modelo `(ancho − 6)/2` sin redondeo
+reproduce las 3 observaciones —en ellas la división cae exacta— pero en un vano cualquiera
+devuelve medio milímetro. Se comprobó sobre los reportes originales (**844 celdas de medida en
+60 reportes HTML: cero decimales**) que AlumSoftware nunca emite una medida de corte fraccionada,
+así que esos candidatos son demostrablemente falsos y `siempreEntero()` los descarta. Ahora
+`595,5 → 596`, y se verificó que **las 8.466 medidas de los 138 diseños × 6 vanos son enteras**.
+Ninguna pieza se quedó sin modelo por el filtro.
+
+### Resultados
+| | antes | después |
+|---|---|---|
+| diseños nivel A | 12 | **14** |
+| diseños nivel B | 74 | **118** |
+| diseños nivel C | **52** | **6** |
+| paños `C_MODELO_LINEAL_INCORRECTO` | 94 | **0** |
+
+1.036 de 1.419 medidas quedan **determinadas** (todos los modelos compatibles dan el mismo
+número) y 383 con **±1 mm**. Los 1.201 elementos del catálogo (983 perfiles + 218 paños) tienen
+modelo entero: ninguno sigue calculándose con la recta. Los 6 diseños que siguen en nivel C son
+los que llevan marco, por las piezas constantes descritas arriba.
+
+**Evidencia estructural, no sólo numérica**: el divisor reconstruido coincide con el número de
+paneles del diseño — `/2` en OX, `/3` en XOX y OXO, `/4` en OXXO (151 de ~175 piezas con
+divisor > 1 coinciden exacto).
+
+### Los niveles cambiaron de significado
+Ya no describen "qué pinta tienen los coeficientes" sino **cuánto puede equivocarse la medida**:
+A = determinada; B = ±1 mm en las piezas que dividen, el resto determinado; C = sin modelo,
+error no acotado. Se actualizaron los rótulos y la leyenda de `SelectorDiseno.tsx`.
+
+Las advertencias del motor ahora **nombran las piezas concretas** en vez de emitir un veredicto
+sobre el diseño entero: en `Sistema744::XO` dice "Horizontal Inferior (390), Horizontal Superior
+(389), paño de vidrio · ±1 mm; el resto está determinado". Se retiró la advertencia de "3
+medidas / 3 incógnitas" (describía el ajuste por regresión, que ya no es cómo se calcula) y la
+de nivel B/C con los milímetros viejos.
+
+### Lo que este trabajo NO resuelve — leerlo antes de cortar
+- **Queda ±1 mm** en las piezas que dividen. La reconstrucción acota la ambigüedad, no la
+  elimina: con 3 observaciones en medidas redondas hay ~25-43 modelos compatibles y todos
+  coinciden dentro de 1 mm, pero cuál es el verdadero no se sabe. **Se cierra con una sola
+  observación en una medida no redonda** (el scraper del otro proyecto puede darla; el usuario
+  no autorizó conectarse en esta sesión) o midiendo una pieza real.
+- **`dispersionMm` acota dentro del espacio de búsqueda.** Si AlumSoftware hiciera algo fuera
+  de esa familia (recorte condicional, tabla por tamaño), la cota no diría nada de ese caso.
+- **Nivel A ≠ apto para cortar.** Habla de la aritmética del software de origen, no del taller:
+  el margen de corte por perfil sigue sin calibrar y `calibracion_contraste` sigue vacía. La
+  aptitud la decide `aptitudOrden.ts` con 8 condiciones.
+- **`aptoParaCorte` sigue siendo `nivelCorte === "A"`**, así que los 118 diseños nivel B siguen
+  sin poder emitir orden de corte pese a tener ±1 mm conocido. Cambiar ese umbral es decisión
+  de negocio, no se tocó — pero ahora es una decisión que se puede tomar con un número delante,
+  que antes no existía.
+- **Los 6 diseños con marco necesitan un campo nuevo en el formulario** (el ancho del marco).
+  Hasta entonces su despiece cotiza bien pero dos piezas no son cortables. No se abordó.
+- Las **cotizaciones ya guardadas** marcarán "medida desactualizada" en las piezas que dividen
+  (condición 8 de `aptitudOrden.ts`). Es el comportamiento correcto y esperado.
+
+### Verificación
+`tsc` backend y frontend limpios. 37/37 en `test:cotizador` — incluye la comprobación
+geométrica de que en los 138 diseños cada fila suma el ancho exterior y las filas suman el alto
+(±0,01 mm), ahora con las medidas nuevas. Script determinista: regenerado tras aplicar, los
+1.193 modelos coinciden con la BD, 0 diferencias.
+
+Verificación activa sobre los 138 diseños × 6 vanos (incluidos los "feos" y dos absurdos):
+- 8.514 medidas emitidas: **0 no finitas, 0 no enteras**.
+- **3.126 comparaciones contra las observaciones reales de AlumSoftware: 0 discrepancias.** Los
+  modelos reproducen exactamente lo que el software original devolvió.
+- Desviación máxima respecto de la recta anterior: **3,00 mm**, en `Sistema3831::WWWWWW` a
+  3000×2400. Es justo la magnitud que anunciaba la advertencia vieja ("hasta 3,3 mm"), lo que
+  confirma que ese error era real y crecía con el tamaño del vano.
+- 7 medidas negativas, todas en vanos absurdos (400×500 en un diseño de 6 cuerpos): el motor ya
+  las marcaba como medida inválida con advertencia visible.
+
+Prueba HTTP contra el backend levantado (`POST /api/cotizador/cotizar/ventanas`, token firmado
+en local): 3 casos, HTTP 200, medidas enteras y una sola advertencia por ítem.
+
+`test:cotizador:golden` sigue **saltándose los 10 tests** por falta de `COTIZADOR_GOLDEN_DIR`
+(el scratchpad que lo generaba no existe): deuda preexistente desde 2026-09-11, no introducida
+aquí. Mientras siga así, no protege de regresiones.
+
+### Hallazgo sin explotar: hay 423 diseños sin importar
+El origen tiene **561 diseños con fórmulas** frente a los 138 del ERP. Entre lo que falta:
+`Sistema7038-Exterior` completo (29, cero importados), `Sistema3831-Persiana` (31, cero),
+y la mitad larga de 744 (24/50), 8025 (25/47), 5020 (9/33), 3831 (15/75). Además el origen trae
+el **despiece de accesorios por diseño** con cantidades — 54 accesorios distintos para los 138
+diseños actuales, incluidos los del 7038 que hoy no se cobran (`Guia 7038`, `Rodamiento 7038`,
+`E7038_6mm Empaque monumental 6mm`, felpa, tornillería). Hoy esos accesorios salen de mapas
+escritos a mano por módulo (`CATALOGO_SISTEMAS`). No se tocó nada de esto.

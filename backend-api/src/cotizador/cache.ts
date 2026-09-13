@@ -43,6 +43,7 @@ import type {
   MapeoAccesorio,
   MapeoAccesorios,
   Margenes,
+  ModeloCorte,
   Parametros,
   Producto,
   Sistemas,
@@ -203,6 +204,7 @@ async function cargarDisenos(): Promise<{ mapa: Map<string, Diseno>; ordenados: 
           cantidad: p.cantidad as number,
           desperdicioPct: p.desperdicio_pct as number,
           formula: { a: p.formula_a as number, b: p.formula_b as number, c: p.formula_c as number },
+          modelo: modeloDesdeFila(p, 'modelo'),
           nivelCorte: p.nivel_corte as string,
           codigosPorColor: vacioANull(p.codigos_por_color as Record<string, string> | null),
           esAlfajia: p.es_alfajia as boolean,
@@ -223,6 +225,8 @@ async function cargarDisenos(): Promise<{ mapa: Map<string, Diseno>; ordenados: 
             b: v.formula_alto_b as number,
             c: v.formula_alto_c as number,
           },
+          modeloAncho: modeloDesdeFila(v, 'modelo_ancho'),
+          modeloAlto: modeloDesdeFila(v, 'modelo_alto'),
           nivelRiesgo: (v.nivel_riesgo as string | null) ?? null,
         })
       ),
@@ -518,6 +522,34 @@ function agrupar(
     else mapa.set(k, [f]);
   }
   return mapa;
+}
+
+/**
+ * Reconstruye un `ModeloCorte` desde las columnas `<prefijo>_p/q/r/n/op` de una
+ * fila, o `null` si la pieza no tiene modelo entero.
+ *
+ * El divisor `n` es el testigo: se escribe en el mismo UPDATE que el resto, y el
+ * script de migración se niega a confirmar si alguna fila queda con `n` sin `op`
+ * (o al revés). Aun así se comprueba aquí que estén los cinco campos y que `n`
+ * no sea cero: un modelo a medias evaluaría a NaN y el motor lo trataría como
+ * "sin fórmula utilizable" en vez de fallar, que es justo el error silencioso
+ * que el módulo evita por diseño.
+ */
+function modeloDesdeFila(fila: Record<string, unknown>, prefijo: string): ModeloCorte | null {
+  const n = fila[`${prefijo}_n`] as number | null;
+  const op = fila[`${prefijo}_op`] as string | null;
+  const p = fila[`${prefijo}_p`] as number | null;
+  const q = fila[`${prefijo}_q`] as number | null;
+  const r = fila[`${prefijo}_r`] as number | null;
+  if (n == null || !op || p == null || q == null || r == null || n === 0) return null;
+  return {
+    p,
+    q,
+    r,
+    n,
+    op: op as ModeloCorte['op'],
+    dispersionMm: (fila[`${prefijo}_dispersion_mm`] as number | null) ?? 0,
+  };
 }
 
 /** La columna `codigos_por_color` es NOT NULL y guarda `{}` cuando el perfil no
