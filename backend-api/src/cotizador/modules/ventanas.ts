@@ -4,9 +4,9 @@
 // `alasCorredizas` a 3) — nunca se implementó esa estimación aproximada para
 // 7038-Interior. Por DISEÑO (con disenoId) sí cubre los cuatro sistemas,
 // 7038-Interior incluido: sus 23 diseños viven en disenos.json igual que los
-// demás, y CATALOGO_SISTEMAS más abajo no necesita una entrada para él porque
-// ese sistema no tiene accesorios hardcodeados configurados (ver
-// CONTINUAR.md, "Mapeo de accesorios" — hallazgo pendiente de resolver).
+// demás, y desde el 2026-09-14 CATALOGO_SISTEMAS más abajo también tiene su
+// entrada ("7038-Interior", clave exacta) con los 4 accesorios del despiece
+// real (guía, rodamiento, empaque, chapa) — ver mapeo-accesorios.json.
 //
 // Ver análisis de referencia: analisis-para-webapp/modulos/ventanas.md / .json
 //
@@ -121,6 +121,18 @@ const CATALOGO_SISTEMAS = {
     empaque: { _: "EMPA8025" },
     cerrojo: { _: "CPTOR" },
     chapa: { _: "CH8025S" }, // CHAPA 8025 SENCILLA CON SEGURO
+  },
+  // Solo se cotiza por diseño (calcular() corta antes de llegar aquí por
+  // medidas libres). Los 5 SKU de accesorio del despiece real quedaron
+  // resueltos el 2026-09-14 (mapeo-accesorios.json): guía y rodamiento no
+  // tienen variante por color (igual que 5020/744), y "Manija 744-8025" del
+  // despiece se dejó fuera a propósito (IGNORADO: el Excel matriz tampoco la
+  // cobra en ventana, ver mapeo-accesorios.json).
+  "7038-Interior": {
+    guia: { _: "GIN7038" },
+    rodamiento: { _: "ROD7038ABB" },
+    empaque: { _: "EMP1312" },
+    chapa: { _: "COG0101" },
   },
 };
 

@@ -3086,3 +3086,215 @@ Ante las opciones de alcance (construir la calibración / desbloqueo mínimo pil
 documentar), eligió **"dejarlo, sólo documentar"**. No se tocó código. Se documenta el estado y
 lo que falta aquí y en `TECH_DEBT.md`. El semáforo es correcto; lo pendiente es real: completar
 la capa de escritura de calibración (varios días + medidas del maestro).
+
+---
+
+## 2026-09-14 — Cotizador: cierre de los 5 SKU de accesorios de Sistema7038-Interior
+
+### Encargo
+Retomar el pendiente del 2026-09-12: `Sistema7038-Interior` (23 diseños) cotiza pero no cobra
+ningún accesorio porque no tiene entrada en `CATALOGO_SISTEMAS` (`ventanas.ts`), y 2 de los 5 SKU
+de accesorio del sistema seguían sin código real (`Chapa Overseas Doble Cilindro`, `Empaque
+monumental 6mm`).
+
+### Estado real verificado contra Supabase (no el JSON del repo)
+`mapeo-accesorios.json` decía "PENDIENTE" para los 5, pero en la BD ya estaban `MAPEADO` **Guia
+7038 → `GIN7038`** y **Rodamiento 7038 → `ROD7038ABB`** desde el 2026-09-12 — el archivo quedó
+desincronizado esa sesión y nadie lo corrigió. Se sincronizó de paso.
+
+### Los 2 códigos que faltaban
+El usuario dio el costo real de proveedor de cada uno:
+- **`COG0101`** (Cerradura Overseas Gancho), costo $84.542 → PA/PM/PB = 131.093,19/121.800,67/112.508,16
+- **`EMP1312`** (Empaque 7038 Ref 6-8mm), costo $988/m → PA/PM/PB = 1.532,02/1.423,42/1.314,83
+
+Multiplicador de categoría ACCESORIO **re-verificado con más precisión** contra 18+ productos
+reales de `cotizador.producto` (incluidos `GIN7038`/`ROD7038ABB`, que reproduce exacto):
+**×1.550628 / ×1.440712 / ×1.330796** — más fino que el ×1.55063/×1.44071/×1.33080 que había
+quedado anotado en SESSION_LOG el 2026-09-12. Este valor de 6 decimales es el que se usó de aquí
+en adelante en toda la sesión (incluida la Fase 0 de la integración con Proveedores, más abajo).
+
+Ambos dados de alta vía el endpoint real `POST /api/cotizador/precios` (no INSERT directo), mismo
+patrón que `GIN7038`/`ROD7038ABB` el 2026-09-12.
+
+### Conexión del motor — el cambio que de verdad cobra los accesorios
+`CATALOGO_SISTEMAS["7038-Interior"]` (`ventanas.ts`) — **la clave lleva el guion, no "7038"**:
+`calcularPorDiseno` deriva el nombre del sistema quitando solo el prefijo `Sistema` y el sufijo
+`Reforzado`, así que `Sistema7038-Interior` no encaja con ninguno de los dos.
+```
+"7038-Interior": {
+  guia: { _: "GIN7038" },
+  rodamiento: { _: "ROD7038ABB" },
+  empaque: { _: "EMP1312" },
+  chapa: { _: "COG0101" },
+},
+```
+La fórmula de cantidades **ya existía** (genérica para todos los sistemas: `guia=cuerpos×2`,
+`rodamiento=alasCorredizas×2`, `chapa=alasCorredizas`, `empaque=perímetro en metros`) — no hizo
+falta inventar nada, solo conectar los códigos.
+
+### Bug real encontrado en el camino (no se explotó, se documentó)
+`hacerAgregarRol` (`cotizarPorDiseno.ts:337-344`): si un rol **no existe** en el mapa de un
+sistema, retorna en silencio — sin advertencia, ni siquiera para los roles no marcados
+`opcional`. Wiring parcial (p. ej. conectar solo guía+rodamiento sin tener aún chapa/empaque)
+habría dejado esos dos accesorios sin cobrar **sin ningún aviso**, peor que el estado anterior
+("No hay accesorios configurados", que al menos es visible). Por eso se esperó a tener los 4
+códigos completos antes de escribir la entrada.
+
+### Verificación
+`tsc` limpio. `test:cotizador` 37/37 (sentinela de catálogo actualizado 435→437 por los 2
+productos nuevos). Cotización de prueba real contra `Sistema7038-Interior::OX` (1m×1,2m, 2
+cuerpos, 1 corrediza): guía=4, rodamiento=2, empaque=6,8m, chapa=1 — los 4 sin error, total
+$1.337.793,94.
+
+### Pendiente
+`ROD7038NY` (alterna más barata) sigue creada pero sin usar — no hay campo seleccionable de tipo
+de rodamiento para 7038, igual que hoy. Documentado como mejora futura, no construida (no se
+pidió).
+
+---
+
+## 2026-09-14 (2) — Cotizador: integración con catalogo_productos y sincronización automática de costo con Proveedores
+
+### Encargo
+El usuario planteó la idea de fondo: el Cotizador (aislado desde su diseño original, ver memoria
+`cotizador-aislado-hasta-orden-directa`, decisión 2026-09-10) debe dejar de inventar su propio
+catálogo de 563 códigos a mano y en su lugar (1) usar `catalogo_productos` (maestro real de
+Templex) como fuente de identidad, y (2) tomar el costo de `proveedor_producto` (módulo
+Proveedores) en vez de que el taller lo confirme caso por caso. Es la primera vez que se autoriza
+tocar la isla del Cotizador con datos reales del resto del ERP.
+
+### Investigación previa (3 exploraciones en paralelo + números reales medidos)
+- **Cotizador** (`cotizador.producto`, schema propio `cotizador`): 100% aislado hoy, `codigo`
+  texto libre sin FK a nada externo. El archivo `cotizador/lib/precios/proveedorSequelize.ts` NO
+  tiene relación con el módulo Proveedores pese al nombre — es el adaptador interno de lectura del
+  propio Cotizador (patrón heredado del proyecto de origen), hallazgo que evitó una confusión de
+  diseño real.
+- **Catálogo maestro** (`catalogo_productos`, schema `public`): 1.243 filas, solo código+nombre,
+  sin precio. **Drift real modelo↔BD**: Sequelize declara `codigo UNIQUE NOT NULL`, la tabla no
+  tiene ese constraint (31 filas `codigo NULL`) — documentado en `TECH_DEBT.md` 2026-09-14.
+- **Proveedores** (`proveedor_producto`): 147 filas activas, cubren solo 132 de 1.243 productos
+  del maestro (10,6%). Existe un comparador de solo lectura (`GET /api/proveedores/precios`,
+  `consultarPrecios`) pero ninguna función de servicio reutilizable para "dame el costo vigente de
+  X" — había que construirla.
+- **Solapamiento medido**: de los 563 códigos del Cotizador, 382 (68%) coincidían por texto exacto
+  con `catalogo_productos.codigo`; 181 (32%) no existían ahí.
+
+### Decisiones del usuario (plan aprobado en modo Plan, `ExitPlanMode`)
+1. Códigos huérfanos: no bloquean nada — se entrega un Excel a Descargas para reconciliar a mano.
+2. Selección de proveedor cuando hay varios: **el más barato activo** (`activo=true` y
+   `seguir_precios=true`), mismo criterio que ya usa el comparador.
+3. Sincronización: **automática** — al cambiar un precio en Proveedores, el Cotizador recalcula
+   solo, sin paso manual. Decisión explícita pese al riesgo (un precio mal cargado se propaga de
+   inmediato); se mitigó dejándolo 100% auditable vía `por='sync-proveedores'` en el historial.
+4. Recosteo retroactivo de los 132 productos que ya cruzan Cotizador+Proveedores: **solo informe
+   (dry-run), no aplicar todavía** — decisión pendiente, a la vista del informe.
+
+### Qué se construyó
+- **`2026-09-14_cotizador_vinculo_catalogo_maestro.ts`** (migración, patrón de
+  `2026-09-12_mover_cotizador_a_schema.ts`): columna `cotizador.producto.catalogo_producto_id`
+  (FK cross-schema hacia `catalogo_productos`, nullable) + índice + backfill por match exacto de
+  código (382 vinculados en la primera corrida) + tabla nueva `cotizador.multiplicador_categoria`
+  (formaliza el multiplicador PA/PM/PB por categoría, antes recalculado a mano en cada script;
+  sembrada solo con ACCESORIO — PERFILERIA/VIDRIO quedan sin fila a propósito, ver `TECH_DEBT.md`).
+  Idempotente, con `--revertir`.
+- **`utils/proveedorReglas.ts`** (nuevo): se extrajo `siguePrecios()` de `proveedor.controller.ts`
+  (vivía sin exportar y sin ningún llamador real dentro del archivo) para reusarla desde el
+  Cotizador sin duplicar el criterio tri-estado `activo && seguir_precios`.
+- **`cotizador/lib/sincronizacionProveedores.ts`** (nuevo): `recalcularCostoDesdeProveedor(id)` —
+  no-op barato (un solo `findAll` indexado) si ningún producto del Cotizador apunta a ese
+  `catalogo_producto_id`; si hay match, busca el proveedor más barato que pasa `siguePrecios`,
+  deriva costo por unidad (`TIRA_6M` divide por `metros_por_unidad`), aplica el multiplicador de
+  la categoría y escribe en `cotizador.producto` **base** (nunca en `CotizadorPrecioOverride`: esa
+  capa "gana siempre" por diseño — si el sync escribiera ahí competiría con la edición humana sin
+  precedencia clara). `programarRecalculo()`: cola coalescida por `setImmediate` para que un lote
+  de facturas con 20 productos no dispare 20 recargas completas de la caché del Cotizador.
+- **Enganche**: dentro de `actualizarPrecio()` (`proveedor.controller.ts:146-210`, el único punto
+  de escritura de precio de Proveedores, cubre sus 6 call-sites), `transaction.afterCommit(() =>
+  programarRecalculo(...))` — mismo patrón que `utils/checksAutomaticos.ts` para los checks
+  automáticos de ODP.
+- **`2026-09-14_exportar_codigos_huerfanos_cotizador.ts`**: Excel a `Downloads` con los códigos
+  del Cotizador sin match. Iteración de formato pedida por el usuario: en vez de una columna
+  `decision` de texto libre, dos columnas estructuradas — `accion` (lista desplegable
+  HOMOLOGAR/ALTA_NUEVA/IGNORAR) + `codigo_homologo` —, con las coincidencias de texto exacto
+  pre-llenadas como sugerencia verificable (5 de 181 la primera vez).
+- **`2026-09-14_cotizador_recosteo_retroactivo_proveedor.ts`**: informe dry-run (reusa
+  `recalcularCostoDesdeProveedor` con rollback en vez de commit, no reimplementa el cálculo). De
+  382 vinculados: **35 cambiarían** de costo, 25 sin cambio (ya coinciden o sin multiplicador de
+  categoría), 322 sin proveedor activo con precio todavía.
+
+### Verificación en vivo contra Supabase real (no solo scripts)
+Con el backend local corriendo, se subió el precio de un proveedor real de $28.740 a $28.741 vía
+`PATCH /api/proveedores/productos/104` y se confirmó en la BD (no en la caché, para no depender de
+timing): `cotizador.producto.costo_unitario` de `BSE1201` cambió solo de 28.740 a 28.741 (y sus 3
+precios de venta), con `cotizador.precio_historial` registrando `por='sync-proveedores'`; al
+revertir el precio del proveedor, se revirtió solo también. `test:cotizador` 37/37 tras todo el
+trabajo (golden master de 9 claves del tipo `Producto` intacto, `catalogo_producto_id` nunca se
+expone en la caché).
+
+### Fricción operativa de la sesión (no es deuda del producto, nota para la próxima)
+Trabajar con el backend local corriendo (`nodemon`) mientras se editan archivos y se corren
+scripts one-off simultáneos contra el mismo Supabase (pooler de 15 conexiones en modo sesión) generó
+varios `EMAXCONNSESSION`. El patrón de espera `tail -3 backend.log | grep "puerto 3001"` que se
+venía usando para confirmar que nodemon terminó de reiniciar **dejó de servir** en cuanto el
+usuario empezó a navegar la app en paralelo (el log sigue creciendo con requests reales, la frase
+de arranque sale del tail) — quedó un proceso en background esperando una condición que ya nunca
+se iba a cumplir. Se resolvió con `curl` directo en vez de grep de log, y con un patrón de
+reintento acotado (`until ... || [ $i -ge N ]; do sleep 10; done`) para las conexiones a Supabase.
+
+### Pendiente
+- Multiplicador de PERFILERIA/VIDRIO sin verificar → `TECH_DEBT.md` 2026-09-14.
+- Decisión sobre aplicar el recosteo retroactivo a los 35 productos identificados en el informe.
+- Fase 2 (aplicar las decisiones del Excel de huérfanos reconciliado) — script aparte, depende de
+  que el usuario devuelva el archivo lleno.
+
+---
+
+## 2026-09-14 (3) — Catálogo maestro: 14 códigos importados desde el inventario World Office
+
+### Encargo
+El usuario aportó `Inventarios_Por_Bodega_Acum.pdf` (reporte World Office de existencia por
+bodega, 97 páginas) como fuente autorizada de códigos+descripciones de Templex, y pidió agregar a
+`catalogo_productos` los que no estuvieran ya.
+
+### Extracción
+`pdftotext -layout -enc UTF-8` (sin `pdftoppm`/poppler completo instalado, pero `pdftotext` sí
+disponible) + parseo en Node: las líneas `Total para <codigo> ...` (1.222 en el PDF) se usaron
+como confirmación de "esto es un producto real", no un encabezado de sección
+("ACCESORIOS", "INV MATERIAS PRIMAS"); la descripción completa se tomó de la primera línea del
+bloque porque la línea `Total para` la trunca por el ancho fijo de columna del PDF (ej.
+`ACCBP01`: header trae "...PISTOLA IZQUIERDA" completo, `Total para` corta en "...IZQUIERD").
+
+### Cruce y resultado
+1.222 códigos del PDF vs. 1.212 códigos no-nulos en `catalogo_productos`: **solo 14 faltaban**
+(`CEP0102`, `LOG0101`, `PERK0104`, `INS001`, `PELI031`, `RAD0101`, `RAD0102`, `MATI07`, `MATI08`,
+`1BPB10`, `BIESP01`, `BIESP02`, `BPB018`, `BPB04`). Dos correcciones a mano antes de insertar:
+`MATI08` traía un número de costo pegado a la descripción por el mismo problema de columnas del
+PDF ("MATIZADO DIBUJO CATALOGO -42.875,42"); se verificó que `PELI031` no chocaba con el `PELI31`
+interno del Cotizador (universos de códigos distintos, coincidencia de nombre nada más).
+
+**`MATI07` (Matizado Total) estaba entre los faltantes** — el mismo producto que SESSION_LOG
+2026-09-11 identificó vendiéndose casi al costo (margen 1,11× en vez de 3,97×). No tenía código en
+`catalogo_productos` hasta hoy.
+
+`2026-09-14_agregar_codigos_faltantes_inventario.ts`: mismo criterio mínimo que `seed_catalogo.sql`
+(solo `codigo`+`nombre`+`activo`), verificación explícita dentro de la transacción de que cada
+código sigue sin existir antes de insertar (no confía en `ON CONFLICT`, por el drift de unicidad
+documentado arriba). Bug propio corregido antes de correr: `WHERE codigo = ANY(:codigos)` con
+Sequelize/replacements da error de sintaxis (expande el array a lista separada por comas, que
+`ANY(...)` rechaza) — cambiado a `IN (:codigos)`, mismo problema y solución ya documentados en
+`2026-09-12_mover_cotizador_a_schema.ts`.
+
+`catalogo_productos`: 1.243 → 1.257, verificado.
+
+### Efecto sobre el trabajo de la sesión anterior (mismo día)
+Se volvió a correr `2026-09-14_cotizador_vinculo_catalogo_maestro.ts` (idempotente) para que el
+backfill recogiera los códigos nuevos: **4 de los 181 huérfanos del Cotizador se resolvieron
+solos** (`1BPB10`, `MATI07`, `MATI08`, `BPB04`) — 382 → 386 vinculados. El Excel de huérfanos se
+regeneró a 177 filas. Como el usuario ya tenía el Excel de 181 abierto en Excel (archivo
+bloqueado, `EBUSY` al intentar sobrescribirlo), se generó aparte como
+`cotizador_codigos_huerfanos_2026-09-14_v2.xlsx` en vez de forzar el archivo abierto — el script
+de exportación ganó un flag `--sufijo` para este caso.
+
+### Pendiente
+Igual que la entrada anterior — nada nuevo se resolvió del lado de Proveedores/multiplicadores en
+esta pasada, solo del lado de identidad de catálogo.

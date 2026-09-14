@@ -4,6 +4,33 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-14 (2) — `catalogo_productos.codigo` sin UNIQUE/NOT NULL real en la BD (drift modelo↔esquema)
+
+**Severidad:** Media · **Estimación:** 1-2 h, pero exige primero resolver las filas que ya rompen el constraint
+
+**Descripción:** `catalogo_producto.model.ts` declara `codigo: { unique: true, allowNull: false }`, pero la tabla real en Postgres no tiene ningún `UNIQUE` ni `NOT NULL` sobre esa columna — es puro contrato de Sequelize, nunca se materializó en la BD (probablemente porque `sequelize.sync({ alter: false })` nunca altera tablas existentes, ver nota de `server.ts` en este mismo documento). Verificado el 2026-09-14 durante la integración Cotizador↔Catálogo↔Proveedores:
+
+- **31 filas con `codigo IS NULL`** en las 1.257 actuales.
+- Sin `UNIQUE`, nada impide un `codigo` duplicado — no se encontró ninguno hoy, pero tampoco hay nada que lo evite mañana.
+
+**Por qué importa ahora:** la migración `2026-09-14_cotizador_vinculo_catalogo_maestro.ts` vincula `cotizador.producto` a `catalogo_productos` por `codigo` exacto, y el script tuvo que blindarse a mano contra un eventual duplicado (excluye del backfill automático cualquier código repetido y lo deja listado en el log) precisamente porque el constraint que debería impedirlo no existe. Cualquier futuro script que asuma `codigo` único en `catalogo_productos` hereda el mismo riesgo si no hace la misma verificación.
+
+**Solución a evaluar:** antes de poder agregar `ALTER TABLE catalogo_productos ADD CONSTRAINT ... UNIQUE (codigo)`, hay que decidir qué hacer con las 31 filas `codigo IS NULL` (¿dejarlas fuera del constraint con un índice `UNIQUE ... WHERE codigo IS NOT NULL`, o asignarles código?) — no se tocó en esta pasada, es decisión de negocio, no solo de esquema.
+
+## 2026-09-14 — Multiplicador PERFILERIA/VIDRIO sin verificar: el sync automático de costo solo cubre ACCESORIO
+
+**Severidad:** Media · **Estimación:** verificación con taller/datos reales, no es trabajo de código puro
+
+**Descripción:** `cotizador.multiplicador_categoria` (tabla nueva del 2026-09-14, ver plan de integración Cotizador↔Catálogo↔Proveedores) solo tiene sembrada la fila `ACCESORIO` (×1.550628/×1.440712/×1.330796, verificado contra 18+ productos reales). Las otras dos categorías del Cotizador —**PERFILERIA (205 productos, el grupo dominante) y VIDRIO (35 productos)**— quedaron deliberadamente sin fila: SESSION_LOG (2026-09-12) menciona un multiplicador aproximado (~×1.56 y ~×1.67 respectivamente) pero nunca se verificó a 6 decimales contra datos reales como sí se hizo con ACCESORIO.
+
+**Impacto:** el motor de sincronización automática con Proveedores (`cotizador/lib/sincronizacionProveedores.ts`) omite cualquier producto de esas dos categorías con el motivo "sin multiplicador verificado para esta categoría" — es un `omitido`, no un error, pero significa que **hoy la sincronización automática solo puede mover precios de la porción ACCESORIO del catálogo**, aunque un producto de PERFILERIA o VIDRIO ya esté vinculado a `catalogo_productos` y tenga proveedor con precio real.
+
+**Riesgo adicional a resolver junto con esto:** para PERFILERIA, buena parte de los productos se compran por `TIRA_6M` (el motor ya deriva costo por metro dividiendo entre `metros_por_unidad`), pero no está verificado que `cotizador.producto.unidad` sea consistentemente "por metro" en ese universo — verificar esa correspondencia es parte del mismo trabajo antes de dar de alta la fila.
+
+**Solución:** confirmar los dos multiplicadores contra una muestra real de productos ya cargados (mismo método que se usó para ACCESORIO: `precio_pa / costo_unitario`, `precio_pm / costo_unitario`, `precio_pb / costo_unitario` sobre productos reales de cada categoría) e insertar las filas en `cotizador.multiplicador_categoria` — un solo INSERT por categoría, sin script nuevo.
+
+---
+
 ## 2026-09-13 — Cotizador: el módulo de calibración está a medio construir (sólo lectura, sin capa de escritura)
 
 **Severidad:** Media/Alta (funcionalidad central pendiente, no es un bug) · **Estimación:** varios días + insumo del taller
@@ -593,23 +620,26 @@ empaque universal, en menor escala.
 **Estimación:** 1-2 h de taller para identificar las 12 referencias, más el alta de catálogo de las
 que no existan.
 
-### 3. Cinco SKU por crear para `Sistema7038-Interior` (23 diseños, hoy sin ningún accesorio)
+### 3. ~~Cinco SKU por crear para `Sistema7038-Interior`~~ — RESUELTO 2026-09-14
 
 `Chapa Overseas Doble Cilindro`, `Guia 7038`, `Rodamiento 7038`, `E7038_6mm Empaque monumental 6mm`
-y `Manija 744-8025`. El sistema no existe como clave en `CATALOGO_SISTEMAS` de `modules/ventanas.ts`,
-así que hoy cotiza con la advertencia "No hay accesorios configurados" — es decir, **sale sin cobrar
-accesorio alguno**, que es peor que bloquear.
+y `Manija 744-8025`. El sistema no existía como clave en `CATALOGO_SISTEMAS` de `modules/ventanas.ts`,
+así que cotizaba con la advertencia "No hay accesorios configurados" — **sin cobrar accesorio
+alguno**, que es peor que bloquear.
 
-El Excel matriz **sí** los despieza, pero sus precios vienen de un **libro externo con un factor
-plano de 1,3674** que no distingue PA/PM/PB. El catálogo de Templex exige los tres precios de
-segmento, así que no se pueden dar de alta derivándolos del Excel sin inventar dos de los tres.
-Hacen falta los precios reales del proveedor.
+`Guia 7038` → `GIN7038` y `Rodamiento 7038` → `ROD7038ABB` (+ `ROD7038NY` como alterna sin uso, no
+hay campo seleccionable) ya se habían resuelto el 2026-09-12. Los 2 que quedaban — `Chapa Overseas
+Doble Cilindro` y `E7038_6mm Empaque monumental 6mm` — necesitaban costo real de proveedor (el
+Excel matriz los despieza, pero con un factor plano de 1,3674 que no distingue PA/PM/PB). El taller
+lo confirmó el 2026-09-14: `COG0101` (Cerradura Overseas Gancho, $84.542) y `EMP1312` (Empaque 7038
+Ref 6-8mm, $988/m), dados de alta con la fórmula ACCESORIO verificada (×1.550628/×1.440712/×1.330796).
 
-`Manija 744-8025` quedó en `IGNORADO` porque el Excel confirma que en ventanas 744/8025 **no se
-cobra** — pero sí la lista en el despiece de 7038. Si algún día se activa ese sistema, esa decisión
-hay que partirla por sistema (mismo patrón que el punto 1).
+`Manija 744-8025` se mantiene `IGNORADO` a propósito también para 7038-Interior: mismo criterio que
+744/8025 (el Excel no la cobra en ventana).
 
-**Estimación:** depende de compras (lista de precios del proveedor de 7038), no de desarrollo.
+`CATALOGO_SISTEMAS["7038-Interior"]` (clave exacta, con guion) quedó con los 4 accesorios
+conectados. Los 23 diseños de ese sistema ya cobran accesorios por diseño. Ver `mapeo-accesorios.json`
+y `scripts/2026-09-14_alta_accesorios_7038_restantes.ts` / `2026-09-14_mapear_accesorios_7038_restantes.ts`.
 
 ### 4. Consumo del cerrojo con número impar de cuerpos — sin criterio de redondeo
 

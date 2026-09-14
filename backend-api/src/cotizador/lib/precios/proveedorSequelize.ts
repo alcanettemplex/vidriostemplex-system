@@ -37,7 +37,7 @@ const DIACRITICOS = new RegExp(
   'g'
 );
 
-function normalizarTexto(s: unknown): string {
+export function normalizarTexto(s: unknown): string {
   return String(s ?? '')
     .normalize('NFD')
     .replace(DIACRITICOS, '')

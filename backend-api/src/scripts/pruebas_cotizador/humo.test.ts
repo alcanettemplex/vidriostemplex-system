@@ -45,11 +45,15 @@ test("cotizar Sistema5020::OX a 150x120 da un total positivo sin errores", () =>
 // sistema 7038 que el taller confirmó (GIN7038 y los dos rodamientos
 // ROD7038ABB/ROD7038NY), vía POST /api/cotizador/precios.
 //
+// 437 y no 435 desde el 2026-09-14: se dieron de alta los 2 SKU que le
+// quedaban a Sistema7038-Interior (COG0101 chapa, EMP1312 empaque), cerrando
+// los 5 accesorios pendientes de ese sistema — ver TECH_DEBT.md 2026-09-11.
+//
 // El número sigue siendo un centinela a propósito — si cambia sin que nadie lo
 // espere, es que se mezclaron los precios provisionales con el catálogo real.
-test("el catálogo tiene los 435 productos extraídos del Excel", () => {
+test("el catálogo tiene los 437 productos extraídos del Excel", () => {
   const productos = listarCatalogo();
-  assert.equal(productos.length, 435);
+  assert.equal(productos.length, 437);
 });
 
 test("el catálogo de diseños tiene los 163 diseños generados", () => {

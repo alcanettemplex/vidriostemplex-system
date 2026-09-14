@@ -146,15 +146,36 @@
       "confianza": "alta"
     },
     "Chapa Overseas Doble Cilindro": {
-      "estado": "PENDIENTE",
-      "nota": "HALLAZGO IMPORTANTE: pertenece a Sistema7038-Interior, que NO existe como clave en CATALOGO_SISTEMAS (ventanas.ts) -- hoy ese sistema entero (23 diseños) no cobra NINGÚN accesorio, sale con advertencia 'No hay accesorios configurados'. 2026-09-11: el Excel matriz SÍ despieza 7038, pero sus precios salen de un libro externo con un factor plano de 1,3674 que no distingue PA/PM/PB, así que no se puede derivar un producto de catálogo con los tres precios de segmento. Falta crear el SKU. Ver TECH_DEBT.md 2026-09-11."
+      "estado": "MAPEADO",
+      "codigo": "COG0101",
+      "consumo": { "tipo": "porAlasCorredizas", "factor": 1 },
+      "nota": "RESUELTO 2026-09-14. Taller confirma COG0101 (Cerradura Overseas Gancho), costo=$84.542, PA/PM/PB=131093.19/121800.67/112508.16 (fórmula ACCESORIO verificada: x1.550628/x1.440712/x1.330796). Con esto Sistema7038-Interior queda con los 4 accesorios conectados en CATALOGO_SISTEMAS (ventanas.ts) -- último hueco real, ver TECH_DEBT.md 2026-09-11. Este mapeo por descripción sigue sin efecto en el cálculo mientras Sistema7038-Interior no entre a `sistemasActivos`: el rol \"chapa\" de 7038-Interior en ventanas.ts ya apunta directo a COG0101.",
+      "confianza": "alta"
     },
-    "Guia 7038": { "estado": "PENDIENTE", "nota": "Ver Chapa Overseas Doble Cilindro -- mismo hallazgo, Sistema7038-Interior no tiene accesorios configurados hoy y el Excel sólo aporta un precio con factor plano 1,3674, sin segmentos. Falta crear el SKU (2026-09-11)." },
-    "Rodamiento 7038": { "estado": "PENDIENTE", "nota": "Ver Chapa Overseas Doble Cilindro. Falta crear el SKU (2026-09-11)." },
-    "E7038_6mm Empaque monumental 6mm": { "estado": "PENDIENTE", "nota": "Ver Chapa Overseas Doble Cilindro -- también de Sistema7038-Interior. Falta crear el SKU (2026-09-11)." },
+    "Guia 7038": {
+      "estado": "MAPEADO",
+      "codigo": "GIN7038",
+      "consumo": { "tipo": "porCuerpo", "factor": 2 },
+      "nota": "RESUELTO 2026-09-12. Taller confirma GIN7038, código creado esa sesión (costo=$300, PA/PM/PB=465.19/432.21/399.24). Sincronizado aquí el 2026-09-14 -- este archivo había quedado desactualizado (seguía en PENDIENTE) aunque la fila en Supabase ya estaba MAPEADO desde el 09-12.",
+      "confianza": "alta"
+    },
+    "Rodamiento 7038": {
+      "estado": "MAPEADO",
+      "codigo": "ROD7038ABB",
+      "consumo": { "tipo": "porAlasCorredizas", "factor": 2 },
+      "nota": "RESUELTO 2026-09-12, con matiz. Hay 2 variantes reales de uso casi igual: ROD7038ABB ($36.891 costo, default de esta fila) y ROD7038NY ($29.582 costo, \"naylon\"). Sistema7038-Interior no tiene ningún campo seleccionable de tipo de rodamiento en ventanas.ts (a diferencia de Pomo-Haladera en cabinas): CATALOGO_SISTEMAS usa ROD7038ABB fijo. Sincronizado aquí el 2026-09-14 -- este archivo había quedado desactualizado (seguía en PENDIENTE).",
+      "confianza": "alta"
+    },
+    "E7038_6mm Empaque monumental 6mm": {
+      "estado": "MAPEADO",
+      "codigo": "EMP1312",
+      "consumo": { "tipo": "perimetroVidrio", "desperdicioPct": 0 },
+      "nota": "RESUELTO 2026-09-14, último de los 5 SKU que faltaban. Taller confirma EMP1312 (Empaque 7038 Ref 6-8mm), costo=$988/m, PA/PM/PB=1532.02/1423.42/1314.83. El rol \"empaque\" de 7038-Interior en ventanas.ts ya apunta directo a EMP1312.",
+      "confianza": "alta"
+    },
     "Manija 744-8025": {
       "estado": "IGNORADO",
-      "nota": "RESUELTO 2026-09-11 contra el Excel matriz: el Excel TAMPOCO cobra manija en los despieces de ventana 744/8025, así que la ausencia de un rol \"manija\" en CATALOGO_SISTEMAS de ventanas.ts NO era un olvido — no cobrarla era y sigue siendo lo correcto. Se pasa a IGNORADO para que deje de bloquear. ⚠️ Matiz: el Excel sí la lista en el despiece de Sistema7038-Interior, donde es uno de los 5 SKU que faltan por crear; si algún día se activa 7038 habrá que volver sobre esta decisión y partirla por sistema.",
+      "nota": "RESUELTO 2026-09-11 contra el Excel matriz: el Excel TAMPOCO cobra manija en los despieces de ventana 744/8025, así que la ausencia de un rol \"manija\" en CATALOGO_SISTEMAS de ventanas.ts NO era un olvido — no cobrarla era y sigue siendo lo correcto. Se pasa a IGNORADO para que deje de bloquear. ⚠️ Matiz: el Excel sí la lista en el despiece de Sistema7038-Interior, y desde el 2026-09-14 ese sistema SÍ tiene entrada en CATALOGO_SISTEMAS (guía, rodamiento, empaque, chapa) — se decidió deliberadamente no agregar rol \"manija\" ahí tampoco, misma razón que 744/8025: no se está cobrando y es lo correcto.",
       "confianza": "alta"
     },
     "Manija Alpha": { "estado": "PENDIENTE", "nota": "Proyectantes (Sistema3831 / -Reforzado). Ver \"Manija 744-8025\": ningún sistema de ventanas cobra manija hoy, pero a diferencia de aquélla el Excel matriz no aclara el caso de proyectantes, así que no se puede ignorar por analogía. Requiere referencia del taller." },

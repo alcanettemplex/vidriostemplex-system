@@ -46,8 +46,11 @@ import ProductoAlias from './producto_alias.model';
 import FacturaProveedorProcesada from './factura_proveedor_procesada.model';
 
 // Módulo Cotizador — aislado del resto del ERP (no genera ODP, no lee
-// clientes ni catálogo de Proveedores). Ver CLAUDE.md / plan de migración.
+// clientes ni precios de Proveedores directamente). Desde el 2026-09-14 SÍ
+// lee identidad (código/nombre) de catalogo_productos vía CotizadorProducto
+// .catalogo_producto_id — ver plan de integración Cotizador↔Catálogo↔Proveedores.
 import CotizadorProducto from './cotizador_producto.model';
+import CotizadorMultiplicadorCategoria from './cotizador_multiplicador_categoria.model';
 import CotizadorPrecioOverride from './cotizador_precio_override.model';
 import CotizadorPrecioHistorial from './cotizador_precio_historial.model';
 import CotizadorParametro from './cotizador_parametro.model';
@@ -343,6 +346,11 @@ FacturaProveedorProcesada.belongsTo(Usuario, { foreignKey: 'procesado_por', as: 
 // ─── Bloque L: Módulo Cotizador ──────────────────────────────────────────────
 // Deliberadamente sin asociaciones hacia Usuario/Cliente/ODP: el módulo está
 // aislado del flujo del ERP (asesor y registrado_por son texto libre).
+// Excepción explícita desde el 2026-09-14: catalogo_productos es la fuente de
+// identidad (código/nombre) del Cotizador, ver plan de integración.
+CatalogoProducto.hasMany(CotizadorProducto, { foreignKey: 'catalogo_producto_id', as: 'productosCotizador' });
+CotizadorProducto.belongsTo(CatalogoProducto, { foreignKey: 'catalogo_producto_id', as: 'catalogoProducto' });
+
 CotizadorCotizacion.hasMany(CotizadorCotizacionItem, { foreignKey: 'cotizacion_id', as: 'items' });
 CotizadorCotizacionItem.belongsTo(CotizadorCotizacion, { foreignKey: 'cotizacion_id', as: 'cotizacion' });
 
@@ -412,6 +420,9 @@ const MODELOS_AUDITADOS = [
   { model: CotizadorCotizacion, tabla: 'cotizador.cotizacion', pk: 'id' },
   { model: CotizadorCotizacionItem, tabla: 'cotizador.cotizacion_item', pk: 'id' },
   { model: CotizadorParametro, tabla: 'cotizador.parametro', pk: 'id' },
+  // Mueve el precio de cientos de productos de un plumazo (multiplicador por
+  // categoría) — mismo criterio de "toca dinero" que el resto del bloque.
+  { model: CotizadorMultiplicadorCategoria, tabla: 'cotizador.multiplicador_categoria', pk: 'categoria' },
 ];
 
 function registrarAuditoria(
@@ -540,5 +551,6 @@ export {
   CotizadorCalibracionHistorial,
   CotizadorEmpresa,
   CotizadorEmpresaLogo,
+  CotizadorMultiplicadorCategoria,
 };
 

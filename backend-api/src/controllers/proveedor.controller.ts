@@ -15,6 +15,8 @@ import {
   ConfiguracionGlobal,
 } from '../models';
 import { procesarBufferFactura, derivarCodigo, FacturaParseada } from '../utils/dianXmlParser';
+import { siguePrecios } from '../utils/proveedorReglas';
+import { programarRecalculo } from '../cotizador/lib/sincronizacionProveedores';
 
 // ─── Constantes de dominio ────────────────────────────────────────────────────
 
@@ -58,21 +60,6 @@ function aFechaISO(valor: any): string | null {
   } catch {
     return null;
   }
-}
-
-/**
- * Regla única de "¿este proveedor alimenta la bandeja de mapeo?".
- *
- * Son dos columnas porque significan cosas distintas —`activo` es la baja lógica del
- * maestro y `seguir_precios` la decisión sobre sus precios— pero la ingesta las lee
- * juntas: dar de baja a un proveedor y que sus facturas siguieran generando códigos
- * por mapear era una inconsistencia que solo se explicaba leyendo el código.
- *
- * `seguir_precios` en NULL significa "sin decidir": no se sigue todavía, pero tampoco
- * es un rechazo, y por eso `motivoOmision` los distingue en la bitácora.
- */
-function siguePrecios(proveedor: any): boolean {
-  return proveedor.getDataValue('activo') === true && proveedor.getDataValue('seguir_precios') === true;
 }
 
 /** Gate real de la ingesta (decisión 2026-09-12): a diferencia de `siguePrecios()`,
@@ -205,6 +192,18 @@ async function actualizarPrecio(
     },
     { transaction }
   );
+
+  // Sincronización automática hacia el Cotizador (ver
+  // cotizador/lib/sincronizacionProveedores.ts): solo cuando hubo un cambio
+  // real de precio_actual, nunca en retroactivos (esos no tocan el vigente).
+  // Se difiere a transaction.afterCommit — emitir antes del commit haría que
+  // el recálculo leyera el precio_actual viejo (mismo patrón que
+  // utils/checksAutomaticos.ts para los checks de ODP).
+  if (!esRetroactivo) {
+    const catalogoProductoId = pp.getDataValue('catalogo_producto_id') as number;
+    if (transaction) transaction.afterCommit(() => programarRecalculo(catalogoProductoId));
+    else programarRecalculo(catalogoProductoId);
+  }
 
   return { cambio: !esRetroactivo, anomalo, variacionPct, retroactivo: esRetroactivo };
 }
