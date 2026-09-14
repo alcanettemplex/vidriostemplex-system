@@ -358,10 +358,10 @@ test("los 138 diseños reales a 1500x1200mm (tamaño intermedio): al menos 130 d
     if (p.escala === "real") real++;
     else esquemas.push(d.id);
   }
-  assert.ok(real >= 130, `sólo ${real}/138 dieron escala:real a 1500x1200mm. esquema: ${esquemas.join(", ")}`);
+  assert.ok(real >= 130, `sólo ${real}/163 dieron escala:real a 1500x1200mm. esquema: ${esquemas.join(", ")}`);
 });
 
-test("los 138 diseños reales a 2400x1800mm (tamaño grande): los 138 dan escala:'real'", () => {
+test("los 163 diseños reales a 2400x1800mm (tamaño grande): todos dan escala:'real'", () => {
   // A esta medida, hasta los 4 casos límite del test anterior resuelven por
   // el paso 6 (spread<3%): confirma que "esquema" en el test anterior es una
   // decisión de tamaño/proporción, no un diseño roto.
@@ -379,5 +379,5 @@ test("los 138 diseños reales a 2400x1800mm (tamaño grande): los 138 dan escala
     else esquemas.push(d.id);
   }
   assert.equal(esquemas.length, 0, `esquema inesperado en: ${esquemas.join(", ")}`);
-  assert.equal(real, 138);
+  assert.equal(real, 163);
 });

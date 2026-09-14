@@ -174,9 +174,9 @@ test('Sistema744::XX (caso señalado en el análisis): mapeados/insumos/pendient
   assert.equal(lineas.filter((l) => l.error).length, 1, "sólo el empaque restringido debe quedar en error");
 });
 
-test("accesoriosPorDiseno no lanza excepción para ninguno de los 138 diseños del catálogo", () => {
+test("accesoriosPorDiseno no lanza excepción para ninguno de los 163 diseños del catálogo", () => {
   const disenos = listarDisenos({ soloCotizables: false });
-  assert.equal(disenos.length, 138);
+  assert.equal(disenos.length, 163);
 
   let totalLineas = 0;
   let totalErrores = 0;

@@ -4,6 +4,28 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-13 — Cotizador: el módulo de calibración está a medio construir (sólo lectura, sin capa de escritura)
+
+**Severidad:** Media/Alta (funcionalidad central pendiente, no es un bug) · **Estimación:** varios días + insumo del taller
+
+**Descripción:**
+`cotizador/lib/aptitudOrden.ts` bloquea la impresión de una orden de corte definitiva y, en tres de sus ocho condiciones, remite al usuario a la ruta `/calibracion` para resolverlo. **Esa vía no existe.** Verificado en todo el repo:
+
+- ✅ **Existen** las tablas (`cotizador.calibracion_sistema` / `margen` / `holgura` / `contraste` / `historial`), la matemática (`cotizador/lib/calibracion.ts` — análisis de pieza, propuesta de margen, holgura, madurez de sistema) y los **getters de lectura** (`cotizador/store/calibracionStore.ts` → `cache.cargarCalibracion()`, que sólo carga filas `vigente`).
+- ❌ **Faltan** el controller de escritura (`cotizador_calibracion.controller.ts` — lo menciona un comentario en `calibracionStore.ts` como si existiera, pero **no está en el repo**), las rutas `/calibracion` en `routes/cotizador.routes.ts` (no hay ninguna), y la pantalla de calibración en `frontend-web` (grep sin resultados).
+
+**Impacto:** `calibracion_sistema` arranca vacío y el `defaultValue` del modelo es `EN_CALIBRACION`, así que **todos los sistemas quedan EN_CALIBRACION sin forma de sacarlos**. Ninguna cotización con diseño puede emitir orden de corte. El semáforo de `aptitudOrden` es correcto y conservador (bloquea de más, nunca de menos), pero la herramienta que levanta el bloqueo no está terminada. La única vía hoy es escribir filas a mano en Supabase.
+
+**Verificado con la cotización #5 (2026-09-13):** ítem de ventanas con diseño `Sistema5020::OX`, sistema `Sistema5020` en `EN_CALIBRACION`, inventario de 9 piezas (8 perfiles + vidrio), **0 contrastes, 0 márgenes** → "0 de 9 piezas calibradas". Los tres mensajes de ese ítem tienen esa raíz única.
+
+**Qué falta** (las 10 funciones de escritura que `calibracionStore.ts` da por reimplementadas): registrar/anular contrastes del maestro, aprobar/anular márgenes, fijar holguras, cambiar el estado de un sistema, firma del maestro e historial. Backend en transacción siguiendo el patrón de los demás controllers del cotizador (`requireRole('root','admin')`), más la pantalla `/calibracion` (registro de contrastes, propuesta de margen por pieza, gestión de estado y firma). Depende además de un **insumo externo**: las medidas reales que corta el maestro del taller; sin ellas no hay contrastes que registrar.
+
+**Nota — son dos bloqueos distintos, no confundirlos:** marcar un sistema `EN_PRODUCCION` **no basta** para un diseño nivel B/C. El nivel del diseño lo bloquea aparte: `motorDespiece.ts:360` fija `aptoParaCorte = nivelCorte === "A"`, y `aptitudOrden` lo comprueba en sus condiciones 3 y 5. Un sistema puede estar `EN_PRODUCCION` y aun así tener diseños no imprimibles por nivel, hasta identificar su fórmula real (el caso del `OX` del 5020: perfil Horizontal `148` + paño de vidrio, ±1 mm por una división cuyo redondeo el sistema no conoce).
+
+**Decisión (2026-09-13):** documentar y no construir por ahora — elección del usuario ("dejarlo, sólo documentar") ante las opciones de alcance. No se tocó código. Detalle en `SESSION_LOG.md` 2026-09-13 (3).
+
+---
+
 ## 2026-09-10 — `cartera_vencida=true` pisa en silencio otros filtros (solo /supervision-crm)
 
 **Severidad:** baja · **Estimación:** 20 min

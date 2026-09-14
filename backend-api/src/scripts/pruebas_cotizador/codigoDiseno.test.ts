@@ -26,8 +26,9 @@ const disenos: DisenoOrigen[] = JSON.parse(
   readFileSync(path.join(__dirname, '..', 'datos_cotizador', 'disenos.json'), 'utf-8')
 ).disenos;
 
-test('hay 138 diseños en el catálogo (si esto cambia, los números de abajo hay que revisarlos)', () => {
-  assert.equal(disenos.length, 138);
+test('hay 163 diseños en el catálogo (si esto cambia, los números de abajo hay que revisarlos)', () => {
+  // 138 originales + 25 importados de 3831/3831-Reforzado/7038-Interior el 2026-09-13.
+  assert.equal(disenos.length, 163);
 });
 
 test('parsearCodigo nunca lanza excepción, con cualquier entrada', () => {

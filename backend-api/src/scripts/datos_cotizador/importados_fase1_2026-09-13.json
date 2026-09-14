@@ -1,0 +1,35 @@
+{
+  "importadoEn": "2026-09-14T00:57:07.991Z",
+  "sistemas": [
+    "Sistema3831",
+    "Sistema3831-Reforzado",
+    "Sistema7038-Interior"
+  ],
+  "ids": [
+    "Sistema3831::W_O",
+    "Sistema3831::WW_O",
+    "Sistema3831::WW_OO",
+    "Sistema3831::WWW_OOO",
+    "Sistema3831::WWWW_OOOO",
+    "Sistema3831::WWWWW_OOOOO",
+    "Sistema3831::WWWWWW_OOOOOO",
+    "Sistema3831::OO_TOPE",
+    "Sistema3831::OOO_TOPE",
+    "Sistema3831::OOOO_TOPE",
+    "Sistema3831::O_W_O",
+    "Sistema3831-Reforzado::O_O_O",
+    "Sistema3831-Reforzado::W_O",
+    "Sistema3831-Reforzado::WW_O",
+    "Sistema3831-Reforzado::WW_OO",
+    "Sistema3831-Reforzado::WWWWW",
+    "Sistema3831-Reforzado::WWW_OOO",
+    "Sistema3831-Reforzado::WWWW_OOOO",
+    "Sistema3831-Reforzado::WWWWW_OOOOO",
+    "Sistema3831-Reforzado::WWWWWW_OOOOOO",
+    "Sistema3831-Reforzado::OO_TOPE",
+    "Sistema3831-Reforzado::OOO_TOPE",
+    "Sistema3831-Reforzado::OOOO_TOPE",
+    "Sistema7038-Interior::OXXXXXXO2",
+    "Sistema7038-Interior::XXXXXXXX2"
+  ]
+}

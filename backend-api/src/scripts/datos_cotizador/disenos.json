@@ -30783,6 +30783,5515 @@
           "formula": null
         }
       ]
+    },
+    {
+      "id": "Sistema3831-Reforzado::O_O_O",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831-Reforzado",
+      "diseno": "O_O_O",
+      "etiqueta": "Fijo  |  Fijo  |  Fijo",
+      "paneles": 3,
+      "nivelCorte": "B",
+      "nivelVidrio": "B",
+      "nivelPerfiles": "B",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -2
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1103",
+          "refOriginal": "1103-B",
+          "descripcion": "Divisor Reforzado",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -76
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV1103MATE",
+            "CRUDO": "PRV1103CRUDO",
+            "NEGRO": "PRV1103NEGRO",
+            "BLANCO": "PRV1103BLANCO",
+            "BRONCE": "PRV1103BRONCE",
+            "GRISPLATA": "PRV1103GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -82
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 0.3333,
+            "c": -59
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 3,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 1,
+            "b": 0,
+            "c": -90
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.3333,
+            "c": -67
+          },
+          "nivelRiesgo": "B_DIVISION_LIMPIA"
+        }
+      ],
+      "accesorios": [
+        {
+          "descripcion": "Tornillo n8 x 1_2",
+          "cantidad": 64,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n8 x 3_4",
+          "cantidad": 16,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n10 x 1 1_2",
+          "cantidad": 18,
+          "formula": null
+        },
+        {
+          "descripcion": "Chapeta * 30 mm ref a15",
+          "cantidad": 16,
+          "formula": null
+        },
+        {
+          "descripcion": "Empaque Gallinazo",
+          "cantidad": null,
+          "formula": null
+        }
+      ]
+    },
+    {
+      "id": "Sistema3831-Reforzado::OO_TOPE",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831-Reforzado",
+      "diseno": "OO_TOPE",
+      "etiqueta": "Fijo + Fijo",
+      "paneles": 2,
+      "nivelCorte": "B",
+      "nivelVidrio": "B",
+      "nivelPerfiles": "A",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -2
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -82
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -85
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 2,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.5,
+            "b": 0,
+            "c": -46
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 1,
+            "c": -92
+          },
+          "nivelRiesgo": "B_DIVISION_LIMPIA"
+        }
+      ],
+      "accesorios": [
+        {
+          "descripcion": "Tornillo n8 x 1_2",
+          "cantidad": 32,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n10 x 1 1_2",
+          "cantidad": 12,
+          "formula": null
+        },
+        {
+          "descripcion": "Chapeta * 30 mm ref a15",
+          "cantidad": 8,
+          "formula": null
+        }
+      ]
+    },
+    {
+      "id": "Sistema3831-Reforzado::OOO_TOPE",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831-Reforzado",
+      "diseno": "OOO_TOPE",
+      "etiqueta": "Fijo + Fijo + Fijo",
+      "paneles": 3,
+      "nivelCorte": "B",
+      "nivelVidrio": "B",
+      "nivelPerfiles": "A",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -2
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -82
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -85
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 3,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.334,
+            "b": 0,
+            "c": -32
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 1,
+            "c": -92
+          },
+          "nivelRiesgo": "B_DIVISION_LIMPIA"
+        }
+      ],
+      "accesorios": [
+        {
+          "descripcion": "Tornillo n8 x 1_2",
+          "cantidad": 32,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n10 x 1 1_2",
+          "cantidad": 16,
+          "formula": null
+        },
+        {
+          "descripcion": "Chapeta * 30 mm ref a15",
+          "cantidad": 8,
+          "formula": null
+        }
+      ]
+    },
+    {
+      "id": "Sistema3831-Reforzado::OOOO_TOPE",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831-Reforzado",
+      "diseno": "OOOO_TOPE",
+      "etiqueta": "Fijo + Fijo + Fijo + Fijo",
+      "paneles": 4,
+      "nivelCorte": "B",
+      "nivelVidrio": "B",
+      "nivelPerfiles": "A",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -2
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -82
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -85
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 4,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.25,
+            "b": 0,
+            "c": -24
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 1,
+            "c": -92
+          },
+          "nivelRiesgo": "B_DIVISION_LIMPIA"
+        }
+      ],
+      "accesorios": [
+        {
+          "descripcion": "Tornillo n8 x 1_2",
+          "cantidad": 32,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n10 x 1 1_2",
+          "cantidad": 12,
+          "formula": null
+        },
+        {
+          "descripcion": "Chapeta * 30 mm ref a15",
+          "cantidad": 8,
+          "formula": null
+        }
+      ]
+    },
+    {
+      "id": "Sistema3831-Reforzado::W_O",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831-Reforzado",
+      "diseno": "W_O",
+      "etiqueta": "Proyectante  |  Fijo",
+      "paneles": 1,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "A",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -2
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1103",
+          "refOriginal": "1103-B",
+          "descripcion": "Divisor Reforzado",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -76
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV1103MATE",
+            "CRUDO": "PRV1103CRUDO",
+            "NEGRO": "PRV1103NEGRO",
+            "BLANCO": "PRV1103BLANCO",
+            "BRONCE": "PRV1103BRONCE",
+            "GRISPLATA": "PRV1103GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -68
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -116
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -130
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -178
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -82
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 1,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 1,
+            "b": 0,
+            "c": -114
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.5,
+            "c": -4
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema3831-Reforzado::WW_O",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831-Reforzado",
+      "diseno": "WW_O",
+      "etiqueta": "Proyectante + Proyectante  |  Fijo",
+      "paneles": 2,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "B",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -2
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1103",
+          "refOriginal": "1103-B",
+          "descripcion": "Divisor Reforzado",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -76
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV1103MATE",
+            "CRUDO": "PRV1103CRUDO",
+            "NEGRO": "PRV1103NEGRO",
+            "BLANCO": "PRV1103BLANCO",
+            "BRONCE": "PRV1103BRONCE",
+            "GRISPLATA": "PRV1103GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1103",
+          "refOriginal": "1103-B",
+          "descripcion": "Divisor Reforzado",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -124
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV1103MATE",
+            "CRUDO": "PRV1103CRUDO",
+            "NEGRO": "PRV1103NEGRO",
+            "BLANCO": "PRV1103BLANCO",
+            "BRONCE": "PRV1103BRONCE",
+            "GRISPLATA": "PRV1103GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.5,
+            "b": 0,
+            "c": -50
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -116
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.5,
+            "b": 0,
+            "c": -112
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -178
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -82
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 2,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.75,
+            "b": 0,
+            "c": -105
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.5,
+            "c": -4
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema3831-Reforzado::WW_OO",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831-Reforzado",
+      "diseno": "WW_OO",
+      "etiqueta": "Proyectante + Proyectante  |  Fijo + Fijo",
+      "paneles": 2,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "B",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -2
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1103",
+          "refOriginal": "1103-B",
+          "descripcion": "Divisor Reforzado",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -78
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV1103MATE",
+            "CRUDO": "PRV1103CRUDO",
+            "NEGRO": "PRV1103NEGRO",
+            "BLANCO": "PRV1103BLANCO",
+            "BRONCE": "PRV1103BRONCE",
+            "GRISPLATA": "PRV1103GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1103",
+          "refOriginal": "1103-B",
+          "descripcion": "Divisor Reforzado",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.5,
+            "b": 0,
+            "c": -58
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PRV1103MATE",
+            "CRUDO": "PRV1103CRUDO",
+            "NEGRO": "PRV1103NEGRO",
+            "BLANCO": "PRV1103BLANCO",
+            "BRONCE": "PRV1103BRONCE",
+            "GRISPLATA": "PRV1103GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.5,
+            "b": 0,
+            "c": -50
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -116
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.5,
+            "b": 0,
+            "c": -112
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -178
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.5,
+            "b": 0,
+            "c": -64
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 2,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.5,
+            "b": 0,
+            "c": -96
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.5,
+            "c": -4
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema3831-Reforzado::WWW_OOO",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831-Reforzado",
+      "diseno": "WWW_OOO",
+      "etiqueta": "Proyectante + Proyectante + Proyectante  |  Fijo + Fijo + Fijo",
+      "paneles": 3,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "B",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -2
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1103",
+          "refOriginal": "1103-B",
+          "descripcion": "Divisor Reforzado",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -78
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV1103MATE",
+            "CRUDO": "PRV1103CRUDO",
+            "NEGRO": "PRV1103NEGRO",
+            "BLANCO": "PRV1103BLANCO",
+            "BRONCE": "PRV1103BRONCE",
+            "GRISPLATA": "PRV1103GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1103",
+          "refOriginal": "1103-B",
+          "descripcion": "Divisor Reforzado",
+          "cantidad": 3,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.334,
+            "b": 0,
+            "c": -53
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PRV1103MATE",
+            "CRUDO": "PRV1103CRUDO",
+            "NEGRO": "PRV1103NEGRO",
+            "BLANCO": "PRV1103BLANCO",
+            "BRONCE": "PRV1103BRONCE",
+            "GRISPLATA": "PRV1103GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 6,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.334,
+            "b": 0,
+            "c": -45
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 6,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -116
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 6,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.334,
+            "b": 0,
+            "c": -107
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 6,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -178
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 6,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.334,
+            "b": 0,
+            "c": -59
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 6,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 3,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.334,
+            "b": 0,
+            "c": -91
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.5,
+            "c": -3.5
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema3831-Reforzado::WWWW_OOOO",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831-Reforzado",
+      "diseno": "WWWW_OOOO",
+      "etiqueta": "Proyectante + Proyectante + Proyectante + Proyectante  |  Fijo + Fijo + Fijo + Fijo",
+      "paneles": 4,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "B",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -2
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1103",
+          "refOriginal": "1103-B",
+          "descripcion": "Divisor Reforzado",
+          "cantidad": 3,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -78
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV1103MATE",
+            "CRUDO": "PRV1103CRUDO",
+            "NEGRO": "PRV1103NEGRO",
+            "BLANCO": "PRV1103BLANCO",
+            "BRONCE": "PRV1103BRONCE",
+            "GRISPLATA": "PRV1103GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1103",
+          "refOriginal": "1103-B",
+          "descripcion": "Divisor Reforzado",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.25,
+            "b": 0,
+            "c": -49
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PRV1103MATE",
+            "CRUDO": "PRV1103CRUDO",
+            "NEGRO": "PRV1103NEGRO",
+            "BLANCO": "PRV1103BLANCO",
+            "BRONCE": "PRV1103BRONCE",
+            "GRISPLATA": "PRV1103GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 8,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.25,
+            "b": 0,
+            "c": -41
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 8,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -116
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 8,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.25,
+            "b": 0,
+            "c": -103
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 8,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -178
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 8,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.25,
+            "b": 0,
+            "c": -55
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 8,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 4,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.25,
+            "b": 0,
+            "c": -87
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.5,
+            "c": -3.5
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema3831-Reforzado::WWWWW",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831-Reforzado",
+      "diseno": "WWWWW",
+      "etiqueta": "Proyectante + Proyectante + Proyectante + Proyectante + Proyectante",
+      "paneles": 5,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "C",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -2
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1103",
+          "refOriginal": "1103-B",
+          "descripcion": "Divisor Reforzado",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -78
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV1103MATE",
+            "CRUDO": "PRV1103CRUDO",
+            "NEGRO": "PRV1103NEGRO",
+            "BLANCO": "PRV1103BLANCO",
+            "BRONCE": "PRV1103BRONCE",
+            "GRISPLATA": "PRV1103GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.2,
+            "b": 0,
+            "c": -40
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -70
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.196,
+            "b": 0,
+            "c": -98
+          },
+          "nivelCorte": "C",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -132
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 5,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.18,
+            "b": 0,
+            "c": -90
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 1,
+            "c": -140
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema3831-Reforzado::WWWWW_OOOOO",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831-Reforzado",
+      "diseno": "WWWWW_OOOOO",
+      "etiqueta": "Proyectante + Proyectante + Proyectante + Proyectante + Proyectante  |  Fijo + Fijo + Fijo + Fijo + Fijo",
+      "paneles": 5,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "C",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1103",
+          "refOriginal": "1103-B",
+          "descripcion": "Divisor Reforzado",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -78
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV1103MATE",
+            "CRUDO": "PRV1103CRUDO",
+            "NEGRO": "PRV1103NEGRO",
+            "BLANCO": "PRV1103BLANCO",
+            "BRONCE": "PRV1103BRONCE",
+            "GRISPLATA": "PRV1103GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1103",
+          "refOriginal": "1103-B",
+          "descripcion": "Divisor Reforzado",
+          "cantidad": 5,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.2,
+            "b": 0,
+            "c": -48
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PRV1103MATE",
+            "CRUDO": "PRV1103CRUDO",
+            "NEGRO": "PRV1103NEGRO",
+            "BLANCO": "PRV1103BLANCO",
+            "BRONCE": "PRV1103BRONCE",
+            "GRISPLATA": "PRV1103GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.2,
+            "b": 0,
+            "c": -40
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -116
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.2,
+            "b": 0,
+            "c": -54
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.196,
+            "b": 0,
+            "c": -98
+          },
+          "nivelCorte": "C",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -178
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 5,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.19,
+            "b": 0,
+            "c": -76
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.5,
+            "c": -3.5
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema3831-Reforzado::WWWWWW_OOOOOO",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831-Reforzado",
+      "diseno": "WWWWWW_OOOOOO",
+      "etiqueta": "Proyectante + Proyectante + Proyectante + Proyectante + Proyectante + Proyectante  |  Fijo + Fijo + Fijo + Fijo + Fijo + Fijo",
+      "paneles": 6,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "C",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1101",
+          "refOriginal": "1101-B",
+          "descripcion": "Marco Perimetral",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "TUB0118"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1103",
+          "refOriginal": "1103-B",
+          "descripcion": "Divisor Reforzado",
+          "cantidad": 5,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -78
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV1103MATE",
+            "CRUDO": "PRV1103CRUDO",
+            "NEGRO": "PRV1103NEGRO",
+            "BLANCO": "PRV1103BLANCO",
+            "BRONCE": "PRV1103BRONCE",
+            "GRISPLATA": "PRV1103GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "1103",
+          "refOriginal": "1103-B",
+          "descripcion": "Divisor Reforzado",
+          "cantidad": 6,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.166,
+            "b": 0,
+            "c": -46
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PRV1103MATE",
+            "CRUDO": "PRV1103CRUDO",
+            "NEGRO": "PRV1103NEGRO",
+            "BLANCO": "PRV1103BLANCO",
+            "BRONCE": "PRV1103BRONCE",
+            "GRISPLATA": "PRV1103GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 12,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.166,
+            "b": 0,
+            "c": -38
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 12,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -116
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 12,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.166,
+            "b": 0,
+            "c": -52
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 12,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 12,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.132,
+            "b": 0,
+            "c": -66
+          },
+          "nivelCorte": "C",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 12,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -178
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 6,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.142,
+            "b": 0,
+            "c": -59.5
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.5,
+            "c": -3.5
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema3831::O_W_O",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831",
+      "diseno": "O_W_O",
+      "etiqueta": "Fijo  |  Proyectante  |  Fijo",
+      "paneles": 1,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "A",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "173",
+          "refOriginal": "173-B",
+          "descripcion": "Sillar Cabezal",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0102",
+            "CRUDO": "SIL0301",
+            "BLANCO": "SIL0415",
+            "BRONCE": "SIL0504",
+            "GRISPLATA": "SIL0203"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "174",
+          "refOriginal": "174-B",
+          "descripcion": "Jamba",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "JAM0503",
+            "BLANCO": "JAM0407",
+            "BRONCE": "JAM0101",
+            "GRISPLATA": "JAM0206"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "292",
+          "refOriginal": "292-B",
+          "descripcion": "Divisor",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -26
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "DIV0101",
+            "BRONCE": "DIV0502"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -32
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -82
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -120
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -20
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -58
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 1,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 1,
+            "b": 0,
+            "c": -65
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.5,
+            "c": -4
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema3831::OO_TOPE",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831",
+      "diseno": "OO_TOPE",
+      "etiqueta": "Fijo + Fijo",
+      "paneles": 2,
+      "nivelCorte": "B",
+      "nivelVidrio": "B",
+      "nivelPerfiles": "A",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "173",
+          "refOriginal": "173-B",
+          "descripcion": "Sillar Cabezal",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0102",
+            "CRUDO": "SIL0301",
+            "BLANCO": "SIL0415",
+            "BRONCE": "SIL0504",
+            "GRISPLATA": "SIL0203"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "174",
+          "refOriginal": "174-B",
+          "descripcion": "Jamba",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "JAM0503",
+            "BLANCO": "JAM0407",
+            "BRONCE": "JAM0101",
+            "GRISPLATA": "JAM0206"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -32
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -34
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 2,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.5,
+            "b": 0,
+            "c": -21
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 1,
+            "c": -42
+          },
+          "nivelRiesgo": "B_DIVISION_LIMPIA"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema3831::OOO_TOPE",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831",
+      "diseno": "OOO_TOPE",
+      "etiqueta": "Fijo + Fijo + Fijo",
+      "paneles": 3,
+      "nivelCorte": "A",
+      "nivelVidrio": "A",
+      "nivelPerfiles": "A",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "173",
+          "refOriginal": "173-B",
+          "descripcion": "Sillar Cabezal",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0102",
+            "CRUDO": "SIL0301",
+            "BLANCO": "SIL0415",
+            "BRONCE": "SIL0504",
+            "GRISPLATA": "SIL0203"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "174",
+          "refOriginal": "174-B",
+          "descripcion": "Jamba",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "JAM0503",
+            "BLANCO": "JAM0407",
+            "BRONCE": "JAM0101",
+            "GRISPLATA": "JAM0206"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -32
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -34
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 3,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.332,
+            "b": 0,
+            "c": -14
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 1,
+            "c": -42
+          },
+          "nivelRiesgo": "A_EXACTA"
+        }
+      ],
+      "accesorios": [
+        {
+          "descripcion": "Tornillo n8 x 3_4",
+          "cantidad": 8,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n10 x 1 1_2",
+          "cantidad": 12,
+          "formula": null
+        }
+      ]
+    },
+    {
+      "id": "Sistema3831::OOOO_TOPE",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831",
+      "diseno": "OOOO_TOPE",
+      "etiqueta": "Fijo + Fijo + Fijo + Fijo",
+      "paneles": 4,
+      "nivelCorte": "B",
+      "nivelVidrio": "B",
+      "nivelPerfiles": "A",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "173",
+          "refOriginal": "173-B",
+          "descripcion": "Sillar Cabezal",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0102",
+            "CRUDO": "SIL0301",
+            "BLANCO": "SIL0415",
+            "BRONCE": "SIL0504",
+            "GRISPLATA": "SIL0203"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "174",
+          "refOriginal": "174-B",
+          "descripcion": "Jamba",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "JAM0503",
+            "BLANCO": "JAM0407",
+            "BRONCE": "JAM0101",
+            "GRISPLATA": "JAM0206"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -26
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -34
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 4,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.25,
+            "b": 0,
+            "c": -12
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 1,
+            "c": -42
+          },
+          "nivelRiesgo": "B_DIVISION_LIMPIA"
+        }
+      ],
+      "accesorios": [
+        {
+          "descripcion": "Tornillo n8 x 3_4",
+          "cantidad": 8,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n10 x 1 1_2",
+          "cantidad": 16,
+          "formula": null
+        }
+      ]
+    },
+    {
+      "id": "Sistema3831::W_O",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831",
+      "diseno": "W_O",
+      "etiqueta": "Proyectante  |  Fijo",
+      "paneles": 1,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "A",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "173",
+          "refOriginal": "173-B",
+          "descripcion": "Sillar Cabezal",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0102",
+            "CRUDO": "SIL0301",
+            "BLANCO": "SIL0415",
+            "BRONCE": "SIL0504",
+            "GRISPLATA": "SIL0203"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "174",
+          "refOriginal": "174-B",
+          "descripcion": "Jamba",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "JAM0503",
+            "BLANCO": "JAM0407",
+            "BRONCE": "JAM0101",
+            "GRISPLATA": "JAM0206"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "292",
+          "refOriginal": "292-B",
+          "descripcion": "Divisor",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -26
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "DIV0101",
+            "BRONCE": "DIV0502"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -32
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -82
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -102
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -20
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -40
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 1,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 1,
+            "b": 0,
+            "c": -65
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.5,
+            "c": -4
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": [
+        {
+          "descripcion": "Brazo escualizable 10 pulg",
+          "cantidad": 1,
+          "formula": null
+        },
+        {
+          "descripcion": "Manija Alpha",
+          "cantidad": 1,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n8 x 1_2",
+          "cantidad": 8,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n8 x 3_4",
+          "cantidad": 12,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n10 x 1 1_2",
+          "cantidad": 10,
+          "formula": null
+        },
+        {
+          "descripcion": "Empaque Gallinazo",
+          "cantidad": null,
+          "formula": null
+        }
+      ]
+    },
+    {
+      "id": "Sistema3831::WW_O",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831",
+      "diseno": "WW_O",
+      "etiqueta": "Proyectante + Proyectante  |  Fijo",
+      "paneles": 2,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "B",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "173",
+          "refOriginal": "173-B",
+          "descripcion": "Sillar Cabezal",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0102",
+            "CRUDO": "SIL0301",
+            "BLANCO": "SIL0415",
+            "BRONCE": "SIL0504",
+            "GRISPLATA": "SIL0203"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "174",
+          "refOriginal": "174-B",
+          "descripcion": "Jamba",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "JAM0503",
+            "BLANCO": "JAM0407",
+            "BRONCE": "JAM0101",
+            "GRISPLATA": "JAM0206"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "292",
+          "refOriginal": "292-B",
+          "descripcion": "Divisor",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -26
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "DIV0101",
+            "BRONCE": "DIV0502"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "292",
+          "refOriginal": "292-B",
+          "descripcion": "Divisor",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -46
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "DIV0101",
+            "BRONCE": "DIV0502"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.5,
+            "b": 0,
+            "c": -74
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -100
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": -32
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.5,
+            "b": 0,
+            "c": -13
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -39
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 2,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.75,
+            "b": 0,
+            "c": -61
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.5,
+            "c": -4
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema3831::WW_OO",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831",
+      "diseno": "WW_OO",
+      "etiqueta": "Proyectante + Proyectante  |  Fijo + Fijo",
+      "paneles": 2,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "B",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "173",
+          "refOriginal": "173-B",
+          "descripcion": "Sillar Cabezal",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0102",
+            "CRUDO": "SIL0301",
+            "BLANCO": "SIL0415",
+            "BRONCE": "SIL0504",
+            "GRISPLATA": "SIL0203"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "174",
+          "refOriginal": "174-B",
+          "descripcion": "Jamba",
+          "cantidad": 3,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "JAM0503",
+            "BLANCO": "JAM0407",
+            "BRONCE": "JAM0101",
+            "GRISPLATA": "JAM0206"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "292",
+          "refOriginal": "292-B",
+          "descripcion": "Divisor",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.5,
+            "b": 0,
+            "c": -20
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "DIV0101",
+            "BRONCE": "DIV0502"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.5,
+            "b": 0,
+            "c": -75
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -100
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.5,
+            "b": 0,
+            "c": -26
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.5,
+            "b": 0,
+            "c": -14
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -39
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "175",
+          "refOriginal": "175-B",
+          "descripcion": "Adaptador-Acople",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0103",
+            "CRUDO": "ADA0305",
+            "BLANCO": "ADA0404",
+            "BRONCE": "SIL0502",
+            "GRISPLATA": "ADA0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 2,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.5,
+            "b": 0,
+            "c": -58
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.5,
+            "c": -4
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema3831::WWW_OOO",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831",
+      "diseno": "WWW_OOO",
+      "etiqueta": "Proyectante + Proyectante + Proyectante  |  Fijo + Fijo + Fijo",
+      "paneles": 3,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "B",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "173",
+          "refOriginal": "173-B",
+          "descripcion": "Sillar Cabezal",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0102",
+            "CRUDO": "SIL0301",
+            "BLANCO": "SIL0415",
+            "BRONCE": "SIL0504",
+            "GRISPLATA": "SIL0203"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "174",
+          "refOriginal": "174-B",
+          "descripcion": "Jamba",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "JAM0503",
+            "BLANCO": "JAM0407",
+            "BRONCE": "JAM0101",
+            "GRISPLATA": "JAM0206"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "292",
+          "refOriginal": "292-B",
+          "descripcion": "Divisor",
+          "cantidad": 3,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.334,
+            "b": 0,
+            "c": -19
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "DIV0101",
+            "BRONCE": "DIV0502"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 6,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.334,
+            "b": 0,
+            "c": -74
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 6,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -100
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 6,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.334,
+            "b": 0,
+            "c": -25
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 6,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 6,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.334,
+            "b": 0,
+            "c": -12
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 6,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -39
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "175",
+          "refOriginal": "175-B",
+          "descripcion": "Adaptador-Acople",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0103",
+            "CRUDO": "ADA0305",
+            "BLANCO": "ADA0404",
+            "BRONCE": "SIL0502",
+            "GRISPLATA": "ADA0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 3,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.334,
+            "b": 0,
+            "c": -57.5
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.5,
+            "c": -4
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema3831::WWWW_OOOO",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831",
+      "diseno": "WWWW_OOOO",
+      "etiqueta": "Proyectante + Proyectante + Proyectante + Proyectante  |  Fijo + Fijo + Fijo + Fijo",
+      "paneles": 4,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "B",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "173",
+          "refOriginal": "173-B",
+          "descripcion": "Sillar Cabezal",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0102",
+            "CRUDO": "SIL0301",
+            "BLANCO": "SIL0415",
+            "BRONCE": "SIL0504",
+            "GRISPLATA": "SIL0203"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "174",
+          "refOriginal": "174-B",
+          "descripcion": "Jamba",
+          "cantidad": 5,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "JAM0503",
+            "BLANCO": "JAM0407",
+            "BRONCE": "JAM0101",
+            "GRISPLATA": "JAM0206"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "292",
+          "refOriginal": "292-B",
+          "descripcion": "Divisor",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.25,
+            "b": 0,
+            "c": -17
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "DIV0101",
+            "BRONCE": "DIV0502"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 8,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.25,
+            "b": 0,
+            "c": -72
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 8,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -100
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 8,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.25,
+            "b": 0,
+            "c": -23
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 8,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 8,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.25,
+            "b": 0,
+            "c": -10
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 8,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -39
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "175",
+          "refOriginal": "175-B",
+          "descripcion": "Adaptador-Acople",
+          "cantidad": 3,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0103",
+            "CRUDO": "ADA0305",
+            "BLANCO": "ADA0404",
+            "BRONCE": "SIL0502",
+            "GRISPLATA": "ADA0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 4,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.25,
+            "b": 0,
+            "c": -56
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.5,
+            "c": -4
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema3831::WWWWW_OOOOO",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831",
+      "diseno": "WWWWW_OOOOO",
+      "etiqueta": "Proyectante + Proyectante + Proyectante + Proyectante + Proyectante  |  Fijo + Fijo + Fijo + Fijo + Fijo",
+      "paneles": 5,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "B",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "173",
+          "refOriginal": "173-B",
+          "descripcion": "Sillar Cabezal",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0102",
+            "CRUDO": "SIL0301",
+            "BLANCO": "SIL0415",
+            "BRONCE": "SIL0504",
+            "GRISPLATA": "SIL0203"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "174",
+          "refOriginal": "174-B",
+          "descripcion": "Jamba",
+          "cantidad": 6,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "JAM0503",
+            "BLANCO": "JAM0407",
+            "BRONCE": "JAM0101",
+            "GRISPLATA": "JAM0206"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "292",
+          "refOriginal": "292-B",
+          "descripcion": "Divisor",
+          "cantidad": 5,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.2,
+            "b": 0,
+            "c": -16
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "DIV0101",
+            "BRONCE": "DIV0502"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.2,
+            "b": 0,
+            "c": -72
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -100
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.2,
+            "b": 0,
+            "c": -23
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.2,
+            "b": 0,
+            "c": -10
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 10,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -39
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "175",
+          "refOriginal": "175-B",
+          "descripcion": "Adaptador-Acople",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0103",
+            "CRUDO": "ADA0305",
+            "BLANCO": "ADA0404",
+            "BRONCE": "SIL0502",
+            "GRISPLATA": "ADA0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 5,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.2,
+            "b": 0,
+            "c": -55.5
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.5,
+            "c": -4
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema3831::WWWWWW_OOOOOO",
+      "modulo": "ventanas",
+      "sistema": "Sistema3831",
+      "diseno": "WWWWWW_OOOOOO",
+      "etiqueta": "Proyectante + Proyectante + Proyectante + Proyectante + Proyectante + Proyectante  |  Fijo + Fijo + Fijo + Fijo + Fijo + Fijo",
+      "paneles": 6,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "B",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "173",
+          "refOriginal": "173-B",
+          "descripcion": "Sillar Cabezal",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0102",
+            "CRUDO": "SIL0301",
+            "BLANCO": "SIL0415",
+            "BRONCE": "SIL0504",
+            "GRISPLATA": "SIL0203"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "174",
+          "refOriginal": "174-B",
+          "descripcion": "Jamba",
+          "cantidad": 7,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "JAM0503",
+            "BLANCO": "JAM0407",
+            "BRONCE": "JAM0101",
+            "GRISPLATA": "JAM0206"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "292",
+          "refOriginal": "292-B",
+          "descripcion": "Divisor",
+          "cantidad": 6,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.168,
+            "b": 0,
+            "c": -17
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "DIV0101",
+            "BRONCE": "DIV0502"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 12,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.166,
+            "b": 0,
+            "c": -71
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 12,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -100
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 12,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.166,
+            "b": 0,
+            "c": -22
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "177",
+          "refOriginal": "177-B",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "cantidad": 12,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PPR0101",
+            "CRUDO": "PIS0304",
+            "BLANCO": "PIS0405",
+            "BRONCE": "PPR0501",
+            "GRISPLATA": "PIS0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 12,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.166,
+            "b": 0,
+            "c": -9
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "176",
+          "refOriginal": "176-B",
+          "descripcion": "Marco Nave",
+          "cantidad": 12,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -39
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "NAV0101",
+            "BLANCO": "NAV0404",
+            "BRONCE": "NAV0503",
+            "GRISPLATA": "NAV0202"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "175",
+          "refOriginal": "175-B",
+          "descripcion": "Adaptador-Acople",
+          "cantidad": 5,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -28
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "SIL0103",
+            "CRUDO": "ADA0305",
+            "BLANCO": "ADA0404",
+            "BRONCE": "SIL0502",
+            "GRISPLATA": "ADA0204"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "332",
+          "refOriginal": "332-B",
+          "descripcion": "Alfajia 7.6 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "BLANCO": "ALF0401"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 6,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.166,
+            "b": 0,
+            "c": -54.5
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 0.5,
+            "c": -4
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": []
+    },
+    {
+      "id": "Sistema7038-Interior::OXXXXXXO2",
+      "modulo": "ventanas",
+      "sistema": "Sistema7038-Interior",
+      "diseno": "OXXXXXXO2",
+      "etiqueta": "Fijo + Corredizo + Corredizo + Corredizo + Corredizo + Corredizo + Corredizo + Fijo",
+      "paneles": 8,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "B",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "700",
+          "refOriginal": "700-B",
+          "descripcion": "Cabezal",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV700MATE",
+            "CRUDO": "PRV700CRUDO",
+            "NEGRO": "PRV700NEGRO",
+            "BLANCO": "PRV700BLANCO",
+            "BRONCE": "PRV700BRONCE",
+            "GRISPLATA": "PRV700GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "701",
+          "refOriginal": "701-B",
+          "descripcion": "Sillar Plano",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV701MATE",
+            "CRUDO": "PRV701CRUDO",
+            "NEGRO": "PRV701NEGRO",
+            "BLANCO": "PRV701BLANCO",
+            "BRONCE": "PRV701BRONCE",
+            "GRISPLATA": "PRV701GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "702",
+          "refOriginal": "702-B",
+          "descripcion": "Jamba",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -35
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV702MATE",
+            "CRUDO": "PRV702CRUDO",
+            "NEGRO": "PRV702NEGRO",
+            "BLANCO": "PRV702BLANCO",
+            "BRONCE": "PRV702BRONCE",
+            "GRISPLATA": "PRV702GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "840",
+          "refOriginal": "840-B",
+          "descripcion": "Adaptador-Acople",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -45
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV840MATE",
+            "CRUDO": "PRV840CRUDO",
+            "NEGRO": "PRV840NEGRO",
+            "BLANCO": "PRV840BLANCO",
+            "BRONCE": "PRV840BRONCE",
+            "GRISPLATA": "PRV840GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "705",
+          "refOriginal": "705-B",
+          "descripcion": "Enganche (vid 6,8mm)",
+          "cantidad": 12,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -45
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV705MATE",
+            "CRUDO": "PRV705CRUDO",
+            "NEGRO": "PRV705NEGRO",
+            "BLANCO": "PRV705BLANCO",
+            "BRONCE": "PRV705BRONCE",
+            "GRISPLATA": "PRV705GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "704",
+          "refOriginal": "704-B",
+          "descripcion": "Traslape (vid 6,8mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -45
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV704MATE",
+            "CRUDO": "PRV704CRUDO",
+            "NEGRO": "PRV704NEGRO",
+            "BLANCO": "PRV704BLANCO",
+            "BRONCE": "PRV704BRONCE",
+            "GRISPLATA": "PRV704GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "703",
+          "refOriginal": "703-B",
+          "descripcion": "Horizontal (vid 6,8mm)",
+          "cantidad": 16,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.126,
+            "b": 0,
+            "c": 37
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PRV703MATE",
+            "CRUDO": "PRV703CRUDO",
+            "NEGRO": "PRV703NEGRO",
+            "BLANCO": "PRV703BLANCO",
+            "BRONCE": "PRV703BRONCE",
+            "GRISPLATA": "PRV703GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "413",
+          "refOriginal": "413-B",
+          "descripcion": "Alfajia 16 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "ALF0102"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 8,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.102,
+            "b": 0,
+            "c": -51
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 1,
+            "c": -177
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": [
+        {
+          "descripcion": "Chapa Overseas Doble Cilindro",
+          "cantidad": 1,
+          "formula": null
+        },
+        {
+          "descripcion": "Manija 744-8025",
+          "cantidad": 4,
+          "formula": null
+        },
+        {
+          "descripcion": "Guia 7038",
+          "cantidad": 16,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n10 x 1 1_2",
+          "cantidad": 32,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n12 * 1",
+          "cantidad": 64,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n8 x 1_2",
+          "cantidad": 12,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n8 x 3_4",
+          "cantidad": 24,
+          "formula": null
+        },
+        {
+          "descripcion": "Rodamiento 7038",
+          "cantidad": 12,
+          "formula": null
+        }
+      ]
+    },
+    {
+      "id": "Sistema7038-Interior::XXXXXXXX2",
+      "modulo": "ventanas",
+      "sistema": "Sistema7038-Interior",
+      "diseno": "XXXXXXXX2",
+      "etiqueta": "Corredizo + Corredizo + Corredizo + Corredizo + Corredizo + Corredizo + Corredizo + Corredizo",
+      "paneles": 8,
+      "nivelCorte": "C",
+      "nivelVidrio": "C",
+      "nivelPerfiles": "B",
+      "medidasRespaldo": 3,
+      "cotizable": true,
+      "refsSinPrecio": [],
+      "perfiles": [
+        {
+          "ref": "700",
+          "refOriginal": "700-B",
+          "descripcion": "Cabezal",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV700MATE",
+            "CRUDO": "PRV700CRUDO",
+            "NEGRO": "PRV700NEGRO",
+            "BLANCO": "PRV700BLANCO",
+            "BRONCE": "PRV700BRONCE",
+            "GRISPLATA": "PRV700GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "701",
+          "refOriginal": "701-B",
+          "descripcion": "Sillar Plano",
+          "cantidad": 2,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV701MATE",
+            "CRUDO": "PRV701CRUDO",
+            "NEGRO": "PRV701NEGRO",
+            "BLANCO": "PRV701BLANCO",
+            "BRONCE": "PRV701BRONCE",
+            "GRISPLATA": "PRV701GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "702",
+          "refOriginal": "702-B",
+          "descripcion": "Jamba",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -35
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV702MATE",
+            "CRUDO": "PRV702CRUDO",
+            "NEGRO": "PRV702NEGRO",
+            "BLANCO": "PRV702BLANCO",
+            "BRONCE": "PRV702BRONCE",
+            "GRISPLATA": "PRV702GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "840",
+          "refOriginal": "840-B",
+          "descripcion": "Adaptador-Acople",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -45
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV840MATE",
+            "CRUDO": "PRV840CRUDO",
+            "NEGRO": "PRV840NEGRO",
+            "BLANCO": "PRV840BLANCO",
+            "BRONCE": "PRV840BRONCE",
+            "GRISPLATA": "PRV840GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "705",
+          "refOriginal": "705-B",
+          "descripcion": "Enganche (vid 6,8mm)",
+          "cantidad": 12,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -45
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV705MATE",
+            "CRUDO": "PRV705CRUDO",
+            "NEGRO": "PRV705NEGRO",
+            "BLANCO": "PRV705BLANCO",
+            "BRONCE": "PRV705BRONCE",
+            "GRISPLATA": "PRV705GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "704",
+          "refOriginal": "704-B",
+          "descripcion": "Traslape (vid 6,8mm)",
+          "cantidad": 4,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0,
+            "b": 1,
+            "c": -45
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "PRV704MATE",
+            "CRUDO": "PRV704CRUDO",
+            "NEGRO": "PRV704NEGRO",
+            "BLANCO": "PRV704BLANCO",
+            "BRONCE": "PRV704BRONCE",
+            "GRISPLATA": "PRV704GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "703",
+          "refOriginal": "703-B",
+          "descripcion": "Horizontal (vid 6,8mm)",
+          "cantidad": 16,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 0.126,
+            "b": 0,
+            "c": 36
+          },
+          "nivelCorte": "B",
+          "codigosPorColor": {
+            "MATE": "PRV703MATE",
+            "CRUDO": "PRV703CRUDO",
+            "NEGRO": "PRV703NEGRO",
+            "BLANCO": "PRV703BLANCO",
+            "BRONCE": "PRV703BRONCE",
+            "GRISPLATA": "PRV703GRISPLATA"
+          },
+          "esAlfajia": false
+        },
+        {
+          "ref": "413",
+          "refOriginal": "413-B",
+          "descripcion": "Alfajia 16 cm",
+          "cantidad": 1,
+          "desperdicioPct": 5,
+          "formula": {
+            "a": 1,
+            "b": 0,
+            "c": 0
+          },
+          "nivelCorte": "A",
+          "codigosPorColor": {
+            "MATE": "ALF0102"
+          },
+          "esAlfajia": true
+        }
+      ],
+      "vidrios": [
+        {
+          "descripcion": "Sin Vidrio",
+          "cantidad": 8,
+          "desperdicioPct": 0,
+          "formulaAncho": {
+            "a": 0.1,
+            "b": 0,
+            "c": -50
+          },
+          "formulaAlto": {
+            "a": 0,
+            "b": 1,
+            "c": -177
+          },
+          "nivelRiesgo": "C_MODELO_LINEAL_INCORRECTO"
+        }
+      ],
+      "accesorios": [
+        {
+          "descripcion": "Chapa Overseas Doble Cilindro",
+          "cantidad": 3,
+          "formula": null
+        },
+        {
+          "descripcion": "Manija 744-8025",
+          "cantidad": 8,
+          "formula": null
+        },
+        {
+          "descripcion": "Guia 7038",
+          "cantidad": 16,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n10 x 1 1_2",
+          "cantidad": 40,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n12 * 1",
+          "cantidad": 64,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n8 x 1_2",
+          "cantidad": 12,
+          "formula": null
+        },
+        {
+          "descripcion": "Tornillo n8 x 3_4",
+          "cantidad": 24,
+          "formula": null
+        },
+        {
+          "descripcion": "Rodamiento 7038",
+          "cantidad": 16,
+          "formula": null
+        }
+      ]
     }
   ],
   "resumen": {

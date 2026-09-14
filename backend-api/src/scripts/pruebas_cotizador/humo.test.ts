@@ -52,9 +52,9 @@ test("el catálogo tiene los 435 productos extraídos del Excel", () => {
   assert.equal(productos.length, 435);
 });
 
-test("el catálogo de diseños tiene los 138 diseños generados", () => {
+test("el catálogo de diseños tiene los 163 diseños generados", () => {
   // soloCotizables:false para contar el universo completo, no sólo los 120
   // que hoy tienen todos sus precios — ese número sí cambia con el catálogo.
   const disenos = listarDisenos({ soloCotizables: false });
-  assert.equal(disenos.length, 138);
+  assert.equal(disenos.length, 163);
 });

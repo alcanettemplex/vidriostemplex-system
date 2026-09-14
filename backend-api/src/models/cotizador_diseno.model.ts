@@ -11,7 +11,9 @@ CotizadorDiseno.init({
   modulo: { type: DataTypes.STRING(30), allowNull: false },
   sistema: { type: DataTypes.STRING(60), allowNull: false },
   diseno: { type: DataTypes.STRING(40), allowNull: false },
-  etiqueta: { type: DataTypes.STRING(120) },
+  // 200 y no 120 (2026-09-13): la etiqueta legible de un diseño apilado grande
+  // como WWWWWW_OOOOOO ("Proyectante + …  |  Fijo + …") llega a 125 caracteres.
+  etiqueta: { type: DataTypes.STRING(200) },
   paneles: { type: DataTypes.INTEGER },
   nivel_corte: { type: DataTypes.CHAR(1), allowNull: false },
   nivel_vidrio: { type: DataTypes.CHAR(1) },

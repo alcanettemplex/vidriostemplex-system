@@ -1,5 +1,5 @@
 {
-  "generadoEn": "2026-09-13T15:08:07.866Z",
+  "generadoEn": "2026-09-14T00:57:33.664Z",
   "origen": "multimedida.json",
   "extracciones": 1992,
   "vanosPrueba": [
@@ -26,14 +26,14 @@
   ],
   "nota": "Modelos de corte reconstruidos por búsqueda entera sobre las observaciones reales de AlumSoftware. dispersionMm es la separación máxima entre todos los modelos compatibles con esas observaciones, medida en los vanos de prueba: es la incertidumbre que queda, no un error medido contra el taller.",
   "stats": {
-    "perfilesConModelo": 983,
+    "perfilesConModelo": 1202,
     "perfilesSinOrigen": 0,
-    "perfilesSinModelo": 0,
+    "perfilesSinModelo": 3,
     "perfilesNoVerificados": 0,
-    "vidriosConModelo": 218,
+    "vidriosConModelo": 225,
     "vidriosSinOrigen": 0,
-    "vidriosSinModelo": 0,
-    "vidriosNoVerificados": 0,
+    "vidriosSinModelo": 3,
+    "vidriosNoVerificados": 15,
     "disenosSinOrigen": []
   },
   "disenos": {
@@ -2032,6 +2032,129 @@
         }
       ]
     },
+    "Sistema3831-Reforzado::O_O_O": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -2,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "1103",
+          "descripcion": "Divisor Reforzado",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -76,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -82,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -176,
+            "n": 3,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 27,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": [
+        {
+          "orden": 0,
+          "descripcion": "Sin Vidrio",
+          "ancho": {
+            "modelo": {
+              "p": 1,
+              "q": 0,
+              "r": -90,
+              "n": 1,
+              "op": "exacto"
+            },
+            "dispersionMm": 0,
+            "candidatos": 34
+          },
+          "alto": {
+            "modelo": {
+              "p": 0,
+              "q": 1,
+              "r": -200,
+              "n": 3,
+              "op": "trunc"
+            },
+            "dispersionMm": 1,
+            "candidatos": 27
+          },
+          "observaciones": 3
+        }
+      ]
+    },
     "Sistema3831-Reforzado::OO": {
       "perfiles": [
         {
@@ -2293,6 +2416,114 @@
         }
       ]
     },
+    "Sistema3831-Reforzado::OO_TOPE": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -2,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -82,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -85,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": [
+        {
+          "orden": 0,
+          "descripcion": "Sin Vidrio",
+          "ancho": {
+            "modelo": {
+              "p": 1,
+              "q": 0,
+              "r": -91,
+              "n": 2,
+              "op": "trunc"
+            },
+            "dispersionMm": 1,
+            "candidatos": 60
+          },
+          "alto": {
+            "modelo": {
+              "p": 0,
+              "q": 1,
+              "r": -92,
+              "n": 1,
+              "op": "exacto"
+            },
+            "dispersionMm": 0,
+            "candidatos": 34
+          },
+          "observaciones": 3
+        }
+      ]
+    },
     "Sistema3831-Reforzado::OOO": {
       "perfiles": [
         {
@@ -2416,6 +2647,114 @@
         }
       ]
     },
+    "Sistema3831-Reforzado::OOO_TOPE": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -2,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -82,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -85,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": [
+        {
+          "orden": 0,
+          "descripcion": "Sin Vidrio",
+          "ancho": {
+            "modelo": {
+              "p": 1,
+              "q": 0,
+              "r": -93,
+              "n": 3,
+              "op": "trunc"
+            },
+            "dispersionMm": 1,
+            "candidatos": 18
+          },
+          "alto": {
+            "modelo": {
+              "p": 0,
+              "q": 1,
+              "r": -92,
+              "n": 1,
+              "op": "exacto"
+            },
+            "dispersionMm": 0,
+            "candidatos": 34
+          },
+          "observaciones": 3
+        }
+      ]
+    },
     "Sistema3831-Reforzado::OOOO": {
       "perfiles": [
         {
@@ -2518,6 +2857,114 @@
               "p": 1,
               "q": 0,
               "r": -250,
+              "n": 4,
+              "op": "trunc"
+            },
+            "dispersionMm": 1,
+            "candidatos": 36
+          },
+          "alto": {
+            "modelo": {
+              "p": 0,
+              "q": 1,
+              "r": -92,
+              "n": 1,
+              "op": "exacto"
+            },
+            "dispersionMm": 0,
+            "candidatos": 34
+          },
+          "observaciones": 3
+        }
+      ]
+    },
+    "Sistema3831-Reforzado::OOOO_TOPE": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -2,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -82,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -85,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": [
+        {
+          "orden": 0,
+          "descripcion": "Sin Vidrio",
+          "ancho": {
+            "modelo": {
+              "p": 1,
+              "q": 0,
+              "r": -94,
               "n": 4,
               "op": "trunc"
             },
@@ -2923,6 +3370,161 @@
         }
       ]
     },
+    "Sistema3831-Reforzado::W_O": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -2,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "1103",
+          "descripcion": "Divisor Reforzado",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -76,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -68,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -116,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -130,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -178,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -82,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 8,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 9,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
+    },
     "Sistema3831-Reforzado::WW": {
       "perfiles": [
         {
@@ -3075,6 +3677,346 @@
           "observaciones": 3
         }
       ]
+    },
+    "Sistema3831-Reforzado::WW_O": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -2,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "1103",
+          "descripcion": "Divisor Reforzado",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -76,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "1103",
+          "descripcion": "Divisor Reforzado",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -124,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -100,
+            "n": 2,
+            "op": "ceil"
+          },
+          "dispersionMm": 1,
+          "candidatos": 60,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -116,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -223,
+            "n": 2,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 60,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -178,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 8,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -82,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 9,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 10,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
+    },
+    "Sistema3831-Reforzado::WW_OO": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -2,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "1103",
+          "descripcion": "Divisor Reforzado",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -78,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "1103",
+          "descripcion": "Divisor Reforzado",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -115,
+            "n": 2,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 60,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -100,
+            "n": 2,
+            "op": "ceil"
+          },
+          "dispersionMm": 1,
+          "candidatos": 60,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -116,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -223,
+            "n": 2,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 60,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -178,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 8,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -127,
+            "n": 2,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 60,
+          "observaciones": 3
+        },
+        {
+          "orden": 9,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 10,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
     },
     "Sistema3831-Reforzado::WWW": {
       "perfiles": [
@@ -3229,6 +4171,176 @@
         }
       ]
     },
+    "Sistema3831-Reforzado::WWW_OOO": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -2,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "1103",
+          "descripcion": "Divisor Reforzado",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -78,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "1103",
+          "descripcion": "Divisor Reforzado",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -156,
+            "n": 3,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 18,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -132,
+            "n": 3,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 18,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -116,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -318,
+            "n": 3,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 18,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -178,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 8,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -174,
+            "n": 3,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 18,
+          "observaciones": 3
+        },
+        {
+          "orden": 9,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 10,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
+    },
     "Sistema3831-Reforzado::WWWW": {
       "perfiles": [
         {
@@ -3381,6 +4493,596 @@
           "observaciones": 3
         }
       ]
+    },
+    "Sistema3831-Reforzado::WWWW_OOOO": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -2,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "1103",
+          "descripcion": "Divisor Reforzado",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -78,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "1103",
+          "descripcion": "Divisor Reforzado",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -194,
+            "n": 4,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 36,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -162,
+            "n": 4,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 36,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -116,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -410,
+            "n": 4,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 36,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -178,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 8,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -218,
+            "n": 4,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 36,
+          "observaciones": 3
+        },
+        {
+          "orden": 9,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 10,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
+    },
+    "Sistema3831-Reforzado::WWWWW": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -2,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "1103",
+          "descripcion": "Divisor Reforzado",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -78,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -198,
+            "n": 5,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 15,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -70,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -132,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
+    },
+    "Sistema3831-Reforzado::WWWWW_OOOOO": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "1103",
+          "descripcion": "Divisor Reforzado",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -78,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "1103",
+          "descripcion": "Divisor Reforzado",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -238,
+            "n": 5,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 15,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -198,
+            "n": 5,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 15,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -116,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -268,
+            "n": 5,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 15,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 9,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -178,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 10,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
+    },
+    "Sistema3831-Reforzado::WWWWWW_OOOOOO": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "1101",
+          "descripcion": "Marco Perimetral",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "1103",
+          "descripcion": "Divisor Reforzado",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -78,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "1103",
+          "descripcion": "Divisor Reforzado",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -276,
+            "n": 6,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 12,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -228,
+            "n": 6,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 12,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -116,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -312,
+            "n": 6,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 12,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 9,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -178,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 10,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
     },
     "Sistema3831-Semireforzado::O": {
       "perfiles": [
@@ -3844,6 +5546,161 @@
         }
       ]
     },
+    "Sistema3831::O_W_O": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "173",
+          "descripcion": "Sillar Cabezal",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "174",
+          "descripcion": "Jamba",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "292",
+          "descripcion": "Divisor",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -26,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -32,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -82,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -120,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -20,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 8,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -58,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 9,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
+    },
     "Sistema3831::OO": {
       "perfiles": [
         {
@@ -4105,6 +5962,114 @@
         }
       ]
     },
+    "Sistema3831::OO_TOPE": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "173",
+          "descripcion": "Sillar Cabezal",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "174",
+          "descripcion": "Jamba",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -32,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -34,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": [
+        {
+          "orden": 0,
+          "descripcion": "Sin Vidrio",
+          "ancho": {
+            "modelo": {
+              "p": 1,
+              "q": 0,
+              "r": -41,
+              "n": 2,
+              "op": "trunc"
+            },
+            "dispersionMm": 1,
+            "candidatos": 60
+          },
+          "alto": {
+            "modelo": {
+              "p": 0,
+              "q": 1,
+              "r": -42,
+              "n": 1,
+              "op": "exacto"
+            },
+            "dispersionMm": 0,
+            "candidatos": 34
+          },
+          "observaciones": 3
+        }
+      ]
+    },
     "Sistema3831::OOO": {
       "perfiles": [
         {
@@ -4228,6 +6193,114 @@
         }
       ]
     },
+    "Sistema3831::OOO_TOPE": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "173",
+          "descripcion": "Sillar Cabezal",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "174",
+          "descripcion": "Jamba",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -32,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -34,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": [
+        {
+          "orden": 0,
+          "descripcion": "Sin Vidrio",
+          "ancho": {
+            "modelo": {
+              "p": 1,
+              "q": 0,
+              "r": -44,
+              "n": 3,
+              "op": "trunc"
+            },
+            "dispersionMm": 0,
+            "candidatos": 9
+          },
+          "alto": {
+            "modelo": {
+              "p": 0,
+              "q": 1,
+              "r": -42,
+              "n": 1,
+              "op": "exacto"
+            },
+            "dispersionMm": 0,
+            "candidatos": 34
+          },
+          "observaciones": 3
+        }
+      ]
+    },
     "Sistema3831::OOOO": {
       "perfiles": [
         {
@@ -4330,6 +6403,114 @@
               "p": 1,
               "q": 0,
               "r": -118,
+              "n": 4,
+              "op": "trunc"
+            },
+            "dispersionMm": 1,
+            "candidatos": 36
+          },
+          "alto": {
+            "modelo": {
+              "p": 0,
+              "q": 1,
+              "r": -42,
+              "n": 1,
+              "op": "exacto"
+            },
+            "dispersionMm": 0,
+            "candidatos": 34
+          },
+          "observaciones": 3
+        }
+      ]
+    },
+    "Sistema3831::OOOO_TOPE": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "173",
+          "descripcion": "Sillar Cabezal",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "174",
+          "descripcion": "Jamba",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -26,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -34,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": [
+        {
+          "orden": 0,
+          "descripcion": "Sin Vidrio",
+          "ancho": {
+            "modelo": {
+              "p": 1,
+              "q": 0,
+              "r": -46,
               "n": 4,
               "op": "trunc"
             },
@@ -4735,6 +6916,161 @@
         }
       ]
     },
+    "Sistema3831::W_O": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "173",
+          "descripcion": "Sillar Cabezal",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "174",
+          "descripcion": "Jamba",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "292",
+          "descripcion": "Divisor",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -26,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -32,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -82,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -102,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -20,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 8,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -40,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 9,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
+    },
     "Sistema3831::WW": {
       "perfiles": [
         {
@@ -4887,6 +7223,346 @@
           "observaciones": 3
         }
       ]
+    },
+    "Sistema3831::WW_O": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "173",
+          "descripcion": "Sillar Cabezal",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "174",
+          "descripcion": "Jamba",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "292",
+          "descripcion": "Divisor",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -26,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "292",
+          "descripcion": "Divisor",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -46,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -147,
+            "n": 2,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 60,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -100,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -32,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 8,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -25,
+            "n": 2,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 60,
+          "observaciones": 3
+        },
+        {
+          "orden": 9,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -39,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 10,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
+    },
+    "Sistema3831::WW_OO": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "173",
+          "descripcion": "Sillar Cabezal",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "174",
+          "descripcion": "Jamba",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "292",
+          "descripcion": "Divisor",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -39,
+            "n": 2,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 60,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -149,
+            "n": 2,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 60,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -100,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -51,
+            "n": 2,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 60,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -27,
+            "n": 2,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 60,
+          "observaciones": 3
+        },
+        {
+          "orden": 8,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -39,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 9,
+          "ref": "175",
+          "descripcion": "Adaptador-Acople",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 10,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
     },
     "Sistema3831::WWW": {
       "perfiles": [
@@ -5041,6 +7717,176 @@
         }
       ]
     },
+    "Sistema3831::WWW_OOO": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "173",
+          "descripcion": "Sillar Cabezal",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "174",
+          "descripcion": "Jamba",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "292",
+          "descripcion": "Divisor",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -54,
+            "n": 3,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 18,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -219,
+            "n": 3,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 18,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -100,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -72,
+            "n": 3,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 18,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -33,
+            "n": 3,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 18,
+          "observaciones": 3
+        },
+        {
+          "orden": 8,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -39,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 9,
+          "ref": "175",
+          "descripcion": "Adaptador-Acople",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 10,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
+    },
     "Sistema3831::WWWW": {
       "perfiles": [
         {
@@ -5193,6 +8039,176 @@
           "observaciones": 3
         }
       ]
+    },
+    "Sistema3831::WWWW_OOOO": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "173",
+          "descripcion": "Sillar Cabezal",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "174",
+          "descripcion": "Jamba",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "292",
+          "descripcion": "Divisor",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -66,
+            "n": 4,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 36,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -286,
+            "n": 4,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 36,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -100,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -90,
+            "n": 4,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 36,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -38,
+            "n": 4,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 36,
+          "observaciones": 3
+        },
+        {
+          "orden": 8,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -39,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 9,
+          "ref": "175",
+          "descripcion": "Adaptador-Acople",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 10,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
     },
     "Sistema3831::WWWWW": {
       "perfiles": [
@@ -5347,6 +8363,176 @@
         }
       ]
     },
+    "Sistema3831::WWWWW_OOOOO": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "173",
+          "descripcion": "Sillar Cabezal",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "174",
+          "descripcion": "Jamba",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "292",
+          "descripcion": "Divisor",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -78,
+            "n": 5,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 15,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -358,
+            "n": 5,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 15,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -100,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -113,
+            "n": 5,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 15,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -48,
+            "n": 5,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 15,
+          "observaciones": 3
+        },
+        {
+          "orden": 8,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -39,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 9,
+          "ref": "175",
+          "descripcion": "Adaptador-Acople",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 10,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
+    },
     "Sistema3831::WWWWWW": {
       "perfiles": [
         {
@@ -5499,6 +8685,176 @@
           "observaciones": 3
         }
       ]
+    },
+    "Sistema3831::WWWWWW_OOOOOO": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "173",
+          "descripcion": "Sillar Cabezal",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "174",
+          "descripcion": "Jamba",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "292",
+          "descripcion": "Divisor",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -93,
+            "n": 6,
+            "op": "trunc"
+          },
+          "dispersionMm": 0,
+          "candidatos": 6,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -426,
+            "n": 6,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 12,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -100,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -132,
+            "n": 6,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 12,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "177",
+          "descripcion": "Pisavidrio (vid 4,5,6mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": -54,
+            "n": 6,
+            "op": "trunc"
+          },
+          "dispersionMm": 1,
+          "candidatos": 12,
+          "observaciones": 3
+        },
+        {
+          "orden": 8,
+          "ref": "176",
+          "descripcion": "Marco Nave",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -39,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 9,
+          "ref": "175",
+          "descripcion": "Adaptador-Acople",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -28,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 10,
+          "ref": "332",
+          "descripcion": "Alfajia 7.6 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
     },
     "Sistema5020::OX": {
       "perfiles": [
@@ -9985,6 +13341,131 @@
         }
       ]
     },
+    "Sistema7038-Interior::OXXXXXXO2": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "700",
+          "descripcion": "Cabezal",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "701",
+          "descripcion": "Sillar Plano",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "702",
+          "descripcion": "Jamba",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -35,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "840",
+          "descripcion": "Adaptador-Acople",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -45,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "705",
+          "descripcion": "Enganche (vid 6,8mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -45,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "704",
+          "descripcion": "Traslape (vid 6,8mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -45,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "703",
+          "descripcion": "Horizontal (vid 6,8mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 298,
+            "n": 8,
+            "op": "ceil"
+          },
+          "dispersionMm": 1,
+          "candidatos": 12,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "413",
+          "descripcion": "Alfajia 16 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
+    },
     "Sistema7038-Interior::XM": {
       "perfiles": [
         {
@@ -11769,6 +15250,131 @@
           "observaciones": 3
         }
       ]
+    },
+    "Sistema7038-Interior::XXXXXXXX2": {
+      "perfiles": [
+        {
+          "orden": 0,
+          "ref": "700",
+          "descripcion": "Cabezal",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 1,
+          "ref": "701",
+          "descripcion": "Sillar Plano",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 2,
+          "ref": "702",
+          "descripcion": "Jamba",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -35,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 3,
+          "ref": "840",
+          "descripcion": "Adaptador-Acople",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -45,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 4,
+          "ref": "705",
+          "descripcion": "Enganche (vid 6,8mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -45,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 5,
+          "ref": "704",
+          "descripcion": "Traslape (vid 6,8mm)",
+          "modelo": {
+            "p": 0,
+            "q": 1,
+            "r": -45,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        },
+        {
+          "orden": 6,
+          "ref": "703",
+          "descripcion": "Horizontal (vid 6,8mm)",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 290,
+            "n": 8,
+            "op": "ceil"
+          },
+          "dispersionMm": 1,
+          "candidatos": 12,
+          "observaciones": 3
+        },
+        {
+          "orden": 7,
+          "ref": "413",
+          "descripcion": "Alfajia 16 cm",
+          "modelo": {
+            "p": 1,
+            "q": 0,
+            "r": 0,
+            "n": 1,
+            "op": "exacto"
+          },
+          "dispersionMm": 0,
+          "candidatos": 34,
+          "observaciones": 3
+        }
+      ],
+      "vidrios": []
     },
     "Sistema744::MXX": {
       "perfiles": [

@@ -2954,6 +2954,84 @@ en local): 3 casos, HTTP 200, medidas enteras y una sola advertencia por ítem.
 (el scratchpad que lo generaba no existe): deuda preexistente desde 2026-09-11, no introducida
 aquí. Mientras siga así, no protege de regresiones.
 
+---
+
+## 2026-09-13 (2) — Cotizador: Fase 1 de importación de diseños faltantes (25 diseños)
+
+### Encargo
+Importar los diseños faltantes de 3831, 3831-Reforzado, 3831-Persiana, 7038-Exterior, 744,
+5020, 8025, 5020-Reforzado, 7038-Interior + Fachadas, Pasamanos, Koncept, Optiglass, Puertas
+Batientes. Se hizo la Fase 1 (la que no requiere conseguir ningún dato nuevo).
+
+### El análisis de viabilidad tumbó la cifra de "352 faltantes" a lo realmente importable
+Un diseño sólo cotiza si cada perfil tiene su código Templex por color (`codigos_por_color`).
+Ese mapeo NO vive en ningún archivo del repo (se hizo fuera; sólo quedó el resultado dentro de
+`disenos.json`), así que para diseños nuevos sólo se puede REUTILIZAR el de diseños gemelos ya
+en producción. Midiendo eso:
+- De 352 "faltantes", sólo **141 cotizaban** con el mapeo existente; 134 parciales; 40 sin nada.
+- Y de esos, muchos eran **degenerados**: el extractor de AlumSoftware los dejó con un solo
+  perfil (una "Alfajía") sin vidrio ni marco. Importarlos cotizaría un perfil suelto.
+
+Filtrando por criterio estricto (≥4 perfiles con fórmula, ≥1 vidrio, todas las refs mapeadas en
+el mismo sistema, códigos con precio, y la invariante del proyecto `parser.paneles === nº de
+paños`), la Fase 1 quedó en **26 candidatos**, y una última verificación quitó 1 más:
+
+### Los filtros, en orden (cada uno atrapó algo real)
+1. **Completos**: descarta 76 degenerados (1 perfil/0 vidrios) + 5 sin perfiles (los "M" de marco).
+2. **Refs mapeadas + con precio**: todas las de los candidatos ya existían en su sistema.
+3. **`parser.paneles === nº de paños`**: descarta 12 diseños con batiente/proyectante EN LÍNEA
+   (OB, OW, OBO, BOB…) donde el nº de paneles ≠ nº de paños facturables — divergencia legítima
+   que rompería la invariante de `codigoDiseno.test.ts` y que `cotizarPorDiseno` (que deriva
+   `cuerpos` de parsearCodigo) no repartiría bien. Se apartan para una decisión de modelo aparte.
+4. **Perfil con medida válida a tamaño normal**: descarta `Sistema3831-Reforzado::WWWWWW`, cuyo
+   perfil "Marco Nave" da 0 mm a medida estándar (necesita un parámetro que el formulario no pide).
+
+Resultado: **25 diseños importados** — Sistema3831 (11), Sistema3831-Reforzado (13),
+Sistema7038-Interior (1... en realidad 2: OXXXXXXO2, XXXXXXXX2). Los 25 cotizan con precio
+correcto (perfilería + vidrio por fórmulas verificadas), copiando `codigos_por_color`,
+`ref`/`ref_original` y `es_alfajia` de sus perfiles gemelos ya en producción.
+
+### Un susto que resultó ser comportamiento preexistente
+El gate de verificación marcó "área de vidrio = 0" en los 26. Resultó que **los 3831 que YA
+estaban en producción (O, OO, OOO, W, WW) también dan área 0**: el sistema 3831 usa vidrio "Sin
+Vidrio" y el área siempre sale 0 en este modelo (el vidrio se maneja aparte). Los nuevos se
+comportan idéntico a sus hermanos. No era una regresión; era un criterio de gate equivocado.
+
+### Mecánica y artefactos
+- `scripts/2026-09-13_importar_disenos_fase1.ts` — dry-run por defecto, `--aplicar`, `--revertir`.
+  Deriva la lista por criterio (no hardcodea), inserta en transacción con verificación pre-commit,
+  registra los ids en `datos_cotizador/importados_fase1_2026-09-13.json`.
+- **`paneles` y `etiqueta`**: se derivan aquí, no con parsearCodigo (que falla en apilados mixtos
+  como W_O). `paneles` = nº de paños (invariante del proyecto); `etiqueta` = derivación propia por
+  filas ("Proyectante + …  |  Fijo + …").
+- Se amplió `cotizador.diseno.etiqueta` de VARCHAR(120) a **200**: la etiqueta de WWWWWW_OOOOOO
+  llega a 125 chars. Cambio aditivo, no reescribe la tabla.
+- Tras importar se re-corrió reconstruir + aplicar de modelos de corte (los 25 nuevos obtienen
+  sus modelos y niveles). Muchos quedan en nivel B/C, igual que sus hermanos 3831.
+- **`disenos.json` sincronizado**: se añadieron los 25 (de 138 a 163), preservando los 138
+  byte a byte (diff +5510/−1, sólo al final). Es la semilla del sembrador: sin esto, un re-seed
+  los borraría. No incluye `modelo_*` — igual que los 138, los modelos se aplican aparte a la BD.
+
+### Estado tras la Fase 1
+Catálogo: **163 diseños** (138 + 25). Niveles: A=15, B=124, C=24.
+
+### Verificación
+`tsc` OK. **37/37 en test:cotizador** con los centinelas actualizados a 163 — incluye las
+invariantes sobre los 25 nuevos: `parser.paneles === paños`, `paneles guardado === parser`,
+plano no lanza y su geometría suma el exterior (±0,01 mm) a 2400×1800 en los 163. Verificación
+en memoria: los 25 cotizan con total>0 y sin ítems en error, del mismo orden que sus hermanos.
+
+### Lo que queda para Fase 2 y 3 (no hecho)
+- **Fase 2** (necesita datos): ~35 referencias de perfil nuevas de 744/5020/8025/5020-Reforzado.
+  Con el código Templex por color de cada una, entran ~92 diseños más.
+- **Apartados de Fase 1** (decisión de modelo): 12 diseños con batiente/proyectante en línea
+  (OB, OW, OBO, BOB, OWO, WOW, OB_O, BO_O, O_W_O, OXXXXXXO_3P) — su nº de paneles ≠ nº de paños.
+- **Fase 3** (proyectos de catálogo desde cero): 3831-Persiana, 7038-Exterior, Fachadas,
+  Pasamanos, Koncept, Optiglass, Puertas Batientes — validar mapeo y armar precios sistema a
+  sistema. Fachada de Acero NO tiene fórmulas en el origen (imposible importar).
+- Los 25 nuevos, como sus hermanos 3831, cotizan área de vidrio 0 (el vidrio va aparte) y quedan
+  mayormente en nivel B/C — sirven para cotizar, no directamente para orden de corte.
+
 ### Hallazgo sin explotar: hay 423 diseños sin importar
 El origen tiene **561 diseños con fórmulas** frente a los 138 del ERP. Entre lo que falta:
 `Sistema7038-Exterior` completo (29, cero importados), `Sistema3831-Persiana` (31, cero),
@@ -2962,3 +3040,49 @@ el **despiece de accesorios por diseño** con cantidades — 54 accesorios disti
 diseños actuales, incluidos los del 7038 que hoy no se cobran (`Guia 7038`, `Rodamiento 7038`,
 `E7038_6mm Empaque monumental 6mm`, felpa, tornillería). Hoy esos accesorios salen de mapas
 escritos a mano por módulo (`CATALOGO_SISTEMAS`). No se tocó nada de esto.
+
+---
+
+## 2026-09-13 (3) — Cotizador: diagnóstico de la aptitud para orden de corte (cotización #5)
+
+### Encargo
+El usuario mostró la cotización #5 con mensajes en rojo y los botones "No imprimible", y pidió
+"corregir esos errores".
+
+### Diagnóstico: ninguno es un bug
+Son el **semáforo de aptitud para orden de corte** (`cotizador/lib/aptitudOrden.ts`, 8 condiciones)
+funcionando como se diseñó. La cotización está bien: cotiza, da precio y está APROBADA
+($1.405.551). Lo único que esos mensajes bloquean es **imprimir la orden de corte definitiva**
+para el taller, que exige garantías extra que una cotización comercial no necesita. Contrastado
+contra la BD:
+
+- **Ítem "proyectantes"** → `diseno_id = null`, sin despiece (`SIN_DESPIECE_POR_DISENO`, cond. 2).
+  Se cotizó a medida libre / tablero, sin elegir un diseño con despiece. No hay piezas que cortar.
+  Correcto.
+- **Ítem "ventanas"** → diseño `Sistema5020::OX`, nivel **B**, holgura global aplicada. Tres
+  motivos con una raíz única — **el Sistema5020 nunca se ha calibrado**:
+  - `NIVEL_NO_VALIDADO` (cond. 3): el OX es nivel B porque 2 de sus 9 piezas (perfil Horizontal
+    `148` y el paño de vidrio) salen de una división cuyo redondeo el sistema no conoce (±1 mm).
+  - `NO_APTO_PARA_CORTE` (cond. 5): redundante — `motorDespiece.ts:360` define
+    `aptoParaCorte = nivelCorte === "A"`; al ser B, cae solo.
+  - `SISTEMA_NO_EN_PRODUCCION` (cond. 7): confirmado en BD — `calibracion_sistema` 0 filas,
+    `calibracion_margen` 0, `calibracion_contraste` 0. Inventario 5020 = 8 perfiles + vidrio = 9
+    piezas, 0 con margen → `EN_CALIBRACION`, "0 de 9 piezas calibradas".
+
+### Hallazgo estructural → `TECH_DEBT.md` 2026-09-13
+El módulo de calibración está **a medio construir**: existen tablas, matemática (`calibracion.ts`)
+y getters de lectura (`calibracionStore.ts`/`cache`), pero **no hay controller de escritura, ni
+rutas `/calibracion`, ni pantalla frontend**. Los mensajes remiten a "/calibracion", que no existe.
+Hoy, desde la app, es imposible registrar contrastes del maestro, aprobar márgenes, identificar
+fórmulas nivel B, firmar o marcar un sistema `EN_PRODUCCION`.
+
+### Dos bloqueos distintos (no confundir)
+Marcar el 5020 `EN_PRODUCCION` **no** haría imprimible el OX: seguiría bloqueado por su nivel B
+(cond. 3 y 5) hasta identificar la fórmula. El nivel del diseño y el estado del sistema son
+bloqueos independientes.
+
+### Decisión del usuario
+Ante las opciones de alcance (construir la calibración / desbloqueo mínimo piloto / dejar y
+documentar), eligió **"dejarlo, sólo documentar"**. No se tocó código. Se documenta el estado y
+lo que falta aquí y en `TECH_DEBT.md`. El semáforo es correcto; lo pendiente es real: completar
+la capa de escritura de calibración (varios días + medidas del maestro).
