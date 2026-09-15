@@ -3469,3 +3469,71 @@ pendiente sin contar como abono) — con ese término, cuadra exacto.
 No era un bug. El campo `pendiente` ya refleja el saldo restante real en el 100% de la muestra
 verificada contra la BD. Sin cambios de código — solo el script de verificación queda en
 `backend-api/src/scripts/`.
+
+---
+
+## 2026-09-15 (3) — Pedidos PV: KPIs reformados (vencidos, daño sin reponer, desglose por proveedor) y fix de m² Vendidos
+
+### Reporte del usuario
+Tres pedidos encadenados sobre la pantalla "Pedidos PV" (`/pedidos-pv`, tab Gestión PV):
+1. El KPI "Con Retraso" debía sustituirse por pedidos vencidos según `fecha_entrega_prometida`
+   (hora Bogotá) que aún no han llegado, con modal al hacer clic.
+2. "Total Pedidos" y "m² Vendidos" debían mostrar un desglose por proveedor con filtro de fecha;
+   "Verificados" debía mostrar los pedidos con daño sin reposición.
+3. Al explicar el KPI "m² Vendidos", el usuario notó que la tabla sí mostraba m² en filas donde
+   yo había dicho que el dato estaba vacío — llevó a encontrar un bug real de fondo.
+
+### Cambio 1 — "Con Retraso" → "Vencidos sin Llegar"
+`dias_diferencia` (KPI viejo) solo se calcula al `registrarLlegada`: medía pedidos que **ya
+llegaron** tarde, no vencimiento activo. Se mantuvo intacto (sigue pintando de rojo filas y
+alimentando el toggle "Mostrar solo retrasos" — concepto correcto y ya usado en otros 3 lugares
+de la pantalla) y se agregó uno nuevo e independiente: `condicionVencidoSinLlegar()` en
+`pedido_pv.controller.ts` — `fecha_llegada_real IS NULL AND fecha_entrega_prometida < hoyBogotaISO()`
+(reutiliza `hoyBogotaISO()` de `utils/crmSupervision.ts`, UTC-5 fijo). Filtro nuevo
+`vencido_sin_llegar` en `construirWherePedidosPV`/`getPedidosPV`. KPI clicable → modal con la
+lista (ODP clicable a `ODPFichaModal`, días vencido calculado en frontend con el mismo criterio
+Bogotá, solo para mostrar).
+
+### Cambio 2 — "Verificados" → "Con Daño Sin Reponer" + desglose por proveedor
+- `getPedidosPVKpis`: `verificados` (estado `VERIFICADO`) reemplazado por `conDanoSinReponer`
+  (estado `PROBLEMA` — un pedido sale de ese estado apenas se completa la reposición, así que el
+  estado solo ya es "tuvo daño y sigue sin resolver"). Se perdió la métrica de verificados a
+  propósito, decisión del usuario tras comparar alternativas.
+- Nuevo endpoint `GET /api/pedidos-pv/kpis/por-proveedor` (`GROUP BY proveedor`, rango opcional
+  sobre `fecha_envio` — DATEONLY, comparación directa sin `::date`). "Total Pedidos" y "m²
+  Vendidos" ahora son clicables y abren el mismo modal (date pickers Desde/Hasta + tabla
+  Proveedor/Pedidos/m², fila de totales). Elegido `fecha_envio` sobre `creado_en` a pedido
+  explícito del usuario, pese a que dejaba fuera del rango a los pedidos aún `PENDIENTE` (nota
+  visible en el modal).
+- "En Tránsito" recoloreado de naranja a azul para no repetir el naranja de la tarjeta nueva.
+
+### Cambio 3 — m² Vendidos sumaba el campo equivocado
+La columna "m²" de la tabla usa `calcM2Pedido` (frontend): si el pedido tiene ítems asignados,
+calcula el metraje real de sus medidas (`ancho_mm × alto_mm × cantidad`); si no tiene ítems, cae
+al campo manual `metraje_venta`. El KPI (y el desglose por proveedor recién agregado) sumaban
+`SUM(metraje_venta)` a secas — ignoraban por completo el metraje calculado, que es la fuente real
+para la mayoría de los pedidos (los que ya tienen ítems). Se agregó `M2_PEDIDO_SQL` en
+`pedido_pv.controller.ts`, misma fórmula que `calcM2Pedido` traducida a SQL (subquery
+correlacionada por pedido; `cantidad` usa el mismo fallback a 1 —no a 0— que el frontend cuando
+viene NULL o en 0), y se reemplazó el `SUM` en ambos endpoints.
+
+**Verificado contra Supabase (solo lectura, scripts descartados tras la corrida):** el m² real
+salta de 14.90 a **1.661,73** (Vitelsa 1.591,28 sobre 351 pedidos, Templacol 70,46 sobre 18) — el
+dato manual casi nunca se llenaba, así que el KPI venía subestimando el metraje vendido casi por
+completo desde siempre, no fue una regresión de esta sesión.
+
+### Casos borde documentados
+- Pedidos `PROBLEMA` en reposición con `fecha_reposicion_prometida` vencida **no** cuentan como
+  "vencidos sin llegar" (el vidrio original sí llegó) ni el KPI actual los alerta por esa fecha —
+  decisión explícita: si hace falta, es un KPI aparte a futuro.
+- El desglose por proveedor excluye pedidos aún sin `fecha_envio` en cuanto se aplica un rango.
+
+### Verificación
+`npm run build` backend (tsc) y `tsc --noEmit` frontend, 0 errores en ambos, en cada uno de los 3
+cambios. Query de `getPedidosPVPorProveedor` y de `M2_PEDIDO_SQL` corridas en vivo contra Supabase
+antes de dar el fix por cerrado (scripts temporales en `src/scripts/`, borrados tras la corrida —
+no quedaron en el repo).
+
+### Pendiente
+- Verificación visual del usuario en navegador: los 3 modales nuevos y el salto del número de
+  "m² Vendidos" (para que no lo lea como un dato raro al verlo el lunes).

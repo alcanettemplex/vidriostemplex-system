@@ -5,6 +5,7 @@ import {
   getPedidosPV,
   getPedidoPV,
   getPedidosPVKpis,
+  getPedidosPVPorProveedor,
   getPedidosPVOpcionesFiltro,
   createPedidoPV,
   updatePedidoPV,
@@ -31,6 +32,7 @@ router.get('/siguiente-numero', getSiguienteNumero);
 router.get('/por-gestionar', getPorGestionar);
 // Declaradas antes de '/:id' — si no, Express las confunde con un :id literal.
 router.get('/kpis', getPedidosPVKpis);
+router.get('/kpis/por-proveedor', getPedidosPVPorProveedor);
 router.get('/opciones-filtro', getPedidosPVOpcionesFiltro);
 router.get('/:id', getPedidoPV);
 

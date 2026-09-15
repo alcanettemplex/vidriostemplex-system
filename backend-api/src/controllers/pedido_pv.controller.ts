@@ -9,6 +9,7 @@ import { emitirNotificacion } from '../server';
 import { withUniqueRetry } from '../utils/withUniqueRetry';
 import { esTemplacol, bloquesPorProveedor, proveedorParaFormato, mismoProveedor } from '../utils/pedidoPvCapacidad';
 import { recalcularChecksODP } from '../utils/checksAutomaticos';
+import { hoyBogotaISO } from '../utils/crmSupervision';
 
 // ─── Esquema de validación ────────────────────────────────────────────────────
 
@@ -87,6 +88,16 @@ interface FiltrosPedidosPV {
   // de Excel) ni con `creador` (quien creó el registro del pedido PV en el sistema).
   asesor?: string;
   solo_retrasos?: string | boolean;
+  // Vencidos sin llegar: `fecha_entrega_prometida` ya pasó (hora Bogotá) y el pedido
+  // todavía no registra llegada. Concepto independiente de `solo_retrasos`
+  // (`dias_diferencia < 0`, que mide qué tan tarde llegó un pedido que YA llegó) — un
+  // pedido puede estar vencido sin llegar sin tener `dias_diferencia` todavía.
+  vencido_sin_llegar?: string | boolean;
+  // Rango sobre `fecha_envio` (DATEONLY — comparación directa, sin cast `::date`) para
+  // el desglose por proveedor. Un pedido que sigue PENDIENTE no tiene `fecha_envio`
+  // todavía, así que queda fuera de cualquier rango hasta que se marque enviado.
+  fecha_envio_desde?: string;
+  fecha_envio_hasta?: string;
   // Excluye pedidos SISTEMA que siguen en la pestaña "Por Gestionar" (PENDIENTE y sin
   // ítems asignados) — mismo criterio que `estaPorGestionar` en el frontend y que
   // `getPorGestionar` en este archivo.
@@ -94,6 +105,34 @@ interface FiltrosPedidosPV {
 }
 
 const esTrue = (v: string | boolean | undefined) => v === true || v === 'true';
+
+// m² real de un pedido — misma fórmula que `calcM2Pedido` en PedidosPVPage.tsx (columna
+// "m²" de la tabla): si el pedido ya tiene ítems asignados desde la ODP, el metraje sale
+// de sus medidas reales (ancho × alto × cantidad); si no tiene ítems, cae al dato manual
+// `metraje_venta`. Duplicada en SQL porque el frontend la calcula fila por fila sobre
+// datos ya cargados, mientras el backend necesita sumarla sobre muchos pedidos sin traer
+// todos los ítems al cliente. `cantidad` usa el mismo fallback a 1 (no a 0) que el
+// frontend cuando viene NULL o en 0.
+const M2_PEDIDO_SQL = `
+  CASE WHEN EXISTS (SELECT 1 FROM odp_items oi WHERE oi.pedido_pv_id = "PedidoPV"."id")
+    THEN (
+      SELECT COALESCE(SUM(
+        COALESCE(oi.ancho_mm, 0) * COALESCE(oi.alto_mm, 0) / 1000000.0 * COALESCE(NULLIF(oi.cantidad, 0), 1)
+      ), 0)
+      FROM odp_items oi WHERE oi.pedido_pv_id = "PedidoPV"."id"
+    )
+    ELSE COALESCE("PedidoPV"."metraje_venta", 0)
+  END
+`;
+
+// Condición compartida entre el listado y los KPIs para "vencido sin llegar" — ver
+// nota en `FiltrosPedidosPV.vencido_sin_llegar`. `hoyBogotaISO()` fija el corte en
+// UTC-5 (Colombia no observa horario de verano) para que no dependa de la zona
+// horaria del servidor.
+const condicionVencidoSinLlegar = () => ({
+  fecha_llegada_real: null,
+  fecha_entrega_prometida: { [Op.ne]: null, [Op.lt]: hoyBogotaISO() },
+});
 
 const construirWherePedidosPV = (f: FiltrosPedidosPV) => {
   const and: Record<string, unknown>[] = [];
@@ -104,6 +143,9 @@ const construirWherePedidosPV = (f: FiltrosPedidosPV) => {
   if (f.origen) and.push({ origen: f.origen });
   if (f.asesor) and.push({ '$odp.asesor.nombre_completo$': f.asesor });
   if (esTrue(f.solo_retrasos)) and.push({ dias_diferencia: { [Op.lt]: 0 } });
+  if (esTrue(f.vencido_sin_llegar)) and.push(condicionVencidoSinLlegar());
+  if (f.fecha_envio_desde) and.push({ fecha_envio: { [Op.gte]: f.fecha_envio_desde } });
+  if (f.fecha_envio_hasta) and.push({ fecha_envio: { [Op.lte]: f.fecha_envio_hasta } });
 
   if (f.search) {
     const like = { [Op.iLike]: `%${f.search}%` };
@@ -177,7 +219,7 @@ const sincronizarCheckVidrio = async (
 export const getPedidosPV = async (req: Request, res: Response) => {
   try {
     const {
-      estado, proveedor, odp_id, origen, search, asesor, solo_retrasos, excluir_por_gestionar,
+      estado, proveedor, odp_id, origen, search, asesor, solo_retrasos, vencido_sin_llegar, excluir_por_gestionar,
       page: pageRaw, limit: limitRaw,
     } = req.query;
     const page = Math.max(1, parseInt(pageRaw as string) || 1);
@@ -192,6 +234,7 @@ export const getPedidosPV = async (req: Request, res: Response) => {
       search: search as string,
       asesor: asesor as string,
       solo_retrasos: solo_retrasos as string,
+      vencido_sin_llegar: vencido_sin_llegar as string,
       excluir_por_gestionar: excluir_por_gestionar as string,
     });
 
@@ -237,20 +280,77 @@ export const getPedidosPVKpis = async (req: Request, res: Response) => {
       ],
     }];
 
-    const [total, verificados, enTransito, conRetraso, metrajeTotal] = await Promise.all([
+    const [total, conDanoSinReponer, enTransito, vencidosSinLlegar, metrajeTotal] = await Promise.all([
       PedidoPV.count({ where, include: includeFiltro }),
-      PedidoPV.count({ where: { [Op.and]: [where, { estado: 'VERIFICADO' }] }, include: includeFiltro }),
+      // "Con daño sin reponer" — un pedido sale de PROBLEMA justo cuando se completa la
+      // reposición (`registrarReposicion` lo devuelve a LLEGADO), así que el estado por
+      // sí solo ya es "tuvo daño y sigue sin resolver".
+      PedidoPV.count({ where: { [Op.and]: [where, { estado: 'PROBLEMA' }] }, include: includeFiltro }),
       PedidoPV.count({ where: { [Op.and]: [where, { estado: { [Op.in]: ['ENVIADO', 'CONFIRMADO_PROVEEDOR'] } }] }, include: includeFiltro }),
-      PedidoPV.count({ where: { [Op.and]: [where, { dias_diferencia: { [Op.lt]: 0 } }] }, include: includeFiltro }),
-      // El tipado de Sequelize para `.sum()` no declara `include` (sí lo acepta en
-      // runtime, igual que `.count()`) — se castea como en el resto del archivo.
-      PedidoPV.sum('metraje_venta', { where, include: includeFiltro } as any),
+      // "Vencidos sin llegar" — no confundir con `dias_diferencia` (qué tan tarde llegó
+      // un pedido que YA llegó): ver `condicionVencidoSinLlegar`.
+      PedidoPV.count({ where: { [Op.and]: [where, condicionVencidoSinLlegar()] }, include: includeFiltro }),
+      // `PedidoPV.sum('metraje_venta', ...)` ignoraba el metraje calculado de los ítems
+      // asignados (la mayoría de los pedidos): ver `M2_PEDIDO_SQL`. `findOne` con
+      // `attributes` a medida en vez de `.sum()` porque necesita agregar una expresión,
+      // no una columna simple.
+      PedidoPV.findOne({
+        where, include: includeFiltro, raw: true,
+        attributes: [[sequelize.fn('SUM', sequelize.literal(M2_PEDIDO_SQL)), 'metraje']],
+      }),
     ]);
 
-    res.json({ total, verificados, enTransito, conRetraso, metraje: Number(metrajeTotal || 0) });
+    res.json({ total, conDanoSinReponer, enTransito, vencidosSinLlegar, metraje: Number((metrajeTotal as any)?.metraje || 0) });
   } catch (error) {
     console.error('Error getPedidosPVKpis:', error);
     res.status(500).json({ error: 'Error al obtener KPIs de pedidos PV' });
+  }
+};
+
+// GET /api/pedidos-pv/kpis/por-proveedor — desglose de "Total Pedidos" / "m² Vendidos"
+// por proveedor, con rango opcional de `fecha_envio`. Mismo scope y mismos filtros de
+// pantalla que `getPedidosPVKpis` (para que, sin rango, la suma coincida con esos KPIs).
+export const getPedidosPVPorProveedor = async (req: Request, res: Response) => {
+  try {
+    const { estado, search, asesor, fecha_envio_desde, fecha_envio_hasta } = req.query;
+    const where = construirWherePedidosPV({
+      origen: 'SISTEMA',
+      excluir_por_gestionar: 'true',
+      estado: estado as string,
+      search: search as string,
+      asesor: asesor as string,
+      fecha_envio_desde: fecha_envio_desde as string,
+      fecha_envio_hasta: fecha_envio_hasta as string,
+    });
+    const includeFiltro = [{
+      model: ODP, as: 'odp', attributes: [], required: false,
+      include: [
+        { model: Cliente, as: 'cliente', attributes: [], required: false },
+        { model: Usuario, as: 'asesor', attributes: [], required: false },
+      ],
+    }];
+
+    const filas = await PedidoPV.findAll({
+      where,
+      attributes: [
+        'proveedor',
+        [sequelize.fn('COUNT', sequelize.col('PedidoPV.id')), 'totalPedidos'],
+        [sequelize.fn('SUM', sequelize.literal(M2_PEDIDO_SQL)), 'metraje'],
+      ],
+      include: includeFiltro,
+      group: ['PedidoPV.proveedor'],
+      order: [[literal('"totalPedidos"'), 'DESC']],
+      raw: true,
+    }) as unknown as { proveedor: string; totalPedidos: string; metraje: string }[];
+
+    res.json(filas.map((f) => ({
+      proveedor: f.proveedor,
+      totalPedidos: Number(f.totalPedidos),
+      metraje: Number(f.metraje),
+    })));
+  } catch (error) {
+    console.error('Error getPedidosPVPorProveedor:', error);
+    res.status(500).json({ error: 'Error al obtener el desglose por proveedor' });
   }
 };
 

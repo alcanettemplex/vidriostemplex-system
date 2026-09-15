@@ -70,6 +70,15 @@ const fmtFecha = (fecha: string | null) => {
 
 const fmtHora = (hora: string | null) => hora ? hora.substring(0, 5) : '—';
 
+// Días vencido para el modal "Vencidos sin Llegar" — solo para mostrar en pantalla,
+// el filtrado real ya lo hace el backend con `hoyBogotaISO()` (mismo criterio: Bogotá
+// fija UTC-5 todo el año, sin horario de verano). `fecha_entrega_prometida` es
+// DATEONLY ("YYYY-MM-DD"): parsear ambos lados como medianoche UTC evita que la zona
+// horaria del navegador del usuario corra el conteo un día.
+const hoyBogotaISO = () => new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString().split('T')[0];
+const diasVencido = (fechaPrometida: string) =>
+  Math.floor((new Date(hoyBogotaISO()).getTime() - new Date(fechaPrometida).getTime()) / (1000 * 60 * 60 * 24));
+
 const toFloat = (v: unknown) => parseFloat(String(v ?? 0)) || 0;
 
 const ESTADO_CONFIG: Record<string, {
@@ -162,8 +171,14 @@ const ESTADO_ORDEN: Record<string, number> = Object.fromEntries(
 const KPICard: React.FC<{
   label: string; value: string | number; sub: string;
   icon: React.ReactNode; color: string; bgColor: string;
-}> = ({ label, value, sub, icon, color, bgColor }) => (
-  <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, flex: 1, minWidth: 150 }}>
+  onClick?: () => void;
+}> = ({ label, value, sub, icon, color, bgColor, onClick }) => (
+  <Card elevation={0} onClick={onClick} sx={{
+    border: '1px solid', borderColor: 'divider', borderRadius: 2, flex: 1, minWidth: 150,
+    cursor: onClick ? 'pointer' : 'default',
+    transition: 'border-color .15s, box-shadow .15s',
+    ...(onClick ? { '&:hover': { borderColor: color, boxShadow: 1 } } : {}),
+  }}>
     <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
         <Box>
@@ -293,7 +308,26 @@ const PedidosPVPage: React.FC = () => {
   // KPIs Gestión PV — agregados en servidor con los mismos filtros aplicados a la
   // tabla (antes se calculaban sumando solo la página cargada: "Total Pedidos" mostraba
   // como mucho 100 aunque hubiera cientos de pedidos reales).
-  const [kpis, setKpis] = useState({ total: 0, verificados: 0, enTransito: 0, conRetraso: 0, metraje: 0 });
+  const [kpis, setKpis] = useState({ total: 0, conDanoSinReponer: 0, enTransito: 0, vencidosSinLlegar: 0, metraje: 0 });
+
+  // Modal "Vencidos sin Llegar" — lista los pedidos que componen ese KPI, con los
+  // mismos filtros activos de la tabla (mismo criterio que el número del KPI).
+  const [modalVencidos, setModalVencidos] = useState(false);
+  const [pedidosVencidos, setPedidosVencidos] = useState<PedidoPV[]>([]);
+  const [loadingVencidos, setLoadingVencidos] = useState(false);
+
+  // Modal "Con Daño Sin Reponer" — pedidos en estado PROBLEMA (la reposición los saca
+  // de ese estado), con los mismos filtros activos de la tabla.
+  const [modalDanados, setModalDanados] = useState(false);
+  const [pedidosDanados, setPedidosDanados] = useState<PedidoPV[]>([]);
+  const [loadingDanados, setLoadingDanados] = useState(false);
+
+  // Modal "Por Proveedor" — desglose de Total Pedidos / m² Vendidos, con rango
+  // opcional de fecha de envío. Vacío = sin acotar (coincide con los KPIs de pantalla).
+  const [modalProveedores, setModalProveedores] = useState(false);
+  const [filasProveedores, setFilasProveedores] = useState<{ proveedor: string; totalPedidos: number; metraje: number }[]>([]);
+  const [loadingProveedores, setLoadingProveedores] = useState(false);
+  const [rangoProveedores, setRangoProveedores] = useState({ desde: '', hasta: '' });
 
   // Orden Gestión PV — por defecto igual al orden que ya entrega el backend
   // (numero_base DESC), así que sin tocar nada la tabla se ve como hoy.
@@ -406,13 +440,93 @@ const PedidosPVPage: React.FC = () => {
       setPedidosExcel(resExcel.data.rows ?? []);
       setPedidosSistema(resSistema.data.rows ?? []);
       setTotalPaginas(resSistema.data.totalPages ?? 1);
-      setKpis(resKpis.data ?? { total: 0, verificados: 0, enTransito: 0, conRetraso: 0, metraje: 0 });
+      setKpis(resKpis.data ?? { total: 0, conDanoSinReponer: 0, enTransito: 0, vencidosSinLlegar: 0, metraje: 0 });
     } catch {
       setError('Error al cargar pedidos PV');
     } finally {
       setLoading(false);
     }
   }, [headers, pagina, busquedaDebounced, filtrosAplicados, soloRetrasos]);
+
+  // Abre el modal "Vencidos sin Llegar" con el mismo subconjunto que compone el KPI:
+  // origen SISTEMA, excluye Por Gestionar, y respeta los filtros activos de pantalla.
+  const abrirModalVencidos = useCallback(async () => {
+    setModalVencidos(true);
+    setLoadingVencidos(true);
+    try {
+      const { data } = await axios.get(`${API}/api/pedidos-pv`, {
+        headers,
+        params: {
+          origen: 'SISTEMA',
+          excluir_por_gestionar: true,
+          vencido_sin_llegar: true,
+          limit: 500,
+          search: busquedaDebounced || undefined,
+          estado: filtrosAplicados.estado || undefined,
+          proveedor: filtrosAplicados.proveedor || undefined,
+          asesor: filtrosAplicados.asesor || undefined,
+        },
+      });
+      setPedidosVencidos(data.rows ?? []);
+    } catch {
+      setPedidosVencidos([]);
+    } finally {
+      setLoadingVencidos(false);
+    }
+  }, [headers, busquedaDebounced, filtrosAplicados]);
+
+  // Abre el modal "Con Daño Sin Reponer": pedidos en PROBLEMA (la reposición los saca
+  // de ese estado), respetando los filtros activos de pantalla.
+  const abrirModalDanados = useCallback(async () => {
+    setModalDanados(true);
+    setLoadingDanados(true);
+    try {
+      const { data } = await axios.get(`${API}/api/pedidos-pv`, {
+        headers,
+        params: {
+          origen: 'SISTEMA',
+          excluir_por_gestionar: true,
+          estado: 'PROBLEMA',
+          limit: 500,
+          search: busquedaDebounced || undefined,
+          proveedor: filtrosAplicados.proveedor || undefined,
+          asesor: filtrosAplicados.asesor || undefined,
+        },
+      });
+      setPedidosDanados(data.rows ?? []);
+    } catch {
+      setPedidosDanados([]);
+    } finally {
+      setLoadingDanados(false);
+    }
+  }, [headers, busquedaDebounced, filtrosAplicados]);
+
+  // Abre/recarga el modal "Por Proveedor" con el rango de fecha de envío actual.
+  const cargarPorProveedor = useCallback(async (rango: { desde: string; hasta: string }) => {
+    setLoadingProveedores(true);
+    try {
+      const { data } = await axios.get(`${API}/api/pedidos-pv/kpis/por-proveedor`, {
+        headers,
+        params: {
+          search: busquedaDebounced || undefined,
+          estado: filtrosAplicados.estado || undefined,
+          asesor: filtrosAplicados.asesor || undefined,
+          fecha_envio_desde: rango.desde || undefined,
+          fecha_envio_hasta: rango.hasta || undefined,
+        },
+      });
+      setFilasProveedores(data ?? []);
+    } catch {
+      setFilasProveedores([]);
+    } finally {
+      setLoadingProveedores(false);
+    }
+  }, [headers, busquedaDebounced, filtrosAplicados]);
+
+  const abrirModalProveedores = useCallback(() => {
+    setModalProveedores(true);
+    cargarPorProveedor(rangoProveedores);
+  }, [cargarPorProveedor, rangoProveedores]);
 
   const cargarPorGestionar = useCallback(async () => {
     if (!user?.puede_gestionar_pv) return;
@@ -868,16 +982,16 @@ const PedidosPVPage: React.FC = () => {
 
               {/* KPIs */}
               <Stack direction="row" gap={2} mb={3} flexWrap="wrap">
-                <KPICard label="Total Pedidos" value={kpis.total} sub="100% del total"
-                  icon={<TableChart />} color="#1565c0" bgColor="#e3f2fd" />
-                <KPICard label="Verificados" value={kpis.verificados} sub={pct(kpis.verificados)}
-                  icon={<CheckCircleOutline />} color="#2e7d32" bgColor="#e8f5e9" />
+                <KPICard label="Total Pedidos" value={kpis.total} sub="Clic: desglose por proveedor"
+                  icon={<TableChart />} color="#1565c0" bgColor="#e3f2fd" onClick={abrirModalProveedores} />
+                <KPICard label="Con Daño Sin Reponer" value={kpis.conDanoSinReponer} sub={pct(kpis.conDanoSinReponer)}
+                  icon={<WarningAmber />} color="#e65100" bgColor="#fff3e0" onClick={abrirModalDanados} />
                 <KPICard label="En Tránsito" value={kpis.enTransito} sub={pct(kpis.enTransito)}
-                  icon={<LocalShipping />} color="#e65100" bgColor="#fff3e0" />
-                <KPICard label="Con Retraso" value={kpis.conRetraso} sub={pct(kpis.conRetraso)}
-                  icon={<Cancel />} color="#c62828" bgColor="#ffebee" />
-                <KPICard label="m² Vendidos" value={kpis.metraje.toFixed(2)} sub="Total acumulado"
-                  icon={<Typography fontWeight={800} fontSize={14}>m²</Typography>} color="#00695c" bgColor="#e0f2f1" />
+                  icon={<LocalShipping />} color="#0288d1" bgColor="#e1f5fe" />
+                <KPICard label="Vencidos sin Llegar" value={kpis.vencidosSinLlegar} sub={pct(kpis.vencidosSinLlegar)}
+                  icon={<Cancel />} color="#c62828" bgColor="#ffebee" onClick={abrirModalVencidos} />
+                <KPICard label="m² Vendidos" value={kpis.metraje.toFixed(2)} sub="Clic: desglose por proveedor"
+                  icon={<Typography fontWeight={800} fontSize={14}>m²</Typography>} color="#00695c" bgColor="#e0f2f1" onClick={abrirModalProveedores} />
               </Stack>
 
               <Divider sx={{ mb: 2.5 }} />
@@ -1954,6 +2068,193 @@ const PedidosPVPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setModalDetalle(null)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ─── Modal: Vencidos sin Llegar ────────────────────────────────────────── */}
+      <Dialog open={modalVencidos} onClose={() => setModalVencidos(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          Vencidos sin Llegar
+          <Typography variant="body2" color="text.secondary" fontWeight={400}>
+            Fecha de entrega prometida ya pasada (hoy, hora Bogotá) y el pedido todavía no registra llegada.
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {loadingVencidos ? (
+            <Box display="flex" justifyContent="center" py={4}><CircularProgress size={28} /></Box>
+          ) : pedidosVencidos.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" py={2}>
+              No hay pedidos vencidos sin llegar con los filtros actuales.
+            </Typography>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700 }}>Pedido</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>ODP</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Cliente</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Proveedor</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Asesor</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Entrega prometida</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }} align="right">Días vencido</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {[...pedidosVencidos]
+                    .sort((a, b) => (a.fecha_entrega_prometida ?? '').localeCompare(b.fecha_entrega_prometida ?? ''))
+                    .map((p) => (
+                      <TableRow key={p.id} hover>
+                        <TableCell sx={{ fontSize: 13 }}>{p.numero_pedido}</TableCell>
+                        <TableCell sx={{ fontSize: 13, fontWeight: 600, color: 'primary.main', cursor: p.odp_id ? 'pointer' : 'default', textDecoration: p.odp_id ? 'underline' : 'none' }}
+                          onClick={() => p.odp_id && setFichaOdpId(p.odp_id)}>
+                          {p.odp?.numero_odp || p.odp_numero_excel || '—'}
+                        </TableCell>
+                        <TableCell sx={{ fontSize: 13 }}>{p.odp?.cliente?.nombre_razon_social || p.nombre_cliente_excel || '—'}</TableCell>
+                        <TableCell sx={{ fontSize: 13 }}>{p.proveedor}</TableCell>
+                        <TableCell sx={{ fontSize: 13 }}>{p.odp?.asesor?.nombre_completo || p.asesor_iniciales || '—'}</TableCell>
+                        <TableCell>
+                          <Chip label={ESTADO_CONFIG[p.estado]?.label ?? p.estado} color={ESTADO_CONFIG[p.estado]?.color ?? 'default'} size="small" sx={{ fontSize: 11 }} />
+                        </TableCell>
+                        <TableCell sx={{ fontSize: 13 }}>{fmtFecha(p.fecha_entrega_prometida)}</TableCell>
+                        <TableCell align="right" sx={{ fontSize: 13, fontWeight: 700, color: 'error.main' }}>
+                          {p.fecha_entrega_prometida ? diasVencido(p.fecha_entrega_prometida) : '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setModalVencidos(false)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ─── Modal: Con Daño Sin Reponer ───────────────────────────────────────── */}
+      <Dialog open={modalDanados} onClose={() => setModalDanados(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          Con Daño Sin Reponer
+          <Typography variant="body2" color="text.secondary" fontWeight={400}>
+            Pedidos en estado Problema — la reposición los saca de este estado al completarse.
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {loadingDanados ? (
+            <Box display="flex" justifyContent="center" py={4}><CircularProgress size={28} /></Box>
+          ) : pedidosDanados.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" py={2}>
+              No hay pedidos con daño pendiente de reposición con los filtros actuales.
+            </Typography>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700 }}>Pedido</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>ODP</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Cliente</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Proveedor</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Tipo de problema</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Reposición</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Fecha repos. prometida</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pedidosDanados.map((p) => (
+                    <TableRow key={p.id} hover>
+                      <TableCell sx={{ fontSize: 13 }}>{p.numero_pedido}</TableCell>
+                      <TableCell sx={{ fontSize: 13, fontWeight: 600, color: 'primary.main', cursor: p.odp_id ? 'pointer' : 'default', textDecoration: p.odp_id ? 'underline' : 'none' }}
+                        onClick={() => p.odp_id && setFichaOdpId(p.odp_id)}>
+                        {p.odp?.numero_odp || p.odp_numero_excel || '—'}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: 13 }}>{p.odp?.cliente?.nombre_razon_social || p.nombre_cliente_excel || '—'}</TableCell>
+                      <TableCell sx={{ fontSize: 13 }}>{p.proveedor}</TableCell>
+                      <TableCell sx={{ fontSize: 13 }}>{p.tipo_problema || '—'}</TableCell>
+                      <TableCell>
+                        {p.estado_reposicion === 'EN_GESTION'
+                          ? <Chip label="En gestión" size="small" sx={{ fontSize: 11, bgcolor: '#fff3e0', color: '#e65100' }} />
+                          : <Chip label="Sin gestionar" size="small" sx={{ fontSize: 11, bgcolor: '#ffebee', color: '#c62828' }} />}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: 13 }}>{fmtFecha(p.fecha_reposicion_prometida)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setModalDanados(false)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ─── Modal: Por Proveedor (Total Pedidos / m² Vendidos) ───────────────────── */}
+      <Dialog open={modalProveedores} onClose={() => setModalProveedores(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          Desglose por Proveedor
+          <Typography variant="body2" color="text.secondary" fontWeight={400}>
+            Sin rango de fechas muestra el mismo total que los KPIs de pantalla. El rango filtra por fecha de envío —
+            los pedidos aún Pendientes (sin enviar) no tienen esa fecha y no entran al acotar.
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Stack direction="row" gap={1.5} mb={2} mt={0.5} flexWrap="wrap" alignItems="center">
+            <TextField label="Envío desde" type="date" size="small" InputLabelProps={{ shrink: true }}
+              value={rangoProveedores.desde}
+              onChange={(e) => setRangoProveedores((r) => ({ ...r, desde: e.target.value }))} />
+            <TextField label="Envío hasta" type="date" size="small" InputLabelProps={{ shrink: true }}
+              value={rangoProveedores.hasta}
+              onChange={(e) => setRangoProveedores((r) => ({ ...r, hasta: e.target.value }))} />
+            <Button variant="contained" size="small" onClick={() => cargarPorProveedor(rangoProveedores)}>Aplicar</Button>
+            {(rangoProveedores.desde || rangoProveedores.hasta) && (
+              <Button size="small" onClick={() => { const r = { desde: '', hasta: '' }; setRangoProveedores(r); cargarPorProveedor(r); }}>
+                Quitar rango
+              </Button>
+            )}
+          </Stack>
+          {loadingProveedores ? (
+            <Box display="flex" justifyContent="center" py={4}><CircularProgress size={28} /></Box>
+          ) : filasProveedores.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" py={2}>
+              No hay pedidos con los filtros actuales.
+            </Typography>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700 }}>Proveedor</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }} align="right">Pedidos</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }} align="right">m² Vendidos</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filasProveedores.map((f) => (
+                    <TableRow key={f.proveedor} hover>
+                      <TableCell sx={{ fontSize: 13 }}>{f.proveedor}</TableCell>
+                      <TableCell align="right" sx={{ fontSize: 13 }}>{f.totalPedidos}</TableCell>
+                      <TableCell align="right" sx={{ fontSize: 13 }}>{f.metraje.toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow>
+                    <TableCell sx={{ fontSize: 13, fontWeight: 700 }}>Total</TableCell>
+                    <TableCell align="right" sx={{ fontSize: 13, fontWeight: 700 }}>
+                      {filasProveedores.reduce((s, f) => s + f.totalPedidos, 0)}
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontSize: 13, fontWeight: 700 }}>
+                      {filasProveedores.reduce((s, f) => s + f.metraje, 0).toFixed(2)}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setModalProveedores(false)}>Cerrar</Button>
         </DialogActions>
       </Dialog>
 
