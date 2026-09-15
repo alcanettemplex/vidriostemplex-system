@@ -3298,3 +3298,84 @@ de exportación ganó un flag `--sufijo` para este caso.
 ### Pendiente
 Igual que la entrada anterior — nada nuevo se resolvió del lado de Proveedores/multiplicadores en
 esta pasada, solo del lado de identidad de catálogo.
+
+---
+
+## 2026-09-14 (4) — Proveedores: "No seguir precios" pasa a botón real, agrupado por proveedor
+
+### Encargo
+El usuario preguntó si el flujo que necesita está implementado: carga las facturas de **todos**
+los emisores (incluidos papelería, combustible, seguros, que no son insumos del ERP) y quiere,
+**desde Por Mapear**, apagar a un proveedor para que sus ítems no vuelvan a aparecer en cargas
+futuras.
+
+### Auditoría del flujo (antes de tocar nada)
+Está implementado y es correcto, con **dos capas** independientes:
+1. `bloqueaIngesta()` (`proveedor.controller.ts:2543`) se evalúa **antes** de agrupar las líneas
+   de la factura: con `seguir_precios = false` el documento se registra en la bitácora con
+   `motivo_omision='PROVEEDOR_NO_SEGUIDO'` y sus ítems ni se miran.
+2. Un código en `DESCARTADO` no resucita nunca (`:2759-2762`), ni aunque se reactive al proveedor.
+
+Al pulsar el control, `aplicarSeguimiento()` pone el proveedor en `false` **y** pasa sus códigos
+`PENDIENTE` a `DESCARTADO` en la misma transacción. Verificado además que no hay fuga: **0
+equivalencias activas** de proveedores ignorados o inactivos.
+
+⚠️ **El mecanismo nunca se ha ejercitado en producción**: `factura_proveedor_procesada` no tiene
+ni un registro con `motivo_omision='PROVEEDOR_NO_SEGUIDO'` (146 normales + 5 notas crédito). Los
+8 proveedores ya ignorados aún no han vuelto a facturar. Correcto por lectura, no por evidencia.
+
+### Hallazgos de datos (medidos contra Supabase)
+- **1.009 de 1.018 proveedores en `seguir_precios = true`**, de los cuales 963 llegaron así desde
+  la importación de World Office. Entre ellos ~29 no-insumo (papelerías, estaciones de servicio,
+  aseguradoras, EPS, parqueaderos, Telefónica).
+- **Solo 41 proveedores han facturado alguna vez**: el ruido por depurar está casi todo por venir.
+- Se le propuso invertir el defecto a lista blanca (`NULL` + aprobación explícita) y **lo
+  descartó**: cargar todos fue decisión suya, depura por lista negra reactiva.
+- **Doc desactualizada**: `proveedor.model.ts:33-36` afirma que `NULL` impide entrar a la bandeja.
+  Es falso desde el 2026-09-12 — `bloqueaIngesta()` solo corta con `activo != true` o
+  `seguir_precios === false`. Manda el controlador. (No corregido en esta pasada.)
+- Hueco conocido, no tocado: si el mismo emisor vuelve con **otro NIT o la razón social escrita
+  distinto**, `resolverProveedor()` no lo reconoce, crea un registro nuevo con `NULL`, y `NULL` no
+  bloquea. Explicaría un "ya lo había ignorado y volvió".
+
+### El cambio (único archivo: `PorMapearTab.tsx`)
+La causa real de la duda del usuario era de UI: el control existía pero era **texto plano de
+11,5 px en gris claro** (`FONT.xs`, `#94a3b8`), sin borde ni fondo, repetido en cada fila. No lo
+había visto nunca.
+
+Se descartó ponerlo junto a "Vincular"/"Descartar": esos actúan sobre **un código** y éste sobre
+**el proveedor entero**: vecinos y con el mismo aspecto, invitaban a un descarte masivo por error.
+
+Elegido por el usuario: **agrupar las filas por proveedor**, con cabecera de grupo que lleva
+identidad (nombre + NIT + conteo) y las acciones de proveedor como botones reales.
+
+- **Agrupación en cliente** (`useMemo`), sin consultas nuevas ni egress: `listarPendientes` ya
+  incluía el proveedor.
+- **El orden del servidor se conserva**: cada grupo nace en la primera aparición de su proveedor,
+  así que queda posicionado por su código mejor rankeado y el selector frecuencia/reciente/precio
+  sigue significando lo mismo. Reordenar por nombre lo habría vaciado de sentido.
+- **Checkbox de grupo**, integrado con el "Descartar seleccionados" ya existente.
+- **Paginación honesta**: con la lista truncada (>200), el chip dice "5 aquí" y no "5 códigos",
+  porque la acción descarta *todos* los del proveedor, no los visibles. El `confirm` no promete
+  número.
+- **Columna "Proveedor" eliminada** (su nombre vive en la cabecera): `minWidth` 900 → 720, se va
+  el scroll horizontal en pantallas medianas.
+- Colores con los tokens de `index.css`, como pide CLAUDE.md para este módulo.
+
+### Verificación
+`tsc --noEmit` 0 errores · `eslint` 0 warnings en el archivo · build CRA correcto (996 kB gzip,
+sin cambio). **Sin verificación visual**: no hay navegador en el entorno; queda del lado del
+usuario confirmar los 4 grupos reales (Vitelsa 5, Acvicol 4, Cielos y Ventanas 1, Ventanas y
+Puertas 1).
+
+### Fricción del entorno (nota para la próxima)
+`npm run build` del frontend falló dos veces por memoria: la máquina tiene ~3,9 GB libres de 11,8
+y el heap por defecto de Node 24 no cabe. Pasó con `NODE_OPTIONS=--max-old-space-size=3072`;
+pedir 6144 lo empeora ("Committing semi space failed" = el SO no puede reservar, no que falte
+heap). Además, `npm --prefix ... run build` desde PowerShell falla porque el script es POSIX
+(`CI=false ... && cp`): hay que pasar `--script-shell=bash`.
+
+### Pendiente
+- Verificación visual del tab por el usuario.
+- Probar el corte de ingesta de verdad (proveedor de prueba + XML DIAN), ya que nunca ha corrido.
+- Decidir si se corrige el comentario obsoleto de `proveedor.model.ts:33-36`.

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import {
   Link2, Search, RefreshCw, Trash2, CheckCircle2,
@@ -197,6 +197,54 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
     setSeleccion(prev => (prev.size === pendientes.length ? new Set() : new Set(pendientes.map(p => p.id))));
   };
 
+  /**
+   * Agrupa las filas por proveedor **conservando el orden que ya trae el servidor**
+   * (frecuencia / reciente / precio): cada grupo nace en la primera aparición de su
+   * proveedor, así que queda posicionado por su código mejor rankeado y el selector
+   * "Ordenar por" sigue significando lo mismo que antes de agrupar. Reordenar por
+   * nombre lo habría vaciado de sentido.
+   *
+   * Se agrupa en el cliente y no en el servidor a propósito: `listarPendientes` ya
+   * devuelve el proveedor incluido, así que no cuesta ni una consulta más.
+   */
+  const grupos = useMemo(() => {
+    const porProveedor = new Map<number, { proveedorId: number; nombre: string; nit: string | null; seguirPrecios: boolean | null | undefined; items: CodigoPendienteItem[] }>();
+    for (const item of pendientes) {
+      let grupo = porProveedor.get(item.proveedor_id);
+      if (!grupo) {
+        grupo = {
+          proveedorId: item.proveedor_id,
+          // Mismo fallback que tenía la celda por fila: el include podría venir vacío
+          nombre: item.proveedor?.nombre_comercial || item.proveedor_nombre || `Proveedor #${item.proveedor_id}`,
+          nit: item.proveedor?.nit ?? null,
+          seguirPrecios: item.proveedor?.seguir_precios,
+          items: [],
+        };
+        porProveedor.set(item.proveedor_id, grupo);
+      }
+      grupo.items.push(item);
+    }
+    return Array.from(porProveedor.values());
+  }, [pendientes]);
+
+  /** El servidor corta en 200 filas: con truncado, el conteo del grupo es "lo que se
+   *  ve aquí", no todo lo que el proveedor tiene pendiente. El texto lo refleja para
+   *  no prometer un número que la acción no respetaría. */
+  const listaTruncada = total > pendientes.length;
+
+  /** Selecciona o deselecciona de una vez todos los códigos visibles de un grupo. */
+  const alternarGrupo = (items: CodigoPendienteItem[]) => {
+    setSeleccion(prev => {
+      const siguiente = new Set(prev);
+      const todosDentro = items.every(i => siguiente.has(i.id));
+      for (const i of items) {
+        if (todosDentro) siguiente.delete(i.id);
+        else siguiente.add(i.id);
+      }
+      return siguiente;
+    });
+  };
+
   const botonSecundario: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 6,
     background: 'var(--surface, #fff)', border: '1px solid var(--border-strong, #cbd5e1)',
@@ -386,7 +434,10 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
             borderRadius: RADIUS['3xl'], overflowX: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
           }}
         >
-          <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse', fontSize: FONT.base, textAlign: 'left' }}>
+          {/* minWidth bajó de 900 a 720 al quitar la columna "Proveedor": su nombre
+              vive ahora en la cabecera de cada grupo, y sin ella la tabla deja de
+              necesitar scroll horizontal en pantallas medianas. */}
+          <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: FONT.base, textAlign: 'left' }}>
             <thead>
               <tr style={{ background: 'var(--surface-subtle, #f8fafc)', borderBottom: '1px solid var(--border, #e2e8f0)' }}>
                 <th style={{ padding: '12px 10px 12px 16px', width: 36 }}>
@@ -398,7 +449,6 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
                     style={{ cursor: 'pointer' }}
                   />
                 </th>
-                <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Proveedor</th>
                 <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Código Proveedor</th>
                 <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Descripción en Factura</th>
                 <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Precio Detectado</th>
@@ -407,164 +457,213 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
               </tr>
             </thead>
             <tbody>
-              {pendientes.map((item) => (
-                <tr key={item.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
-                  <td style={{ padding: '12px 10px 12px 16px' }}>
-                    <input
-                      type="checkbox"
-                      checked={seleccion.has(item.id)}
-                      onChange={() => alternarSeleccion(item.id)}
-                      style={{ cursor: 'pointer' }}
-                    />
-                  </td>
-
-                  <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text, #1e293b)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Building2 size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-                      {item.proveedor?.nombre_comercial || `Proveedor #${item.proveedor_id}`}
-                    </div>
-                    {/* Ignorar al proveedor descarta sus pendientes: no tiene sentido
-                        ofrecerlo desde la vista de los que ya están descartados. */}
-                    {!enDescartados && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-                        {/* "Sin decidir" (2026-09-12): sus códigos ya entraron a Por Mapear
-                            sin que nadie lo haya activado. Seguir/Ignorar quedan lado a lado
-                            para resolverlo sin salir de esta pantalla. */}
-                        {item.proveedor?.seguir_precios == null && (
-                          <button
-                            onClick={() => handleSeguirPrecios(item.proveedor_id, item.proveedor?.nombre_comercial || 'este proveedor')}
-                            disabled={accionLote}
-                            title="Confirmar el seguimiento de precios de este proveedor"
-                            style={{
-                              background: 'none', border: 'none', padding: 0,
-                              color: '#16a34a', fontSize: FONT.xs, fontWeight: 600,
-                              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-                            }}
-                          >
-                            <CheckCircle2 size={11} /> Seguir precios
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDejarDeSeguir(item.proveedor_id, item.proveedor?.nombre_comercial || 'este proveedor')}
-                          disabled={accionLote}
-                          title="Dejar de seguir precios de este proveedor y limpiar sus códigos"
-                          style={{
-                            background: 'none', border: 'none', padding: 0,
-                            color: 'var(--text-subtle, #94a3b8)', fontSize: FONT.xs, fontWeight: 600,
-                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-                          }}
-                        >
-                          <BellOff size={11} /> No seguir precios
-                        </button>
-                      </div>
-                    )}
-                  </td>
-
-                  <td style={{ padding: '12px 16px' }}>
-                    <span
-                      style={{
-                        fontFamily: 'monospace', fontWeight: 700, fontSize: FONT.sm,
-                        background: 'rgba(99, 102, 241, 0.08)', color: '#4338ca',
-                        padding: '3px 8px', borderRadius: RADIUS.sm,
-                      }}
-                    >
-                      {item.codigo_proveedor}
-                    </span>
-                    {item.codigo_derivado && (
-                      <div
-                        title="El XML no traía código de producto: se generó a partir de la descripción"
-                        style={{ fontSize: FONT.tiny, color: '#b45309', marginTop: 4, display: 'flex', alignItems: 'center', gap: 3 }}
-                      >
-                        <AlertTriangle size={10} /> Código deducido
-                      </div>
-                    )}
-                  </td>
-
-                  <td style={{ padding: '12px 16px', color: 'var(--text, #334155)', maxWidth: 280 }}>
-                    <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {item.descripcion_proveedor || 'Sin descripción'}
-                    </div>
-                    {item.documento_ref && (
-                      <div style={{ fontSize: FONT.xs, color: 'var(--text-subtle, #94a3b8)', marginTop: 2 }}>
-                        Ref: {item.documento_ref}
-                      </div>
-                    )}
-                  </td>
-
-                  <td style={{ padding: '12px 16px', fontWeight: 700, color: '#059669' }}>
-                    {formatCOP(item.precio_detectado)}
-                    {item.unidad_detectada && (
-                      <div
-                        style={{ fontSize: FONT.xs, color: '#4338ca', fontWeight: 600, marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}
-                        title="Unidad declarada en el XML de la factura"
-                      >
-                        <Ruler size={10} /> por {ETIQUETA_UNIDAD[item.unidad_detectada] ?? item.unidad_detectada}
-                      </div>
-                    )}
-                  </td>
-
-                  <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                    <span
-                      style={{
-                        fontSize: FONT.xs, fontWeight: 700,
-                        color: item.veces_visto > 1 ? '#d97706' : '#64748b',
-                        background: item.veces_visto > 1 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(100, 116, 139, 0.08)',
-                        padding: '2px 8px', borderRadius: RADIUS.pill,
-                      }}
-                    >
-                      {item.veces_visto} ×
-                    </span>
-                  </td>
-
-                  <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                      <button
-                        onClick={() => setItemParaVincular(item)}
+              {grupos.map((grupo) => {
+                const todoSeleccionado = grupo.items.every(i => seleccion.has(i.id));
+                return (
+                  <React.Fragment key={grupo.proveedorId}>
+                    {/* ── Cabecera del grupo ──────────────────────────────────────────
+                        Reúne la identidad del proveedor y las acciones que operan sobre
+                        ÉL, no sobre un código suelto. Antes vivían repetidas en cada fila
+                        como texto plano de 11,5 px en gris claro y pasaban desapercibidas;
+                        aquí aparecen una sola vez y su alcance queda explícito. */}
+                    <tr style={{ background: 'var(--surface-subtle, #f8fafc)' }}>
+                      <td
+                        colSpan={6}
                         style={{
-                          background: 'var(--primary)', color: '#fff', border: 'none',
-                          padding: '6px 12px', borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 700,
-                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
-                          boxShadow: '0 2px 6px rgba(99, 102, 241, 0.25)',
+                          padding: '10px 16px',
+                          borderTop: '1px solid var(--border, #e2e8f0)',
+                          borderBottom: '1px solid var(--border-subtle, #f1f5f9)',
                         }}
                       >
-                        <Link2 size={13} /> Vincular
-                      </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                          <input
+                            type="checkbox"
+                            checked={todoSeleccionado}
+                            onChange={() => alternarGrupo(grupo.items)}
+                            title="Seleccionar todos los códigos de este proveedor"
+                            style={{ cursor: 'pointer' }}
+                          />
+                          <Building2 size={15} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                          <span style={{ fontWeight: 700, color: 'var(--text, #0f172a)' }}>{grupo.nombre}</span>
+                          {grupo.nit && (
+                            <span style={{ fontSize: FONT.xs, color: 'var(--text-subtle, #94a3b8)' }}>
+                              NIT {grupo.nit}
+                            </span>
+                          )}
+                          <span
+                            style={{
+                              fontSize: FONT.xs, fontWeight: 700, color: 'var(--text-muted, #64748b)',
+                              background: 'var(--surface, #fff)', border: '1px solid var(--border, #e2e8f0)',
+                              padding: '2px 8px', borderRadius: RADIUS.pill,
+                            }}
+                            title={listaTruncada
+                              ? 'Códigos visibles en esta página; el proveedor puede tener más'
+                              : undefined}
+                          >
+                            {grupo.items.length}{' '}
+                            {listaTruncada ? 'aquí' : grupo.items.length === 1 ? 'código' : 'códigos'}
+                          </span>
 
-                      {enDescartados ? (
-                        <button
-                          onClick={() => handleRestaurar(item)}
-                          disabled={restaurandoId === item.id}
-                          title="Devolver este código a la bandeja de Por Mapear"
-                          style={{
-                            background: 'transparent', color: '#059669',
-                            border: '1px solid #05966950', padding: '6px 10px',
-                            borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 700, cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: 4,
-                          }}
-                        >
-                          {restaurandoId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Undo2 size={13} />}
-                          Devolver
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleDescartar(item)}
-                          disabled={descartandoId === item.id}
-                          title="Descartar código (fletes, papelería, gastos que no son producto)"
-                          style={{
-                            background: 'transparent', color: 'var(--text-subtle, #94a3b8)',
-                            border: '1px solid var(--border-strong, #cbd5e1)', padding: '6px 10px',
-                            borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 600, cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: 4,
-                          }}
-                        >
-                          {descartandoId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                          Descartar
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                          {/* En "Descartados" no se ofrecen: sus códigos ya están fuera. */}
+                          {!enDescartados && (
+                            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                              {/* Solo tiene sentido para "sin decidir": con la decisión ya
+                                  tomada el botón verde no aporta nada. */}
+                              {grupo.seguirPrecios == null && (
+                                <button
+                                  onClick={() => handleSeguirPrecios(grupo.proveedorId, grupo.nombre)}
+                                  disabled={accionLote}
+                                  title="Confirmar el seguimiento de precios de este proveedor"
+                                  style={{
+                                    background: 'transparent', color: '#059669',
+                                    border: '1px solid #05966950', padding: '5px 10px',
+                                    borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 700,
+                                    cursor: accionLote ? 'wait' : 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: 5,
+                                  }}
+                                >
+                                  <CheckCircle2 size={13} /> Seguir precios
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDejarDeSeguir(grupo.proveedorId, grupo.nombre)}
+                                disabled={accionLote}
+                                title="Ignorar a este proveedor: sus futuras facturas se registrarán pero no generarán códigos por mapear"
+                                style={{
+                                  background: 'var(--surface, #fff)', color: 'var(--text-muted, #64748b)',
+                                  border: '1px solid var(--border-strong, #cbd5e1)', padding: '5px 10px',
+                                  borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 600,
+                                  cursor: accionLote ? 'wait' : 'pointer',
+                                  display: 'flex', alignItems: 'center', gap: 5,
+                                }}
+                              >
+                                <BellOff size={13} /> No seguir precios
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+
+                    {grupo.items.map((item) => (
+                      <tr key={item.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                        <td style={{ padding: '12px 10px 12px 16px' }}>
+                          <input
+                            type="checkbox"
+                            checked={seleccion.has(item.id)}
+                            onChange={() => alternarSeleccion(item.id)}
+                            style={{ cursor: 'pointer' }}
+                          />
+                        </td>
+
+                        <td style={{ padding: '12px 16px' }}>
+                          <span
+                            style={{
+                              fontFamily: 'monospace', fontWeight: 700, fontSize: FONT.sm,
+                              background: 'rgba(99, 102, 241, 0.08)', color: '#4338ca',
+                              padding: '3px 8px', borderRadius: RADIUS.sm,
+                            }}
+                          >
+                            {item.codigo_proveedor}
+                          </span>
+                          {item.codigo_derivado && (
+                            <div
+                              title="El XML no traía código de producto: se generó a partir de la descripción"
+                              style={{ fontSize: FONT.tiny, color: '#b45309', marginTop: 4, display: 'flex', alignItems: 'center', gap: 3 }}
+                            >
+                              <AlertTriangle size={10} /> Código deducido
+                            </div>
+                          )}
+                        </td>
+
+                        <td style={{ padding: '12px 16px', color: 'var(--text, #334155)', maxWidth: 280 }}>
+                          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {item.descripcion_proveedor || 'Sin descripción'}
+                          </div>
+                          {item.documento_ref && (
+                            <div style={{ fontSize: FONT.xs, color: 'var(--text-subtle, #94a3b8)', marginTop: 2 }}>
+                              Ref: {item.documento_ref}
+                            </div>
+                          )}
+                        </td>
+
+                        <td style={{ padding: '12px 16px', fontWeight: 700, color: '#059669' }}>
+                          {formatCOP(item.precio_detectado)}
+                          {item.unidad_detectada && (
+                            <div
+                              style={{ fontSize: FONT.xs, color: '#4338ca', fontWeight: 600, marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}
+                              title="Unidad declarada en el XML de la factura"
+                            >
+                              <Ruler size={10} /> por {ETIQUETA_UNIDAD[item.unidad_detectada] ?? item.unidad_detectada}
+                            </div>
+                          )}
+                        </td>
+
+                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                          <span
+                            style={{
+                              fontSize: FONT.xs, fontWeight: 700,
+                              color: item.veces_visto > 1 ? '#d97706' : '#64748b',
+                              background: item.veces_visto > 1 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(100, 116, 139, 0.08)',
+                              padding: '2px 8px', borderRadius: RADIUS.pill,
+                            }}
+                          >
+                            {item.veces_visto} ×
+                          </span>
+                        </td>
+
+                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                            <button
+                              onClick={() => setItemParaVincular(item)}
+                              style={{
+                                background: 'var(--primary)', color: '#fff', border: 'none',
+                                padding: '6px 12px', borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 700,
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+                                boxShadow: '0 2px 6px rgba(99, 102, 241, 0.25)',
+                              }}
+                            >
+                              <Link2 size={13} /> Vincular
+                            </button>
+
+                            {enDescartados ? (
+                              <button
+                                onClick={() => handleRestaurar(item)}
+                                disabled={restaurandoId === item.id}
+                                title="Devolver este código a la bandeja de Por Mapear"
+                                style={{
+                                  background: 'transparent', color: '#059669',
+                                  border: '1px solid #05966950', padding: '6px 10px',
+                                  borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 700, cursor: 'pointer',
+                                  display: 'flex', alignItems: 'center', gap: 4,
+                                }}
+                              >
+                                {restaurandoId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Undo2 size={13} />}
+                                Devolver
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleDescartar(item)}
+                                disabled={descartandoId === item.id}
+                                title="Descartar código (fletes, papelería, gastos que no son producto)"
+                                style={{
+                                  background: 'transparent', color: 'var(--text-subtle, #94a3b8)',
+                                  border: '1px solid var(--border-strong, #cbd5e1)', padding: '6px 10px',
+                                  borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 600, cursor: 'pointer',
+                                  display: 'flex', alignItems: 'center', gap: 4,
+                                }}
+                              >
+                                {descartandoId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                                Descartar
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
 
