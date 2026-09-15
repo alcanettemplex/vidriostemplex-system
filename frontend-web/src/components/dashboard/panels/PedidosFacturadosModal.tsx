@@ -25,12 +25,12 @@ const CAJA_CONFIG: Record<string, { label: string; color: string; bg: string }> 
 
 const MODO_CONFIG: Record<string, { titulo: string; criterio: string }> = {
   creadas_facturadas: {
-    titulo: 'Pedidos Facturados — Creadas y facturadas',
-    criterio: 'ODPs creadas dentro del período seleccionado que ya cuentan con factura electrónica (mismo criterio que el número de la tarjeta)',
+    titulo: 'Pedidos Cobrados — Creadas y facturadas',
+    criterio: 'ODPs creadas dentro del período seleccionado que ya cuentan con factura electrónica, con su abono real (mismo criterio que el número de la tarjeta)',
   },
   facturadas_rango: {
-    titulo: 'Pedidos Facturados — Facturas emitidas en el rango',
-    criterio: 'Cada factura electrónica (principal o adicional) cuya fecha cae en el período, con su monto real. La suma coincide con el KPI.',
+    titulo: 'Pedidos Cobrados — Facturas emitidas en el rango',
+    criterio: 'Cada factura electrónica (principal o adicional) cuya fecha cae en el período. El abono de la ODP se asigna a la fila Principal para no duplicarlo; las adicionales aportan $0. La suma coincide con el KPI.',
   },
 };
 
@@ -39,7 +39,7 @@ interface FacturadoItem {
   numero_odp: string;
   fecha_creacion: string;
   fecha_factura: string | null;
-  valor_total: number;
+  monto_abonado: number;
   estado_caja: string;
   cliente_nombre: string;
   // Solo en modo 'facturadas_rango' (una fila por factura): datos de la FE.
@@ -47,7 +47,7 @@ interface FacturadoItem {
   tipo_fe?: string; // 'Principal' | 'Adicional'
 }
 
-type SortField = 'numero_odp' | 'cliente_nombre' | 'fecha_creacion' | 'fecha_factura' | 'estado_caja' | 'valor_total';
+type SortField = 'numero_odp' | 'cliente_nombre' | 'fecha_creacion' | 'fecha_factura' | 'estado_caja' | 'monto_abonado';
 
 const COLUMNS: { field: SortField; label: string; align?: 'right' | 'center' }[] = [
   { field: 'numero_odp',     label: 'ODP' },
@@ -55,7 +55,7 @@ const COLUMNS: { field: SortField; label: string; align?: 'right' | 'center' }[]
   { field: 'fecha_creacion', label: 'Fecha creación' },
   { field: 'fecha_factura',  label: 'Fecha facturación' },
   { field: 'estado_caja',    label: 'Estado caja', align: 'center' },
-  { field: 'valor_total',    label: 'Monto', align: 'right' },
+  { field: 'monto_abonado',  label: 'Abonado', align: 'right' },
 ];
 
 interface Props {
@@ -88,7 +88,7 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
       const vb = b[sortField];
       if (va === null) return vb === null ? 0 : 1;
       if (vb === null) return -1;
-      if (sortField === 'valor_total') return (Number(va) - Number(vb)) * dir;
+      if (sortField === 'monto_abonado') return (Number(va) - Number(vb)) * dir;
       return String(va).localeCompare(String(vb), 'es', { numeric: true }) * dir;
     });
   }, [items, sortField, sortDir]);
@@ -135,7 +135,7 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
           <Box>
             <Box display="flex" gap={2} px={3} py={2} bgcolor="#fafafa" borderBottom="1px solid #e2e8f0" flexWrap="wrap">
               <Box>
-                <Typography variant="caption" color="text.secondary" display="block">Total facturado</Typography>
+                <Typography variant="caption" color="text.secondary" display="block">Total cobrado</Typography>
                 <Typography variant="h6" fontWeight={700} color="primary.main">{fmtCOP(total)}</Typography>
               </Box>
               <Box sx={{ width: '1px', bgcolor: '#e2e8f0' }} />
@@ -199,7 +199,7 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
                             />
                           </TableCell>
                           <TableCell align="right" sx={{ fontWeight: 700, fontSize: 13, color: '#4338ca' }}>
-                            {fmtCOP(item.valor_total)}
+                            {fmtCOP(item.monto_abonado)}
                           </TableCell>
                         </TableRow>
                       );

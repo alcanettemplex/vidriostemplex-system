@@ -134,7 +134,8 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
   const recaudadoIva     = recaudadoConIva - recaudadoConIva / (1 + IVA_RATE);
   const recaudadoBase    = rawRecaudado - recaudadoIva;
 
-  // Lógica de desglose para la tarjeta de Pedidos Facturados, según el criterio seleccionado
+  // Lógica de desglose para la tarjeta de Pedidos Cobrados, según el criterio seleccionado.
+  // Mide abono (caja), no valor_total (devengo) — decisión de negocio 2026-09-15.
   const rawConFactura      = rawConFacturaSeleccionado;
   const conFacturaOA       = criterioKPI === 'creadas_facturadas'
     ? (data?.facturado_con_factura_oa || 0)
@@ -144,8 +145,8 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
   const conFacturaBase     = rawConFactura - conFacturaIva;
   const conFacturaPct      = rawFacturado > 0 ? Math.min((rawConFactura / rawFacturado) * 100, 100) : 0;
   const conFacturaSubtitulo = criterioKPI === 'creadas_facturadas'
-    ? 'Órdenes creadas en el período que ya cuentan con factura electrónica'
-    : 'Órdenes facturadas dentro del período, sin importar cuándo fueron creadas';
+    ? 'Órdenes creadas en el período que ya cuentan con factura electrónica, con su abono real'
+    : 'Órdenes facturadas dentro del período, sin importar cuándo fueron creadas, con su abono real';
 
   return (
     <div className="space-y-3">
@@ -203,7 +204,7 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
           className="bg-white border border-slate-200 rounded-2xl p-5 relative overflow-hidden"
           whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(99,102,241,0.12)' }}>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Pedidos Facturados</p>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Pedidos Cobrados</p>
           </div>
           <div className="flex gap-1 mt-1 mb-1.5">
             <button type="button"

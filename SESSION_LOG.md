@@ -3379,3 +3379,93 @@ heap). Además, `npm --prefix ... run build` desde PowerShell falla porque el sc
 - Verificación visual del tab por el usuario.
 - Probar el corte de ingesta de verdad (proveedor de prueba + XML DIAN), ya que nunca ha corrido.
 - Decidir si se corrige el comentario obsoleto de `proveedor.model.ts:33-36`.
+
+---
+
+## 2026-09-15 — Dashboard: "Pedidos Facturados" pasa a medir abono, no monto de FE
+
+### Reporte del usuario
+KPI "Pedidos Facturados" (tarjeta + modal `facturadas_rango`) sumaba, según el usuario, el
+`valor_total` de la ODP en vez del abono — ejemplo: ODP de 20M con abono de 5M, el KPI mostraba
+20M.
+
+### Diagnóstico
+No era una suma ciega de `valor_total`: la query ya usaba `COALESCE(monto_factura_principal,
+valor_total)` — `monto_factura_principal` es el monto real de la FE (por defecto el `valor_total`,
+pero soporta facturación parcial). El comentario de `odp.model.ts:50` lo deja explícito:
+*"Independiente de abono/pendiente (que son caja/cobros, no facturación)"*. El KPI medía devengo
+(FE emitida), no caja — contablemente correcto, y ya existía una tarjeta separada ("Total
+Recaudado") para el abono. No era un bug; era una definición distinta a la que el usuario
+esperaba. Confirmado con el usuario: quiere que el KPI mida caja (abono), en todo el alcance
+(tarjeta + los dos modos del modal), no solo el que motivó la duda.
+
+### Cambio implementado
+- **`utils/facturacion.ts`** — nueva función `sqlCobradoEnRango()`, hermana de
+  `sqlFacturadoEnRango()` (que queda intacta: Informe Ejecutivo la sigue usando para su propio
+  KPI de devengo, sin verse afectado por este cambio). Misma regla de reparto que
+  `getPedidosFacturados`: FE principal aporta `o.abono`, FE adicional aporta `0` — evita
+  triplicar el abono cuando principal + 2 adicionales caen en el mismo rango (el campo vive a
+  nivel de ODP, no por FE).
+- **`dashboard.controller.ts`**: `getGeneralData` — `facturado_con_factura`/`_oa` pasan de
+  `ODP.sum('valor_total', …)` a `ODP.sum('abono', …)`; `facturado_rango`/`_oa` pasan a usar
+  `sqlCobradoEnRango`. `getPedidosFacturados` — mismo criterio en ambos modos; el campo de
+  respuesta se renombró `valor_total` → `monto_abonado` (dejarlo con el nombre viejo habría sido
+  engañoso).
+- **Frontend**: `PedidosFacturadosModal.tsx` (columna "Monto"→"Abonado", "Total facturado"→"Total
+  cobrado", títulos/criterios de `MODO_CONFIG`) y `PanelGeneral.tsx` (tarjeta "Pedidos
+  Facturados"→"Pedidos Cobrados", subtítulos). El resto del pipeline (% del ingresado, desglose
+  Base/IVA) quedó igual — es la misma aproximación que ya usa "Total Recaudado" sobre el mismo
+  campo `abono`.
+
+### Casos borde documentados (no bloquean, quedan como comportamiento conocido)
+- `abono` es saldo acumulado a hoy, no un monto fechado por pago: consultar un rango pasado
+  muestra el abono *actual* de esas ODPs, no lo abonado específicamente en ese rango — mismo
+  comportamiento que ya tenía "Total Recaudado".
+- Si de una ODP solo la FE adicional cae en el rango (la principal quedó fuera), esa fila queda
+  en $0 — consecuencia directa de la regla "abono a la principal".
+- "Pedidos Cobrados" y "Total Recaudado" van a mostrar cifras parecidas pero no idénticas
+  (filtros distintos: uno exige FE, el otro no) — quedan como tarjetas relacionadas, no
+  redundantes.
+- Cache de 30 min (`cacheRespuesta`) en estos endpoints: el número puede tardar en reflejar el
+  cambio tras el deploy.
+
+### Verificación
+`npm run build` backend (tsc) y `tsc --noEmit` frontend, 0 errores. Sin verificación visual en
+navegador (no hay entorno gráfico en esta sesión).
+
+### Pendiente
+- Verificación visual del usuario: abrir el dashboard, confirmar que "Pedidos Cobrados" y el
+  modal muestran abono y no valor_total/monto de FE.
+
+---
+
+## 2026-09-15 (2) — Dashboard: verificación de "Pendiente" en Cartera Vencida (sin cambios de código)
+
+### Reporte del usuario
+Pidió confirmar que "Cartera Vencida" muestre el saldo restante del cliente, no el valor total
+de la ODP — ejemplo: ODP de 10M con 2M abonados debe mostrar 8M, no 10M. Mismo patrón de duda
+que motivó el cambio anterior de "Pedidos Facturados".
+
+### Diagnóstico
+`CarteraVencidaModal.tsx` ya consume `item.pendiente`, campo propio de la ODP (no `valor_total`)
+que se recalcula en cada pago (`registrarPago`, `contabilidad.controller.ts`) como
+`valor_total - abono - SUM(diferencia)`. A diferencia del caso anterior, acá el nombre del campo
+ya coincidía con lo que se necesitaba mostrar.
+
+Se encontró — y se descartó como explicación, por falta de evidencia del usuario — un gap
+real pero no relacionado: el filtro de "vencida" (`getCarteraVencida`, `fecha_factura < umbral`)
+solo mira la fecha de la FE **principal**, no las de `facturas_adicionales_odp` (a diferencia de
+`whereTieneFacturaEnRango`, que sí las considera). Documentado para si aparece evidencia concreta
+más adelante — no se tocó código sobre esto en esta sesión.
+
+**Verificación contra datos reales** (script `2026-09-15_verificar_pendiente_cartera_vencida.ts`,
+solo lectura, queda en el repo): sobre las 6 ODPs visibles en la captura del usuario, las 6
+cuadran exacto contra `valor_total - abono - diferencia`. ODP-24000 parecía no cuadrar contra
+`valor_total - abono` a secas ($146.204.610 vs pendiente real $143.490.633), pero la diferencia
+exacta ($2.713.977) es la suma de `pagos.diferencia` de esa ODP (descuento que reduce el
+pendiente sin contar como abono) — con ese término, cuadra exacto.
+
+### Conclusión
+No era un bug. El campo `pendiente` ya refleja el saldo restante real en el 100% de la muestra
+verificada contra la BD. Sin cambios de código — solo el script de verificación queda en
+`backend-api/src/scripts/`.

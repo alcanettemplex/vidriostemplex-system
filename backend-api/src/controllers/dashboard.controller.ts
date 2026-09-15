@@ -16,7 +16,7 @@ import {
   Cotizacion
 } from '../models';
 import sequelize from '../config/database';
-import { sqlFacturadoEnRango } from '../utils/facturacion';
+import { sqlCobradoEnRango } from '../utils/facturacion';
 
 // ─── Helpers de periodo ───────────────────────────────────────────────────────
 
@@ -95,9 +95,10 @@ export const getGeneralData = async (req: Request, res: Response) => {
     const facturado_mes_oa = Number(await ODP.sum('valor_total', { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] }, tipo_odp: 'OA' } }) || 0);
     const total_abonado_oa = Number(await ODP.sum('abono', { where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] }, tipo_odp: 'OA' } }) || 0);
 
-    // Pedidos facturados (tienen factura electrónica)
+    // Pedidos cobrados (tienen factura electrónica): mide caja (abono), no devengo — decisión
+    // de negocio 2026-09-15, ver sqlCobradoEnRango.
     const facturado_con_factura = Number(
-      await ODP.sum('valor_total', {
+      await ODP.sum('abono', {
         where: {
           fecha_creacion: { [Op.between]: [firstDay, lastDay] },
           factura_electronica: { [Op.ne]: null }
@@ -105,7 +106,7 @@ export const getGeneralData = async (req: Request, res: Response) => {
       }) || 0
     );
     const facturado_con_factura_oa = Number(
-      await ODP.sum('valor_total', {
+      await ODP.sum('abono', {
         where: {
           fecha_creacion: { [Op.between]: [firstDay, lastDay] },
           tipo_odp: 'OA',
@@ -114,15 +115,15 @@ export const getGeneralData = async (req: Request, res: Response) => {
       }) || 0
     );
 
-    // Pedidos facturados en el rango: SUMA de los montos de cada FE (principal + adicionales)
-    // cuya fecha cae en el período — contablemente exacto (ingreso reconocido por FE emitida).
+    // Pedidos cobrados en el rango: abono de cada ODP con FE (principal o adicional) cuya
+    // fecha cae en el período — ver sqlCobradoEnRango para la regla de reparto principal/adicional.
     const [frRow]: any = await sequelize.query(
-      `SELECT ${sqlFacturadoEnRango(firstDay, lastDay)} AS total`,
+      `SELECT ${sqlCobradoEnRango(firstDay, lastDay)} AS total`,
       { type: QueryTypes.SELECT }
     );
     const facturado_rango = Number(frRow?.total) || 0;
     const [froRow]: any = await sequelize.query(
-      `SELECT ${sqlFacturadoEnRango(firstDay, lastDay, { soloOA: true })} AS total`,
+      `SELECT ${sqlCobradoEnRango(firstDay, lastDay, { soloOA: true })} AS total`,
       { type: QueryTypes.SELECT }
     );
     const facturado_rango_oa = Number(froRow?.total) || 0;
@@ -886,35 +887,37 @@ export const getPedidosFacturados = async (req: Request, res: Response) => {
     let result: any[];
 
     if (modo === 'facturadas_rango') {
-      // Una fila por FE (principal + adicionales) cuya fecha cae en el rango. El monto de
-      // cada FE es su aporte real; la suma coincide con el KPI facturado_rango.
+      // Una fila por FE (principal + adicionales) cuya fecha cae en el rango. `abono` vive a
+      // nivel de ODP, no por FE: solo la fila Principal lo aporta, la Adicional aporta 0 —
+      // evita triplicar el abono cuando las tres fechas caen en el mismo rango (ver
+      // sqlCobradoEnRango, misma regla, para que la suma siga coincidiendo con el KPI).
       result = await sequelize.query(`
         SELECT o.id AS id, o.numero_odp, o.fecha_creacion, o.estado_caja,
                c.nombre_razon_social AS cliente_nombre,
                'Principal' AS tipo_fe, o.factura_electronica AS numero_fe,
                o.fecha_factura AS fecha_factura,
-               COALESCE(o.monto_factura_principal, o.valor_total) AS valor_total
+               o.abono AS monto_abonado
           FROM odp o JOIN clientes c ON c.id = o.cliente_id
          WHERE o.estado_facturacion = 'FACTURADA' AND o.factura_electronica IS NOT NULL
            AND o.fecha_factura BETWEEN :a AND :b
         UNION ALL
         SELECT o.id, o.numero_odp, o.fecha_creacion, o.estado_caja,
                c.nombre_razon_social, 'Adicional' AS tipo_fe, fa.numero_fe,
-               fa.fecha_factura, COALESCE(fa.monto, 0) AS valor_total
+               fa.fecha_factura, 0 AS monto_abonado
           FROM facturas_adicionales_odp fa
           JOIN odp o ON o.id = fa.odp_id
           JOIN clientes c ON c.id = o.cliente_id
          WHERE o.estado_facturacion = 'FACTURADA' AND fa.fecha_factura BETWEEN :a AND :b
          ORDER BY fecha_factura DESC
       `, { replacements: { a: firstDay, b: lastDay }, type: QueryTypes.SELECT });
-      result = result.map((r: any) => ({ ...r, valor_total: Number(r.valor_total) }));
+      result = result.map((r: any) => ({ ...r, monto_abonado: Number(r.monto_abonado) }));
     } else {
-      // ODPs creadas en el período que ya cuentan con FE. Mantiene el valor_total (decisión
-      // de negocio: mide el valor de lo vendido y facturado ese mes).
+      // ODPs creadas en el período que ya cuentan con FE. Expone el abono (caja), no el
+      // valor_total (devengo) — decisión de negocio 2026-09-15.
       const items = await ODP.findAll({
         where: { fecha_creacion: { [Op.between]: [firstDay, lastDay] }, factura_electronica: { [Op.ne]: null } },
         include: [{ model: Cliente, as: 'cliente', attributes: ['nombre_razon_social'] }],
-        attributes: ['id', 'numero_odp', 'fecha_creacion', 'fecha_factura', 'valor_total', 'estado_caja'],
+        attributes: ['id', 'numero_odp', 'fecha_creacion', 'fecha_factura', 'abono', 'estado_caja'],
         order: [['fecha_creacion', 'DESC']],
       });
       result = items.map(o => ({
@@ -922,13 +925,13 @@ export const getPedidosFacturados = async (req: Request, res: Response) => {
         numero_odp:     o.getDataValue('numero_odp'),
         fecha_creacion: o.getDataValue('fecha_creacion'),
         fecha_factura:  o.getDataValue('fecha_factura'),
-        valor_total:    Number(o.getDataValue('valor_total')),
+        monto_abonado:  Number(o.getDataValue('abono')),
         estado_caja:    o.getDataValue('estado_caja'),
         cliente_nombre: (o as any).cliente?.nombre_razon_social || 'Sin cliente',
       }));
     }
 
-    const total = result.reduce((acc, r) => acc + r.valor_total, 0);
+    const total = result.reduce((acc, r) => acc + r.monto_abonado, 0);
 
     return res.json({ items: result, total, count: result.length, modo });
   } catch (error: any) {

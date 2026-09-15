@@ -64,6 +64,53 @@ export const sqlFacturadoEnRango = (
  * adicional) con fecha dentro de [desde, hasta]. Usar dentro de `[Op.and]`.
  * `alias` es el alias SQL de la tabla ODP (Sequelize usa "ODP", entre comillas dobles).
  */
+/**
+ * SQL (subconsulta escalar) que suma el ABONO (caja, no factura) de cada ODP con FE
+ * emitida en [desde, hasta] — hermana de `sqlFacturadoEnRango`, misma forma, pero para el
+ * KPI "Pedidos Cobrados" (facturado_rango / getPedidosFacturados en dashboard.controller).
+ *
+ * `abono` vive a nivel de ODP, no por FE individual: si una ODP tiene principal + adicionales
+ * cayendo en el mismo rango, solo la fila de la FE PRINCIPAL aporta `o.abono` — las adicionales
+ * aportan 0. Evita triplicar el abono cuando las tres fechas caen en el mismo rango. Decisión
+ * de negocio 2026-09-15: si la ODP no tiene FE principal en rango (solo una adicional), esa fila
+ * queda en $0 — el abono ya se contó (o se contará) por la fila principal, en el rango que le
+ * corresponda a ella.
+ *
+ * A propósito NO reemplaza `sqlFacturadoEnRango`: el Informe Ejecutivo sigue midiendo devengo
+ * (monto de la FE), no caja — cambiar el helper compartido le habría cambiado el número sin que
+ * nadie lo pidiera.
+ */
+export const sqlCobradoEnRango = (
+  desde: Date | string,
+  hasta: Date | string,
+  opts: { soloOA?: boolean; asesorId?: number | null } = {}
+): string => {
+  const d = new Date(desde).toISOString();
+  const h = new Date(hasta).toISOString();
+  const filtros: string[] = [];
+  if (opts.soloOA) filtros.push(`AND o.tipo_odp = 'OA'`);
+  if (opts.asesorId) filtros.push(`AND o.asesor_id = ${Number(opts.asesorId)}`);
+  const extra = filtros.join(' ');
+  return `
+    COALESCE((
+      SELECT SUM(t.monto) FROM (
+        SELECT o.abono AS monto
+          FROM odp o
+         WHERE o.estado_facturacion = 'FACTURADA'
+           AND o.factura_electronica IS NOT NULL
+           AND o.fecha_factura BETWEEN '${d}' AND '${h}'
+           ${extra}
+        UNION ALL
+        SELECT 0 AS monto
+          FROM facturas_adicionales_odp fa
+          JOIN odp o ON o.id = fa.odp_id
+         WHERE o.estado_facturacion = 'FACTURADA'
+           AND fa.fecha_factura BETWEEN '${d}' AND '${h}'
+           ${extra}
+      ) t
+    ), 0)`;
+};
+
 export const whereTieneFacturaEnRango = (
   desde: Date | string,
   hasta: Date | string,
