@@ -183,7 +183,16 @@ export const getContabilidadODPs = async (req: Request, res: Response) => {
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
         { model: FacturaAdicionalODP, as: 'facturas_adicionales', attributes: ['id', 'numero_fe', 'fecha_factura', 'monto'], separate: true },
       ],
-      order: [['fecha_creacion', 'DESC']],
+      // El frontend (ContabilidadPage) pide todo con un solo limit=500 y busca/filtra en
+      // el navegador — no hay búsqueda server-side. Con orden puro por fecha_creacion, una
+      // ODP vieja con saldo abierto puede quedar fuera del corte y desaparecer de toda
+      // búsqueda aunque tenga pendiente real (caso ODP-23859, 2026-09-16). Las no
+      // CANCELADO van siempre primero (sin límite práctico: son un puñado frente a las
+      // ya saldadas) para que ninguna con saldo abierto quede nunca fuera del listado.
+      order: [
+        [sequelize.literal(`CASE WHEN estado_caja = 'CANCELADO' THEN 1 ELSE 0 END`), 'ASC'],
+        ['fecha_creacion', 'DESC'],
+      ],
       limit,
       offset,
     });
