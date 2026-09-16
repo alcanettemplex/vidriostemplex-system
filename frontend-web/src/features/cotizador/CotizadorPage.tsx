@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Calculator as IconCotizar, ClipboardList, Archive, Loader2, AlertTriangle } from 'lucide-react';
+import { Calculator as IconCotizar, ClipboardList, Archive, Loader2, AlertTriangle, Gauge, Settings } from 'lucide-react';
 
 import FolderTabs, { FOLDER_BODY } from '../../components/FolderTabs';
 import { apiEstadoCotizador, apiGetParametros } from './services/cotizadorApi';
@@ -12,6 +12,8 @@ import { fmtCOP } from './format';
 import TabCotizar from './components/TabCotizar';
 import TabActual from './components/TabActual';
 import TabGuardadas from './components/TabGuardadas';
+import TabCalibracion from './components/TabCalibracion';
+import TabConfiguracion from './components/TabConfiguracion';
 import { apiCrearCotizacion, apiActualizarCotizacion } from './services/cotizadorApi';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -41,7 +43,7 @@ const CABECERA_INICIAL: CabeceraCotizacion = {
     estado: 'PENDIENTE',
 };
 
-type TabKey = 'cotizar' | 'actual' | 'guardadas';
+type TabKey = 'cotizar' | 'actual' | 'guardadas' | 'calibracion' | 'configuracion';
 
 const CotizadorPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -182,32 +184,37 @@ const CotizadorPage: React.FC = () => {
     return (
         <div className="p-4 md:p-6 font-cotizador">
             <div className="relative">
-                {/* Barra de contexto: visible en las 3 pestañas, por eso vive en el shell
-                    y no en cada Tab. No incluye el módulo de producto activo a propósito
-                    — esa selección es estado interno de TabCotizar y el selector "spotlight"
-                    ya la muestra ahí mismo; duplicarla aquí exigiría subirla de nivel sin
-                    que ningún otro consumidor la necesite. */}
-                <div className="flex flex-wrap items-center justify-between gap-2 bg-gradient-to-b from-indigo-50 to-violet-50 border border-indigo-100 rounded-xl px-4 py-2.5 mb-3">
-                    <div className="flex items-center gap-2 text-[12.5px] font-bold text-indigo-700">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-300 flex-shrink-0" />
-                        {edicion ? `Editando cotización N.° ${edicion.numero}` : 'Cotización sin guardar'}
-                        {' · '}
-                        {cabecera.cliente.nombre || 'Cliente sin asignar'}
+                {/* Barra de contexto: visible en las pestañas de cotización (no en
+                    Calibración, que no tiene carrito ni cliente en construcción), por eso
+                    vive en el shell y no en cada Tab. No incluye el módulo de producto
+                    activo a propósito — esa selección es estado interno de TabCotizar y el
+                    selector "spotlight" ya la muestra ahí mismo; duplicarla aquí exigiría
+                    subirla de nivel sin que ningún otro consumidor la necesite. */}
+                {activeTab !== 'calibracion' && activeTab !== 'configuracion' && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 bg-gradient-to-b from-indigo-50 to-violet-50 border border-indigo-100 rounded-xl px-4 py-2.5 mb-3">
+                        <div className="flex items-center gap-2 text-[12.5px] font-bold text-indigo-700">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-300 flex-shrink-0" />
+                            {edicion ? `Editando cotización N.° ${edicion.numero}` : 'Cotización sin guardar'}
+                            {' · '}
+                            {cabecera.cliente.nombre || 'Cliente sin asignar'}
+                        </div>
+                        <div className="flex items-center gap-4 text-[12.5px] text-indigo-700">
+                            <span>{carrito.length} ítem{carrito.length === 1 ? '' : 's'} en el carrito</span>
+                            <span>
+                                Total estimado{' '}
+                                <span className="font-cotizador-head font-bold text-sm text-indigo-950">{fmtCOP(totalCarrito)}</span>
+                            </span>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-4 text-[12.5px] text-indigo-700">
-                        <span>{carrito.length} ítem{carrito.length === 1 ? '' : 's'} en el carrito</span>
-                        <span>
-                            Total estimado{' '}
-                            <span className="font-cotizador-head font-bold text-sm text-indigo-950">{fmtCOP(totalCarrito)}</span>
-                        </span>
-                    </div>
-                </div>
+                )}
 
                 <FolderTabs
                     tabs={[
                         { key: 'cotizar', label: 'Cotizar', icon: <IconCotizar className="w-4 h-4" /> },
                         { key: 'actual', label: 'Actual', icon: <ClipboardList className="w-4 h-4" />, badge: carrito.length || undefined },
                         { key: 'guardadas', label: 'Guardadas', icon: <Archive className="w-4 h-4" /> },
+                        { key: 'calibracion', label: 'Calibración', icon: <Gauge className="w-4 h-4" /> },
+                        { key: 'configuracion', label: 'Configuración', icon: <Settings className="w-4 h-4" /> },
                     ]}
                     activeKey={activeTab}
                     onChange={cambiarTab}
@@ -232,6 +239,8 @@ const CotizadorPage: React.FC = () => {
                     {activeTab === 'guardadas' && (
                         <TabGuardadas onReabrir={reabrirCotizacion} abrirDetalleInicial={abrirDetalleInicial} />
                     )}
+                    {activeTab === 'calibracion' && <TabCalibracion />}
+                    {activeTab === 'configuracion' && <TabConfiguracion />}
                 </div>
             </div>
         </div>

@@ -4,6 +4,76 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-16 (2) — Cotizador: el recálculo de precios por categoría no termina a tiempo para PERFILERIA (N+1 contra Supabase)
+
+**Severidad:** Alta para PERFILERIA (hoy no se puede usar en producción) · Media para el resto · **Estimación:** 3-4 h
+
+**Descripción:** `POST /api/cotizador/multiplicadores/:categoria/recalcular` (controller
+`cotizador_multiplicadores.controller.ts`, botón "Recalcular" de la nueva pestaña Configuración)
+recorre los productos de la categoría llamando a `recalcularCostoDesdeProveedor(id)` **una vez por
+cada `catalogo_producto_id` distinto**. Ese motor (`cotizador/lib/sincronizacionProveedores.ts`)
+está escrito para el caso de uso para el que nació —la cola de sincronización, que lo invoca con
+un puñado de ids tras cargar una factura—, no para barrer una categoría entera. Cada id cuesta
+como mínimo dos viajes a la BD (`CotizadorProducto.findAll` + `ProveedorProducto.findAll` con
+`include` de Proveedor) y **dentro del bucle de productos hay un tercero**:
+`CotizadorMultiplicadorCategoria.findByPk(categoria)`, que vuelve a traer siempre la misma fila.
+
+**Medición real (2026-09-16, backend local contra el pooler de Supabase, `dry_run=true`):**
+
+| Categoría | Productos | Vinculados | ids distintos | Viajes a BD | Tiempo |
+|---|---|---|---|---|---|
+| ACCESORIO | 175 | 172 | 169 | ~510 | **81,2 s medidos** |
+| PERFILERIA | 363 | 304 | 296 | ~896 | **~142 s proyectados** |
+| VIDRIO | 40 | 39 | 38 | ~115 | ~18 s |
+| ACABADO | 17 | 15 | 14 | ~44 | ~7 s |
+
+Da ~160 ms por viaje, que es sencillamente la latencia de ida y vuelta al pooler: no hay una
+consulta lenta que optimizar, hay demasiadas consultas. El `dry_run` es además el caso **barato**
+— la corrida real suma un UPDATE por producto que cambia (45 en ACCESORIO; hasta 304 en
+PERFILERIA).
+
+**Por qué bloquea producción:** si el backend se sirve detrás del proxy de Cloudflare, el límite
+de 100 s por request (error 524) corta la conexión antes de que PERFILERIA responda —y lo hace
+*después* de que el backend ya escribió, porque el corte es del proxy, no del servidor: el usuario
+ve un error y la BD quedó modificada. **Confirmar primero si el registro DNS del backend está
+proxiado**; si está en gris (DNS only) el límite no aplica y el riesgo baja a un timeout de
+navegador. Hoy el frontend no declara `timeout` en Axios, así que en local simplemente espera los
+81 s con el botón en "Recalculando…" — funciona, pero es una espera sin barra de progreso ni
+forma de cancelar.
+
+**Solución propuesta, en orden de relación costo/beneficio:**
+1. **Sacar el `findByPk` del multiplicador fuera del bucle** (es una fila por categoría, constante
+   durante toda la corrida). Elimina ~304 viajes en PERFILERIA, ~34 % del total. 15 minutos.
+2. **Variante batch de `recalcularCostoDesdeProveedor`**: una sola consulta `WHERE
+   catalogo_producto_id IN (:ids)` para productos y otra para candidatos de proveedor, agrupar en
+   memoria y resolver el "proveedor más barato que sigue precios" ahí. Pasa de ~896 viajes a ~3, o
+   sea de minutos a segundos. **Mantener la función por-id como envoltorio delgado sobre la batch**
+   para no alterar el comportamiento de la cola de sincronización, que es el consumidor existente
+   y ya está probado.
+3. Solo si después de (1) y (2) sigue sin caber en el presupuesto de tiempo: convertirlo en trabajo
+   asíncrono (job + consulta de estado). No hacerlo antes — agrega infraestructura para esconder un
+   problema que es puramente de cantidad de consultas.
+
+**Nota relacionada, pendiente de decisión del usuario:** la previsualización de ACCESORIO
+(2026-09-16) muestra 45 productos que cambiarían, varios con caídas fuertes (`TSL0101` −73 %,
+`PPD1101` −34 %, `SIL0002` −33 %). Antes de aplicar cualquier recálculo masivo conviene revisar si
+esas caídas son reales o son otro desajuste de unidad tira/metro como el que apareció en
+perfilería el mismo día. No se aplicó ningún recálculo: todo quedó en `dry_run`.
+
+---
+
+## 2026-09-16 — Cotizador: 5 "Kit Aluminio" (`K1000`...`K2000`) sin costeo real, precio calculado a mano
+
+**Severidad:** Media · **Estimación:** depende de tener precios reales de perfilería por sistema, no es solo código
+
+**Descripción:** dentro de la reconciliación de códigos huérfanos del Cotizador (Fase 1/2, ver `SESSION_LOG.md` 2026-09-14/16), `K1000`, `K1200`, `K1300`, `K1500` y `K2000` ("Kit Aluminio hasta 1000mm", "de 1001 a 1200mm", etc.) quedaron confirmados como huérfanos permanentes — no se homologan a `catalogo_productos` porque no representan un código de compra real, sino un **cálculo interno** que agrupa el costo de perfilería de un sistema por rango de tamaño. Decisión del usuario (2026-09-16): "son un cálculo, pero dejalo documentado, ya que el cálculo lo sacaremos con los precios reales de los perfiles".
+
+**Impacto:** el costo/precio de estos 5 códigos en `cotizador.producto` sigue siendo el que se cargó a mano (no viene de `proveedor_producto` como el resto de PERFILERIA vinculada a catálogo), así que no se beneficia de `sincronizacionProveedores.ts` ni de ningún ajuste automático de precio de proveedor.
+
+**Solución pendiente:** cuando se tengan los precios reales de los perfiles que componen cada rango (probablemente vía el mismo mecanismo que usa `motorDespiece.ts` para el despiece), recalcular estos 5 kits como una suma/fórmula sobre productos ya vinculados a catálogo, en vez de un precio manual fijo. No se tocó código en esta pasada — solo se documentó y se dejaron `catalogo_producto_id = NULL` a propósito.
+
+---
+
 ## 2026-09-14 (2) — `catalogo_productos.codigo` sin UNIQUE/NOT NULL real en la BD (drift modelo↔esquema)
 
 **Severidad:** Media · **Estimación:** 1-2 h, pero exige primero resolver las filas que ya rompen el constraint

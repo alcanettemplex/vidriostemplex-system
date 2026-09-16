@@ -3537,3 +3537,185 @@ no quedaron en el repo).
 ### Pendiente
 - Verificación visual del usuario en navegador: los 3 modales nuevos y el salto del número de
   "m² Vendidos" (para que no lo lea como un dato raro al verlo el lunes).
+
+---
+
+## 2026-09-16 — ODP-24202, catálogo del Cotizador (Fase 2 completa), fix Estado Caja, CRM
+
+Sesión con varios pedidos encadenados, sin relación entre sí salvo el catálogo maestro común.
+
+### ODP-24202 — corrección de valor_total y monto de la FE 7469
+El total quedó cargado en 67.877.368 (casi el doble del real) y debía quedar en 33.938.683 con
+IVA; la FE 7469 estaba facturada por el total completo y debía quedar por 25.000.000 — justo el
+abono ya registrado (Pago #471, anticipo Bancolombia 16/jul/2026), sin registrar un pago nuevo.
+Aplicado en dos pasos por el guard de `odp.controller.ts` (~L954, no deja bajar `valor_total` por
+debajo de lo ya facturado): primero se bajó `monto_factura_principal` a 25.000.000, después
+`valor_total` a 33.938.683, recalculando `pendiente`/`estado_caja` con la misma fórmula de
+`updateODP`. Script: `2026-09-16_odp24202_corregir_monto_fe.ts`. Verificado en `auditoria_log`
+(2 UPDATE, usuario_id=30 ROOT).
+
+### Cotizador — Fase 2 de homologación de códigos huérfanos, completa
+Continuación de la Fase 1 (2026-09-14, ver esa entrada): el usuario devolvió el Excel de
+reconciliación (`cotizador_codigos_huerfanos_2026-09-14.xlsx`, Descargas) con la columna
+`codigo_homologo` llena para gran parte de los 181 huérfanos — la columna `accion` (dropdown)
+quedó casi toda en blanco, así que la señal real terminó siendo "codigo_homologo no vacío", no
+`accion`. Trabajo iterativo con el usuario (capturas del sistema real de inventario/contable)
+para resolver ambigüedades:
+
+- **12 códigos nuevos dados de alta en `catalogo_productos`** (confirmados contra el sistema real
+  antes de crearlos, no adivinados): `BPB05`, `DIAMBPB`, `BOQN02`, `PERF01`, `PERF03`, `PERF04`,
+  `BOQE01`, `BOQE03`, `1BPB07` (BPB REDONDO DIAMETRO — distinto del código junk homónimo que quedó
+  huérfano, ver abajo), `MATI09`, `PERF02`. Scripts `2026-09-16_alta_catalogo_*.ts`.
+- **Correcciones de datos cruzados/typo en el Excel**: `BOQN03`→`BOQE03` (decía `BOQE01` por
+  error, eran productos distintos: interno vs perimetral), `MATI08`→`MATI07` ("MATIZADO RAYA" no
+  tiene equivalente real, el usuario confirmó que se sustituye por MATI07 total), `MATI09`→`MATI09`
+  (self, antes cruzado con MATI08), `RDU0102`→`RSDCF02` (es un rodamiento/accesorio, no el riel
+  RDU0101 con el que se confundía).
+- **Aplicación** (`2026-09-16_cotizador_aplicar_homologacion.ts`, idempotente — solo toca filas con
+  `catalogo_producto_id IS NULL`): de 181 huérfanos originales, **116 quedaron vinculados** en
+  total entre esta sesión y la anterior (382→498 de 563 productos del Cotizador).
+- **65 huérfanos cerrados como IGNORAR, decisión explícita del usuario, no pendiente sin resolver**:
+  36 son colores de perfiles reales que hoy no se manejan con esos códigos (familias DIV/ADA/CAB/
+  JAM/SIL/HOR/TRA/ENG/PEP, ya parcialmente homologadas en otros colores); 18 son 3 productos
+  (`PRVS234`/Toallero, `PRVT99`/Tubular, `PRVVP010`/Marco) que el usuario confirmó que no existen
+  en el sistema; 5 son los "Kit Aluminio" `K1000`...`K2000` (cálculo interno, no código de compra
+  — documentado en `TECH_DEBT.md` 2026-09-16); 2 (`BAR1101`, `CHT1001`) y 1 vidrio (`CL6MM03LM`) no
+  existen; 3 (`1BPB07`, `1PERF01`, `1BOQN02`) son basura confirmada — su propia descripción en
+  `cotizador.producto` dice literalmente "CODIGO NO EXISTE".
+- Estado final: **498 vinculados / 65 huérfanos** (de 563 productos totales del Cotizador).
+
+### Contabilidad — fix Estado Caja: ODP con saldo pendiente invisible a la búsqueda
+Reporte del usuario: buscar ODP-23859 en el tab Estado Caja no la mostraba pese a tener
+`pendiente=1.498.838`. Causa: `ContabilidadPage.tsx` pide `/api/contabilidad/odps?limit=500` una
+sola vez y busca/filtra en el navegador — no hay búsqueda server-side. `getContabilidadODPs`
+ordenaba por `fecha_creacion DESC` sin más, así que una ODP vieja con saldo abierto podía quedar
+fuera del corte de 500 (esta cayó en el puesto 529 de 542) y desaparecer de toda búsqueda sin
+importar el saldo real. De 542 ODP, solo 78 no están `CANCELADO`; de esas, únicamente esta caía
+fuera del límite. Fix: orden cambiado a "no CANCELADO primero, luego fecha_creacion DESC" en
+`contabilidad.controller.ts` — garantiza que ninguna ODP con saldo abierto quede nunca fuera del
+listado, sin cambiar el contrato del endpoint (único consumidor verificado). Confirmado en vivo:
+ODP-23859 pasó de la posición 529/542 a la 78/542.
+
+### CRM — vincular lead aprobado a ODP existente
+Lead 2110 ("GRUPO INTEGRA JS . S,A,S. ALEX PEDROSO", aprobado el mismo día) vinculado a
+ODP-24304 (mismo cliente, GRUPO INTEGRA J.S S.A.S id 1688) replicando la lógica de
+`vincularODPAlLead` (`crm.controller.ts`): `lead.odp_id` + `LeadEvento` tipo SEGUIMIENTO.
+
+### Commit
+`8b76cf2` — pusheado a `origin/main` a pedido del usuario, incluye el fix de Contabilidad y los
+scripts one-off de esta sesión (más uno pendiente de la sesión anterior, `2026-09-15_odp24202_
+cambiar_cliente.ts`, y otro sin ejecutar, `fix_pv_7099_revertir_llegada_2026-09-14.ts`). Los
+cambios de catálogo/homologación posteriores al commit (12 altas + 4 homologaciones + TECH_DEBT.md)
+quedaron sin subir — solo tocan BD y un `.md`, no hay script nuevo que commitear salvo `TECH_DEBT.md`.
+
+### Pendiente
+- `TECH_DEBT.md` con la entrada de los kits K1000-K2000 sigue sin commitear.
+- Revisión general de qué más falta en el Cotizador, pedida por el usuario al cierre — ver próxima
+  entrada de esta bitácora si se llega a ejecutar en la misma sesión.
+
+---
+
+## 2026-09-16 (2) — Cotizador: calibración (capa de escritura), hueco de colores, y pestaña Configuración
+
+Continuación de la misma jornada, después del commit `8b76cf2`. Tres bloques encadenados: se cerró
+la deuda de calibración, apareció un hueco de colores al probar una cotización real, y de ahí salió
+la necesidad de volver configurable el motor de precios.
+
+### Calibración — capa de escritura completa (cierra `TECH_DEBT.md` 2026-09-13)
+
+El módulo existía a medias: tablas, matemática (`cotizador/lib/calibracion.ts`) y getters de
+lectura, pero **sin ninguna forma de escribir** — así, todos los sistemas quedaban atrapados en
+`EN_CALIBRACION` y ninguna cotización con diseño podía emitir orden de corte.
+
+Antes de codificar se socializó el alcance con el usuario, que definió: por ahora solo `root`/`admin`
+(a futuro asesores, compras y producción), formulario suelto (no wizard), todos los sistemas a la
+vez, y las tres capas juntas.
+
+- **Backend** `cotizador_calibracion.controller.ts` (nuevo) — 13 endpoints: inventario de sistemas,
+  piezas por sistema, análisis de pieza, registrar/anular contraste, aprobar/anular margen, fijar y
+  retirar holgura, cambiar estado del sistema, firma del maestro e historial. Todo en transacción y
+  bajo el `requireRole('root','admin')` que ya gobierna el router.
+- **Patrón respetado**: commit → `cache.recargar('calibracion')` → responder, en ese orden (el mismo
+  que `editarPrecio`). Al revés, la caché se recarga desde una transacción que todavía puede fallar.
+- **Matiz importante**: `EN_PRODUCCION` nunca se escribe a mano. "Reanudar" un sistema congelado
+  escribe `'VALIDADO'` como centinela de no-congelado, porque `madurezDeSistema` solo trata de forma
+  especial la cadena exacta `'EN_CALIBRACION'` — cualquier otro valor deja que la madurez la calcule
+  la evidencia, que es el comportamiento buscado.
+- **Frontend** `TabCalibracion.tsx` (nuevo, 4ª pestaña) con sub-navegación Sistemas / Holguras /
+  Historial.
+- **Bug real encontrado en verificación con navegador** (Playwright, instalado en esta sesión a
+  pedido del usuario): registrar un contraste cerraba el panel de la pieza, porque `cargarPiezas`
+  hacía `setPiezaSel(null)` y se la llamaba también al refrescar. El reset se movió a
+  `seleccionarSistema`, que es donde la selección sí deja de tener sentido.
+
+### Hueco de colores — el motor cobraba mate cuando pedías negro
+
+Probando una cotización real, el usuario reportó: "en 5020 no existe ninguna referencia negra". El
+aviso venía hardcodeado en `ventanas.ts` y **era falso**: los códigos negros sí existen en
+`catalogo_productos` y con precio de proveedor activo. La cadena estaba rota en dos eslabones
+distintos —faltaba la clave de color en `codigos_por_color` y faltaba el producto en
+`cotizador.producto`— y el motor, al no encontrar el color, sustituía por mate **en silencio**.
+Como el negro cuesta entre 20 % y 69 % más que el mate, cada una de esas cotizaciones salía por
+debajo del costo.
+
+Se revisaron los 13 sistemas, no solo el 5020: 184 combinaciones (sistema, ref, color) sin mapear.
+
+- **22 combinaciones / 16 códigos únicos** tenían candidato único en catálogo **y** precio real de
+  proveedor → dadas de alta (`2026-09-16_cotizador_altas_color_faltante.ts`, 343 filas de
+  `diseno_perfil`). Método de precio confirmado por el usuario: heredar categoría, unidad y
+  multiplicador PA/PM/PB del "hermano" (el mismo perfil en otro color, ya con costo real).
+- **16 códigos más** (Sistema3831 y Sistema8025) existían en catálogo pero nunca tuvieron fila en
+  `proveedor_producto`, ni siquiera en el histórico del WO exportado. El usuario dio precio inicial
+  para cada uno; se cargaron como proveedor VENTANAS Y PUERTAS S.A.S (id 829), unidad `TIRA_6M`,
+  origen `MANUAL` (`2026-09-16_alta_16_codigos_precio_manual.ts`, 291 filas de `diseno_perfil`). Se
+  creó la fila real en `proveedor_producto` **a propósito**: el día que Compras cargue la factura de
+  verdad, la ingesta la encuentra por `(proveedor_id, catalogo_producto_id, unidad_compra)` y la
+  actualiza sola, sin duplicar.
+- **58 sin precio**: no se crearon — decisión explícita del usuario, esperar el Excel. Crear el
+  producto sin precio sería cobrar $0 en silencio, que es exactamente lo que este módulo no debe
+  hacer (AUSENTE ≠ CERO).
+- **104 sin código en catálogo**: exportadas a Excel en Descargas para que el usuario decida. Sin
+  acción en código.
+- Corregido el texto de `ventanas.ts` para que diga lo que es cierto hoy: 7038 casi completo,
+  5020/5020Reforzado mayormente cubiertos, 744/8025/3831 parciales.
+
+**Dato útil derivado:** PERFILERIA usa exactamente dos multiplicadores (1,561841 en 205 productos y
+1,514500 en 126), con dispersión cero. Los 38 productos nuevos heredaron el de su hermano exacto.
+
+### Pestaña Configuración — el motor de precios deja de estar hardcodeado
+
+A pedido del usuario ("ese motor me gustaría que fuera configurable… así como configurar allí el
+costo de mano de obra, acarreo, etc.").
+
+- **Backend** `cotizador_multiplicadores.controller.ts` (nuevo): `GET /multiplicadores`,
+  `PUT /multiplicadores/:categoria`, `POST /multiplicadores/:categoria/recalcular` (con `dry_run`).
+  El listado **deriva las categorías de `cotizador.producto`**, no de una lista fija, y devuelve
+  `configurado: boolean` en vez de fingir ceros para las que no tienen fila — de nuevo AUSENTE ≠
+  CERO: un multiplicador en cero pondría todos los precios en cero. Valida PA ≥ PM ≥ PB,
+  multiplicador ≥ 1, motivo obligatorio y que la categoría exista de verdad en el catálogo.
+- **Frontend** `TabConfiguracion.tsx` (nuevo, 5ª pestaña): tabla de multiplicadores por categoría
+  con previsualización antes de aplicar, y formulario de parámetros de negocio (AIU, IVA, flete
+  fijo, alquiler de andamio, huacal y las 6 tarifas de mano de obra).
+- **Bug peligroso introducido y corregido en la misma pasada — vale la pena recordarlo.** El texto
+  de ayuda del campo AIU decía "fracción: 0.04 = 4 %". Es falso: `motorCalculo.ts:185` **divide**
+  por ese número (`subtotal / aiu`), así que el 4 % se escribe `0.96`. Escribir `0.04` creyendo que
+  era el porcentaje **multiplicaba el total por 25**. El primer guard del backend (`<= 0 || > 1`)
+  dejaba pasar `0.04` sin problema, y durante la prueba llegó a guardarse en la BD unos segundos
+  (queda en el historial de parámetros; el valor final verificado es el correcto, 0,96). El piso
+  quedó en **0,5** —equivalente a +100 % de margen— en frontend y backend: el rango peligroso no es
+  solo el cero, es todo lo que esté por debajo de un margen plausible. Los 4 casos peligrosos se
+  verificaron rechazados.
+- Verificación con navegador real: pantalla carga, validaciones avisan, previsualización funciona,
+  cero errores de consola y de red.
+
+### Pendiente
+- **El recálculo de PERFILERIA no termina a tiempo** (81 s medidos en ACCESORIO, ~142 s proyectados
+  en PERFILERIA, contra un límite de 100 s si el backend está tras el proxy de Cloudflare). Causa,
+  medición y plan de arreglo en `TECH_DEBT.md` 2026-09-16 (2). Es lo próximo a atacar.
+- Previsualización de ACCESORIO con caídas fuertes (`TSL0101` −73 %) sin revisar: podría ser otro
+  desajuste tira/metro. **No se aplicó ningún recálculo.**
+- Los 58 códigos sin precio, a la espera del Excel del usuario. Las 104 combinaciones sin código en
+  catálogo, a la espera de su decisión.
+- PERFILERIA, VIDRIO y ACABADO siguen sin multiplicador sembrado — ahora configurable desde la UI,
+  pero nadie lo fijó todavía. Mientras tanto la sincronización automática solo mueve ACCESORIO
+  (`TECH_DEBT.md` 2026-09-14).

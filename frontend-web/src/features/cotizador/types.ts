@@ -285,3 +285,124 @@ export interface ItemCarrito {
     input: Record<string, unknown>;
     resultado: ResultadoCalculo;
 }
+
+// ─── Calibración — espejo de cotizador_calibracion.controller.ts ───────────
+
+export type MaterialCalibracion = 'aluminio' | 'vidrio';
+export type NivelCorte = 'A' | 'B' | 'C';
+export type AmbitoMargen = 'global' | 'sistema' | 'material' | 'pieza';
+export type AmbitoHolgura = 'global' | 'sistema';
+
+export interface EstadoSistemaCalibracion {
+    sistema: string;
+    estado: 'EN_CALIBRACION' | 'VALIDADO' | 'EN_PRODUCCION';
+    pausadoManualmente: boolean;
+    firmaMaestro: boolean;
+    cobertura: number;
+    piezasTotales: number;
+    piezasConMargen: number;
+    piezasVetadas: number;
+    motivo: string;
+    actualizadoEn: string | null;
+    actualizadoPor: string | null;
+}
+
+export interface PiezaCalibracion {
+    ref: string;
+    material: MaterialCalibracion;
+    nivelCorte: NivelCorte | null;
+    margenEfectivo: { margenMm: number; origen: string; clave: string | null };
+    contrastesVigentes: number;
+}
+
+export interface ContrasteCalibracion {
+    id: number;
+    registrado_en: string;
+    anulado: boolean;
+    motivo_anulacion: string | null;
+    anulado_en: string | null;
+    sistema: string;
+    ref: string;
+    material: MaterialCalibracion;
+    medida_sistema_bruta_mm: number;
+    medida_maestro_mm: number;
+    ancho_vano_mm: number | null;
+    alto_vano_mm: number | null;
+    nota: string | null;
+    registrado_por: string | null;
+}
+
+/** Respuesta de GET /calibracion/analisis — espejo de analizarPieza() en
+ * lib/calibracion.ts. Los campos varían según `puedeProponer`, por eso viene
+ * laxo (igual que ResultadoGuardado en el backend): un blob de diagnóstico, no
+ * una estructura fija que valga la pena tipar campo por campo aquí. */
+export interface AnalisisPieza {
+    sistema: string;
+    ref: string;
+    material: MaterialCalibracion;
+    nivelCorte: NivelCorte | null;
+    puedeProponer: boolean;
+    motivo: string | null;
+    margenMm?: number;
+    tipo?: 'offset' | 'factor';
+    explicacion?: string;
+    accionSugerida?: string;
+    anchosSugeridos?: number[];
+    faltan?: number;
+    [clave: string]: unknown;
+}
+
+export interface HolguraCalibracion {
+    id: number;
+    ambito: AmbitoHolgura;
+    sistema: string | null;
+    ancho_mm: number;
+    alto_mm: number;
+    nota: string | null;
+    definido_por: string | null;
+    definido_en: string;
+    vigente: boolean;
+}
+
+export interface HistorialCalibracion {
+    id: number;
+    fecha: string;
+    accion: 'aprobar-margen' | 'anular-margen' | 'fijar-holgura' | 'anular-holgura' | 'cambiar-estado';
+    payload: Record<string, unknown>;
+}
+
+// ─── Configuración — multiplicadores por categoría ─────────────────────────
+
+/** Una categoría del catálogo del Cotizador y su multiplicador costo→venta.
+ * `configurado: false` NO significa multiplicador 1.0: significa que el motor
+ * de sincronización se abstiene de tocar esos productos (misma invariante
+ * AUSENTE ≠ CERO que defiende el módulo de calibración). */
+export interface MultiplicadorCategoria {
+    categoria: string;
+    productos: number;
+    /** Productos de la categoría vinculados a `catalogo_productos`: sin vínculo
+     * no hay proveedor del que derivar costo, por mucho multiplicador que haya. */
+    vinculados: number;
+    configurado: boolean;
+    multiplicadorPa: number | null;
+    multiplicadorPm: number | null;
+    multiplicadorPb: number | null;
+    actualizadoEn: string | null;
+    actualizadoPor: string | null;
+    nota: string | null;
+}
+
+export interface ResultadoRecalculoCategoria {
+    categoria: string;
+    dryRun: boolean;
+    productosEnCategoria: number;
+    sinVinculoACatalogo: number;
+    cambios: Array<{
+        codigo: string;
+        categoria: string;
+        antes: { costo_unitario: number; precio_pa: number; precio_pm: number; precio_pb: number };
+        despues: { costo_unitario: number; precio_pa: number; precio_pm: number; precio_pb: number };
+    }>;
+    omitidos: Array<{ codigo: string; motivo: string }>;
+    resumen: string;
+}

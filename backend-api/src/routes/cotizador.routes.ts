@@ -32,6 +32,26 @@ import {
   editarParametros,
 } from '../controllers/cotizador_precios.controller';
 import { obtenerEmpresa, actualizarEmpresa } from '../controllers/cotizador_empresa.controller';
+import {
+  listarEstadoSistemas,
+  listarPiezasDeSistema,
+  actualizarEstadoSistema,
+  listarContrastes,
+  registrarContraste,
+  anularContraste,
+  analizarPiezaEndpoint,
+  aprobarMargen,
+  anularMargen,
+  listarHolguras,
+  fijarHolgura,
+  anularHolgura,
+  listarHistorial,
+} from '../controllers/cotizador_calibracion.controller';
+import {
+  listarMultiplicadores,
+  guardarMultiplicador,
+  recalcularCategoria,
+} from '../controllers/cotizador_multiplicadores.controller';
 
 const router = Router();
 
@@ -76,5 +96,25 @@ router.put('/cotizaciones/:id', actualizarCotizacion);
 router.delete('/cotizaciones/:id', eliminarCotizacion);
 router.get('/cotizaciones', listarCotizaciones);
 router.post('/cotizaciones', crearCotizacion);
+
+// Calibración — literales antes de ':sistema' donde aplica, mismo motivo que arriba.
+router.get('/calibracion/sistemas', listarEstadoSistemas);
+router.patch('/calibracion/sistemas/:sistema', actualizarEstadoSistema);
+router.get('/calibracion/piezas/:sistema', listarPiezasDeSistema);
+router.get('/calibracion/contrastes', listarContrastes);
+router.post('/calibracion/contrastes', registrarContraste);
+router.patch('/calibracion/contrastes/:id/anular', anularContraste);
+router.get('/calibracion/analisis', analizarPiezaEndpoint);
+router.post('/calibracion/margenes', aprobarMargen);
+router.patch('/calibracion/margenes/:id/anular', anularMargen);
+router.get('/calibracion/holguras', listarHolguras);
+router.post('/calibracion/holguras', fijarHolgura);
+router.patch('/calibracion/holguras/:id/anular', anularHolgura);
+router.get('/calibracion/historial', listarHistorial);
+
+// Multiplicadores por categoría (configuración de precio de venta).
+router.get('/multiplicadores', listarMultiplicadores);
+router.put('/multiplicadores/:categoria', guardarMultiplicador);
+router.post('/multiplicadores/:categoria/recalcular', recalcularCategoria);
 
 export default router;

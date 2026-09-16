@@ -342,6 +342,23 @@ export const editarParametros = async (req: Request, res: Response) => {
       return res.status(400).json({ error: `El campo "${campo}" debe ser un número.` });
     }
   }
+  // `aiu` es un DIVISOR (`subtotal / aiu`, motorCalculo.ts): un 0 da precio
+  // infinito y un 0.04 —el valor que escribiría quien lo confunda con "4%"—
+  // multiplica el total por 25. `iva` sí es una fracción 0-1. Hasta que existió
+  // la pantalla de Configuración (2026-09-16) estos campos sólo se tocaban por
+  // script; ahora están a un tecleo de distancia y el rango se valida aquí.
+  // El piso es 0.5 (= +100% de margen), no 0: el rango peligroso no es sólo el
+  // cero. Un 0.04 —lo que escribiría quien lo lea como "4%"— pasa cualquier
+  // control de "mayor que cero" y multiplica el total por 25 en silencio.
+  if (b.aiu !== undefined && (Number(b.aiu) < 0.5 || Number(b.aiu) > 1)) {
+    return res.status(400).json({
+      error: 'El AIU es un divisor entre 0.5 y 1, no un porcentaje: 0.96 equivale a un ~4% adicional. ' +
+        'Escribir 0.04 (leyéndolo como "4%") multiplicaría el total por 25.',
+    });
+  }
+  if (b.iva !== undefined && (Number(b.iva) < 0 || Number(b.iva) > 1)) {
+    return res.status(400).json({ error: 'El IVA es una fracción entre 0 y 1 (0.19 = 19%), no un porcentaje.' });
+  }
   if (b.smo !== undefined) {
     if (typeof b.smo !== 'object' || b.smo === null || Array.isArray(b.smo)) {
       return res.status(400).json({

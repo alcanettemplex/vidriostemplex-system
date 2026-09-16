@@ -369,16 +369,20 @@ export function calcular(input: InputModulo = {}) {
 
   const codigoVidrio = VIDRIOS_VALIDOS.includes(input.codigoVidrio) ? input.codigoVidrio : "CL4MM01CR";
 
-  // El negro entró al selector antes de que el catálogo lo cubriera: sólo 7038
-  // lo tiene casi completo, y con referencias de precio provisional. Se avisa
-  // aquí —y no se bloquea— porque las piezas que no existan en negro ya salen
-  // como línea de error visible, que es la regla del módulo: nunca cobrar $0
-  // en silencio.
+  // El negro entró al selector antes de que el catálogo lo cubriera. Estado
+  // verificado el 2026-09-16 (refs con color negro / refs totales del
+  // sistema): 7038 10/11 (con precios provisionales), 5020 6/8 y 5020
+  // Reforzado 7/8 (agregado el 2026-09-16, cierra el hueco que antes hacía
+  // sustituir todo el sistema por mate), 744 3/14, 8025 2/14, 3831 1/7. Se
+  // avisa aquí —y no se bloquea— porque las piezas que no existan en negro ya
+  // salen como línea de error visible, que es la regla del módulo: nunca
+  // cobrar $0 en silencio.
   if (color === "negro") {
     advertencias.push(
-      'El color "negro" todavía no está completo en el catálogo: sólo el sistema 7038 lo cubre casi entero ' +
-        '(y con precios provisionales), en 744 y 8025 es parcial, y en 5020 no existe ninguna referencia negra. ' +
-        "Las piezas sin código en negro aparecerán abajo como línea de error: no se cotizan hasta que Compras cree la referencia."
+      'El color "negro" todavía no está completo en el catálogo: el sistema 7038 lo cubre casi entero ' +
+        '(con precios provisionales), 5020 y 5020 Reforzado ya cubren la mayoría de sus piezas, y en 744, ' +
+        "8025 y 3831 sigue siendo parcial. Las piezas sin código en negro aparecerán abajo como línea de " +
+        "error: no se cotizan hasta que Compras cree la referencia."
     );
   }
 
