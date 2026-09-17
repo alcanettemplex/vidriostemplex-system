@@ -21,6 +21,16 @@ import { fmtCOP } from '../format';
 //
 // Guardar un multiplicador NO mueve precios ya cargados — eso es el botón
 // "Recalcular", aparte y con previsualización.
+//
+// "Recalcular" corre en dos fases y la previsualización las distingue, porque
+// no significan lo mismo (decisión del usuario, 2026-09-17):
+//   · proveedor     — el costo se deriva del proveedor más barato y de ahí sale
+//                     el precio de venta.
+//   · multiplicador — el producto no tiene proveedor del que derivar costo, así
+//                     que el costo se conserva y sólo se realinea PA/PM/PB.
+//                     Sin esta fase, 116 productos de PERFILERIA quedaban
+//                     atascados en un multiplicador viejo (1,514500) para
+//                     siempre.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const inputClass = 'w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200';
@@ -231,12 +241,22 @@ const SeccionMultiplicadores: React.FC = () => {
                     </div>
                     <p className="text-xs text-slate-600">{previsualizacion.resumen}</p>
 
+                    <div className="flex flex-wrap gap-2 text-[11px]">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-semibold">
+                            {previsualizacion.porProveedor} con costo nuevo del proveedor
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">
+                            {previsualizacion.realineados} realineado(s) al multiplicador, costo intacto
+                        </span>
+                    </div>
+
                     {previsualizacion.cambios.length > 0 && (
                         <div className="max-h-72 overflow-y-auto border border-slate-200 rounded-lg bg-white">
                             <table className="w-full text-xs">
                                 <thead className="bg-slate-50 text-slate-500 sticky top-0">
                                     <tr>
                                         <th className="text-left px-2 py-1.5">Código</th>
+                                        <th className="text-left px-2 py-1.5">Origen</th>
                                         <th className="text-left px-2 py-1.5">Costo antes → después</th>
                                         <th className="text-left px-2 py-1.5">PA antes → después</th>
                                     </tr>
@@ -245,7 +265,27 @@ const SeccionMultiplicadores: React.FC = () => {
                                     {previsualizacion.cambios.map((c) => (
                                         <tr key={c.codigo}>
                                             <td className="px-2 py-1.5 font-semibold">{c.codigo}</td>
-                                            <td className="px-2 py-1.5">{fmtCOP(c.antes.costo_unitario)} → {fmtCOP(c.despues.costo_unitario)}</td>
+                                            <td className="px-2 py-1.5">
+                                                <span
+                                                    className={`px-1.5 py-0.5 rounded font-semibold ${
+                                                        c.fase === 'proveedor'
+                                                            ? 'bg-indigo-50 text-indigo-700'
+                                                            : 'bg-amber-50 text-amber-700'
+                                                    }`}
+                                                    title={
+                                                        c.fase === 'proveedor'
+                                                            ? 'El costo se derivó del proveedor más barato'
+                                                            : 'Sin proveedor: se conserva el costo y sólo se realinea el precio de venta'
+                                                    }
+                                                >
+                                                    {c.fase === 'proveedor' ? 'proveedor' : 'multiplicador'}
+                                                </span>
+                                            </td>
+                                            <td className="px-2 py-1.5">
+                                                {c.antes.costo_unitario === c.despues.costo_unitario
+                                                    ? `${fmtCOP(c.antes.costo_unitario)} (sin cambio)`
+                                                    : `${fmtCOP(c.antes.costo_unitario)} → ${fmtCOP(c.despues.costo_unitario)}`}
+                                            </td>
                                             <td className="px-2 py-1.5">{fmtCOP(c.antes.precio_pa)} → {fmtCOP(c.despues.precio_pa)}</td>
                                         </tr>
                                     ))}

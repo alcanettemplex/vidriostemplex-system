@@ -392,14 +392,25 @@ export interface MultiplicadorCategoria {
     nota: string | null;
 }
 
+/**
+ * `fase` distingue de dónde sale el número (ver el controlador):
+ *   - 'proveedor'   — el costo se derivó del proveedor más barato.
+ *   - 'realineacion' — el costo se conservó y sólo se realineó el precio de
+ *     venta al multiplicador de la categoría (productos sin proveedor).
+ */
+export type FaseRecalculo = 'proveedor' | 'realineacion';
+
 export interface ResultadoRecalculoCategoria {
     categoria: string;
     dryRun: boolean;
     productosEnCategoria: number;
     sinVinculoACatalogo: number;
+    porProveedor: number;
+    realineados: number;
     cambios: Array<{
         codigo: string;
         categoria: string;
+        fase: FaseRecalculo;
         antes: { costo_unitario: number; precio_pa: number; precio_pm: number; precio_pb: number };
         despues: { costo_unitario: number; precio_pa: number; precio_pm: number; precio_pb: number };
     }>;

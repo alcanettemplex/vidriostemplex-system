@@ -4,9 +4,49 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
-## 2026-09-16 (2) — Cotizador: el recálculo de precios por categoría no termina a tiempo para PERFILERIA (N+1 contra Supabase)
+## 2026-09-16 (2) — Cotizador: el recálculo de precios por categoría no termina a tiempo para PERFILERIA (N+1 contra Supabase) — ✅ RESUELTO 2026-09-17
 
 **Severidad:** Alta para PERFILERIA (hoy no se puede usar en producción) · Media para el resto · **Estimación:** 3-4 h
+
+**✅ Resuelto el 2026-09-17** con los pasos 1 y 2 de la solución propuesta más abajo (el 3 —trabajo
+asíncrono— sigue sin hacer falta). El motor pasó a ser
+`recalcularCostosDesdeProveedor(ids[])`: 3 lecturas fijas (productos, candidatos de proveedor y
+**los multiplicadores, ahora fuera del bucle**) sin importar cuántos ids entren, y una sola
+transacción de escritura con dos sentencias — un `UPDATE ... FROM unnest()` de 5 arrays paralelos
+(Sequelize no sabe actualizar N filas con N valores distintos en una sentencia) más un
+`bulkCreate` del histórico. `recalcularCostoDesdeProveedor(id)` queda como envoltorio delgado, con
+el contrato original intacto (`null` si el id no tiene productos vinculados), así que ni la cola de
+sincronización ni el script one-off del 2026-09-14 cambian de comportamiento. La cola conserva a
+propósito su bucle por id: aísla el fallo de un id para que no tumbe al resto del lote.
+
+**A/B medido contra el algoritmo anterior (dry_run, backend local contra el pooler):**
+
+| Categoría | ids | Antes | Ahora | Aceleración | Resultado |
+|---|---|---|---|---|---|
+| ACCESORIO | 169 | 51,5 s | 0,46 s | 112× | idéntico: mismos 48 códigos y mismos valores |
+| PERFILERIA | 296 | **96,7 s** | 0,46 s | 208× | idéntico: 0 cambios, 305 omitidos |
+
+El número real de PERFILERIA (96,7 s) resultó **más bajo que los ~142 s proyectados pero igual de
+pegado al corte de 100 s** — el riesgo era real, con menos margen del que parecía. Los 48 cambios
+de ACCESORIO no contradicen los 45 medidos el 2026-09-16: el algoritmo viejo también dice 48 hoy,
+es dato que cambió en el medio.
+
+**Dos diferencias de comportamiento, ambas deliberadas:**
+1. `dryRun` ya no abre transacción. Antes escribía y hacía rollback (4 viajes por producto para
+   descartarlo todo); ahora la previsualización sale entera del cálculo en memoria. Se pierde la
+   validación incidental de que el UPDATE fuera aceptable — se verificó aparte, ejecutando la
+   sentencia `unnest` real dentro de una transacción revertida.
+2. La corrida de una categoría entera va en **una sola transacción**: todo o nada. Para una acción
+   masiva y explícita es la semántica segura, y es justamente lo que faltaba frente al 524 de
+   Cloudflare, donde el corte llegaba después de escrituras ya confirmadas.
+
+**Sigue pendiente, y es lo que hoy bloquea de verdad a PERFILERIA:** la categoría no tiene fila en
+`cotizador.multiplicador_categoria`, así que el endpoint corta con 400 antes del bucle. El
+rendimiento ya no es el obstáculo; el multiplicador verificado sí (ver 2026-09-14).
+
+---
+
+**Descripción original del problema, conservada como registro:**
 
 **Descripción:** `POST /api/cotizador/multiplicadores/:categoria/recalcular` (controller
 `cotizador_multiplicadores.controller.ts`, botón "Recalcular" de la nueva pestaña Configuración)
@@ -62,6 +102,46 @@ perfilería el mismo día. No se aplicó ningún recálculo: todo quedó en `dry
 
 ---
 
+## 2026-09-17 — Cotizador: dos productos sin forma de costearse automáticamente (mapeo o unidad irreconciliables)
+
+**Severidad:** Media · **Estimación:** decisión de negocio + 30 min de dato
+
+**Descripción:** al sembrar los multiplicadores y recalcular (ver `SESSION_LOG.md` 2026-09-17 (2)),
+dos productos quedaron **excluidos a mano** del recálculo porque el motor no puede derivar su costo
+sin inventar un supuesto:
+
+- **`TEN0101` "TENSORES"** (`catalogo_producto_id` 989) — el Cotizador vende un tensor por unidad;
+  el proveedor (Mundial de Tornillos) vende *"VARILLA ROSCADA UNC 5/16"* por metro a $3.479. Las
+  dos unidades son correctas: **falta el factor de consumo** (cuántos metros de varilla lleva un
+  tensor). Eso es lista de materiales, no una unidad mal escrita. Tomarlo tal cual dejaría el costo
+  en $3.479 contra los $6.250 actuales (−44 %).
+- **`BOQN03`** (`catalogo_producto_id` 1308) — el Cotizador dice *"BOQUETE TAQUILLA"*, el maestro
+  dice *"BOQUETE ESPECIAL PERIMETRAL"* y el proveedor (Vitelsa) dice *"BOQUETE MICKEY MOUSE"*. Son
+  tres cosas distintas. **No está claro de qué lado está el error**: puede ser el
+  `catalogo_producto_id` del producto del Cotizador, o la fila de `proveedor_producto`. Por eso no
+  se tocó ninguno de los dos lados — desactivar la fila equivocada rompería un precio válido.
+
+**⚠️ La exclusión fue sólo de esa corrida.** Ninguno de los dos quedó marcado en la BD, así que
+**la sincronización automática puede moverlos en cuanto Compras cargue una factura que los toque**.
+No hay hoy ninguna forma de decir "este producto no se costea solo" sin desactivar la equivalencia
+entera.
+
+**Solución a evaluar:** (a) resolver el mapeo de `BOQN03` con el usuario y corregir el lado que
+corresponda; (b) para `TEN0101`, o bien registrar el factor de consumo, o bien aceptar que es un
+producto fabricado y desvincularlo del maestro con `catalogo_producto_id = NULL`, que es el
+precedente ya aceptado para los 5 "Kit Aluminio" (ver 2026-09-16); (c) si el caso se repite,
+evaluar una marca explícita de "no costear automáticamente" en `cotizador.producto`, que hoy no
+existe.
+
+**Nota aparte, sin resolver:** dos productos recalculados saltaron muchísimo sin explicación de
+unidad — `ROD8025` +502,3 % (factor 6,02 exacto entre costo viejo y nuevo, ¿el proveedor lo vende
+por paquete de 6?) y `TZO0301` +405,8 % (factor 5,06). Las unidades de ambos lados dicen UNIDAD y
+coinciden, así que el motor hizo lo correcto; queda la duda de si el dato del proveedor es el que
+está mal. El usuario decidió aplicar el recálculo de todos modos; el `antes` de cada uno está en
+`cotizador.precio_historial`.
+
+---
+
 ## 2026-09-16 — Cotizador: 5 "Kit Aluminio" (`K1000`...`K2000`) sin costeo real, precio calculado a mano
 
 **Severidad:** Media · **Estimación:** depende de tener precios reales de perfilería por sistema, no es solo código
@@ -87,9 +167,32 @@ perfilería el mismo día. No se aplicó ningún recálculo: todo quedó en `dry
 
 **Solución a evaluar:** antes de poder agregar `ALTER TABLE catalogo_productos ADD CONSTRAINT ... UNIQUE (codigo)`, hay que decidir qué hacer con las 31 filas `codigo IS NULL` (¿dejarlas fuera del constraint con un índice `UNIQUE ... WHERE codigo IS NOT NULL`, o asignarles código?) — no se tocó en esta pasada, es decisión de negocio, no solo de esquema.
 
-## 2026-09-14 — Multiplicador PERFILERIA/VIDRIO sin verificar: el sync automático de costo solo cubre ACCESORIO
+## 2026-09-14 — Multiplicador PERFILERIA/VIDRIO sin verificar: el sync automático de costo solo cubre ACCESORIO — ✅ RESUELTO 2026-09-17
 
 **Severidad:** Media · **Estimación:** verificación con taller/datos reales, no es trabajo de código puro
+
+**✅ Resuelto el 2026-09-17.** El usuario aportó la tabla de multiplicadores por categoría y se
+verificó contra los datos ya cargados (método `precio_pa / costo_unitario`, el mismo de ACCESORIO):
+la tabla resultó ser **el valor observado redondeado a 3 decimales**, así que se sembraron los 6
+decimales reales — ACABADO 1,534301/1,412297/1,290293 (12 de 14 productos), VIDRIO
+1,672800/1,586582/1,500364 (35 de 37), ACCESORIO 1,550628/1,440712/1,330796 (166 de 169, ya
+existía), PERFILERIA 1,561841/1,474123/1,386405 (221 de 363). Usar los 3 decimales habría
+reescrito ~12 precios de más por puro ruido de redondeo. Script
+`2026-09-17_cotizador_multiplicadores_y_unidades.ts`, ejecutado. Detalle en `SESSION_LOG.md`
+2026-09-17 (2).
+
+**Sobre el riesgo tira/metro que este mismo apartado señalaba:** se verificó y **existía**. Siete
+productos tenían la unidad del Cotizador y la del proveedor en desacuerdo, y uno más (`ZSE0104`)
+tenía mal la unidad del propio proveedor. Tres se corrigieron con evidencia, dos quedaron fuera del
+costeo automático y tres eran ruido sin impacto. Ver 2026-09-17 más abajo.
+
+**El residuo se cerró el mismo día.** Los 116 productos de PERFILERIA que seguían en el
+multiplicador viejo (1,514500) no tenían proveedor con precio, así que el recálculo por proveedor
+no los alcanzaba. Se resolvió agregando una **segunda fase** al recálculo que conserva el costo y
+sólo realinea PA/PM/PB (`realinearPreciosAlMultiplicador`): hoy los 363 productos de PERFILERIA
+están en 1,561841 y la desalineación restante es **0 en las cuatro categorías**. Sólo quedan fuera
+los 11 productos con costo en cero (ACCESORIO 6, ACABADO 3, VIDRIO 2), omitidos a propósito.
+Ver `SESSION_LOG.md` 2026-09-17 (3) y (4).
 
 **Descripción:** `cotizador.multiplicador_categoria` (tabla nueva del 2026-09-14, ver plan de integración Cotizador↔Catálogo↔Proveedores) solo tiene sembrada la fila `ACCESORIO` (×1.550628/×1.440712/×1.330796, verificado contra 18+ productos reales). Las otras dos categorías del Cotizador —**PERFILERIA (205 productos, el grupo dominante) y VIDRIO (35 productos)**— quedaron deliberadamente sin fila: SESSION_LOG (2026-09-12) menciona un multiplicador aproximado (~×1.56 y ~×1.67 respectivamente) pero nunca se verificó a 6 decimales contra datos reales como sí se hizo con ACCESORIO.
 

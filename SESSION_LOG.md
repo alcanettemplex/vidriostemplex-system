@@ -3719,3 +3719,383 @@ costo de mano de obra, acarreo, etc.").
 - PERFILERIA, VIDRIO y ACABADO siguen sin multiplicador sembrado — ahora configurable desde la UI,
   pero nadie lo fijó todavía. Mientras tanto la sincronización automática solo mueve ACCESORIO
   (`TECH_DEBT.md` 2026-09-14).
+
+---
+
+## 2026-09-17 — Cotizador: el recálculo por categoría deja de ser N+1 (96,7 s → 0,46 s)
+
+### Contexto
+
+Sesión arrancada levantando los servicios en local. Sobre el pendiente que había quedado marcado
+como "lo próximo a atacar" en la sesión anterior, el usuario pidió primero una explicación de qué
+era el recálculo y planteó una duda de arquitectura que vale la pena dejar registrada:
+
+> "si el cotizador tiene su propio catálogo creo que es doble esfuerzo, se puede usar el id del
+> catalogo_productos del producto que corresponde"
+
+**Respuesta, con números de la BD del día:** eso ya está hecho desde el 2026-09-14 —
+`cotizador.producto.catalogo_producto_id`—, y hoy **530 de 595 productos del Cotizador ya son el
+mismo producto que el del maestro, por id**: PERFILERIA 304/363, ACCESORIO 172/175, VIDRIO 39/40,
+ACABADO 15/17. Las 530 filas apuntan a 516 ids distintos (un producto del maestro puede alimentar
+más de una fila del Cotizador).
+
+Lo que sigue separado —y debe seguirlo— son tres preguntas distintas: identidad
+(`catalogo_productos`), costo de compra (`proveedor_producto`) y precio de venta en tres niveles
+(`cotizador.producto`). Fundirlas rompería tres cosas concretas: hay filas del Cotizador que no son
+productos comprables (los 5 Kit Aluminio son un cálculo, ver `TECH_DEBT.md` 2026-09-16), un id del
+maestro puede alimentar varias filas, y el costo de compra es información restringida a
+`root`/`admin` mientras el maestro lo lee medio sistema.
+
+**Dato que sí conviene retener:** de 1.271 productos del maestro **solo 192 tienen precio de
+proveedor activo**. El cuello de botella nunca fue el catálogo doble, es el precio. Queda anotada
+una redundancia real y sin medir: `cotizador.producto` todavía repite `descripcion`, `categoria` y
+`unidad` del maestro, y nadie ha verificado si ya divergieron.
+
+### Cambio realizado — `cotizador/lib/sincronizacionProveedores.ts`
+
+Pasos 1 y 2 de `TECH_DEBT.md` 2026-09-16 (2); el paso 3 (job asíncrono) no hizo falta y no se hizo.
+
+- **Nuevo motor `recalcularCostosDesdeProveedor(ids[])`**: 3 lecturas fijas —productos, candidatos
+  de proveedor y multiplicadores— sin importar cuántos ids entren. El `findByPk` del multiplicador
+  salió del bucle de productos, donde releía siempre la misma fila (~304 viajes en PERFILERIA).
+- **Una sola transacción de escritura, dos sentencias**: `UPDATE ... FROM unnest()` de 5 arrays
+  paralelos (Sequelize no sabe actualizar N filas con N valores distintos en una sentencia) más un
+  `bulkCreate` del histórico. Antes eran ~2N viajes, una transacción por producto.
+- **`recalcularCostoDesdeProveedor(id)` queda como envoltorio delgado**, contrato original intacto
+  (`null` si el id no tiene productos vinculados), para no alterar a sus dos consumidores ya
+  probados: la cola de sincronización y el script one-off del 2026-09-14.
+- **La cola conserva su bucle por id a propósito** — aísla el fallo de un id para que no tumbe al
+  resto del lote, que era el diseño original.
+- `cotizador_multiplicadores.controller.ts` ahora llama al batch **una vez** con todos los ids de
+  la categoría.
+
+### Verificación — A/B contra el algoritmo anterior
+
+Se reimplementó la lógica vieja en un script temporal y se compararon **los códigos y los valores
+calculados**, no solo los totales:
+
+| Categoría | ids | Antes | Ahora | Aceleración | Resultado |
+|---|---|---|---|---|---|
+| ACCESORIO | 169 | 51,5 s | 0,46 s | 112× | IDÉNTICOS — mismos 48 códigos, mismos valores |
+| PERFILERIA | 296 | **96,7 s** | 0,46 s | 208× | IDÉNTICOS — 0 cambios, 305 omitidos |
+
+- El tiempo real de PERFILERIA (96,7 s) salió **por debajo de los ~142 s proyectados pero igual de
+  pegado al corte de 100 s de Cloudflare**: el riesgo era cierto, con menos margen del que parecía.
+- ACCESORIO muestra 48 cambios y el 2026-09-16 se habían medido 45. **No es regresión**: el
+  algoritmo viejo también dice 48 hoy. Es dato que cambió en el medio.
+- La sentencia `UPDATE ... unnest` se ejecutó de verdad contra la BD dentro de una transacción
+  revertida, con valores idénticos a los actuales: 3 filas afectadas, rollback, nada escrito.
+- `npm --prefix backend-api run build` limpio. Nodemon recargó sin errores.
+
+### Decisiones de comportamiento, ambas deliberadas
+
+1. **`dryRun` ya no abre transacción.** Antes escribía y hacía rollback —4 viajes por producto para
+   descartarlo todo—; ahora la previsualización sale entera del cálculo en memoria. Se pierde la
+   validación incidental de que el UPDATE fuera aceptable, por eso se verificó aparte.
+2. **La corrida de una categoría entera va en una sola transacción: todo o nada.** Para una acción
+   masiva y explícita es la semántica segura, y es exactamente lo que faltaba frente al 524 de
+   Cloudflare, donde el corte llegaba después de escrituras ya confirmadas.
+
+### Pendiente
+
+- **El rendimiento ya no bloquea a PERFILERIA; el multiplicador sí.** La categoría no tiene fila en
+  `cotizador.multiplicador_categoria`, así que el endpoint corta con 400 antes del bucle. El
+  usuario quedó en conseguir los multiplicadores de PERFILERIA, VIDRIO y ACCESORIO.
+- Al recibirlos, **verificar primero la correspondencia tira/metro** en `dry_run` antes de aplicar:
+  si el Cotizador piensa en tiras y el proveedor en metros, el multiplicador sale bien y el precio
+  igual queda 6× corrido (`TECH_DEBT.md` 2026-09-14). Es la sospecha sobre las caídas de ACCESORIO
+  (`TSL0101` −73 %), todavía sin revisar.
+- **ACCESORIO ya tiene multiplicador verificado** (×1,550628/×1,440712/×1,330796): si el usuario
+  pasa uno nuevo, se pisa el actual y 172 productos quedan expuestos a recálculo.
+- **ACABADO** (17 productos, 15 vinculados) no estaba en la lista del usuario y sigue invisible
+  para la sincronización automática.
+- `npm run lint` no corre: ESLint 10 ya no encuentra configuración (`.eslintrc.*` sin migrar a
+  `eslint.config.js`). No se tocó — la verificación siguió siendo `tsc` + pruebas dirigidas.
+
+---
+
+## 2026-09-17 (2) — Cotizador: multiplicadores sembrados, 3 unidades corregidas y 113 precios recalculados
+
+### Insumo del usuario y qué resultó ser
+
+El usuario aportó la tabla de multiplicadores costo→precio de venta por categoría (PA/PM/PB), a 3
+decimales. Antes de sembrarla se contrastó contra los datos ya cargados con el mismo método con que
+se verificó ACCESORIO el 2026-09-14 (`precio_pa / costo_unitario` sobre productos reales). **La
+tabla resultó ser el valor observado, redondeado.** Se sembraron los 6 decimales reales:
+
+| Categoría | Aportado | Sembrado (observado) | Cobertura |
+|---|---|---|---|
+| ACABADO | 1,534 / 1,412 / 1,290 | 1,534301 / 1,412297 / 1,290293 | 12 de 14 |
+| VIDRIO | 1,673 / 1,587 / 1,500 | 1,672800 / 1,586582 / 1,500364 | 35 de 37 |
+| ACCESORIO | 1,551 / 1,441 / 1,331 | 1,550628 / 1,440712 / 1,330796 | 166 de 169 (ya existía) |
+| PERFILERIA | 1,562 / 1,474 / 1,386 | 1,561841 / 1,474123 / 1,386405 | 221 de 363 |
+
+Decisión del usuario: usar los 6 decimales. **Efecto medido:** con 3 decimales cambiaban 125
+productos; con 6, sólo 113 — los otros 12 ya estaban en el precio correcto y no se tocaron. Con 3
+decimales, los 49 productos costeables de ACCESORIO habrían cambiado de precio (hasta $200,72) por
+puro ruido de redondeo.
+
+Las cuatro categorías comparten una estructura que confirma que no son números sueltos: **PM es el
+punto medio exacto entre PA y PB** (paso de 0,122 / 0,086 / 0,110 / 0,088 respectivamente).
+
+### El `TSL0101 −73 %` que quedó sin explicar el 2026-09-16: era una unidad mal registrada
+
+No era un precio que bajó. El proveedor ACVICOL describe el producto como *"Inox Manija redonda
+48mm x 57mm pasante importado"* y la fila tenía `unidad_compra = TIRA_6M`. Como el motor divide
+entre 6 cuando ve esa unidad, sacaba $5.282 en vez de $31.690. **Corregida la unidad, el producto
+sube +64,7 %, no baja 73 %** — el signo estaba invertido.
+
+Buscando el mismo patrón aparecieron 7 productos con la unidad del Cotizador y la del proveedor en
+desacuerdo, más uno detectado por otra vía (ratio ≈6 entre costo viejo y nuevo). Son cuatro
+problemas distintos, no uno:
+
+**Corregidos** (`proveedor_producto.unidad_compra`, evidencia en la descripción del propio proveedor):
+- `TSL0101` TIRA_6M → UNIDAD. Costo 19.244 → 31.690.
+- `ZSE0104` METRO → TIRA_6M. El proveedor cobraba $91.680,67 "por metro", pero ÷6 = 15.280 ≈ el
+  costo actual: era una tira puesta como metro. Sin esto, el PA saltaba a $143.205; con la
+  corrección quedó en $23.865 (−6,4 %).
+- `BPB04` M2 → METRO. **Ojo: esta corrección no cambia el costo** — el motor sólo divide para
+  TIRA_6M, y METRO y M2 pasan igual. Es higiene del dato; su +100 % es una diferencia de precio
+  real, todavía sin explicar.
+
+**Excluidos del recálculo** (ver `TECH_DEBT.md` 2026-09-17): `TEN0101` (tensor por unidad vs varilla
+roscada por metro: falta el factor de consumo, es lista de materiales) y `BOQN03` (el Cotizador, el
+maestro y el proveedor nombran tres productos distintos; no está claro qué lado está mal, así que
+no se tocó ninguno).
+
+**Ruido sin impacto:** `PERF01` (el Cotizador lo tiene "X METRO" siendo una perforación por unidad,
+pero el precio coincide exacto en ambos lados) y `EMP1301` (+5,3 %, los números cuadran).
+
+### Ejecución — `2026-09-17_cotizador_multiplicadores_y_unidades.ts`
+
+Script idempotente con `--dry-run`, `--sin-recalculo` y `--revertir`. Tres pasos: corregir
+unidades, sembrar multiplicadores, recalcular.
+
+**Detalle de diseño que vale recordar:** el `--dry-run` puro **miente** en este script, porque el
+paso 3 depende de que los pasos 1 y 2 estén aplicados: sin fila de multiplicador el motor omite
+todo, y sin la unidad corregida sigue calculando mal. La primera corrida en seco informó 0 cambios
+para ACABADO, VIDRIO y PERFILERIA y mantenía el `TSL0101 −72,6 %`. Por eso se agregó
+`--sin-recalculo`: aplica 1 y 2 (que por diseño no mueven ningún precio) y deja el 3 para una
+corrida aparte, donde el `--dry-run` ya previsualiza la verdad. Secuencia real usada:
+`--sin-recalculo` → `--dry-run` → aplicar.
+
+**Resultado:** 113 precios actualizados (ACABADO 2, VIDRIO 7, ACCESORIO 47, PERFILERIA 57), 113
+líneas en `cotizador.precio_historial`, toda la corrida en **2,2 s** gracias al batch de la sesión
+anterior. Verificado contra la BD: los 4 multiplicadores sembrados, las 3 unidades corregidas, los
+2 excluidos intactos, y el multiplicador real por categoría consistente en todos los recalculados.
+
+**Tropiezo de entorno:** el `--dry-run` falló con `EMAXCONNSESSION` (tope de 15 conexiones del
+pooler de Supabase en modo sesión). Causa: nodemon había reiniciado el backend varias veces al ir
+creando scripts en `src/scripts/`, dejando conexiones tomadas. Se bajó el backend —el `npm` muere
+pero el hijo `ts-node` sobrevive y hay que matarlo por PID— se corrió la migración y se volvió a
+levantar.
+
+### Pendientes que deja
+
+- **116 productos de PERFILERIA siguen en el multiplicador viejo (1,514500)** porque no tienen
+  proveedor con precio: el recálculo no los alcanza. La unificación que pidió el usuario sólo pudo
+  aplicarse a los 10 que sí eran costeables. Se resolverán solos cuando Compras cargue su factura.
+- **`ROD8025` +502,3 % y `TZO0301` +405,8 %** se aplicaron sin explicación. Las unidades coinciden
+  en ambos lados (UNIDAD), así que el motor hizo lo correcto; la duda es si el precio del proveedor
+  está bien. `ROD8025` tiene un factor de 6,02 exacto entre costo viejo y nuevo, que huele a
+  paquete de 6. El `antes` de cada uno está en el histórico.
+- **`BPB04` +100 %** y **`EMP1304` +31,6 %**: diferencias de precio reales, sin revisar.
+- `TEN0101` y `BOQN03` pueden ser movidos por el sync automático en la próxima factura: la
+  exclusión fue sólo de esta corrida.
+
+---
+
+## 2026-09-17 (3) — Cotizador: el motor elegía la modalidad de compra cara, y los productos sin proveedor no podían realinearse
+
+### Dos planteos del usuario, los dos correctos
+
+**1. "Los productos de perfilería que siguen el multiplicador viejo, pero tienen un precio
+predeterminado, deberían regirse al multiplicador de su categoría."** Cierto, y no había forma de
+hacerlo: el único camino existente (`recalcularCostosDesdeProveedor`) deriva el costo del
+proveedor, así que un producto con costo cargado pero sin proveedor quedaba con el multiplicador
+del día que entró. Medido: **120 productos con costo > 0 tenían el PA fuera del multiplicador de su
+categoría** — PERFILERIA 116 (54 sin vínculo a catálogo, 62 vinculados pero sin proveedor
+costeable), ACABADO 2, VIDRIO 1, ACCESORIO 1.
+
+**2. "En perfilería el módulo Proveedores maneja precio por metro y por perfil; el Cotizador solo
+debe tomar el precio de perfil, y con varios proveedores el más barato."** Esto no era una
+preferencia: **era un error de cálculo.** El motor ordenaba los candidatos por el `precio_actual`
+crudo, y un precio por metro es numéricamente menor que uno por tira, así que elegía siempre la
+modalidad **cara**. Los 4 productos que tienen ambas modalidades cargadas lo muestran con una
+regularidad que no es casualidad:
+
+| Código | Perfil (6 m) | ÷6 | Por metro | Sobrecosto del metro |
+|---|---|---|---|---|
+| `CAB0306` | 71.596,64 | 11.932,77 | 15.546,22 | +30,3 % |
+| `ENG0304` | 84.621,85 | 14.103,64 | 18.403,36 | +30,5 % |
+| `JAM0306` | 70.924,37 | 11.820,73 | 15.462,18 | +30,8 % |
+| `TRA0306` | 80.084,03 | 13.347,34 | 17.394,96 | +30,3 % |
+
+Comprar la tira completa sale ~30 % más barato por metro, que es como se compra en la práctica.
+**Consecuencia directa: los `+30,3 %` que el recálculo de la sesión (2) aplicó a `CAB0306`,
+`ENG0304` y `TRA0306` estaban mal** — no era un ajuste de precio, era el motor tomando la modalidad
+equivocada.
+
+### Cambios
+
+**`cotizador/lib/sincronizacionProveedores.ts`**
+- **Los candidatos se comparan por `costoNormalizado`, nunca por precio crudo.** La tira se divide
+  entre `metros_por_unidad` *antes* de comparar. Comparar precios de modalidades distintas por su
+  número crudo es comparar cosas distintas.
+- **`MODALIDAD_PREFERIDA`**: `{ PERFILERIA: ['TIRA_6M'] }`. Si el producto tiene filas en la
+  modalidad preferida, sólo esas compiten; **si no tiene ninguna, se cae a las demás** en vez de
+  quedarse sin costo — 14 perfiles reales (`5020 CABEZAL 144 NEGRO`, `744 SILLAR 387 CRUDO`,
+  `3831 JAMBA 174 CRUDO`, `SILLAR MATE S-201`…) sólo tienen precio por metro, todos de Ventanas y
+  Puertas, y dejarlos sin fuente sería perder dato real. Decisión del usuario entre las tres
+  opciones planteadas.
+- La elección de candidato **se movió dentro del bucle de productos** (memoizada por categoría),
+  porque la modalidad preferida depende de la categoría del producto del Cotizador, no del id del
+  maestro.
+- `proveedorElegido` ahora incluye `unidadCompra`, y el motivo del histórico dice qué modalidad se
+  usó y entre cuántos candidatos se eligió. Antes no quedaba registro de esa decisión.
+- **Nueva `realinearPreciosAlMultiplicador(categoria, opts)`**: conserva `costo_unitario` y sólo
+  realinea PA/PM/PB. Omite explícitamente los productos con costo 0 o nulo — 0 × multiplicador es
+  0, y escribir un precio de venta en cero es justo lo que este módulo no debe hacer. Son 11
+  (ACCESORIO 6, ACABADO 3, VIDRIO 2); PERFILERIA no tiene ninguno.
+- Se extrajo `aplicarEscrituras()` para que las dos vías compartan la escritura agrupada
+  (`UPDATE ... unnest` + `bulkCreate`) en una sola transacción. El histórico las distingue por
+  `por`: `sync-proveedores` vs `realineacion-multiplicador`.
+
+**`cotizador_multiplicadores.controller.ts`** — "Recalcular" corre **dos fases**: primero el costo
+del proveedor donde haya, después la realineación de todos los demás, excluyendo los que ya movió
+la fase 1 (quedaron alineados por construcción; volver a tocarlos sólo duplicaría historial). La
+respuesta agrega `porProveedor`, `realineados` y un campo `fase` en cada cambio.
+
+**`TabConfiguracion.tsx` + `types.ts`** — la previsualización distingue las dos fases con dos
+contadores y una columna "Origen" (`proveedor` / `multiplicador`), y en la fase 2 la columna de
+costo dice "sin cambio" en vez de repetir el mismo número dos veces. Decisión del usuario: un solo
+botón, no dos — "Recalcular" pasa a significar "todo producto de la categoría con costo > 0 queda
+regido por el multiplicador de su categoría".
+
+### Fricción de entorno que conviene recordar
+
+El pooler de Supabase en modo sesión (tope 15) se saturó dos veces. Causa: cada script nuevo en
+`src/scripts/` hace que nodemon reinicie el backend, y **matar el proceso con `Stop-Process -Force`
+deja la conexión abierta del lado del pooler** hasta que el servidor la recicla. Bajar el backend no
+alcanza: hay que esperar el reciclado. Se resolvió con una sonda de una sola conexión
+(`pg.Client` directo, sin pool) en bucle `until` hasta recuperar cupo. El pool del backend es
+`max: 10, min: 2`, así que dos procesos simultáneos ya rozan el tope.
+
+---
+
+## 2026-09-17 (4) — Precio por perfil de Ventanas y Puertas: 13 tiras cargadas y la alineación cerrada en 0
+
+### Insumo del usuario
+
+Tras pedirle la lista de los 14 perfiles que sólo tenían precio por metro, el usuario consiguió el
+precio por perfil de todos. Confirmado **sin IVA**, y con una verificación que valía la pena hacer:
+`proveedor_producto.precio_actual` guarda precio sin IVA, y cargar precios con IVA incluido habría
+inflado todo costo un 19 % propagándose a cada cotización nueva. La evidencia respaldó la
+respuesta: comparados sin IVA, 9 de 13 caen dentro del ±2 % del precio por metro ya cargado; con
+IVA incluido los 13 habrían quedado uniformemente 15,8 % por debajo, que sería una casualidad muy
+rara.
+
+**Corrección a una estimación propia que estaba mal.** Al entregar la lista se ofreció una
+estimación del precio de tira aplicando el sobrecosto del metro (+30,3 %) medido en los 4 productos
+con doble modalidad. Los precios reales la desmintieron: **en 9 de 13 el precio por metro ya era
+prácticamente tira ÷ 6** (entre −4,6 % y +1,7 %). Ese 30 % es propio de esos 4 productos, no una
+regla del proveedor, y las estimaciones salieron ~30 % altas. Quedó dicho al usuario.
+
+| Código | $/metro previo | Tira | Tira ÷ 6 | Δ costo |
+|---|---|---|---|---|
+| `CAB0606` | 16.302,52 | 98.000 | 16.333,33 | +0,2 % |
+| `HOI0302` | 15.798,32 | 95.000 | 15.833,33 | +0,2 % |
+| `HOS0302` | 12.100,84 | 73.000 | 12.166,67 | +0,5 % |
+| `JAM0605` | 16.050,42 | 97.000 | 16.166,67 | +0,7 % |
+| `SIL0301` | 12.521,01 | 76.000 | 12.666,67 | +1,2 % |
+| `SIL0304` | 16.554,62 | 101.000 | 16.833,33 | +1,7 % |
+| `HOR0603` | 16.386,55 | 96.000 | 16.000,00 | −2,4 % |
+| `SIL0603` | 17.647,06 | 101.000 | 16.833,33 | −4,6 % |
+| `SIL0101` | 12.941,18 | 70.000 | 11.666,67 | −9,8 % |
+| `TRA0604` | 10.336,13 | 80.000 | 13.333,33 | **+29,0 %** |
+| `JAM0302` | 15.882,35 | 66.000 | 11.000,00 | **−30,8 %** |
+| `ENG0607` | 28.235,29 | 87.500 | 14.583,33 | **−48,3 %** |
+| `SIL0606` | 14.957,98 | 43.000 | 7.166,67 | **−52,1 %** |
+
+### ⚠️ `SIL0606` a 43.000 — cargado por decisión explícita del usuario
+
+Se le señaló antes de escribir: `SIL0606` es "3831 SILLAR CABEZAL 173 **NEGRO**" y `SIL0301` es el
+mismo perfil en **CRUDO** a 76.000, así que el pintado saldría 43 % más barato que el crudo. En
+todo el resto de la lista pasa lo contrario (`JAM0302` crudo 66.000 vs `JAM0605` negro 97.000) y su
+propio precio por metro (14.957,98) era **mayor** que el del crudo (12.521,01). El usuario reafirmó
+el valor y se cargó tal cual: su costo bajó 52 % y el precio de venta con él. Queda en
+`proveedor_producto_precio` y en `cotizador.precio_historial` por si resulta ser un tecleo.
+
+### Bug propio encontrado en el dry-run: la comparación exacta generaba 362 cambios fantasma
+
+El primer dry-run informó **482 productos** en la fase 2 cuando la medición decía 120. Causa: los
+precios viejos están guardados con la precisión completa del float
+(`precio_pa: 9691.42502713599`) mientras el motor produce valores pasados por `round2`. Con
+comparación exacta, 362 productos "cambiaban" por fracciones de centavo y habrían escrito 362
+líneas de histórico sin un solo movimiento real de precio — el mismo ruido que se evitó al sembrar
+los multiplicadores con 6 decimales.
+
+Se agregó `EPSILON_PESOS` a `sinCambio()`. **El umbral no se eligió a dedo: se midió.** La
+distribución de la desalineación es bimodal y sin zona gris:
+
+- `pa_ok_pero_pm_o_pb_no` = **0** en las 4 categorías — nunca hay desalineación de PM/PB
+  independiente de PA, así que el exceso no eran cambios reales.
+- **34 productos** difieren entre 1 centavo y 1 peso (VIDRIO 23, ACCESORIO 6, ACABADO 3,
+  PERFILERIA 2).
+- **Ningún producto** difiere entre 1 y 100 pesos — esa consulta salió vacía. Toda desalineación
+  real está por encima de 100 pesos.
+
+Un peso de tolerancia separa las dos poblaciones con dos órdenes de magnitud de margen, y el peso
+colombiano no se factura en centavos. Con el umbral corregido la fase 2 informó exactamente los 120
+medidos.
+
+**Lección de método, no de código:** el `--dry-run` fue lo que evitó escribir 362 líneas de
+histórico basura. La medición previa (120) y la del motor (482) no coincidían, y esa discrepancia
+era la señal.
+
+### Ejecución — `2026-09-17_precios_tira_ventanas_y_puertas.ts`
+
+Mismo patrón de tres pasos con `--dry-run`, `--sin-recalculo` y `--revertir` que la migración
+anterior, por la misma razón: el paso 3 no puede previsualizarse de verdad hasta que los pasos 1 y 2
+estén aplicados. Secuencia usada: `--sin-recalculo` → `--dry-run` → aplicar.
+
+- **13 filas `TIRA_6M`** creadas para Ventanas y Puertas (id 829), `metros_por_unidad = 6`,
+  `origen = MANUAL`, con su línea en `proveedor_producto_precio`. Las filas `METRO` **se
+  conservaron activas** por decisión del usuario: son registro real de lo que se compró (3 son
+  compras de RETAL, la única prueba de esa compra) y el motor ya no las elige para perfilería.
+- `codigo_proveedor` queda en NULL, igual que en el precedente del 2026-09-16: el código que traerá
+  la factura de la tira no se conoce, y derivarlo quitando el sufijo `MT` de las filas de metro
+  (`144PNMT` → `144PN`) sería inventarlo. La ingesta encuentra la fila por
+  `(proveedor_id, catalogo_producto_id, unidad_compra)`; si no la reconoce por código, la línea cae
+  en la bandeja de mapeo, que es el comportamiento seguro.
+- **`EMPA8025`** no es un perfil sino un empaque en rollo de 100 m: se queda en METRO y sólo se
+  actualizó el precio (2.184,87 → 2.176, −0,41 %), replicando a mano el cascadeo
+  actual → anterior_1 → anterior_2 de `actualizarPrecio()` —privada en `proveedor.controller` y no
+  importable sin arrastrar el ciclo `server → app → routes → controller`.
+- **Recálculo: 138 productos** — fase 1 (proveedor) 18, fase 2 (realineación) 120.
+
+### Verificación contra la BD
+
+- **Los 4 de doble modalidad ahora cuestan tira ÷ 6**, no el precio por metro: `CAB0306` 11.932,77
+  (era 15.546,22), `ENG0304` 14.103,64, `JAM0306` 11.820,73, `TRA0306` 13.347,34. Los `+30,3 %` que
+  la sesión (2) les había aplicado quedaron corregidos: bajaron ~23 %.
+- **Desalineación restante: 0 en las cuatro categorías.** Sólo quedan fuera los 11 productos con
+  costo en cero (ACCESORIO 6, ACABADO 3, VIDRIO 2), omitidos a propósito.
+- **PERFILERIA quedó unificada**: los 363 productos en 1,561841 (±1 en el sexto decimal por
+  redondeo). Ya no queda ninguno en 1,514500.
+- Histórico del día: 131 líneas `sync-proveedores` + 120 `realineacion-multiplicador`.
+- `TEN0101` y `BOQN03` intactos, como estaba previsto.
+- `tsc` limpio en backend y frontend.
+
+### Pendientes que siguen abiertos
+
+- **`SIL0606` a 43.000** — cargado a pedido, pero la anomalía contra el mismo perfil en crudo sigue
+  sin explicación.
+- **`ROD8025` +502 % y `TZO0301` +406 %** de la sesión (2), todavía sin explicación de unidad.
+- **`TEN0101` y `BOQN03`** siguen sin marca en la BD: la exclusión es por script, así que el sync
+  automático puede moverlos en la próxima factura (ver `TECH_DEBT.md` 2026-09-17).
+- Los 11 productos con costo en cero: no tienen precio de venta derivable hasta que alguien les
+  cargue un costo.
+- **Los 3 perfiles comprados como RETAL** (`CAB0606`, `SIL0304`, `SIL0603`) ahora tienen precio de
+  lista por tira, así que el costo ya no sale de una compra de sobrantes. Conviene revisar si la
+  fila METRO de retal debería archivarse alguna vez.

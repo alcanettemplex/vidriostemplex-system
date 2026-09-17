@@ -20,7 +20,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { QueryTypes } from 'sequelize';
 import { sequelize, Usuario, CotizadorMultiplicadorCategoria, CotizadorProducto } from '../models';
-import { recalcularCostoDesdeProveedor } from '../cotizador/lib/sincronizacionProveedores';
+import { recalcularCostosDesdeProveedor, realinearPreciosAlMultiplicador } from '../cotizador/lib/sincronizacionProveedores';
 import { recargarPrecios } from '../cotizador/lib/catalogo';
 
 function responderZod(res: Response, e: unknown): boolean {
@@ -37,6 +37,19 @@ async function actorDesdeRequest(req: Request): Promise<string> {
   if (!id) return 'desconocido';
   const usuario = await Usuario.findByPk(id, { attributes: ['nombre_completo'] });
   return (usuario?.getDataValue('nombre_completo') as string | undefined) || `usuario-${id}`;
+}
+
+/**
+ * Forma de un cambio de precio tal como lo devuelven las dos fases del motor.
+ * Se declara acá (y no se importa) porque `CambioProducto` es interno de
+ * `sincronizacionProveedores.ts`: exportarlo sólo para tipar esta respuesta
+ * ampliaría su superficie pública sin necesidad.
+ */
+interface CambioRecalculo {
+  codigo: string;
+  categoria: string;
+  antes: { costo_unitario: number; precio_pa: number; precio_pm: number; precio_pb: number };
+  despues: { costo_unitario: number; precio_pa: number; precio_pm: number; precio_pb: number };
 }
 
 interface FilaCategoria {
@@ -193,11 +206,27 @@ export const guardarMultiplicador = async (req: Request, res: Response) => {
  * POST /multiplicadores/:categoria/recalcular — aplica el multiplicador vigente
  * a los productos YA cargados de esa categoría.
  *
- * Reutiliza `recalcularCostoDesdeProveedor()`, el mismo motor que corre solo
+ * Reutiliza `recalcularCostosDesdeProveedor()`, el mismo motor que corre solo
  * cuando Compras carga una factura: así la pantalla y el automático no pueden
  * divergir en el criterio (proveedor más barato entre los que siguen precios,
- * costo por metro si la compra es por tira, etc.). Cada producto escribe su
- * propia transacción y su propia línea de historial.
+ * costo por metro si la compra es por tira, etc.).
+ *
+ * Se llama UNA vez con todos los ids de la categoría, no una vez por id: la
+ * versión por-id costaba ~896 viajes al pooler para PERFILERIA (96,7 s
+ * medidos, pegado al corte de 100 s de Cloudflare, que cae DESPUÉS de que el
+ * backend ya escribió). Ver TECH_DEBT.md 2026-09-16 (2). Cada fase va en una
+ * sola transacción — todo o nada, que para una acción masiva y explícita como
+ * ésta es la semántica segura.
+ *
+ * Corre en DOS FASES (decisión del usuario, 2026-09-17):
+ *   1. Los productos con proveedor que sigue precios reciben costo nuevo, y de
+ *      ahí su precio de venta.
+ *   2. Todos los demás CONSERVAN su costo y sólo se les realinea PA/PM/PB al
+ *      multiplicador de la categoría.
+ * Así "Recalcular" significa lo que uno espera: al terminar, todo producto de
+ * la categoría con costo > 0 está regido por el multiplicador de su categoría.
+ * Un producto con costo en 0 se omite: 0 × multiplicador es 0, y escribir un
+ * precio de venta en cero es justo lo que este módulo no debe hacer.
  *
  * `dryRun=true` permite ver el impacto ANTES de mover un solo precio.
  */
@@ -225,29 +254,53 @@ export const recalcularCategoria = async (req: Request, res: Response) => {
     ];
     const sinVinculo = productos.length - productos.filter((p) => p.getDataValue('catalogo_producto_id') !== null).length;
 
-    const cambios: unknown[] = [];
-    const omitidos: unknown[] = [];
-    for (const id of idsCatalogo) {
-      const r = await recalcularCostoDesdeProveedor(id, { dryRun });
-      if (!r) continue;
-      cambios.push(...r.cambios);
+    // ─── Fase 1: el costo VIENE del proveedor ───────────────────────────────
+    const cambios: (CambioRecalculo & { fase: 'proveedor' | 'realineacion' })[] = [];
+    const omitidos: { codigo: string; motivo: string }[] = [];
+    const movidosPorProveedor = new Set<string>();
+    for (const r of await recalcularCostosDesdeProveedor(idsCatalogo, { dryRun })) {
+      for (const c of r.cambios) {
+        movidosPorProveedor.add(c.codigo);
+        cambios.push({ ...c, fase: 'proveedor' });
+      }
       omitidos.push(...r.omitidos);
     }
 
-    // Una sola recarga al final: `recalcularCostoDesdeProveedor` escribe en la
-    // tabla base pero no toca la caché (lo hace la cola coalescida del sync).
+    // ─── Fase 2: el costo SE CONSERVA, sólo se realinea el precio de venta ──
+    // Sin esto, un producto con costo cargado pero sin proveedor del que
+    // derivarlo se queda para siempre con el multiplicador del día que entró:
+    // eran 116 de PERFILERIA atascados en 1,514500. Decisión del usuario
+    // (2026-09-17): todo producto de la categoría se rige por el multiplicador
+    // de su categoría, tenga proveedor o no. Los que ya movió la fase 1 se
+    // excluyen — quedaron alineados por construcción y volver a tocarlos sólo
+    // duplicaría líneas de historial.
+    const realineacion = await realinearPreciosAlMultiplicador(categoria, {
+      dryRun,
+      excluirCodigos: movidosPorProveedor,
+    });
+    for (const c of realineacion.cambios) cambios.push({ ...c, fase: 'realineacion' });
+    omitidos.push(...realineacion.omitidos);
+
+    // Una sola recarga al final: las dos fases escriben en la tabla base pero
+    // no tocan la caché (eso lo hace la cola coalescida del sync).
     if (!dryRun && cambios.length > 0) await recargarPrecios();
 
+    const nProveedor = movidosPorProveedor.size;
+    const nRealineados = realineacion.cambios.length;
     res.json({
       categoria,
       dryRun,
       productosEnCategoria: productos.length,
       sinVinculoACatalogo: sinVinculo,
+      porProveedor: nProveedor,
+      realineados: nRealineados,
       cambios,
       omitidos,
       resumen:
-        `${cambios.length} producto(s) ${dryRun ? 'cambiarían' : 'actualizados'}, ` +
-        `${omitidos.length} omitido(s), ${sinVinculo} sin vínculo al catálogo maestro (no se pueden costear).`,
+        `${cambios.length} producto(s) ${dryRun ? 'cambiarían' : 'actualizados'}: ` +
+        `${nProveedor} con costo nuevo del proveedor y ${nRealineados} realineado(s) al multiplicador ` +
+        `conservando su costo. ${omitidos.length} omitido(s). ` +
+        `${sinVinculo} sin vínculo al catálogo maestro (no se les puede derivar costo, pero sí realinear).`,
     });
   } catch (e) {
     console.error('recalcularCategoria:', e instanceof Error ? e.message : e);
