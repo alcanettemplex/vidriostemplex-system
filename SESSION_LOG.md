@@ -4099,3 +4099,99 @@ estén aplicados. Secuencia usada: `--sin-recalculo` → `--dry-run` → aplicar
 - **Los 3 perfiles comprados como RETAL** (`CAB0606`, `SIL0304`, `SIL0603`) ahora tienen precio de
   lista por tira, así que el costo ya no sale de una compra de sobrantes. Conviene revisar si la
   fila METRO de retal debería archivarse alguna vez.
+
+---
+
+## 2026-09-17 (2) — Cotizador: por qué la orden de corte no se puede emitir, y limpieza de los motivos
+
+### Punto de partida
+
+En la ficha de la cotización N.º 6 (ítem `Sistema5020::XX`, vano 100×150), el botón "Evaluar
+aptitud para orden de corte" devolvía tres líneas rojas. No eran errores: son tres de las ocho
+condiciones de `cotizador/lib/aptitudOrden.ts` funcionando. El diagnóstico se hizo contra Supabase,
+no contra el código solo.
+
+### Estado real de la calibración (verificado en BD)
+
+- `cotizador.calibracion_margen`: **0 filas**. `calibracion_contraste`: **0 filas**. El proceso de
+  calibración no ha empezado nunca.
+- `calibracion_holgura`: 1 fila global (3 mm / 3 mm), fijada hoy 20:18 — con eso la condición 4 ya
+  pasa.
+- Diseños por nivel: **15 A, 124 B, 24 C** de 163. Los 9 de Sistema5020 son B.
+- Perfiles por nivel: 972 A, 222 B, 11 C. **Todos los B tienen `modelo_dispersion_mm` = 1 exacto.**
+- `nivel_vidrio`: solo 15 diseños en A. El vidrio es el que arrastra el nivel en la mayoría.
+
+### El callejón sin salida (lo importante)
+
+`analizarPieza` (`calibracion.ts:219`) devuelve `puedeProponer:false` para toda pieza nivel B, y
+`TabCalibracion.tsx:400` solo pinta el botón de aprobar margen cuando es true. Pero `evaluarMadurez`
+cuenta las piezas B como **calibrables** (solo veta las C). Y no existe endpoint ni pantalla que
+promueva una pieza de B a A: `nivel_corte` solo se escribe desde el script one-off
+`2026-09-13_aplicar_modelos_corte.ts`.
+
+Resultado: una pieza B exige margen, prohíbe proponerlo y no ofrece cómo dejar de ser B. Cruzando el
+inventario por sistema (regla "peor nivel por ref" + nivel del vidrio del primer diseño), **solo 3 de
+13 sistemas** pueden llegar a `EN_PRODUCCION` hoy: Sistema7038-Interior, Vidrios y Espejos y
+Sistema3831-Semireforzado. Entre ellos suman 6 diseños nivel A de 163.
+
+### Hallazgo que abarata el desbloqueo
+
+El `multimedida.json` de AlumSoftware no está en esta máquina y las 3 observaciones originales no se
+guardaron (`medidas_respaldo` es solo el número `3`). Pero **son recuperables evaluando el modelo
+representante en los vanos de extracción** (1000×1200, 500×1200, 1000×600): un modelo solo se aceptó
+si las reproducía exactamente.
+
+Verificado reimplementando `buscarModelos` y comparando contra `candidatos`/`dispersionMm` de
+`datos_cotizador/modelos_corte.json`: **1143/1143 perfiles y 430/430 ejes de vidrio coinciden, 0
+discrepancias**. Quedan 69 piezas con 6 observaciones (vanos no documentados), de las cuales 15 son
+nivel B — esas sí necesitarían dato externo.
+
+Para el caso concreto: perfil 148 (Horizontal) y el paño de 5020::XX tienen 60 candidatos cada uno y
+en fabricación 997 mm predicen 483/484 y 463/464 respectivamente. **Una sola lectura en un ancho
+impar deja 30 candidatos con dispersión 0** — la pieza pasa a nivel A.
+
+### Decisión de método: el oráculo es AlumSoftware, no el taller
+
+`analizarPieza` sugiere resolver el nivel B "con dos o tres cortes en anchos que no sean múltiplos
+redondos". No funciona tal cual: los candidatos difieren 1 mm y el margen de corte del taller es
+desconocido (es justo lo que la calibración quiere medir), así que una medida de taller confunde
+fórmula y margen en un solo número. Decisión del usuario: la identificación se hace tecleando la
+ventana en AlumSoftware y leyendo su medida, que es exacta y no lleva margen. El taller sigue siendo
+el oráculo del margen, después, con la fórmula ya fija.
+
+### Cambio ejecutado (Fase 0)
+
+`backend-api/src/cotizador/lib/aptitudOrden.ts`, único archivo. Sin BD, sin frontend.
+
+1. **Condición 5 ya no se emite cuando el nivel es B o C.** `aptoParaCorte` es
+   `nivelCorte === "A" && !hayMedidasInvalidas` (`motorDespiece.ts:360`), así que en un diseño B era
+   false por definición y el motivo repetía la condición 3 con peores palabras. Con B/C descartado,
+   un false ahí significa inequívocamente "medida inválida" y así se redacta. Un nivel **desconocido**
+   (blob viejo) no suprime nada: ahí no se sabe cuál de las dos causas fue.
+2. **Condición 3 nombra las piezas culpables**, leídas de `cortes.perfiles[].nivelCorte` /
+   `incertidumbreMm` y `cortes.vidrios[].nivelRiesgo` / `incertidumbreMm` — campos estructurados, no
+   subcadenas del texto de `advertencias`. Un blob sin esos campos deja el motivo como estaba.
+
+Antes (3 líneas) → después (2 líneas, verificado contra el blob real del ítem 7):
+
+> Nivel B: la fórmula de este diseño no está validada, no se arregla calibrando — hace falta
+> identificarla primero. **Las piezas que lo bajan son: Horizontal (148) ±1 mm, VIDRIO CLARO 5MM
+> CRUDO ±1 mm.**
+
+`CODIGOS_MOTIVO` no cambió (el contrato de códigos sigue intacto, solo cuándo se emite uno). El
+frontend no ramifica por `codigo`, solo renderiza `texto` — verificado.
+
+### Pendientes
+
+- **Fase 1 (P1): identificador de fórmula**, plan completo acordado y a la espera de ejecución:
+  columnas nuevas en `calibracion_contraste` (`diseno_id`, `pieza_orden`, `eje`, `proposito`,
+  `fuente`; la tabla está vacía, ALTER sin backfill), lib `cotizador/lib/identificacionCorte.ts`
+  portando la búsqueda entera desde el script de reconstrucción, dos endpoints y un bloque en
+  `TabCalibracion.tsx`.
+- Al cambiar `modelo_*` de una pieza, la condición 8 (`verificarVigencia`) marcará las cotizaciones
+  viejas como desactualizadas. Es correcto, pero conviene anticiparlo.
+- `inventarioPiezasDeSistema` toma el nivel del vidrio del **primer** diseño del sistema, no el peor
+  (divergencia ya documentada en el propio archivo). Conviene alinearlo en la misma pasada.
+- **`npm --prefix backend-api run lint:fix` está roto**: ESLint 10 no encuentra `eslint.config.js`
+  (el repo sigue en formato `.eslintrc.*`). Preexistente, no lo introdujo este cambio.
+- Sin commit: el cambio queda en el working tree a la espera de orden.

@@ -340,6 +340,52 @@ function verificarVigencia(item: ItemCotizacion) {
 }
 
 // ---------------------------------------------------------------------------
+// Qué piezas concretas bajan el nivel del diseño (detalle de la condición 3)
+// ---------------------------------------------------------------------------
+/**
+ * Nombra las piezas cuya fórmula no está determinada, para que el motivo de
+ * nivel no obligue a ir a buscar la explicación a otro sitio: en un diseño de
+ * siete perfiles suelen ser una o dos, y saber cuáles es la diferencia entre
+ * "este diseño no sirve" y "falta identificar el Horizontal".
+ *
+ * SE LEE DE `cortes`, NO DE `advertencias`. El motor ya deja el nivel y la
+ * incertidumbre de cada pieza en `cortes.perfiles[]` / `cortes.vidrios[]`
+ * (`nivelCorte`, `nivelRiesgo`, `incertidumbreMm`), que son campos
+ * estructurados. Reconocer la pieza buscando subcadenas dentro del texto de
+ * `advertencias` funcionaría hoy y se rompería en cuanto alguien reescriba una
+ * frase — el mismo error que costó caro en la ingesta de facturas al comparar
+ * CUFE por substring.
+ *
+ * Un blob viejo sin esos campos devuelve lista vacía y el motivo queda como
+ * estaba: mejor no decir nada que inventarse la pieza culpable.
+ */
+function piezasQueBajanElNivel(resultado: ResultadoGuardado): string[] {
+  const nombres: string[] = [];
+
+  for (const p of resultado?.cortes?.perfiles ?? []) {
+    const nivelPieza = p?.nivelCorte ?? null;
+    const incertidumbre = Number(p?.incertidumbreMm);
+    const sospechosa = nivelPieza === "B" || nivelPieza === "C" || (Number.isFinite(incertidumbre) && incertidumbre > 0);
+    if (!sospechosa) continue;
+    const etiqueta = p?.descripcion ? `${p.descripcion} (${p.ref})` : `perfil ${p?.ref ?? "?"}`;
+    nombres.push(Number.isFinite(incertidumbre) && incertidumbre > 0 ? `${etiqueta} ±${incertidumbre} mm` : etiqueta);
+  }
+
+  for (const v of resultado?.cortes?.vidrios ?? []) {
+    // `nivelRiesgo` viene del catálogo con forma "A_…"/"B_DIVISION_LIMPIA": lo
+    // que importa es la letra inicial, no la etiqueta completa.
+    const letra = typeof v?.nivelRiesgo === "string" ? v.nivelRiesgo.charAt(0) : null;
+    const incertidumbre = Number(v?.incertidumbreMm);
+    const sospechosa = letra === "B" || letra === "C" || (Number.isFinite(incertidumbre) && incertidumbre > 0);
+    if (!sospechosa) continue;
+    const etiqueta = v?.descripcion ? `${v.descripcion}` : "paño de vidrio";
+    nombres.push(Number.isFinite(incertidumbre) && incertidumbre > 0 ? `${etiqueta} ±${incertidumbre} mm` : etiqueta);
+  }
+
+  return nombres;
+}
+
+// ---------------------------------------------------------------------------
 // Evaluación por ítem
 // ---------------------------------------------------------------------------
 function evaluarItem(
@@ -378,11 +424,13 @@ function evaluarItem(
 
   // 3. Nivel de corte A.
   if (nivel !== "A") {
+    const culpables = piezasQueBajanElNivel(resultado);
     motivos.push(
       crearMotivo(
         CODIGOS_MOTIVO.NIVEL_NO_VALIDADO,
         `Nivel ${nivel ?? "desconocido"}: la fórmula de este diseño no está validada, no se arregla ` +
-          "calibrando — hace falta identificarla primero.",
+          "calibrando — hace falta identificarla primero." +
+          (culpables.length ? ` Las piezas que lo bajan son: ${culpables.join(", ")}.` : ""),
         RUTA_CALIBRACION
       )
     );
@@ -404,12 +452,26 @@ function evaluarItem(
 
   // 5. aptoParaCorte, ya calculado por cotizarPorDiseno/calcularDespiece: no
   // se recalcula aquí, se reutiliza tal cual.
-  if (resultado.aptoParaCorte !== true) {
+  //
+  // NO SE EMITE CUANDO EL NIVEL YA EXPLICA EL false. `aptoParaCorte` es
+  // `nivelCorte === "A" && !hayMedidasInvalidas` (motorDespiece.ts), así que en
+  // un diseño B o C es false POR DEFINICIÓN y este motivo sería la condición 3
+  // dicha otra vez con peores palabras — el usuario veía dos líneas rojas para
+  // un solo problema y la segunda lo mandaba a buscar advertencias que sólo
+  // repetían la primera. Con el nivel B/C descartado, un false aquí significa
+  // inequívocamente "hay una medida inválida", y así se redacta.
+  //
+  // El nivel DESCONOCIDO (blob viejo sin `diseno.nivelCorte`) no suprime nada:
+  // ahí no se puede saber cuál de las dos causas fue, y callar una sería
+  // esconder información real.
+  const nivelExplicaElNoApto = nivel === "B" || nivel === "C";
+  if (resultado.aptoParaCorte !== true && !nivelExplicaElNoApto) {
     motivos.push(
       crearMotivo(
         CODIGOS_MOTIVO.NO_APTO_PARA_CORTE,
-        "El propio despiece quedó marcado como no apto para corte (nivel de corte o medida inválida). " +
-          "Revisa las advertencias guardadas en el ítem.",
+        "El despiece tiene al menos una medida inválida (una pieza sin fórmula utilizable o un paño que " +
+          "da cero o negativo a este tamaño), así que no se puede cortar. Revisa las advertencias " +
+          "guardadas en el ítem.",
         null
       )
     );
