@@ -55,6 +55,28 @@ Ante un error inesperado durante ejecución:
 1. Intentar recovery automático (rollback, reintento, fix rápido)
 2. Si no es posible recovery, reportar error completo y esperar instrucciones
 
+### Documentación por Módulo — `docs/modulos/`
+
+Para no rehacer el rastreo forense completo cada vez que se toca un módulo grande, el detalle profundo (motores de lógica, puntos de llamada, bugs conocidos, decisiones del usuario) vive en archivos dedicados dentro de `docs/modulos/`, agrupados por **dominio de negocio** — no 1:1 con carpetas de `frontend-web/src/features/`, porque la lógica pesada (ej. checks automáticos) cruza varias features y varios controllers a la vez. Este CLAUDE.md conserva solo el resumen de alto nivel + link; el archivo del módulo es la fuente de verdad detallada.
+
+**Índice:**
+
+| Módulo | Archivo | Cubre |
+|---|---|---|
+| ODP | `docs/modulos/odp.md` | Estados de producción, motor de checks automáticos, impresión de OP, ODP No Conformidad |
+| Compras | `docs/modulos/compras.md` | SAP/ODC, PedidoPV, Proveedores (ingesta FE, precios, equivalencias) |
+| Rutas e Instalaciones | *(pendiente)* | RutaInstalacion/RutaODP, Instalaciones, Evidencias, Agenda |
+| CRM / Leads | *(pendiente)* | Leads, pipeline CRM, Supervisión CRM, Prospectos |
+| Contabilidad / Caja | *(pendiente)* | Facturación, Caja, Salidas de Almacén |
+| RBAC / Auditoría | *(pendiente)* | Roles, permisos, hooks de auditoría, revertir desde ROOT |
+| Infraestructura / Despliegue | *(pendiente)* | Sockets, deploy, sincronización entre máquinas |
+
+**Regla de generación — incremental, disparada por el trabajo real, no por rutina:**
+- Si la tarea toca a fondo un módulo que **ya tiene** archivo en `docs/modulos/`, actualizarlo cuando el análisis forense revele algo nuevo o corrija algo desactualizado — no reescribirlo completo cada vez.
+- Si la tarea toca a fondo un módulo **sin archivo todavía** (de la tabla de arriba, o uno nuevo que no encaje en ninguno), generar `docs/modulos/<nombre>.md` al cerrar esa tarea, con lo aprendido durante el rastreo forense (estados, dependencias reales, puntos de llamada, bugs conocidos, decisiones), y agregar la fila correspondiente al índice de arriba.
+- El disparador es el **nivel de análisis forense** (árbol de dependencias, `git log`, casos borde) que ya exige la metodología de este documento — no una pregunta puntual y superficial ("¿qué hace este endpoint?"). Si no ameritó ese nivel de análisis, no ameritó archivo.
+- El resumen que queda en este CLAUDE.md tras extraer un módulo debe seguir respondiendo "qué es y dónde están las reglas" — nunca un link seco sin contexto.
+
 ### Sincronización entre Máquinas — el usuario trabaja en casa y en la oficina
 
 El repo vive en `C:\dev\vidrios-templex-system` (fuera de OneDrive desde el 2026-09-01: OneDrive sincronizando `.git/` corrompe el repo y resuelve conflictos renombrando archivos en vez de mezclarlos).
@@ -145,7 +167,7 @@ El repo vive en `C:\dev\vidrios-templex-system` (fuera de OneDrive desde el 2026
 
 ## Entidad Central: ODP
 
-Modelo: `backend-api/src/models/odp.model.ts`. **Sin timestamps** (`timestamps: false`) — usa `fecha_creacion` manual.
+Modelo: `backend-api/src/models/odp.model.ts`. **Sin timestamps** (`timestamps: false`) — usa `fecha_creacion` manual. Detalle forense completo (motor de checks automáticos, impresión de OP, ODP No Conformidad, puntos de llamada, bugs conocidos) en **`docs/modulos/odp.md`**.
 
 ### Estados de Producción
 ```
@@ -154,43 +176,17 @@ EN_ESPERA → VISITA_TECNICA → MEDICION → ALUMINIO_CORTADO
 → INSTALADA → ENTREGADA | PAUSADA
 ```
 
-⚠️ **`PEDIDO_PROVEEDOR` existe en el ENUM de Postgres (posición 3) pero NO se usa.** No está en el ENUM de Sequelize (`odp.model.ts`) —lo que impide asignarlo desde el backend— ni lo referencia ya ningún archivo del código (retirado de `ESTADOS_NC_ACTIVOS` el 2026-08-01). El seguimiento al proveedor vive en Compras y Pedidos PV. El valor permanece en la BD porque 4 registros de `historial_estados_odp` lo referencian; eliminarlo obligaría a recrear el tipo. Si una ODP llegara a ese estado por edición directa en Supabase, **desaparecería del tablero de Producción** (no está en `ESTADOS_PRODUCCION_VISIBLES` ni en `activeStates`). Ver `TECH_DEBT.md` 2026-08-01.
+⚠️ `PEDIDO_PROVEEDOR` existe en el ENUM de Postgres pero no se usa — ver `docs/modulos/odp.md`.
 
 ### Estados Facturación / Caja
 - Facturación: `PENDIENTE → FACTURADA`
 - Caja: `PENDIENTE → ABONADO → CANCELADO | CREDITO_APROBADO`
 
 ### Campos chk_* (booleanos de progreso, independientes del estado)
-`chk_medicion`, `chk_corte`, `chk_vidrio`, `chk_accesorios`, `chk_ensamble`, `chk_matizado`, `chk_pelicula`, `chk_huacal`, `chk_carton`
+`chk_medicion`, `chk_corte`, `chk_vidrio`, `chk_accesorios`, `chk_ensamble`, `chk_matizado`, `chk_pelicula`, `chk_huacal`, `chk_carton`. Motor único en `utils/checksAutomaticos.ts` (`recalcularChecksODP`) — no duplicar esta lógica. Reglas de cálculo, 19 puntos de llamada y quién manda entre marca manual/automática: **`docs/modulos/odp.md`**.
 
-⚠️ **Toda la lógica de checks vive en `utils/checksAutomaticos.ts` — no duplicarla.** Desde el 2026-09-09 hay un motor único (`recalcularChecksODP`) que concentra: cálculo del check, `fecha_chk_accesorios`, avance de estado, auto-transición a `LISTO_INSTALAR`, retroceso, `historial_estados_odp` y `emitirODPPatch`. `updateODP` consume de ahí `evaluarListoInstalar()` y `evaluarRetroceso()`, así que el marcado manual y el automático comparten criterio por construcción. Vive en `utils/` por el mismo ciclo que `pedidoPvCapacidad.ts` (`server → app → routes → controller`); `../server` y `./notificaciones` entran por import dinámico.
-
-- **`chk_accesorios` (Herrajes) es calculable**: marcado ⇔ la ODP tiene ≥1 SAP, ninguna SAP vacía y **todas** las líneas de **todas** sus SAP en `estado_compra = 'en_existencia'`. Recibir una ODC ya pasa sus `SAPItem` a `en_existencia`, así que "todos en S" y "todos en una ODC recibida" son la misma condición. Una SAP en borrador sin ítems **bloquea**.
-- **`chk_vidrio` es dirigido por evento, no calculable**: marca cuando una vía se cierra (todos los `PedidoPV` en `VERIFICADO`, o una ODC `tipo='vidrio'` recibida) y desmarca cuando cualquier vía se reabre (`PROBLEMA`, reposición, ODC revertida o eliminada). Verificar un PV cuando aún faltan otros **no toca nada** — el desmarcado está reservado a los eventos que reabren la vía.
-- **El automático manda sobre la marca manual** (decisión del usuario, 2026-09-09): el check cae aunque lo hubiera puesto una persona. Las celdas siguen siendo clicables a mano.
-- **El retroceso de estado solo ocurre desde `LISTO_INSTALAR`.** Una ODP ya `PROGRAMADA` o más allá pierde el check pero conserva el estado.
-- **19 puntos de llamada** en `odc.controller` (10), `sap.controller` (3) y `pedido_pv.controller` (4), más los dos consumos de `updateODP`. `sincronizarItemODC` queda fuera a propósito: solo limpia `modificado`, no mueve `estado_compra`.
-- El motor **se detiene sin escribir si nada cambia** — se llama desde 19 sitios y no puede generar auditoría ni sockets en cada guardado. Con transacción, la emisión se aplaza vía `transaction.afterCommit`.
-- `historial_estados_odp.automatico` (BOOLEAN, 2026-09-09) marca estos movimientos. Los alimenta a `GET /api/odp/movimientos-automaticos` → pestaña **"Automáticos"** del tablero de Producción (últimos 10).
-
-### Impresión de la OP (pestaña "Por Imprimir")
-`fecha_impresion_op` (NULL = pendiente) + `impresa_por_id`, 2026-09-09. **El amarillo del tablero
-es derivado, no un color guardado**: antes el taller pintaba `color_taller = '#FEF9C3'` a mano para
-marcar "ya impresa" y la migración tradujo esas 414 filas. Si hay `color_taller` manual, manda el
-manual. Se marca solo al abrir la ventana de impresión —el navegador no confirma que el papel
-salió (`afterprint` dispara también al cancelar)— y se revierte con el ícono de impresora de la
-fila. Escribe por `PATCH /api/odp/marcar-impresas` (endpoint propio, declarado **antes** de `/:id`;
-`individualHooks: true` o la auditoría no dispara) y **no** por `PUT /:id`: pasar por `updateODP`
-arrastraría el motor de checks, las transiciones de estado y la creación de Pedidos PV para
-escribir un timestamp. La marca es global vía `emitirODPPatch`. ⚠️ Al imprimir en lote, el salto
-de página entre órdenes lo impone el contenedor de cada una salvo la última: los dos imprimibles
-evitan el salto en su última hoja para no sacar una página en blanco, y concatenados sin eso la
-siguiente orden arranca pegada a la anterior.
-
-### ODP No Conformidad
-Hija con `odp_padre_id` + `es_no_conformidad: true`. Padre → PAUSADA. Se reactiva a **INSTALADA** cuando la hija llega a `INSTALADA` **o a `ENTREGADA`** — ese es su estado terminal, no avanza a ENTREGADA. NC no cobran al cliente → `estado_caja = CANCELADO`.
-
-⚠️ **La reactivación está implementada en cinco puntos distintos** y todos deben mantenerse en sincronía: `updateODP` (`odp.controller.ts`), `finalizarInstalacion` y `entregarAtascada` y `terminarRutaConductor` (`rutas.controller.ts`), y el flujo de evidencias (`evidencia.controller.ts`). Desde que existe `INSTALANDO` (2026-09-02) el flujo por ruta va `PROGRAMADA → INSTALANDO → ENTREGADA` **sin pasar por `INSTALADA`**, así que cualquier regla que compare contra el valor exacto `'INSTALADA'` deja al padre huérfano en PAUSADA para siempre — fue el bug de ODP-23925, corregido el 2026-09-03. `finalizarInstalacionODP` (`odp.controller.ts`, endpoint huérfano) sigue sin esta verificación: ver `TECH_DEBT.md` 2026-09-03.
+### Impresión de la OP y ODP No Conformidad
+Ver **`docs/modulos/odp.md`** — timestamp `fecha_impresion_op`, endpoint propio `PATCH /api/odp/marcar-impresas`, y la reactivación de NC implementada en cinco puntos distintos.
 
 ---
 
@@ -201,7 +197,7 @@ Hija con `odp_padre_id` + `es_no_conformidad: true`. Padre → PAUSADA. Se react
 **Solo lectura global:** `authMiddleware` corta con 403 cualquier método distinto de GET/HEAD/OPTIONS para los roles del Set `ROLES_SOLO_LECTURA` (hoy: `marketing`). Se resuelve ahí —y no ruta por ruta— porque varias rutas de escritura no declaran `requireRole` (quedaron abiertas a cualquier autenticado): el control por método las cubre todas, incluidas las que se agreguen después. Al sumar un rol de solo lectura, agregarlo también a `ROLES_SOLO_LECTURA` en `frontend-web/src/utils/permisos.ts` para que la UI oculte los controles.
 
 **Módulos clave:**
-- **Proveedores (ingesta FE):** las mismas reglas gobiernan la ingesta de facturas y la **importación de listas de precios** (Fase 3, 2026-09-03): fecha de vigencia sobre orden de carga, la modalidad decide qué precio se toca, y un código desconocido va a la bandeja en vez de adivinarse. La lista **previsualiza antes de escribir** (`dry_run`) y comparte el derivador `SD-<hash>` del parser, para que lista y factura del mismo ítem caigan en la misma fila. Reglas no negociables, todas verificadas el 2026-08-30 — (1) el histórico registra **cambios de precio, no apariciones**; (2) el precio vigente lo define la **fecha de la factura**, no el orden de carga: el lote se ordena por `fecha_emision` y una factura anterior se archiva con `retroactivo=true` sin desplazar el vigente; (3) la **modalidad** decide qué precio se actualiza — un `unitCode` informativo (`MTR`, `KGM`, `MTK`) exige coincidir con `unidad_compra`, uno genérico (`94`, `EA`, `NIU`) solo vale si hay una única equivalencia; (4) idempotencia por **CUFE completo** en `factura_proveedor_procesada`, nunca por substring de `documento_ref`; (5) notas crédito/débito y monedas ≠ COP se registran **sin mover precios**; (6) el mapeo siempre lo confirma un humano; (7) **el precio unitario se arbitra contra `LineExtensionAmount / cantidad`** — `cbc:PriceAmount` es, según UBL, el precio de `BaseQuantity` unidades, pero muchos emisores repiten ahí la cantidad facturada, así que entre las dos lecturas gana la que menos se aleja del total de línea (2026-09-04; antes se dividía siempre y el precio quedaba dividido entre la cantidad). Ver `TECH_DEBT.md` 2026-08-30 y `compras.md`.
+- **Proveedores (ingesta FE):** las mismas reglas gobiernan la ingesta de facturas y la **importación de listas de precios** (Fase 3, 2026-09-03): fecha de vigencia sobre orden de carga, la modalidad decide qué precio se toca, y un código desconocido va a la bandeja en vez de adivinarse. La lista **previsualiza antes de escribir** (`dry_run`) y comparte el derivador `SD-<hash>` del parser, para que lista y factura del mismo ítem caigan en la misma fila. Reglas no negociables, todas verificadas el 2026-08-30 — (1) el histórico registra **cambios de precio, no apariciones**; (2) el precio vigente lo define la **fecha de la factura**, no el orden de carga: el lote se ordena por `fecha_emision` y una factura anterior se archiva con `retroactivo=true` sin desplazar el vigente; (3) la **modalidad** decide qué precio se actualiza — un `unitCode` informativo (`MTR`, `KGM`, `MTK`) exige coincidir con `unidad_compra`, uno genérico (`94`, `EA`, `NIU`) solo vale si hay una única equivalencia; (4) idempotencia por **CUFE completo** en `factura_proveedor_procesada`, nunca por substring de `documento_ref`; (5) notas crédito/débito y monedas ≠ COP se registran **sin mover precios**; (6) el mapeo siempre lo confirma un humano; (7) **el precio unitario se arbitra contra `LineExtensionAmount / cantidad`** — `cbc:PriceAmount` es, según UBL, el precio de `BaseQuantity` unidades, pero muchos emisores repiten ahí la cantidad facturada, así que entre las dos lecturas gana la que menos se aleja del total de línea (2026-09-04; antes se dividía siempre y el precio quedaba dividido entre la cantidad). Ver `TECH_DEBT.md` 2026-08-30 y `docs/modulos/compras.md`.
 - **SAP:** `SAP → SAPItem → OrdenCompra (ODC) → ODCItem`
 - **PedidoPV:** auto-generado al crear ODP con `proveedor_vidrio`. Base 6733. **El tope de ítems por formulario lo fija el proveedor: 29 para Templacol, 12 para el resto** (`utils/pedidoPvCapacidad.ts`); al superarlo se crean extensiones `-1,-2...`. El **formulario** (Excel e impreso) también se elige por proveedor: Templacol usa el suyo, Vitelsa y cualquier otro valor usan el de Vitelsa. Cambiar `proveedor_vidrio` en la ODP **propaga** el cambio a todos sus Pedidos PV en cualquier estado, re-particiona si el formato nuevo admite menos ítems y emite `emitirCambio('pedidos_pv')`; vaciar el proveedor con un pedido ya creado se rechaza con 409. Crear el pedido y propagarle el proveedor son **un solo bloque** en `updateODP` (2026-09-04): antes eran dos condiciones independientes y una ODP con `proveedor_vidrio = ''` —hay 88 así— y pedido ya creado no caía en ninguna, así que el pedido conservaba el proveedor viejo (PV 7012/7073/7077). La comparación es normalizada: `' Vitelsa '` y `'vitelsa'` no cuentan como cambio. Como red de seguridad, el **formato** (Excel e impreso) de un pedido con `origen='SISTEMA'` lo decide `proveedorParaFormato()` — manda `odp.proveedor_vidrio`, no la fila del pedido, porque el papel que sale al proveedor es irreversible; un pedido `MANUAL` conserva el suyo. La vía inversa (`PATCH /api/pedidos-pv/:id`, que acepta `proveedor`) sigue pudiendo desalinear la fila, aunque ya no el formato — ver `TECH_DEBT.md` 2026-09-03.
 - ⚠️ **`utils/pedidoPvCapacidad.ts` vive fuera de los controladores a propósito.** `pedido_pv.controller` importa `../server` de forma estática y `server → app → routes → controller` cierra un ciclo: importar ese controlador desde otro controlador o desde un script deja los handlers de las rutas en `undefined`. Cualquier lógica de PV que necesite compartirse va en ese util, no en el controlador.
