@@ -230,18 +230,18 @@ const AsesorCard: React.FC<{
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
-interface Props { esVistaGlobal: boolean; fecha_desde?: string | null; fecha_hasta?: string | null; }
+interface Props { esVistaGlobal: boolean; fecha_desde?: string | null; fecha_hasta?: string | null; asesor_id?: number; }
 
-const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta }) => {
+const DashboardGerencial: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta, asesor_id }) => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
-    try { const { data } = await apiGetCRMStats(fecha_desde || undefined, fecha_hasta || undefined); setStats(data); }
+    try { const { data } = await apiGetCRMStats(fecha_desde || undefined, fecha_hasta || undefined, asesor_id); setStats(data); }
     catch { toast.error('No se pudieron cargar las estadísticas.'); }
     finally { setLoading(false); }
-  }, [fecha_desde, fecha_hasta]);
+  }, [fecha_desde, fecha_hasta, asesor_id]);
 
   useEffect(() => { fetchStats(); }, [fetchStats, esVistaGlobal]);
 

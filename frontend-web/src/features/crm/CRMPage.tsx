@@ -11,7 +11,8 @@ import MonitorAsesores from './components/MonitorAsesores';
 import EmbudoAsesores from './components/EmbudoAsesores';
 import DateRangeSelector from '../../components/common/DateRangeSelector';
 import FolderTabs from '../../components/FolderTabs';
-import { Plus, BarChart3, Kanban, TrendingUp, PhoneMissed, Search, X, ClipboardList, Users, ScanEye, Filter } from 'lucide-react';
+import { useAsesoresCRM } from './hooks/useAsesoresCRM';
+import { Plus, BarChart3, Kanban, TrendingUp, PhoneMissed, Search, X, ClipboardList, Users, ScanEye, Filter, UserCircle } from 'lucide-react';
 
 type Tab = 'pipeline' | 'metricas' | 'gerencial' | 'sin_respuesta' | 'reportes' | 'prospectos' | 'monitor' | 'embudo';
 
@@ -66,6 +67,12 @@ const CRMPage: React.FC = () => {
   const esVistaGlobal = ROLES_GLOBAL.includes(rol);
   const puedeVerGerencial = ROLES_GERENCIAL.includes(rol);
 
+  // Filtro por asesor: solo admin puede acotar la vista global a un asesor puntual
+  // (decisión 2026-09-19) — el resto de roles globales sigue viendo el agregado.
+  const puedeFiltrarPorAsesor = rol === 'admin';
+  const [asesorFiltroId, setAsesorFiltroId] = useState<number | undefined>(undefined);
+  const asesoresFiltro = useAsesoresCRM(puedeFiltrarPorAsesor);
+
   const handleDateRangeChange = (desde: string | null, hasta: string | null) => {
     setFechaDesde(desde);
     setFechaHasta(hasta);
@@ -89,6 +96,22 @@ const CRMPage: React.FC = () => {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <DateRangeSelector desde={fechaDesde} hasta={fechaHasta} onChange={handleDateRangeChange} />
+
+          {puedeFiltrarPorAsesor && (
+            <div className="relative flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg bg-white shadow-sm">
+              <UserCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              <select
+                value={asesorFiltroId ?? ''}
+                onChange={e => setAsesorFiltroId(e.target.value ? parseInt(e.target.value) : undefined)}
+                className="text-sm font-semibold text-slate-600 outline-none bg-transparent cursor-pointer max-w-[160px]"
+              >
+                <option value="">Todos los asesores</option>
+                {asesoresFiltro.map(a => (
+                  <option key={a.id} value={a.id}>{a.nombre_completo}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {(activeTab === 'pipeline' || activeTab === 'sin_respuesta') && (
             <>
@@ -145,12 +168,12 @@ const CRMPage: React.FC = () => {
       {/* Contenido de tabs */}
       {activeTab === 'pipeline' && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <KanbanBoard fecha_desde={fechaDesdeApi} fecha_hasta={fechaHastaApi} busqueda={busqueda} setBusqueda={setBusqueda} />
+          <KanbanBoard fecha_desde={fechaDesdeApi} fecha_hasta={fechaHastaApi} busqueda={busqueda} setBusqueda={setBusqueda} asesor_id={asesorFiltroId} />
         </div>
       )}
 
       {activeTab === 'sin_respuesta' && (
-        <SinRespuestaTab fecha_desde={fechaDesdeApi} fecha_hasta={fechaHastaApi} busqueda={busqueda} />
+        <SinRespuestaTab fecha_desde={fechaDesdeApi} fecha_hasta={fechaHastaApi} busqueda={busqueda} asesor_id={asesorFiltroId} />
       )}
 
       {activeTab === 'metricas' && (
@@ -159,6 +182,7 @@ const CRMPage: React.FC = () => {
           esVistaGlobal={esVistaGlobal}
           fecha_desde={fechaDesdeApi}
           fecha_hasta={fechaHastaApi}
+          asesor_id={asesorFiltroId}
         />
       )}
 
@@ -167,6 +191,7 @@ const CRMPage: React.FC = () => {
           esVistaGlobal={esVistaGlobal}
           fecha_desde={fechaDesdeApi}
           fecha_hasta={fechaHastaApi}
+          asesor_id={asesorFiltroId}
         />
       )}
 
@@ -175,6 +200,7 @@ const CRMPage: React.FC = () => {
           esVistaGlobal={esVistaGlobal}
           fecha_desde={fechaDesdeApi}
           fecha_hasta={fechaHastaApi}
+          asesor_id={asesorFiltroId}
         />
       )}
 
@@ -189,7 +215,7 @@ const CRMPage: React.FC = () => {
               <p className="text-[11px] text-slate-400 font-medium mt-0.5">Leads activos por asesor · tiempo en etapa actual</p>
             </div>
           </div>
-          <MonitorAsesores rol={rol} userId={asesorId} />
+          <MonitorAsesores rol={rol} userId={asesorId} asesor_id={asesorFiltroId} />
         </div>
       )}
 
@@ -206,7 +232,7 @@ const CRMPage: React.FC = () => {
               </p>
             </div>
           </div>
-          <EmbudoAsesores fecha_desde={fechaDesdeApi} fecha_hasta={fechaHastaApi} />
+          <EmbudoAsesores fecha_desde={fechaDesdeApi} fecha_hasta={fechaHastaApi} asesor_id={asesorFiltroId} />
         </div>
       )}
 

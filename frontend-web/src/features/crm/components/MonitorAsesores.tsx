@@ -33,6 +33,7 @@ interface AsesorMonitor {
 interface Props {
   rol: string;
   userId?: number;
+  asesor_id?: number;
 }
 
 // ─── Config de etapas ─────────────────────────────────────────────────────────
@@ -203,7 +204,7 @@ const PanelAsesor: React.FC<{
 };
 
 // ─── Componente principal ─────────────────────────────────────────────────────
-const MonitorAsesores: React.FC<Props> = ({ rol, userId }) => {
+const MonitorAsesores: React.FC<Props> = ({ rol, userId, asesor_id }) => {
   const [asesores, setAsesores] = useState<AsesorMonitor[]>([]);
   const [loading, setLoading]   = useState(true);
   const [tabActivo, setTabActivo] = useState<number | null>(null);
@@ -215,17 +216,16 @@ const MonitorAsesores: React.FC<Props> = ({ rol, userId }) => {
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await apiGetMonitorAsesores();
+      const { data } = await apiGetMonitorAsesores(asesor_id);
       setAsesores(data);
-      if (data.length > 0 && tabActivo === null) {
-        setTabActivo(data[0].asesor_id);
-      }
+      // Si el asesor activo no existe en el nuevo resultado (ej: cambió el filtro), recae en el primero.
+      setTabActivo(prev => (data.some((a: AsesorMonitor) => a.asesor_id === prev) ? prev : (data[0]?.asesor_id ?? null)));
     } catch {
       toast.error('No se pudo cargar el monitor de pipeline');
     } finally {
       setLoading(false);
     }
-  }, []); // eslint-disable-line
+  }, [asesor_id]);
 
   useEffect(() => { cargar(); }, [cargar]);
 

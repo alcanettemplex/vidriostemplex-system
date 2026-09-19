@@ -1,12 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-interface FiltrosCRM {
-  busqueda: string;
-  segmento: string;
-  producto: string;
-  asesor_id: string;
-}
-
 interface CRMState {
   leads: any[];
   leadsSinRespuesta: any[];
@@ -15,7 +8,6 @@ interface CRMState {
   loading: boolean;
   error: string | null;
   selectedLeadId: number | null;
-  filtros: FiltrosCRM;
 }
 
 const initialState: CRMState = {
@@ -26,12 +18,6 @@ const initialState: CRMState = {
   loading: false,
   error: null,
   selectedLeadId: null,
-  filtros: {
-    busqueda: '',
-    segmento: '',
-    producto: '',
-    asesor_id: '',
-  },
 };
 
 const crmSlice = createSlice({
@@ -85,12 +71,6 @@ const crmSlice = createSlice({
     setSelectedLead(state, action: PayloadAction<number | null>) {
       state.selectedLeadId = action.payload;
     },
-    setFiltros(state, action: PayloadAction<Partial<FiltrosCRM>>) {
-      state.filtros = { ...state.filtros, ...action.payload };
-    },
-    resetFiltros(state) {
-      state.filtros = initialState.filtros;
-    },
   },
 });
 
@@ -102,8 +82,6 @@ export const {
   updateLead,
   fetchActividadesSuccess,
   setSelectedLead,
-  setFiltros,
-  resetFiltros,
   fetchLeadsSinRespuestaStart,
   fetchLeadsSinRespuestaSuccess,
   addLeadSinRespuesta,

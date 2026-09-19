@@ -3,7 +3,7 @@ import { AlertCircle, RefreshCw, AlertTriangle, CheckCircle2, Clock, TrendingUp 
 import { apiGetStatsProspectos } from '../crmService';
 import { IconLeads, IconTarget, IconCheck, IconClock, IconBarChart } from './CRMIcons';
 
-interface Props { esVistaGlobal: boolean; fecha_desde?: string | null; fecha_hasta?: string | null; }
+interface Props { esVistaGlobal: boolean; fecha_desde?: string | null; fecha_hasta?: string | null; asesor_id?: number; }
 
 // ─── InfoTooltip ──────────────────────────────────────────────────────────────
 const InfoTooltip: React.FC<{ text: string }> = ({ text }) => (
@@ -50,7 +50,7 @@ const EmbudoStep: React.FC<{
   );
 };
 
-const ProspectosStats: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta }) => {
+const ProspectosStats: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta, asesor_id }) => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,14 +60,14 @@ const ProspectosStats: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_ha
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const { data } = await apiGetStatsProspectos(fecha_desde || undefined, fecha_hasta || undefined);
+      const { data } = await apiGetStatsProspectos(fecha_desde || undefined, fecha_hasta || undefined, asesor_id);
       setStats(data);
     } catch {
       setError('No se pudo cargar la información de prospectos.');
     } finally {
       setLoading(false);
     }
-  }, [fecha_desde, fecha_hasta]);
+  }, [fecha_desde, fecha_hasta, asesor_id]);
 
   useEffect(() => { cargar(); }, [cargar]);
 

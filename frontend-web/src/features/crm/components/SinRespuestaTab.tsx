@@ -26,22 +26,23 @@ interface SinRespuestaTabProps {
   fecha_desde?: string | null;
   fecha_hasta?: string | null;
   busqueda?: string;
+  asesor_id?: number;
 }
 
-const SinRespuestaTab: React.FC<SinRespuestaTabProps> = ({ fecha_desde, fecha_hasta, busqueda = '' }) => {
+const SinRespuestaTab: React.FC<SinRespuestaTabProps> = ({ fecha_desde, fecha_hasta, busqueda = '', asesor_id }) => {
   const dispatch = useDispatch();
   const { leadsSinRespuesta, loadingSinRespuesta } = useSelector((state: any) => state.crm);
 
   const cargar = useCallback(async () => {
     dispatch(fetchLeadsSinRespuestaStart());
     try {
-      const { data } = await apiGetLeads(fecha_desde || undefined, fecha_hasta || undefined, 'sin_respuesta');
+      const { data } = await apiGetLeads(fecha_desde || undefined, fecha_hasta || undefined, 'sin_respuesta', asesor_id);
       dispatch(fetchLeadsSinRespuestaSuccess(data));
     } catch {
       toast.error('No se pudieron cargar los leads sin respuesta.');
       dispatch(fetchLeadsSinRespuestaSuccess([]));
     }
-  }, [dispatch, fecha_desde, fecha_hasta]);
+  }, [dispatch, fecha_desde, fecha_hasta, asesor_id]);
 
   useEffect(() => { cargar(); }, [cargar]);
 

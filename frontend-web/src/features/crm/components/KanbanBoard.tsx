@@ -257,9 +257,10 @@ interface KanbanBoardProps {
   fecha_hasta?: string | null;
   busqueda?: string;
   setBusqueda?: (v: string) => void;
+  asesor_id?: number;
 }
 
-const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, busqueda: busquedaExterna, setBusqueda: setBusquedaExterna }) => {
+const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, busqueda: busquedaExterna, setBusqueda: setBusquedaExterna, asesor_id }) => {
   const dispatch = useDispatch();
   const { leads } = useSelector((state: any) => state.crm);
   const user = useSelector((state: any) => state.auth.user);
@@ -318,7 +319,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
   const fetchLeads = useCallback(async () => {
     dispatch(fetchLeadsStart());
     try {
-      const { data } = await apiGetLeads(fecha_desde || undefined, fecha_hasta || undefined, 'pipeline');
+      const { data } = await apiGetLeads(fecha_desde || undefined, fecha_hasta || undefined, 'pipeline', asesor_id);
       dispatch(fetchLeadsSuccess(data));
     } catch (err: any) {
       const msg = err?.response?.data?.error || err?.response?.data?.message || 'No se pudieron cargar los leads. Verifica la conexión.';
@@ -329,7 +330,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
         toast.error(msg);
       }
     }
-  }, [dispatch, fecha_desde, fecha_hasta]);
+  }, [dispatch, fecha_desde, fecha_hasta, asesor_id]);
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
   useDataChangedSocket('crm', fetchLeads);

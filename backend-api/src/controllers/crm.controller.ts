@@ -408,13 +408,15 @@ export const convertLeadToCliente = async (req: Request, res: Response) => {
 export const getLeads = async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    const { fecha_desde, fecha_hasta, vista } = req.query;
+    const { fecha_desde, fecha_hasta, vista, asesor_id } = req.query;
     const esSinRespuesta = vista === 'sin_respuesta';
     const esPipeline = vista === 'pipeline';
     const esAdminOGerencia = ['admin', 'gerencia', 'root', 'asistente_administrativo', 'marketing', 'jefe_produccion'].includes(user.rol?.toLowerCase());
+    // Solo admin puede acotar la vista global a un asesor puntual (ver decisión 2026-09-19).
+    const puedeFiltrarPorAsesor = user.rol?.toLowerCase() === 'admin';
 
     const whereClause: any = esAdminOGerencia
-      ? {}
+      ? (puedeFiltrarPorAsesor && asesor_id ? { asesor_id: parseInt(asesor_id as string) } : {})
       : {
           [Op.or]: [
             { asesor_id: user.id },
@@ -576,13 +578,17 @@ async function calcularTasaConversion(input: TasaConversionInput): Promise<numbe
 export const getCRMStats = async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    const { fecha_desde, fecha_hasta } = req.query;
+    const { fecha_desde, fecha_hasta, asesor_id } = req.query;
     const esGlobal = ['admin', 'gerencia', 'root', 'asistente_administrativo', 'marketing', 'jefe_produccion'].includes(user.rol?.toLowerCase());
+    // Solo admin puede acotar la vista global a un asesor puntual (ver decisión 2026-09-19).
+    const asesorIdTarget: number | null = (user.rol?.toLowerCase() === 'admin' && asesor_id)
+      ? parseInt(asesor_id as string)
+      : null;
 
     // Excluye leads "Sin Respuesta": nunca hubo interacción real, contarlos infla el
     // denominador y deprime artificialmente la tasa de conversión reportada.
     const whereBase: any = esGlobal
-      ? { respondio: { [Op.ne]: 'No responde' } }
+      ? (asesorIdTarget ? { asesor_id: asesorIdTarget, respondio: { [Op.ne]: 'No responde' } } : { respondio: { [Op.ne]: 'No responde' } })
       : { asesor_id: user.id, respondio: { [Op.ne]: 'No responde' } };
 
     // Extraer rango de fechas para reutilizar en queries de leads y ODP
@@ -668,6 +674,7 @@ export const getCRMStats = async (req: Request, res: Response) => {
       // por whereBase). DashboardGerencial.tsx es exclusivo de roles esGlobal, así que
       // este filtro no le afecta.
       if (!esGlobal) whereODP.asesor_id = user.id;
+      else if (asesorIdTarget) whereODP.asesor_id = asesorIdTarget;
       // Un negocio que nació como lead en el CRM se acredita a la vía CRM (nuevos_clientes,
       // vía leads APROBADO), aunque haya usado el sub-flujo de visita técnica (prospecto).
       // Por eso las ODPs con lead vinculado se EXCLUYEN de nuevos_prospectos y de recurrentes:
@@ -839,7 +846,7 @@ export const getCRMStats = async (req: Request, res: Response) => {
       prevEnd.setUTCDate(0);
       prevEnd.setUTCHours(23, 59, 59, 999);
       const prevWhere: any = esGlobal
-        ? { respondio: { [Op.ne]: 'No responde' } }
+        ? (asesorIdTarget ? { asesor_id: asesorIdTarget, respondio: { [Op.ne]: 'No responde' } } : { respondio: { [Op.ne]: 'No responde' } })
         : { asesor_id: user.id, respondio: { [Op.ne]: 'No responde' } };
       if (prevStart >= METRICAS_CRM_V2_CUTOFF) {
         prevWhere[Op.and] = whereLeadsPipeline(prevStart, prevEnd);
@@ -857,7 +864,7 @@ export const getCRMStats = async (req: Request, res: Response) => {
         .filter((l: any) => l.getDataValue('estado_crm') === 'APROBADO')
         .reduce((s: number, l: any) => s + parseFloat(l.getDataValue('monto_real_venta') || '0'), 0);
       const prevTasaConversion = await calcularTasaConversion({
-        periodStart: prevStart, periodEnd: prevEnd, esGlobal, asesorId: user.id,
+        periodStart: prevStart, periodEnd: prevEnd, esGlobal: esGlobal && !asesorIdTarget, asesorId: asesorIdTarget ?? user.id,
         totalLeads: prevTotal, aprobadosLeads: prevAprobados,
       });
       vsAnterior = {
@@ -873,7 +880,7 @@ export const getCRMStats = async (req: Request, res: Response) => {
     const aprobados = porEstado['APROBADO'] || 0;
     const tasaConversionActual = (periodStart && periodEnd)
       ? await calcularTasaConversion({
-          periodStart, periodEnd, esGlobal, asesorId: user.id,
+          periodStart, periodEnd, esGlobal: esGlobal && !asesorIdTarget, asesorId: asesorIdTarget ?? user.id,
           totalLeads: total, aprobadosLeads: aprobados,
           nuevosProspectosPeriodo: nuevosProspectos, clientesRecurrentesPeriodo: clientesRecurrentes,
         })
@@ -1168,10 +1175,14 @@ export const getReporteAsesor = async (req: Request, res: Response) => {
 export const getStatsProspectos = async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    const { fecha_desde, fecha_hasta } = req.query;
+    const { fecha_desde, fecha_hasta, asesor_id } = req.query;
     const esGlobal = ['admin', 'gerencia', 'root', 'asistente_administrativo', 'marketing', 'jefe_produccion'].includes(user.rol?.toLowerCase());
+    // Solo admin puede acotar la vista global a un asesor puntual (ver decisión 2026-09-19).
+    const puedeFiltrarPorAsesor = user.rol?.toLowerCase() === 'admin';
 
-    const whereBase: any = esGlobal ? {} : { asesor_id: user.id };
+    const whereBase: any = esGlobal
+      ? (puedeFiltrarPorAsesor && asesor_id ? { asesor_id: parseInt(asesor_id as string) } : {})
+      : { asesor_id: user.id };
     if (fecha_desde && fecha_hasta) {
       const start = new Date(fecha_desde as string);
       const end = new Date(fecha_hasta as string);
@@ -1596,7 +1607,7 @@ export const vincularODPAlLead = async (req: Request, res: Response) => {
 export const getEmbudoAsesores = async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    const { fecha_desde, fecha_hasta } = req.query;
+    const { fecha_desde, fecha_hasta, asesor_id } = req.query;
 
     const where: any = { asesor_id: { [Op.ne]: null } };
 
@@ -1618,6 +1629,8 @@ export const getEmbudoAsesores = async (req: Request, res: Response) => {
 
     if (user.rol === 'asesor_comercial') {
       where.asesor_id = user.id;
+    } else if (user.rol?.toLowerCase() === 'admin' && asesor_id) {
+      where.asesor_id = parseInt(asesor_id as string);
     }
 
     const leads = await Lead.findAll({
@@ -1743,6 +1756,7 @@ export const getLeadById = async (req: Request, res: Response) => {
 export const getMonitorAsesores = async (req: Request, res: Response) => {
   try {
     const user = req.user!;
+    const { asesor_id } = req.query;
     const ESTADOS_ACTIVOS = ['ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA'];
     const FECHA_POR_ESTADO: Record<string, string> = {
       ASIGNADO:       'fecha_asignado',
@@ -1756,9 +1770,12 @@ export const getMonitorAsesores = async (req: Request, res: Response) => {
       estado_crm: { [Op.in]: ESTADOS_ACTIVOS },
       asesor_id:  { [Op.ne]: null },
     };
-    // asesor_comercial solo ve sus propios leads
+    // asesor_comercial solo ve sus propios leads; solo admin puede acotar la vista
+    // global a un asesor puntual (ver decisión 2026-09-19).
     if (user.rol === 'asesor_comercial') {
       where.asesor_id = user.id;
+    } else if (user.rol?.toLowerCase() === 'admin' && asesor_id) {
+      where.asesor_id = parseInt(asesor_id as string);
     }
 
     const leads = await Lead.findAll({

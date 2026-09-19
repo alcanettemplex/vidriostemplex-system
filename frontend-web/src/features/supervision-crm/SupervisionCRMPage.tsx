@@ -17,7 +17,8 @@ import {
   apiGetSupervisionResumen, apiGetSupervisionAltoValor, apiGetSupervisionSeguimiento,
   apiGetSupervisionPrimerContacto, apiGetAdherenciaLineamiento, apiGetRankingAsesores,
 } from './supervisionService';
-import { apiGetAsesores, apiRegisterLeadSeguimiento } from '../crm/crmService';
+import { apiRegisterLeadSeguimiento } from '../crm/crmService';
+import { useAsesoresCRM } from '../crm/hooks/useAsesoresCRM';
 import { SupervisionLeadItem, SupervisionResumen, AdherenciaLineamiento, RankingAsesorItem } from './types';
 
 type Tab = 'primer_contacto' | 'seguimiento' | 'alto_valor' | 'lineamiento' | 'motivos' | 'buscador';
@@ -38,7 +39,7 @@ const SupervisionCRMPage: React.FC = () => {
   const [fechaHasta, setFechaHasta] = useState(hoyISO());
   const [asesorId, setAsesorId] = useState<number | undefined>(undefined);
   const [montoMin, setMontoMin] = useState<number>(10000000);
-  const [asesores, setAsesores] = useState<any[]>([]);
+  const asesores = useAsesoresCRM();
 
   const [resumen, setResumen] = useState<SupervisionResumen | null>(null);
   const [altoValor, setAltoValor] = useState<SupervisionLeadItem[]>([]);
@@ -143,15 +144,6 @@ const SupervisionCRMPage: React.FC = () => {
   }, [cargarResumen, cargarAltoValor, cargarSeguimiento, cargarPrimerContacto, cargarAdherencia, cargarRanking]);
 
   useEffect(() => { cargarTodo(); }, [cargarTodo]);
-
-  useEffect(() => {
-    apiGetAsesores().then(({ data }) => {
-      const filtrados = (data || []).filter((u: any) =>
-        ['asesor_comercial', 'admin', 'gerencia', 'jefe_produccion'].includes(u.rol)
-      );
-      setAsesores(filtrados);
-    }).catch(() => {});
-  }, []);
 
   const handleRegistrarIntento = async (leadId: number) => {
     try {

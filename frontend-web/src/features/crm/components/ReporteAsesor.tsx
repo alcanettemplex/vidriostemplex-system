@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { AlertCircle, RefreshCw, ChevronDown } from 'lucide-react';
-import { apiGetReporteAsesor, apiGetAsesores } from '../crmService';
+import { apiGetReporteAsesor } from '../crmService';
+import { useAsesoresCRM } from '../hooks/useAsesoresCRM';
 import { IconDollar, IconTarget, IconLeads, IconCheck, IconBarChart, IconActivity } from './CRMIcons';
 
 const fmtCOP = (v: number) =>
@@ -57,22 +58,11 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
   const [reporte, setReporte] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [asesores, setAsesores] = useState<any[]>([]);
+  const asesores = useAsesoresCRM(esVistaGlobal);
   const [asesorSeleccionado, setAsesorSeleccionado] = useState<number | undefined>(undefined);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const periodoLabel = (fecha_desde && fecha_hasta) ? `${fecha_desde} → ${fecha_hasta}` : 'Acumulado';
-
-  const cargarAsesores = useCallback(async () => {
-    if (!esVistaGlobal) return;
-    try {
-      const { data } = await apiGetAsesores();
-      const filtrados = (data || []).filter((u: any) =>
-        ['asesor_comercial', 'admin', 'gerencia', 'jefe_produccion'].includes(u.rol)
-      );
-      setAsesores(filtrados);
-    } catch { /* silencioso */ }
-  }, [esVistaGlobal]);
 
   const cargar = useCallback(async () => {
     setLoading(true); setError(null);
@@ -86,7 +76,6 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
     }
   }, [fecha_desde, fecha_hasta, asesorSeleccionado]);
 
-  useEffect(() => { cargarAsesores(); }, [cargarAsesores]);
   useEffect(() => { cargar(); }, [cargar]);
 
   if (loading) return (

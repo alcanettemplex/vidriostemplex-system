@@ -219,10 +219,10 @@ const LeadsSinODPModal: React.FC<{ leads: LeadSinODP[]; onClose: () => void }> =
 );
 
 // ─── Props ────────────────────────────────────────────────────────────────────
-interface Props { asesorId?: number; esVistaGlobal?: boolean; fecha_desde?: string | null; fecha_hasta?: string | null; }
+interface Props { asesorId?: number; esVistaGlobal?: boolean; fecha_desde?: string | null; fecha_hasta?: string | null; asesor_id?: number; }
 
 // ═════════════════════════════════════════════════════════════════════════════
-const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta }) => {
+const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta, asesor_id }) => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -230,12 +230,12 @@ const CRMMetrics: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta }
 
   const cargar = async () => {
     setLoading(true); setError(null);
-    try { const { data } = await apiGetCRMStats(fecha_desde || undefined, fecha_hasta || undefined); setStats(data); }
+    try { const { data } = await apiGetCRMStats(fecha_desde || undefined, fecha_hasta || undefined, asesor_id); setStats(data); }
     catch { setError('No se pudieron cargar las métricas.'); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { cargar(); }, [fecha_desde, fecha_hasta, esVistaGlobal]); // eslint-disable-line
+  useEffect(() => { cargar(); }, [fecha_desde, fecha_hasta, esVistaGlobal, asesor_id]); // eslint-disable-line
 
   if (loading) return (
     <div className="space-y-5">
