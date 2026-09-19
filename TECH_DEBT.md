@@ -32,6 +32,27 @@ seguridad frente a que Sileo deje de mantenerse — hoy está en `0.1.5` y su ú
 los 81 archivos (una línea cada uno, mecánico) y desinstalar `react-toastify`. Eso elimina las dos
 consecuencias de arriba de una vez.
 
+### Contraste de los tonos de estado de Sileo — tres siguen por debajo de AA
+
+Los cuatro colores con que Sileo pinta el título, el icono y el botón de cada aviso fallan el
+contraste mínimo de WCAG AA (4.5:1) sobre la píldora clara. Medidos el 2026-09-18:
+
+| Estado | Tono de Sileo | Contraste | Tono que cumpliría |
+|---|---|---|---|
+| Aviso | `oklch(0.795 0.184 86.047)` → `#f0b100` | **1.91:1** | `#a56800` (4.57:1) — **corregido** |
+| Verde | `oklch(0.723 0.219 142.136)` → `#3ac530` | 2.27:1 | `#008a00` (4.51:1) |
+| Azul | `oklch(0.685 0.169 237.323)` → `#00a6f4` | 2.71:1 | `#007bc6` (4.52:1) |
+| Rojo | `oklch(0.637 0.237 25.331)` → `#fb2c36` | 3.82:1 | `#eb0e28` (4.54:1) |
+
+**Solo se corrigió el ámbar** (`styles/avisos.css` redefine `--sileo-state-warning` bajando la
+luminosidad de 0.795 a 0.565, conservando croma y matiz). Decisión del usuario: era el único
+verdaderamente ilegible, y apagar los otros tres desvirtuaría el diseño por el que se eligió esta
+librería — el título es además una palabra corta y previsible (*Guardado*, *Error*) acompañada de un
+icono, mientras que el mensaje que de verdad hay que leer va en blanco sobre `#1a1a1a` con 17:1.
+
+Si alguna vez el ERP se audita por accesibilidad, estos tres tonos son un hallazgo conocido y la
+columna de la derecha ya trae el reemplazo calculado.
+
 ### Nota sobre la dependencia nueva
 
 `sileo` entró el 2026-09-18 para reemplazar un componente propio (`AvisoIsla.tsx`, ~180 líneas más

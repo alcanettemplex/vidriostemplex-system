@@ -1,0 +1,39 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Ajustes sobre el CSS de Sileo.
+
+   Se importa DESPUÉS de `sileo/styles.css` en App.tsx: mismo selector y misma
+   especificidad, así que gana el que se carga último.
+
+   Mantener este archivo lo más corto posible. Cada regla de aquí es una
+   decisión que se aparta de la librería, y cuantas más haya, más probable es
+   que una actualización de Sileo entre en conflicto sin avisar.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Sileo pinta la descripción con blanco al 50 %, que sobre el #1a1a1a de la
+   isla no se ve blanco: da un gris (#8d8d8d). Cumple el mínimo de contraste
+   (5.24:1 frente al 4.5:1 que exige WCAG AA), pero un aviso se lee de pasada y
+   en tres segundos, así que aquí interesa holgura, no el aprobado justo.
+   En blanco sube a 17.4:1. */
+[data-sileo-viewport][data-theme='light'] [data-sileo-description] {
+  color: #ffffff;
+}
+
+/* El mismo criterio en el sentido contrario, por si algún día la aplicación
+   tuviera tema oscuro: ahí la isla es clara (#f2f2f2) y el texto debe ser negro
+   de verdad, no un gris al 50 %. */
+[data-sileo-viewport][data-theme='dark'] [data-sileo-description] {
+  color: #101114;
+}
+
+/* El ámbar de Sileo para los avisos —oklch(0.795 0.184 86.047)— queda en 1.91:1
+   sobre la píldora clara: el título «Atención» es casi ilegible. Es el único de
+   los cuatro tonos que se corrige; los otros tres se quedan como vienen porque
+   esos colores vivos son parte del carácter del diseño y apagarlos todos lo
+   desvirtuaría (rojo 3.82:1, azul 2.71:1, verde 2.27:1 — ver TECH_DEBT.md).
+
+   Se conservan el croma y el matiz originales y solo baja la luminosidad, de
+   0.795 a 0.565: sigue siendo el mismo ámbar de la paleta, no un color nuevo.
+   Con eso pasa a 4.57:1, por encima del 4.5:1 que pide WCAG AA. */
+:root {
+  --sileo-state-warning: oklch(0.565 0.184 86.047);
+}
