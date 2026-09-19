@@ -1,8 +1,13 @@
 /* ─────────────────────────────────────────────────────────────────────────────
    Ajustes sobre el CSS de Sileo.
 
-   Se importa DESPUÉS de `sileo/styles.css` en App.tsx: mismo selector y misma
-   especificidad, así que gana el que se carga último.
+   Se importa DESPUÉS de `sileo/styles.css` en App.tsx, pero eso NO garantiza
+   que gane en el navegador: `style-loader` (dev) y `MiniCssExtractPlugin`
+   (build de producción, el que usa Cloudflare Pages) no preservan el mismo
+   orden de inyección de `<style>` que el orden de los `import` en el código.
+   Verificado el 2026-09-19: la regla de contraste de la descripción quedaba
+   sin efecto en producción por depender solo del orden de carga. Las reglas
+   de color de acá van con `!important` para no volver a depender de eso.
 
    Mantener este archivo lo más corto posible. Cada regla de aquí es una
    decisión que se aparta de la librería, y cuantas más haya, más probable es
@@ -15,14 +20,14 @@
    en tres segundos, así que aquí interesa holgura, no el aprobado justo.
    En blanco sube a 17.4:1. */
 [data-sileo-viewport][data-theme='light'] [data-sileo-description] {
-  color: #ffffff;
+  color: #ffffff !important;
 }
 
 /* El mismo criterio en el sentido contrario, por si algún día la aplicación
    tuviera tema oscuro: ahí la isla es clara (#f2f2f2) y el texto debe ser negro
    de verdad, no un gris al 50 %. */
 [data-sileo-viewport][data-theme='dark'] [data-sileo-description] {
-  color: #101114;
+  color: #101114 !important;
 }
 
 /* El ámbar de Sileo para los avisos —oklch(0.795 0.184 86.047)— queda en 1.91:1
