@@ -22,7 +22,19 @@ ProveedorProductoPrecio.init({
     references: { model: 'proveedor_producto', key: 'id' },
   },
 
+  // Precio NETO: ya deducido el descuento comercial de la línea (NIC 2 §11).
   precio: { type: DataTypes.DECIMAL(15, 2), allowNull: false },
+
+  // Desglose del documento del que salió el precio (2026-09-19). `cantidad` y
+  // `total_linea` son los que vuelven la fila RECALCULABLE: sin ellos, cuando se
+  // descubrió que el parser dividía mal, no hubo forma de saber qué filas estaban
+  // mal ni de recomputarlas, y hubo que vaciar el módulo (TECH_DEBT.md 2026-09-04).
+  // NULL = fila cargada antes del cambio, con el precio en bruto y sin verificar.
+  precio_bruto: { type: DataTypes.DECIMAL(15, 2), allowNull: true },
+  descuento_pct: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+  descuento_valor: { type: DataTypes.DECIMAL(15, 2), allowNull: true },
+  cantidad: { type: DataTypes.DECIMAL(15, 6), allowNull: true },
+  total_linea: { type: DataTypes.DECIMAL(15, 2), allowNull: true },
 
   // Fecha de la factura — NO la fecha de carga. Define qué precio es "el vigente"
   // cuando se procesan facturas fuera de orden cronológico (backfill).

@@ -1235,3 +1235,95 @@ Windows necesita apoyarse en un lector de PDF para imprimir sin abrir ventanas:
 - **El umbral de §4 ya es editable desde `/configuracion`**, como se había decidido el 2026-08-23.
 - Queda pendiente de las fases previstas: el **backfill de los `.zip` archivados** (ayuda 4), que
   exige extraer la ingesta a un servicio compartido y sacarla del request (riesgo de §5.4).
+
+### 2026-09-19 — Descuentos de línea: el precio registrado pasa a ser el neto
+
+**El problema.** La ingesta nunca leyó `cac:AllowanceCharge`, así que el descuento comercial de
+la factura no existía en el sistema. Sobre dos facturas reales del usuario —`FA140922` de
+Templacol y `FELC90709` de Grupo Roldán— **13 de 14 líneas quedaban mal registradas**, y de tres
+formas distintas:
+
+| Lectura que quedaba | Cuándo | Efecto |
+|---|---|---|
+| El **bruto** (precio de lista) | `BaseQuantity` = 1, o cuando el arbitraje lo elegía | Costo inflado 34–38% |
+| Un **artefacto** (`PriceAmount ÷ BaseQuantity`) | `BaseQuantity` repetía la cantidad y el descuento desviaba el arbitraje | Costo hundido hasta 49% |
+| El **bruto de un ítem regalado** | Líneas con 100% de descuento | Precio inventado para algo gratis |
+
+El caso que lo destapó: el vidrio templado 8 mm incoloro de Templacol, lista `$165.000/m²`,
+descuento 39,40%, neto `$99.990` — el sistema registraba **`$68.558,89`**, que es
+`165.000 ÷ 2,40669`, un número sin significado. La prueba de que no era un precio: **la misma
+factura lo trae en dos líneas** (cantidades 2,40669 y 2,454205 m²) y producía dos cifras
+distintas, `68.558,89` y `67.231,55`, mientras el neto era `$99.990` en ambas.
+
+**La regla nueva, una sola para los dos caminos de escritura** (mapeo manual e ingesta
+automática), porque si difieren la columna `precio_actual` contiene dos cosas distintas según
+quién la escribió y deja de ser comparable:
+
+> El precio de un producto es el **neto de descuentos de línea**. El descuento global del
+> documento no toca el precio del producto.
+
+Se apoya en la NIC 2 §11 (*"los descuentos comerciales, las rebajas y otras partidas similares se
+deducirán para determinar el costo de adquisición"*) y, sobre todo, en que el comparador ordena
+por `precio_actual ASC`: con brutos, un proveedor de lista $100.000 con 20% de descuento
+(neto $80.000) aparecía **detrás** de uno de lista $90.000 sin descuento. El ranking podía estar
+invertido — que es justo lo que el módulo existe para responder.
+
+**Las dos clases de descuento, que la DIAN ya separa por construcción:**
+
+| | Dónde vive en el XML | Base IVA | Tratamiento |
+|---|---|---|---|
+| Comercial / **no condicionado** | `InvoiceLine/cac:AllowanceCharge` | La reduce | **Se descuenta del precio** |
+| Pronto pago / **condicionado** | `Invoice/cac:AllowanceCharge` (raíz) | No la reduce | Aviso, **no toca precios** |
+
+`cac:Price/cac:AllowanceCharge` es un tercer nodo, **descriptivo** de cómo se formó `PriceAmount`:
+restarlo sería descontar dos veces. El parser lo ignora a propósito.
+
+**Del arbitraje por cercanía a la reconciliación exacta.** La heurística anterior elegía "la
+lectura que menos se aleja de `total ÷ cantidad`", y con descuento fallaba porque el total viene
+neto y el precio bruto. Con el descuento ya leído la ambigüedad se resuelve comprobando cuál
+lectura **reproduce** el total de la línea:
+
+```
+PriceAmount × cantidad − descuento + cargo == LineExtensionAmount
+```
+
+Se reconcilia contra el **bruto** de la línea (`total + descuento − cargo`) y no contra el neto,
+porque así también cuadran las líneas regaladas, donde el total es cero y el único ancla es el
+descuento. Verificado al centavo en **14 de 14 líneas** de ambas facturas, emitidas por software
+distinto. `BaseAmount = PriceAmount × cantidad` y `MultiplierFactorNumeric` coincidían en todas;
+aun así el `%` se calcula desde los montos, que son los que tienen que cuadrar.
+
+**Bonificaciones — el hallazgo que solo apareció con facturas reales.** `BPB` y `BOQUETE NORMAL`
+vienen al **100% de descuento**: el proveedor los factura y los regala. Su neto es `$0`, y la
+regla "guardar el neto" los habría registrado en cero, **borrando el costo del producto** y
+propagando ese cero al Cotizador. Habría sido peor que el bug original. Una línea con 100% de
+descuento no actualiza ningún precio: se cuenta y se avisa. Entre 90% y 100% sí se registra, pero
+con aviso — a esa altura es más probable un error del emisor que una rebaja real.
+
+**Invariante de seguridad:** el bruto nunca puede quedar por debajo del neto, salvo que la línea
+traiga cargos (un flete sí sube el neto). Si pasa, `PriceAmount` no resultó interpretable y se
+conserva el neto sin afirmar un descuento que no se puede sustentar.
+
+**Qué se guarda ahora** (5 columnas nullable en `proveedor_producto_precio` y otras 5 en
+`proveedor_codigo_pendiente`): `precio_bruto`, `descuento_pct`, `descuento_valor`, `cantidad`,
+`total_linea`. Las dos últimas son las que **vuelven recalculable el histórico** y cierran buena
+parte de la deuda del 2026-09-04: con ellas, un error de parseo se corrige con un `UPDATE` y un
+script, en vez de vaciar el módulo. El `NULL` identifica las filas anteriores al cambio, cuyo
+precio quedó en bruto y **no se puede recalcular** porque los XML no se persisten — se corrigen
+solas cuando entre la próxima factura de cada producto (decisión del usuario).
+
+**En el modal de vinculación** se muestra la cadena completa —lista → descuento → neto— más una
+línea de verificación `cantidad × neto = total de la línea`, en verde si cuadra y en ámbar si no.
+Ese contraste es lo que permite detectar una lectura mal parseada **antes** de guardarla, que es
+exactamente lo que faltó en el incidente del 2026-09-04. Sin descuento las filas no se renderizan:
+un `0%` en pantalla se lee como dato real. El único campo editable sigue siendo el neto.
+
+**Falso positivo suprimido:** la primera factura posterior al cambio se lee como una caída del
+tamaño del descuento y cruzaría `umbral_variacion_precio_pct`. No se marca anómala cuando la caída
+queda explicada por el descuento de la línea. La condición es estrecha por naturaleza — solo
+dispara en la transición, porque la factura siguiente ya no mueve el precio.
+
+**Verificación:** `backend-api/src/scripts/2026-09-19_verificar_descuentos_linea.ts`, 12 escenarios
+sintéticos (incluidos los casos reales de ambas facturas, el descuento dentro de `cac:Price`, el
+cargo de línea, el descuento de documento y las dos bonificaciones), más el volcado de XML reales
+pasándole rutas por argumento.

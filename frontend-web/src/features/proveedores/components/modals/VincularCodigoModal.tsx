@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, Link2, Search, Loader2, CheckCircle2,
+  X, Link2, Search, Loader2, CheckCircle2, Check,
   Package, PlusCircle, Building2, TrendingUp, Sparkles, Ruler, AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -16,7 +16,15 @@ export interface CodigoPendienteItem {
   proveedor?: { id: number; nombre_comercial: string; nit: string | null; seguir_precios?: boolean | null };
   codigo_proveedor: string;
   descripcion_proveedor: string;
+  /** Precio NETO: ya descontado. Es el que se registra. */
   precio_detectado: number | null;
+  // Desglose del descuento de la línea (2026-09-19). Vienen en null en los códigos
+  // detectados antes de ese cambio, donde solo se conocía una cifra sin contexto.
+  precio_bruto_detectado?: number | null;
+  descuento_pct_detectado?: number | null;
+  descuento_valor_detectado?: number | null;
+  cantidad_detectada?: number | null;
+  total_linea_detectado?: number | null;
   documento_ref?: string | null;
   veces_visto: number;
   fecha_deteccion?: string;
@@ -90,6 +98,32 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
   const [guardandoProducto, setGuardandoProducto] = useState(false);
 
   const nombreProveedor = pendiente.proveedor?.nombre_comercial || pendiente.proveedor_nombre || `Proveedor #${pendiente.proveedor_id}`;
+
+  // Desglose del descuento de la factura. Los códigos detectados antes del 2026-09-19 no
+  // lo traen: en esos la pantalla se comporta igual que antes, con una sola cifra.
+  const precioBruto = Number(pendiente.precio_bruto_detectado ?? 0);
+  const descuentoPct = Number(pendiente.descuento_pct_detectado ?? 0);
+  const descuentoValor = Number(pendiente.descuento_valor_detectado ?? 0);
+  const cantidadDetectada = Number(pendiente.cantidad_detectada ?? 0);
+  const totalLinea = Number(pendiente.total_linea_detectado ?? 0);
+  const hayDescuento = descuentoPct > 0 && precioBruto > 0;
+
+  // Contraste contra el total de la línea de la factura. Es el ancla que permite validar
+  // la cifra sin abrir el PDF: si cantidad × neto no da el total, la lectura del XML está
+  // mal y conviene corregirla a mano antes de confirmar.
+  const verificacion = (() => {
+    const neto = Number(pendiente.precio_detectado ?? 0);
+    if (!(cantidadDetectada > 0) || !(totalLinea > 0) || !(neto > 0)) return null;
+    const calculado = neto * cantidadDetectada;
+    const cuadra = Math.abs(calculado - totalLinea) <= Math.max(1, totalLinea * 0.005);
+    const cantidadTexto = cantidadDetectada.toLocaleString('es-CO', { maximumFractionDigits: 4 });
+    return {
+      cuadra,
+      texto: cuadra
+        ? `${cantidadTexto} × ${formatCOP(neto)} = ${formatCOP(totalLinea)} — coincide con la factura`
+        : `${cantidadTexto} × ${formatCOP(neto)} = ${formatCOP(calculado)}, pero la factura dice ${formatCOP(totalLinea)}`,
+    };
+  })();
 
   // Búsqueda en catálogo (por código, nombre y descripción)
   useEffect(() => {
@@ -316,11 +350,53 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                 </div>
 
                 <div>
-                  <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)', marginBottom: 2 }}>Precio Detectado en XML</div>
+                  <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)', marginBottom: 2 }}>
+                    {hayDescuento ? 'Precio en la Factura' : 'Precio Detectado en XML'}
+                  </div>
+
+                  {/* Cadena de derivación: lista → descuento → neto. Se muestra solo cuando
+                      hay descuento; un "0%" en pantalla se lee como dato real. */}
+                  {hayDescuento && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 6 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FONT.sm, color: 'var(--text-muted, #64748b)' }}>
+                        <span>Lista (bruto)</span>
+                        <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCOP(precioBruto)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FONT.sm, color: 'var(--warning, #b45309)', fontWeight: 600 }}>
+                        <span>Descuento</span>
+                        <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          −{descuentoPct}%{descuentoValor ? ` (−${formatCOP(descuentoValor)})` : ''}
+                        </span>
+                      </div>
+                      <div style={{ borderTop: '1px solid var(--border-subtle, #e2e8f0)', marginTop: 1 }} />
+                    </div>
+                  )}
+
                   <div style={{ fontSize: FONT.xxl, fontWeight: 800, color: '#059669' }}>
                     {formatCOP(pendiente.precio_detectado)}{' '}
-                    <span style={{ fontSize: FONT.sm, fontWeight: 500, color: 'var(--text-muted, #64748b)' }}>(sin IVA)</span>
+                    <span style={{ fontSize: FONT.sm, fontWeight: 500, color: 'var(--text-muted, #64748b)' }}>
+                      {hayDescuento ? '(neto, sin IVA)' : '(sin IVA)'}
+                    </span>
                   </div>
+
+                  {/* Verificación contra el total de la línea: es lo que permite contrastar
+                      con la factura sin abrirla y detectar una lectura mal parseada ANTES
+                      de guardarla — justo lo que faltó en el incidente del 2026-09-04. */}
+                  {verificacion && (
+                    <div style={{
+                      marginTop: 6, padding: '6px 8px', borderRadius: RADIUS.sm, fontSize: FONT.xs,
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      background: verificacion.cuadra ? 'var(--positive-soft, rgba(5, 150, 105, 0.08))' : 'var(--warning-soft, rgba(245, 158, 11, 0.12))',
+                      color: verificacion.cuadra ? 'var(--positive, #047857)' : 'var(--warning, #b45309)',
+                      fontWeight: 600,
+                    }}>
+                      {verificacion.cuadra ? <Check size={12} /> : <AlertTriangle size={12} />}
+                      <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {verificacion.texto}
+                      </span>
+                    </div>
+                  )}
+
                   <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #64748b)', marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {pendiente.unidad_detectada && (
                       <span style={{ color: '#4338ca', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -642,7 +718,9 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                   </div>
 
                   <div>
-                    <label style={etiquetaChica}>Precio vigente (sin IVA)</label>
+                    <label style={etiquetaChica}>
+                      Precio vigente {hayDescuento ? '(neto, sin IVA)' : '(sin IVA)'}
+                    </label>
                     <input
                       type="number"
                       value={precio}
@@ -650,6 +728,11 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                       placeholder="45000"
                       style={{ ...inputChico, fontWeight: 700, fontSize: FONT.base }}
                     />
+                    {hayDescuento && (
+                      <div style={{ fontSize: FONT.tiny, color: 'var(--text-subtle, #94a3b8)', marginTop: 4 }}>
+                        Es el precio ya descontado: lo que realmente se pagó.
+                      </div>
+                    )}
                   </div>
                 </div>
 

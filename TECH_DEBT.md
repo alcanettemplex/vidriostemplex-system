@@ -452,7 +452,9 @@ En la práctica esto convierte la decisión sobre un proveedor en un trabajo con
 
 ## 2026-09-04 — Proveedores: el histórico de precios no es auditable ni recalculable
 
-**Severidad:** Alta (obligó a borrar y recargar todo el módulo) — **abierta**. Detalle en `SESSION_LOG.md` 2026-09-04 (2).
+**Severidad:** Alta (obligó a borrar y recargar todo el módulo) — **mayormente resuelta el 2026-09-19**. Detalle en `SESSION_LOG.md` 2026-09-04 (2).
+
+> **Cierre parcial 2026-09-19.** Se agregaron las tres columnas que pedía esta entrada —`cantidad`, `total_linea` y `precio_bruto`— más `descuento_pct` y `descuento_valor`, en `proveedor_producto_precio` (y sus equivalentes en `proveedor_codigo_pendiente`). Desde ahora un error de parseo se corrige con un `UPDATE` y un script de recálculo, que era justamente lo que faltaba. **Lo que sigue abierto:** las filas anteriores al 2026-09-19 tienen esas columnas en `NULL` y **no se pueden recomputar**, porque los XML no se persisten (ver la entrada 2026-09-04 (2) más arriba, que sigue abierta y es la causa raíz). Se corrigen solas cuando entra la próxima factura de cada producto — decisión del usuario, 2026-09-19.
 
 **El problema:** `proveedor_producto_precio` guarda el precio resultante, pero no la **cantidad** ni el **total de línea** del documento del que salió. Cuando se descubrió que el parser dividía el precio unitario entre `cbc:BaseQuantity` (ver la sesión), no hubo forma de saber qué filas estaban mal: nada en la fila permite recomputar la cifra ni contrastarla contra la factura. Sumado a la idempotencia por CUFE —que impide reprocesar los mismos `.zip`—, la única salida fue **vaciar el módulo y recargarlo**, perdiendo todas las equivalencias y alias ya mapeados.
 

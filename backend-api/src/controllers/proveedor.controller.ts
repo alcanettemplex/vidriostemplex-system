@@ -115,6 +115,14 @@ interface OpcionesPrecio {
   cufe?: string | null;
   porcentajeIva?: number | null;
   lineasEnFactura?: number;
+  /** Desglose del descuento de la línea (2026-09-19). Vuelve auditable la fila del histórico. */
+  desglose?: {
+    precioBruto: number | null;
+    descuentoPct: number | null;
+    descuentoValor: number | null;
+    cantidad: number | null;
+    totalLinea: number | null;
+  };
   transaction?: Transaction;
 }
 
@@ -136,7 +144,7 @@ async function actualizarPrecio(
   fechaVigencia: string,
   opciones: OpcionesPrecio
 ): Promise<ResultadoPrecio> {
-  const { origen, registradoPor, documentoRef = null, cufe = null, porcentajeIva = null, lineasEnFactura = 1, transaction } = opciones;
+  const { origen, registradoPor, documentoRef = null, cufe = null, porcentajeIva = null, lineasEnFactura = 1, desglose, transaction } = opciones;
 
   const precioActualRaw = pp.getDataValue('precio_actual');
   const precioActual = precioActualRaw === null || precioActualRaw === undefined ? null : parseFloat(precioActualRaw);
@@ -158,6 +166,17 @@ async function actualizarPrecio(
     variacionPct = ((nuevoPrecio - precioActual) / precioActual) * 100;
     const umbral = await obtenerUmbral();
     anomalo = Math.abs(variacionPct) > umbral;
+
+    // Falso positivo del paso de bruto a neto (2026-09-19): los precios cargados antes
+    // de que la ingesta leyera los descuentos quedaron en bruto, así que la primera
+    // factura posterior se lee como una caída del tamaño del descuento. Marcarla como
+    // anómala llenaría la alerta de ruido justo al principio, que es la forma más rápida
+    // de que se deje de mirar. La condición es estrecha por naturaleza: solo dispara en
+    // la transición, porque la factura siguiente ya no mueve el precio.
+    const descuentoPct = desglose?.descuentoPct ?? null;
+    if (anomalo && variacionPct < 0 && descuentoPct !== null && descuentoPct > 0) {
+      if (Math.abs(variacionPct) <= descuentoPct * 1.05 + 1) anomalo = false;
+    }
   }
 
   if (!esRetroactivo) {
@@ -189,6 +208,11 @@ async function actualizarPrecio(
       porcentaje_iva: porcentajeIva,
       lineas_en_factura: lineasEnFactura,
       retroactivo: esRetroactivo,
+      precio_bruto: desglose?.precioBruto ?? null,
+      descuento_pct: desglose?.descuentoPct ?? null,
+      descuento_valor: desglose?.descuentoValor ?? null,
+      cantidad: desglose?.cantidad ?? null,
+      total_linea: desglose?.totalLinea ?? null,
     },
     { transaction }
   );
@@ -1431,6 +1455,8 @@ export const listarPendientes = async (req: Request, res: Response) => {
         'id', 'proveedor_id', 'codigo_proveedor', 'descripcion_proveedor', 'precio_detectado',
         'documento_ref', 'veces_visto', 'estado', 'fecha_deteccion',
         'unidad_detectada', 'porcentaje_iva_detectado', 'codigo_derivado',
+        'precio_bruto_detectado', 'descuento_pct_detectado', 'descuento_valor_detectado',
+        'cantidad_detectada', 'total_linea_detectado',
       ],
       order,
       limit,
@@ -1480,9 +1506,26 @@ export const vincularPendiente = async (req: Request, res: Response) => {
 
     // El precio que el usuario confirma en pantalla manda sobre el detectado en el XML:
     // el campo era editable pero se ignoraba, así que corregir una cifra mal leída
-    // no tenía ningún efecto.
+    // no tenía ningún efecto. Ese campo es el NETO — el único editable del modal.
     const precioDetectado = pendiente.getDataValue('precio_detectado');
     const precio = datos.precio ?? (precioDetectado !== null && precioDetectado !== undefined ? parseFloat(precioDetectado) : null);
+
+    // Desglose del descuento detectado en la factura. Viaja de la bandeja al histórico
+    // para que la fila quede auditable. Si el usuario corrigió el neto a mano, el bruto
+    // y el descuento dejan de corresponder: se descartan en vez de guardar una cadena
+    // que no cuadra (bruto − descuento ≠ neto engaña más que un dato ausente).
+    const aNumero = (v: any) => (v === null || v === undefined ? null : parseFloat(v));
+    const netoDetectado = aNumero(precioDetectado);
+    const precioCorregidoAMano = precio !== null && netoDetectado !== null && Math.abs(precio - netoDetectado) > 0.01;
+    const desgloseBandeja = precioCorregidoAMano
+      ? undefined
+      : {
+          precioBruto: aNumero(pendiente.getDataValue('precio_bruto_detectado')),
+          descuentoPct: aNumero(pendiente.getDataValue('descuento_pct_detectado')),
+          descuentoValor: aNumero(pendiente.getDataValue('descuento_valor_detectado')),
+          cantidad: aNumero(pendiente.getDataValue('cantidad_detectada')),
+          totalLinea: aNumero(pendiente.getDataValue('total_linea_detectado')),
+        };
 
     // La fecha vigente es la de la factura donde se detectó, no la de hoy
     const fechaFactura = aFechaISO(pendiente.getDataValue('fecha_deteccion'));
@@ -1515,6 +1558,7 @@ export const vincularPendiente = async (req: Request, res: Response) => {
           registradoPor: userId,
           documentoRef: pendiente.getDataValue('documento_ref'),
           porcentajeIva: pendiente.getDataValue('porcentaje_iva_detectado'),
+          desglose: desgloseBandeja,
           transaction: t,
         });
       }
@@ -1528,6 +1572,11 @@ export const vincularPendiente = async (req: Request, res: Response) => {
           registrado_por: userId,
           documento_ref: pendiente.getDataValue('documento_ref'),
           porcentaje_iva: pendiente.getDataValue('porcentaje_iva_detectado'),
+          precio_bruto: desgloseBandeja?.precioBruto ?? null,
+          descuento_pct: desgloseBandeja?.descuentoPct ?? null,
+          descuento_valor: desgloseBandeja?.descuentoValor ?? null,
+          cantidad: desgloseBandeja?.cantidad ?? null,
+          total_linea: desgloseBandeja?.totalLinea ?? null,
         },
         { transaction: t }
       );
@@ -1775,6 +1824,14 @@ export const desvincularEquivalencia = async (req: Request, res: Response) => {
             precio_detectado: precio_actual ?? pendiente.getDataValue('precio_detectado'),
             fecha_deteccion: fecha_precio_actual ?? pendiente.getDataValue('fecha_deteccion'),
             unidad_detectada: pendiente.getDataValue('unidad_detectada') ?? unidad_compra,
+            // El precio vuelve desde la equivalencia, no de una línea de factura: el
+            // desglose que hubiera quedado de una ingesta anterior ya no le corresponde
+            // y dejaría el modal mostrando una cadena que no cuadra con el neto.
+            precio_bruto_detectado: null,
+            descuento_pct_detectado: null,
+            descuento_valor_detectado: null,
+            cantidad_detectada: null,
+            total_linea_detectado: null,
           },
           { transaction: t }
         );
@@ -2316,7 +2373,16 @@ export const listarFacturasProcesadas = async (req: Request, res: Response) => {
 
 interface LineaAgrupada {
   descripcion: string;
+  /** Precio NETO mayor entre las líneas del mismo producto en la factura (compras.md §8) */
   maxPrecio: number;
+  // Desglose de LA MISMA línea que ganó, no máximos calculados por separado: si una
+  // factura trae el producto a $1.000 con 10% y a $950 sin descuento, gana el neto de
+  // $950 y el bruto que corresponde mostrar es $950, no el $1.000 de la otra línea.
+  precioBruto: number;
+  descuentoPct: number;
+  descuentoValor: number;
+  cantidad: number;
+  totalLinea: number;
   unidad: string;
   unidadConfiable: boolean;
   porcentajeIva: number;
@@ -2336,7 +2402,8 @@ interface PrecioActualizadoItem {
 }
 
 interface AvisoLote {
-  tipo: 'UNIDAD_DISTINTA' | 'IVA_DISTINTO' | 'MONEDA' | 'NOTA_CREDITO' | 'PROVEEDOR_NUEVO';
+  tipo: 'UNIDAD_DISTINTA' | 'IVA_DISTINTO' | 'MONEDA' | 'NOTA_CREDITO' | 'PROVEEDOR_NUEVO'
+      | 'BONIFICACION' | 'DESCUENTO_ALTO' | 'DESCUENTO_GLOBAL';
   proveedor_nombre: string;
   detalle: string;
 }
@@ -2476,6 +2543,7 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
     let codigosNuevosPendientes = 0;
     let notasCredito = 0;
     let lineasOmitidasProveedor = 0;
+    let bonificaciones = 0;
     const preciosActualizados: PrecioActualizadoItem[] = [];
 
     for (const fac of pendientesDeProcesar) {
@@ -2537,6 +2605,18 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
           continue;
         }
 
+        // Descuento a nivel de DOCUMENTO: en la FE colombiana es el condicionado (pronto
+        // pago). No reduce la base del IVA y contablemente es un ingreso financiero, no
+        // un menor costo del producto, así que no se reparte entre las líneas: hacerlo
+        // fabricaría un precio unitario que el proveedor nunca cotizó. Solo se avisa.
+        if (fac.descuento_global > 0) {
+          avisos.push({
+            tipo: 'DESCUENTO_GLOBAL',
+            proveedor_nombre: proveedorNombre,
+            detalle: `${docRef} trae un descuento de $${fac.descuento_global.toLocaleString('es-CO')} a nivel de documento (pronto pago). No se aplicó a los precios: no corresponde a ningún producto en particular.`,
+          });
+        }
+
         // Proveedor ignorado o inactivo: no alimenta la bandeja. La factura queda
         // registrada igual (trazabilidad), pero con el motivo, que es lo que permite
         // reabrirla si después se aprueba al proveedor.
@@ -2569,6 +2649,20 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
         // comparando solo entre líneas de la misma unidad.
         const agrupadas = new Map<string, LineaAgrupada>();
         for (const linea of fac.lineas) {
+          // Bonificación: el proveedor facturó el ítem y lo regaló (100% de descuento).
+          // Su precio es 0 y registrarlo borraría el costo real del producto, que además
+          // se propagaría al Cotizador. Se cuenta y se avisa, no se aplica.
+          // Caso real: BPB y BOQUETE NORMAL en FA140922 (Templacol, 2026-09-18).
+          if (linea.bonificacion) {
+            bonificaciones++;
+            avisos.push({
+              tipo: 'BONIFICACION',
+              proveedor_nombre: proveedorNombre,
+              detalle: `${linea.descripcion} viene con 100% de descuento en ${docRef}: es una bonificación y no actualiza el precio.`,
+            });
+            continue;
+          }
+
           const cod = linea.codigo_proveedor.trim() || 'SIN_CODIGO';
           const clave = `${cod}|${linea.unidad}`;
           const existente = agrupadas.get(clave);
@@ -2576,6 +2670,11 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
             agrupadas.set(clave, {
               descripcion: linea.descripcion,
               maxPrecio: linea.precio_unitario,
+              precioBruto: linea.precio_bruto,
+              descuentoPct: linea.descuento_pct,
+              descuentoValor: linea.descuento_valor,
+              cantidad: linea.cantidad,
+              totalLinea: linea.total_linea,
               unidad: linea.unidad,
               unidadConfiable: linea.unidad_confiable,
               porcentajeIva: linea.porcentaje_iva,
@@ -2588,7 +2687,24 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
               existente.maxPrecio = linea.precio_unitario;
               existente.descripcion = linea.descripcion;
               existente.porcentajeIva = linea.porcentaje_iva;
+              existente.precioBruto = linea.precio_bruto;
+              existente.descuentoPct = linea.descuento_pct;
+              existente.descuentoValor = linea.descuento_valor;
+              existente.cantidad = linea.cantidad;
+              existente.totalLinea = linea.total_linea;
             }
+          }
+        }
+
+        // Descuento anómalo: por encima del 90% sin llegar al 100 es más probable un
+        // error del emisor que una rebaja real. Se registra igual, pero se avisa.
+        for (const info of agrupadas.values()) {
+          if (info.descuentoPct >= 90) {
+            avisos.push({
+              tipo: 'DESCUENTO_ALTO',
+              proveedor_nombre: proveedorNombre,
+              detalle: `${info.descripcion} trae ${info.descuentoPct}% de descuento en ${docRef}. Verifica la factura antes de usar ese precio.`,
+            });
           }
         }
 
@@ -2688,6 +2804,13 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
                 cufe: fac.cufe,
                 porcentajeIva: info.porcentajeIva,
                 lineasEnFactura: info.ocurrencias,
+                desglose: {
+                  precioBruto: info.precioBruto,
+                  descuentoPct: info.descuentoPct,
+                  descuentoValor: info.descuentoValor,
+                  cantidad: info.cantidad,
+                  totalLinea: info.totalLinea,
+                },
                 transaction: t,
               });
 
@@ -2747,6 +2870,11 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
                   estado: 'PENDIENTE',
                   veces_visto: (pendienteExistente.getDataValue('veces_visto') || 1) + 1,
                   precio_detectado: info.maxPrecio,
+                  precio_bruto_detectado: info.precioBruto,
+                  descuento_pct_detectado: info.descuentoPct,
+                  descuento_valor_detectado: info.descuentoValor,
+                  cantidad_detectada: info.cantidad,
+                  total_linea_detectado: info.totalLinea,
                   documento_ref: docRef,
                   fecha_deteccion: fac.fecha_emision,
                   unidad_detectada: info.unidadConfiable ? info.unidad : pendienteExistente.getDataValue('unidad_detectada'),
@@ -2772,6 +2900,11 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
                 codigo_proveedor: codigoProv,
                 descripcion_proveedor: info.descripcion,
                 precio_detectado: info.maxPrecio,
+                precio_bruto_detectado: info.precioBruto,
+                descuento_pct_detectado: info.descuentoPct,
+                descuento_valor_detectado: info.descuentoValor,
+                cantidad_detectada: info.cantidad,
+                total_linea_detectado: info.totalLinea,
                 documento_ref: docRef,
                 veces_visto: 1,
                 estado: 'PENDIENTE',
@@ -2806,6 +2939,7 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
       precios_actualizados: preciosActualizados,
       codigos_nuevos_pendientes: codigosNuevosPendientes,
       lineas_omitidas_proveedor: lineasOmitidasProveedor,
+      bonificaciones,
       // Emisores sin decidir de esta carga: la pantalla los pinta con casillas para
       // que el usuario resuelva ahí mismo cuáles seguir, sin ir a otra pestaña.
       proveedores_por_decidir: Array.from(proveedoresPorDecidir.values()).sort((a, b) => b.lineas - a.lineas),

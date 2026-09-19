@@ -48,12 +48,16 @@ const CASOS: Caso[] = [
     esperado: 1000,
   },
   {
-    nombre: 'Relleno de BaseQuantity + 10% de descuento (total neto, precio bruto)',
+    // 2026-09-19: el esperado pasó de 1000 a 900. `precio_unitario` es ahora el NETO
+    // (ver 2026-09-19_verificar_descuentos_linea.ts), y esta línea declara un total de
+    // 9.000 sobre 10 unidades sin traer `cac:AllowanceCharge` que sustente el descuento.
+    // El neto de 900 es el dato duro; el bruto no se puede afirmar y queda igual al neto.
+    nombre: 'Descuento del 10% no declarado en AllowanceCharge: manda el total de línea',
     cantidad: '10',
     precioAmount: '1000.00',
     baseQuantity: '10',
     lineExtension: '9000.00',
-    esperado: 1000,
+    esperado: 900,
   },
   {
     nombre: 'Sin LineExtensionAmount: no hay con qué arbitrar, manda UBL',

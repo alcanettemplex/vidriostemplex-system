@@ -16,7 +16,18 @@ export interface FacturaLinea {
   unidad_confiable: boolean;
   unidad_codigo_original: string;
   cantidad: number;
+  /** Precio NETO unitario: lo que realmente se pagó, ya descontado. Es el que se registra. */
   precio_unitario: number;
+  /** Precio de lista unitario, antes del descuento. Informativo y para auditar el histórico. */
+  precio_bruto: number;
+  /** Suma de los cac:AllowanceCharge de la línea con ChargeIndicator=false */
+  descuento_valor: number;
+  /** Suma de los cac:AllowanceCharge de la línea con ChargeIndicator=true (fletes, recargos) */
+  cargo_valor: number;
+  /** descuento_valor sobre el bruto de la línea, en porcentaje */
+  descuento_pct: number;
+  /** Línea regalada: 100% de descuento y total en cero. NO debe actualizar ningún precio. */
+  bonificacion: boolean;
   porcentaje_iva: number;
   total_linea: number;
 }
@@ -29,6 +40,13 @@ export interface FacturaParseada {
   moneda: string;
   emisor_nit: string | null;
   emisor_nombre: string;
+  /**
+   * Descuento a nivel de DOCUMENTO (Invoice/cac:AllowanceCharge). En la FE colombiana
+   * es el descuento condicionado (pronto pago): no reduce la base del IVA y
+   * contablemente es un ingreso financiero, no un menor costo del producto. Se expone
+   * para avisar, nunca para repartirlo entre las líneas.
+   */
+  descuento_global: number;
   lineas: FacturaLinea[];
 }
 
@@ -51,6 +69,34 @@ function extraerTexto(nodo: any): string {
   if (nodo['__cdata']) return String(nodo['__cdata']).trim();
   if (nodo['#text']) return String(nodo['#text']).trim();
   return '';
+}
+
+/** Número desde un nodo, 0 si no es parseable */
+function extraerNumero(nodo: any): number {
+  const valor = parseFloat(extraerTexto(nodo));
+  return Number.isFinite(valor) ? valor : 0;
+}
+
+/**
+ * Suma los cac:AllowanceCharge de un nodo, separando descuentos de cargos.
+ *
+ * `cbc:MultiplierFactorNumeric` se ignora a propósito: es el porcentaje declarado por
+ * el emisor, y lo que tiene que cuadrar contra el total de la línea son los MONTOS.
+ * El porcentaje se calcula después a partir de ellos.
+ */
+function sumarAllowanceCharge(nodo: any): { descuento: number; cargo: number } {
+  const items = Array.isArray(nodo) ? nodo : nodo ? [nodo] : [];
+  let descuento = 0;
+  let cargo = 0;
+  for (const ac of items) {
+    if (!ac || typeof ac !== 'object') continue;
+    const monto = extraerNumero(ac['cbc:Amount']);
+    if (monto <= 0) continue;
+    // ChargeIndicator: true = cargo (suma), false = descuento (resta)
+    if (extraerTexto(ac['cbc:ChargeIndicator']).toLowerCase() === 'true') cargo += monto;
+    else descuento += monto;
+  }
+  return { descuento, cargo };
 }
 
 /**
@@ -186,30 +232,84 @@ export function parsearXmlFactura(xmlString: string): FacturaParseada {
     const lineExtNodo = line['cbc:LineExtensionAmount'];
     const total_linea = parseFloat(extraerTexto(lineExtNodo)) || 0;
 
+    // Descuentos y cargos de la LÍNEA. Son los únicos que tocan el precio del producto:
+    // en la FE colombiana el descuento de línea es el comercial (reduce la base del IVA)
+    // y la NIC 2 §11 manda deducirlo del costo de adquisición. El de documento es el
+    // condicionado (pronto pago) y se trata aparte, fuera de este bucle.
+    //
+    // `cac:Price/cac:AllowanceCharge` NO se suma: en la DIAN es descriptivo de cómo se
+    // formó PriceAmount, y restarlo otra vez sería descontar dos veces.
+    const { descuento: descuento_valor, cargo: cargo_valor } = sumarAllowanceCharge(line['cac:AllowanceCharge']);
+
     // UBL 2.1 define PriceAmount como el precio de BaseQuantity unidades — el caso
     // legítimo "$X por cada 100". Pero buena parte de los emisores colombianos repite
     // ahí la cantidad facturada como relleno y deja PriceAmount ya unitario: dividir
     // a ciegas convertía $52.184,88 en $23.720,40 (HI-TECH FILMS, FED-3171, 2026-08-21).
     //
-    // El árbitro es el total de la línea, que es lo que el proveedor realmente cobra:
-    // entre las dos lecturas posibles gana la que menos se aleja de
-    // LineExtensionAmount / cantidad. No se exige coincidencia exacta a propósito: en
-    // una línea con descuento el total viene neto y el precio bruto, así que ninguna
-    // cuadra, pero la correcta sigue siendo la que queda cerca. Sin total de línea no
-    // hay con qué arbitrar y se conserva la lectura UBL.
-    const referencia = cantidad > 0 && total_linea > 0 ? total_linea / cantidad : 0;
+    // Antes se elegía "la lectura que menos se aleja" de total/cantidad. Con descuento
+    // esa heurística falla, porque el total viene neto y el precio bruto: en FA140922
+    // (Templacol, 39,4% de descuento) registró $68.558,89 para un vidrio cuya lista es
+    // $165.000 y cuyo neto es $99.990 — ni lo uno ni lo otro, solo 165.000 ÷ 2,40669.
+    //
+    // Con el descuento ya leído la ambigüedad se resuelve por RECONCILIACIÓN EXACTA, no
+    // por cercanía: la lectura correcta es la que reproduce el total de la línea.
+    //   PriceAmount × cantidad − descuento + cargo == LineExtensionAmount
+    // Verificado al centavo en las 14 líneas de FA140922 (Templacol) y FELC90709 (Roldán).
+    //
+    // Se reconcilia contra el BRUTO de la línea (total + descuento − cargo) y no contra
+    // el total neto, porque así también cuadran las líneas regaladas, donde el total es
+    // cero y el único ancla disponible es el descuento (BPB: 3.100 × 6,566 = 20.354,60).
+    const brutoLineaEsperado = total_linea + descuento_valor - cargo_valor;
+    const reconcilia = (unitario: number) => {
+      if (!(brutoLineaEsperado > 0) || !(cantidad > 0)) return false;
+      // Tolerancia relativa: los emisores redondean a 2 decimales sobre cantidades
+      // con 6 (2,40669 m²), así que exigir igualdad exacta rechazaría líneas válidas.
+      return Math.abs(unitario * cantidad - brutoLineaEsperado) <= Math.max(1, brutoLineaEsperado * 0.005);
+    };
 
-    let precio_unitario = baseQty > 0 ? precioXml / baseQty : precioXml;
-    if (precioXml > 0 && baseQty !== 1 && referencia > 0) {
-      if (Math.abs(precioXml - referencia) < Math.abs(precio_unitario - referencia)) {
-        precio_unitario = precioXml;
-      }
+    const lecturaDividida = baseQty > 0 ? precioXml / baseQty : precioXml;
+    let precio_bruto: number;
+    if (precioXml > 0 && baseQty !== 1 && reconcilia(precioXml)) {
+      precio_bruto = precioXml;                 // BaseQuantity era relleno
+    } else if (precioXml > 0 && baseQty !== 1 && reconcilia(lecturaDividida)) {
+      precio_bruto = lecturaDividida;           // "$X por cada N" legítimo
+    } else if (precioXml > 0) {
+      precio_bruto = lecturaDividida;           // sin con qué reconciliar: manda UBL
+    } else {
+      precio_bruto = 0;
     }
-    precio_unitario = +precio_unitario.toFixed(2);
+    precio_bruto = +precio_bruto.toFixed(2);
 
-    if (precio_unitario <= 0 && referencia > 0) {
-      precio_unitario = +referencia.toFixed(2);
+    // El NETO es el total de la línea repartido entre la cantidad: por definición ya
+    // viene descontado (UBL define LineExtensionAmount neto de los AllowanceCharge de
+    // línea). Sin total de línea se deriva restando el descuento del bruto.
+    let precio_unitario: number;
+    if (cantidad > 0 && total_linea > 0) {
+      precio_unitario = total_linea / cantidad;
+    } else if (cantidad > 0 && precio_bruto > 0) {
+      precio_unitario = precio_bruto - (descuento_valor - cargo_valor) / cantidad;
+    } else {
+      precio_unitario = precio_bruto;
     }
+    precio_unitario = +Math.max(0, precio_unitario).toFixed(2);
+
+    if (precio_bruto <= 0 && precio_unitario > 0) precio_bruto = precio_unitario;
+
+    // Invariante: el bruto no puede quedar por debajo del neto, salvo que la línea traiga
+    // cargos (un flete sí sube el neto por encima del precio del producto). Si pasa, es
+    // que PriceAmount no resultó interpretable y la lectura dividida quedó por debajo:
+    // se conserva el neto, que es el dato duro, y no se afirma un descuento insostenible.
+    if (precio_bruto < precio_unitario && cargo_valor <= 0) precio_bruto = precio_unitario;
+
+    const brutoLinea = precio_bruto * cantidad;
+    const descuento_pct = brutoLinea > 0 ? +((descuento_valor / brutoLinea) * 100).toFixed(2) : 0;
+
+    // Bonificación: el proveedor facturó el ítem y lo regaló (100% de descuento, total
+    // en cero). Su "precio" es 0 y registrarlo borraría el costo real del producto —
+    // y ese cero se propagaría al Cotizador. Se marca para que el controlador la
+    // excluya del flujo de precios en vez de descartarla en silencio.
+    // Caso real: BPB y BOQUETE NORMAL en FA140922.
+    const bonificacion = descuento_valor > 0 && precio_unitario <= 0;
 
     // Porcentaje IVA
     const taxSubtotal = line['cac:TaxTotal']?.['cac:TaxSubtotal'];
@@ -220,7 +320,9 @@ export function parsearXmlFactura(xmlString: string): FacturaParseada {
     const porcentajeParseado = parseFloat(taxPercent);
     const porcentaje_iva = Number.isFinite(porcentajeParseado) ? porcentajeParseado : 19;
 
-    if (precio_unitario > 0) {
+    // Las bonificaciones se emiten aunque su precio sea 0: el controlador las cuenta y
+    // avisa. Lo que se descarta es la línea sin ninguna cifra utilizable.
+    if (precio_unitario > 0 || bonificacion) {
       lineas.push({
         codigo_proveedor,
         codigo_derivado,
@@ -230,11 +332,18 @@ export function parsearXmlFactura(xmlString: string): FacturaParseada {
         unidad_codigo_original: unitCode,
         cantidad,
         precio_unitario,
+        precio_bruto,
+        descuento_valor,
+        cargo_valor,
+        descuento_pct,
+        bonificacion,
         porcentaje_iva,
         total_linea,
       });
     }
   }
+
+  const { descuento: descuento_global } = sumarAllowanceCharge(invoice['cac:AllowanceCharge']);
 
   return {
     cufe,
@@ -244,6 +353,7 @@ export function parsearXmlFactura(xmlString: string): FacturaParseada {
     moneda,
     emisor_nit,
     emisor_nombre,
+    descuento_global,
     lineas,
   };
 }

@@ -26,8 +26,18 @@ ProveedorCodigoPendiente.init({
   codigo_proveedor: { type: DataTypes.STRING(100), allowNull: false },
   descripcion_proveedor: { type: DataTypes.TEXT, allowNull: true },
 
-  // Último precio detectado en facturas (referencia orientativa para el mapeo)
+  // Último precio NETO detectado en facturas (ya descontado) — referencia para el mapeo
   precio_detectado: { type: DataTypes.DECIMAL(15, 2), allowNull: true },
+
+  // Desglose del descuento de la línea de la que salió `precio_detectado` (2026-09-19).
+  // El modal de vinculación muestra la cadena completa —lista, descuento, neto— más la
+  // verificación `cantidad x neto = total`, para poder contrastar contra la factura sin
+  // abrirla. NULL en las filas anteriores al cambio, donde el precio quedó en bruto.
+  precio_bruto_detectado: { type: DataTypes.DECIMAL(15, 2), allowNull: true },
+  descuento_pct_detectado: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
+  descuento_valor_detectado: { type: DataTypes.DECIMAL(15, 2), allowNull: true },
+  cantidad_detectada: { type: DataTypes.DECIMAL(15, 6), allowNull: true },
+  total_linea_detectado: { type: DataTypes.DECIMAL(15, 2), allowNull: true },
 
   // Unidad leída del unitCode del XML. Solo se guarda cuando el código era informativo
   // (MTR, KGM, MTK…) y no el relleno genérico: así el mapeo se propone contra la

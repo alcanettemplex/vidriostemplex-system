@@ -4195,3 +4195,74 @@ frontend no ramifica por `codigo`, solo renderiza `texto` — verificado.
 - **`npm --prefix backend-api run lint:fix` está roto**: ESLint 10 no encuentra `eslint.config.js`
   (el repo sigue en formato `.eslintrc.*`). Preexistente, no lo introdujo este cambio.
 - Sin commit: el cambio queda en el working tree a la espera de orden.
+
+---
+
+## 2026-09-19 — Proveedores: la FE traía descuento y el sistema registraba cualquier cosa menos el precio
+
+**Disparador.** El usuario preguntó qué valor muestra el módulo cuando la factura trae un
+descuento, a partir de un pantallazo del modal "Vincular Código de Proveedor" que mostraba
+`$68.559` para un vidrio templado de 8 mm de Templacol.
+
+**Diagnóstico sobre facturas reales.** El usuario aportó dos `.zip` (`DE_FA140922.zip` y
+`z0890912995012260000766C.zip`). Parseados en frío, **13 de 14 líneas quedaban mal registradas**:
+
+- El `$68.558,89` del pantallazo **no era ni el precio de lista ni el neto**: es
+  `165.000 ÷ 2,40669`, el resultado de dividir por un `BaseQuantity` que la factura trae con la
+  cantidad repetida. La lista real es `$165.000/m²` y el neto `$99.990` (39,40% de descuento).
+- Prueba de que no era un precio: **la misma factura trae el vidrio en dos líneas** y producía
+  `68.558,89` y `67.231,55` — dos cifras para el mismo producto al mismo precio. El neto era
+  `$99.990` en ambas.
+- En Grupo Roldán, 6 de 8 líneas registraban el **bruto**, 34–38% por encima del costo real.
+- El error iba en las dos direcciones y cuál tocaba dependía de la cantidad: el vidrio quedaba
+  **31% por debajo** del costo (cotizar sobre eso es vender con el margen destruido) y el aluminio
+  **34–38% por encima** (cotizar caro y perder trabajos).
+
+**Decisiones del usuario:** registrar el **neto** guardando bruto y descuento al lado; que el
+único campo editable del modal sea el neto; y **no** recalcular lo ya cargado (se corrige solo con
+la próxima factura de cada producto).
+
+**El hallazgo que solo apareció mirando facturas reales.** `BPB` y `BOQUETE NORMAL` vienen al
+**100% de descuento** — el proveedor los factura y los regala. Su neto es `$0`, y la regla
+"guardar el neto", tal como estaba planteada en el plan aprobado, **los habría registrado en cero**,
+borrando el costo del producto y propagando ese cero al Cotizador. Habría sido peor que el bug
+original. Obligó a agregar la regla de bonificación antes de escribir una línea de código.
+
+**Cambios:**
+- `utils/dianXmlParser.ts` — lee `cac:AllowanceCharge` de línea (separando descuento de cargo),
+  expone `precio_bruto`, `descuento_valor`, `cargo_valor`, `descuento_pct` y `bonificacion`, y
+  `precio_unitario` pasa a ser el **neto**. El arbitraje de `BaseQuantity` deja de ser heurística
+  de cercanía y pasa a **reconciliación exacta** contra el bruto de línea. `descuento_global`
+  expone el descuento de documento sin repartirlo.
+- Migración `2026-09-19_descuentos_linea_proveedores.ts` — 10 columnas nullable (5 + 5),
+  **ejecutada contra Supabase**, verificada 10/10.
+- `proveedor.controller.ts` — `LineaAgrupada` carga el desglose de **la línea ganadora** (no
+  máximos independientes: con dos líneas del mismo producto, el bruto que se muestra debe ser el
+  de la que ganó); bonificaciones excluidas con aviso; aviso de descuento ≥90% y de descuento de
+  documento; desglose persistido en histórico y bandeja; `vincularPendiente` lo arrastra y lo
+  descarta si el usuario corrigió el neto a mano; `desvincularEquivalencia` lo limpia.
+- Falso positivo de anomalía suprimido cuando la caída de precio queda explicada por el descuento.
+- `VincularCodigoModal.tsx` — cadena lista → descuento → neto, más verificación
+  `cantidad × neto = total de línea` en verde/ámbar. `PorMapearTab.tsx` — badge de descuento.
+- `2026-09-19_verificar_descuentos_linea.ts` — 12 escenarios, todos pasan.
+
+**Consistencia entre los dos caminos de escritura.** El punto que más importaba del pedido del
+usuario: el mapeo manual y la ingesta automática escriben la misma columna `precio_actual`. Si uno
+guardara el neto y el otro el bruto, esa columna contendría dos cosas distintas según quién la
+escribió. Por eso el descuento se resuelve en el parser, no en la pantalla.
+
+**Verificado:** backend compila; frontend `tsc --noEmit` limpio; 12/12 escenarios sintéticos;
+14/14 líneas reales correctas; simulación contra la BD confirmando el antes/después.
+
+**Impacto al cargar esas dos facturas:** el vidrio templado 8 mm sube de `$68.558,89` a `$99.990`
+(está en la bandeja, sin mapear). Los 8 perfiles de Roldán, que ya tienen equivalencia, bajan
+~11–14% (no 38%: sus precios actuales corresponden a un descuento de ~27,5%, probablemente de una
+lista, y esta factura trae 38%). Son correcciones, no cambios de precio del proveedor. 125 de 530
+productos del Cotizador derivan su costo de proveedores y se recostean solos.
+
+**Pendientes / riesgos:**
+- Las filas de histórico anteriores a hoy quedan con el desglose en `NULL` y **no se pueden
+  recalcular** (los XML no se persisten — `TECH_DEBT.md` 2026-09-04 (2), sigue abierta).
+- `npm --prefix frontend-web run build` falla en Windows: el script usa `CI=false` con sintaxis
+  Unix y cmd no lo reconoce. Preexistente. Se verificó con `tsc --noEmit`.
+- Sin commit: el cambio queda en el working tree a la espera de orden.

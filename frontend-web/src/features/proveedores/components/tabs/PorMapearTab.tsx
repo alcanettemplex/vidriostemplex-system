@@ -589,6 +589,14 @@ const PorMapearTab: React.FC<Props> = ({ proveedores, busquedaInicial, onActuali
 
                         <td style={{ padding: '12px 16px', fontWeight: 700, color: '#059669' }}>
                           {formatCOP(item.precio_detectado)}
+                          {Number(item.descuento_pct_detectado ?? 0) > 0 && (
+                            <div
+                              style={{ fontSize: FONT.xs, color: 'var(--warning, #b45309)', fontWeight: 600, marginTop: 3 }}
+                              title={`Precio de lista ${formatCOP(item.precio_bruto_detectado)} con ${item.descuento_pct_detectado}% de descuento. Se registra el neto.`}
+                            >
+                              neto · −{item.descuento_pct_detectado}% desc.
+                            </div>
+                          )}
                           {item.unidad_detectada && (
                             <div
                               style={{ fontSize: FONT.xs, color: '#4338ca', fontWeight: 600, marginTop: 3, display: 'flex', alignItems: 'center', gap: 3 }}
