@@ -29,7 +29,7 @@ const PctBadge: React.FC<{ pct: number }> = ({ pct }) => {
     : pct >= 40 ? 'bg-amber-100 text-amber-700'
     : 'bg-red-100 text-red-600';
   return (
-    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full tabular-nums ${color}`}>
+    <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-full tabular-nums ${color}`}>
       {Math.round(pct)}%
     </span>
   );
@@ -51,9 +51,9 @@ const SectionHeader: React.FC<{ icon: React.ReactNode; title: string; desc: stri
     <div className="flex items-center gap-2">
       <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/60">{icon}</span>
       <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex-1">{title}</span>
-      <span className="text-[10px] font-semibold text-slate-400 bg-white/70 px-2 py-0.5 rounded-full">{count}</span>
+      <span className="text-[12px] font-semibold text-slate-500 bg-white/70 px-2 py-0.5 rounded-full">{count}</span>
     </div>
-    <p className="text-[9px] text-slate-400 leading-tight mt-1 ml-9">{desc}</p>
+    <p className="text-[12px] text-slate-500 leading-tight mt-1 ml-9">{desc}</p>
   </div>
 );
 
@@ -80,7 +80,7 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
     );
   }
 
-  if (!data) return <div className="p-10 text-center text-slate-400 text-sm">Sin datos disponibles</div>;
+  if (!data) return <div className="p-10 text-center text-slate-500 text-sm">Sin datos disponibles</div>;
 
   const asesores     = data.ranking_asesores     || [];
   const instaladores = data.carga_instaladores   || [];
@@ -101,16 +101,16 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         {[
           { label: 'Asesores',        desc: 'Asesores comerciales activos',           value: data.total_asesores ?? 0,              color: 'text-blue-600',    icon: <Users className="w-3.5 h-3.5 text-blue-400" /> },
           { label: 'Instaladores',    desc: 'Instaladores en el equipo',              value: data.total_instaladores ?? 0,          color: 'text-emerald-600', icon: <HardHat className="w-3.5 h-3.5 text-emerald-400" /> },
-          { label: 'ODPs / Asesor',   desc: 'Promedio de órdenes abiertas por asesor', value: data.odps_por_asesor_promedio ?? 0,    color: 'text-slate-700',   icon: <FileText className="w-3.5 h-3.5 text-slate-400" /> },
-          { label: 'Efic. Taller',    desc: 'Ítems de ODP con verificación completada', value: `${data.eficiencia_taller_pct ?? 0}%`, color: (data.eficiencia_taller_pct ?? 0) >= 80 ? 'text-emerald-600' : 'text-amber-600', icon: <TrendingUp className="w-3.5 h-3.5 text-slate-400" /> },
+          { label: 'ODPs / Asesor',   desc: 'Promedio de órdenes abiertas por asesor', value: data.odps_por_asesor_promedio ?? 0,    color: 'text-slate-700',   icon: <FileText className="w-3.5 h-3.5 text-slate-500" /> },
+          { label: 'Efic. Taller',    desc: 'Ítems de ODP con verificación completada', value: `${data.eficiencia_taller_pct ?? 0}%`, color: (data.eficiencia_taller_pct ?? 0) >= 80 ? 'text-emerald-600' : 'text-amber-600', icon: <TrendingUp className="w-3.5 h-3.5 text-slate-500" /> },
         ].map((item, i) => (
           <motion.div key={i} custom={i} variants={cardVar} initial="hidden" animate="visible"
             className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 flex items-center gap-3">
             {item.icon}
             <div>
-              <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest leading-none mb-1">{item.label}</p>
+              <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest leading-none mb-1">{item.label}</p>
               <p className={`text-[22px] font-bold leading-none tabular-nums ${item.color}`}>{item.value}</p>
-              <p className="text-[8px] text-slate-400 leading-tight mt-1">{item.desc}</p>
+              <p className="text-[12px] text-slate-500 leading-tight mt-1">{item.desc}</p>
             </div>
           </motion.div>
         ))}
@@ -131,7 +131,7 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
           />
           <div className="divide-y divide-slate-50">
             {asesores.length === 0 && (
-              <p className="text-[11px] text-slate-400 text-center py-8">Sin asesores</p>
+              <p className="text-[12px] text-slate-500 text-center py-8">Sin asesores</p>
             )}
             {asesores.map((as: any, i: number) => {
               const pct = as.meta > 0 ? (as.real / as.meta) * 100 : 0;
@@ -146,16 +146,16 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
                     <PctBadge pct={pct} />
                   </div>
                   {/* Real vs Meta */}
-                  <div className="flex items-end justify-between text-[10px] text-slate-500">
-                    <span>{fmtM(as.real)} <span className="text-slate-300">/</span> {fmtM(as.meta > 0 ? as.meta : 0)}</span>
+                  <div className="flex items-end justify-between text-[12px] text-slate-500">
+                    <span>{fmtM(as.real)} <span className="text-slate-500">/</span> {fmtM(as.meta > 0 ? as.meta : 0)}</span>
                   </div>
                   <MiniBar pct={pct} color="bg-blue-400" />
                   {/* Chips extra */}
                   <div className="flex gap-2 flex-wrap">
-                    <span className="text-[9px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
+                    <span className="text-[12px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">
                       {as.prospectos_activos ?? 0} prospectos
                     </span>
-                    <span className="text-[9px] font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
+                    <span className="text-[12px] font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
                       {as.odps_abiertas ?? 0} ODPs abiertas
                     </span>
                   </div>
@@ -177,7 +177,7 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
           />
           <div className="divide-y divide-slate-50">
             {instaladores.length === 0 && (
-              <p className="text-[11px] text-slate-400 text-center py-8">Sin instaladores</p>
+              <p className="text-[12px] text-slate-500 text-center py-8">Sin instaladores</p>
             )}
             {instaladores.map((inst: any, i: number) => {
               const evidPct    = inst.instalaciones_mes > 0 ? (inst.con_evidencia / inst.instalaciones_mes) * 100 : 0;
@@ -191,22 +191,22 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
                     <Avatar nombre={inst.nombre || ''} size={30} />
                     <span className="text-[12px] font-semibold text-slate-700 flex-1 truncate">{firstName}</span>
                     {rendRow?.completadas_hoy > 0 && (
-                      <span className="flex items-center gap-1 text-[9px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">
+                      <span className="flex items-center gap-1 text-[12px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">
                         <motion.span animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.4, repeat: Infinity }}>●</motion.span>
                         HOY {rendRow.completadas_hoy}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between text-[10px] text-slate-500">
+                  <div className="flex items-center justify-between text-[12px] text-slate-500">
                     <span><strong className="text-slate-700">{inst.instalaciones_mes}</strong> instalaciones</span>
-                    <span className="text-slate-400">evidencia {Math.round(evidPct)}%</span>
+                    <span className="text-slate-500">evidencia {Math.round(evidPct)}%</span>
                   </div>
                   <MiniBar pct={evidPct} color="bg-emerald-400" />
                   <div className="flex gap-2 flex-wrap">
-                    <span className="text-[9px] font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="text-[12px] font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full flex items-center gap-1">
                       <Clock className="w-2.5 h-2.5" />{fmtMin(avgMin)}
                     </span>
-                    <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${inst.sin_evidencia > 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                    <span className={`text-[12px] font-semibold px-2 py-0.5 rounded-full ${inst.sin_evidencia > 0 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
                       {inst.sin_evidencia > 0 ? `${inst.sin_evidencia} sin foto` : 'Fotos OK'}
                     </span>
                   </div>
@@ -228,7 +228,7 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
           />
           <div className="divide-y divide-slate-50">
             {conductores.length === 0 && (
-              <p className="text-[11px] text-slate-400 text-center py-8">Sin conductores</p>
+              <p className="text-[12px] text-slate-500 text-center py-8">Sin conductores</p>
             )}
             {conductores.map((c: any, i: number) => {
               const rutas       = Number(c.rutas_mes) || 0;
@@ -243,19 +243,19 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
                     <Avatar nombre={c.nombre || ''} size={30} />
                     <span className="text-[12px] font-semibold text-slate-700 flex-1 truncate">{firstName}</span>
                     {enRuta && (
-                      <span className="flex items-center gap-1 text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
+                      <span className="flex items-center gap-1 text-[12px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
                         <motion.span animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.4, repeat: Infinity }}>●</motion.span>
                         EN RUTA
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between text-[10px] text-slate-500">
+                  <div className="flex items-center justify-between text-[12px] text-slate-500">
                     <span><strong className="text-slate-700">{completadas}/{rutas}</strong> rutas</span>
-                    <span className="text-slate-400">{fmtMin(c.avg_minutos_ruta != null ? Number(c.avg_minutos_ruta) : null)} prom.</span>
+                    <span className="text-slate-500">{fmtMin(c.avg_minutos_ruta != null ? Number(c.avg_minutos_ruta) : null)} prom.</span>
                   </div>
                   <MiniBar pct={compPct} color="bg-violet-400" />
                   <div className="flex gap-2 flex-wrap">
-                    <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full ${compPct >= 80 ? 'bg-emerald-50 text-emerald-600' : compPct >= 50 ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>
+                    <span className={`text-[12px] font-semibold px-2 py-0.5 rounded-full ${compPct >= 80 ? 'bg-emerald-50 text-emerald-600' : compPct >= 50 ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>
                       {Math.round(compPct)}% completadas
                     </span>
                   </div>
@@ -272,8 +272,8 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         <div className="flex items-center gap-2 mb-3">
           <Clock className="w-3.5 h-3.5 text-indigo-400" />
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Operaciones Hoy</p>
-            <p className="text-[9px] text-slate-400 leading-tight">Paradas de instalación programadas para hoy en todas las rutas activas</p>
+            <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">Operaciones Hoy</p>
+            <p className="text-[12px] text-slate-500 leading-tight">Paradas de instalación programadas para hoy en todas las rutas activas</p>
           </div>
         </div>
 
@@ -286,7 +286,7 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
             <div key={i} className="flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${item.dot}`} />
               <span className={`text-[20px] font-bold tabular-nums ${item.color}`}>{item.value}</span>
-              <span className="text-[9px] text-slate-400 uppercase tracking-wide">{item.label}</span>
+              <span className="text-[11px] text-slate-600 uppercase tracking-wide">{item.label}</span>
             </div>
           ))}
 
@@ -302,12 +302,12 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         {rutasActivas.length > 0 && (
           <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-2">
             {rutasActivas.map((r: any, i: number) => (
-              <div key={i} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5 text-[11px]">
+              <div key={i} className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5 text-[12px]">
                 <Truck className="w-3 h-3 text-amber-500" />
                 <span className="font-medium text-slate-700">{r.vehiculo}</span>
-                <span className="text-slate-400">·</span>
+                <span className="text-slate-500">·</span>
                 <span className="text-slate-600">{r.conductor}</span>
-                <span className="text-slate-400">·</span>
+                <span className="text-slate-500">·</span>
                 <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                 <span className="text-slate-500 tabular-nums">{r.stops_completadas}/{r.stops_total}</span>
                 {r.stops_en_curso > 0 && (
@@ -322,7 +322,7 @@ export const PanelEquipo: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         )}
 
         {rutasActivas.length === 0 && (
-          <p className="text-[11px] text-slate-400 mt-2">Sin rutas activas en este momento</p>
+          <p className="text-[12px] text-slate-500 mt-2">Sin rutas activas en este momento</p>
         )}
       </motion.div>
 

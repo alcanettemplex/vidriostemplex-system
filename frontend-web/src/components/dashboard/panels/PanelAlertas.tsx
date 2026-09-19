@@ -101,7 +101,7 @@ export const PanelAlertas: React.FC<{
         <p className="text-[12px] text-slate-500 max-w-sm">
           No hay ODPs fuera de plazo ni cartera vencida por encima del umbral configurado.
         </p>
-        <span className="text-[9px] uppercase font-bold text-slate-400 mt-4 tracking-wider">
+        <span className="text-[11px] uppercase font-bold text-slate-600 mt-4 tracking-wider">
           Actualizado: {timestamp}
         </span>
       </div>
@@ -135,7 +135,7 @@ export const PanelAlertas: React.FC<{
           </div>
           <div>
             <p className="text-[17px] font-bold text-slate-900 leading-none">{resumen.total}</p>
-            <p className="text-[9px] uppercase font-bold text-slate-400 tracking-wider mt-0.5">Alertas</p>
+            <p className="text-[11px] uppercase font-bold text-slate-600 tracking-wider mt-0.5">Alertas</p>
           </div>
         </div>
 
@@ -146,7 +146,7 @@ export const PanelAlertas: React.FC<{
         <Metrica valor={resumen.cartera.length} etiqueta="En mora" color="text-slate-700" />
         <Metrica valor={montoCorto(resumen.montoRiesgo)} etiqueta="En riesgo" color="text-amber-600" />
 
-        <span className="ml-auto text-[10px] font-medium text-slate-400 flex items-center gap-1.5">
+        <span className="ml-auto text-[12px] font-medium text-slate-500 flex items-center gap-1.5">
           <CalendarClock className="w-3.5 h-3.5" /> {timestamp}
         </span>
       </div>
@@ -162,13 +162,13 @@ export const PanelAlertas: React.FC<{
               className="w-full px-4 py-2.5 flex items-center gap-2.5 border-b border-slate-100 hover:bg-slate-50 transition-colors text-left"
             >
               <ChevronDown
-                className={`w-4 h-4 text-slate-400 transition-transform ${abierto ? '' : '-rotate-90'}`}
+                className={`w-4 h-4 text-slate-500 transition-transform ${abierto ? '' : '-rotate-90'}`}
               />
               <Icono className="w-4 h-4 text-slate-500" strokeWidth={2} />
               <span className="text-[12px] font-semibold text-slate-800 uppercase tracking-wide">
                 {grupo.titulo}
               </span>
-              <span className="text-[11px] text-slate-500">{grupo.subtitulo}</span>
+              <span className="text-[12px] text-slate-500">{grupo.subtitulo}</span>
             </button>
 
             {abierto && (
@@ -190,7 +190,7 @@ const Metrica: React.FC<{ valor: number | string; etiqueta: string; color: strin
 }) => (
   <div>
     <p className={`text-[17px] font-bold leading-none ${color}`}>{valor}</p>
-    <p className="text-[9px] uppercase font-bold text-slate-400 tracking-wider mt-0.5">{etiqueta}</p>
+    <p className="text-[11px] uppercase font-bold text-slate-600 tracking-wider mt-0.5">{etiqueta}</p>
   </div>
 );
 
@@ -218,10 +218,10 @@ const FilaAlerta: React.FC<{
         {esCartera ? alerta.cliente_nombre : alerta.referencia}
       </span>
 
-      <span className="text-[11px] text-slate-500 truncate flex-1 min-w-0">
+      <span className="text-[12px] text-slate-500 truncate flex-1 min-w-0">
         {esCartera
           ? alerta.referencia
-          : <>{alerta.estado}{alerta.cliente_nombre ? <span className="text-slate-400"> · {alerta.cliente_nombre}</span> : null}</>}
+          : <>{alerta.estado}{alerta.cliente_nombre ? <span className="text-slate-500"> · {alerta.cliente_nombre}</span> : null}</>}
       </span>
 
       {esCartera && alerta.monto != null && (
@@ -230,7 +230,7 @@ const FilaAlerta: React.FC<{
         </span>
       )}
 
-      <span className={`text-[11px] font-semibold shrink-0 w-[124px] text-right ${sev.texto}`}>
+      <span className={`text-[12px] font-semibold shrink-0 w-[124px] text-right ${sev.texto}`}>
         {esCartera ? textoMora(alerta.dias) : textoPlazo(alerta.dias)}
       </span>
 
@@ -239,7 +239,7 @@ const FilaAlerta: React.FC<{
         // Antes este botón decía "Ver cliente" en cartera y no hacía nada: el handler
         // exigía `odp_id` y esas alertas solo traían `cliente_id`. El backend ahora
         // envía también el `odp_id` de la ODP con saldo, así que abre su ficha.
-        className="shrink-0 flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-slate-500
+        className="shrink-0 flex items-center gap-1 px-2 py-1 text-[12px] font-semibold text-slate-500
                    border border-slate-200 rounded opacity-0 group-hover:opacity-100 focus:opacity-100
                    hover:bg-white hover:text-slate-700 transition-all"
       >

@@ -60,8 +60,8 @@ const MonthlyTooltip = ({ active, payload, label }: any) => {
     cantidad_odps:   'ODPs',
   };
   return (
-    <div className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[11px] shadow-lg min-w-[140px]">
-      <p className="text-slate-400 mb-1.5 font-semibold uppercase tracking-widest text-[9px]">{label}</p>
+    <div className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-[12px] shadow-lg min-w-[140px]">
+      <p className="text-slate-600 mb-1.5 font-semibold uppercase tracking-widest text-[11px]">{label}</p>
       {payload.map((p: any, i: number) => (
         <p key={i} className="font-semibold flex justify-between gap-3" style={{ color: p.color || p.stroke }}>
           <span>{map[p.dataKey] || p.name}</span>
@@ -105,7 +105,7 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
     );
   }
 
-  if (!data) return <div className="p-10 text-center text-slate-400 text-sm">Sin datos disponibles</div>;
+  if (!data) return <div className="p-10 text-center text-slate-500 text-sm">Sin datos disponibles</div>;
 
   const chartData    = data.estadisticas_mensuales || [];
   const cajaDist     = (data.estado_caja_distribucion || []).map((c: any) => ({ name: c.estado, pct: c.pct }));
@@ -157,11 +157,11 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
         <motion.div custom={0} variants={cardVar} initial="hidden" animate="visible"
           className="bg-white border border-slate-200 rounded-2xl p-5"
           whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(99,102,241,0.12)' }}>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">ODPs Activas</p>
-          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Órdenes del período actualmente en curso, sin incluir entregadas</p>
+          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">ODPs Activas</p>
+          <p className="text-[12px] text-slate-500 leading-tight mt-0.5 mb-2">Órdenes del período actualmente en curso, sin incluir entregadas</p>
           <p className="text-[44px] font-semibold text-slate-800 leading-none tabular-nums">{odpsActivas}</p>
           {data.odps_activas_delta_pct !== undefined && (
-            <div className={`flex items-center gap-1 mt-2 text-[11px] font-medium ${data.odps_activas_delta_pct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+            <div className={`flex items-center gap-1 mt-2 text-[12px] font-medium ${data.odps_activas_delta_pct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
               {data.odps_activas_delta_pct >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
               {data.odps_activas_delta_pct > 0 ? '+' : ''}{data.odps_activas_delta_pct}% vs periodo anterior
             </div>
@@ -172,25 +172,25 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
           className="bg-white border border-slate-200 rounded-2xl p-5 relative overflow-hidden"
           whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(99,102,241,0.12)' }}>
           <div className="flex justify-between items-start">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Monto de Pedidos Ingresados</p>
-            <Link to="/configuracion" className="text-slate-300 hover:text-indigo-500 transition-colors shrink-0">
+            <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Monto de Pedidos Ingresados</p>
+            <Link to="/configuracion" className="text-slate-500 hover:text-indigo-500 transition-colors shrink-0">
               <Settings className="w-3.5 h-3.5" />
             </Link>
           </div>
-          <p className="text-[9px] text-slate-400 leading-tight mb-2">Suma del valor total de todas las ODPs ingresadas en el período, incluye IVA</p>
+          <p className="text-[12px] text-slate-500 leading-tight mb-2">Suma del valor total de todas las ODPs ingresadas en el período, incluye IVA</p>
           <p className="text-[34px] font-semibold text-slate-800 leading-none tabular-nums">{fmtM(facturadoMes)}</p>
           <div className="mt-2.5 mb-2 border-t border-slate-100 pt-2 space-y-1">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-slate-400">Base sin IVA</span>
+            <div className="flex justify-between text-[12px]">
+              <span className="text-slate-500">Base sin IVA</span>
               <span className="font-semibold text-slate-600 tabular-nums">{fmtM(facturadoBase)}</span>
             </div>
-            <div className="flex justify-between text-[11px]">
-              <span className="text-slate-400">IVA (19%)</span>
+            <div className="flex justify-between text-[12px]">
+              <span className="text-slate-500">IVA (19%)</span>
               <span className="font-semibold text-indigo-500 tabular-nums">{fmtM(facturadoIva)}</span>
             </div>
           </div>
           {data.meta_facturacion_actual > 0 && (
-            <p className="text-[10px] text-slate-400">Meta: {fmtM(data.meta_facturacion_actual)}</p>
+            <p className="text-[12px] text-slate-500">Meta: {fmtM(data.meta_facturacion_actual)}</p>
           )}
           <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-100">
             <motion.div className="h-full bg-gradient-to-r from-indigo-500 to-purple-400 rounded-b-2xl"
@@ -204,38 +204,38 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
           className="bg-white border border-slate-200 rounded-2xl p-5 relative overflow-hidden"
           whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(99,102,241,0.12)' }}>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Pedidos Cobrados</p>
+            <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Pedidos Cobrados</p>
           </div>
           <div className="flex gap-1 mt-1 mb-1.5">
             <button type="button"
               onClick={() => setCriterioKPI('creadas_facturadas')}
-              className={`text-[9px] px-2 py-0.5 rounded-full font-semibold transition-colors ${criterioKPI === 'creadas_facturadas' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+              className={`text-[12px] px-2 py-0.5 rounded-full font-semibold transition-colors ${criterioKPI === 'creadas_facturadas' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
               Creadas y facturadas
             </button>
             <button type="button"
               onClick={() => setCriterioKPI('facturadas_rango')}
-              className={`text-[9px] px-2 py-0.5 rounded-full font-semibold transition-colors ${criterioKPI === 'facturadas_rango' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+              className={`text-[12px] px-2 py-0.5 rounded-full font-semibold transition-colors ${criterioKPI === 'facturadas_rango' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
               Todas facturadas (rango)
             </button>
           </div>
-          <p className="text-[9px] text-slate-400 leading-tight mb-2">{conFacturaSubtitulo}</p>
+          <p className="text-[12px] text-slate-500 leading-tight mb-2">{conFacturaSubtitulo}</p>
           <p className="text-[34px] font-semibold text-indigo-600 leading-none tabular-nums">{fmtM(facturadoConFactura)}</p>
           <div className="mt-2.5 mb-2 border-t border-slate-100 pt-2 space-y-1">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-slate-400">Base sin IVA</span>
+            <div className="flex justify-between text-[12px]">
+              <span className="text-slate-500">Base sin IVA</span>
               <span className="font-semibold text-slate-600 tabular-nums">{fmtM(conFacturaBase)}</span>
             </div>
-            <div className="flex justify-between text-[11px]">
-              <span className="text-slate-400">IVA (19%)</span>
+            <div className="flex justify-between text-[12px]">
+              <span className="text-slate-500">IVA (19%)</span>
               <span className="font-semibold text-indigo-500 tabular-nums">{fmtM(conFacturaIva)}</span>
             </div>
           </div>
           {rawFacturado > 0 && (
-            <p className="text-[10px] text-slate-400">
+            <p className="text-[12px] text-slate-500">
               {Math.round((rawConFactura / rawFacturado) * 100)}% del ingresado
             </p>
           )}
-          <p className="text-[10px] text-indigo-400 cursor-pointer hover:text-indigo-600 mt-1.5"
+          <p className="text-[12px] text-indigo-400 cursor-pointer hover:text-indigo-600 mt-1.5"
             onClick={() => setOpenFacturados(criterioKPI)}>
             Ver detalle →
           </p>
@@ -251,35 +251,35 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
           className="bg-white border border-slate-200 rounded-2xl p-5 cursor-pointer"
           whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(220,38,38,0.15)' }}
           onClick={() => setOpenCartera(true)}>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Cartera Vencida</p>
-          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Créditos sin pago que superaron el umbral de días configurado</p>
+          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Cartera Vencida</p>
+          <p className="text-[12px] text-slate-500 leading-tight mt-0.5 mb-2">Créditos sin pago que superaron el umbral de días configurado</p>
           <p className="text-[38px] font-semibold text-rose-600 leading-none tabular-nums">{fmtM(carteraVenc)}</p>
-          <p className="text-[11px] text-slate-400 mt-2">
+          <p className="text-[12px] text-slate-500 mt-2">
             {data.cartera_vencida_clientes > 0
               ? `${data.cartera_vencida_clientes} cliente${data.cartera_vencida_clientes > 1 ? 's' : ''} con crédito vencido`
               : 'Sin créditos vencidos'}
           </p>
-          <p className="text-[10px] text-rose-400 mt-1">Ver detalle →</p>
+          <p className="text-[12px] text-rose-400 mt-1">Ver detalle →</p>
         </motion.div>
 
         <motion.div custom={4} variants={cardVar} initial="hidden" animate="visible"
           className="bg-white border border-slate-200 rounded-2xl p-5 relative overflow-hidden"
           whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(16,185,129,0.1)' }}>
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Total Recaudado</p>
-          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Abonos efectivamente cobrados en el período</p>
+          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Total Recaudado</p>
+          <p className="text-[12px] text-slate-500 leading-tight mt-0.5 mb-2">Abonos efectivamente cobrados en el período</p>
           <p className="text-[34px] font-semibold text-emerald-600 leading-none tabular-nums">{fmtM(totalRecaudado)}</p>
           <div className="mt-2.5 mb-2 border-t border-slate-100 pt-2 space-y-1">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-slate-400">Base sin IVA</span>
+            <div className="flex justify-between text-[12px]">
+              <span className="text-slate-500">Base sin IVA</span>
               <span className="font-semibold text-slate-600 tabular-nums">{fmtM(recaudadoBase)}</span>
             </div>
-            <div className="flex justify-between text-[11px]">
-              <span className="text-slate-400">IVA (19%)</span>
+            <div className="flex justify-between text-[12px]">
+              <span className="text-slate-500">IVA (19%)</span>
               <span className="font-semibold text-emerald-500 tabular-nums">{fmtM(recaudadoIva)}</span>
             </div>
           </div>
           {data.facturado_mes > 0 && (
-            <p className="text-[10px] text-slate-400">
+            <p className="text-[12px] text-slate-500">
               {Math.round((rawRecaudado / data.facturado_mes) * 100)}% del facturado
             </p>
           )}
@@ -296,8 +296,8 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
       <div className="grid grid-cols-12 gap-3">
         <motion.div custom={4} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-8 bg-white border border-slate-200 rounded-2xl p-5">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Estadísticas por mes</p>
-          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Evolución mensual de abonos, pendientes, créditos y número de ODPs en el período</p>
+          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Estadísticas por mes</p>
+          <p className="text-[12px] text-slate-500 leading-tight mt-0.5 mb-2">Evolución mensual de abonos, pendientes, créditos y número de ODPs en el período</p>
 
           {/* Leyenda manual */}
           <div className="flex flex-wrap gap-3 mb-3">
@@ -308,7 +308,7 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
               { color: '#6366f1', label: 'Créditos' },
               { color: '#0ea5e9', label: 'ODPs (eje →)', dashed: true },
             ].map(item => (
-              <span key={item.label} className="flex items-center gap-1 text-[10px] text-slate-500">
+              <span key={item.label} className="flex items-center gap-1 text-[12px] text-slate-500">
                 <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: item.color, opacity: item.dashed ? 0.8 : 1 }} />
                 {item.label}
               </span>
@@ -317,7 +317,7 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
 
           <div className="h-[200px]">
             {chartData.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-[12px] text-slate-400">
+              <div className="h-full flex items-center justify-center text-[12px] text-slate-500">
                 Sin datos para el periodo seleccionado
               </div>
             ) : (
@@ -342,8 +342,8 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
 
         <motion.div custom={5} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-4 bg-white border border-slate-200 rounded-2xl p-5 flex flex-col">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Estado de Caja</p>
-          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-4">Distribución de las ODPs del período según su estado de pago</p>
+          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Estado de Caja</p>
+          <p className="text-[12px] text-slate-500 leading-tight mt-0.5 mb-4">Distribución de las ODPs del período según su estado de pago</p>
           <div className="flex-1 flex flex-col items-center justify-center gap-4">
             <div className="w-[120px] h-[120px]">
               <DonutChart data={cajaDist} nameKey="name" dataKey="pct"
@@ -351,7 +351,7 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
             </div>
             <div className="w-full space-y-2">
               {cajaDist.map((c: any) => (
-                <div key={c.name} className="flex items-center text-[11px]">
+                <div key={c.name} className="flex items-center text-[12px]">
                   <span className="w-2 h-2 rounded-sm shrink-0 mr-2" style={{ background: CAJA_COLORS[c.name] || '#64748b' }} />
                   <span className="text-slate-500 capitalize flex-1">{c.name.replace(/_/g, ' ')}</span>
                   <span className="text-slate-800 font-semibold">{c.pct}%</span>
@@ -366,8 +366,8 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
       <div className="grid grid-cols-12 gap-3">
         <motion.div custom={6} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Embudo de conversión — periodo seleccionado</p>
-          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-4">Ciclo de vida de las ODPs desde su creación hasta la entrega; el % es relativo al total de creadas</p>
+          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Embudo de conversión — periodo seleccionado</p>
+          <p className="text-[12px] text-slate-500 leading-tight mt-0.5 mb-4">Ciclo de vida de las ODPs desde su creación hasta la entrega; el % es relativo al total de creadas</p>
           <div className="space-y-2.5">
             {embudoLabels.map((lbl, i) => {
               const val      = embudoVals[i];
@@ -375,11 +375,11 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
               const wPct     = Math.max((val / maxEmbudo) * 100, 3);
               const pctFirst = embudoVals[0] > 0 ? Math.round((val / embudoVals[0]) * 100) : 0;
               return (
-                <div key={lbl} className={`flex items-center gap-3 text-[11px] ${isSub ? 'pl-4 opacity-90' : ''}`}>
-                  <span className={`shrink-0 w-[105px] ${isSub ? 'text-slate-400 italic' : 'text-slate-400'}`}>{lbl}</span>
+                <div key={lbl} className={`flex items-center gap-3 text-[12px] ${isSub ? 'pl-4 opacity-90' : ''}`}>
+                  <span className={`shrink-0 w-[105px] ${isSub ? 'text-slate-500 italic' : 'text-slate-500'}`}>{lbl}</span>
                   <div className="flex-1 h-6 relative">
                     <motion.div
-                      className={`h-full flex items-center px-2.5 text-white text-[11px] font-semibold absolute left-0 top-0 ${isSub ? 'rounded-md' : 'rounded-lg'}`}
+                      className={`h-full flex items-center px-2.5 text-white text-[12px] font-semibold absolute left-0 top-0 ${isSub ? 'rounded-md' : 'rounded-lg'}`}
                       style={{ background: embudoColors[i], minWidth: 32, opacity: isSub ? 0.85 : 1 }}
                       initial={{ width: 0, opacity: 0 }}
                       animate={{ width: `${wPct}%`, opacity: isSub ? 0.85 : 1 }}
@@ -387,7 +387,7 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
                       {val}
                     </motion.div>
                   </div>
-                  <span className="text-slate-400 w-8 text-right shrink-0">{pctFirst}%</span>
+                  <span className="text-slate-500 w-8 text-right shrink-0">{pctFirst}%</span>
                 </div>
               );
             })}
@@ -396,15 +396,15 @@ export const PanelGeneral: React.FC<{ data: any; isLoading: boolean; period: Per
 
         <motion.div custom={7} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">ODPs por estado actual</p>
-          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-4">Snapshot en tiempo real de todas las ODPs — sin filtro de período</p>
+          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">ODPs por estado actual</p>
+          <p className="text-[12px] text-slate-500 leading-tight mt-0.5 mb-4">Snapshot en tiempo real de todas las ODPs — sin filtro de período</p>
           <div className="space-y-2">
             {estadosData
               .sort((a: any, b: any) => b.cantidad - a.cantidad)
               .map((s: any, i: number) => {
                 const barW = Math.max((s.cantidad / totalEstados) * 90, 2);
                 return (
-                  <div key={s.estado} className="flex items-center gap-2.5 text-[11px]">
+                  <div key={s.estado} className="flex items-center gap-2.5 text-[12px]">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ background: ESTADO_COLORS[s.estado] || '#64748b' }} />
                     <span className="text-slate-500 flex-1 truncate">{ESTADO_LABELS[s.estado] || s.estado}</span>
                     <div className="flex items-center gap-1.5">

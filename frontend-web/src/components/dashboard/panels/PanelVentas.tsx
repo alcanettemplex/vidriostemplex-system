@@ -70,9 +70,9 @@ const GaugeMeta: React.FC<{ real: number; meta: number }> = ({ real, meta }) => 
           transition={{ delay: 0.6, duration: 0.5 }}>
           {animPct}%
         </motion.p>
-        <p className="text-[10px] text-slate-400 mt-1 tracking-wide">de la meta</p>
+        <p className="text-[12px] text-slate-500 mt-1 tracking-wide">de la meta</p>
         <p className="text-[14px] text-slate-800 font-semibold mt-1 tabular-nums">{fmtM(real)}</p>
-        <p className="text-[10px] text-slate-400 mt-0.5">meta: {fmtM(meta)}</p>
+        <p className="text-[12px] text-slate-500 mt-0.5">meta: {fmtM(meta)}</p>
       </div>
     </div>
   );
@@ -111,7 +111,7 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
     );
   }
 
-  if (!data) return <div className="p-10 text-center text-slate-400 text-sm">Sin datos disponibles</div>;
+  if (!data) return <div className="p-10 text-center text-slate-500 text-sm">Sin datos disponibles</div>;
 
   const totalFacturado = data.total_facturado_mes || 0;
   const meta           = data.meta_facturacion_actual || 120_000_000;
@@ -131,9 +131,9 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
   // Helper: columna con desglose IVA apilado
   const MontoCol = ({ n, oa = 0, colorCls = 'text-slate-700' }: { n: number; oa?: number; colorCls?: string }) => (
     <div className="w-20 text-right shrink-0">
-      <p className={`text-[11px] font-semibold tabular-nums ${colorCls}`}>{fmtM(n)}</p>
-      <p className="text-[9px] text-slate-400 tabular-nums">{fmtM(baseOf(n, oa))}</p>
-      <p className="text-[9px] text-indigo-400 tabular-nums">IVA {fmtM(ivaOf(n, oa))}</p>
+      <p className={`text-[12px] font-semibold tabular-nums ${colorCls}`}>{fmtM(n)}</p>
+      <p className="text-[12px] text-slate-500 tabular-nums">{fmtM(baseOf(n, oa))}</p>
+      <p className="text-[12px] text-indigo-400 tabular-nums">IVA {fmtM(ivaOf(n, oa))}</p>
     </div>
   );
   const cartera        = data.cartera_vencida_detalle || [];
@@ -148,8 +148,8 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         {/* Gauge */}
         <motion.div custom={0} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 flex flex-col items-center gap-3">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest self-start">Meta mensual de facturación</p>
-          <p className="text-[9px] text-slate-400 leading-tight self-start">Avance del período sobre la meta total de todos los asesores</p>
+          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest self-start">Meta mensual de facturación</p>
+          <p className="text-[12px] text-slate-500 leading-tight self-start">Avance del período sobre la meta total de todos los asesores</p>
           <GaugeMeta real={totalFacturado} meta={meta} />
           <div className="grid grid-cols-2 gap-2 w-full">
             {[
@@ -158,16 +158,16 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
               { label: 'Ticket prom.', desc: 'Valor promedio por ODP', raw: data.ticket_promedio || 0, oa: ticketOA,                    color: 'text-slate-800',   ivaColor: 'text-indigo-400' },
             ].map((item, i) => (
               <div key={i} className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
-                <p className="text-[9px] text-slate-400 uppercase tracking-wider">{item.label}</p>
-                <p className="text-[8px] text-slate-300 mb-1">{item.desc}</p>
+                <p className="text-[11px] text-slate-600 uppercase tracking-wider">{item.label}</p>
+                <p className="text-[12px] text-slate-500 mb-1">{item.desc}</p>
                 <p className={`text-[13px] font-semibold tabular-nums ${item.color}`}>{fmtM(item.raw)}</p>
-                <p className="text-[9px] text-slate-400 tabular-nums mt-0.5">{fmtM(baseOf(item.raw, item.oa))}</p>
-                <p className={`text-[9px] tabular-nums ${item.ivaColor}`}>IVA {fmtM(ivaOf(item.raw, item.oa))}</p>
+                <p className="text-[12px] text-slate-500 tabular-nums mt-0.5">{fmtM(baseOf(item.raw, item.oa))}</p>
+                <p className={`text-[12px] tabular-nums ${item.ivaColor}`}>IVA {fmtM(ivaOf(item.raw, item.oa))}</p>
               </div>
             ))}
             <div className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
-              <p className="text-[9px] text-slate-400 uppercase tracking-wider">Sin facturar</p>
-              <p className="text-[8px] text-slate-300 mb-1">ODPs sin número de factura</p>
+              <p className="text-[11px] text-slate-600 uppercase tracking-wider">Sin facturar</p>
+              <p className="text-[12px] text-slate-500 mb-1">ODPs sin número de factura</p>
               <p className={`text-[13px] font-semibold tabular-nums ${(data.odps_sin_facturar || 0) > 5 ? 'text-amber-500' : 'text-slate-800'}`}>
                 {data.odps_sin_facturar || 0} ODPs
               </p>
@@ -178,27 +178,27 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
         {/* Ranking asesores */}
         <motion.div custom={1} variants={cardVar} initial="hidden" animate="visible"
           className="col-span-12 lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 flex flex-col">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Ranking — meta vs real por asesor</p>
-          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-3">Facturado y recaudado del período vs la meta asignada a cada asesor</p>
+          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Ranking — meta vs real por asesor</p>
+          <p className="text-[12px] text-slate-500 leading-tight mt-0.5 mb-3">Facturado y recaudado del período vs la meta asignada a cada asesor</p>
           {/* Header cols */}
           <div className="flex items-center gap-2 mb-2 px-1">
             <div className="flex-1" />
             <div className="w-20 text-right">
-              <p className="text-[9px] text-slate-400 uppercase tracking-wider">Meta</p>
-              <p className="text-[8px] text-slate-300">Base / IVA</p>
+              <p className="text-[11px] text-slate-600 uppercase tracking-wider">Meta</p>
+              <p className="text-[12px] text-slate-500">Base / IVA</p>
             </div>
             <div className="w-20 text-right">
-              <p className="text-[9px] text-slate-400 uppercase tracking-wider">Facturado</p>
-              <p className="text-[8px] text-slate-300">Base / IVA</p>
+              <p className="text-[11px] text-slate-600 uppercase tracking-wider">Facturado</p>
+              <p className="text-[12px] text-slate-500">Base / IVA</p>
             </div>
             <div className="w-20 text-right">
-              <p className="text-[9px] text-slate-400 uppercase tracking-wider">Recaudado</p>
-              <p className="text-[8px] text-slate-300">Base / IVA</p>
+              <p className="text-[11px] text-slate-600 uppercase tracking-wider">Recaudado</p>
+              <p className="text-[12px] text-slate-500">Base / IVA</p>
             </div>
-            <span className="text-[9px] text-slate-400 uppercase tracking-wider w-9 text-right">%</span>
+            <span className="text-[11px] text-slate-600 uppercase tracking-wider w-9 text-right">%</span>
           </div>
           {asesores.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-slate-400 text-[12px]">No hay usuarios registrados</div>
+            <div className="flex-1 flex items-center justify-center text-slate-500 text-[12px]">No hay usuarios registrados</div>
           ) : (
             <div className="flex-1 space-y-4 overflow-y-auto pr-1">
               {asesores.map((as: any, i: number) => {
@@ -221,7 +221,7 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[12px] font-semibold text-slate-700 truncate">{as.nombre}</span>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${badge.cls}`}>{badge.label}</span>
+                          <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${badge.cls}`}>{badge.label}</span>
                         </div>
                       </div>
                       <MontoCol n={as.meta}      colorCls="text-slate-500" />
@@ -245,11 +245,11 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
                     <div className="flex items-center gap-3 ml-6 mt-0.5">
                       <div className="flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full opacity-40" style={{ background: color }} />
-                        <span className="text-[9px] text-slate-400">Facturado</span>
+                        <span className="text-[12px] text-slate-500">Facturado</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-                        <span className="text-[9px] text-slate-400">Recaudado</span>
+                        <span className="text-[12px] text-slate-500">Recaudado</span>
                       </div>
                     </div>
                   </div>
@@ -264,21 +264,21 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <motion.div custom={2} variants={cardVar} initial="hidden" animate="visible"
           className={`rounded-2xl p-4 border ${carteraCritica > 0 ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'}`}>
-          <p className={`text-[10px] font-semibold uppercase tracking-widest ${carteraCritica > 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+          <p className={`text-[11px] font-semibold uppercase tracking-widest ${carteraCritica > 0 ? 'text-rose-500' : 'text-slate-600'}`}>
             Cartera Crítica &gt;60 días
           </p>
-          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Saldo de créditos vencidos sin pago a más de 60 días</p>
-          <p className={`text-[22px] font-semibold tabular-nums ${carteraCritica > 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+          <p className="text-[12px] text-slate-500 leading-tight mt-0.5 mb-2">Saldo de créditos vencidos sin pago a más de 60 días</p>
+          <p className={`text-[22px] font-semibold tabular-nums ${carteraCritica > 0 ? 'text-rose-500' : 'text-slate-500'}`}>
             {carteraCritica > 0 ? fmtM(carteraCritica) : 'Sin cartera crítica'}
           </p>
         </motion.div>
 
         <motion.div custom={3} variants={cardVar} initial="hidden" animate="visible"
           className={`rounded-2xl p-4 border ${(data.odps_atrasadas || 0) > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
-          <p className={`text-[10px] font-semibold uppercase tracking-widest ${(data.odps_atrasadas || 0) > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+          <p className={`text-[11px] font-semibold uppercase tracking-widest ${(data.odps_atrasadas || 0) > 0 ? 'text-amber-600' : 'text-slate-600'}`}>
             ODPs Vencidas sin Entregar
           </p>
-          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Fecha de entrega pasada que aún no han llegado a Instalada</p>
+          <p className="text-[12px] text-slate-500 leading-tight mt-0.5 mb-2">Fecha de entrega pasada que aún no han llegado a Instalada</p>
           <p className={`text-[22px] font-semibold tabular-nums ${(data.odps_atrasadas || 0) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
             {(data.odps_atrasadas || 0) > 0 ? `${data.odps_atrasadas} ODPs` : 'Sin atrasos'}
           </p>
@@ -286,14 +286,14 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
 
         <motion.div custom={4} variants={cardVar} initial="hidden" animate="visible"
           className="bg-white border border-slate-200 rounded-2xl p-4">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Top Cliente</p>
-          <p className="text-[9px] text-slate-400 leading-tight mt-0.5 mb-2">Cliente con mayor facturación acumulada en el período</p>
+          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Top Cliente</p>
+          <p className="text-[12px] text-slate-500 leading-tight mt-0.5 mb-2">Cliente con mayor facturación acumulada en el período</p>
           {data.top_clientes?.[0] ? (
             <>
               <p className="text-[14px] font-semibold text-slate-800 truncate">{data.top_clientes[0].nombre}</p>
               <p className="text-[12px] text-indigo-600 tabular-nums mt-0.5">{fmtM(data.top_clientes[0].total)} · {data.top_clientes[0].odps} pedidos</p>
             </>
-          ) : <p className="text-slate-400 text-[12px]">Sin datos</p>}
+          ) : <p className="text-slate-500 text-[12px]">Sin datos</p>}
         </motion.div>
       </div>
 
@@ -301,25 +301,25 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
       <motion.div custom={5} variants={cardVar} initial="hidden" animate="visible"
         className="bg-white border border-slate-200 rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Alertas de Cartera</p>
-          <p className="text-[9px] text-slate-400 leading-tight mt-0.5">Clientes con créditos vencidos, ordenados por antigüedad del saldo</p>
+          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Alertas de Cartera</p>
+          <p className="text-[12px] text-slate-500 leading-tight mt-0.5">Clientes con créditos vencidos, ordenados por antigüedad del saldo</p>
           <div className="flex gap-3">
             {(data.cartera_por_antiguedad || []).map((cpa: any, i: number) => (
-              <div key={i} className="flex items-center gap-1.5 text-[10px]">
+              <div key={i} className="flex items-center gap-1.5 text-[12px]">
                 <span className={`w-1.5 h-1.5 rounded-full ${i===0?'bg-emerald-500':i===1?'bg-amber-500':'bg-rose-500'}`} />
-                <span className="text-slate-400">{cpa.rango}</span>
+                <span className="text-slate-500">{cpa.rango}</span>
                 <span className="text-slate-600 font-medium tabular-nums">{fmtM(cpa.total)}</span>
               </div>
             ))}
           </div>
         </div>
         {cartera.length === 0 ? (
-          <p className="text-center text-slate-400 py-6 text-[12px]">Sin alertas de cartera activas</p>
+          <p className="text-center text-slate-500 py-6 text-[12px]">Sin alertas de cartera activas</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="text-[9px] text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                <tr className="text-[11px] text-slate-600 uppercase tracking-wider border-b border-slate-100">
                   <th className="pb-2 font-semibold">Cliente</th>
                   <th className="pb-2 font-semibold text-right">Monto</th>
                   <th className="pb-2 font-semibold text-center">Días</th>
@@ -331,12 +331,12 @@ export const PanelVentas: React.FC<{ data: any; isLoading: boolean }> = ({ data,
                   <motion.tr key={i}
                     initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.1 + i * 0.04 }}
-                    className="text-[11px] hover:bg-slate-50 transition-colors">
+                    className="text-[12px] hover:bg-slate-50 transition-colors">
                     <td className="py-2 pr-3 text-slate-600 max-w-[160px] truncate">{cv.nombre}</td>
                     <td className="py-2 pr-3 text-right text-slate-800 font-medium tabular-nums">{fmtM(cv.monto)}</td>
                     <td className="py-2 text-center text-rose-500 font-semibold">+{cv.dias_vencido}d</td>
                     <td className="py-2 text-center">
-                      <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold uppercase ${
                         cv.riesgo === 'critico' ? 'bg-rose-100 text-rose-600'
                           : cv.riesgo === 'alerta' ? 'bg-amber-100 text-amber-600'
                             : 'bg-emerald-100 text-emerald-600'

@@ -4,6 +4,45 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-18 (4) — `react-toastify` sigue instalado solo como fachada de los avisos
+
+**Severidad:** Baja · **Estimación:** 1-2 h para retirarlo del todo
+
+Desde el 2026-09-18 los avisos los pinta **Sileo** (`sileo@0.1.5`), pero las 470 llamadas repartidas
+en 81 archivos se siguen escribiendo `toast.error('…')` importando `toast` de `react-toastify`.
+`services/configurarNotificaciones.ts` reemplaza en caliente esos métodos y los traduce a la API de
+Sileo (que recibe un objeto `{title, description, duration}` donde react-toastify recibe un texto).
+
+**Por qué se hizo así:** migrar 470 llamadas de golpe en un sistema en producción sin tests no se
+justificaba, y concentrar la traducción en un archivo tiene una ventaja que conviene no perder:
+**cambiar de librería de avisos vuelve a ser cosa de ese archivo, no de los 81.** Es la red de
+seguridad frente a que Sileo deje de mantenerse — hoy está en `0.1.5` y su última publicación es del
+22 de febrero de 2026, siete meses atrás.
+
+**Las dos consecuencias a tener presentes:**
+1. `react-toastify` **no se puede desinstalar todavía**: los 81 archivos lo importan. Ya no renderiza
+   nada (su `ToastContainer` se retiró), así que solo aporta el objeto que se intercepta y su peso
+   muerto en el bundle (~30 KB de código + 17 KB de CSS sin comprimir).
+2. El envoltorio depende de que ese objeto siga siendo **mutable**. Hoy lo es (no hay `Object.freeze`
+   en la v11.0.5, verificado). Si una versión futura lo congelara, **los avisos dejarían de salir**
+   —no habría error, simplemente nada—, así que conviene no actualizar react-toastify sin probar
+   que siguen apareciendo.
+
+**Salida limpia:** crear `utils/avisos.ts` que exporte el `toast` ya adaptado, cambiar el import en
+los 81 archivos (una línea cada uno, mecánico) y desinstalar `react-toastify`. Eso elimina las dos
+consecuencias de arriba de una vez.
+
+### Nota sobre la dependencia nueva
+
+`sileo` entró el 2026-09-18 para reemplazar un componente propio (`AvisoIsla.tsx`, ~180 líneas más
+la geometría SVG en CSS) que replicaba su diseño a mano y no convenció. Verificado antes de
+instalar: MIT, repositorio y autor coinciden con los del sitio oficial, `peerDependencies: react >=18`
+(compatible con el React 19 del proyecto), y no añadió ninguna vulnerabilidad al `npm audit`
+(siguen siendo 29, todas de la cadena de `react-scripts`). Arrastra `motion@12`, que comparte núcleo
+con el `framer-motion@12.35.0` ya instalado, así que el peso añadido es marginal.
+
+---
+
 ## 2026-09-18 (2) — Warnings de ESLint del frontend: 133 `no-unused-vars` saldados, 23 `exhaustive-deps` pendientes
 
 **Severidad:** Baja (lo saldado) · Media (lo pendiente) · **Estimación:** 2-3 h revisar los `exhaustive-deps`

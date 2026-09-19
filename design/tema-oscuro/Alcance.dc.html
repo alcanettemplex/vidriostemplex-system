@@ -1,0 +1,138 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    a { color: #4f46e5; } a:hover { color: #4338ca; }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+
+<div style="width: 1180px; height: 800px; background: #F8FAFC; padding: 28px; display: flex; flex-direction: column; gap: 18px">
+
+  <div>
+    <h2 style="margin: 0; font-size: 19px; font-weight: 800; color: #0F172A; letter-spacing: -0.2px">Qué pasa el día que se enciende</h2>
+    <p style="margin: 6px 0 0 0; font-size: 13px; color: #64748B; max-width: 860px; text-wrap: pretty">El tema oscuro solo alcanza a lo que lee los tokens. Hoy eso es un módulo de veintiuno: el resto pinta sus colores a mano y se queda en claro.</p>
+  </div>
+
+  <!-- Las dos mitades -->
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px">
+
+    <!-- Proveedores: sí obedece -->
+    <div style="display: flex; flex-direction: column; gap: 9px">
+      <div style="display: flex; align-items: center; gap: 8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+        <span style="font-size: 13px; font-weight: 700; color: #065F46">Proveedores — obedece al tema</span>
+      </div>
+      <div style="border: 2px solid #059669; border-radius: 12px; overflow: hidden; background: #0B1120">
+        <div style="background: #151C2C; border-bottom: 1px solid #1F2A3C; padding: 11px 14px; display: flex; align-items: center; justify-content: space-between">
+          <span style="font-size: 13px; font-weight: 700; color: #E6EDF7">Consultar Precios</span>
+          <span style="font-size: 10px; font-weight: 700; color: #818CF8; background: rgba(129,140,248,0.16); padding: 3px 8px; border-radius: 999px">12 archivos</span>
+        </div>
+        <div style="padding: 12px">
+          <div style="background: #151C2C; border: 1px solid #1F2A3C; border-radius: 9px; overflow: hidden">
+            <div style="background: #111827; padding: 7px 11px; border-bottom: 1px solid #1F2A3C; display: grid; grid-template-columns: 2fr 1fr; gap: 0">
+              <span style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #8A99B0">Producto</span>
+              <span style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #8A99B0; text-align: right">Precio</span>
+            </div>
+            <div style="padding: 9px 11px; border-bottom: 1px solid #172033; display: grid; grid-template-columns: 2fr 1fr; gap: 0">
+              <span style="font-size: 11.5px; color: #E6EDF7">Perfil marco 3832</span>
+              <span style="font-size: 11.5px; font-weight: 700; color: #34D399; text-align: right">$ 18.400</span>
+            </div>
+            <div style="padding: 9px 11px; display: grid; grid-template-columns: 2fr 1fr; gap: 0">
+              <span style="font-size: 11.5px; color: #E6EDF7">Vidrio templado 6mm</span>
+              <span style="font-size: 11.5px; font-weight: 700; color: #E6EDF7; text-align: right">$ 92.300</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="margin: 0; font-size: 11.5px; color: #475569; line-height: 1.45"><strong style="color:#0F172A">Lee <code style="background:#F1F5F9; padding:1px 5px; border-radius:4px; font-size:11px">var(--surface)</code></strong>, así que cambia solo.</p>
+    </div>
+
+    <!-- El resto: no obedece -->
+    <div style="display: flex; flex-direction: column; gap: 9px">
+      <div style="display: flex; align-items: center; gap: 8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+        <span style="font-size: 13px; font-weight: 700; color: #991B1B">Los otros 20 módulos — se quedan en claro</span>
+      </div>
+      <div style="border: 2px solid #DC2626; border-radius: 12px; overflow: hidden; background: #F8FAFC">
+        <div style="background: #FFFFFF; border-bottom: 1px solid #E2E8F0; padding: 11px 14px; display: flex; align-items: center; justify-content: space-between">
+          <span style="font-size: 13px; font-weight: 700; color: #0F172A">Compras · Órdenes</span>
+          <span style="font-size: 10px; font-weight: 700; color: #B91C1C; background: #FEE2E2; padding: 3px 8px; border-radius: 999px">116 archivos</span>
+        </div>
+        <div style="padding: 12px">
+          <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 9px; overflow: hidden">
+            <div style="background: #F8FAFC; padding: 7px 11px; border-bottom: 1px solid #E2E8F0; display: grid; grid-template-columns: 2fr 1fr; gap: 0">
+              <span style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748B">ODC</span>
+              <span style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748B; text-align: right">Estado</span>
+            </div>
+            <div style="padding: 9px 11px; border-bottom: 1px solid #F1F5F9; display: grid; grid-template-columns: 2fr 1fr; gap: 0">
+              <span style="font-size: 11.5px; color: #0F172A">ODC-1042 · Alúmina</span>
+              <span style="font-size: 10.5px; font-weight: 600; color: #B45309; text-align: right">Pendiente</span>
+            </div>
+            <div style="padding: 9px 11px; display: grid; grid-template-columns: 2fr 1fr; gap: 0">
+              <span style="font-size: 11.5px; color: #0F172A">ODC-1043 · Templacol</span>
+              <span style="font-size: 10.5px; font-weight: 600; color: #059669; text-align: right">Recibida</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="margin: 0; font-size: 11.5px; color: #475569; line-height: 1.45"><strong style="color:#0F172A">Escribe <code style="background:#F1F5F9; padding:1px 5px; border-radius:4px; font-size:11px">bg-white</code> y <code style="background:#F1F5F9; padding:1px 5px; border-radius:4px; font-size:11px">text-slate-900</code></strong> a mano: el tema no lo alcanza.</p>
+    </div>
+  </div>
+
+  <!-- La cuenta -->
+  <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: baseline; justify-content: space-between">
+      <p style="margin: 0; font-size: 14px; font-weight: 700; color: #0F172A">Cuánto falta para que el tema alcance a todo</p>
+      <p style="margin: 0; font-size: 12px; color: #64748B">medido sobre <strong style="color:#0F172A">128</strong> archivos <code style="font-size:11px">.tsx</code> de <code style="font-size:11px">src/features/</code></p>
+    </div>
+
+    <div style="display: flex; height: 26px; border-radius: 8px; overflow: hidden; border: 1px solid #E2E8F0">
+      <div style="width: 9.4%; background: #059669; display: flex; align-items: center; justify-content: center">
+        <span style="font-size: 10px; font-weight: 800; color: #FFFFFF">12</span>
+      </div>
+      <div style="flex: 1; background: #F1F5F9; display: flex; align-items: center; padding-left: 12px">
+        <span style="font-size: 11px; font-weight: 700; color: #64748B">116 archivos todavía pintan sus colores a mano</span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 11px">
+        <p style="margin: 0; font-size: 21px; font-weight: 800; color: #0F172A; line-height: 1">5.108</p>
+        <p style="margin: 3px 0 0 0; font-size: 11px; color: #64748B; line-height: 1.35">usos de <code style="font-size:10.5px">slate-*</code> sueltos por reemplazar</p>
+      </div>
+      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 11px">
+        <p style="margin: 0; font-size: 21px; font-weight: 800; color: #0F172A; line-height: 1">19</p>
+        <p style="margin: 3px 0 0 0; font-size: 11px; color: #64748B; line-height: 1.35">familias de color distintas conviviendo</p>
+      </div>
+      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 11px">
+        <p style="margin: 0; font-size: 21px; font-weight: 800; color: #0F172A; line-height: 1">37</p>
+        <p style="margin: 3px 0 0 0; font-size: 11px; color: #64748B; line-height: 1.35">archivos con hex escrito a mano</p>
+      </div>
+      <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 10px; padding: 11px">
+        <p style="margin: 0; font-size: 21px; font-weight: 800; color: #065F46; line-height: 1">16</p>
+        <p style="margin: 3px 0 0 0; font-size: 11px; color: #047857; line-height: 1.35">tokens oscuros <strong>ya escritos</strong> y esperando</p>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 9px; align-items: flex-start; background: #EEF2FF; border: 1px solid #E0E7FF; border-radius: 10px; padding: 11px 13px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+      <p style="margin: 0; font-size: 12px; color: #3730A3; line-height: 1.5; text-wrap: pretty">Encender el interruptor sin migrar nada <strong>no rompe</strong> lo que hoy funciona: los módulos sin tokens simplemente ignoran el tema y siguen en claro. Por eso el interruptor puede entrar primero y la migración ir módulo por módulo, sin una gran reescritura.</p>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

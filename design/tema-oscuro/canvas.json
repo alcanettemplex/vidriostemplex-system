@@ -1,0 +1,31 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "title": "El interruptor en su sitio", "x": 0, "y": 0, "w": 1180, "h": 860 },
+    { "file": "Ubicaciones.dc.html", "title": "Tres ubicaciones posibles", "x": 1300, "y": 0, "w": 1180, "h": 720 },
+    { "file": "Alcance.dc.html", "title": "Hasta dónde llega el tema", "x": 2600, "y": 0, "w": 1180, "h": 800 }
+  ],
+  "annotations": [
+    {
+      "id": "nota-lectura",
+      "x": 0,
+      "y": -190,
+      "w": 560,
+      "text": "CÓMO LEER ESTE CANVAS\n\nLa paleta oscura no se diseña aquí: ya existe, escrita en index.css y documentada en el canvas de Proveedores. Lo que se decide aquí es el interruptor que la enciende y hasta dónde llega.\n\nEl artboard de la izquierda tiene un control «modo» arriba: cámbialo a Oscuro para ver el mismo ERP con los tokens que ya están en el proyecto."
+    },
+    {
+      "id": "nota-ubicaciones",
+      "x": 1300,
+      "y": -190,
+      "w": 480,
+      "text": "Tres sitios donde cabe el interruptor, cada uno con lo que cuesta.\n\nLa A está dibujada en el artboard de la izquierda porque es la que recomiendo; las otras dos son igual de aplicables."
+    },
+    {
+      "id": "nota-alcance",
+      "x": 2600,
+      "y": -190,
+      "w": 520,
+      "text": "El punto que importa para decidir: encender el tema NO rompe los módulos que no lo entienden — se quedan en claro.\n\nPor eso el interruptor puede entrar solo, y la migración de los otros 116 archivos ir módulo por módulo cuando haya tiempo."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

@@ -1,0 +1,248 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    a { color: #4f46e5; } a:hover { color: #4338ca; }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+
+<div style="width: 1180px; height: 860px; display: flex; flex-direction: column; background: {{t.bg}}">
+
+  <!-- Navbar: h-16, bg-white, border-b slate-200 -->
+  <div style="height: 64px; flex-shrink: 0; background: {{t.surface}}; border-bottom: 1px solid {{t.border}}; display: flex; align-items: center; justify-content: space-between; padding: 0 24px">
+    <div style="display: flex; align-items: center; gap: 14px">
+      <div style="width: 30px; height: 30px; border-radius: 8px; background: {{t.primary}}; display: flex; align-items: center; justify-content: center">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"></path><path d="M3 9h18"></path><path d="M9 21V9"></path></svg>
+      </div>
+      <span style="font-size: 15px; font-weight: 800; color: {{t.text}}; letter-spacing: -0.2px">Vidrios Templex</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 16px">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="{{t.textSubtle}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+      <div style="width: 32px; height: 32px; border-radius: 999px; background: {{t.primary}}; display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: 700; font-size: 13px">L</div>
+    </div>
+  </div>
+
+  <div style="flex: 1; display: flex; min-height: 0">
+
+    <!-- Sidebar: w-64 = 256px -->
+    <div style="width: 256px; flex-shrink: 0; background: {{t.surface}}; border-right: 1px solid {{t.border}}; display: flex; flex-direction: column">
+
+      <!-- Chip del rol: px-4 pt-5 pb-3 -->
+      <div style="padding: 20px 16px 12px 16px">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: {{t.surfaceSubtle}}; border-radius: 12px; border: 1px solid {{t.borderSoft}}">
+          <div style="width: 36px; height: 36px; border-radius: 999px; background: {{t.primary}}; display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: 700; font-size: 14px; flex-shrink: 0">L</div>
+          <div style="overflow: hidden">
+            <p style="margin: 0; font-size: 14px; font-weight: 700; color: {{t.textStrong}}">Luis Alcalá</p>
+            <p style="margin: 2px 0 0 0; font-size: 11px; color: {{t.primary}}; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em">root</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Menú -->
+      <div style="flex: 1; padding: 0 12px 24px 12px; display: flex; flex-direction: column; gap: 20px; overflow: hidden">
+        <sc-for list="{{secciones}}" as="sec" hint-placeholder-count="3">
+          <div>
+            <p style="margin: 0 0 4px 0; padding: 0 8px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: {{t.textSubtle}}">{{sec.nombre}}</p>
+            <div style="display: flex; flex-direction: column; gap: 2px">
+              <sc-for list="{{sec.items}}" as="it" hint-placeholder-count="4">
+                <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; background: {{it.bg}}; color: {{it.fg}}; border: 1px solid {{it.bd}}">
+                  <span style="width: 16px; height: 16px; flex-shrink: 0; display: block" data-icon="{{it.icono}}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{it.ic}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{it.d}}"></path></svg>
+                  </span>
+                  {{it.texto}}
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- ▼ LO NUEVO: selector de tema, encima del pie existente ▼ -->
+      <div style="padding: 12px 16px; border-top: 1px solid {{t.borderSoft}}">
+        <p style="margin: 0 0 8px 0; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: {{t.textSubtle}}">Apariencia</p>
+        <div style="display: flex; gap: 4px; padding: 3px; background: {{t.surfaceSunken}}; border-radius: 10px; border: 1px solid {{t.borderSoft}}">
+          <div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 4px; border-radius: 7px; font-size: 11.5px; font-weight: 600; background: {{claroBg}}; color: {{claroFg}}; box-shadow: {{claroShadow}}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{claroFg}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>
+            Claro
+          </div>
+          <div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 4px; border-radius: 7px; font-size: 11.5px; font-weight: 600; background: {{oscuroBg}}; color: {{oscuroFg}}; box-shadow: {{oscuroShadow}}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{oscuroFg}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+            Oscuro
+          </div>
+          <div style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 4px; border-radius: 7px; font-size: 11.5px; font-weight: 600; background: {{autoBg}}; color: {{autoFg}}; box-shadow: {{autoShadow}}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{autoFg}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"></rect><path d="M8 21h8M12 17v4"></path></svg>
+            Auto
+          </div>
+        </div>
+      </div>
+
+      <!-- Pie existente: px-4 py-3, border-t slate-100 -->
+      <div style="padding: 12px 16px; border-top: 1px solid {{t.borderSoft}}">
+        <p style="margin: 0; font-size: 10px; color: {{t.textSubtle}}; text-align: center; font-weight: 500">Vidrios Templex System v1.0</p>
+      </div>
+    </div>
+
+    <!-- Contenido: módulo Proveedores (el único que hoy usa tokens) -->
+    <div style="flex: 1; padding: 24px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+
+      <div style="display: flex; align-items: center; justify-content: space-between">
+        <div>
+          <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: {{t.text}}; letter-spacing: -0.3px">Proveedores</h1>
+          <p style="margin: 4px 0 0 0; font-size: 12px; color: {{t.textMuted}}">Precios de compra, equivalencias y facturas electrónicas</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 10px; background: {{t.primary}}; color: #ffffff; font-size: 13px; font-weight: 600">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+          Nuevo proveedor
+        </div>
+      </div>
+
+      <!-- Pestañas estilo carpeta (FolderTabs) -->
+      <div style="display: flex; gap: 4px; align-items: flex-end">
+        <div style="padding: 9px 18px; border-radius: 12px 12px 0 0; background: {{t.surface}}; border: 1px solid {{t.border}}; border-bottom: none; font-size: 12.5px; font-weight: 700; color: {{t.primary}}">Consultar Precios</div>
+        <div style="padding: 8px 16px; border-radius: 12px 12px 0 0; background: {{t.surfaceSubtle}}; border: 1px solid {{t.border}}; border-bottom: none; font-size: 12.5px; font-weight: 500; color: {{t.textMuted}}">Cargar Facturas</div>
+        <div style="padding: 8px 16px; border-radius: 12px 12px 0 0; background: {{t.surfaceSubtle}}; border: 1px solid {{t.border}}; border-bottom: none; font-size: 12.5px; font-weight: 500; color: {{t.textMuted}}">Por Mapear</div>
+        <div style="padding: 8px 16px; border-radius: 12px 12px 0 0; background: {{t.surfaceSubtle}}; border: 1px solid {{t.border}}; border-bottom: none; font-size: 12.5px; font-weight: 500; color: {{t.textMuted}}">Equivalencias</div>
+      </div>
+
+      <!-- Cuerpo de la carpeta -->
+      <div style="flex: 1; background: {{t.surface}}; border: 1px solid {{t.border}}; border-top: none; border-radius: 0 14px 14px 14px; padding: 18px; margin-top: -16px; display: flex; flex-direction: column; gap: 14px">
+
+        <div style="display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: {{t.surfaceSunken}}; border: 1px solid {{t.borderStrong}}; border-radius: 10px">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{t.textSubtle}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+          <span style="font-size: 13px; color: {{t.textSubtle}}">Buscar producto, código o proveedor…</span>
+        </div>
+
+        <!-- Tabla -->
+        <div style="border: 1px solid {{t.border}}; border-radius: 12px; overflow: hidden">
+          <div style="display: grid; grid-template-columns: 2.4fr 1.3fr 1fr 1fr; gap: 0; background: {{t.surfaceSubtle}}; border-bottom: 1px solid {{t.border}}; padding: 9px 14px">
+            <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: {{t.textMuted}}">Producto</span>
+            <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: {{t.textMuted}}">Proveedor</span>
+            <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: {{t.textMuted}}">Modalidad</span>
+            <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: {{t.textMuted}}; text-align: right">Precio</span>
+          </div>
+          <sc-for list="{{filas}}" as="f" hint-placeholder-count="5">
+            <div style="display: grid; grid-template-columns: 2.4fr 1.3fr 1fr 1fr; gap: 0; padding: 11px 14px; border-bottom: 1px solid {{t.borderSubtle}}; align-items: center">
+              <span style="font-size: 13px; color: {{t.text}}; font-weight: 500">{{f.producto}}</span>
+              <span style="font-size: 12.5px; color: {{t.textMuted}}">{{f.proveedor}}</span>
+              <span style="font-size: 11px; font-weight: 600; color: {{t.primary}}; background: {{t.primarySoft}}; padding: 3px 8px; border-radius: 999px; justify-self: start">{{f.modalidad}}</span>
+              <span style="font-size: 13px; font-weight: 700; color: {{f.color}}; text-align: right">{{f.precio}}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 10px; background: {{t.warningSoft}}; border: 1px solid {{t.warningBorder}}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{t.warning}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"></path><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path></svg>
+          <span style="font-size: 12.5px; color: {{t.warning}}; font-weight: 600">3 códigos sin equivalencia esperando en la bandeja</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"modo":{"editor":"enum","options":["Claro","Oscuro"],"default":"Claro","section":"Tema"}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const oscuro = (this.props.modo ?? 'Claro') === 'Oscuro';
+
+    // Tema claro: los valores Tailwind que el Sidebar y el Navbar usan hoy.
+    const claro = {
+      bg: '#F8FAFC', surface: '#FFFFFF', surfaceSubtle: '#F8FAFC', surfaceSunken: '#F1F5F9',
+      border: '#E2E8F0', borderStrong: '#CBD5E1', borderSoft: '#F1F5F9', borderSubtle: '#F1F5F9',
+      text: '#0F172A', textStrong: '#1E293B', textMuted: '#64748B', textSubtle: '#94A3B8',
+      primary: '#4F46E5', primarySoft: '#EEF2FF',
+      activeBg: '#EEF2FF', activeFg: '#4338CA', activeBd: '#E0E7FF',
+      idleFg: '#475569', idleIcon: '#94A3B8',
+      warning: '#B45309', warningSoft: 'rgba(217,119,6,0.09)', warningBorder: '#FDE68A',
+      positive: '#059669', danger: '#DC2626',
+    };
+
+    // Tema oscuro: los tokens que YA existen en index.css, sin inventar ninguno.
+    const oscuroT = {
+      bg: '#0B1120', surface: '#151C2C', surfaceSubtle: '#111827', surfaceSunken: '#0E1523',
+      border: '#1F2A3C', borderStrong: '#2C3A50', borderSoft: '#172033', borderSubtle: '#172033',
+      text: '#E6EDF7', textStrong: '#E6EDF7', textMuted: '#8A99B0', textSubtle: '#64748B',
+      primary: '#818CF8', primarySoft: 'rgba(129,140,248,0.16)',
+      activeBg: 'rgba(129,140,248,0.16)', activeFg: '#A5B4FC', activeBd: '#2C3A50',
+      idleFg: '#8A99B0', idleIcon: '#64748B',
+      warning: '#FBBF24', warningSoft: 'rgba(251,191,36,0.14)', warningBorder: '#2C3A50',
+      positive: '#34D399', danger: '#F87171',
+    };
+
+    const t = oscuro ? oscuroT : claro;
+
+    // Trazados de icono en la cuadrícula 24 de lucide, el set que usa el ERP.
+    const ICONOS = {
+      dashboard: 'M3 13h8V3H3v10zm10 8h8V11h-8v10zM3 21h8v-6H3v6zM13 9h8V3h-8v6z',
+      clientes: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      odp: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8',
+      crm: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+      produccion: 'M2 20h20M4 20V8l6 4V8l6 4V8l4 3v9',
+      compras: 'M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0',
+      proveedores: 'M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18zM6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M10 10h4M10 14h4M10 18h4',
+      inventario: 'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z',
+    };
+
+    const item = (texto, icono, activo) => ({
+      texto,
+      icono,
+      d: ICONOS[icono],
+      bg: activo ? t.activeBg : 'transparent',
+      fg: activo ? t.activeFg : t.idleFg,
+      bd: activo ? t.activeBd : 'transparent',
+      ic: activo ? t.primary : t.idleIcon,
+    });
+
+    const secciones = [
+      { nombre: 'General', items: [item('Dashboard', 'dashboard', false)] },
+      { nombre: 'Comercial', items: [
+        item('Clientes', 'clientes', false),
+        item('Órdenes (ODP)', 'odp', false),
+        item('CRM & Leads', 'crm', false),
+      ] },
+      { nombre: 'Producción', items: [item('Producción', 'produccion', false)] },
+      { nombre: 'Logística', items: [
+        item('Compras', 'compras', false),
+        item('Proveedores', 'proveedores', true),
+        item('Inventario Perfilería', 'inventario', false),
+      ] },
+    ];
+
+    const filas = [
+      { producto: 'Perfil marco 3832 blanco', proveedor: 'Alúmina', modalidad: 'METRO', precio: '$ 18.400', color: t.text },
+      { producto: 'Vidrio templado 6mm incoloro', proveedor: 'Templacol', modalidad: 'M2', precio: '$ 92.300', color: t.positive },
+      { producto: 'Silicona neutra transparente', proveedor: 'Sika', modalidad: 'UNIDAD', precio: '$ 24.900', color: t.text },
+      { producto: 'Felpa 5x7 negra', proveedor: 'Alúmina', modalidad: 'METRO', precio: '$ 1.250', color: t.text },
+      { producto: 'Cerradura multipunto 1P', proveedor: 'Vitelsa', modalidad: 'UNIDAD', precio: '$ 156.000', color: t.danger },
+    ];
+
+    // Estado visual del segmentado: la opción viva es la del tweak.
+    const activoBg = oscuro ? t.surface : '#FFFFFF';
+    const sombra = oscuro ? '0 1px 2px rgba(0,0,0,0.4)' : '0 1px 2px rgba(15,23,42,0.08)';
+
+    return {
+      t, secciones, filas,
+      claroBg: oscuro ? 'transparent' : activoBg,
+      claroFg: oscuro ? t.textMuted : t.primary,
+      claroShadow: oscuro ? 'none' : sombra,
+      oscuroBg: oscuro ? activoBg : 'transparent',
+      oscuroFg: oscuro ? t.primary : t.textMuted,
+      oscuroShadow: oscuro ? sombra : 'none',
+      autoBg: 'transparent',
+      autoFg: t.textMuted,
+      autoShadow: 'none',
+    };
+  }
+}
+</script>
+</body>
+</html>
