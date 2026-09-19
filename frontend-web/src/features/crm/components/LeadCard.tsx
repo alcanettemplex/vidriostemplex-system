@@ -122,7 +122,7 @@ const LeadCard: React.FC<LeadCardProps> = ({ lead, stageId, rol, onTakeFromPool 
             <span className="truncate font-medium text-slate-600">{lead.producto_interes || 'Sin definir'}</span>
           </div>
           {lead.descripcion_contexto && (
-            <p className="text-[11px] text-slate-500 leading-tight line-clamp-2 pl-0.5 italic">
+            <p className="text-[22px] leading-snug text-slate-500 pl-0.5 italic whitespace-pre-wrap break-words">
               {lead.descripcion_contexto}
             </p>
           )}

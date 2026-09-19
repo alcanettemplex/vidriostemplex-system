@@ -188,7 +188,7 @@ const TablaFila: React.FC<{
             </p>
             <p className="text-[10px] text-slate-500 mt-0.5">{lead.producto_interes || '—'}</p>
             {lead.descripcion_contexto && (
-              <p className="text-[10px] text-slate-400 italic truncate max-w-[200px]">{lead.descripcion_contexto}</p>
+              <p className="text-[20px] leading-snug text-slate-500 italic whitespace-pre-wrap break-words max-w-[200px]">{lead.descripcion_contexto}</p>
             )}
           </div>
         </div>
@@ -649,7 +649,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                       </p>
                       <p className="text-[11px] text-slate-500 truncate mt-0.5">{lead.producto_interes || '—'}</p>
                       {lead.descripcion_contexto && (
-                        <p className="text-[10px] text-slate-400 italic truncate">{lead.descripcion_contexto}</p>
+                        <p className="text-[20px] leading-snug text-slate-500 italic whitespace-pre-wrap break-words">{lead.descripcion_contexto}</p>
                       )}
                       {/* Asesor asignado */}
                       <div className="flex items-center gap-1 mt-1">
