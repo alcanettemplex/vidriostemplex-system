@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
-import { BookOpen, Lock, Download, Eye, HardDrive, Users } from 'lucide-react';
+import { BookOpen, Lock, Eye, HardDrive, Users } from 'lucide-react';
 import ManualVisor from './components/ManualVisor';
 import { TOC_USUARIO, TOC_TECNICO } from './data/toc';
 

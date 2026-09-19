@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Settings, TrendingUp, TrendingDown } from 'lucide-react';
 import {
   ComposedChart, Bar, Line,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
+  XAxis, YAxis, Tooltip, ResponsiveContainer
 } from 'recharts';
 import DonutChart from '../charts/DonutChart';
 import CarteraVencidaModal from './CarteraVencidaModal';

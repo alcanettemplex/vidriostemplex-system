@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { RefreshCw, TrendingUp, TrendingDown, CheckCircle2, XCircle, Clock, Trophy } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiGetCRMStats } from '../crmService';
-import { IconDollar, IconTarget, IconLeads, IconUserCheck, IconTrophy, IconSparkles, IconCheck, IconBarChart, IconClock, IconActivity } from './CRMIcons';
+import { IconDollar, IconTarget, IconLeads, IconUserCheck, IconTrophy, IconCheck, IconClock, IconActivity } from './CRMIcons';
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 const fmtCOP = (v: number, compact = false) =>
@@ -10,9 +10,6 @@ const fmtCOP = (v: number, compact = false) =>
     style: 'currency', currency: 'COP', maximumFractionDigits: 0,
     ...(compact ? { notation: 'compact' } : {})
   }).format(v);
-
-const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio',
-  'Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 // ─── InfoTooltip ──────────────────────────────────────────────────────────────
 const InfoTooltip: React.FC<{ text: string }> = ({ text }) => (

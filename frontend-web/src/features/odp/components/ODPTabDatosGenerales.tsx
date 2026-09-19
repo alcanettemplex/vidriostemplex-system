@@ -1,7 +1,6 @@
 import React from 'react';
 import {
-  FileText, MapPin, Calendar, User, Phone, Building2, CheckCircle2, Package,
-  Wrench, Sparkles, Film, Box, Archive
+  FileText, MapPin, Calendar, User, Phone, Building2, CheckCircle2
 } from 'lucide-react';
 import { Badge, InfoRow } from './ODPFichaModal.utils';
 

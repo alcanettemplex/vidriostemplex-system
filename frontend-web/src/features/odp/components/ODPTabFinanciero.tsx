@@ -1,6 +1,6 @@
 import React from 'react';
 import { InfoRow, Badge, cajaColor, fmt } from './ODPFichaModal.utils';
-import { CreditCard, ExternalLink, AlertCircle, CheckCircle2, TrendingUp } from 'lucide-react';
+import { CreditCard, ExternalLink, AlertCircle } from 'lucide-react';
 
 const TabFinanciero: React.FC<{ odp: any }> = ({ odp }) => {
   const valorTotal = Number(odp.valor_total) || 0;

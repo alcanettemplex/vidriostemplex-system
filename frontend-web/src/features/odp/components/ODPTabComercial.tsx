@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { Package, Plus, DollarSign, CheckCircle2, ExternalLink, Images, Camera, Trash2 } from 'lucide-react';
+import { Package, Plus, DollarSign } from 'lucide-react';
 import { Badge, normalizarItemLabel, fmt } from './ODPFichaModal.utils';
 import SAPModal from './SAPModal';
 import CotizacionCapturas from './CotizacionCapturas';
-import API from '../../../services/config';
-import axios from 'axios';
 import { useSoloLectura } from '../../../utils/permisos';
 
 const estadoCotColor: Record<string, string> = {

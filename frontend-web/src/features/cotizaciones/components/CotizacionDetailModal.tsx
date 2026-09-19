@@ -3,8 +3,8 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, Chip, Typography, Box, Stack, Divider,
   Table, TableHead, TableRow, TableCell, TableBody,
-  IconButton, Tooltip, CircularProgress, Alert,
-  MenuItem, Select, FormControl, InputLabel, TextField,
+  IconButton, CircularProgress, Alert,
+  TextField,
 } from '@mui/material';
 import PrintIcon from '@mui/icons-material/Print';
 import EditIcon from '@mui/icons-material/Edit';
@@ -15,7 +15,7 @@ import SendIcon from '@mui/icons-material/Send';
 import CloseIcon from '@mui/icons-material/Close';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { updateCotizacionInList } from '../cotizacionesSlice';
 import {
   CotizacionType, CotizacionItemType, EstadoCOT,
@@ -36,12 +36,6 @@ const LABEL_ESTADO: Record<EstadoCOT, string> = {
   rechazada: 'Rechazada',
   vencida: 'Vencida',
   convertida: 'Convertida',
-};
-
-const TRANSICIONES: Partial<Record<EstadoCOT, EstadoCOT[]>> = {
-  borrador: ['enviada', 'rechazada'],
-  enviada: ['aprobada', 'rechazada', 'vencida', 'borrador'],
-  aprobada: ['rechazada'],
 };
 
 interface Props {
@@ -133,9 +127,7 @@ const CotizacionDetailModal: React.FC<Props> = ({ open, onClose, cotizacion: cot
   const gastos = items.filter(i => i.seccion === 'gasto_instalacion').sort((a, b) => a.orden - b.orden);
 
   const rolesAdmin = ['root', 'admin', 'gerencia'];
-  const rolesComerciales = [...rolesAdmin, 'jefe_produccion', 'asesor_comercial'];
   const esAdmin = rolesAdmin.includes(userRol || '');
-  const esComercial = rolesComerciales.includes(userRol || '');
   const esPropietario = cot.creado_por === userId;
 
   const puedeEditar = (cot.estado === 'borrador' || cot.estado === 'enviada') && (esAdmin || esPropietario);

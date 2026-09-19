@@ -4,9 +4,8 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  MapPin, FileText, Play, CheckCircle2, Clock, Phone,
-  AlertCircle, AlertTriangle, RefreshCw, Printer, ExternalLink,
-  LayoutDashboard, History, Calendar, TrendingUp,
+  MapPin, FileText, CheckCircle2, Phone,
+  AlertTriangle, RefreshCw, Printer, LayoutDashboard, History, Calendar, TrendingUp,
   Award, Target, Zap, ShieldCheck, Camera, PauseCircle, Search
 } from 'lucide-react';
 import ReportarEntregaModal from './ReportarEntregaModal';
@@ -89,7 +88,6 @@ const InstaladorView: React.FC = () => {
   const abrirDocumentoConDetSap = async (odp: any, tipo: 'op' | 'tecnico' | 'sap' | 'det_sap') => {
     if (tipo === 'det_sap') {
       try {
-        const { data } = await axios.get(`${API}/api/detalle-sap-imagenes?odp_id=${odp.id}`, { headers });
         const el = document.getElementById(`print-det-sap-${odp.id}`);
         if (!el) { toast.error('Documento Det. SAP no disponible'); return; }
         abrirVentanaImpresion({
@@ -105,7 +103,7 @@ const InstaladorView: React.FC = () => {
             .excel-table th { font-weight: bold; text-align: center; }
           `,
         });
-      } catch { toast.error('Error al cargar Det. SAP'); }
+      } catch { toast.error('Error al abrir Det. SAP'); }
       return;
     }
     abrirDocumentoPrint(odp, tipo);

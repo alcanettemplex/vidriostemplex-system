@@ -163,12 +163,6 @@ const TABS = [
   { key: 'existencia',   label: 'En Existencia', icon: Package },
 ];
 
-const ESTADO_COMPRA_STYLE: Record<string, { label: string; className: string }> = {
-  pendiente:      { label: 'Pendiente',      className: 'bg-amber-50 text-amber-700 border-amber-200' },
-  en_odc:         { label: 'En ODC',         className: 'bg-blue-50 text-blue-700 border-blue-200' },
-  en_existencia:  { label: 'En existencia',  className: 'bg-green-50 text-green-700 border-green-200' },
-};
-
 // Helper: construye texto de tooltip comparando datos del ODCItem (viejos) vs SAPItem actual
 const buildTooltipModificado = (it: ODCItemConContexto): string => {
   const lines: string[] = ['⚠ ÍTEM MODIFICADO — valores al crear la ODC vs actuales:'];
@@ -189,8 +183,6 @@ const buildTooltipModificado = (it: ODCItemConContexto): string => {
 const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?: (nuevoEstado: string) => void; onFichaOdp?: (id: number) => void; soloLectura?: boolean }> = ({ odc, onActualizar, onEstadoCambiado, onFichaOdp, soloLectura }) => {
   const [loading, setLoading] = useState(false);
   const [verDetalle, setVerDetalle] = useState(false);
-  const [itemsDetalle, setItemsDetalle] = useState<any[] | null>(null);
-  const [loadingItemsDetalle, setLoadingItemsDetalle] = useState(false);
   const [editando, setEditando] = useState(false);
   const [editProveedor, setEditProveedor] = useState(odc.proveedor);
   const [editNotas, setEditNotas] = useState(odc.notas || '');
@@ -218,22 +210,6 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
 
   const token = sessionStorage.getItem('token');
 
-  const cargarItemsDetalle = async (): Promise<any[]> => {
-    if (itemsDetalle !== null) return itemsDetalle;
-    setLoadingItemsDetalle(true);
-    try {
-      const res = await axios.get(`${API}/api/compras/odc/${odc.id}/items`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setItemsDetalle(res.data);
-      return res.data;
-    } catch (e) {
-      console.error('Error cargando ítems ODC:', e);
-      return odc.items;
-    } finally {
-      setLoadingItemsDetalle(false);
-    }
-  };
   const odpsInfo = getODPsDeODC(odc);
   const sapsInfo = getSAPsDeODC(odc);
   const isMultiODP = odpsInfo.length > 1;
@@ -310,7 +286,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
       );
       setShowRecibirModal(false);
       // Si se marcaron todos → mover a recibidas
-      const listaItems = itemsDetalle ?? odc.items;
+      const listaItems = odc.items;
       const todosRecibidos = listaItems.every((it: any) => it.recibido || itemsSeleccionados.has(it.id));
       if (todosRecibidos && onEstadoCambiado) {
         onEstadoCambiado('recibido');

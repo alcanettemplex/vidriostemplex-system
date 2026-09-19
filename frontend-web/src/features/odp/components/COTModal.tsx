@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { X, Plus, Printer, FileText, DollarSign, ExternalLink } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { X, Printer, DollarSign, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import API from '../../../services/config';
 

@@ -3,8 +3,6 @@ import { AlertCircle, RefreshCw, AlertTriangle, CheckCircle2, Clock, TrendingUp 
 import { apiGetStatsProspectos } from '../crmService';
 import { IconLeads, IconTarget, IconCheck, IconClock, IconBarChart } from './CRMIcons';
 
-const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-
 interface Props { esVistaGlobal: boolean; fecha_desde?: string | null; fecha_hasta?: string | null; }
 
 // ─── InfoTooltip ──────────────────────────────────────────────────────────────

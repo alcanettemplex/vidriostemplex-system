@@ -8,7 +8,6 @@ import {
   Wrench,
   ShoppingCart,
   Calculator,
-  HardHat,
   Truck,
   Settings,
   Sliders,

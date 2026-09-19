@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { Bot, ArrowRight, Loader2, RefreshCw, CheckCircle2, Undo2 } from 'lucide-react';
+import { Bot, ArrowRight, RefreshCw, CheckCircle2, Undo2 } from 'lucide-react';
 import socket from '../../../store/socket';
 import API from '../../../services/config';
 

@@ -5,7 +5,7 @@ import {
   CheckCircle, XCircle, AlertTriangle, Download,
   Upload, RotateCcw, Trash2, ChevronRight, Cpu,
   Wifi, WifiOff, Clock, BarChart2, Lock, X, ExternalLink,
-  TrendingUp, Users, Package, FileText, Eye, DollarSign
+  TrendingUp, Package, FileText
 } from 'lucide-react';
 import { invalidarCatalogo } from '../../services/listasCache';
 

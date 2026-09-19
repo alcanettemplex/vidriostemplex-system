@@ -316,7 +316,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const [rutasHistorial, setRutasHistorial] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingHistorial, setLoadingHistorial] = useState(false);
-  const [historialCargado, setHistorialCargado] = useState(false);
+  const [, setHistorialCargado] = useState(false);
   const [fechaDesde, setFechaDesde] = useState<string>(getLunes());
   const [fechaHasta, setFechaHasta] = useState<string>(getDomingo());
   const [showModal, setShowModal] = useState(false);

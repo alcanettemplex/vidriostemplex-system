@@ -4,6 +4,108 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-18 (2) — Warnings de ESLint del frontend: 133 `no-unused-vars` saldados, 23 `exhaustive-deps` pendientes
+
+**Severidad:** Baja (lo saldado) · Media (lo pendiente) · **Estimación:** 2-3 h revisar los `exhaustive-deps`
+
+El `npm start` del frontend compilaba con ~156 warnings acumulados. Se limpiaron todos los
+`@typescript-eslint/no-unused-vars` (133); quedan vivos **23 `react-hooks/exhaustive-deps`** y
+**1 `no-mixed-operators`** (`LeadDetalleModal.tsx:188`).
+
+**Por qué los `exhaustive-deps` no se tocaron:** cada uno exige criterio, no limpieza mecánica.
+Un `useEffect` al que le falta una dependencia puede estar así **a propósito** —para que corra solo
+al montar y no en cada render que recrea la función— y agregarla a ciegas provoca loops infinitos
+de render. Son 23 decisiones individuales, cada una con su prueba manual; el fix masivo es
+justamente el camino que rompe cosas. Concentrados en: `ComprasPage` (4, todos por `headers`),
+`PedidosPVPage`, `ProduccionPage`, `ContabilidadPage`, `ConfiguracionPage`, `ODPTabProduccion`,
+`ReportarProblemaForm`. Vale la pena mirarlos si alguna vez se reporta "esto a veces no se
+actualiza" en esas pantallas: el síntoma típico de una dependencia faltante es una función que
+sigue viendo el valor viejo de una variable (closure obsoleto).
+
+**Lo que sí se resolvió (2026-09-18), y tres hallazgos que no eran cosméticos:**
+
+1. **119 imports sobrantes** en 25 archivos. Eliminados con un script AST-guiado
+   (`typescript` como parser, borrado por rangos textuales exactos) para no reformatear los
+   imports multilínea. **Trampa encontrada:** al borrar varios specifiers *consecutivos al final*
+   de un import (`{ A, B, C }` quitando B y C), los rangos de borrado se solapan y se llevan por
+   delante el `}` de cierre — rompió 5 archivos en el primer intento. La corrección fue anclar el
+   borrado del último specifier al anterior **que sobrevive**, más fusionar rangos solapados antes
+   de aplicarlos. `tsc --noEmit` detectó el daño de inmediato: es la verificación que hace segura
+   una limpieza masiva de imports.
+2. **`InstaladorView.tsx` hacía una petición HTTP desperdiciada.** `abrirDocumentoConDetSap`
+   llamaba a `GET /api/detalle-sap-imagenes?odp_id=...` y **descartaba la respuesta**: el documento
+   que imprime sale de `document.getElementById('print-det-sap-<id>').innerHTML`, un nodo ya
+   renderizado. Cada apertura de Det. SAP por un instalador gastaba una ida al backend para nada.
+   Llamada eliminada (no solo el destructuring, que habría callado a ESLint dejando vivo el
+   desperdicio). Relevante para el frente de egress.
+3. **`ComprasPage.tsx` tenía una cadena de estado muerta.** `cargarItemsDetalle` (~16 líneas) no la
+   invocaba nadie, y era la única que llamaba a `setItemsDetalle` — de modo que `itemsDetalle` ya
+   era permanentemente `null` y la línea `const listaItems = itemsDetalle ?? odc.items` **ya
+   resolvía siempre a `odc.items`**. Se eliminó el bloque completo (función + los dos `useState` +
+   la constante `ESTADO_COMPRA_STYLE`) y se simplificó el consumo. Sin cambio de comportamiento.
+4. **`KanbanBoard.tsx`: 164 líneas de código muerto.** `renderKanban` (la "Vista Kanban Colapsable
+   (Propuesta 4)") no se invocaba en ningún lado. Al eliminarla quedaron huérfanos su estado
+   `collapsed`/`setCollapsed`, `toggleCollapse` y 5 imports, todos removidos en la misma pasada.
+   Queda en el historial de git si algún día se retoma esa propuesta.
+
+**Riesgo residual:** el único cambio con efecto observable es el punto 2 (Det. SAP en la vista de
+instalador). El resto es código que nadie ejecutaba.
+
+---
+
+## 2026-09-18 (3) — `npm run build` del frontend no corre en Windows
+
+**Severidad:** Baja (no afecta producción) · **Estimación:** 15 min
+
+El script es `CI=false react-scripts build && cp build/index.html build/404.html`: sintaxis de
+shell Unix que **cmd.exe no entiende**. npm ejecuta los scripts con cmd en Windows, así que el
+comando muere en la primera palabra —`"CI" no se reconoce como un comando interno o externo`— y
+`cp` tampoco existe ahí. Descubierto el 2026-09-18 al intentar verificar un cambio con el build
+real.
+
+**No afecta el despliegue:** Cloudflare Pages construye en Linux, donde la línea es válida. El
+impacto es solo local: en Windows no se puede comprobar que un cambio compile en modo producción
+sin rodearlo a mano (`CI=false node node_modules/react-scripts/scripts/build.js` desde Git Bash,
+que sí acepta la asignación inline).
+
+**Alternativas, ninguna aplicada todavía porque implican decisión:**
+- `cross-env` como devDependency (`cross-env CI=false react-scripts build`) — es la solución
+  estándar, pero agrega una dependencia.
+- Mover `CI=false` a un `.env` del frontend y dejar el script sin prefijo de variable.
+- Reemplazar el `cp` por `node -e "require('fs').copyFileSync(...)"`, que funciona en ambos SO.
+
+---
+
+## 2026-09-18 — `xlsx` (SheetJS) en frontend-web sin parche disponible en npm
+
+**Severidad:** Alta según el advisory de npm, pero mitigada por contexto de uso · **Estimación:** N/A (sin fix), migrar a `exceljs` ~1-2 días si algún día se decide
+
+`npm audit` (tras el pull del 2026-09-18) marca `xlsx` como vulnerable a Prototype Pollution
+(GHSA-4r6h-8v6p-xvw6) y ReDoS (GHSA-5pgg-2g8v-p4x9), sin fix disponible en el registro de npm — el
+mantenedor de SheetJS dejó de publicar parches ahí y solo los sube a su propio CDN
+(`cdn.sheetjs.com`). Es dependencia directa de `frontend-web/package.json` (`^0.18.5`).
+
+**Decisión del usuario (2026-09-18):** dejarlo así por ahora. El vector de explotación real es un
+archivo `.xlsx` armado a propósito para el import/export de Excel del frontend (módulo
+Proveedores); hoy **solo el usuario mismo sube esos archivos**, así que el riesgo práctico es bajo.
+No se toma acción salvo que cambie quién puede subir Excel al sistema (por ejemplo, si se abriera
+esa función a otros roles o a clientes).
+
+**Alternativas descartadas por ahora:**
+- Migrar a `exceljs` (ya se usa en el backend para las plantillas de PedidoPV) — unificaría la
+  librería Excel del monorepo, pero implica reescribir el código de import/export del frontend.
+- Apuntar a la fuente propia de SheetJS (CDN del fabricante) en vez del paquete de npm — fuente de
+  instalación no estándar para un `package.json`.
+
+Nota aparte: en el mismo `npm audit fix` (sin `--force`) se corrigió `axios` (1.13.2 → resuelto en
+1.20.0 dentro del mismo rango `^1.x`, sin cambios de código) — de 67 vulnerabilidades bajó a 29, las
+29 restantes son toolchain de `react-scripts`/CRA (jest, webpack-dev-server, svgo, etc.), no código
+que se sirve en producción; arreglarlas de raíz requeriría `--force` y un downgrade/breaking change
+de `react-scripts`, evaluado y descartado por ahora (bajo beneficio real, alto riesgo de romper el
+build).
+
+---
+
 ## 2026-09-16 (2) — Cotizador: el recálculo de precios por categoría no termina a tiempo para PERFILERIA (N+1 contra Supabase) — ✅ RESUELTO 2026-09-17
 
 **Severidad:** Alta para PERFILERIA (hoy no se puede usar en producción) · Media para el resto · **Estimación:** 3-4 h

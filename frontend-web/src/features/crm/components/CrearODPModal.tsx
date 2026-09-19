@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Search, Loader2, Building2, UserPlus, CheckCircle2, ExternalLink } from 'lucide-react';
+import { X, Search, Loader2, Building2, UserPlus, CheckCircle2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiCrearODPDesdeLead, apiSearchClientes } from '../crmService';
 

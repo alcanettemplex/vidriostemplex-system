@@ -34,7 +34,6 @@ const PrintableOA: React.FC<PrintableOAProps> = ({ odp }) => {
   const cliente     = odp.cliente?.nombre_razon_social || '';
   const fechaElab   = odp.fecha_creacion ? format(new Date(odp.fecha_creacion), 'dd/MM/yyyy') : '';
   const fechaEntrega = odp.fecha_entrega ? format(new Date(odp.fecha_entrega), 'dd/MM/yyyy') : '';
-  const dtTexto     = [odp.descripcion_pedido, odp.observaciones].filter(Boolean).join('\n');
 
   const thStyle: React.CSSProperties = {
     backgroundColor: BLUE_LIGHT,

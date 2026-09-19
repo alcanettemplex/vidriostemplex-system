@@ -4,8 +4,7 @@ import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MapPin, Truck, Users, CheckCircle2, Clock,
-  ExternalLink, RefreshCw, Play, Navigation,
-  LogIn, Printer, FileText, LayoutDashboard,
+  RefreshCw, LogIn, Printer, FileText, LayoutDashboard,
   History, Calendar, TrendingUp, Star, Award,
   Target, Zap, Flag, Search
 } from 'lucide-react';

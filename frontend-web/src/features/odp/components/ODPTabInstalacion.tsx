@@ -1,9 +1,6 @@
 import React from 'react';
 import {
-  AlertTriangle, Truck, Camera, ExternalLink, PenTool, MapPin, User, Calendar,
-  CheckCircle2, AlertCircle, History, DollarSign, Wrench, CreditCard, MessageSquare,
-  Shield, Archive, Package, Ruler, FileText, Tag, ChevronDown, ChevronUp,
-  RefreshCw, Loader2, ArrowRight, X, Plus, TrendingUp, Images, Printer, Film, Box, Sparkles
+  AlertTriangle, Truck, Camera, ExternalLink, PenTool
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import axios from 'axios';

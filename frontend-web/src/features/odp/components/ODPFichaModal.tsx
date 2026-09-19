@@ -2,12 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  X, FileText, Wrench, Truck, DollarSign, Package, Ruler, Plus,
-  CheckCircle2, AlertCircle, AlertTriangle, MapPin, User, Calendar, Phone,
-  Building2, ExternalLink, CreditCard, Camera, History, Shield, ChevronDown,
-  ClipboardList, TrendingUp, Printer, PenTool, Images, Trash2,
-  Sparkles, Film, Box, Archive, ChevronUp, Loader2, MessageSquare,
-  ArrowRight, RefreshCw, Tag, Ban
+  X, Wrench, Truck, DollarSign, AlertCircle, AlertTriangle, CreditCard, History, Shield, ChevronDown,
+  ClipboardList, TrendingUp, Printer, Ban
 } from 'lucide-react';
 import { cajaColor, Badge } from './ODPFichaModal.utils';
 import { getEstadoODP } from '../../../utils/estadosODP';

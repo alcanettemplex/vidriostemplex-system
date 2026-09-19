@@ -50,7 +50,6 @@ const HIST_CATS: Record<string, { bg: string; text: string; border: string; dot:
 // Colores y nombres de estado: `utils/estadosODP` es la fuente única (ver ese módulo).
 
 const fmtHora   = (f: string) => f ? new Date(f).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '—';
-const fmtTs     = (f: string) => f ? new Date(f).toLocaleString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 const fmtDate   = (f: string) => f ? new Date(f.includes('T') ? f : f + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
 
 const getDayKey = (f: string) => {

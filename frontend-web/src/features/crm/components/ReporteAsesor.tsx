@@ -1,9 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useSelector } from 'react-redux';
 import { AlertCircle, RefreshCw, ChevronDown } from 'lucide-react';
-import { toast } from 'react-toastify';
 import { apiGetReporteAsesor, apiGetAsesores } from '../crmService';
-import { IconDollar, IconTarget, IconLeads, IconClock, IconCheck, IconBarChart, IconActivity } from './CRMIcons';
+import { IconDollar, IconTarget, IconLeads, IconCheck, IconBarChart, IconActivity } from './CRMIcons';
 
 const fmtCOP = (v: number) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0, notation: 'compact' }).format(v);
@@ -56,7 +54,6 @@ const KPI: React.FC<KPIProps> = ({ label, value, sub, icon, border, bg, tooltip 
 interface Props { esVistaGlobal: boolean; fecha_desde?: string | null; fecha_hasta?: string | null; }
 
 const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hasta }) => {
-  const user = useSelector((state: any) => state.auth.user);
   const [reporte, setReporte] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

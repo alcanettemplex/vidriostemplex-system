@@ -2,14 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import {
-  X, Clock, User, Phone, DollarSign,
-  ChevronRight, Check, Loader2,
-  Activity, Send, Flame, UserPlus, Zap, Tag,
-  Calendar, CheckCircle2, ShieldCheck, Link2, Search, ExternalLink, MapPin
+  X, Clock, User, ChevronRight, Check, Loader2,
+  Activity, Send, Flame, UserPlus, Zap, CheckCircle2, Link2, Search, ExternalLink, MapPin
 } from 'lucide-react';
 import {
   apiGetLeadTimeline,
-  apiUpdateLeadMonto,
   apiRegisterLeadSeguimiento,
   apiGetAsesores,
   apiAssignLeadToUser,
@@ -37,8 +34,6 @@ const ESTADO_INFO: Record<string, { label: string; color: string; bg: string }> 
   APROBADO:       { label: 'Aprobado ✓',     color: 'text-emerald-700', bg: 'bg-emerald-100' },
   PERDIDO:        { label: 'Perdido',        color: 'text-rose-700',   bg: 'bg-rose-100' },
 };
-
-const PIPELINE_PATH = ['NUEVO', 'ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA', 'APROBADO'];
 
 // Etapas mostradas en el stepper (sin NUEVO, sin FRIO/PERDIDO que son acciones separadas)
 const STEPPER_STAGES = ['ASIGNADO', 'EN_CONTACTO', 'COTIZANDO', 'SEGUIMIENTO', 'VISITA_TECNICA', 'APROBADO'];

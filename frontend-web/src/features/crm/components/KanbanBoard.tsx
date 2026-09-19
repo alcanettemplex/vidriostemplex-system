@@ -1,17 +1,15 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { DropResult } from '@hello-pangea/dnd';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import {
   Search, X, ChevronDown, ChevronRight, LayoutList,
-  Columns, DollarSign, AlertTriangle, Zap, ArrowUpDown,
-  User, Phone, Tag, Clock, UserCheck, Filter, TrendingUp,
-  Table, Inbox, MessageCircle, FileText, MapPin, Snowflake,
+  AlertTriangle, Zap, User, Phone, Clock, UserCheck, TrendingUp,
+  Inbox, MessageCircle, FileText, MapPin, Snowflake,
   CheckCircle, XCircle
 } from 'lucide-react';
 import { fetchLeadsStart, fetchLeadsSuccess, fetchLeadsFailure, updateLead } from '../crmSlice';
 import { apiGetLeads, apiUpdateLeadStatus, apiAssignLeadToMe } from '../crmService';
-import LeadCard from './LeadCard';
 import MotivoPerdidaModal from './MotivoPerdidaModal';
 import CrearODPModal from './CrearODPModal';
 import GuiaMensajesModal from './GuiaMensajesModal';
@@ -263,7 +261,7 @@ interface KanbanBoardProps {
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, busqueda: busquedaExterna, setBusqueda: setBusquedaExterna }) => {
   const dispatch = useDispatch();
-  const { leads, loading } = useSelector((state: any) => state.crm);
+  const { leads } = useSelector((state: any) => state.crm);
   const user = useSelector((state: any) => state.auth.user);
   const rol: string = user?.rol || '';
 
@@ -277,10 +275,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
   const [viewMode, setViewMode]       = useState<ViewMode>('kanban');
   const [columnaActiva, setColumnaActiva]   = useState<string>('NUEVO');
 
-  // Estado de columnas colapsadas { 'NUEVO': false, ... }
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(PIPELINE_STAGES.map(s => [s.id, false]))
-  );
   // Paginación por columna { 'NUEVO': 1, ... }
   const [pagina, setPagina] = useState<Record<string, number>>(() =>
     Object.fromEntries(PIPELINE_STAGES.map(s => [s.id, 1]))
@@ -400,9 +394,6 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
       toast.error(err?.response?.data?.error || 'No se pudo asignar el lead.');
     }
   };
-
-  const toggleCollapse = (stageId: string) =>
-    setCollapsed(prev => ({ ...prev, [stageId]: !prev[stageId] }));
 
   const cargarMas = (stageId: string) =>
     setPagina(prev => ({ ...prev, [stageId]: (prev[stageId] || 1) + 1 }));
@@ -843,172 +834,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
     );
   };
 
-  // ─── Vista Kanban Colapsable (Propuesta 4) ────────────────────────────────────
-  const renderKanban = () => (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex bg-slate-50 overflow-x-auto min-h-[75vh] p-4 gap-4 rounded-xl border border-slate-200 shadow-inner snap-x">
-        {busqueda && filtrarLeads(leads).length === 0 && (
-          <div className="flex-1 flex items-center justify-center text-slate-400 text-sm italic">
-            No se encontraron leads que coincidan con "{busqueda}"
-          </div>
-        )}
-        {PIPELINE_STAGES.map((stage) => {
-          const colLeadsRaw = filtrarLeads(leads, { stageId: stage.id });
-          const colLeads = sortByPriority(colLeadsRaw);
-
-          // Cuando hay búsqueda activa, ocultar columnas sin resultados
-          if (busqueda && colLeads.length === 0) return null;
-          const isCollapsed = collapsed[stage.id];
-          const pageSize = (pagina[stage.id] || 1) * CARDS_POR_PAGINA;
-          const leadsVisible = colLeads.slice(0, pageSize);
-          const hayMas = colLeads.length > pageSize;
-          const urgentes = colLeads.filter(l => calcularPrioridad(l) === 'urgente').length;
-          const montoCol = colLeads.reduce((s: number, l: any) => s + parseFloat(l.monto_proyectado_cotizacion || '0'), 0);
-          const montoCOPFmt = montoCol > 0
-            ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0, notation: 'compact' }).format(montoCol)
-            : null;
-
-          return (
-            <div
-              key={stage.id}
-              className={`flex-shrink-0 flex flex-col rounded-xl border snap-start transition-all duration-300 ${stage.color} ${
-                isCollapsed ? 'w-14' : 'w-72'
-              }`}
-            >
-              {/* ── Header columna ── */}
-              <div
-                className={`flex items-center justify-between p-3 border-b border-slate-200/60 sticky top-0 backdrop-blur-md rounded-t-xl z-10 cursor-pointer ${stage.headerBg}`}
-                onClick={() => toggleCollapse(stage.id)}
-              >
-                {(() => {
-                  const Icon = stage.icon;
-                  return isCollapsed ? (
-                    /* Columna colapsada: ícono + contador vertical */
-                    <div className="flex flex-col items-center gap-2 w-full">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${stage.iconBg}`}>
-                        <Icon className={`w-3.5 h-3.5 ${stage.iconColor}`} />
-                      </div>
-                      <span
-                        className={`text-[9px] font-black ${stage.iconColor}`}
-                        style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}
-                      >
-                        {stage.label}
-                      </span>
-                      <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${stage.badgeBg}`}>
-                        {colLeads.length}
-                      </span>
-                      {urgentes > 0 && (
-                        <span className="text-[8px] text-rose-500 font-black animate-pulse">🔴{urgentes}</span>
-                      )}
-                    </div>
-                  ) : (
-                    /* Columna expandida: cabecera completa */
-                    <>
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${stage.iconBg}`}>
-                          <Icon className={`w-3.5 h-3.5 ${stage.iconColor}`} />
-                        </div>
-                        <h3 className="font-extrabold text-xs uppercase tracking-wider text-slate-700 truncate">{stage.label}</h3>
-                        <span className={`text-xs font-black px-2 py-0.5 rounded-full flex-shrink-0 ${stage.badgeBg}`}>
-                          {colLeads.length}
-                        </span>
-                        {urgentes > 0 && (
-                          <span className="text-[9px] text-rose-500 font-black animate-pulse flex-shrink-0">
-                            🔴{urgentes}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        {montoCOPFmt && (
-                          <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200 hidden lg:block">
-                            {montoCOPFmt}
-                          </span>
-                        )}
-                        <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-
-              {/* ── Cards (solo si no está colapsado) ── */}
-              {!isCollapsed && (
-                <Droppable droppableId={stage.id}>
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={`flex-1 p-2 space-y-2 overflow-y-auto min-h-[120px] transition-colors ${
-                        snapshot.isDraggingOver ? 'bg-indigo-50/50' : ''
-                      }`}
-                    >
-                      {loading && colLeads.length === 0 ? (
-                        Array.from({ length: 2 }).map((_, i) => (
-                          <div key={i} className="h-20 bg-white/60 rounded-lg border border-slate-200 animate-pulse" />
-                        ))
-                      ) : colLeads.length === 0 ? (
-                        <div className="h-16 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center">
-                          <span className="text-xs text-slate-400 font-medium">— Vacío —</span>
-                        </div>
-                      ) : (
-                        <>
-                          {/* Sección URGENTE */}
-                          {colLeads.some(l => calcularPrioridad(l) === 'urgente') && (
-                            <div className="text-[9px] font-black text-rose-500 uppercase tracking-wider px-1 pt-1 flex items-center gap-1">
-                              <AlertTriangle className="w-2.5 h-2.5" /> Requiere atención
-                            </div>
-                          )}
-                          {leadsVisible.map((lead: any, index: number) => {
-                            const prioridad = calcularPrioridad(lead);
-                            const esNuevaSec = index > 0 && calcularPrioridad(colLeads[index - 1]) !== prioridad;
-                            return (
-                              <React.Fragment key={lead.id}>
-                                {esNuevaSec && prioridad === 'normal' && (
-                                  <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider px-1 pt-1">Normal</div>
-                                )}
-                                <Draggable draggableId={String(lead.id)} index={index} isDragDisabled={rol === 'marketing'}>
-                                  {(provided, snapshot) => (
-                                    <div
-                                      ref={provided.innerRef}
-                                      {...provided.draggableProps}
-                                      {...provided.dragHandleProps}
-                                      className={`transition-transform ${snapshot.isDragging ? 'rotate-1 scale-105 shadow-xl z-50' : ''}`}
-                                    >
-                                      <LeadCard
-                                        lead={lead}
-                                        stageId={stage.id}
-                                        rol={rol}
-                                        onTakeFromPool={() => handleTakeFromPool(lead.id)}
-                                      />
-                                    </div>
-                                  )}
-                                </Draggable>
-                              </React.Fragment>
-                            );
-                          })}
-                          {/* Cargar más */}
-                          {hayMas && (
-                            <button
-                              onClick={() => cargarMas(stage.id)}
-                              className="w-full py-1.5 text-[10px] font-bold text-slate-400 hover:text-slate-700 border border-dashed border-slate-200 rounded-lg hover:bg-slate-100 transition-all"
-                            >
-                              + {colLeads.length - pageSize} leads más →
-                            </button>
-                          )}
-                        </>
-                      )}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </DragDropContext>
-  );
-
+  
   // ─── Render principal ─────────────────────────────────────────────────────────
   return (
     <>
