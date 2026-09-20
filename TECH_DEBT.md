@@ -4,6 +4,101 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+
+## 2026-09-19 (2) — Cotizador: la calibración de taller quedó desactivada por decisión de negocio (no es un olvido)
+
+**Severidad:** Media · **Estimación:** reactivar, 5 minutos; calibrar de verdad, semanas de taller
+
+`aptitudOrden.ts` tiene `EXIGIR_SISTEMA_EN_PRODUCCION = false` desde hoy, y
+`NIVELES_APTOS_PARA_CORTE` en `motorDespiece.ts` acepta B además de A. **Ambas cosas son decisiones
+explícitas del usuario, tomadas con los datos a la vista** — se documentan aquí para que nadie las
+lea como un descuido y las "arregle" sin contexto.
+
+**Por qué se desactivó la condición 7.** Exigía `madurezDeSistema` en `EN_PRODUCCION`, que requiere
+cobertura total de márgenes aprobados más firma del maestro. En BD hay **0 filas** en
+`calibracion_margen`, `calibracion_contraste` y `calibracion_sistema`: el proceso nunca empezó, así
+que la condición bloqueaba el 100 % de las órdenes de forma permanente. No era una red de seguridad,
+era un candado sin llave.
+
+**Por qué se acepta el nivel B.** Su error está **acotado en 1 mm** y la holgura de instalación
+vigente es de 3 mm. El nivel C sigue bloqueado y esa diferencia no es de grado: ahí el error *crece*
+con el vano (hasta 3,3 mm medidos, sin tope), porque la pieza se calcula con la recta ajustada en
+vez de con un modelo entero.
+
+**Qué se pierde:** las medidas de la orden de corte pueden desviarse ±1 mm, y el software ya no
+frena un sistema cuyo corte real esté desviado. **Qué se gana:** 139 de 163 diseños pueden emitir
+orden; antes, ninguno.
+
+**Cómo revertir:** poner la constante en `true` y quitar `"B"` del Set. Las dos están comentadas en
+sitio con el razonamiento completo. La maquinaria de calibración (tablas, matemática, 13 endpoints y
+la pestaña Calibración) quedó intacta y operativa.
+
+**La vía que resolvería esto de raíz, y por qué está cerrada hoy:** los 222 perfiles nivel B se
+desambiguan con **una sola lectura en una medida no redonda** — la óptima, calculada por barrido, es
+**903 × 601 mm** (cierra 241 de 419 piezas; con 902×701 se llega a 293). La lista de los 139 diseños
+afectados está lista y los 139 están cubiertos por `fix_mapa.json`. **Bloqueador: la cuenta de
+AlumSoftware está vencida** (`/inactivo.html` — "SUSCRIPCIÓN VENCIDA"). Con un mes de suscripción,
+el scraper existente lo resuelve desatendido. Alternativa sin suscripción: el catálogo técnico del
+fabricante de perfilería, que trae las cotas y permite escribir las fórmulas directamente.
+
+---
+
+## 2026-09-19 (3) — Cotizador: el centinela de 437 productos del catálogo — ✅ RESUELTO el mismo día
+
+**Severidad:** Baja · **Estado:** cerrado
+
+`pruebas_cotizador/humo.test.ts` afirmaba *"el catálogo tiene los 437 productos"* y `listarCatalogo()`
+devolvía **469**. Era la única prueba en rojo de las 37.
+
+**Causa, legítima:** los **32 códigos dados de alta el 2026-09-16** al cerrar el hueco de colores (16
+con candidato único en catálogo y precio real de proveedor + 16 de Sistema3831/Sistema8025 con precio
+inicial del usuario). El número quedó sin actualizar ese día.
+
+**Comprobado antes de tocarlo:** el reparto seguía sano — 464 `CATALOGO` + 5 `ALTA` = 469, con los
+126 `PROVISIONAL` **aparte**, que es exactamente lo que el centinela existe para detectar. **No hubo
+contaminación.**
+
+**Resuelto** (2026-09-19, autorizado por el usuario): número actualizado a 469 y renglón añadido con
+el porqué, siguiendo la convención del propio archivo. **Suite completa en verde: 37/37.**
+
+**La lección, que es lo que vale conservar:** el centinela estuvo tres días en rojo, y en ese estado
+**dejó de vigilar** — si los 126 provisionales se hubieran colado de verdad, la prueba ya fallaba y
+nadie lo habría notado. Un guardián que avisa siempre no avisa de nada. Al subir el conteo por una
+razón buena, actualizar el número es parte del trabajo, no una tarea aparte.
+
+**Sigue abierto y es del mismo tipo:** el **golden master** (`test:cotizador:golden`) está obsoleto
+desde el 2026-09-11, 6 de 10 fallan por datos. Ahí la red sigue caída.
+
+---
+
+## 2026-09-19 (4) — Cotizador: el nombre del software externo volvió a aparecer en `src/`
+
+**Severidad:** Baja · **Estimación:** 20 min
+
+La decisión 11 del plan maestro del Cotizador dice que el nombre del software de origen **no puede
+aparecer en ningún dato ni código del ERP**, y su verificación es
+`grep -ri "alumsoftware" backend-api/src frontend-web/src` → **0**. Hoy da **4 archivos**, todos
+introducidos el 2026-09-13 (no por el cambio de hoy, que no lo menciona en ninguno de sus 2
+archivos):
+
+- `scripts/2026-09-13_aplicar_modelos_corte.ts` — en comentarios
+- `scripts/2026-09-13_importar_disenos_fase1.ts` — en comentarios y en una **ruta absoluta** a la
+  carpeta del proyecto externo
+- `scripts/2026-09-13_reconstruir_modelos_corte.ts` — en comentarios y ruta por defecto
+- `scripts/datos_cotizador/modelos_corte.json` — en el campo `nota`, que **es un dato**, no un
+  comentario: *"…observaciones reales de AlumSoftware"*
+
+**Matiz:** los tres `.ts` son scripts one-off ya ejecutados; el riesgo real es el JSON, porque es un
+artefacto de datos que se lee en runtime durante la reconstrucción. Los comentarios de los scripts
+son discutibles — la regla nació para los datos de precios provisionales — pero conviene decidirlo
+de forma consciente en vez de dejar la verificación del plan maestro dando un número que ya nadie
+comprueba.
+
+**Solución:** reemplazar el nombre por "el software de origen" en el `nota` del JSON y en los
+comentarios, y mover la ruta absoluta a una variable de entorno o argumento de línea de comandos.
+
+---
+
 ## 2026-09-18 (4) — `react-toastify` sigue instalado solo como fachada de los avisos
 
 **Severidad:** Baja · **Estimación:** 1-2 h para retirarlo del todo

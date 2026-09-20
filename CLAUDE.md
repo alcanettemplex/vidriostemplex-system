@@ -65,6 +65,7 @@ Para no rehacer el rastreo forense completo cada vez que se toca un módulo gran
 |---|---|---|
 | ODP | `docs/modulos/odp.md` | Estados de producción, motor de checks automáticos, impresión de OP, ODP No Conformidad |
 | Compras | `docs/modulos/compras.md` | SAP/ODC, PedidoPV, Proveedores (ingesta FE, precios, equivalencias) |
+| Cotizador | `docs/modulos/cotizador.md` | Schema `cotizador`, niveles de corte A/B/C, aptitud de orden, calibración, unidades mm↔cm |
 | Rutas e Instalaciones | *(pendiente)* | RutaInstalacion/RutaODP, Instalaciones, Evidencias, Agenda |
 | CRM / Leads | *(pendiente)* | Leads, pipeline CRM, Supervisión CRM, Prospectos |
 | Contabilidad / Caja | *(pendiente)* | Facturación, Caja, Salidas de Almacén |

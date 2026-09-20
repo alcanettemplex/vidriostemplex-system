@@ -35,6 +35,28 @@ import { cotizarPorDiseno } from "./cotizarPorDiseno";
 
 const RUTA_CALIBRACION = "/calibracion";
 
+/** Niveles de corte que permiten emitir una orden. Espejo de
+ * `NIVELES_APTOS_PARA_CORTE` en `motorDespiece.ts` — ahí está el porqué. Los
+ * dos deben moverse juntos: el motor decide `aptoParaCorte` y este archivo
+ * redacta el motivo; si divergen, un ítem saldría apto sin explicación o al
+ * revés. */
+const NIVELES_ACEPTADOS = new Set(["A", "B"]);
+
+/** ¿La orden de corte exige que el sistema esté calibrado y firmado por el
+ * maestro del taller?
+ *
+ * En `false` desde 2026-09-19, por decisión explícita del usuario. El motivo no
+ * es que la calibración sobre, sino que nunca empezó: `calibracion_margen`,
+ * `calibracion_contraste` y `calibracion_sistema` están en 0 filas, así que
+ * `madurezDeSistema` devolvía `EN_CALIBRACION` para todos los sistemas y esta
+ * condición bloqueaba el 100 % de las órdenes de forma permanente — no era una
+ * red de seguridad, era un candado sin llave.
+ *
+ * Toda la maquinaria de calibración (tablas, matemática, endpoints y la pestaña
+ * Calibración) queda intacta y operativa. El día que el taller registre
+ * contrastes y márgenes, poner esto en `true` vuelve a exigirlo. */
+const EXIGIR_SISTEMA_EN_PRODUCCION = false;
+
 /** Códigos estables de cada motivo — para que un test (o el propio cliente,
  * si algún día quiere distinguir casos sin parsear texto) pueda comprobar
  * "por qué" sin depender de la redacción exacta. La redacción SÍ puede
@@ -422,14 +444,22 @@ function evaluarItem(
   const sistema = resultado.diseno?.sistema ?? null;
   const nivel = resultado.diseno?.nivelCorte ?? null;
 
-  // 3. Nivel de corte A.
-  if (nivel !== "A") {
+  // 3. Nivel de corte aceptable.
+  //
+  // Acepta A y B desde 2026-09-19 — ver `NIVELES_APTOS_PARA_CORTE` en
+  // `motorDespiece.ts`, que es donde vive la decisión y su razonamiento
+  // completo. Aquí sólo se replica el criterio para redactar el motivo.
+  //
+  // Sigue bloqueando C (error que crece con el vano, sin tope) y el nivel
+  // DESCONOCIDO, que es un blob viejo sin `nivelCorte`: de ése no se sabe nada,
+  // y no saber no es lo mismo que estar bien.
+  if (!NIVELES_ACEPTADOS.has(nivel ?? "")) {
     const culpables = piezasQueBajanElNivel(resultado);
     motivos.push(
       crearMotivo(
         CODIGOS_MOTIVO.NIVEL_NO_VALIDADO,
-        `Nivel ${nivel ?? "desconocido"}: la fórmula de este diseño no está validada, no se arregla ` +
-          "calibrando — hace falta identificarla primero." +
+        `Nivel ${nivel ?? "desconocido"}: la desviación de este diseño no está acotada — crece con el ` +
+          "tamaño del vano, así que no se corrige con holgura ni calibrando. Hace falta identificar la fórmula." +
           (culpables.length ? ` Las piezas que lo bajan son: ${culpables.join(", ")}.` : ""),
         RUTA_CALIBRACION
       )
@@ -454,18 +484,44 @@ function evaluarItem(
   // se recalcula aquí, se reutiliza tal cual.
   //
   // NO SE EMITE CUANDO EL NIVEL YA EXPLICA EL false. `aptoParaCorte` es
-  // `nivelCorte === "A" && !hayMedidasInvalidas` (motorDespiece.ts), así que en
-  // un diseño B o C es false POR DEFINICIÓN y este motivo sería la condición 3
-  // dicha otra vez con peores palabras — el usuario veía dos líneas rojas para
-  // un solo problema y la segunda lo mandaba a buscar advertencias que sólo
-  // repetían la primera. Con el nivel B/C descartado, un false aquí significa
-  // inequívocamente "hay una medida inválida", y así se redacta.
+  // `NIVELES_APTOS_PARA_CORTE.has(nivelCorte) && !hayMedidasInvalidas`
+  // (motorDespiece.ts), así que en un diseño C es false POR DEFINICIÓN y este
+  // motivo sería la condición 3 dicha otra vez con peores palabras — el usuario
+  // veía dos líneas rojas para un solo problema y la segunda lo mandaba a buscar
+  // advertencias que sólo repetían la primera.
   //
-  // El nivel DESCONOCIDO (blob viejo sin `diseno.nivelCorte`) no suprime nada:
-  // ahí no se puede saber cuál de las dos causas fue, y callar una sería
+  // ⚠️ B SALIÓ DE ESTA LISTA el 2026-09-19, y es imprescindible que así sea.
+  // Desde que B es un nivel apto, un `aptoParaCorte === false` en un diseño B
+  // ya NO lo explica el nivel: sólo puede venir de una medida inválida. Si B
+  // siguiera suprimiendo el motivo, ese ítem quedaría bloqueado sin que la
+  // pantalla dijera por qué — un bloqueo mudo, que es el peor de todos.
+  //
+  // El nivel DESCONOCIDO (blob viejo sin `diseno.nivelCorte`) tampoco suprime
+  // nada: ahí no se puede saber cuál de las dos causas fue, y callar una sería
   // esconder información real.
-  const nivelExplicaElNoApto = nivel === "B" || nivel === "C";
-  if (resultado.aptoParaCorte !== true && !nivelExplicaElNoApto) {
+  const nivelExplicaElNoApto = nivel === "C";
+
+  // `resultado.aptoParaCorte` se GRABÓ el día que se cotizó el ítem, con la
+  // regla de niveles vigente entonces. Al pasar B a nivel apto (2026-09-19) ese
+  // booleano quedó obsoleto en TODOS los ítems ya guardados: los 4 existentes
+  // lo tienen en `false` por su nivel B, aunque ninguno tiene una sola línea en
+  // error. Confiar en él dejaría bloqueadas para siempre las cotizaciones
+  // anteriores al cambio, sin causa real.
+  //
+  // Por eso el criterio se reevalúa sobre los datos CRUDOS del blob —el nivel y
+  // si alguna línea quedó en error—, que son hechos del cálculo y no cambian
+  // cuando cambia la regla. Es el mismo principio que la condición 8: lo que se
+  // guardó describe un momento, no una verdad permanente.
+  //
+  // Si el blob es tan viejo que ni siquiera trae `items`, no hay con qué
+  // reevaluar y se respeta lo guardado: no inventar es preferible a suponer.
+  const lineas = Array.isArray(resultado.items) ? resultado.items : null;
+  const aptoReevaluado =
+    lineas === null
+      ? resultado.aptoParaCorte === true
+      : NIVELES_ACEPTADOS.has(nivel ?? "") && !lineas.some((l: ResultadoGuardado) => l.error);
+
+  if (!aptoReevaluado && !nivelExplicaElNoApto) {
     motivos.push(
       crearMotivo(
         CODIGOS_MOTIVO.NO_APTO_PARA_CORTE,
@@ -490,7 +546,11 @@ function evaluarItem(
   }
 
   // 7. El sistema del diseño, en producción.
-  if (sistema) {
+  //
+  // Desactivada por `EXIGIR_SISTEMA_EN_PRODUCCION` (ver arriba). El bloque se
+  // conserva entero, y no se borra a propósito: el día que el taller calibre,
+  // volver a exigirlo es cambiar esa constante a `true`, sin reescribir nada.
+  if (EXIGIR_SISTEMA_EN_PRODUCCION && sistema) {
     const madurez = madurezDeSistema(sistema, { margenes, sistemas });
     if (madurez.estado !== "EN_PRODUCCION") {
       motivos.push(

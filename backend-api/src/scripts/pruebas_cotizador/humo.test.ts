@@ -49,11 +49,26 @@ test("cotizar Sistema5020::OX a 150x120 da un total positivo sin errores", () =>
 // quedaban a Sistema7038-Interior (COG0101 chapa, EMP1312 empaque), cerrando
 // los 5 accesorios pendientes de ese sistema — ver TECH_DEBT.md 2026-09-11.
 //
+// 469 y no 437 desde el 2026-09-16: se dieron de alta 32 códigos al cerrar el
+// hueco de colores (el motor sustituía por mate en silencio cuando no
+// encontraba el color pedido, y el negro cuesta entre 20 % y 69 % más, así que
+// esas cotizaciones salían por debajo del costo). Son 16 códigos con candidato
+// único en `catalogo_productos` y precio real de proveedor, más 16 de
+// Sistema3831/Sistema8025 con precio inicial dado por el usuario — ver
+// SESSION_LOG.md 2026-09-16 (2).
+//
+// El número quedó sin actualizar ese día y la prueba estuvo en rojo hasta el
+// 2026-09-19. Conviene no repetirlo: un centinela que falla siempre deja de
+// vigilar, porque el fallo que importa se confunde con el ruido de fondo.
+// Comprobado al corregirlo que el reparto seguía sano — 464 `CATALOGO` + 5
+// `ALTA` = 469, con los 126 `PROVISIONAL` aparte, que es justo lo que esta
+// prueba existe para detectar.
+//
 // El número sigue siendo un centinela a propósito — si cambia sin que nadie lo
 // espere, es que se mezclaron los precios provisionales con el catálogo real.
-test("el catálogo tiene los 437 productos extraídos del Excel", () => {
+test("el catálogo tiene los 469 productos extraídos del Excel", () => {
   const productos = listarCatalogo();
-  assert.equal(productos.length, 437);
+  assert.equal(productos.length, 469);
 });
 
 test("el catálogo de diseños tiene los 163 diseños generados", () => {

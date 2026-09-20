@@ -4266,3 +4266,133 @@ productos del Cotizador derivan su costo de proveedores y se recostean solos.
 - `npm --prefix frontend-web run build` falla en Windows: el script usa `CI=false` con sintaxis
   Unix y cmd no lo reconoce. Preexistente. Se verificó con `tsc --noEmit`.
 - Sin commit: el cambio queda en el working tree a la espera de orden.
+
+---
+
+## 2026-09-19 (2) — Cotizador: la orden de corte deja de estar bloqueada (se acepta ±1 mm y se retira la exigencia de calibración)
+
+### Cómo empezó, y por qué el plan anterior se descartó entero
+
+La sesión arrancó con un plan de "Fase 1 — identificador de fórmula": pantalla nueva, columnas
+nuevas en `calibracion_contraste` y **318 ventanas tecleadas a mano** en AlumSoftware para
+desambiguar las piezas nivel B. El usuario lo frenó en seco: *"no entiendo, requiero algo que creo
+que es simple… además AlumSoftware es solo referencial"*. Tenía razón en el fondo, y el plan se tiró.
+
+Dos cosas se aclararon ahí y conviene no volver a mezclarlas:
+
+- **Cotizar ya funciona.** Verificado en vivo: Sistema5020, 1000×1500 mm, mate, vidrio claro 4 mm →
+  **$465.854,56**, sin errores ni advertencias. Meter medidas y obtener precio nunca estuvo roto.
+- **Lo bloqueado era la orden de corte**, que es otra cosa. Todo el aparato de calibración vivía ahí.
+
+### La causa raíz del nivel B, que no era falta de información sino una mala pregunta
+
+Se revisó `multimedida.json` (4,2 MB, **1.992 extracciones**, 652 diseños) en la carpeta del
+proyecto AlumSoftware — el archivo que el `SESSION_LOG` del 2026-09-17 dio por perdido: **está donde
+siempre estuvo**, en la ruta que el propio script de reconstrucción tiene por defecto.
+
+Los vanos extraídos son **1000×1200, 1000×600 y 500×1200**. Los tres son múltiplos de 100, así que
+toda división cae exacta y **el truncamiento nunca se manifiesta**. De ahí salen los 222 perfiles
+nivel B: no falta el dato, se preguntó en medidas que no podían revelarlo.
+
+### Lo que se intentó y no funcionó (queda dicho para no repetirlo)
+
+1. **Extraer una medida impar automáticamente.** Se calculó la medida óptima por barrido —
+   **903 × 601 mm**, que cierra 241 de 419 piezas (57,5 %); con una segunda (902×701) se llega al
+   69,9 %— y se preparó la lista filtrada de los **139 diseños** afectados (los 139 están en
+   `fix_mapa.json`, cobertura 100 %). Se llegó a ejecutar el login. **La cuenta está vencida:**
+   `app.alumsoftware.com` redirige a `/inactivo.html` — *"Tu cuenta está pausada · SUSCRIPCIÓN
+   VENCIDA"*. Sin acceso no hay extracción posible.
+2. **Inferir la convención de redondeo** desde los perfiles ya confirmados. Descartado con datos:
+   de los 980 nivel A, **975 usan `exacto` con n=1** — son piezas que no dividen (marco = ancho,
+   jamba = alto − k), así que nunca redondean y no hay convención transferible. Forzar truncamiento
+   en los dudosos resolvió **0 de 419**: la ambigüedad no está en la operación sino en la constante
+   (`trunc((A−69)/2)` y `trunc((A−70)/2)` son ambas `trunc` y difieren 1 mm igual).
+
+### Decisión del usuario: el milímetro es indiferente
+
+Nivel B significa "los modelos candidatos coinciden dentro de **1 mm**" — error **acotado**. Con la
+holgura de instalación en 3 mm (única fila vigente, global), cabe. El usuario lo dio por indiferente
+**también en vidrio templado**, que era la pregunta que decidía el alcance:
+
+| Si se acepta 1 mm en… | Diseños habilitados |
+|---|---|
+| Aluminio y vidrio | **163** (el vidrio arrastra el nivel en 130 de 163) |
+| Solo aluminio | 33 |
+
+### El segundo candado, que no estaba en el plan y lo habría invalidado
+
+Rastreando las 8 condiciones de `aptitudOrden.ts` apareció que **la condición 7 bloqueaba el 100 %
+de las órdenes de forma permanente**, con independencia del nivel: exige `madurezDeSistema` en
+`EN_PRODUCCION`, y eso pide cobertura total de márgenes aprobados más firma del maestro. En BD:
+
+```
+calibracion_margen     0 filas
+calibracion_contraste  0 filas
+calibracion_sistema    0 filas
+```
+
+No era una red de seguridad, era un candado sin llave. Decisión del usuario: retirarla también.
+
+### Cambios — 2 archivos, sin BD, sin frontend
+
+- **`motorDespiece.ts`** — `NIVELES_APTOS_PARA_CORTE = {A, B}` sustituye a `nivelCorte === "A"`.
+  **C sigue fuera y la diferencia no es de grado:** ahí el error *crece* con el vano (hasta 3,3 mm,
+  sin tope) porque la pieza se calcula con la recta ajustada. Un error acotado se absorbe con
+  holgura; uno que se agranda con la ventana, no.
+- **`aptitudOrden.ts` — condición 3:** deja de reclamar en B. Sigue reclamando en C y en nivel
+  **desconocido** (blob viejo sin `nivelCorte`: no saber no es estar bien).
+- **`aptitudOrden.ts` — condición 7:** tras `EXIGIR_SISTEMA_EN_PRODUCCION = false`. El bloque se
+  conserva entero a propósito — volver a exigirlo el día que el taller calibre es cambiar esa
+  constante, no reescribir nada.
+- **`aptitudOrden.ts` — condición 5, el bug que se habría introducido.** La supresión del motivo
+  era `nivel === "B" || nivel === "C"` (puesta el 2026-09-17, cuando B era no-apto por definición).
+  Con B apto, un `aptoParaCorte:false` en un diseño B ya solo puede venir de una medida inválida, y
+  seguir callándolo habría dado **un bloqueo mudo**. Pasó a `nivel === "C"`.
+
+### El artefacto que apareció en la verificación — lo más instructivo de la sesión
+
+Con todo lo anterior aplicado, las 4 cotizaciones **seguían bloqueadas**. Causa:
+`resultado.aptoParaCorte` es un **booleano grabado en el JSONB el día que se cotizó**, con la regla
+de niveles de entonces. Cambiar el motor no reescribe los blobs ya guardados: los 4 ítems lo tenían
+en `false` por su nivel B, **con cero líneas en error y cero perfiles sin modelo** (verificado uno
+a uno contra la BD).
+
+La condición 5 pasó a **reevaluar el criterio sobre los datos crudos del blob** (el nivel y si
+alguna línea quedó en error), que son hechos del cálculo y no cambian cuando cambia la regla. Si el
+blob es tan viejo que ni trae `items`, se respeta lo guardado: no inventar es preferible a suponer.
+Es el mismo principio que la condición 8 — lo que se guardó describe un momento, no una verdad
+permanente.
+
+### Verificación
+
+| Prueba | Resultado |
+|---|---|
+| `npm --prefix backend-api run build` | ✅ sin errores |
+| Aptitud de las 4 cotizaciones APROBADAS | ✅ COT 4, 6 y 7 imprimibles; COT 5 bloqueada solo por un ítem **sin diseño** (legítimo) |
+| Contra-prueba: nivel C | ✅ sigue bloqueado (`NIVEL_NO_VALIDADO`) |
+| Contra-prueba: nivel desconocido | ✅ sigue bloqueado |
+| Contra-prueba: nivel B **con** medida inválida | ✅ emite `NO_APTO_PARA_CORTE` — ya no es mudo |
+| `npm --prefix backend-api run test:cotizador` | ⚠️ 36/37 — ver abajo |
+
+**El test que fallaba era preexistente y ajeno, y quedó resuelto:** el centinela *"el catálogo tiene
+los 437 productos"* daba 469. Son los **32 códigos dados de alta el 2026-09-16** (16 de color + 16
+con precio manual). Se comprobó primero que los 126 `PROVISIONAL` seguían separados de los 464
+`CATALOGO` + 5 `ALTA` —que es exactamente lo que ese centinela vigila, **no hubo contaminación**— y
+con eso confirmado, el usuario autorizó actualizar el número. **Suite completa en verde: 37/37.**
+
+La lección que deja: el centinela estuvo tres días en rojo y en ese estado **dejó de vigilar**, porque
+el fallo que importa se confunde con el ruido de fondo. Al subir el conteo por una razón buena,
+actualizar el número es parte del trabajo.
+
+**Fricción operativa que mordió dos veces y conviene recordar:** las suites no se pueden correr con
+`npm run dev` levantado — la caché de las pruebas abre su propia conexión y se agotan las 15 del
+pooler de Supabase (`EMAXCONNSESSION`). Lo tramposo es que **no falla la suite del cambio**: fallan
+las que dependen de la caché, que pueden ser cualquiera, y parece una regresión inexistente. Llegó a
+mostrar 3 fallos justo después de tocar el centinela. Bajar el backend, correr, relanzar.
+
+### Estado que queda
+
+- **139 de 163 diseños** pueden emitir orden de corte (15 A + 124 B). Los 24 C siguen frenados.
+- Toda la maquinaria de calibración queda **intacta y operativa**, solo deja de ser obligatoria.
+- Las medidas pueden salir **±1 mm**; conviene que el maestro lo sepa.
+- Sin commit: el cambio queda en el working tree a la espera de orden.
