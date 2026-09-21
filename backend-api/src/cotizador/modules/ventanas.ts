@@ -31,45 +31,16 @@
 // ancho/alto/cuerpos/alasCorredizas) y es `totalizar()` quien multiplica el
 // conjunto por `cantidadPiezas` **una única vez**, al final.
 
-import { lineaCatalogo, totalizar, areaM2, round2, tarifaSMO } from "../lib/motorCalculo";
+import { lineaCatalogo, totalizar, areaM2, round2 } from "../lib/motorCalculo";
 import { getParametros } from "../lib/catalogo";
 import { cotizarPorDiseno, hacerAgregarRol, codigoMatizado } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
 import type { LineaBOM } from "../lib/motorCalculo";
 
-// Línea de BOM "manual" (sin código de catálogo) para cargos fijos de instalación
-// (SMO, flete) que en el Excel original venían de referencias hardcodeadas a la
-// tabla ACABADOS (COSTOS!$AC$32/$AC$33), no de códigos de catálogo con precio por
-// segmento de cliente. Se centralizan en server/src/data/parametros.json (igual
-// patrón usado en tablero.js/espejo.js) en vez de repetirse como constantes
-// sueltas en cada módulo — ver decisión de producto sobre mano de obra/flete.
-function lineaManual({
-  codigo,
-  descripcion,
-  categoria,
-  unidad,
-  cantidad,
-  precioUnitario,
-}: {
-  codigo: string;
-  descripcion: string;
-  categoria: string;
-  unidad: string;
-  cantidad: number;
-  precioUnitario: number;
-}) {
-  const cantidadRedondeada = round2(cantidad);
-  return {
-    codigo,
-    descripcion,
-    categoria,
-    unidad,
-    cantidad: cantidadRedondeada,
-    precioUnitario,
-    valorTotal: round2(precioUnitario * cantidadRedondeada),
-    error: false,
-  };
-}
+// `lineaManual()` construía las dos líneas de BOM sin código de catálogo —SMO y
+// flete—. Ambas dejaron de ser líneas del ítem el 2026-09-20 y pasaron a ser
+// cargos de la propuesta, así que el helper se fue con ellas: dejarlo sin
+// llamadores es una invitación a volver a meter cargos en el BOM.
 
 function normalizarColor(color: unknown): string {
   const c = String(color ?? "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -246,7 +217,11 @@ export const meta = {
     // Cuando existan más referencias, esto pasa a select como el matizado.
     { nombre: "pelicula", tipo: "boolean", etiqueta: "Incluir película", requerido: false, grupo: "vidrio" },
     { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de ventanas idénticas", requerido: false, grupo: "comercial" },
-    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (%)", requerido: false, grupo: "comercial" },
+    // `descuentoPct` salió del formulario el 2026-09-20: desde entonces hay UN
+    // solo descuento y vive en la propuesta (`cotizador.propuesta.descuento_pct`).
+    // `calcular()` sigue aceptándolo por compatibilidad con las cotizaciones ya
+    // guardadas, pero el formulario deja de pedirlo, así que en la práctica llega
+    // siempre en 0.
   ],
 };
 
@@ -367,7 +342,23 @@ export function calcular(input: InputModulo = {}) {
     : 1;
   const descuentoPct = Number.isFinite(Number(input.descuentoPct)) ? Number(input.descuentoPct) : 0;
 
-  const codigoVidrio = VIDRIOS_VALIDOS.includes(input.codigoVidrio) ? input.codigoVidrio : "CL4MM01CR";
+  // Un código fuera de la whitelist cae al vidrio por defecto. Hasta el
+  // 2026-09-20 eso pasaba EN SILENCIO, que es exactamente lo que este módulo se
+  // prohíbe a sí mismo (ver bug #4, arriba): la cotización salía con claro 4 mm
+  // crudo sin decírselo a nadie. Se volvió crítico al aparecer las variantes por
+  // propuesta: duplicar una propuesta pidiendo "6 mm templado 02TE" —que no está
+  // en esta lista— devolvía una propuesta B con EL MISMO TOTAL que la A, sin una
+  // sola advertencia. Detectado probando el clonado contra datos reales.
+  const pidioVidrio = typeof input.codigoVidrio === "string" && input.codigoVidrio.trim() !== "";
+  const vidrioValido = VIDRIOS_VALIDOS.includes(input.codigoVidrio);
+  const codigoVidrio = vidrioValido ? input.codigoVidrio : "CL4MM01CR";
+  if (pidioVidrio && !vidrioValido) {
+    advertencias.push(
+      `El vidrio "${input.codigoVidrio}" no está entre los que este sistema puede cotizar, así que se ` +
+        `usó Claro 4 mm crudo (CL4MM01CR). Elige uno de la lista del formulario si necesitas otro: ` +
+        `el precio de esta cotización NO corresponde al vidrio que pediste.`
+    );
+  }
 
   // El negro entró al selector antes de que el catálogo lo cubriera. Estado
   // verificado el 2026-09-16 (refs con color negro / refs totales del
@@ -499,34 +490,13 @@ export function calcular(input: InputModulo = {}) {
   if (codMatizado) items.push(lineaCatalogo(codMatizado, areaUnaPieza, segmentoCliente));
   if (input.pelicula) items.push(lineaCatalogo(ACABADOS.pelicula, areaUnaPieza, segmentoCliente));
 
-  // Mano de obra (SMO) y flete: valores fijos centralizados en parametros.json
-  // (no varían por tipo de cliente PA/PM/PB), por la misma razón documentada en
-  // tablero.js — no existen como códigos reales en el catálogo de 430 productos.
+  // ⚠️ AQUÍ YA NO SE AGREGAN NI SMO NI FLETE (2026-09-20).
+  // Estaban en el BOM, y `totalizar()` multiplica cada línea del BOM por
+  // `cantidadPiezas`: cinco ventanas iguales cobraban cinco manos de obra y
+  // cinco fletes. Ambos pasaron a ser cargos de la PROPUESTA
+  // (`cotizador.propuesta_cargo`), se cobran una vez y van fuera del AIU y del
+  // descuento. La sugerencia de cuánto cobrar vive en `lib/cargos.ts`.
   const parametros = getParametros();
-  // SMO03 del Excel: armar una ventana no cuesta lo mismo que instalar una cabina.
-  const smoRate = tarifaSMO(parametros, "armadaVentanas");
-  const fleteFijo = parametros.flete_fijo ?? 40000;
-  const smoValor = Math.max(round2(areaUnaPieza * smoRate), smoRate);
-  items.push(
-    lineaManual({
-      codigo: "SMO",
-      descripcion: "Servicio Mínimo de Obra",
-      categoria: "INSTALACION",
-      unidad: "GLOBAL",
-      cantidad: 1,
-      precioUnitario: smoValor,
-    })
-  );
-  items.push(
-    lineaManual({
-      codigo: "GTFA26",
-      descripcion: "Acarreo / Flete",
-      categoria: "INSTALACION",
-      unidad: "UND",
-      cantidad: 1,
-      precioUnitario: fleteFijo,
-    })
-  );
 
   const resultado = totalizar(items, {
     cantidadPiezas,

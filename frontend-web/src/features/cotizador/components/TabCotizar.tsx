@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
-import {
-    Plus, CheckCircle2,
-    LayoutGrid, PanelTop, DoorOpen, DoorClosed, Square, Sparkles, Package,
-} from 'lucide-react';
+import { Plus, Layers, Calculator, PencilRuler } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { apiGetModulos } from '../services/cotizadorApi';
@@ -10,43 +7,39 @@ import { ItemCarrito, ModuloMeta, ResultadoCalculo as TResultadoCalculo, Segment
 import FormularioModulo from './FormularioModulo';
 import ResultadoCalculo from './ResultadoCalculo';
 import DiagramaProducto from './DiagramaProducto';
+import FichaProducto from './FichaProducto';
+import SelectorProducto from './SelectorProducto';
+import { BotonPrimario, EstadoVacio, Tarjeta } from './ui';
 import { usePlanoPrevisualizacion } from '../hooks/usePlano';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Pestaña "Cotizar": elegir módulo -> llenar el formulario propio de ese
-// módulo (FormularioModulo, data-driven desde meta.campos) -> ver el resultado
-// (BOM + totales + plano si aplica) -> agregarlo al carrito de la pestaña
-// "Actual". No guarda nada por sí sola: cada cálculo es local hasta que el
-// usuario aprieta "Agregar a la cotización".
+// Pestaña "Cotizar" — el configurador.
+//
+// Dos columnas que se ven a la vez en escritorio: CONFIGURACIÓN a la izquierda
+// (2/5) y RESULTADO a la derecha (3/5). Antes del rediseño (2026-09-20) el
+// resultado vivía debajo del formulario y el vendedor tenía que bajar para
+// saber cuánto costaba lo que acababa de armar; ahora el precio nunca sale de
+// la pantalla.
+//
+// El panel derecho NUNCA desaparece: sin cálculo todavía explica qué falta, en
+// vez de dejar medio lienzo en blanco que parece una pantalla rota.
+//
+// Sigue sin guardar nada: cada cálculo es local hasta que se pulsa "Agregar",
+// y quien es dueño del carrito y de la propuesta activa es CotizadorPage.
 // ─────────────────────────────────────────────────────────────────────────────
-
-// Íconos del selector "spotlight" por id de módulo (backend-api/src/cotizador
-// /modules/registry.ts). No viene de meta.campos — es puramente decorativo,
-// así que si aparece un módulo nuevo cae al ícono genérico en vez de romper.
-const ICONOS_MODULO: Record<string, React.ComponentType<{ className?: string }>> = {
-    ventanas: LayoutGrid,
-    proyectantes: PanelTop,
-    'cabinas-corredizas': DoorOpen,
-    'cabinas-batientes': DoorClosed,
-    tablero: Square,
-    espejo: Sparkles,
-};
-
-/** Recorta la descripción del módulo (puede ser un párrafo largo) a su primera
- * oración, o a ~70 caracteres si esa "oración" sigue siendo muy larga —
- * la tarjeta spotlight es angosta, no un lugar para el texto completo. */
-function descripcionCorta(descripcion: string): string {
-    const primeraOracion = descripcion.match(/^[^.!?]*[.!?]/)?.[0]?.trim() || descripcion;
-    if (primeraOracion.length <= 90) return primeraOracion;
-    return `${descripcion.slice(0, 70).trimEnd()}…`;
-}
 
 interface Props {
     segmentoDefault: SegmentoCliente;
     onAgregarItem: (item: ItemCarrito) => void;
+    /** Panel de cargos de obra, inyectado por el padre: pertenece a la
+     * PROPUESTA, no al ítem que se está configurando, y por eso va arriba del
+     * todo y no dentro de la columna de configuración. */
+    panelCargos?: React.ReactNode;
+    /** Etiqueta de la propuesta a la que se agregará lo que se calcule aquí. */
+    destino?: string;
 }
 
-const TabCotizar: React.FC<Props> = ({ segmentoDefault, onAgregarItem }) => {
+const TabCotizar: React.FC<Props> = ({ segmentoDefault, onAgregarItem, panelCargos, destino }) => {
     const [modulos, setModulos] = useState<ModuloMeta[]>([]);
     const [moduloId, setModuloId] = useState<string>('');
     const [ultimoInput, setUltimoInput] = useState<Record<string, unknown> | null>(null);
@@ -94,72 +87,34 @@ const TabCotizar: React.FC<Props> = ({ segmentoDefault, onAgregarItem }) => {
     const altoCm = Number(ultimoInput?.altoCm ?? ultimoInput?.altoNaveCm) || undefined;
     const { plano, cargando: cargandoPlano } = usePlanoPrevisualizacion(disenoId, anchoCm, altoCm);
 
-    return (
-        <div className="p-4 space-y-4">
-            {/* Riel de pasos: puramente orientativo, no bloquea nada — el
-                formulario completo sigue siempre visible debajo. */}
-            <div className="flex items-center gap-2 px-1">
-                <div className="flex items-center gap-2 flex-shrink-0">
-                    <div className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center flex-shrink-0">
-                        <CheckCircle2 className="w-4 h-4" />
-                    </div>
-                    <span className="text-[12px] font-bold text-indigo-700 font-cotizador-head whitespace-nowrap">Producto</span>
-                </div>
-                <div className="flex-1 h-[1.5px] bg-indigo-200" />
-                <div className="flex items-center gap-2 flex-shrink-0">
-                    <div className="w-7 h-7 rounded-full bg-white border-2 border-indigo-600 text-indigo-700 flex items-center justify-center flex-shrink-0 text-[12px] font-extrabold font-cotizador-head">
-                        2
-                    </div>
-                    <span className="text-[12px] font-bold text-indigo-700 font-cotizador-head whitespace-nowrap">Detalles</span>
-                </div>
-                <div className="flex-1 h-[1.5px] bg-slate-200" />
-                <div className="flex items-center gap-2 flex-shrink-0">
-                    <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center flex-shrink-0 text-[12px] font-extrabold font-cotizador-head">
-                        3
-                    </div>
-                    <span className="text-[12px] font-bold text-slate-400 font-cotizador-head whitespace-nowrap">Resultado</span>
-                </div>
-            </div>
+    const hayResultado = Boolean(ultimoResultado && ultimoInput);
 
-            {/* Selector de módulo "spotlight": el activo se destaca en grande,
-                el resto queda como chips compactos. */}
-            <div className="flex flex-wrap sm:flex-nowrap gap-2.5">
-                {modulos.map(m => {
-                    const activo = moduloId === m.id;
-                    const Icono = ICONOS_MODULO[m.id] || Package;
-                    if (activo) {
-                        return (
-                            <button
-                                key={m.id}
-                                onClick={() => cambiarModulo(m.id)}
-                                className="flex-1 min-w-[220px] text-left bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl shadow-lg shadow-indigo-600/25 px-4 py-3.5 flex items-start gap-3"
-                            >
-                                <span className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0">
-                                    <Icono className="w-5 h-5 text-white" />
-                                </span>
-                                <span className="min-w-0">
-                                    <span className="block text-white font-extrabold text-sm font-cotizador-head">{m.nombre}</span>
-                                    <span className="block text-violet-100 text-[11.5px] mt-0.5">{descripcionCorta(m.descripcion)}</span>
-                                </span>
-                            </button>
-                        );
-                    }
-                    return (
-                        <button
-                            key={m.id}
-                            onClick={() => cambiarModulo(m.id)}
-                            className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 flex items-center gap-2 hover:bg-slate-50 transition flex-shrink-0"
-                        >
-                            <Icono className="w-4 h-4 text-slate-400" />
-                            <span className="text-slate-600 text-[12.5px] font-bold whitespace-nowrap">{m.nombre}</span>
-                        </button>
-                    );
-                })}
-            </div>
+    return (
+        // El fondo `bg-slate-50` lo pone el cuerpo de la carpeta en
+        // CotizadorPage, para las dos pestañas a la vez. Aquí sería redundante.
+        <div className="p-4 space-y-3">
+            {/* Destino y cargos van arriba del todo porque no pertenecen al ítem
+                que se está configurando sino a la propuesta entera: el flete y la
+                mano de obra se cobran una vez, no una por producto. */}
+            {destino && (
+                <div className="flex items-center gap-2 text-[12.5px] text-slate-500 px-1">
+                    <Layers className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    Lo que calcules aquí se agrega a{' '}
+                    <span className="font-bold text-indigo-700">{destino}</span>
+                </div>
+            )}
+
+            {panelCargos}
+
+            <SelectorProducto modulos={modulos} moduloId={moduloId} onCambiar={cambiarModulo} />
 
             {moduloActivo && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="bg-white border border-slate-200 rounded-xl p-4">
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 items-start">
+                    {/* ── Configuración (2/5) ─────────────────────────────── */}
+                    {/* Sin tarjeta envolvente: cada grupo de campos trae la suya
+                        (ver FormularioModulo) y anidarlas daría blanco sobre
+                        blanco con doble borde. */}
+                    <div className="lg:col-span-2 space-y-3">
                         <FormularioModulo
                             key={moduloActivo.id}
                             modulo={moduloActivo}
@@ -168,26 +123,54 @@ const TabCotizar: React.FC<Props> = ({ segmentoDefault, onAgregarItem }) => {
                         />
                     </div>
 
-                    <div className="space-y-4">
-                        {disenoId && (
-                            <div className="bg-white border border-slate-200 rounded-xl p-4">
-                                <DiagramaProducto plano={plano} cargando={cargandoPlano} />
-                            </div>
-                        )}
+                    {/* ── Resultado (3/5) ─────────────────────────────────── */}
+                    <div className="lg:col-span-3 space-y-3">
+                        {/* El diagrama trae su propio marco y resuelve solo los
+                            casos "cargando" y "sin plano" (medidas libres), así
+                            que aquí sólo le pone el título de sección. */}
+                        <Tarjeta titulo="Vista técnica" icono={PencilRuler}>
+                            <DiagramaProducto plano={plano} cargando={cargandoPlano} />
+                        </Tarjeta>
 
-                        {ultimoResultado && (
-                            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
-                                <ResultadoCalculo resultado={ultimoResultado} />
-                                <button
-                                    onClick={agregarAlCarrito}
-                                    disabled={ultimoResultado.hayErrores}
-                                    title={ultimoResultado.hayErrores ? 'Corrige las líneas en error antes de agregar el ítem.' : ''}
-                                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    Agregar a la cotización actual
-                                </button>
-                            </div>
+                        {hayResultado ? (
+                            <>
+                                {/* Ficha y despiece traen su propia Tarjeta: envolverlos
+                                    otra vez daría doble borde. */}
+                                <FichaProducto
+                                    input={ultimoInput as Record<string, unknown>}
+                                    resultado={ultimoResultado}
+                                    modulo={moduloActivo}
+                                />
+
+                                <ResultadoCalculo resultado={ultimoResultado as TResultadoCalculo} />
+
+                                {/* Anclado al fondo de la ventana mientras se recorre
+                                    el despiece: con 15-20 líneas de materiales, el
+                                    botón quedaba fuera de pantalla justo cuando el
+                                    vendedor termina de revisarlas y quiere agregarlo.
+                                    La franja de fondo evita que el texto de la tabla
+                                    se lea por debajo del botón al desplazarse. */}
+                                <div className="sticky bottom-0 -mx-1 px-1 pt-2 pb-1 bg-gradient-to-t from-slate-50 via-slate-50 to-transparent">
+                                    <BotonPrimario
+                                        ancho
+                                        icono={Plus}
+                                        onClick={agregarAlCarrito}
+                                        disabled={ultimoResultado?.hayErrores}
+                                        title={ultimoResultado?.hayErrores ? 'Corrige las líneas en error antes de agregar el ítem.' : ''}
+                                        className="py-3 shadow-lg shadow-indigo-600/25"
+                                    >
+                                        {destino ? `Agregar a ${destino}` : 'Agregar a la cotización actual'}
+                                    </BotonPrimario>
+                                </div>
+                            </>
+                        ) : (
+                            <Tarjeta>
+                                <EstadoVacio
+                                    icono={Calculator}
+                                    titulo="Todavía no hay nada calculado"
+                                    detalle="Completa la configuración de la izquierda y pulsa Calcular. Aquí aparecerán la ficha del producto, el despiece de materiales y el total."
+                                />
+                            </Tarjeta>
                         )}
                     </div>
                 </div>

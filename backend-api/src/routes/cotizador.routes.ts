@@ -21,6 +21,15 @@ import {
   crearCotizacion,
   actualizarCotizacion,
   eliminarCotizacion,
+  crearPropuesta,
+  clonarPropuesta,
+  actualizarPropuesta,
+  elegirPropuesta,
+  eliminarPropuesta,
+  guardarCargosPropuesta,
+  compararPropuestas,
+  smoSugerido,
+  smoSugeridoBorrador,
 } from '../controllers/cotizador_cotizaciones.controller';
 import {
   listarPrecios,
@@ -75,6 +84,11 @@ router.get('/modulos', getModulos);
 
 router.post('/cotizar/:moduloId', cotizarItem);
 
+// Mano de obra sugerida para una cotización que todavía no existe (el carrito
+// viaja en el cuerpo). Fuera de `/cotizaciones/:id` a propósito: en un borrador
+// no hay ni cotización ni propuesta de la que colgar. No escribe nada.
+router.post('/smo-sugerido', smoSugeridoBorrador);
+
 router.get('/plano', previsualizarPlano);
 
 router.get('/empresa', obtenerEmpresa);
@@ -90,7 +104,21 @@ router.post('/precios', crearPrecio);
 
 // Literales antes de ':id' — mismo motivo.
 router.get('/cotizaciones/:id/aptitud', aptitudCotizacion);
+router.get('/cotizaciones/:id/comparar', compararPropuestas);
 router.get('/cotizaciones/:id/items/:itemId/plano', planoDeItem);
+
+// Propuestas (A/B/C…) de una cotización — 2026-09-20. Las rutas con un segmento
+// literal al final (`/clonar`, `/elegir`, `/cargos`, `/smo-sugerido`) van antes
+// de las que terminan en ':pid', por el mismo motivo que el bloque de precios:
+// si no, "clonar" se leería como el id de una propuesta.
+router.post('/cotizaciones/:id/propuestas/:pid/clonar', clonarPropuesta);
+router.patch('/cotizaciones/:id/propuestas/:pid/elegir', elegirPropuesta);
+router.put('/cotizaciones/:id/propuestas/:pid/cargos', guardarCargosPropuesta);
+router.get('/cotizaciones/:id/propuestas/:pid/smo-sugerido', smoSugerido);
+router.patch('/cotizaciones/:id/propuestas/:pid', actualizarPropuesta);
+router.delete('/cotizaciones/:id/propuestas/:pid', eliminarPropuesta);
+router.post('/cotizaciones/:id/propuestas', crearPropuesta);
+
 router.get('/cotizaciones/:id', obtenerCotizacion);
 router.put('/cotizaciones/:id', actualizarCotizacion);
 router.delete('/cotizaciones/:id', eliminarCotizacion);

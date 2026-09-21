@@ -6,16 +6,33 @@
 // aplanada en columnas —el listado filtra por substring sobre el nombre del
 // cliente y la obra— y los ítems en su tabla hija.
 //
-// Dos decisiones que no son negociables:
+// DESDE EL 2026-09-20 LA JERARQUÍA ES cotización → PROPUESTA → ítem.
+// Una cotización es un contenedor de propuestas (A/B/C…): el mismo cliente y la
+// misma obra cotizados de varias maneras. El total de la cotización es el de la
+// propuesta ELEGIDA, y de ella —solo de ella— sale la orden de corte. Los cargos
+// de obra (mano de obra, andamio, huacal, flete) cuelgan de la propuesta porque
+// se cobran una vez, no una por pieza: ese era el bug que originó el cambio.
+//
+// Cuatro decisiones que no son negociables:
 //
 // 1. EL LISTADO NUNCA DEVUELVE LOS BLOBS. Cada ítem guarda un JSONB
 //    `resultado` de ~4,5 KB con el despiece completo; devolverlo en un listado
 //    de 50 cotizaciones serían 200 KB por pantallazo contra un egress diario
 //    de 50-60 MB. Para eso existen las columnas espejo que creó la Etapa 1
 //    (`diseno_id`, `sistema`, `apto_para_corte`, totales…): permiten listar,
-//    contar y filtrar sin tocar un solo blob. `obtener()` sí lo trae entero.
+//    contar y filtrar sin tocar un solo blob.
 //
-// 2. EL NÚMERO SALE DE UN CONTADOR CON ROW-LOCK, no de `max(numero)+1`. Ese
+// 2. `obtener()` TRAE LOS BLOBS DE UNA SOLA PROPUESTA. Con propuestas, "traer
+//    el detalle entero" multiplicaría el peso por el número de variantes. Se
+//    trae completa la propuesta ACTIVA (por defecto, la elegida) y el resto
+//    viene en modo ligero con `COLUMNAS_ITEM_LIGERO`.
+//
+// 3. LOS TOTALES YA NO SON UNA SUMA. `calcularTotales` delega en
+//    `calcularTotalesPropuesta` de `lib/cargos.ts`, que aplica descuento e IVA
+//    a los productos y suma los cargos aparte (fuera del AIU y del descuento).
+//    Esa aritmética vive en un solo sitio: aquí no se replica.
+//
+// 4. EL NÚMERO SALE DE UN CONTADOR CON ROW-LOCK, no de `max(numero)+1`. Ese
 //    patrón es un read-then-write clásico: dos vendedores guardando a la vez
 //    leen el mismo máximo y ambos escriben el mismo número. Ver `siguienteNumero`.
 import { QueryTypes, Op, Transaction } from 'sequelize';
@@ -23,7 +40,31 @@ import {
   sequelize,
   CotizadorCotizacion,
   CotizadorCotizacionItem,
+  CotizadorPropuesta,
+  CotizadorPropuestaCargo,
 } from '../../models';
+import {
+  calcularTotalesPropuesta,
+  sugerirCargosIniciales,
+  totalDeCargo,
+  type CargoParaTotales,
+  type TipoCargo,
+} from '../lib/cargos';
+import { getModulo } from '../modules/registry';
+
+/** Error de negocio con el código HTTP que le corresponde y un mensaje ya
+ * redactado para el vendedor. El controlador sólo lo traduce a respuesta: así
+ * la regla ("no se puede borrar la última propuesta") vive junto al dato que la
+ * hace cierta, y no repartida entre cinco handlers. */
+export class ErrorCotizador extends Error {
+  constructor(
+    readonly estado: number,
+    mensaje: string
+  ) {
+    super(mensaje);
+    this.name = 'ErrorCotizador';
+  }
+}
 
 export interface ClienteCotizacion {
   nombre?: string;
@@ -41,13 +82,42 @@ export interface ItemEntrada {
   resultado?: Record<string, any> | null;
 }
 
+export interface CargoEntrada {
+  tipo: TipoCargo;
+  descripcion?: string | null;
+  cantidad?: number;
+  unidad?: string;
+  valorUnitario?: number;
+  aplicaIva?: boolean;
+  origen?: string;
+}
+
+export interface PropuestaEntrada {
+  nombre?: string | null;
+  nota?: string | null;
+  elegida?: boolean;
+  descuentoPct?: number;
+  items?: ItemEntrada[];
+  /** Ausente = se sugiere el juego por defecto (mano de obra + flete). Un
+   * arreglo vacío = el vendedor decidió que no lleva cargos. AUSENTE ≠ VACÍO,
+   * la misma invariante que defiende la calibración del módulo. */
+  cargos?: CargoEntrada[];
+}
+
 export interface CotizacionEntrada {
   cliente?: ClienteCotizacion;
   segmentoCliente?: string;
   asesor?: string;
+  /** LEGADO: la cabecera ya no guarda descuento. Si llega (contrato viejo del
+   * frontend), se aplica a la propuesta que se esté escribiendo. */
   descuentoPct?: number;
   estado?: string;
+  /** Contrato viejo: ítems planos. Se guardan en la propuesta A / en la activa. */
   items?: ItemEntrada[];
+  /** Contrato nuevo: varias propuestas de una vez. */
+  propuestas?: PropuestaEntrada[];
+  /** A qué propuesta van los `items` planos al actualizar. Por defecto, la elegida. */
+  propuestaId?: number;
 }
 
 export interface FiltrosListado {
@@ -60,14 +130,41 @@ export interface FiltrosListado {
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
-/** Totales de la cotización: se suman los de cada ítem ya calculados por el
- * motor. No se recalculan aquí — el motor es el único que sabe aplicar AIU,
- * descuento e IVA en el orden correcto. */
-export function calcularTotales(items: ItemEntrada[] = []) {
-  const subtotal = items.reduce((acc, it) => acc + (it.resultado?.subtotalConAiu ?? 0), 0);
-  const iva = items.reduce((acc, it) => acc + (it.resultado?.iva ?? 0), 0);
-  const total = items.reduce((acc, it) => acc + (it.resultado?.total ?? 0), 0);
-  return { subtotal: round2(subtotal), iva: round2(iva), total: round2(total) };
+/** Máximo de propuestas por cotización. Cinco no es un número técnico: es el
+ * punto donde el comparador deja de caber en una pantalla girada hacia el
+ * cliente, que es para lo que existe. */
+export const MAX_PROPUESTAS = 5;
+const ETIQUETAS = ['A', 'B', 'C', 'D', 'E'];
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Fila = Record<string, any>;
+
+/**
+ * Totales de una propuesta. Ya NO es una suma de los ítems: aplica el descuento
+ * de la propuesta sobre los productos y añade los cargos por fuera del AIU y del
+ * descuento, con su propio IVA. El contrato numérico completo (incluido el caso
+ * legado) vive en `lib/cargos.ts`; aquí sólo se adapta la forma de las filas.
+ *
+ * Se conserva el nombre y la forma de salida (`{subtotal, iva, total}`) porque
+ * es lo que consumen la cabecera y el frontend.
+ */
+export function calcularTotales(
+  items: ItemEntrada[] = [],
+  {
+    cargos = [],
+    descuentoPct = 0,
+    legadoCargosEnItems = false,
+  }: { cargos?: CargoParaTotales[]; descuentoPct?: number; legadoCargosEnItems?: boolean } = {}
+) {
+  const t = calcularTotalesPropuesta({ items, cargos, descuentoPct, legadoCargosEnItems });
+  return {
+    subtotal: t.totalProductos,
+    descuento: t.totalDescuento,
+    cargos: t.totalCargos,
+    iva: t.totalIva,
+    total: t.totalTotal,
+    detalle: t,
+  };
 }
 
 /** Campos que se copian del `resultado` a columnas propias para poder listar
@@ -88,10 +185,7 @@ function espejoDe(it: ItemEntrada) {
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Fila = Record<string, any>;
-
-function aCotizacion(fila: Fila, items: Fila[] | null) {
+function aCotizacion(fila: Fila, items: Fila[] | null, propuestas: Fila[] | null, propuestaActivaId: number | null) {
   const salida: Fila = {
     id: fila.id,
     numero: fila.numero,
@@ -108,6 +202,9 @@ function aCotizacion(fila: Fila, items: Fila[] | null) {
     },
     segmentoCliente: fila.segmento_cliente,
     asesor: fila.asesor,
+    // ⚠️ LEGADO: la columna se conserva con sus 4 filas históricas pero ya no se
+    // escribe. El descuento vivo es `propuesta.descuentoPct`. Se sigue emitiendo
+    // para no romper a quien la lea todavía.
     descuentoPct: fila.descuento_pct,
     totales: {
       subtotal: fila.total_subtotal,
@@ -115,6 +212,12 @@ function aCotizacion(fila: Fila, items: Fila[] | null) {
       total: fila.total_total,
     },
   };
+  if (propuestas) {
+    salida.propuestas = propuestas;
+    const elegida = propuestas.find((p) => p.elegida);
+    salida.propuestaElegidaId = elegida ? elegida.id : null;
+    salida.propuestaActivaId = propuestaActivaId;
+  }
   if (items) salida.items = items.map(aItem);
   return salida;
 }
@@ -122,6 +225,7 @@ function aCotizacion(fila: Fila, items: Fila[] | null) {
 function aItem(fila: Fila) {
   const item: Fila = {
     id: fila.id,
+    propuestaId: fila.propuesta_id,
     orden: fila.orden,
     moduloId: fila.modulo_id,
     descripcionItem: fila.descripcion_item,
@@ -135,16 +239,58 @@ function aItem(fila: Fila) {
     iva: fila.iva,
     total: fila.total,
   };
-  // Sólo cuando se pidieron: el listado no los trae.
+  // Sólo cuando se pidieron: el listado y las propuestas no activas no los traen.
   if ('input' in fila) item.input = fila.input;
   if ('resultado' in fila) item.resultado = fila.resultado;
   return item;
+}
+
+function aCargo(fila: Fila) {
+  return {
+    id: fila.id,
+    propuestaId: fila.propuesta_id,
+    orden: fila.orden,
+    tipo: fila.tipo,
+    descripcion: fila.descripcion,
+    cantidad: fila.cantidad,
+    unidad: fila.unidad,
+    valorUnitario: fila.valor_unitario,
+    total: fila.total,
+    aplicaIva: fila.aplica_iva,
+    origen: fila.origen,
+  };
+}
+
+function aPropuesta(fila: Fila, cargos: Fila[] | null, items: Fila[] | null) {
+  const p: Fila = {
+    id: fila.id,
+    cotizacionId: fila.cotizacion_id,
+    etiqueta: fila.etiqueta,
+    nombre: fila.nombre,
+    nota: fila.nota,
+    elegida: fila.elegida,
+    descuentoPct: fila.descuento_pct,
+    legadoCargosEnItems: fila.legado_cargos_en_items,
+    totales: {
+      productos: fila.total_productos,
+      descuento: fila.total_descuento,
+      cargos: fila.total_cargos,
+      iva: fila.total_iva,
+      total: fila.total_total,
+    },
+    creadaEn: fila.creada_en,
+    actualizadaEn: fila.actualizada_en,
+  };
+  if (cargos) p.cargos = cargos.map(aCargo);
+  if (items) p.items = items.map(aItem);
+  return p;
 }
 
 /** Columnas del ítem que NO incluyen los dos JSONB pesados. */
 const COLUMNAS_ITEM_LIGERO = [
   'id',
   'cotizacion_id',
+  'propuesta_id',
   'orden',
   'modulo_id',
   'descripcion_item',
@@ -159,13 +305,36 @@ const COLUMNAS_ITEM_LIGERO = [
   'total',
 ];
 
+/** Las tres columnas espejo que alimentan la cadena de totales. Se leen en vez
+ * del JSONB `resultado` a propósito: recalcular los totales de una propuesta no
+ * necesita el despiece, y traerlo costaría 4,5 KB por ítem cada vez que alguien
+ * toca un cargo. */
+const COLUMNAS_ITEM_TOTALES = ['subtotal_con_aiu', 'iva', 'total'];
+
+function filasATotalizables(filas: Fila[]) {
+  return filas.map((f) => ({
+    resultado: {
+      subtotalConAiu: Number(f.subtotal_con_aiu ?? 0),
+      iva: Number(f.iva ?? 0),
+      total: Number(f.total ?? 0),
+    },
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Lectura
+// ---------------------------------------------------------------------------
+
 /**
  * Listado con filtros combinables (AND), igual que el origen: `cliente` y `q`
  * son substring, `asesor` y `estado` igualdad exacta (salen de listas cerradas
  * de parámetros, no hay variantes de escritura que tolerar) y `numero` exacto
  * porque es un identificador, no un texto a buscar.
  *
- * Devuelve los ítems SIN `input` ni `resultado`.
+ * Devuelve los ítems SIN `input` ni `resultado`, y las propuestas SIN sus ítems
+ * ni sus cargos: sólo la cabecera y los totales espejo, que es lo que necesita
+ * la pestaña Guardadas para pintar el rango de una cotización sin decidir
+ * ("$1,1 M – $1,8 M · sin elegir").
  */
 export async function listar(filtros: FiltrosListado = {}) {
   const where: Fila = {};
@@ -197,38 +366,218 @@ export async function listar(filtros: FiltrosListado = {}) {
   })) as unknown as Fila[];
 
   if (cabeceras.length === 0) return [];
+  const ids = cabeceras.map((c) => c.id);
 
-  const items = (await CotizadorCotizacionItem.findAll({
-    where: { cotizacion_id: cabeceras.map((c) => c.id) },
-    attributes: COLUMNAS_ITEM_LIGERO,
-    order: [
-      ['cotizacion_id', 'ASC'],
-      ['orden', 'ASC'],
-    ],
-    raw: true,
-  })) as unknown as Fila[];
+  const [items, propuestas] = await Promise.all([
+    CotizadorCotizacionItem.findAll({
+      where: { cotizacion_id: ids },
+      attributes: COLUMNAS_ITEM_LIGERO,
+      order: [
+        ['cotizacion_id', 'ASC'],
+        ['orden', 'ASC'],
+      ],
+      raw: true,
+    }) as unknown as Promise<Fila[]>,
+    CotizadorPropuesta.findAll({
+      where: { cotizacion_id: ids },
+      order: [
+        ['cotizacion_id', 'ASC'],
+        ['etiqueta', 'ASC'],
+      ],
+      raw: true,
+    }) as unknown as Promise<Fila[]>,
+  ]);
 
-  const porCotizacion = new Map<number, Fila[]>();
-  for (const it of items) {
-    const lista = porCotizacion.get(it.cotizacion_id);
-    if (lista) lista.push(it);
-    else porCotizacion.set(it.cotizacion_id, [it]);
-  }
+  const itemsPorCot = agrupar(items, 'cotizacion_id');
+  const propsPorCot = agrupar(propuestas, 'cotizacion_id');
 
-  return cabeceras.map((c) => aCotizacion(c, porCotizacion.get(c.id) ?? []));
+  return cabeceras.map((c) => {
+    const props = (propsPorCot.get(c.id) ?? []).map((p) => aPropuesta(p, null, null));
+    return aCotizacion(c, itemsPorCot.get(c.id) ?? [], props, null);
+  });
 }
 
-/** Cotización completa, con los blobs de cada ítem. */
-export async function obtener(id: number) {
+function agrupar(filas: Fila[], clave: string): Map<number, Fila[]> {
+  const mapa = new Map<number, Fila[]>();
+  for (const f of filas) {
+    const k = f[clave];
+    const lista = mapa.get(k);
+    if (lista) lista.push(f);
+    else mapa.set(k, [f]);
+  }
+  return mapa;
+}
+
+/**
+ * Cotización completa.
+ *
+ * Trae los blobs (`input`/`resultado`) de UNA sola propuesta: la que se pida por
+ * `propuesta`, y si no, la elegida; si no hay elegida, la primera. El resto de
+ * propuestas viene con sus ítems en modo ligero. Sin esta regla, cuatro
+ * propuestas multiplican por cuatro el peso del detalle, y el detalle es la
+ * pantalla que más se abre del módulo.
+ *
+ * Al pedir `propuesta` se devuelve también `propuestaActivaId` para que el
+ * cliente sepa cuál de las listas trae despiece.
+ */
+export async function obtener(id: number, { propuesta }: { propuesta?: number | string } = {}) {
   const fila = (await CotizadorCotizacion.findByPk(id, { raw: true })) as unknown as Fila | null;
   if (!fila) return null;
-  const items = (await CotizadorCotizacionItem.findAll({
+
+  const propuestas = (await CotizadorPropuesta.findAll({
     where: { cotizacion_id: id },
-    order: [['orden', 'ASC']],
+    order: [['etiqueta', 'ASC']],
     raw: true,
   })) as unknown as Fila[];
-  return aCotizacion(fila, items);
+
+  const pedida = Number(propuesta);
+  const activa =
+    propuestas.find((p) => p.id === pedida) ??
+    propuestas.find((p) => p.elegida) ??
+    propuestas[0] ??
+    null;
+  const activaId: number | null = activa ? activa.id : null;
+
+  const idsPropuesta = propuestas.map((p) => p.id);
+  const [cargos, itemsCompletos, itemsLigeros] = await Promise.all([
+    idsPropuesta.length
+      ? (CotizadorPropuestaCargo.findAll({
+          where: { propuesta_id: idsPropuesta },
+          order: [
+            ['propuesta_id', 'ASC'],
+            ['orden', 'ASC'],
+            ['id', 'ASC'],
+          ],
+          raw: true,
+        }) as unknown as Promise<Fila[]>)
+      : Promise.resolve([] as Fila[]),
+    activaId !== null
+      ? (CotizadorCotizacionItem.findAll({
+          where: { propuesta_id: activaId },
+          order: [['orden', 'ASC']],
+          raw: true,
+        }) as unknown as Promise<Fila[]>)
+      : Promise.resolve([] as Fila[]),
+    idsPropuesta.length
+      ? (CotizadorCotizacionItem.findAll({
+          where: {
+            propuesta_id: activaId === null ? idsPropuesta : { [Op.ne]: activaId },
+            cotizacion_id: id,
+          },
+          attributes: COLUMNAS_ITEM_LIGERO,
+          order: [
+            ['propuesta_id', 'ASC'],
+            ['orden', 'ASC'],
+          ],
+          raw: true,
+        }) as unknown as Promise<Fila[]>)
+      : Promise.resolve([] as Fila[]),
+  ]);
+
+  const cargosPorProp = agrupar(cargos, 'propuesta_id');
+  const itemsPorProp = agrupar([...itemsCompletos, ...itemsLigeros], 'propuesta_id');
+
+  const propuestasSalida = propuestas.map((p) =>
+    aPropuesta(p, cargosPorProp.get(p.id) ?? [], itemsPorProp.get(p.id) ?? [])
+  );
+
+  // `items` en la raíz = los de la propuesta activa, con sus blobs. Es lo que
+  // esperan el carrito del frontend, el plano de un ítem y la aptitud: el
+  // "carrito" pasó a ser, literalmente, la propuesta que se está mirando.
+  // Cuando la cotización no tiene ninguna propuesta (no debería pasar tras la
+  // migración, pero un dato viejo no se descarta) se cae a los ítems colgados
+  // directamente de la cotización.
+  const itemsRaiz = propuestas.length
+    ? itemsCompletos
+    : ((await CotizadorCotizacionItem.findAll({
+        where: { cotizacion_id: id },
+        order: [['orden', 'ASC']],
+        raw: true,
+      })) as unknown as Fila[]);
+
+  return aCotizacion(fila, itemsRaiz, propuestasSalida, activaId);
 }
+
+/** Tabla comparativa de las propuestas de una cotización: la pantalla que se
+ * gira hacia el cliente. La diferencia se mide siempre contra la PRIMERA
+ * propuesta (la A), no contra la elegida: la A es la que el cliente ya vio, y
+ * comparar contra un ancla que se mueve al elegir haría saltar los números. */
+export async function comparar(id: number) {
+  const cab = (await CotizadorCotizacion.findByPk(id, { raw: true })) as unknown as Fila | null;
+  if (!cab) return null;
+
+  const propuestas = (await CotizadorPropuesta.findAll({
+    where: { cotizacion_id: id },
+    order: [['etiqueta', 'ASC']],
+    raw: true,
+  })) as unknown as Fila[];
+
+  const idsPropuesta = propuestas.map((p) => p.id);
+  const [cargos, conteos] = await Promise.all([
+    idsPropuesta.length
+      ? (CotizadorPropuestaCargo.findAll({
+          where: { propuesta_id: idsPropuesta },
+          order: [
+            ['propuesta_id', 'ASC'],
+            ['orden', 'ASC'],
+          ],
+          raw: true,
+        }) as unknown as Promise<Fila[]>)
+      : Promise.resolve([] as Fila[]),
+    idsPropuesta.length
+      ? (CotizadorCotizacionItem.findAll({
+          where: { propuesta_id: idsPropuesta },
+          attributes: ['id', 'propuesta_id', 'descripcion_item', 'modulo_id', 'cantidad_piezas', 'total'],
+          order: [
+            ['propuesta_id', 'ASC'],
+            ['orden', 'ASC'],
+          ],
+          raw: true,
+        }) as unknown as Promise<Fila[]>)
+      : Promise.resolve([] as Fila[]),
+  ]);
+
+  const cargosPorProp = agrupar(cargos, 'propuesta_id');
+  const itemsPorProp = agrupar(conteos, 'propuesta_id');
+  const base = propuestas[0];
+  const totalBase = base ? Number(base.total_total ?? 0) : 0;
+
+  return {
+    cotizacionId: cab.id,
+    numero: cab.numero,
+    estado: cab.estado,
+    baseEtiqueta: base ? base.etiqueta : null,
+    propuestas: propuestas.map((p) => {
+      const total = Number(p.total_total ?? 0);
+      const diferencia = round2(total - totalBase);
+      return {
+        id: p.id,
+        etiqueta: p.etiqueta,
+        nombre: p.nombre,
+        nota: p.nota,
+        elegida: p.elegida,
+        descuentoPct: p.descuento_pct,
+        cantidadItems: (itemsPorProp.get(p.id) ?? []).length,
+        totales: {
+          productos: p.total_productos,
+          descuento: p.total_descuento,
+          cargos: p.total_cargos,
+          iva: p.total_iva,
+          total: p.total_total,
+        },
+        cargos: (cargosPorProp.get(p.id) ?? []).map(aCargo),
+        diferencia,
+        // Porcentaje sobre la A. Sin base no hay porcentaje: dividir por cero
+        // daría `Infinity` y el frontend lo pintaría como "∞ %".
+        diferenciaPct: totalBase > 0 ? round2((diferencia / totalBase) * 100) : null,
+      };
+    }),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Escritura — helpers internos
+// ---------------------------------------------------------------------------
 
 /**
  * Siguiente número de cotización, sin condición de carrera.
@@ -250,11 +599,279 @@ async function siguienteNumero(t: Transaction): Promise<number> {
   return filas[0].valor;
 }
 
-export async function crear(datos: CotizacionEntrada) {
-  const items = datos.items ?? [];
-  const totales = calcularTotales(items);
-  const ahora = new Date();
+/** Primera etiqueta libre de A…E. La asigna el backend y nunca el cliente: si
+ * la eligiera el frontend, dos pestañas abiertas crearían dos "B". */
+function siguienteEtiqueta(usadas: string[]): string {
+  const libre = ETIQUETAS.find((e) => !usadas.includes(e));
+  if (!libre) {
+    throw new ErrorCotizador(
+      409,
+      `Una cotización admite como máximo ${MAX_PROPUESTAS} propuestas. Borra alguna de las que ya tiene antes de crear otra.`
+    );
+  }
+  return libre;
+}
 
+function filaCargo(c: CargoEntrada, orden: number) {
+  const cantidad = Number(c.cantidad);
+  const valorUnitario = Number(c.valorUnitario);
+  const normalizado = {
+    orden,
+    tipo: c.tipo,
+    descripcion: c.descripcion ?? null,
+    cantidad: Number.isFinite(cantidad) ? cantidad : 1,
+    unidad: c.unidad ?? 'GLOBAL',
+    valor_unitario: Number.isFinite(valorUnitario) ? valorUnitario : 0,
+    aplica_iva: c.aplicaIva === undefined ? true : Boolean(c.aplicaIva),
+    origen: c.origen === 'SUGERIDO' ? 'SUGERIDO' : 'MANUAL',
+  };
+  return { ...normalizado, total: totalDeCargo(normalizado) };
+}
+
+/** Inserta el juego de cargos de una propuesta. Uno a uno y no con `bulkCreate`:
+ * los hooks de auditoría son de instancia y una alta en bloque no los dispara,
+ * así que el precio de la mano de obra entraría sin dejar rastro. */
+async function insertarCargos(propuestaId: number, cargos: CargoEntrada[], t: Transaction) {
+  for (const [i, c] of cargos.entries()) {
+    await CotizadorPropuestaCargo.create(
+      { propuesta_id: propuestaId, ...filaCargo(c, i) } as Fila,
+      { transaction: t }
+    );
+  }
+}
+
+/**
+ * Recalcula los totales espejo de una propuesta y los guarda.
+ *
+ * Lee sólo las columnas espejo de los ítems (no el JSONB del despiece) y todos
+ * sus cargos. Es el único sitio que escribe `total_*` de la propuesta: cualquier
+ * operación que toque ítems, cargos o descuento termina llamando aquí.
+ */
+async function recalcularPropuesta(propuestaId: number, t: Transaction) {
+  const propuesta = (await CotizadorPropuesta.findByPk(propuestaId, { transaction: t })) as Fila | null;
+  if (!propuesta) return null;
+
+  const [items, cargos] = await Promise.all([
+    CotizadorCotizacionItem.findAll({
+      where: { propuesta_id: propuestaId },
+      attributes: COLUMNAS_ITEM_TOTALES,
+      raw: true,
+      transaction: t,
+    }) as unknown as Promise<Fila[]>,
+    CotizadorPropuestaCargo.findAll({
+      where: { propuesta_id: propuestaId },
+      attributes: ['cantidad', 'valor_unitario', 'total', 'aplica_iva'],
+      raw: true,
+      transaction: t,
+    }) as unknown as Promise<Fila[]>,
+  ]);
+
+  const totales = calcularTotalesPropuesta({
+    items: filasATotalizables(items),
+    cargos: cargos as CargoParaTotales[],
+    descuentoPct: Number(propuesta.descuento_pct ?? 0),
+    legadoCargosEnItems: Boolean(propuesta.legado_cargos_en_items),
+  });
+
+  await propuesta.update(
+    {
+      total_productos: totales.totalProductos,
+      total_descuento: totales.totalDescuento,
+      total_cargos: totales.totalCargos,
+      total_iva: totales.totalIva,
+      total_total: totales.totalTotal,
+      actualizada_en: new Date(),
+    },
+    { transaction: t }
+  );
+  return totales;
+}
+
+/**
+ * Copia a la cabecera los totales de la propuesta ELEGIDA.
+ *
+ * El total de la cotización ES el de la propuesta elegida. Se denormaliza para
+ * que el listado siga filtrando y ordenando sin abrir las propuestas. Sin
+ * elegida, los espejos quedan en cero a propósito: un total inventado (el de la
+ * A, por ejemplo) haría que el listado muestre como definitivo un precio que
+ * nadie ha escogido. La pestaña Guardadas pinta el RANGO en ese caso, leyendo
+ * `propuestas[]`.
+ */
+async function sincronizarCabecera(cotizacionId: number, t: Transaction) {
+  const cot = (await CotizadorCotizacion.findByPk(cotizacionId, { transaction: t })) as Fila | null;
+  if (!cot) return;
+  const elegida = (await CotizadorPropuesta.findOne({
+    where: { cotizacion_id: cotizacionId, elegida: true },
+    transaction: t,
+    raw: true,
+  })) as unknown as Fila | null;
+
+  await cot.update(
+    {
+      total_subtotal: elegida ? Number(elegida.total_productos ?? 0) : 0,
+      total_iva: elegida ? Number(elegida.total_iva ?? 0) : 0,
+      total_total: elegida ? Number(elegida.total_total ?? 0) : 0,
+      actualizada_en: new Date(),
+    },
+    { transaction: t }
+  );
+}
+
+async function propuestasDe(cotizacionId: number, t?: Transaction): Promise<Fila[]> {
+  return (await CotizadorPropuesta.findAll({
+    where: { cotizacion_id: cotizacionId },
+    order: [['etiqueta', 'ASC']],
+    raw: true,
+    transaction: t,
+  })) as unknown as Fila[];
+}
+
+/** Carga la cotización y la propuesta pedida validando que la segunda pertenezca
+ * a la primera. Un `pid` de otra cotización es un error del cliente, no un 404
+ * genérico: se responde que esa propuesta no es de esa cotización. */
+async function cargarPropuesta(cotizacionId: number, propuestaId: number, t: Transaction) {
+  const cot = (await CotizadorCotizacion.findByPk(cotizacionId, { transaction: t })) as Fila | null;
+  if (!cot) throw new ErrorCotizador(404, 'Cotización no encontrada.');
+  const propuesta = (await CotizadorPropuesta.findByPk(propuestaId, { transaction: t })) as Fila | null;
+  if (!propuesta || Number(propuesta.cotizacion_id) !== Number(cotizacionId)) {
+    throw new ErrorCotizador(404, 'Esa propuesta no existe en esta cotización.');
+  }
+  return { cot, propuesta };
+}
+
+/** Reconcilia los ítems de UNA propuesta por `orden` (upsert), NUNCA borrando y
+ * recreando: Sequelize omite el UPDATE cuando `changed()` está vacío, así que un
+ * ítem que no se tocó no dispara el hook de auditoría y no genera una fila más.
+ * Con delete+insert, guardar dos veces una propuesta de 8 ítems escribiría 16
+ * filas de auditoría con sus blobs, sin que nada hubiera cambiado. */
+async function reconciliarItems(
+  cotizacionId: number,
+  propuestaId: number,
+  items: ItemEntrada[],
+  t: Transaction
+) {
+  const existentes = (await CotizadorCotizacionItem.findAll({
+    where: { propuesta_id: propuestaId },
+    transaction: t,
+  })) as unknown as Array<
+    Fila & { update: (v: Fila, o: Fila) => Promise<unknown>; destroy: (o: Fila) => Promise<unknown> }
+  >;
+  const porOrden = new Map(existentes.map((e) => [e.orden as number, e]));
+
+  for (const [i, it] of items.entries()) {
+    const valores: Fila = {
+      modulo_id: it.moduloId ?? '',
+      descripcion_item: it.descripcionItem ?? null,
+      input: it.input ?? {},
+      resultado: it.resultado ?? {},
+      ...espejoDe(it),
+    };
+    const existente = porOrden.get(i);
+    if (existente) {
+      await existente.update(valores, { transaction: t });
+      porOrden.delete(i);
+    } else {
+      await CotizadorCotizacionItem.create(
+        { cotizacion_id: cotizacionId, propuesta_id: propuestaId, orden: i, ...valores } as Fila,
+        { transaction: t }
+      );
+    }
+  }
+  // Los que sobran (la propuesta perdió ítems) sí se borran.
+  for (const sobrante of porOrden.values()) {
+    await sobrante.destroy({ transaction: t });
+  }
+}
+
+/** Crea una propuesta con sus ítems y sus cargos dentro de una transacción ya
+ * abierta. Devuelve el id. */
+async function crearPropuestaInterna(
+  cotizacionId: number,
+  etiqueta: string,
+  entrada: PropuestaEntrada,
+  t: Transaction
+): Promise<number> {
+  const ahora = new Date();
+  const propuesta = (await CotizadorPropuesta.create(
+    {
+      cotizacion_id: cotizacionId,
+      etiqueta,
+      nombre: entrada.nombre ?? null,
+      nota: entrada.nota ?? null,
+      elegida: Boolean(entrada.elegida),
+      descuento_pct: Number(entrada.descuentoPct) || 0,
+      legado_cargos_en_items: false,
+      creada_en: ahora,
+      actualizada_en: ahora,
+    } as Fila,
+    { transaction: t }
+  )) as unknown as Fila;
+
+  const items = entrada.items ?? [];
+  for (const [i, it] of items.entries()) {
+    await CotizadorCotizacionItem.create(
+      {
+        cotizacion_id: cotizacionId,
+        propuesta_id: propuesta.id,
+        orden: i,
+        modulo_id: it.moduloId ?? '',
+        descripcion_item: it.descripcionItem ?? null,
+        input: it.input ?? {},
+        resultado: it.resultado ?? {},
+        ...espejoDe(it),
+      } as Fila,
+      { transaction: t }
+    );
+  }
+
+  // AUSENTE ≠ VACÍO: si no llegan cargos se sugiere el juego por defecto (mano
+  // de obra + flete), que es lo que el vendedor obtenía antes automáticamente
+  // porque ambos venían dentro del BOM. Un arreglo vacío explícito significa
+  // "esta propuesta no lleva cargos" y se respeta. Una propuesta sin ítems no
+  // recibe sugerencia: sugerir sobre cero metros cuadrados sería inventar.
+  const cargos = entrada.cargos ?? (items.length ? sugerirCargosIniciales({ items }) : []);
+  await insertarCargos(propuesta.id, cargos as CargoEntrada[], t);
+
+  await recalcularPropuesta(propuesta.id, t);
+  return propuesta.id;
+}
+
+// ---------------------------------------------------------------------------
+// Escritura — API pública
+// ---------------------------------------------------------------------------
+
+/**
+ * Crea una cotización.
+ *
+ * Acepta las dos formas, y las dos tienen que seguir funcionando:
+ *  - `items: [...]` (contrato actual del frontend) → se crea la propuesta A con
+ *    esos ítems, elegida, y el `descuentoPct` de la cabecera se aplica a ella.
+ *  - `propuestas: [...]` (forma nueva) → se crean en orden, con etiquetas A…E.
+ *
+ * Si ninguna propuesta viene marcada como elegida, se elige la primera: una
+ * cotización con una sola propuesta la tiene elegida por definición.
+ */
+export async function crear(datos: CotizacionEntrada) {
+  const entradas: PropuestaEntrada[] =
+    datos.propuestas && datos.propuestas.length
+      ? datos.propuestas
+      : [{ items: datos.items ?? [], descuentoPct: datos.descuentoPct ?? 0, elegida: true }];
+
+  if (entradas.length > MAX_PROPUESTAS) {
+    throw new ErrorCotizador(
+      409,
+      `Una cotización admite como máximo ${MAX_PROPUESTAS} propuestas y llegaron ${entradas.length}.`
+    );
+  }
+  if (!entradas.some((p) => p.elegida)) entradas[0].elegida = true;
+  // La regla "solo una elegida" la impone un índice único parcial de Postgres:
+  // dejar pasar dos aquí no corrompería el dato, pero fallaría con un error de
+  // base que el vendedor no puede leer. Mejor decírselo en su idioma.
+  if (entradas.filter((p) => p.elegida).length > 1) {
+    throw new ErrorCotizador(400, 'Solo una propuesta puede quedar marcada como elegida.');
+  }
+
+  const ahora = new Date();
   const t = await sequelize.transaction();
   try {
     const numero = await siguienteNumero(t);
@@ -272,28 +889,20 @@ export async function crear(datos: CotizacionEntrada) {
         cliente_contacto: datos.cliente?.contacto ?? null,
         segmento_cliente: datos.segmentoCliente ?? 'PA',
         asesor: datos.asesor ?? '',
-        descuento_pct: datos.descuentoPct ?? 0,
-        total_subtotal: totales.subtotal,
-        total_iva: totales.iva,
-        total_total: totales.total,
+        // Columna legada: se deja en 0 a propósito. El descuento vivo está en
+        // la propuesta. Ver el comentario de `aCotizacion`.
+        descuento_pct: 0,
+        total_subtotal: 0,
+        total_iva: 0,
+        total_total: 0,
       } as Fila,
       { transaction: t }
     )) as unknown as Fila;
 
-    for (const [i, it] of items.entries()) {
-      await CotizadorCotizacionItem.create(
-        {
-          cotizacion_id: cot.id,
-          orden: i,
-          modulo_id: it.moduloId ?? '',
-          descripcion_item: it.descripcionItem ?? null,
-          input: it.input ?? {},
-          resultado: it.resultado ?? {},
-          ...espejoDe(it),
-        } as Fila,
-        { transaction: t }
-      );
+    for (const [i, entrada] of entradas.entries()) {
+      await crearPropuestaInterna(cot.id, ETIQUETAS[i], entrada, t);
     }
+    await sincronizarCabecera(cot.id, t);
 
     await t.commit();
     return await obtener(cot.id);
@@ -307,16 +916,14 @@ export async function crear(datos: CotizacionEntrada) {
  * Actualiza una cotización. Sube `version` y conserva `id` y `numero`, igual
  * que el origen.
  *
- * Los ítems se reconcilian por `orden` (upsert), NUNCA borrando y recreando:
- * Sequelize omite el UPDATE cuando `changed()` está vacío, así que un ítem que
- * no se tocó no dispara el hook de auditoría y no genera una fila más. Con
- * delete+insert, guardar dos veces una cotización de 8 ítems escribiría 16
- * filas de auditoría con sus blobs, sin que nada hubiera cambiado.
+ * Los `items` planos del contrato viejo van a la propuesta indicada en
+ * `propuestaId` y, si no llega, a la elegida — que es la que el frontend está
+ * mostrando. El `descuentoPct` de la cabecera se aplica a esa misma propuesta.
  */
-export async function actualizar(id: number, datos: CotizacionEntrada & { items?: ItemEntrada[] }) {
+export async function actualizar(id: number, datos: CotizacionEntrada) {
   const t = await sequelize.transaction();
   try {
-    const cot = await CotizadorCotizacion.findByPk(id, { transaction: t });
+    const cot = (await CotizadorCotizacion.findByPk(id, { transaction: t })) as Fila | null;
     if (!cot) {
       await t.rollback();
       return null;
@@ -332,52 +939,59 @@ export async function actualizar(id: number, datos: CotizacionEntrada & { items?
     }
     if (datos.segmentoCliente !== undefined) cambios.segmento_cliente = datos.segmentoCliente;
     if (datos.asesor !== undefined) cambios.asesor = datos.asesor;
-    if (datos.descuentoPct !== undefined) cambios.descuento_pct = datos.descuentoPct;
     if (datos.estado !== undefined) cambios.estado = datos.estado;
 
-    if (datos.items !== undefined) {
-      const items = datos.items;
-      const totales = calcularTotales(items);
-      cambios.total_subtotal = totales.subtotal;
-      cambios.total_iva = totales.iva;
-      cambios.total_total = totales.total;
-
-      const existentes = (await CotizadorCotizacionItem.findAll({
-        where: { cotizacion_id: id },
+    // REGLA 5: no se aprueba una cotización sin propuesta elegida. Aprobar es lo
+    // que habilita la orden de corte, y sin elegida no hay UN juego de medidas
+    // que mandar al taller: hay varios. Se comprueba antes de escribir nada.
+    if (datos.estado === 'APROBADA') {
+      const hayElegida = await CotizadorPropuesta.findOne({
+        where: { cotizacion_id: id, elegida: true },
         transaction: t,
-      })) as unknown as Array<Fila & { update: (v: Fila, o: Fila) => Promise<unknown>; destroy: (o: Fila) => Promise<unknown> }>;
-      const porOrden = new Map(existentes.map((e) => [e.orden as number, e]));
-
-      for (const [i, it] of items.entries()) {
-        const valores: Fila = {
-          modulo_id: it.moduloId ?? '',
-          descripcion_item: it.descripcionItem ?? null,
-          input: it.input ?? {},
-          resultado: it.resultado ?? {},
-          ...espejoDe(it),
-        };
-        const existente = porOrden.get(i);
-        if (existente) {
-          await existente.update(valores, { transaction: t });
-          porOrden.delete(i);
-        } else {
-          await CotizadorCotizacionItem.create(
-            { cotizacion_id: id, orden: i, ...valores } as Fila,
-            { transaction: t }
-          );
-        }
-      }
-      // Los que sobran (la cotización perdió ítems) sí se borran.
-      for (const sobrante of porOrden.values()) {
-        await sobrante.destroy({ transaction: t });
+      });
+      if (!hayElegida) {
+        throw new ErrorCotizador(
+          400,
+          'Para aprobar esta cotización primero hay que elegir una propuesta: es la que se le cobra al cliente y la que se manda a cortar.'
+        );
       }
     }
 
-    cambios.version = ((cot as unknown as Fila).version ?? 1) + 1;
-    await (cot as unknown as Fila).update(cambios, { transaction: t });
+    // La propuesta sobre la que se guarda. Se resuelve también cuando llega
+    // `propuestaId` sin ítems, porque no sirve solo para escribir: es la que hay
+    // que DEVOLVER. `obtener(id)` a secas responde con los blobs de la elegida,
+    // así que guardar la propuesta B devolvía los ítems de la A y el carrito del
+    // vendedor saltaba de propuesta al guardar.
+    let idDestino: number | null = null;
+    if (datos.items !== undefined || datos.descuentoPct !== undefined || datos.propuestaId !== undefined) {
+      const propuestas = await propuestasDe(id, t);
+      const destino =
+        propuestas.find((p) => p.id === Number(datos.propuestaId)) ??
+        propuestas.find((p) => p.elegida) ??
+        propuestas[0];
+      if (!destino) {
+        throw new ErrorCotizador(
+          409,
+          'Esta cotización no tiene ninguna propuesta donde guardar los ítems. Crea una antes de continuar.'
+        );
+      }
+      idDestino = Number(destino.id);
+      if (datos.descuentoPct !== undefined) {
+        const fila = (await CotizadorPropuesta.findByPk(destino.id, { transaction: t })) as Fila;
+        await fila.update({ descuento_pct: Number(datos.descuentoPct) || 0 }, { transaction: t });
+      }
+      if (datos.items !== undefined) {
+        await reconciliarItems(id, destino.id, datos.items, t);
+      }
+      await recalcularPropuesta(destino.id, t);
+    }
+
+    cambios.version = (Number(cot.version) || 1) + 1;
+    await cot.update(cambios, { transaction: t });
+    await sincronizarCabecera(id, t);
 
     await t.commit();
-    return await obtener(id);
+    return await obtener(id, idDestino ? { propuesta: idDestino } : {});
   } catch (e) {
     await t.rollback();
     throw e;
@@ -387,24 +1001,464 @@ export async function actualizar(id: number, datos: CotizacionEntrada & { items?
 export async function eliminar(id: number): Promise<boolean> {
   const t = await sequelize.transaction();
   try {
-    const cot = await CotizadorCotizacion.findByPk(id, { transaction: t });
+    const cot = (await CotizadorCotizacion.findByPk(id, { transaction: t })) as Fila | null;
     if (!cot) {
       await t.rollback();
       return false;
     }
-    // Los ítems se borran de uno en uno y no con un `destroy({where})` masivo:
-    // los hooks de auditoría son de instancia y una baja en bloque no los
-    // dispara, así que el borrado pasaría sin dejar rastro.
+    // Ítems, cargos y propuestas se borran de uno en uno y no con un
+    // `destroy({where})` masivo: los hooks de auditoría son de instancia y una
+    // baja en bloque no los dispara, así que el borrado pasaría sin dejar
+    // rastro. El ON DELETE CASCADE de la base haría lo mismo, y peor: ni
+    // siquiera pasaría por Sequelize.
     const items = (await CotizadorCotizacionItem.findAll({
       where: { cotizacion_id: id },
       transaction: t,
     })) as unknown as Array<{ destroy: (o: Fila) => Promise<unknown> }>;
     for (const it of items) await it.destroy({ transaction: t });
-    await (cot as unknown as Fila).destroy({ transaction: t });
+
+    const propuestas = (await CotizadorPropuesta.findAll({
+      where: { cotizacion_id: id },
+      transaction: t,
+    })) as unknown as Array<Fila & { destroy: (o: Fila) => Promise<unknown> }>;
+    for (const p of propuestas) {
+      const cargos = (await CotizadorPropuestaCargo.findAll({
+        where: { propuesta_id: p.id },
+        transaction: t,
+      })) as unknown as Array<{ destroy: (o: Fila) => Promise<unknown> }>;
+      for (const c of cargos) await c.destroy({ transaction: t });
+      await p.destroy({ transaction: t });
+    }
+
+    await cot.destroy({ transaction: t });
     await t.commit();
     return true;
   } catch (e) {
     await t.rollback();
     throw e;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Propuestas
+// ---------------------------------------------------------------------------
+
+/** Crea una propuesta: vacía, o copia exacta de otra si llega `desdePropuestaId`
+ * (misma lista de ítems, mismos cargos, mismo descuento). La copia NO recalcula:
+ * para eso está `clonarPropuesta`, que sí pasa los ítems por el motor. */
+export async function crearPropuesta(
+  cotizacionId: number,
+  {
+    nombre,
+    nota,
+    descuentoPct,
+    desdePropuestaId,
+  }: { nombre?: string | null; nota?: string | null; descuentoPct?: number; desdePropuestaId?: number }
+) {
+  const t = await sequelize.transaction();
+  try {
+    const cot = (await CotizadorCotizacion.findByPk(cotizacionId, { transaction: t })) as Fila | null;
+    if (!cot) throw new ErrorCotizador(404, 'Cotización no encontrada.');
+
+    const existentes = await propuestasDe(cotizacionId, t);
+    const etiqueta = siguienteEtiqueta(existentes.map((p) => p.etiqueta));
+
+    let entrada: PropuestaEntrada = {
+      nombre: nombre ?? null,
+      nota: nota ?? null,
+      descuentoPct: descuentoPct ?? 0,
+      // Primera propuesta de la cotización = elegida por definición (regla 2).
+      elegida: existentes.length === 0,
+    };
+
+    if (desdePropuestaId !== undefined) {
+      const origen = existentes.find((p) => p.id === Number(desdePropuestaId));
+      if (!origen) throw new ErrorCotizador(404, 'La propuesta que quieres copiar no existe en esta cotización.');
+      const [items, cargos] = await Promise.all([
+        CotizadorCotizacionItem.findAll({
+          where: { propuesta_id: origen.id },
+          order: [['orden', 'ASC']],
+          raw: true,
+          transaction: t,
+        }) as unknown as Promise<Fila[]>,
+        CotizadorPropuestaCargo.findAll({
+          where: { propuesta_id: origen.id },
+          order: [['orden', 'ASC']],
+          raw: true,
+          transaction: t,
+        }) as unknown as Promise<Fila[]>,
+      ]);
+      entrada = {
+        ...entrada,
+        nombre: nombre ?? (origen.nombre ? `${origen.nombre} (copia)` : null),
+        nota: nota ?? origen.nota,
+        descuentoPct: descuentoPct ?? Number(origen.descuento_pct ?? 0),
+        items: items.map((f) => ({
+          moduloId: f.modulo_id,
+          descripcionItem: f.descripcion_item,
+          input: f.input ?? {},
+          resultado: f.resultado ?? {},
+        })),
+        cargos: cargos.map(aCargoEntrada),
+      };
+    }
+
+    const id = await crearPropuestaInterna(cotizacionId, etiqueta, entrada, t);
+    await sincronizarCabecera(cotizacionId, t);
+    await t.commit();
+    return { propuestaId: id, cotizacion: await obtener(cotizacionId, { propuesta: id }) };
+  } catch (e) {
+    await t.rollback();
+    throw e;
+  }
+}
+
+function aCargoEntrada(f: Fila): CargoEntrada {
+  return {
+    tipo: f.tipo,
+    descripcion: f.descripcion,
+    cantidad: Number(f.cantidad ?? 1),
+    unidad: f.unidad ?? 'GLOBAL',
+    valorUnitario: Number(f.valor_unitario ?? 0),
+    aplicaIva: f.aplica_iva === undefined ? true : Boolean(f.aplica_iva),
+    origen: f.origen,
+  };
+}
+
+/** Campos del input que el clonado puede cambiar de golpe en todos los ítems. */
+const CAMPOS_CLONABLES = ['codigoVidrio', 'pelicula', 'matizado'] as const;
+export type CambiosClonado = Partial<Record<(typeof CAMPOS_CLONABLES)[number], unknown>>;
+
+/** ¿El módulo de este ítem declara ese campo en su formulario?
+ *
+ * Es la forma data-driven de saber si un cambio aplica: `meta.campos` ES el
+ * contrato del módulo. Cabinas y espejo, por ejemplo, no tienen `codigoVidrio`
+ * (el vidrio sale del espesor), así que pedirles un cambio de vidrio no es un
+ * error del vendedor —es una combinación que ese producto no ofrece— y se avisa
+ * en vez de fallar. */
+function moduloAcepta(moduloId: string, campo: string): boolean {
+  const modulo = getModulo(moduloId);
+  const campos = (modulo?.meta?.campos ?? []) as Array<{ nombre?: string }>;
+  return campos.some((c) => c?.nombre === campo);
+}
+
+/**
+ * Clona una propuesta cambiando vidrio / película / matizado de TODOS sus ítems
+ * de una vez, y recalculándolos con el motor a partir de su `input` original.
+ *
+ * Es la razón de ser de las propuestas: cotizar la misma obra en 5 mm y en
+ * templado sin que el carrito las sume como si el cliente comprara las dos.
+ *
+ * NO BLOQUEA, AVISA. Un ítem que el motor no pueda recalcular —o que salga con
+ * líneas en error, que es lo que pasa con los dos vidrios que hoy están a $0 en
+ * el catálogo— no cancela la operación: la propuesta se crea igual y la
+ * respuesta trae `advertencias` para que la pantalla las muestre. Cancelar
+ * obligaría al vendedor a arreglar el catálogo antes de poder enseñar una
+ * alternativa, y el catálogo no es suyo.
+ */
+export async function clonarPropuesta(
+  cotizacionId: number,
+  propuestaId: number,
+  { cambios = {}, nombre, nota }: { cambios?: CambiosClonado; nombre?: string | null; nota?: string | null }
+) {
+  const advertencias: string[] = [];
+  const t = await sequelize.transaction();
+  try {
+    const { propuesta: origen } = await cargarPropuesta(cotizacionId, propuestaId, t);
+    const existentes = await propuestasDe(cotizacionId, t);
+    const etiqueta = siguienteEtiqueta(existentes.map((p) => p.etiqueta));
+
+    const [items, cargos] = await Promise.all([
+      CotizadorCotizacionItem.findAll({
+        where: { propuesta_id: origen.id },
+        order: [['orden', 'ASC']],
+        raw: true,
+        transaction: t,
+      }) as unknown as Promise<Fila[]>,
+      CotizadorPropuestaCargo.findAll({
+        where: { propuesta_id: origen.id },
+        order: [['orden', 'ASC']],
+        raw: true,
+        transaction: t,
+      }) as unknown as Promise<Fila[]>,
+    ]);
+
+    const itemsNuevos: ItemEntrada[] = items.map((f) => {
+      const moduloId: string = f.modulo_id ?? '';
+      const etiquetaItem = f.descripcion_item || `${moduloId} #${(Number(f.orden) || 0) + 1}`;
+      const input = { ...(f.input ?? {}) };
+
+      const aplicados: string[] = [];
+      for (const campo of CAMPOS_CLONABLES) {
+        if (!(campo in cambios)) continue;
+        if (!moduloAcepta(moduloId, campo)) {
+          advertencias.push(
+            `"${etiquetaItem}" no admite cambiar ${nombreLegible(campo)}: se copió tal como estaba.`
+          );
+          continue;
+        }
+        input[campo] = cambios[campo];
+        aplicados.push(campo);
+      }
+
+      const modulo = getModulo(moduloId);
+      if (!modulo || aplicados.length === 0) {
+        // Sin cambios que aplicar (o sin motor donde aplicarlos) el ítem se copia
+        // con su blob intacto. Recalcularlo "por si acaso" reescribiría una foto
+        // que hoy es fiel a lo que se le cotizó al cliente.
+        if (!modulo && aplicados.length === 0 && Object.keys(cambios).length > 0) {
+          advertencias.push(`El módulo "${moduloId}" ya no existe: "${etiquetaItem}" se copió sin recalcular.`);
+        }
+        return {
+          moduloId,
+          descripcionItem: f.descripcion_item,
+          input: f.input ?? {},
+          resultado: f.resultado ?? {},
+        };
+      }
+
+      try {
+        const resultado = modulo.calcular(input);
+        if (resultado?.hayErrores) {
+          const lineas = (resultado.items ?? []) as Array<{ error?: boolean; descripcion?: string }>;
+          const motivo = lineas.find((l) => l.error)?.descripcion ?? 'hay líneas sin precio';
+          advertencias.push(`"${etiquetaItem}" quedó con errores de precio: ${motivo}`);
+        }
+        for (const aviso of (resultado?.advertencias ?? []) as string[]) {
+          advertencias.push(`"${etiquetaItem}": ${aviso}`);
+        }
+        return { moduloId, descripcionItem: f.descripcion_item, input, resultado };
+      } catch (e) {
+        const mensaje = e instanceof Error ? e.message : 'no se pudo recalcular';
+        advertencias.push(`"${etiquetaItem}" no se pudo recalcular (${mensaje}): se copió tal como estaba.`);
+        return {
+          moduloId,
+          descripcionItem: f.descripcion_item,
+          input: f.input ?? {},
+          resultado: f.resultado ?? {},
+        };
+      }
+    });
+
+    const id = await crearPropuestaInterna(
+      cotizacionId,
+      etiqueta,
+      {
+        nombre: nombre ?? (origen.nombre ? `${origen.nombre} (variante)` : `Variante de ${origen.etiqueta}`),
+        nota: nota ?? origen.nota,
+        descuentoPct: Number(origen.descuento_pct ?? 0),
+        elegida: false,
+        items: itemsNuevos,
+        // Los cargos se copian tal cual: cambiar el vidrio no cambia lo que
+        // cuesta instalarlo ni lo que cuesta el flete.
+        cargos: cargos.map(aCargoEntrada),
+      },
+      t
+    );
+
+    await sincronizarCabecera(cotizacionId, t);
+    await t.commit();
+    return {
+      propuestaId: id,
+      advertencias,
+      cotizacion: await obtener(cotizacionId, { propuesta: id }),
+    };
+  } catch (e) {
+    await t.rollback();
+    throw e;
+  }
+}
+
+function nombreLegible(campo: string): string {
+  if (campo === 'codigoVidrio') return 'el vidrio';
+  if (campo === 'pelicula') return 'la película';
+  if (campo === 'matizado') return 'el matizado';
+  return campo;
+}
+
+/** Cambia nombre, nota y/o descuento de una propuesta. El descuento obliga a
+ * recalcular sus totales y los de la cabecera si es la elegida. */
+export async function actualizarPropuesta(
+  cotizacionId: number,
+  propuestaId: number,
+  datos: { nombre?: string | null; nota?: string | null; descuentoPct?: number }
+) {
+  const t = await sequelize.transaction();
+  try {
+    const { propuesta } = await cargarPropuesta(cotizacionId, propuestaId, t);
+    const cambios: Fila = { actualizada_en: new Date() };
+    if (datos.nombre !== undefined) cambios.nombre = datos.nombre;
+    if (datos.nota !== undefined) cambios.nota = datos.nota;
+    if (datos.descuentoPct !== undefined) cambios.descuento_pct = Number(datos.descuentoPct) || 0;
+    await propuesta.update(cambios, { transaction: t });
+
+    if (datos.descuentoPct !== undefined) {
+      await recalcularPropuesta(propuestaId, t);
+      await sincronizarCabecera(cotizacionId, t);
+    }
+    await t.commit();
+    return await obtener(cotizacionId, { propuesta: propuestaId });
+  } catch (e) {
+    await t.rollback();
+    throw e;
+  }
+}
+
+/**
+ * Marca una propuesta como la elegida.
+ *
+ * Se desmarca la anterior y se marca la nueva DENTRO de la misma transacción,
+ * en ese orden: el índice único parcial de Postgres
+ * (`UNIQUE (cotizacion_id) WHERE elegida`) prohíbe que existan dos a la vez, así
+ * que marcar primero fallaría siempre.
+ *
+ * Con la cotización APROBADA se rechaza: puede haber salido ya material a corte
+ * con las medidas de la propuesta actual, y cambiarla por debajo dejaría el
+ * taller cortando una cosa y la factura diciendo otra.
+ */
+export async function elegirPropuesta(cotizacionId: number, propuestaId: number) {
+  const t = await sequelize.transaction();
+  try {
+    const { cot, propuesta } = await cargarPropuesta(cotizacionId, propuestaId, t);
+    if (cot.estado === 'APROBADA' && !propuesta.elegida) {
+      throw new ErrorCotizador(
+        409,
+        'Esta cotización ya está aprobada: para cambiar la propuesta elegida primero hay que quitarle la aprobación. ' +
+          'Puede haber material cortado con las medidas de la propuesta actual.'
+      );
+    }
+    if (!propuesta.elegida) {
+      const anterior = (await CotizadorPropuesta.findOne({
+        where: { cotizacion_id: cotizacionId, elegida: true },
+        transaction: t,
+      })) as Fila | null;
+      if (anterior) await anterior.update({ elegida: false, actualizada_en: new Date() }, { transaction: t });
+      await propuesta.update({ elegida: true, actualizada_en: new Date() }, { transaction: t });
+    }
+    await sincronizarCabecera(cotizacionId, t);
+    await t.commit();
+    return await obtener(cotizacionId, { propuesta: propuestaId });
+  } catch (e) {
+    await t.rollback();
+    throw e;
+  }
+}
+
+/**
+ * Borra una propuesta.
+ *
+ * Dos frenos: no se puede quedar sin ninguna (toda cotización tiene al menos
+ * una), y no se puede borrar la elegida de una cotización aprobada, por el mismo
+ * motivo que no se puede cambiar (ver `elegirPropuesta`).
+ *
+ * Si al borrar la elegida queda exactamente una, esa pasa a ser la elegida: una
+ * cotización con una sola propuesta la tiene elegida por definición. Si quedan
+ * varias, ninguna queda elegida y el vendedor decide — inventar cuál era la
+ * buena sería peor que dejarlo explícito.
+ */
+export async function eliminarPropuesta(cotizacionId: number, propuestaId: number) {
+  const t = await sequelize.transaction();
+  try {
+    const { cot, propuesta } = await cargarPropuesta(cotizacionId, propuestaId, t);
+    const todas = await propuestasDe(cotizacionId, t);
+    if (todas.length <= 1) {
+      throw new ErrorCotizador(
+        409,
+        'No se puede borrar la única propuesta de la cotización. Si quieres empezar de cero, edita sus ítems o borra la cotización entera.'
+      );
+    }
+    if (cot.estado === 'APROBADA' && propuesta.elegida) {
+      throw new ErrorCotizador(
+        409,
+        'Esta cotización está aprobada y esta es la propuesta elegida: primero hay que quitarle la aprobación. ' +
+          'Puede haber material cortado con sus medidas.'
+      );
+    }
+
+    const eraElegida = Boolean(propuesta.elegida);
+    const items = (await CotizadorCotizacionItem.findAll({
+      where: { propuesta_id: propuestaId },
+      transaction: t,
+    })) as unknown as Array<{ destroy: (o: Fila) => Promise<unknown> }>;
+    for (const it of items) await it.destroy({ transaction: t });
+    const cargos = (await CotizadorPropuestaCargo.findAll({
+      where: { propuesta_id: propuestaId },
+      transaction: t,
+    })) as unknown as Array<{ destroy: (o: Fila) => Promise<unknown> }>;
+    for (const c of cargos) await c.destroy({ transaction: t });
+    await propuesta.destroy({ transaction: t });
+
+    if (eraElegida) {
+      const quedan = await propuestasDe(cotizacionId, t);
+      if (quedan.length === 1) {
+        const unica = (await CotizadorPropuesta.findByPk(quedan[0].id, { transaction: t })) as Fila;
+        await unica.update({ elegida: true, actualizada_en: new Date() }, { transaction: t });
+      }
+    }
+    await sincronizarCabecera(cotizacionId, t);
+    await t.commit();
+    return await obtener(cotizacionId);
+  } catch (e) {
+    await t.rollback();
+    throw e;
+  }
+}
+
+/**
+ * Reemplaza el juego COMPLETO de cargos de una propuesta.
+ *
+ * Es un PUT y no un PATCH por línea a propósito: el panel de cargos es un
+ * formulario que el vendedor edita entero (marca andamio, cambia los días,
+ * quita el huacal) y guarda de una vez. Reconciliar línea por línea obligaría al
+ * frontend a llevar ids de filas que para él son casillas de un formulario.
+ *
+ * Se borra y se recrea, y aquí sí es correcto: a diferencia de los ítems —cuyo
+ * blob de despiece pesa 4,5 KB y cuya auditoría importa fila a fila—, un cargo
+ * son seis números. El rastro de auditoría queda igual (los hooks son de
+ * instancia y el borrado va de uno en uno).
+ */
+export async function guardarCargos(cotizacionId: number, propuestaId: number, cargos: CargoEntrada[]) {
+  const t = await sequelize.transaction();
+  try {
+    const { propuesta } = await cargarPropuesta(cotizacionId, propuestaId, t);
+    if (propuesta.legado_cargos_en_items) {
+      throw new ErrorCotizador(
+        409,
+        'Esta propuesta es anterior al cambio de cargos: su mano de obra y su flete están dentro del precio de cada ítem. ' +
+          'Añadirle cargos cobraría lo mismo dos veces. Duplícala para trabajar con la forma nueva.'
+      );
+    }
+
+    const existentes = (await CotizadorPropuestaCargo.findAll({
+      where: { propuesta_id: propuestaId },
+      transaction: t,
+    })) as unknown as Array<{ destroy: (o: Fila) => Promise<unknown> }>;
+    for (const c of existentes) await c.destroy({ transaction: t });
+    await insertarCargos(propuestaId, cargos, t);
+
+    await recalcularPropuesta(propuestaId, t);
+    await sincronizarCabecera(cotizacionId, t);
+    await t.commit();
+    return await obtener(cotizacionId, { propuesta: propuestaId });
+  } catch (e) {
+    await t.rollback();
+    throw e;
+  }
+}
+
+/** Los ítems de una propuesta, con sus blobs. Lo usa el endpoint de SMO
+ * sugerido, que necesita el área de cada ítem y el módulo que lo calculó. */
+export async function itemsDePropuesta(cotizacionId: number, propuestaId: number) {
+  const propuesta = (await CotizadorPropuesta.findByPk(propuestaId, { raw: true })) as unknown as Fila | null;
+  if (!propuesta || Number(propuesta.cotizacion_id) !== Number(cotizacionId)) return null;
+  const filas = (await CotizadorCotizacionItem.findAll({
+    where: { propuesta_id: propuestaId },
+    order: [['orden', 'ASC']],
+    raw: true,
+  })) as unknown as Fila[];
+  return filas.map((f) => ({
+    moduloId: f.modulo_id,
+    input: f.input ?? {},
+    resultado: f.resultado ?? {},
+  }));
 }

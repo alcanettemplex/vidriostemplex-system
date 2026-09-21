@@ -98,11 +98,20 @@ export const planoDeItem = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'El identificador de cotización o de ítem no es válido.' });
     }
 
-    const cot = await store.obtener(id);
+    // `obtener()` sólo trae los blobs de UNA propuesta (por defecto la elegida),
+    // y el plano sale del blob. Por eso se acepta `?propuesta=<id>`: sin él, el
+    // plano de un ítem de la propuesta B —que el vendedor está mirando— no
+    // encontraría su `resultado` (2026-09-20).
+    const propuesta = typeof req.query.propuesta === 'string' ? req.query.propuesta : undefined;
+    const cot = await store.obtener(id, { propuesta });
     if (!cot) return res.status(404).json({ error: 'Cotización no encontrada.' });
 
     const item = (cot.items ?? []).find((i: { id: number }) => i.id === itemId);
-    if (!item) return res.status(404).json({ error: 'Ese ítem no existe en esta cotización.' });
+    if (!item) {
+      return res.status(404).json({
+        error: 'Ese ítem no existe en la propuesta que se está consultando.',
+      });
+    }
 
     const resultado = item.resultado;
     const disenoInfo = resultado?.diseno;

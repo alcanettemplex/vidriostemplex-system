@@ -14,42 +14,16 @@
 // espesor fijo; ver advertencias que se generan cuando se usa una combinación que el
 // Excel original no tabulaba).
 
-import { lineaCatalogo, totalizar, areaM2, perimetroM, round2, tarifaSMO } from "../lib/motorCalculo";
+import { lineaCatalogo, totalizar, areaM2, perimetroM, round2 } from "../lib/motorCalculo";
 import { getParametros } from "../lib/catalogo";
 import { cotizarPorDiseno } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
 import type { LineaBOM } from "../lib/motorCalculo";
 
-// Línea de BOM "manual" (sin código de catálogo) para cargos fijos de instalación
-// (SMO, flete), centralizados en server/src/data/parametros.json — mismo patrón
-// que ventanas.js/proyectantes.js/tablero.js/espejo.js.
-function lineaManual({
-  codigo,
-  descripcion,
-  categoria,
-  unidad,
-  cantidad,
-  precioUnitario,
-}: {
-  codigo: string;
-  descripcion: string;
-  categoria: string;
-  unidad: string;
-  cantidad: number;
-  precioUnitario: number;
-}) {
-  const cantidadRedondeada = round2(cantidad);
-  return {
-    codigo,
-    descripcion,
-    categoria,
-    unidad,
-    cantidad: cantidadRedondeada,
-    precioUnitario,
-    valorTotal: round2(precioUnitario * cantidadRedondeada),
-    error: false,
-  };
-}
+// `lineaManual()` construía las dos líneas de BOM sin código de catálogo —SMO y
+// flete—. Ambas dejaron de ser líneas del ítem el 2026-09-20 y pasaron a ser
+// cargos de la propuesta, así que el helper se fue con ellas: dejarlo sin
+// llamadores es una invitación a volver a meter cargos en el BOM.
 
 export const meta = {
   nombre: "Cabinas corredizas",
@@ -309,38 +283,18 @@ export function calcular(input: InputModulo) {
     items.push(lineaCatalogo("PPL0001", 1, segmentoCliente));
   }
 
-  // --- 5. Cargos fijos de mano de obra / flete ----------------------------------
-  // El Excel original sumaba siempre SMO01 (mano de obra, ~$87.000) y GTFA26 (flete,
-  // ~$25.000). Ninguno de los 2 códigos existe en el catálogo digitalizado de 430
-  // productos (se resolvían en el Excel desde la tabla ACABADOS, que no se migró).
-  // Decisión de producto: centralizarlos como valores fijos en parametros.json
-  // (mismo patrón que ventanas.js/proyectantes.js/tablero.js/espejo.js) en vez de
-  // omitirlos.
+  // --- 5. Cargos de obra: YA NO VIVEN AQUÍ (2026-09-20) -------------------------
+  // El Excel original sumaba siempre SMO01 (mano de obra) y GTFA26 (flete) como
+  // dos líneas más, y así se portaron. El problema es que `totalizar()`
+  // multiplica cada línea del BOM por `cantidadPiezas`: cinco cabinas iguales
+  // cobraban cinco manos de obra y cinco fletes, y cada ítem del carrito traía
+  // los suyos. Ambos pasaron a ser cargos de la PROPUESTA
+  // (`cotizador.propuesta_cargo`): se cobran una vez, van fuera del AIU y fuera
+  // del descuento, y su sugerencia se calcula en `lib/cargos.ts`.
+  //
+  // La tarifa que le tocaba a este módulo —SMO01, "cabinas", la obra más cara de
+  // instalar— no se perdió: vive en `TIPO_OBRA_POR_MODULO` de `lib/cargos.ts`.
   const parametros = getParametros();
-  // SMO01 del Excel ($120.000): la cabina es la obra más cara de instalar.
-  const smoRate = tarifaSMO(parametros, "cabinas");
-  const fleteFijo = parametros.flete_fijo ?? 40000;
-  const smoValor = Math.max(round2(areaVidrioTotal * smoRate), smoRate);
-  items.push(
-    lineaManual({
-      codigo: "SMO",
-      descripcion: "Servicio Mínimo de Obra",
-      categoria: "INSTALACION",
-      unidad: "GLOBAL",
-      cantidad: 1,
-      precioUnitario: smoValor,
-    })
-  );
-  items.push(
-    lineaManual({
-      codigo: "GTFA26",
-      descripcion: "Acarreo / Flete",
-      categoria: "INSTALACION",
-      unidad: "UND",
-      cantidad: 1,
-      precioUnitario: fleteFijo,
-    })
-  );
 
   // --- Advertencia de combinación no documentada en el Excel original -----------
   if (ESPESOR_ORIGINAL_POR_SISTEMA[tipoSistema as keyof typeof ESPESOR_ORIGINAL_POR_SISTEMA] !== espesorVidrioMm) {

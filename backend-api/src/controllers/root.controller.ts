@@ -316,6 +316,8 @@ const TABLAS_AUDITABLES = new Set([
   // siempre — ver TECH_DEBT.md 2026-07-10.
   'cotizador.producto', 'cotizador.precio_override',
   'cotizador.cotizacion', 'cotizador.cotizacion_item', 'cotizador.parametro',
+  // Propuestas y cargos de obra — agregadas 2026-09-20 con la Fase 1
+  'cotizador.propuesta', 'cotizador.propuesta_cargo',
 ]);
 
 /** Convierte el nombre guardado en `auditoria_log.tabla` en un identificador SQL

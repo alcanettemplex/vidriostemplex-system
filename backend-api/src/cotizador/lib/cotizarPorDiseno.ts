@@ -2,12 +2,16 @@
 //
 // Reúne lo que es común a todos los módulos de producto cuando se cotiza por
 // diseño en vez de por medidas libres: despiece real (motorDespiece), acabados
-// opcionales sobre el área de vidrio, mano de obra, flete y la totalización.
+// opcionales sobre el área de vidrio y la totalización.
+//
+// La mano de obra y el flete SALIERON de aquí el 2026-09-20: son cargos de la
+// propuesta, no líneas del ítem. Ver el comentario en sitio, antes de
+// `totalizar()`.
 //
 // Lo único que cambia de un módulo a otro son los accesorios, porque el catálogo
 // de diseños no trae códigos de accesorio con precio en Templex: cada módulo
 // sabe qué códigos usa su sistema. Por eso se pasan como función.
-import { lineaCatalogo, totalizar, areaM2, round2, tarifaSMO } from "./motorCalculo";
+import { lineaCatalogo, totalizar, areaM2, round2 } from "./motorCalculo";
 import { getParametros } from "./catalogo";
 import { calcularDespiece, getDiseno } from "./motorDespiece";
 import { holguraEfectiva } from "./calibracion";
@@ -38,35 +42,10 @@ export function codigoMatizado(matizado: unknown): string | null {
   return MATIZADO_POR_TIPO.total;
 }
 
-interface ParamsLineaManual {
-  codigo: string;
-  descripcion: string;
-  categoria: string;
-  unidad: string;
-  cantidad: number;
-  precioUnitario: number;
-}
-
-function lineaManual({
-  codigo,
-  descripcion,
-  categoria,
-  unidad,
-  cantidad,
-  precioUnitario,
-}: ParamsLineaManual) {
-  const cantidadRedondeada = round2(cantidad);
-  return {
-    codigo,
-    descripcion,
-    categoria,
-    unidad,
-    cantidad: cantidadRedondeada,
-    precioUnitario,
-    valorTotal: round2(precioUnitario * cantidadRedondeada),
-    error: false,
-  };
-}
+// `lineaManual()` vivía aquí para construir las dos líneas de BOM sin código
+// de catálogo —SMO y flete—. Ambas dejaron de ser líneas del ítem el
+// 2026-09-20 (ver más abajo), así que la función se fue con ellas: un helper
+// sin llamadores es una invitación a volver a meter cargos en el BOM.
 
 /**
  * @param {Object} opts
@@ -126,9 +105,14 @@ export interface ParamsCotizarPorDiseno {
   matizado?: boolean | string;
   pelicula?: boolean;
   incluirAlfajia?: boolean;
-  /** Tipo de obra que decide qué tarifa de SMO se cobra. Lo declara el módulo
-   * que llama (cabinas cobran distinto que armar una ventana); si no llega, se
-   * usa el piso genérico `tarifaMinima`. */
+  /** Tipo de obra que decide qué tarifa de mano de obra corresponde. Lo declara
+   * el módulo que llama (cabinas cobran distinto que armar una ventana).
+   *
+   * Se conserva en el contrato aunque esta función YA NO lo use (2026-09-20): el
+   * SMO dejó de ser una línea del BOM y pasó a ser un cargo de la propuesta, y
+   * quien lo sugiere es `lib/cargos.ts`. Quitarlo obligaría a tocar los seis
+   * módulos para borrar un dato que sigue siendo cierto y que la capa de cargos
+   * necesitará cuando se le pase el ítem entero. */
   tipoObra?: TipoObra;
   /** Callback del módulo para añadir sus propias líneas de accesorios. Recibe
    * el contexto ya calculado de la pieza; el módulo suele construir sus
@@ -151,7 +135,6 @@ export function cotizarPorDiseno({
   matizado = false,
   pelicula = false,
   incluirAlfajia = false,
-  tipoObra,
   accesorios,
 }: ParamsCotizarPorDiseno) {
   const diseno = getDiseno(disenoId);
@@ -271,29 +254,21 @@ export function cotizarPorDiseno({
 
   const parametros = getParametros();
   // La mano de obra se cobra por el hueco que se tapa, no por la ventana: si el
-  // vendedor midió el vano, es ése el que manda.
+  // vendedor midió el vano, es ése el que manda. `areaVano` ya no alimenta una
+  // línea de SMO, pero sigue siendo la base del `areaM2` que devuelve el ítem —
+  // y de ahí la toma `lib/cargos.ts` para sugerir la mano de obra.
   const areaVano = areaM2(anchoVanoCm ?? anchoFabCm, altoVanoCm ?? altoFabCm);
-  const smoRate = tarifaSMO(parametros, tipoObra);
-  items.push(
-    lineaManual({
-      codigo: "SMO",
-      descripcion: "Servicio Mínimo de Obra",
-      categoria: "INSTALACION",
-      unidad: "GLOBAL",
-      cantidad: 1,
-      precioUnitario: Math.max(round2(areaVano * smoRate), smoRate),
-    })
-  );
-  items.push(
-    lineaManual({
-      codigo: "GTFA26",
-      descripcion: "Acarreo / Flete",
-      categoria: "INSTALACION",
-      unidad: "UND",
-      cantidad: 1,
-      precioUnitario: parametros.flete_fijo ?? 40000,
-    })
-  );
+
+  // ⚠️ AQUÍ YA NO SE AGREGAN NI SMO NI FLETE (2026-09-20).
+  // `totalizar()` multiplica cada línea del BOM por `cantidadPiezas`: mientras
+  // la mano de obra y el flete vivieron aquí, una ventana de 5 piezas cobraba 5
+  // fletes ($200.000) y 5 manos de obra ($450.000), y cada ítem del carrito
+  // traía los suyos. Ambos pasaron a ser CARGOS DE LA PROPUESTA
+  // (`cotizador.propuesta_cargo`): se cobran una vez, van fuera del AIU y fuera
+  // del descuento, y su sugerencia se calcula en `lib/cargos.ts`. No volver a
+  // meterlos en el BOM: `tipoObra` se conserva en el contrato de entrada porque
+  // es el dato que el módulo sabe y la sugerencia necesita, pero aquí ya no se
+  // lee.
 
   const resultado = totalizar(items, {
     cantidadPiezas,

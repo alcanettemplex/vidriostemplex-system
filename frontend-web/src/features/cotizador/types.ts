@@ -94,6 +94,23 @@ export interface ResultadoCalculo {
     [clave: string]: unknown;
 }
 
+// ─── Catálogo de productos — GET /catalogo?categoria= ───────────────────────
+
+/** Proyección de `listarCatalogo()`. El modal de clonado sólo pide la categoría
+ * VIDRIO (40 filas) para poder avisar cuando el vidrio elegido está en $0:
+ * traer el catálogo entero por eso sería mandar 430 productos al navegador. */
+export interface ProductoCatalogo {
+    codigo: string;
+    descripcion: string;
+    categoria: string;
+    unidad: string;
+    costo_unitario: number;
+    precio_pa: number;
+    precio_pm: number;
+    precio_pb: number;
+    activo: boolean;
+}
+
 // ─── Diseños (selector) ─────────────────────────────────────────────────────
 
 /** Proyección de listarDisenos() — GET /disenos?modulo=&todos= */
@@ -159,6 +176,11 @@ export interface ClienteCotizacion {
  * dos JSONB pesados, están sólo en el detalle de GET /cotizaciones/:id). */
 export interface ItemCotizacionLigero {
     id: number;
+    /** A qué propuesta pertenece. Desde 2026-09-20 un ítem cuelga de una
+     * propuesta, no de la cotización: el LISTADO devuelve los de todas, así que
+     * contar `items.length` sin filtrar por aquí suma variantes que el cliente
+     * nunca va a comprar juntas. */
+    propuestaId?: number | null;
     orden: number;
     moduloId: string;
     descripcionItem: string | null;
@@ -178,6 +200,165 @@ export interface ItemCotizacion extends ItemCotizacionLigero {
     resultado: ResultadoCalculo;
 }
 
+// ─── Propuestas (A/B/C…) y cargos de obra ──────────────────────────────────
+// Desde el 2026-09-20 la jerarquía es cotización → PROPUESTA → ítem. Una
+// cotización es un contenedor de variantes de la MISMA obra (el mismo baño en
+// 5 mm y en templado) y su total es el de la propuesta ELEGIDA; de ella, y de
+// ninguna otra, sale la orden de corte.
+//
+// Los cargos de obra cuelgan de la propuesta —no del ítem— porque se cobran UNA
+// vez: hasta ese día vivían dentro del BOM y `totalizar()` los multiplicaba por
+// `cantidadPiezas`, así que una ventana con 5 piezas cobraba 5 fletes.
+
+export type TipoCargo = 'SMO' | 'ANDAMIO' | 'HUACAL' | 'FLETE' | 'OTRO';
+export type UnidadCargo = 'DIA' | 'UND' | 'GLOBAL';
+/** `SUGERIDO` = el monto lo puso el sistema; `MANUAL` = lo escribió el vendedor
+ * encima del sugerido. El backend lo guarda tal como llega. */
+export type OrigenCargo = 'SUGERIDO' | 'MANUAL';
+
+export interface CargoPropuesta {
+    id: number;
+    propuestaId: number;
+    orden: number;
+    tipo: TipoCargo;
+    /** Para OTRO es el texto del servicio; para SMO, la etiqueta del tipo de obra. */
+    descripcion: string | null;
+    cantidad: number;
+    unidad: UnidadCargo;
+    valorUnitario: number;
+    /** `cantidad × valorUnitario`. Lo calcula el backend: la UI no lo envía. */
+    total: number;
+    aplicaIva: boolean;
+    origen: OrigenCargo;
+}
+
+/** Lo que viaja en `PUT /cotizaciones/:id/propuestas/:pid/cargos`. El backend
+ * valida con Zod `.strict()`: una clave de más se responde con 400. */
+export interface CargoEntrada {
+    tipo: TipoCargo;
+    descripcion?: string | null;
+    cantidad?: number;
+    unidad?: UnidadCargo;
+    valorUnitario?: number;
+    aplicaIva?: boolean;
+    origen?: OrigenCargo;
+}
+
+export interface TotalesPropuesta {
+    /** Σ `subtotalConAiu` de los ítems, SIN descuento: el precio de lista. */
+    productos: number;
+    descuento: number;
+    /** Base de los cargos, sin IVA. Van fuera del AIU y fuera del descuento. */
+    cargos: number;
+    /** IVA de productos + IVA de cargos, sumados. */
+    iva: number;
+    total: number;
+}
+
+export interface Propuesta {
+    id: number;
+    cotizacionId: number;
+    etiqueta: string;
+    nombre: string | null;
+    nota: string | null;
+    elegida: boolean;
+    /** Fracción (0,05 = 5%). Es el ÚNICO descuento vivo del módulo. */
+    descuentoPct: number;
+    /** Propuesta anterior al 2026-09-20: su mano de obra y su flete están DENTRO
+     * del precio de cada ítem. `PUT .../cargos` la rechaza con 409 porque
+     * añadirle cargos cobraría lo mismo dos veces; hay que duplicarla. */
+    legadoCargosEnItems: boolean;
+    totales: TotalesPropuesta;
+    creadaEn?: string;
+    actualizadaEn?: string;
+    /** Sólo en el detalle (`GET /cotizaciones/:id`). El listado no los trae. */
+    cargos?: CargoPropuesta[];
+    /** El detalle trae los blobs (`input`/`resultado`) SOLO de la propuesta
+     * activa; las demás llegan con sus ítems en modo ligero. */
+    items?: Array<ItemCotizacionLigero | ItemCotizacion>;
+}
+
+/** Propuesta tal como la devuelve el LISTADO: cabecera y totales espejo, sin
+ * ítems ni cargos. Es lo que necesita "Guardadas" para pintar el rango de una
+ * cotización que todavía no tiene propuesta elegida. */
+export type PropuestaLigera = Omit<Propuesta, 'cargos' | 'items'>;
+
+export interface PropuestaEntrada {
+    nombre?: string | null;
+    nota?: string | null;
+    elegida?: boolean;
+    descuentoPct?: number;
+    items?: ItemEntrada[];
+    /** AUSENTE ≠ VACÍO: sin la clave, el backend sugiere mano de obra y flete;
+     * con un arreglo vacío, la propuesta se queda deliberadamente sin cargos. */
+    cargos?: CargoEntrada[];
+}
+
+// ─── Sugerencia de mano de obra ────────────────────────────────────────────
+
+export type TipoObraSeleccion = 'cabinas' | 'fachadas' | 'armadaVentanas' | 'persiana' | 'otro';
+
+export interface TipoObraListado {
+    id: TipoObraSeleccion;
+    etiqueta: string;
+    /** Tarifa vigente en parámetros; 0 para `otro`, que es monto libre. */
+    tarifa: number;
+}
+
+/** `GET /cotizaciones/:id/propuestas/:pid/smo-sugerido?tipoObra=…` */
+export interface SugerenciaSMO {
+    /** Total sugerido = `cantidad × tarifa`. */
+    monto: number;
+    /** "3 unidades × $60.000 (Armada de ventanas)". Se muestra BAJO el campo
+     * para que el vendedor sepa de dónde sale y pueda defenderlo ante el
+     * cliente. */
+    explicacion: string;
+    /** Valor POR UNIDAD del tipo de obra (2026-09-20: la mano de obra se cobra
+     * por unidad instalada, no por metro cuadrado). */
+    tarifa: number;
+    /** Unidades sugeridas: la suma de piezas de la propuesta. */
+    cantidad: number;
+    /** Área total. Sólo informativa: ya no interviene en el cálculo del SMO. */
+    areaM2: number;
+    tiposObra: TipoObraListado[];
+}
+
+// ─── Comparador de propuestas — GET /cotizaciones/:id/comparar ─────────────
+
+export interface PropuestaComparada {
+    id: number;
+    etiqueta: string;
+    nombre: string | null;
+    nota: string | null;
+    elegida: boolean;
+    descuentoPct: number;
+    cantidadItems: number;
+    totales: TotalesPropuesta;
+    cargos: CargoPropuesta[];
+    /** Diferencia contra la PRIMERA propuesta (la A), nunca contra la elegida:
+     * un ancla que se mueve al elegir haría saltar los números delante del
+     * cliente. */
+    diferencia: number;
+    diferenciaPct: number | null;
+}
+
+export interface ComparativaPropuestas {
+    cotizacionId: number;
+    numero: number;
+    estado: EstadoCotizacion;
+    baseEtiqueta: string | null;
+    propuestas: PropuestaComparada[];
+}
+
+/** Respuesta de `POST /propuestas` y de `POST /propuestas/:pid/clonar`. El
+ * clonado NO bloquea si un ítem sale con errores de precio: crea la propuesta y
+ * devuelve `advertencias` para que la pantalla las muestre. */
+export interface RespuestaPropuesta {
+    propuestaId: number;
+    advertencias?: string[];
+    cotizacion: Cotizacion;
+}
+
 export interface CotizacionLigera {
     id: number;
     numero: number;
@@ -188,13 +369,27 @@ export interface CotizacionLigera {
     cliente: ClienteCotizacion;
     segmentoCliente: SegmentoCliente;
     asesor: string;
+    /** LEGADO: la cabecera ya no guarda descuento (el vivo es el de la
+     * propuesta). Se sigue emitiendo por sus 4 filas históricas. */
     descuentoPct: number;
+    /** Espejo de la propuesta ELEGIDA. Sin elegida quedan en 0 A PROPÓSITO: un
+     * total inventado presentaría como definitivo un precio que nadie escogió.
+     * En ese caso hay que pintar el RANGO leyendo `propuestas[]`. */
     totales: { subtotal: number; iva: number; total: number };
+    /** En el LISTADO son los ítems de TODAS las propuestas juntos. Para contar
+     * los de una sola hay que filtrar por `propuestaId`. */
     items: ItemCotizacionLigero[];
+    propuestas?: PropuestaLigera[];
+    propuestaElegidaId?: number | null;
 }
 
-export interface Cotizacion extends Omit<CotizacionLigera, 'items'> {
+export interface Cotizacion extends Omit<CotizacionLigera, 'items' | 'propuestas'> {
+    /** Los de la propuesta ACTIVA, con sus blobs. El "carrito" del frontend es,
+     * literalmente, la propuesta que se está mirando. */
     items: ItemCotizacion[];
+    propuestas?: Propuesta[];
+    /** Cuál de las propuestas trae despiece en esta respuesta. */
+    propuestaActivaId?: number | null;
 }
 
 /** Body de POST/PUT /cotizaciones. */
@@ -209,9 +404,16 @@ export interface CotizacionEntrada {
     cliente?: ClienteCotizacion;
     segmentoCliente?: SegmentoCliente;
     asesor?: string;
+    /** El backend lo aplica a la propuesta destino, NO a la cabecera. Es la vía
+     * por la que la UI guarda el descuento de la propuesta activa junto con sus
+     * ítems, en una sola escritura. */
     descuentoPct?: number;
     estado?: EstadoCotizacion;
+    /** Ítems planos: van a `propuestaId` y, si no llega, a la elegida. */
     items?: ItemEntrada[];
+    /** Forma nueva: varias propuestas de una vez. Sólo se usa al CREAR. */
+    propuestas?: PropuestaEntrada[];
+    propuestaId?: number;
 }
 
 export interface FiltrosListado {
@@ -239,6 +441,9 @@ export interface AptitudItem {
 export interface Aptitud {
     imprimible: boolean;
     porItem: AptitudItem[];
+    /** Motivos de la COTIZACIÓN entera, no de un ítem. Hoy sólo
+     * `SIN_PROPUESTA_ELEGIDA`; vacío en el caso normal. */
+    motivos?: MotivoAptitud[];
 }
 
 // ─── Parámetros globales — GET /parametros ──────────────────────────────────

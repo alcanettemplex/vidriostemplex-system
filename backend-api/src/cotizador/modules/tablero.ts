@@ -1,5 +1,8 @@
 // Módulo "Tablero" — vidrio templado de 6mm u 8mm con BPB (borde pulido brillado),
-// perforaciones, elevadores, matizado y película opcionales, SMO y flete.
+// perforaciones, elevadores, matizado y película opcionales.
+//
+// SMO y flete salieron de este BOM el 2026-09-20: son cargos de la propuesta.
+// Ver el comentario en sitio, justo antes de `totalizar()`.
 //
 // Basado en el análisis funcional del Excel original:
 //   analisis-para-webapp/modulos/tablero.md / tablero.json
@@ -29,7 +32,7 @@
 //     real, no por "cantidad de piezas de 6mm"): la ÚNICA multiplicación por
 //     "cuántas piezas iguales se cotizan" ocurre una vez, dentro de `totalizar()`
 //     vía `cantidadPiezas`. Ninguna línea del BOM se multiplica por esa cantidad.
-import { lineaCatalogo, totalizar, areaM2, perimetroM, round2, tarifaSMO } from "../lib/motorCalculo";
+import { lineaCatalogo, totalizar, areaM2, perimetroM, round2 } from "../lib/motorCalculo";
 import { getParametros, segmentosValidos } from "../lib/catalogo";
 import type { InputModulo } from "../tipos";
 import type { LineaBOM } from "../lib/motorCalculo";
@@ -39,38 +42,10 @@ import type { LineaBOM } from "../lib/motorCalculo";
 // instrucción de negocio: anchoCm > 151 -> 6 perforaciones/elevadores; si no, 4.
 const UMBRAL_ANCHO_CM = 151;
 
-/** Construye una línea de BOM "manual" (sin código de catálogo) para cargos fijos
- * de instalación (SMO, flete) que en el Excel original venían de referencias
- * hardcodeadas a celdas de la tabla ACABADOS (COSTOS!$AC$32/$AC$33), y que en la
- * web app se centralizan en server/src/data/parametros.json en vez de repetirse
- * como constantes sueltas en cada módulo. */
-function lineaManual({
-  codigo,
-  descripcion,
-  categoria,
-  unidad,
-  cantidad,
-  precioUnitario,
-}: {
-  codigo: string;
-  descripcion: string;
-  categoria: string;
-  unidad: string;
-  cantidad: number;
-  precioUnitario: number;
-}) {
-  const cantidadRedondeada = round2(cantidad);
-  return {
-    codigo,
-    descripcion,
-    categoria,
-    unidad,
-    cantidad: cantidadRedondeada,
-    precioUnitario,
-    valorTotal: round2(precioUnitario * cantidadRedondeada),
-    error: false,
-  };
-}
+// `lineaManual()` construía las dos líneas de BOM sin código de catálogo —SMO y
+// flete—. Ambas dejaron de ser líneas del ítem el 2026-09-20 y pasaron a ser
+// cargos de la propuesta, así que el helper se fue con ellas: dejarlo sin
+// llamadores es una invitación a volver a meter cargos en el BOM.
 
 export const meta = {
   nombre: "Tablero",
@@ -92,7 +67,10 @@ export const meta = {
     },
     { nombre: "segmentoCliente", tipo: "select", opciones: ["PA", "PM", "PB"], etiqueta: "Tipo de cliente", requerido: true, grupo: "cliente" },
     { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de piezas iguales", requerido: true, grupo: "comercial" },
-    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (%)", requerido: false, grupo: "comercial" },
+    // `descuentoPct` salió del formulario el 2026-09-20: desde entonces hay UN
+    // solo descuento y vive en la propuesta (`cotizador.propuesta.descuento_pct`).
+    // `calcular()` sigue aceptándolo por compatibilidad con lo ya guardado, pero
+    // el formulario deja de pedirlo: en la práctica llega siempre en 0.
   ],
 };
 
@@ -134,12 +112,6 @@ export function calcular(input: InputModulo) {
   }
 
   const parametros = getParametros();
-  // SMO02 del Excel: el tablero se instala en fachada. `pisoTableroGrande` se
-  // conserva porque es un piso propio de este módulo que el Excel no modela.
-  const smoRate = tarifaSMO(parametros, "fachadas");
-  const smoPisoGrande = parametros.smo?.pisoTableroGrande ?? 87000;
-  const fleteFijo = parametros.flete_fijo ?? 40000;
-
   const area = areaM2(ancho, alto);
   const perimetro = perimetroM(ancho, alto);
   const esPiezaGrande = ancho > UMBRAL_ANCHO_CM;
@@ -168,33 +140,20 @@ export function calcular(input: InputModulo) {
     );
   }
 
-  // Servicio Mínimo de Obra: tarifa plana para piezas pequeñas (ancho <= 1.51m);
-  // para piezas grandes, el mayor entre el piso de $87.000 y el valor por área a
-  // $58.000/m² (igual regla de negocio que L16 en tablero.md, con los valores
-  // ahora centralizados en parametros.json en vez de referencias hardcodeadas).
-  const smoBase = round2(area * smoRate);
-  const smoValor = esPiezaGrande ? Math.max(smoBase, smoPisoGrande) : smoRate;
-  items.push(
-    lineaManual({
-      codigo: "SMO",
-      descripcion: "Servicio Mínimo de Obra",
-      categoria: "INSTALACION",
-      unidad: "GLOBAL",
-      cantidad: 1,
-      precioUnitario: smoValor,
-    })
-  );
-
-  items.push(
-    lineaManual({
-      codigo: "GTFA26",
-      descripcion: "Acarreo / Flete",
-      categoria: "INSTALACION",
-      unidad: "UND",
-      cantidad: 1,
-      precioUnitario: fleteFijo,
-    })
-  );
+  // ⚠️ AQUÍ YA NO SE AGREGAN NI SMO NI FLETE (2026-09-20).
+  // `totalizar()` multiplica cada línea del BOM por `cantidadPiezas`, así que
+  // mientras vivieron aquí, cinco tableros iguales cobraban cinco manos de obra
+  // y cinco fletes. Los dos pasaron a ser cargos de la PROPUESTA
+  // (`cotizador.propuesta_cargo`): se cobran una vez y quedan fuera del AIU y
+  // del descuento.
+  //
+  // LA REGLA PROPIA DE ESTE MÓDULO NO SE PERDIÓ: el piso de
+  // `smo.pisoTableroGrande` ($87.000) para piezas de más de 1,51 m de ancho
+  // —que el Excel no modela y que era exclusivo de Tablero— se trasladó a
+  // `lib/cargos.ts`, dentro de `sugerirSMO()`, que es donde hoy se decide cuánto
+  // vale la mano de obra. `esPiezaGrande` sigue vivo más arriba porque también
+  // gobierna cuántas perforaciones y elevadores lleva la pieza, que sí es una
+  // regla de materiales.
 
   const resultado = totalizar(items, {
     cantidadPiezas: cantPiezas,

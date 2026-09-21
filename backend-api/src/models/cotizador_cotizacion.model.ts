@@ -27,6 +27,10 @@ CotizadorCotizacion.init({
   cliente_contacto: { type: DataTypes.STRING(120) },
   segmento_cliente: { type: DataTypes.ENUM('PA', 'PM', 'PB'), allowNull: false, defaultValue: 'PA' },
   asesor: { type: DataTypes.STRING(80) },
+  // ⚠️ LEGADA desde el 2026-09-20: se conserva la columna (y sus 4 filas
+  // históricas), pero deja de escribirse. Nunca afectó a ningún total —
+  // `calcularTotales` solo sumaba los ítems— y el descuento vivo pasó a ser
+  // `propuesta.descuento_pct`, uno solo por propuesta. No leerla para calcular.
   descuento_pct: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 0 },
   total_subtotal: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 0 },
   total_iva: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 0 },

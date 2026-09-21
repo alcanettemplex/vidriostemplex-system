@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { Calculator, Loader2, Users, Ruler, Droplet, Percent } from 'lucide-react';
+import { Calculator, Users, Ruler, Droplet, Percent } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { apiCotizarItem } from '../services/cotizadorApi';
 import { CampoMeta, GrupoCampo, ModuloMeta, OpcionCampo, ResultadoCalculo, SegmentoCliente } from '../types';
 import CampoDinamico from './CampoDinamico';
 import SelectorDiseno from './SelectorDiseno';
+import { BotonPrimario, Chip, Tarjeta } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Formulario data-driven de UN módulo de producto (meta.campos). El padre
-// (TabCotizar) remonta este componente con `key={modulo.id}` al cambiar de
-// módulo, así que el estado se inicializa una sola vez por módulo activo.
+// Panel de configuración: formulario data-driven de UN módulo de producto
+// (meta.campos). El padre (TabCotizar) remonta este componente con
+// `key={modulo.id}` al cambiar de módulo, así que el estado se inicializa una
+// sola vez por módulo activo.
 //
 // Los campos se agrupan visualmente por `campo.grupo` en tarjetas (cliente,
 // medidas, vidrio, comercial), en ese orden fijo, mostrando sólo las tarjetas
@@ -18,6 +20,10 @@ import SelectorDiseno from './SelectorDiseno';
 // 'comercial'. Si algún módulo llegara a tener un campo SIN grupo (hoy los 6
 // módulos declaran grupo en todos sus campos), se cae al layout plano de
 // siempre en vez de arriesgar dejar ese campo fuera del formulario.
+//
+// NADA de esto está hardcodeado por producto: la única lista fija es el ORDEN
+// de los cuatro grupos. Cualquier campo nuevo que declare el backend aparece
+// solo, en su tarjeta, sin tocar este archivo.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const GRUPOS_ORDEN: GrupoCampo[] = ['cliente', 'medidas', 'vidrio', 'comercial'];
@@ -25,34 +31,16 @@ const GRUPOS_ORDEN: GrupoCampo[] = ['cliente', 'medidas', 'vidrio', 'comercial']
 const GRUPO_CONFIG: Record<GrupoCampo, {
     titulo: string;
     Icono: React.ComponentType<{ className?: string }>;
-    contenedorClass: string;
-    iconoClass: string;
 }> = {
-    cliente: {
-        titulo: 'Cliente y sistema',
-        Icono: Users,
-        contenedorClass: 'bg-violet-50/60 border border-violet-100 rounded-2xl p-4',
-        iconoClass: 'text-indigo-600',
-    },
-    medidas: {
-        titulo: 'Medidas',
-        Icono: Ruler,
-        contenedorClass: 'bg-white border border-slate-200 rounded-2xl p-4',
-        iconoClass: 'text-indigo-600',
-    },
-    vidrio: {
-        titulo: 'Vidrio y acabados',
-        Icono: Droplet,
-        contenedorClass: 'bg-sky-50/60 border border-sky-100 rounded-2xl p-4',
-        iconoClass: 'text-sky-600',
-    },
-    comercial: {
-        titulo: 'Comercial',
-        Icono: Percent,
-        contenedorClass: 'bg-white border border-slate-200 rounded-2xl p-4',
-        iconoClass: 'text-indigo-600',
-    },
+    cliente: { titulo: 'Cliente y sistema', Icono: Users },
+    medidas: { titulo: 'Medidas', Icono: Ruler },
+    vidrio: { titulo: 'Vidrio y acabados', Icono: Droplet },
+    comercial: { titulo: 'Comercial', Icono: Percent },
 };
+
+/** Lo que se pinta bajo el campo que bloqueó el cálculo. El toast dice cuál es
+ * (y sigue igual que antes); esto dice por qué, ahí donde hay que arreglarlo. */
+const MENSAJE_REQUERIDO = 'Este dato es obligatorio para calcular.';
 
 function valorInicial(campo: ModuloMeta['campos'][number], segmentoDefault: SegmentoCliente): unknown {
     if (campo.nombre === 'segmentoCliente') return segmentoDefault;
@@ -106,8 +94,17 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
         return inicial;
     });
     const [cargando, setCargando] = useState(false);
+    // Nombre del campo que hizo fallar el último intento de calcular. Es sólo
+    // el marcado visual del aviso que ya daba el toast: no añade validaciones
+    // ni cambia cuándo se validan.
+    const [campoConError, setCampoConError] = useState<string | null>(null);
 
-    const setCampo = (nombre: string) => (value: unknown) => setInput(prev => ({ ...prev, [nombre]: value }));
+    const setCampo = (nombre: string) => (value: unknown) => {
+        // El error se limpia al tocar ese campo, no al volver a calcular: dejarlo
+        // en rojo mientras el vendedor ya está escribiendo la corrección es ruido.
+        setCampoConError(prev => (prev === nombre ? null : prev));
+        setInput(prev => ({ ...prev, [nombre]: value }));
+    };
 
     const hayDiseno = Boolean(input.disenoId);
     const campoOculto = (nombre: string) => hayDiseno && CAMPOS_DERIVADOS_DEL_DISENO.includes(nombre);
@@ -118,9 +115,11 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
             c => c.requerido && !campoOculto(c.nombre) && esVacio(input[c.nombre])
         );
         if (faltante) {
+            setCampoConError(faltante.nombre);
             toast.error(`Completa: ${faltante.etiqueta}`);
             return;
         }
+        setCampoConError(null);
 
         setCargando(true);
         try {
@@ -133,17 +132,23 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
         }
     };
 
+    const errorDe = (nombre: string) => (campoConError === nombre ? MENSAJE_REQUERIDO : null);
+
     const hayCampoSinGrupo = modulo.campos.some(c => !c.grupo);
 
     const botonCalcular = (
-        <button
-            onClick={calcular}
-            disabled={cargando}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-            {cargando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
+        <BotonPrimario ancho icono={Calculator} cargando={cargando} onClick={calcular}>
             Calcular
-        </button>
+        </BotonPrimario>
+    );
+
+    const selectorDiseno = (
+        <SelectorDiseno
+            modulo="ventanas"
+            value={input.disenoId as string | undefined}
+            onChange={id => setInput(prev => ({ ...prev, disenoId: id }))}
+            sistema={input.sistema as string | undefined}
+        />
     );
 
     // Red de seguridad: `grupo` es un campo opcional del contrato (ver types.ts)
@@ -153,24 +158,20 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
     if (hayCampoSinGrupo) {
         return (
             <div className="space-y-3">
-                {modulo.id === 'ventanas' && (
-                    <SelectorDiseno
-                        modulo="ventanas"
-                        value={input.disenoId as string | undefined}
-                        onChange={id => setInput(prev => ({ ...prev, disenoId: id }))}
-                        sistema={input.sistema as string | undefined}
-                    />
-                )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {camposVisibles(modulo.campos).map(campo => (
-                        <CampoDinamico
-                            key={campo.nombre}
-                            campo={campo}
-                            value={input[campo.nombre]}
-                            onChange={setCampo(campo.nombre)}
-                        />
-                    ))}
-                </div>
+                <Tarjeta cuerpoClassName="space-y-3">
+                    {modulo.id === 'ventanas' && selectorDiseno}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {camposVisibles(modulo.campos).map(campo => (
+                            <CampoDinamico
+                                key={campo.nombre}
+                                campo={campo}
+                                value={input[campo.nombre]}
+                                onChange={setCampo(campo.nombre)}
+                                error={errorDe(campo.nombre)}
+                            />
+                        ))}
+                    </div>
+                </Tarjeta>
                 {botonCalcular}
             </div>
         );
@@ -204,39 +205,24 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
             {GRUPOS_ORDEN.filter(g => (camposPorGrupo.get(g) || []).length > 0).map(grupo => {
                 const campos = camposPorGrupo.get(grupo)!;
                 const cfg = GRUPO_CONFIG[grupo];
-                const Icono = cfg.Icono;
-                return (
-                    <div key={grupo} className={cfg.contenedorClass}>
-                        <div className="flex items-center justify-between gap-2 mb-3">
-                            <h3 className="flex items-center gap-1.5 text-[12px] font-extrabold uppercase tracking-wide text-slate-600 font-cotizador-head">
-                                <Icono className={`w-3.5 h-3.5 ${cfg.iconoClass}`} />
-                                {cfg.titulo}
-                            </h3>
-                            {grupo === 'cliente' && chipsCliente.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 justify-end">
-                                    {chipsCliente.map(chip => (
-                                        <span key={chip} className="bg-indigo-50 text-indigo-700 text-[10.5px] font-extrabold px-2.5 py-0.5 rounded-full font-cotizador-head">
-                                            {chip}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-                            {grupo === 'medidas' && areaCalculada !== null && (
-                                <span className="bg-emerald-50 text-emerald-700 text-[10.5px] font-extrabold px-2.5 py-0.5 rounded-full font-cotizador-head">
-                                    ≈ {areaCalculada.toFixed(2)} m²
-                                </span>
-                            )}
-                        </div>
 
+                // El hueco a la derecha del rótulo: los chips de spec en vivo
+                // (cliente) y el área aproximada (medidas). Son lectura, no
+                // controles: ninguno cambia el input.
+                const accion = grupo === 'cliente' && chipsCliente.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 justify-end">
+                        {chipsCliente.map(chip => (
+                            <Chip key={chip} tono="indigo">{chip}</Chip>
+                        ))}
+                    </div>
+                ) : grupo === 'medidas' && areaCalculada !== null ? (
+                    <Chip tono="esmeralda">≈ {areaCalculada.toFixed(2)} m²</Chip>
+                ) : undefined;
+
+                return (
+                    <Tarjeta key={grupo} titulo={cfg.titulo} icono={cfg.Icono} accion={accion}>
                         {grupo === 'medidas' && modulo.id === 'ventanas' && (
-                            <div className="mb-3">
-                                <SelectorDiseno
-                                    modulo="ventanas"
-                                    value={input.disenoId as string | undefined}
-                                    onChange={id => setInput(prev => ({ ...prev, disenoId: id }))}
-                                    sistema={input.sistema as string | undefined}
-                                />
-                            </div>
+                            <div className="mb-3">{selectorDiseno}</div>
                         )}
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -246,6 +232,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
                                         campo={campo}
                                         value={input[campo.nombre]}
                                         onChange={setCampo(campo.nombre)}
+                                        error={errorDe(campo.nombre)}
                                     />
                                     {campo.nombre === 'sistema' && campo.tipo === 'select' && (campo.opciones?.length ?? 0) > 1 && (
                                         <p className="text-[10.5px] text-slate-400 mt-1">Ver catálogo para disponibilidad por color.</p>
@@ -253,7 +240,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
                                 </div>
                             ))}
                         </div>
-                    </div>
+                    </Tarjeta>
                 );
             })}
 

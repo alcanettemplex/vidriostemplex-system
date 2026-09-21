@@ -21,42 +21,16 @@
 // manija, jamba, nave (perfil) y sillar cabezal. No existe ningún campo de
 // "metros lineales manuales", así que no hay forma de duplicar el cálculo.
 
-import { lineaCatalogo, totalizar, round2, tarifaSMO } from "../lib/motorCalculo";
+import { lineaCatalogo, totalizar, round2 } from "../lib/motorCalculo";
 import { getParametros } from "../lib/catalogo";
 import { cotizarPorDiseno } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
 import type { LineaBOM } from "../lib/motorCalculo";
 
-// Línea de BOM "manual" (sin código de catálogo) para cargos fijos de instalación
-// (SMO, flete), centralizados en server/src/data/parametros.json — ver la nota
-// equivalente en ventanas.js/tablero.js sobre por qué no son códigos de catálogo.
-function lineaManual({
-  codigo,
-  descripcion,
-  categoria,
-  unidad,
-  cantidad,
-  precioUnitario,
-}: {
-  codigo: string;
-  descripcion: string;
-  categoria: string;
-  unidad: string;
-  cantidad: number;
-  precioUnitario: number;
-}) {
-  const cantidadRedondeada = round2(cantidad);
-  return {
-    codigo,
-    descripcion,
-    categoria,
-    unidad,
-    cantidad: cantidadRedondeada,
-    precioUnitario,
-    valorTotal: round2(precioUnitario * cantidadRedondeada),
-    error: false,
-  };
-}
+// `lineaManual()` construía las dos líneas de BOM sin código de catálogo —SMO y
+// flete—. Ambas dejaron de ser líneas del ítem el 2026-09-20 y pasaron a ser
+// cargos de la propuesta, así que el helper se fue con ellas: dejarlo sin
+// llamadores es una invitación a volver a meter cargos en el BOM.
 
 const COLORES_DISPONIBLES = {
   jamba: { mate: "JAM0503", "gris plata": "JAM0206", bronce: "JAM0101", blanco: "JAM0407" },
@@ -148,7 +122,10 @@ export const meta = {
       grupo: "vidrio",
     },
     { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de ventanas idénticas", requerido: false, grupo: "comercial" },
-    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (%)", requerido: false, grupo: "comercial" },
+    // `descuentoPct` salió del formulario el 2026-09-20: desde entonces hay UN
+    // solo descuento y vive en la propuesta (`cotizador.propuesta.descuento_pct`).
+    // `calcular()` sigue aceptándolo por compatibilidad con lo ya guardado, pero
+    // el formulario deja de pedirlo: en la práctica llega siempre en 0.
   ],
 };
 
@@ -287,32 +264,13 @@ export function calcular(input: InputModulo = {}) {
   if (input.matizado) items.push(lineaCatalogo(ACABADOS.matizado, areaUnaPieza, segmentoCliente));
   if (input.pelicula) items.push(lineaCatalogo(ACABADOS.pelicula, areaUnaPieza, segmentoCliente));
 
-  // Mano de obra (SMO) y flete: valores fijos centralizados en parametros.json.
+  // ⚠️ AQUÍ YA NO SE AGREGAN NI SMO NI FLETE (2026-09-20).
+  // `totalizar()` multiplica cada línea del BOM por `cantidadPiezas`, así que
+  // mientras la mano de obra y el flete fueron líneas del ítem, cinco
+  // proyectantes iguales cobraban cinco de cada uno. Los dos pasaron a ser
+  // cargos de la PROPUESTA (`cotizador.propuesta_cargo`): se cobran una vez y
+  // van fuera del AIU y del descuento. La sugerencia vive en `lib/cargos.ts`.
   const parametros = getParametros();
-  // SMO03 del Excel: un proyectante es ventanería, misma tarifa de armada.
-  const smoRate = tarifaSMO(parametros, "armadaVentanas");
-  const fleteFijo = parametros.flete_fijo ?? 40000;
-  const smoValor = Math.max(round2(areaUnaPieza * smoRate), smoRate);
-  items.push(
-    lineaManual({
-      codigo: "SMO",
-      descripcion: "Servicio Mínimo de Obra",
-      categoria: "INSTALACION",
-      unidad: "GLOBAL",
-      cantidad: 1,
-      precioUnitario: smoValor,
-    })
-  );
-  items.push(
-    lineaManual({
-      codigo: "GTFA26",
-      descripcion: "Acarreo / Flete",
-      categoria: "INSTALACION",
-      unidad: "UND",
-      cantidad: 1,
-      precioUnitario: fleteFijo,
-    })
-  );
 
   const resultado = totalizar(items, {
     cantidadPiezas,

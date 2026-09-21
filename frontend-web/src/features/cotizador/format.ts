@@ -6,3 +6,17 @@ export const fmtFecha = (v?: string | null) =>
 
 export const fmtPct = (fraccion: number | null | undefined) =>
     `${Math.round((Number(fraccion) || 0) * 100)}%`;
+
+/**
+ * Monto abreviado: "$1,8 M", "$450 K". Existe SOLO para el rango de una
+ * cotización sin propuesta elegida en la pestaña Guardadas ("$1,1 M – $1,8 M ·
+ * sin decidir"): dos importes completos en una celda de tabla no caben y, sobre
+ * todo, un rango no es una cifra que nadie vaya a cobrar, así que el redondeo
+ * no engaña a nadie. Para cualquier importe real se usa `fmtCOP`.
+ */
+export const fmtCOPCorto = (v: number | null | undefined) => {
+    const n = Math.abs(Number(v) || 0);
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toLocaleString('es-CO', { maximumFractionDigits: 1 })} M`;
+    if (n >= 1_000) return `$${Math.round(n / 1_000).toLocaleString('es-CO')} K`;
+    return fmtCOP(n);
+};

@@ -6,7 +6,7 @@ import {
 
 import { apiListarCotizaciones, apiObtenerCotizacion, apiEliminarCotizacion } from '../services/cotizadorApi';
 import { Cotizacion, CotizacionLigera, EstadoCotizacion, FiltrosListado } from '../types';
-import { fmtCOP, fmtFecha } from '../format';
+import { fmtCOP, fmtCOPCorto, fmtFecha } from '../format';
 import ModalDetalleCotizacion from './modals/ModalDetalleCotizacion';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -37,6 +37,64 @@ const inputClass = 'w-full px-3 py-2 text-sm border border-slate-200 rounded-lg 
 const labelClass = 'block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1';
 
 type OrdenCampo = 'numero' | 'cliente' | 'estado' | 'items' | 'total' | 'fecha';
+
+// ─── Cotizaciones con varias propuestas ─────────────────────────────────────
+// Desde el 2026-09-20 una cotización puede tener hasta 5 propuestas y su total
+// es el de la ELEGIDA. Cuando no hay ninguna elegida, los totales espejo de la
+// cabecera quedan en CERO a propósito: presentar el de la A como definitivo
+// haría pasar por precio cerrado uno que nadie escogió. En ese caso esta tabla
+// pinta el RANGO ("$1,1 M – $1,8 M · sin decidir"), que es exactamente lo que
+// el vendedor le puede decir al cliente en ese momento.
+
+/** Los ítems que cuentan para una fila del listado. `c.items` trae los de TODAS
+ * las propuestas juntos, así que sin filtrar por la elegida una cotización con
+ * tres variantes de dos ventanas parecería tener seis productos. */
+const itemsDeLaElegida = (c: CotizacionLigera): number => {
+    const elegidaId = c.propuestaElegidaId ?? c.propuestas?.find(p => p.elegida)?.id ?? null;
+    if (elegidaId === null) {
+        // Sin elegida no hay un conjunto "el" de ítems: se muestran los de la
+        // primera propuesta, que es la que el cliente ya vio.
+        const primera = c.propuestas?.[0]?.id ?? null;
+        if (primera === null) return c.items.length;
+        return c.items.filter(i => i.propuestaId === primera).length;
+    }
+    return c.items.filter(i => i.propuestaId === elegidaId).length || c.items.length;
+};
+
+interface TotalDeFila {
+    /** Total de la elegida, o el mayor de las propuestas cuando no hay ninguna.
+     * Sólo se usa para ORDENAR: con `null` la columna quedaría al azar. */
+    valorOrden: number;
+    /** Lo que se pinta en la celda. */
+    nodo: React.ReactNode;
+}
+
+const totalDeFila = (c: CotizacionLigera): TotalDeFila => {
+    const props = c.propuestas ?? [];
+    const hayElegida = (c.propuestaElegidaId ?? null) !== null || props.some(p => p.elegida);
+
+    if (hayElegida || props.length <= 1) {
+        return {
+            valorOrden: c.totales.total,
+            nodo: <span className="font-cotizador-head font-semibold">{fmtCOP(c.totales.total)}</span>,
+        };
+    }
+
+    const totales = props.map(p => Number(p.totales?.total) || 0);
+    const min = Math.min(...totales);
+    const max = Math.max(...totales);
+    return {
+        valorOrden: max,
+        nodo: (
+            <span title={`${props.length} propuestas sin decidir: ${totales.map(t => fmtCOP(t)).join(' · ')}`}>
+                <span className="font-cotizador-head font-semibold text-slate-600">
+                    {min === max ? fmtCOPCorto(max) : `${fmtCOPCorto(min)} – ${fmtCOPCorto(max)}`}
+                </span>
+                <span className="block text-[10.5px] font-bold text-amber-700">sin decidir</span>
+            </span>
+        ),
+    };
+};
 
 interface Props {
     onReabrir: (cot: Cotizacion) => void;
@@ -132,8 +190,8 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                 case 'numero': return (a.numero - b.numero) * factor;
                 case 'cliente': return (a.cliente?.nombre || '').localeCompare(b.cliente?.nombre || '') * factor;
                 case 'estado': return a.estado.localeCompare(b.estado) * factor;
-                case 'items': return (a.items.length - b.items.length) * factor;
-                case 'total': return (a.totales.total - b.totales.total) * factor;
+                case 'items': return (itemsDeLaElegida(a) - itemsDeLaElegida(b)) * factor;
+                case 'total': return (totalDeFila(a).valorOrden - totalDeFila(b).valorOrden) * factor;
                 case 'fecha': return (new Date(a.creadaEn || 0).getTime() - new Date(b.creadaEn || 0).getTime()) * factor;
                 default: return 0;
             }
@@ -233,7 +291,17 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                                     onClick={() => { setDetalleId(c.id); setDetalleVista('normal'); }}
                                     className="hover:bg-violet-50/60 cursor-pointer transition"
                                 >
-                                    <td className="px-4 py-3 font-cotizador-head font-bold text-slate-800 whitespace-nowrap">{c.numero}</td>
+                                    <td className="px-4 py-3 font-cotizador-head font-bold text-slate-800 whitespace-nowrap">
+                                        {c.numero}
+                                        {(c.propuestas?.length ?? 0) > 1 && (
+                                            <span
+                                                className="ml-1.5 px-1.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-[10px] font-bold text-indigo-700 align-middle"
+                                                title={`${c.propuestas!.length} propuestas: ${c.propuestas!.map(p => p.etiqueta).join(' · ')}`}
+                                            >
+                                                {c.propuestas!.length} props.
+                                            </span>
+                                        )}
+                                    </td>
                                     <td className="px-4 py-3 text-slate-700 max-w-[220px]">
                                         <div className="truncate" title={c.cliente?.nombre || ''}>{c.cliente?.nombre || '—'}</div>
                                         {c.cliente?.obra && <div className="text-[11px] text-slate-400 truncate">{c.cliente.obra}</div>}
@@ -244,8 +312,8 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                                             {ESTADOS.find(e => e.v === c.estado)?.l || c.estado}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-3 text-center text-slate-600">{c.items.length}</td>
-                                    <td className="px-4 py-3 text-right text-slate-700 whitespace-nowrap font-cotizador-head font-semibold">{fmtCOP(c.totales.total)}</td>
+                                    <td className="px-4 py-3 text-center text-slate-600">{itemsDeLaElegida(c)}</td>
+                                    <td className="px-4 py-3 text-right text-slate-700 whitespace-nowrap">{totalDeFila(c).nodo}</td>
                                     <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{fmtFecha(c.creadaEn)}</td>
                                     <td className="px-4 py-3 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                                         <button

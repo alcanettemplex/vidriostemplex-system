@@ -12,7 +12,7 @@
 // momento concreto, y el negocio le añade condiciones que no son del
 // despiece sino del PROCESO — que esté aprobada, que el sistema ya esté
 // calibrado en producción (no sólo que exista una fórmula de nivel A), que no
-// haya errores de precio. `aptoParaCorte` es una de las ocho condiciones de
+// haya errores de precio. `aptoParaCorte` es una de las nueve condiciones de
 // abajo, no la única.
 //
 // LA CONDICIÓN MÁS SUTIL: `resultado` ES UNA FOTO, NO UNA VISTA EN VIVO
@@ -63,6 +63,11 @@ const EXIGIR_SISTEMA_EN_PRODUCCION = false;
  * cambiar libremente; el código, no, o rompe a quien lo esté comparando. */
 export const CODIGOS_MOTIVO = {
   COTIZACION_NO_APROBADA: "COTIZACION_NO_APROBADA",
+  // Novena condición (2026-09-20). Una cotización es un contenedor de
+  // propuestas A/B/C…, y la orden de corte sale SOLO de la elegida: sin una
+  // elegida no hay un juego de medidas que mandar al taller, hay varios. Se
+  // AÑADE la clave, no se renombra ninguna: `CODIGOS_MOTIVO` es contrato estable.
+  SIN_PROPUESTA_ELEGIDA: "SIN_PROPUESTA_ELEGIDA",
   SIN_DESPIECE_POR_DISENO: "SIN_DESPIECE_POR_DISENO",
   NIVEL_NO_VALIDADO: "NIVEL_NO_VALIDADO",
   HOLGURA_AUSENTE: "HOLGURA_AUSENTE",
@@ -100,8 +105,21 @@ export interface ItemCotizacion {
   [clave: string]: unknown;
 }
 
-export interface CotizacionAptitud {
+/** Una propuesta tal como la devuelve `cotizacionStore.obtener()`: sólo interesa
+ * si es la elegida y qué ítems cuelgan de ella. */
+export interface PropuestaAptitud {
+  id?: number;
+  etiqueta?: string;
+  elegida?: boolean;
   items?: ItemCotizacion[];
+  [clave: string]: unknown;
+}
+
+export interface CotizacionAptitud {
+  /** Los ítems de la propuesta ACTIVA. Se sigue leyendo cuando la cotización no
+   * trae `propuestas` (forma anterior a 2026-09-20 y la que arman los tests). */
+  items?: ItemCotizacion[];
+  propuestas?: PropuestaAptitud[];
   [clave: string]: unknown;
 }
 
@@ -611,7 +629,9 @@ function evaluarItem(
  *   Por defecto, se lee del disco.
  * @returns {{
  *   imprimible: boolean,
- *   porItem: Array<{itemId: string, imprimible: boolean, motivos: Array<{codigo:string, texto:string, comoSeArregla:string|null}>}>
+ *   porItem: Array<{itemId: string, imprimible: boolean, motivos: Array<{codigo:string, texto:string, comoSeArregla:string|null}>}>,
+ *   motivos: Array<{codigo, texto, comoSeArregla}>  // motivos de la COTIZACIÓN entera,
+ *     no de un ítem: hoy sólo SIN_PROPUESTA_ELEGIDA. Vacío en el caso normal.
  * }}
  *   `imprimible` (el de arriba, el de toda la cotización) es `true` sólo si
  *   HAY al menos un ítem y TODOS sus ítems son individualmente imprimibles.
@@ -634,11 +654,49 @@ export function evaluarAptitudOrden(
   const margenesEfectivos = margenes ?? getMargenes();
   const sistemasEfectivos = sistemas ?? getSistemas();
 
-  const items = cotizacion?.items ?? [];
+  // CONDICIÓN 9 (2026-09-20): sólo se evalúa la propuesta ELEGIDA.
+  //
+  // Una cotización con propuesta A en vidrio de 4 mm y B en templado tiene DOS
+  // juegos de medidas distintos. Evaluar todos sus ítems daría un veredicto
+  // sobre un conjunto que nunca se va a fabricar entero, y bastaría con que una
+  // variante descartada tuviera un diseño nivel C para bloquear la orden de la
+  // que sí se va a cortar.
+  //
+  // Sin `propuestas` se cae a `cotizacion.items`: es la forma anterior al
+  // cambio, y la que arman los tests y cualquier llamador que construya una
+  // cotización sintética. La ausencia del campo no es "no hay elegida", es "esta
+  // cotización no usa propuestas".
+  const propuestas = Array.isArray(cotizacion?.propuestas) ? cotizacion.propuestas : null;
+  let items: ItemCotizacion[];
+  if (propuestas && propuestas.length > 0) {
+    const elegida = propuestas.find((p) => p?.elegida);
+    if (!elegida) {
+      return {
+        imprimible: false,
+        porItem: [],
+        motivos: [
+          crearMotivo(
+            CODIGOS_MOTIVO.SIN_PROPUESTA_ELEGIDA,
+            "Esta cotización tiene varias propuestas y todavía no hay ninguna elegida.",
+            "Abre la cotización, compara las propuestas y marca la que aprobó el cliente: la orden de corte sale de esa."
+          ),
+        ],
+      };
+    }
+    // `obtener()` sólo trae los blobs de la propuesta activa; la elegida es la
+    // activa por defecto, así que aquí llegan completos. Si alguien pidiera el
+    // detalle de otra propuesta y pasara ESE objeto, los ítems de la elegida
+    // vendrían en modo ligero (sin `resultado`) y cada condición lo trataría
+    // como despiece ausente — que es el comportamiento seguro: no imprimir.
+    items = elegida.items ?? [];
+  } else {
+    items = cotizacion?.items ?? [];
+  }
+
   const porItem = items.map((item: ItemCotizacion) =>
     evaluarItem(item, cotizacion, { margenes: margenesEfectivos, sistemas: sistemasEfectivos })
   );
   const imprimible = porItem.length > 0 && porItem.every((it) => it.imprimible);
 
-  return { imprimible, porItem };
+  return { imprimible, porItem, motivos: [] as MotivoAptitud[] };
 }

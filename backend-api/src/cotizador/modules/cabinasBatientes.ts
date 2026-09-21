@@ -19,42 +19,16 @@
 // (a diferencia de una cabina corrediza, aquí no hay traslape ni borde embebido en
 // riel: puerta y panel fijo están enmarcados por bisagras/chapetas en todo su borde).
 
-import { lineaCatalogo, totalizar, round2, tarifaSMO } from "../lib/motorCalculo";
+import { lineaCatalogo, totalizar, round2 } from "../lib/motorCalculo";
 import { getParametros } from "../lib/catalogo";
 import { cotizarPorDiseno } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
 import type { LineaBOM } from "../lib/motorCalculo";
 
-// Línea de BOM "manual" (sin código de catálogo) para cargos fijos de instalación
-// (SMO, flete), centralizados en server/src/data/parametros.json — mismo patrón
-// que ventanas.js/proyectantes.js/cabinasCorredizas.js/tablero.js/espejo.js.
-function lineaManual({
-  codigo,
-  descripcion,
-  categoria,
-  unidad,
-  cantidad,
-  precioUnitario,
-}: {
-  codigo: string;
-  descripcion: string;
-  categoria: string;
-  unidad: string;
-  cantidad: number;
-  precioUnitario: number;
-}) {
-  const cantidadRedondeada = round2(cantidad);
-  return {
-    codigo,
-    descripcion,
-    categoria,
-    unidad,
-    cantidad: cantidadRedondeada,
-    precioUnitario,
-    valorTotal: round2(precioUnitario * cantidadRedondeada),
-    error: false,
-  };
-}
+// `lineaManual()` construía las dos líneas de BOM sin código de catálogo —SMO y
+// flete—. Ambas dejaron de ser líneas del ítem el 2026-09-20 y pasaron a ser
+// cargos de la propuesta, así que el helper se fue con ellas: dejarlo sin
+// llamadores es una invitación a volver a meter cargos en el BOM.
 
 export const meta = {
   nombre: "Cabinas batientes",
@@ -283,37 +257,15 @@ export function calcular(input: InputModulo) {
   // --- 6. Botón/haladera: cantidad fija documentada (1) -------------------------
   items.push(lineaCatalogo(botonCodigo, 1, segmentoCliente));
 
-  // --- 7. Cargos fijos de mano de obra / flete ----------------------------------
-  // Igual que en Cabinas Corredizas: SMO01 (~$87.000) y GTFA26 (~$25.000) se sumaban
-  // siempre en el Excel original, pero ninguno de los 2 códigos existe en el catálogo
-  // digitalizado de 430 productos (se resolvían desde la tabla ACABADOS, no migrada).
-  // Decisión de producto: centralizarlos como valores fijos en parametros.json (mismo
-  // patrón que los demás módulos) en vez de omitirlos.
+  // --- 7. Cargos de obra: YA NO VIVEN AQUÍ (2026-09-20) -------------------------
+  // Igual que en Cabinas Corredizas: SMO01 y GTFA26 se sumaban siempre como dos
+  // líneas más del BOM, y `totalizar()` multiplica cada línea por
+  // `cantidadPiezas` — cinco cabinas iguales cobraban cinco manos de obra y
+  // cinco fletes. Ambos pasaron a ser cargos de la PROPUESTA
+  // (`cotizador.propuesta_cargo`): se cobran una vez, van fuera del AIU y fuera
+  // del descuento, y su sugerencia se calcula en `lib/cargos.ts`, donde también
+  // quedó registrado que a este módulo le corresponde la tarifa de "cabinas".
   const parametros = getParametros();
-  // SMO01 del Excel ($120.000), igual que en cabinas corredizas.
-  const smoRate = tarifaSMO(parametros, "cabinas");
-  const fleteFijo = parametros.flete_fijo ?? 40000;
-  const smoValor = Math.max(round2(areaVidrioTotal * smoRate), smoRate);
-  items.push(
-    lineaManual({
-      codigo: "SMO",
-      descripcion: "Servicio Mínimo de Obra",
-      categoria: "INSTALACION",
-      unidad: "GLOBAL",
-      cantidad: 1,
-      precioUnitario: smoValor,
-    })
-  );
-  items.push(
-    lineaManual({
-      codigo: "GTFA26",
-      descripcion: "Acarreo / Flete",
-      categoria: "INSTALACION",
-      unidad: "UND",
-      cantidad: 1,
-      precioUnitario: fleteFijo,
-    })
-  );
 
   // --- 8. Ítems opcionales del Excel excluidos del cálculo por defecto ----------
   // Toalleros y matizados venían con cantidad 0 por defecto en el Excel (add-ons que

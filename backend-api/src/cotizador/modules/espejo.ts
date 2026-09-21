@@ -28,7 +28,7 @@
 //     como un único campo `acabado` de tipo select (no dos checkboxes
 //     independientes), evitando el bug #11 ("se pueden marcar varias opciones a
 //     la vez sin que el sistema avise") que afecta a otros módulos del Excel.
-import { lineaCatalogo, totalizar, areaM2, perimetroM, round2, tarifaSMO } from "../lib/motorCalculo";
+import { lineaCatalogo, totalizar, areaM2, perimetroM, round2 } from "../lib/motorCalculo";
 import { getParametros, getPrecio, segmentosValidos } from "../lib/catalogo";
 import { cotizarPorDiseno } from "../lib/cotizarPorDiseno";
 import type { InputModulo } from "../tipos";
@@ -56,9 +56,13 @@ const ACABADOS_VALIDOS = ["BPB", "BISELADO"];
  */
 const RECARGO_BISELADO = 168000 / 146000;
 
-/** Línea de BOM "manual" (sin código de catálogo) para cargos fijos de
- * instalación (SMO, flete), centralizados en parametros.json (ver misma nota en
- * tablero.js). */
+/** Línea de BOM "manual": una línea sin código del catálogo maestro.
+ *
+ * Nació para SMO y flete, que salieron de este BOM el 2026-09-20 (son cargos de
+ * la propuesta). Se queda porque sigue teniendo un llamador legítimo: el
+ * RECARGO POR ESPEJO BISELADO (ESP02), que no es un cargo de obra sino un
+ * diferencial de precio del propio vidrio, y que no tiene SKU propio en el
+ * catálogo. Ese sí pertenece al ítem y sí debe multiplicarse por las piezas. */
 function lineaManual({
   codigo,
   descripcion,
@@ -87,6 +91,7 @@ function lineaManual({
   };
 }
 
+
 export const meta = {
   nombre: "Espejo",
   descripcion:
@@ -106,7 +111,10 @@ export const meta = {
     },
     { nombre: "segmentoCliente", tipo: "select", opciones: ["PA", "PM", "PB"], etiqueta: "Tipo de cliente", requerido: true, grupo: "cliente" },
     { nombre: "cantidadPiezas", tipo: "number", etiqueta: "Cantidad de piezas iguales", requerido: true, grupo: "comercial" },
-    { nombre: "descuentoPct", tipo: "number", etiqueta: "Descuento (%)", requerido: false, grupo: "comercial" },
+    // `descuentoPct` salió del formulario el 2026-09-20: desde entonces hay UN
+    // solo descuento y vive en la propuesta (`cotizador.propuesta.descuento_pct`).
+    // `calcular()` sigue aceptándolo por compatibilidad con lo ya guardado, pero
+    // el formulario deja de pedirlo: en la práctica llega siempre en 0.
   ],
 };
 
@@ -150,12 +158,6 @@ export function calcular(input: InputModulo) {
   }
 
   const parametros = getParametros();
-  // SMO02 del Excel: la hoja "Espejo" toma la mano de obra de COSTOS!$AC$33,
-  // que es justamente SMO Fachadas. No es un descuido: el espejo se instala
-  // sobre muro, con el mismo oficio que una fachada.
-  const smoRate = tarifaSMO(parametros, "fachadas");
-  const fleteFijo = parametros.flete_fijo ?? 40000;
-
   const area = areaM2(ancho, alto);
   const perimetro = perimetroM(ancho, alto);
   const altoM = alto / 100;
@@ -274,33 +276,17 @@ export function calcular(input: InputModulo) {
     items.push(lineaCatalogo("TUB0302", metrosTubular, segmentoCliente, { unidadOverride: "ML" }));
   }
 
-  // Servicio Mínimo de Obra: si el valor por área ($58.000/m²) supera la tarifa
-  // mínima se cobra ese valor; si no, se cobra la tarifa mínima plana (regla de
-  // K12 en espejo.md). Como ancho/alto son obligatorios (>0), el área siempre es
-  // > 0, así que el SMO nunca es $0 en este módulo.
-  const smoBase = round2(area * smoRate);
-  const smoValor = Math.max(smoBase, smoRate);
-  items.push(
-    lineaManual({
-      codigo: "SMO",
-      descripcion: "Servicio Mínimo de Obra",
-      categoria: "INSTALACION",
-      unidad: "GLOBAL",
-      cantidad: 1,
-      precioUnitario: smoValor,
-    })
-  );
-
-  items.push(
-    lineaManual({
-      codigo: "GTFA26",
-      descripcion: "Acarreo / Flete",
-      categoria: "INSTALACION",
-      unidad: "UND",
-      cantidad: 1,
-      precioUnitario: fleteFijo,
-    })
-  );
+  // ⚠️ AQUÍ YA NO SE AGREGAN NI SMO NI FLETE (2026-09-20).
+  // `totalizar()` multiplica cada línea del BOM por `cantidadPiezas`: mientras
+  // la mano de obra y el flete fueron líneas del ítem, cinco espejos iguales
+  // cobraban cinco de cada uno. Los dos pasaron a ser cargos de la PROPUESTA
+  // (`cotizador.propuesta_cargo`), se cobran una vez y van fuera del AIU y del
+  // descuento.
+  //
+  // La tarifa que usaba este módulo era la de FACHADAS —la hoja "Espejo" del
+  // Excel toma la mano de obra de COSTOS!$AC$33, que es SMO Fachadas: el espejo
+  // se instala sobre muro, con el mismo oficio—. Ese criterio no se perdió: vive
+  // en el mapa `TIPO_OBRA_POR_MODULO` de `lib/cargos.ts`.
 
   const resultado = totalizar(items, {
     cantidadPiezas: cantPiezas,

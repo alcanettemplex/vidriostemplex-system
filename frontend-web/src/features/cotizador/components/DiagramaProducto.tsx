@@ -1,7 +1,8 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Ruler } from 'lucide-react';
 
 import { CotaPlano, Plano } from '../types';
+import { Chip, EstadoVacio } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Dibuja el `Plano` que devuelve el backend (ver planoProducto.ts): un
@@ -28,17 +29,20 @@ const MARGEN_FRACCION = 0.18;
 const esCotaTipo = <T extends CotaPlano['tipo']>(tipo: T) =>
     (c: CotaPlano): c is Extract<CotaPlano, { tipo: T }> => c.tipo === tipo;
 
-/** Texto + clases del badge de confianza — sólo estados que trae `Plano.confianza`. */
-const BADGE_CONFIANZA: Record<Plano['confianza'], { texto: string; clase: string }> = {
-    alta: { texto: 'Alta confianza', clase: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
-    media: { texto: 'Confianza media', clase: 'bg-amber-50 text-amber-700 border border-amber-200' },
-    nula: { texto: 'Confianza baja', clase: 'bg-rose-50 text-rose-700 border border-rose-200' },
+/** Texto + tono del badge de confianza — sólo estados que trae `Plano.confianza`.
+ * El tono va contra la primitiva `Chip` compartida (2026-09-20) para que este
+ * badge y los del resto del módulo sean el mismo objeto visual; los textos y
+ * los tres estados son exactamente los de antes. */
+const BADGE_CONFIANZA: Record<Plano['confianza'], { texto: string; tono: 'esmeralda' | 'ambar' | 'rosa' }> = {
+    alta: { texto: 'Alta confianza', tono: 'esmeralda' },
+    media: { texto: 'Confianza media', tono: 'ambar' },
+    nula: { texto: 'Confianza baja', tono: 'rosa' },
 };
 
 const DiagramaProducto: React.FC<Props> = ({ plano, cargando }) => {
     if (cargando) {
         return (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-16 rounded-xl border border-slate-200 bg-slate-50">
                 <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
             </div>
         );
@@ -46,8 +50,12 @@ const DiagramaProducto: React.FC<Props> = ({ plano, cargando }) => {
 
     if (!plano) {
         return (
-            <div className="flex items-center justify-center py-12 text-sm text-slate-400">
-                Selecciona un diseño para ver el plano
+            <div className="rounded-xl border border-slate-200 bg-slate-50">
+                <EstadoVacio
+                    icono={Ruler}
+                    titulo="Sin plano para este ítem"
+                    detalle="Elige un diseño para ver el esquema con sus cotas. Las medidas libres no tienen plano."
+                />
             </div>
         );
     }
@@ -77,17 +85,21 @@ const DiagramaProducto: React.FC<Props> = ({ plano, cargando }) => {
 
     return (
         <div className="space-y-2">
+            {/* Marco del plano: fondo neutro con retícula tenue y aire suficiente
+                para que las cotas exteriores no queden pegadas al borde. El
+                `pt-12` es para el badge, que va flotando en la esquina: con el
+                `p-4` de antes se montaba encima de la cota de ancho. */}
             <div
-                className="relative overflow-hidden rounded-xl border border-slate-200 p-4"
+                className="relative overflow-hidden rounded-xl border border-slate-200 px-5 pb-6 pt-12 sm:px-7 sm:pb-8"
                 style={{
                     backgroundColor: '#f8fafc',
-                    backgroundImage: 'linear-gradient(#e2e8f0 1px, transparent 1px), linear-gradient(90deg, #e2e8f0 1px, transparent 1px)',
-                    backgroundSize: '16px 16px',
+                    backgroundImage: 'linear-gradient(#e9eef5 1px, transparent 1px), linear-gradient(90deg, #e9eef5 1px, transparent 1px)',
+                    backgroundSize: '20px 20px',
                 }}
             >
-                <span className={`absolute top-3 right-3 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${badge.clase}`}>
+                <Chip tono={badge.tono} className="absolute top-3 right-3">
                     {badge.texto}
-                </span>
+                </Chip>
                 <svg
                     viewBox={`0 0 ${vbAncho} ${vbAlto}`}
                     preserveAspectRatio="xMidYMid meet"

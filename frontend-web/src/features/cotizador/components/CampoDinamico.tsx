@@ -1,15 +1,33 @@
 import React from 'react';
+import { AlertCircle } from 'lucide-react';
 
 import { CampoMeta, OpcionCampo } from '../types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Un solo campo de formulario, renderizado según `campo.tipo`. Data-driven desde
 // la `meta.campos` que expone cada módulo del cotizador (backend-api/src/cotizador
-// /modules/*.ts) — mismo lenguaje visual que ExploradorODPPanel.tsx.
+// /modules/*.ts) — mismo lenguaje visual que el resto del configurador.
+//
+// Todo control lleva su `<label htmlFor>`, foco visible, sufijo de unidad cuando
+// la unidad no es obvia, y estado de error con `aria-invalid` +
+// `aria-describedby`. El color nunca es el único portador del error: siempre va
+// acompañado de icono y texto.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const labelClass = 'block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1';
-const selectClass = 'w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200';
+
+// 40px de alto: el objetivo de clic mínimo que pide la guía, y suficiente para
+// que el sufijo de unidad quepa dentro del control sin apretar el texto.
+const controlBase =
+    'w-full h-10 px-3 text-sm rounded-lg bg-white text-slate-800 border transition ' +
+    'focus:outline-none focus:ring-2';
+const controlNormal = 'border-slate-300 hover:border-slate-400 focus:border-indigo-500 focus:ring-indigo-200';
+const controlError = 'border-rose-400 bg-rose-50/40 focus:border-rose-500 focus:ring-rose-200';
+
+// Las flechas nativas del input numérico se pisan con el sufijo de unidad: se
+// ocultan sólo en esos campos (las teclas de flecha siguen funcionando igual).
+const sinFlechas =
+    '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none';
 
 function esOpcionObjeto(o: string | number | OpcionCampo): o is OpcionCampo {
     return typeof o === 'object' && o !== null;
@@ -23,9 +41,20 @@ interface Props {
     campo: CampoMeta;
     value: unknown;
     onChange: (value: unknown) => void;
+    /** Mensaje de error del campo. Quién valida y cuándo lo decide el
+     * formulario (FormularioModulo); aquí sólo se pinta. Ausente o `null` =
+     * campo sano. */
+    error?: string | null;
 }
 
-const CampoDinamico: React.FC<Props> = ({ campo, value, onChange }) => {
+const CampoDinamico: React.FC<Props> = ({ campo, value, onChange, error }) => {
+    const idBase = React.useId();
+    const controlId = `${idBase}-${campo.nombre}`;
+    const errorId = `${controlId}-error`;
+    const hayError = Boolean(error);
+    const clasesControl = `${controlBase} ${hayError ? controlError : controlNormal}`;
+    const describedBy = hayError ? errorId : undefined;
+
     // Conversión de PRESENTACIÓN mm↔cm: el motor de cálculo (Etapa 2, golden
     // master ya verificado) espera el campo en centímetros bajo el nombre
     // "...Cm" (anchoCm, altoCm, anchoNaveCm...), pero la etiqueta ya dice "(mm)"
@@ -39,32 +68,57 @@ const CampoDinamico: React.FC<Props> = ({ campo, value, onChange }) => {
     // se aplicaba como 500%: total negativo, sin error. El backend además lo
     // rechaza fuera de 0-1 (ver totalizar en motorCalculo.ts).
     const esCampoPorcentaje = campo.tipo === 'number' && campo.nombre === 'descuentoPct';
+    // Sufijo visible: exactamente la misma unidad que usa la conversión de
+    // arriba, para que nadie tenga que deducir si el número que ve son mm, cm
+    // o una fracción.
+    const sufijo = esCampoMedidaCm ? 'mm' : esCampoPorcentaje ? '%' : null;
+
+    const mensajeError = hayError ? (
+        <p id={errorId} className="flex items-start gap-1 text-[11px] font-semibold text-rose-600 mt-1">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" />
+            <span>{error}</span>
+        </p>
+    ) : null;
+
     if (campo.tipo === 'boolean') {
         return (
-            <div className="flex items-center gap-2 pt-5">
-                <input
-                    type="checkbox"
-                    className="w-4 h-4 accent-indigo-600"
-                    checked={Boolean(value)}
-                    onChange={e => onChange(e.target.checked)}
-                />
-                <label className="text-sm text-slate-700">
-                    {campo.etiqueta}
-                    {campo.requerido && <span className="text-rose-500"> *</span>}
-                </label>
+            <div className="flex flex-col justify-center min-h-[40px] sm:pt-5">
+                <div className="flex items-center gap-2">
+                    <input
+                        id={controlId}
+                        type="checkbox"
+                        className="w-4 h-4 accent-indigo-600 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400"
+                        checked={Boolean(value)}
+                        aria-invalid={hayError || undefined}
+                        aria-describedby={describedBy}
+                        onChange={e => onChange(e.target.checked)}
+                    />
+                    <label htmlFor={controlId} className="text-sm text-slate-700 cursor-pointer">
+                        {campo.etiqueta}
+                        {campo.requerido && <span className="text-rose-500"> *</span>}
+                    </label>
+                </div>
+                {mensajeError}
             </div>
         );
     }
 
     return (
         <div>
-            <label className={labelClass}>
+            <label htmlFor={controlId} className={labelClass}>
                 {campo.etiqueta}
                 {campo.requerido && <span className="text-rose-500"> *</span>}
             </label>
 
             {campo.tipo === 'select' ? (
-                <select className={selectClass} value={value as string | number ?? ''} onChange={e => onChange(e.target.value)}>
+                <select
+                    id={controlId}
+                    className={clasesControl}
+                    value={value as string | number ?? ''}
+                    aria-invalid={hayError || undefined}
+                    aria-describedby={describedBy}
+                    onChange={e => onChange(e.target.value)}
+                >
                     {/* El placeholder se omite si el campo ya define qué
                         significa "vacío" (p. ej. "Sin matizado"): si no, se
                         verían dos opciones distintas con el mismo value="". */}
@@ -77,37 +131,52 @@ const CampoDinamico: React.FC<Props> = ({ campo, value, onChange }) => {
                     })}
                 </select>
             ) : campo.tipo === 'number' ? (
-                <input
-                    type="number"
-                    className={selectClass}
-                    min={esCampoPorcentaje ? 0 : undefined}
-                    max={esCampoPorcentaje ? 100 : undefined}
-                    value={
-                        esCampoMedidaCm
-                            ? (esNumeroFinito(value) ? value * 10 : '')
-                            // El redondeo evita el ruido de coma flotante:
-                            // 0.05 * 100 da 5.000000000000001 en JS.
-                            : esCampoPorcentaje
-                                ? (esNumeroFinito(value) ? Math.round(value * 10000) / 100 : '')
-                                : (value as number | string ?? '')
-                    }
-                    onChange={e => {
-                        const texto = e.target.value;
-                        if (texto === '') { onChange(''); return; }
-                        const numero = Number(texto);
-                        if (esCampoMedidaCm) return onChange(numero / 10);
-                        if (esCampoPorcentaje) return onChange(numero / 100);
-                        onChange(numero);
-                    }}
-                />
+                <div className="relative">
+                    <input
+                        id={controlId}
+                        type="number"
+                        className={`${clasesControl} ${sufijo ? `pr-10 ${sinFlechas}` : ''}`}
+                        min={esCampoPorcentaje ? 0 : undefined}
+                        max={esCampoPorcentaje ? 100 : undefined}
+                        aria-invalid={hayError || undefined}
+                        aria-describedby={describedBy}
+                        value={
+                            esCampoMedidaCm
+                                ? (esNumeroFinito(value) ? value * 10 : '')
+                                // El redondeo evita el ruido de coma flotante:
+                                // 0.05 * 100 da 5.000000000000001 en JS.
+                                : esCampoPorcentaje
+                                    ? (esNumeroFinito(value) ? Math.round(value * 10000) / 100 : '')
+                                    : (value as number | string ?? '')
+                        }
+                        onChange={e => {
+                            const texto = e.target.value;
+                            if (texto === '') { onChange(''); return; }
+                            const numero = Number(texto);
+                            if (esCampoMedidaCm) return onChange(numero / 10);
+                            if (esCampoPorcentaje) return onChange(numero / 100);
+                            onChange(numero);
+                        }}
+                    />
+                    {sufijo && (
+                        <span className="absolute inset-y-0 right-3 flex items-center text-[11px] font-bold text-slate-400 font-cotizador-head pointer-events-none">
+                            {sufijo}
+                        </span>
+                    )}
+                </div>
             ) : (
                 <input
+                    id={controlId}
                     type="text"
-                    className={selectClass}
+                    className={clasesControl}
                     value={value as string ?? ''}
+                    aria-invalid={hayError || undefined}
+                    aria-describedby={describedBy}
                     onChange={e => onChange(e.target.value)}
                 />
             )}
+
+            {mensajeError}
         </div>
     );
 };

@@ -241,13 +241,132 @@ fallan por datos, no por código. **No confiar en él como red antes de regenera
 
 ## Lo que falta
 
-- **PDF de cotización** — único bloque sin empezar de la Etapa 4. `pdfmake@0.3.11` **exacto, sin
+- **PDF de cotización** — único bloque sin empezar de la Etapa 4. Con propuestas, debe imprimir
+  la elegida y poder mostrar las demás como alternativas. `pdfmake@0.3.11` **exacto, sin
   `^`** (0.3 es pre-release); **no** instalar `@types/pdfmake`, describe la API 0.2. La Hoja de
   Trabajo sale **siempre** (no pasa por `/aptitud`) y no imprime medidas calculadas de pieza ni
   cotas de paño.
 - 3 de 8 suites de pruebas: `aptitudOrden`, `hojaTrabajo`, `pdf`.
 - Regenerar golden master y centinela del catálogo.
 - Los 24 diseños nivel C.
+
+---
+
+## Propuestas y cargos de obra (2026-09-20)
+
+Una cotización dejó de ser una lista de ítems y pasó a ser un **contenedor de propuestas**:
+
+```
+cotizacion (cliente, obra, asesor, numero)
+└── propuesta A/B/C…   (nombre, nota, elegida, descuento_pct, totales espejo)
+    ├── cotizacion_item   (ahora con propuesta_id)
+    └── propuesta_cargo   (SMO | ANDAMIO | HUACAL | FLETE | OTRO)
+```
+
+El total de la cotización es el de la **propuesta elegida**, y de ella —solo de ella— sale la
+orden de corte (condición novena de `aptitudOrden.ts`, `SIN_PROPUESTA_ELEGIDA`).
+
+### El bug que lo originó, medido
+
+`SMO` y `GTFA26` (flete) eran dos líneas más del BOM de cada ítem, y `totalizar()` multiplica toda
+línea del BOM por `cantidadPiezas`. Una ventana OX 5020 de 1000×1500 con 5 piezas cobraba
+**5 fletes ($200.000) y 5 manos de obra ($450.000)**; una cotización de 3 productos, 3 fletes más.
+Un cargo es de la obra, no de la pieza. Verificado tras el cambio: el mismo ítem bajó de
+`subtotalPieza` 419.372,35 a 289.372,35 — exactamente los $130.000 de las dos líneas.
+
+### Contrato numérico (no improvisar sobre esto)
+
+```
+total_productos = Σ item.resultado.subtotalConAiu       (ya trae AIU)
+total_descuento = round2(total_productos × descuento_pct)
+baseGravable    = total_productos − total_descuento
+ivaProductos    = round2(baseGravable × ivaPct)
+
+cargo.total     = round2(cantidad × valor_unitario)
+total_cargos    = Σ cargo.total                          FUERA del AIU y del descuento
+ivaCargos       = Σ (cargo.aplica_iva ? round2(cargo.total × ivaPct) : 0)
+
+total_total     = baseGravable + ivaProductos + total_cargos + ivaCargos
+```
+
+El IVA de cada cargo se redondea **por línea**, no sobre la suma: así el total cuadra con los
+renglones que el cliente tiene delante. Todo esto vive en **`cotizador/lib/cargos.ts`**, que es
+también el único sitio donde se calcula una sugerencia de SMO (incluido el piso de $87.000 del
+tablero grande, que se trajo desde `modules/tablero.ts`).
+
+**Consecuencia aceptada:** el `iva` y el `total` que cada ítem guarda en su blob quedan *a precio
+lleno*, sin el descuento de la propuesta. La UI los rotula así en los tres sitios donde se ven.
+
+### Un solo descuento
+
+Había dos: el del formulario por ítem (que sí aplicaba) y el de la cabecera (que **no afectaba a
+ningún total** pese a guardarse y mostrarse). Desde hoy hay uno, `propuesta.descuento_pct`, que
+aplica sobre los productos y **no** sobre los cargos. `descuentoPct` salió de `meta.campos` de los
+6 módulos y `cotizacion.descuento_pct` queda como columna **legada**: se conserva, se escribe 0.
+
+### `legado_cargos_en_items` — por qué existe
+
+Las 4 cotizaciones anteriores al cambio tienen su SMO y su flete **dentro** del blob `resultado` de
+cada ítem, que es una foto inmutable que no se reescribe nunca. Su propuesta 'A' lleva ese flag en
+`true` y sus totales se calculan como siempre (suma pura, descuento y cargos ignorados); crearles
+cargos habría cobrado dos veces lo mismo. `PUT .../cargos` sobre una propuesta legada responde 409
+y la UI ofrece duplicarla.
+
+### Reglas que impone el sistema
+
+1. Toda cotización tiene al menos una propuesta; no se puede borrar la última (409).
+2. Con una sola propuesta, es la elegida. Máximo 5.
+3. "Solo una elegida" **la impone Postgres**, con el índice único parcial
+   `ux_cotizador_propuesta_elegida (cotizacion_id) WHERE elegida` — por eso elegir es
+   desmarcar-y-marcar dentro de una transacción: a mitad de camino habría dos.
+4. No se aprueba sin propuesta elegida (400), y no se cambia ni se borra la elegida de una
+   cotización aprobada sin quitarle antes la aprobación (409): puede haber material ya cortado.
+5. Clonar una propuesta recalcula sus ítems con el motor cambiando vidrio, película y matizado —
+   es la respuesta a "cotíceme esto en 5 mm y en templado". Avisa si el vidrio elegido no tiene
+   precio (hoy `CL4MM03LM` y `CL4MM08SP` están en $0).
+
+### Egress
+
+`GET /cotizaciones/:id` trae los JSONB **solo de la propuesta activa**; las demás vienen con sus
+ítems en modo ligero (`COLUMNAS_ITEM_LIGERO`). Acepta `?propuesta=<id>`, igual que el plano de un
+ítem. Sin esto, cuatro propuestas multiplicaban por cuatro el peso del detalle.
+
+### Migración
+
+`backend-api/src/scripts/2026-09-20_cotizador_propuestas_y_cargos.ts`, en **dos tiempos**:
+la corrida normal crea la estructura y migra los datos dejando `cotizacion_item.propuesta_id`
+**nullable** —para que el backend desplegado, anterior a este cambio, siga pudiendo guardar—, y
+`--finalizar` aplica el `SET NOT NULL` en el momento del despliegue. `--revertir` deshace todo.
+
+⚠️ **Correr el script ANTES de levantar el backend con los modelos nuevos.** `server.ts` hace
+`sequelize.sync({ alter: false })` al arrancar y crearía las dos tablas por su cuenta, con un ENUM
+inventado por Sequelize y sin el índice parcial de "una sola elegida".
+
+### Dos trampas que solo aparecieron al probar contra datos reales (2026-09-20)
+
+**1. El UNIQUE de `orden` era por cotización.** `cotizacion_item` tenía
+`UNIQUE (cotizacion_id, orden)`, correcto cuando una cotización era una lista plana. Con
+propuestas, los ítems de la B empiezan otra vez en orden 0 y chocaban con los de la A: **clonar
+una propuesta fallaba con 500 y "Validation error"**. Ahora es
+`ux_cotizador_cotizacion_item_propuesta_orden (propuesta_id, orden)`. No lo detectaron ni la
+compilación ni las 55 pruebas: hizo falta clonar contra la base.
+
+**2. El vidrio se cambiaba en silencio.** `modules/ventanas.ts` valida `codigoVidrio` contra
+`VIDRIOS_VALIDOS` (8 códigos) y cae a `CL4MM01CR` si no está. Eso pasaba **sin avisar**, así que
+duplicar una propuesta pidiendo un vidrio fuera de la lista devolvía una propuesta B con el mismo
+total que la A. Hoy emite advertencia, y `ModalClonarPropuesta` ofrece solo los vidrios que los
+módulos declaran en `meta.campos` — la misma fuente que usa `moduloAcepta` en el store.
+
+**3. `sync()` ensucia el schema al arrancar.** Los modelos nuevos no declaran `indexes` ni
+`DataTypes.ENUM` a propósito: Sequelize nombra lo que crea a su manera
+(`enum_propuesta_cargo_tipo` en `cotizador`, índices sin prefijo) y duplicaba lo que ya había
+creado la migración, en cada arranque. Quien valida el ENUM es Postgres; el modelo declara la
+columna como texto con `isIn`.
+
+### Pruebas
+
+`cargos.test.ts` — 18 pruebas, entre ellas la regresión del bug original (cinco piezas no cobran
+cinco fletes). El total del módulo pasó de 37 a **55**.
 
 ---
 

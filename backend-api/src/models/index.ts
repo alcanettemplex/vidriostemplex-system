@@ -55,6 +55,8 @@ import CotizadorPrecioOverride from './cotizador_precio_override.model';
 import CotizadorPrecioHistorial from './cotizador_precio_historial.model';
 import CotizadorParametro from './cotizador_parametro.model';
 import CotizadorCotizacion from './cotizador_cotizacion.model';
+import CotizadorPropuesta from './cotizador_propuesta.model';
+import CotizadorPropuestaCargo from './cotizador_propuesta_cargo.model';
 import CotizadorCotizacionItem from './cotizador_cotizacion_item.model';
 import CotizadorConsecutivo from './cotizador_consecutivo.model';
 import CotizadorDiseno from './cotizador_diseno.model';
@@ -354,6 +356,22 @@ CotizadorProducto.belongsTo(CatalogoProducto, { foreignKey: 'catalogo_producto_i
 CotizadorCotizacion.hasMany(CotizadorCotizacionItem, { foreignKey: 'cotizacion_id', as: 'items' });
 CotizadorCotizacionItem.belongsTo(CotizadorCotizacion, { foreignKey: 'cotizacion_id', as: 'cotizacion' });
 
+// Propuestas (A/B/C…) — 2026-09-20. Un ítem cuelga de una propuesta, y la
+// propuesta de la cotización; `cotizacion_item.cotizacion_id` se conserva
+// denormalizado, así que la asociación de arriba sigue siendo válida y ninguna
+// consulta existente se rompe. El total de la cotización es el de la propuesta
+// elegida, y de ella sale la orden de corte.
+CotizadorCotizacion.hasMany(CotizadorPropuesta, { foreignKey: 'cotizacion_id', as: 'propuestas' });
+CotizadorPropuesta.belongsTo(CotizadorCotizacion, { foreignKey: 'cotizacion_id', as: 'cotizacion' });
+
+CotizadorPropuesta.hasMany(CotizadorCotizacionItem, { foreignKey: 'propuesta_id', as: 'items' });
+CotizadorCotizacionItem.belongsTo(CotizadorPropuesta, { foreignKey: 'propuesta_id', as: 'propuesta' });
+
+// Los cargos de obra (SMO, andamio, huacal, flete, otros) cuelgan de la
+// propuesta y no del ítem: se cobran una vez, no una por pieza.
+CotizadorPropuesta.hasMany(CotizadorPropuestaCargo, { foreignKey: 'propuesta_id', as: 'cargos' });
+CotizadorPropuestaCargo.belongsTo(CotizadorPropuesta, { foreignKey: 'propuesta_id', as: 'propuesta' });
+
 CotizadorDiseno.hasMany(CotizadorDisenoPerfil, { foreignKey: 'diseno_id', as: 'perfiles' });
 CotizadorDisenoPerfil.belongsTo(CotizadorDiseno, { foreignKey: 'diseno_id', as: 'diseno' });
 
@@ -419,6 +437,12 @@ const MODELOS_AUDITADOS = [
   { model: CotizadorPrecioOverride, tabla: 'cotizador.precio_override', pk: 'codigo' },
   { model: CotizadorCotizacion, tabla: 'cotizador.cotizacion', pk: 'id' },
   { model: CotizadorCotizacionItem, tabla: 'cotizador.cotizacion_item', pk: 'id' },
+  // Propuestas y cargos de obra — 2026-09-20. Entran por el mismo criterio de
+  // "toca dinero": el descuento vivo y el precio de la mano de obra, el flete y
+  // el andamio están aquí, y la propuesta elegida es la que se le cobra al
+  // cliente y la que manda a corte.
+  { model: CotizadorPropuesta, tabla: 'cotizador.propuesta', pk: 'id' },
+  { model: CotizadorPropuestaCargo, tabla: 'cotizador.propuesta_cargo', pk: 'id' },
   { model: CotizadorParametro, tabla: 'cotizador.parametro', pk: 'id' },
   // Mueve el precio de cientos de productos de un plumazo (multiplicador por
   // categoría) — mismo criterio de "toca dinero" que el resto del bloque.
@@ -535,6 +559,8 @@ export {
   CotizadorPrecioHistorial,
   CotizadorParametro,
   CotizadorCotizacion,
+  CotizadorPropuesta,
+  CotizadorPropuestaCargo,
   CotizadorCotizacionItem,
   CotizadorConsecutivo,
   CotizadorDiseno,

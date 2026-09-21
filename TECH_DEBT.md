@@ -4,6 +4,33 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-20 — Cotizador: tres cabos sueltos que dejó el cambio a propuestas y cargos
+
+**Severidad:** Baja a Media · **Estimación:** 10 min, 1 h y 30 min respectivamente
+
+Los tres se detectaron durante la implementación de propuestas y cargos de obra (ver
+`docs/modulos/cotizador.md`). Ninguno bloquea, los tres tienen dueño claro.
+
+**1. `resultado.areaM2` no significa lo mismo en todos los módulos.** Ventanas, proyectantes y el
+camino por diseño lo devuelven **ya multiplicado por `cantidadPiezas`**; tablero y espejo devuelven
+el área de **una** pieza. Consecuencia medida: con 3 piezas de 1,5 m², la sugerencia de mano de obra
+da $382.500 en ventanas y $127.500 en tablero — instalar tres tableros cuesta más que instalar uno.
+Como el monto es editable, no es un cobro automático equivocado, pero la sugerencia engaña.
+Arreglo: normalizar `areaM2` para que todos devuelvan el área total. Toca el contrato de salida de
+los 6 módulos y lo que pinta `ResultadoCalculo.tsx`. **Pendiente de decisión del usuario.**
+
+**2. `propuesta_cargo` no guarda `tipo_obra`, solo su etiqueta legible en `descripcion`.** Para
+repoblar el selector de mano de obra al reabrir una propuesta, el frontend replica
+`ETIQUETA_TIPO_OBRA` de `cotizador/lib/cargos.ts` en `PanelCargosObra.tsx`. Si allá se renombra una
+etiqueta, el selector abre en blanco (no rompe nada: el monto guardado se respeta). Arreglo: una
+columna `tipo_obra` en la tabla. **El momento barato es antes de correr la migración**, que a fecha
+de hoy sigue sin ejecutarse; después cuesta un ALTER más.
+
+**3. ESLint no corre en `backend-api`.** La versión instalada (10.x) ya no lee `.eslintrc.*` y no
+hay `eslint.config.js`, así que `npm run lint` falla antes de analizar nada — es preexistente y
+ajeno a este cambio, pero significa que hoy la única verificación real es `tsc` + las suites.
+
+---
 
 ## 2026-09-19 (2) — Cotizador: la calibración de taller quedó desactivada por decisión de negocio (no es un olvido)
 
