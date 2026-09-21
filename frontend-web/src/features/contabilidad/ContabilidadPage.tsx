@@ -211,6 +211,9 @@ const ContabilidadPage: React.FC = () => {
   const filtradas = odps.filter(o => {
     // Las que ya están en Proceso Completado no aparecen en Estado Caja
     if (o.factura_electronica && o.estado_caja === 'CANCELADO') return false;
+    // NC y garantías no cobran al cliente y no llevan factura electrónica: no son
+    // "pendientes por facturar", así que no pertenecen a este listado.
+    if (o.es_no_conformidad || o.es_garantia) return false;
     if (filterEstadoCaja !== 'todos' && o.estado_caja !== filterEstadoCaja) return false;
     if (filterBusqueda) {
       const q = filterBusqueda.toLowerCase();
@@ -291,7 +294,7 @@ const ContabilidadPage: React.FC = () => {
     odps.filter(o => o.estado_caja !== 'CANCELADO').reduce((s, o) => s + calcPendiente(o), 0),
   );
   const totalFacturadas = resumen?.total_facturadas ?? odps.filter(o => o.estado_facturacion === 'FACTURADA' || o.factura_electronica).length;
-  const pendFactura = resumen?.pendientes_factura ?? odps.filter(o => o.estado_facturacion === 'PENDIENTE' && !o.factura_electronica).length;
+  const pendFactura = resumen?.pendientes_factura ?? odps.filter(o => o.estado_facturacion === 'PENDIENTE' && !o.factura_electronica && !o.es_no_conformidad && !o.es_garantia).length;
   const carteraVencida = resumen?.cartera_vencida || '$0';
 
   const TABS = [

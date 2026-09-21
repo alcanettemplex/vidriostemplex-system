@@ -4,6 +4,35 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-21 — Hook de auditoría `afterUpdate`/`afterCreate`/`afterDestroy` no espera su propio INSERT
+
+**Severidad:** Media · **Estimación:** 15 min
+
+`registrarAuditoria()` en `backend-api/src/models/index.ts:463-472` llama
+`AuditoriaLog.create(...).catch(() => {})` **sin `await`**, y los hooks que la invocan
+(`afterUpdate`, `afterCreate`, `afterDestroy`, línea 475-495) tampoco devuelven esa promesa.
+El comentario dice "no interrumpir la operación principal" — evita que un fallo de
+auditoría tumbe la operación real, correcto — pero el efecto colateral no buscado es que
+**nada garantiza que el INSERT en `auditoria_log` termine antes de que el proceso siga**.
+
+Se detectó al marcar ODP-23891 y ODP-23857 como No Conformidad
+(`scripts/marcar_nc_odp23891_23857_2026-09-21.ts`): dos `odp.update()` seguidos dentro del
+mismo script, cerrando `sequelize.close()` justo después del segundo. La auditoría de la
+primera ODP quedó registrada (tuvo tiempo); la de la segunda no — el `INSERT` seguía en
+vuelo cuando se cerró el pool. Se reconstruyó manualmente con
+`scripts/backfill_auditoria_odp62_2026-09-21.ts`.
+
+En producción, dentro de una request normal, el riesgo es bajo (el proceso no se cierra
+entre operaciones). El patrón sí es peligroso en **scripts one-off que hacen varias
+escrituras auditadas seguidas y cierran la conexión al terminar** — cualquier script futuro
+así puede perder auditoría de las últimas filas tocadas, en silencio (el `.catch()` no
+loguea ni el script se entera). Arreglo: que los hooks `await` la promesa de
+`AuditoriaLog.create()` (o que `registrarAuditoria` la devuelva y los hooks la propaguen),
+envuelto igual en try/catch para no romper la operación principal ante un fallo real de
+auditoría — solo se quita el fire-and-forget, no el aislamiento de errores.
+
+---
+
 ## 2026-09-21 — Autocompletes de catálogo: el orden es alfabético, no por relevancia
 
 **Severidad:** Baja · **Estimación:** 45 min

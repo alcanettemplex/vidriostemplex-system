@@ -67,7 +67,13 @@ export const getResumenFinanciero = async (_req: Request, res: Response) => {
       },
     });
     const totalPendFactura = await ODP.count({
-      where: { tipo_odp: 'ODP', estado_facturacion: 'PENDIENTE', factura_electronica: null },
+      where: {
+        tipo_odp: 'ODP',
+        estado_facturacion: 'PENDIENTE',
+        factura_electronica: null,
+        es_no_conformidad: false,
+        es_garantia: false,
+      },
     });
 
     const abonoMes = (await ODP.sum('abono', { where: { fecha_creacion: { [Op.gte]: firstDayOfMonth } } })) || 0;
@@ -177,7 +183,7 @@ export const getContabilidadODPs = async (req: Request, res: Response) => {
 
     const { count, rows } = await ODP.findAndCountAll({
       where,
-      attributes: ['id', 'numero_odp', 'cliente_id', 'asesor_id', 'valor_total', 'monto_factura_principal', 'abono', 'pendiente', 'estado_caja', 'estado_facturacion', 'factura_electronica', 'fecha_factura', 'fecha_creacion', 'tipo_odp', 'fecha_vencimiento_credito', 'estado_produccion'],
+      attributes: ['id', 'numero_odp', 'cliente_id', 'asesor_id', 'valor_total', 'monto_factura_principal', 'abono', 'pendiente', 'estado_caja', 'estado_facturacion', 'factura_electronica', 'fecha_factura', 'fecha_creacion', 'tipo_odp', 'fecha_vencimiento_credito', 'estado_produccion', 'es_no_conformidad', 'es_garantia'],
       include: [
         { model: Cliente, as: 'cliente', attributes: ['id', 'nombre_razon_social', 'numero_documento'] },
         { model: Usuario, as: 'asesor', attributes: ['id', 'nombre_completo'] },
