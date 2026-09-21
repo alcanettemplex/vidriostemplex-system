@@ -11,7 +11,7 @@
     "lint:fix": "eslint src/ --ext .ts --fix",
     "format": "prettier --write src/",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "test:cotizador": "node -r ts-node/register --test --test-concurrency=1 src/scripts/pruebas_cotizador/codigoDiseno.test.ts src/scripts/pruebas_cotizador/plano.test.ts src/scripts/pruebas_cotizador/humo.test.ts src/scripts/pruebas_cotizador/accesorios.test.ts src/scripts/pruebas_cotizador/cargos.test.ts",
+    "test:cotizador": "node -r ts-node/register --test --test-concurrency=1 src/scripts/pruebas_cotizador/codigoDiseno.test.ts src/scripts/pruebas_cotizador/plano.test.ts src/scripts/pruebas_cotizador/humo.test.ts src/scripts/pruebas_cotizador/accesorios.test.ts src/scripts/pruebas_cotizador/cargos.test.ts src/scripts/pruebas_cotizador/generadorSapPerfileria.test.ts",
     "test:cotizador:golden": "node -r ts-node/register --test --test-concurrency=1 src/scripts/pruebas_cotizador/golden.test.ts"
   },
   "keywords": [],
@@ -43,6 +43,7 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.10",
     "openai": "^7.4.0",
+    "pdfmake": "0.3.11",
     "pg": "^8.20.0",
     "sequelize": "^6.37.7",
     "socket.io": "^4.8.1",

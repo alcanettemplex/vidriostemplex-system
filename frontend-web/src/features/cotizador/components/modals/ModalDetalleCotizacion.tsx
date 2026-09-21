@@ -1,14 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import {
-    X, Loader2, Edit3, ClipboardCheck, CheckCircle2, XCircle, AlertTriangle, HardHat,
+    X, Loader2, Edit3, ClipboardCheck, CheckCircle2, XCircle, AlertTriangle, HardHat, Download, Printer,
 } from 'lucide-react';
 
-import { apiObtenerCotizacion, apiAptitudCotizacion, apiPlanoDeItem } from '../../services/cotizadorApi';
-import { Aptitud, Cotizacion, ItemCotizacion, Plano, Propuesta, TipoCargo } from '../../types';
+import { apiObtenerCotizacion, apiAptitudCotizacion, apiPlanoDeItem, apiDespieceDeItem, apiDescargarPdfPropuesta, apiGetModulos } from '../../services/cotizadorApi';
+import { Aptitud, Cotizacion, DespieceItem, ItemCotizacion, ModuloMeta, Plano, Propuesta, TipoCargo } from '../../types';
 import { fmtCOP, fmtFecha, fmtPct } from '../../format';
+import { abrirVentanaImpresion } from '../../../../utils/printWindow';
 import DiagramaProducto from '../DiagramaProducto';
 import ComparadorPropuestas from '../ComparadorPropuestas';
+import PrintableHojaTrabajo from '../PrintableHojaTrabajo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modal de detalle de una cotización guardada — tres vistas:
@@ -75,15 +77,26 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
 
     const [aptitud, setAptitud] = useState<Aptitud | null>(null);
     const [cargandoAptitud, setCargandoAptitud] = useState(false);
+    const [descargandoPdf, setDescargandoPdf] = useState(false);
+    // Meta de los 6 módulos, para resolver etiquetas de campo en la Hoja de
+    // Trabajo (grupo 'medidas'/'vidrio'). Se pide una sola vez: no cambia
+    // entre propuestas ni entre cotizaciones.
+    const [modulos, setModulos] = useState<ModuloMeta[]>([]);
+    useEffect(() => {
+        apiGetModulos().then(res => setModulos(res.data)).catch(() => setModulos([]));
+    }, []);
 
     const [planos, setPlanos] = useState<Record<number, Plano | null>>({});
     const [cargandoPlanos, setCargandoPlanos] = useState(false);
+    const [despieces, setDespieces] = useState<Record<number, DespieceItem | null>>({});
 
     const cargar = useCallback((pid: number | null) => {
         setCargando(true);
-        // Los planos se guardan por id de ítem y los ítems cambian con la
-        // propuesta: conservarlos entre propuestas mostraría el plano de otra.
+        // Los planos y el despiece se guardan por id de ítem y los ítems
+        // cambian con la propuesta: conservarlos entre propuestas mostraría el
+        // plano/despiece de otra.
         setPlanos({});
+        setDespieces({});
         apiObtenerCotizacion(id, pid)
             .then(res => {
                 setCot(res.data);
@@ -104,11 +117,12 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
-    // Vista técnica: pide el plano de cada ítem con diseño, en paralelo, SIEMPRE
-    // con la propuesta activa — el plano sale del blob `resultado` y el backend
-    // sólo carga los de una propuesta.
+    // Plano de cada ítem con diseño, en paralelo, SIEMPRE con la propuesta
+    // activa — el plano sale del blob `resultado` y el backend sólo carga los
+    // de una propuesta. Se carga en cuanto hay cotización (no sólo al abrir
+    // "Vista técnica"): la Hoja de Trabajo los necesita desde la vista Normal.
     useEffect(() => {
-        if (vista !== 'tecnico' || !cot) return;
+        if (!cot) return;
         const conDiseno = cot.items.filter(it => it.disenoId);
         if (conDiseno.length === 0 || conDiseno.every(it => it.id in planos)) return;
 
@@ -125,7 +139,28 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
             });
         }).finally(() => setCargandoPlanos(false));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [vista, cot]);
+    }, [cot]);
+
+    // Despiece (perfiles + vidrio) de cada ítem con diseño, para la página 2 de
+    // la Hoja de Trabajo. Mismo patrón que los planos: por propuesta activa.
+    useEffect(() => {
+        if (!cot) return;
+        const conDiseno = cot.items.filter(it => it.disenoId);
+        if (conDiseno.length === 0 || conDiseno.every(it => it.id in despieces)) return;
+
+        Promise.all(conDiseno.map(it =>
+            apiDespieceDeItem(cot.id, it.id, cot.propuestaActivaId ?? null)
+                .then(res => [it.id, res.data] as const)
+                .catch(() => [it.id, null] as const)
+        )).then(resultados => {
+            setDespieces(prev => {
+                const next = { ...prev };
+                resultados.forEach(([itemId, despiece]) => { next[itemId] = despiece; });
+                return next;
+            });
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cot]);
 
     const evaluarAptitud = async () => {
         setCargandoAptitud(true);
@@ -153,6 +188,43 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
     const viendoLaElegida = !activa || !elegida || activa.id === elegida.id;
     const totales = activa?.totales ?? null;
     const cargos = activa?.cargos ?? [];
+
+    /** PDF de la propuesta que se está mirando (no necesariamente la elegida:
+     * el asesor puede querer mandarle al cliente una variante concreta). Mismo
+     * patrón de descarga que `ManualVisor.tsx`/`PedidosPVPage.tsx`: con
+     * `responseType: 'blob'` un error llega como Blob, no como JSON, así que el
+     * mensaje de error es genérico en vez de intentar leer `.error` de él. */
+    const descargarPdf = async () => {
+        if (!cot || !activa) return;
+        setDescargandoPdf(true);
+        try {
+            const { data } = await apiDescargarPdfPropuesta(cot.id, activa.id);
+            const url = URL.createObjectURL(data);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Cotizacion-${cot.numero}-${activa.etiqueta}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch {
+            toast.error('No se pudo generar el PDF de la cotización.');
+        } finally {
+            setDescargandoPdf(false);
+        }
+    };
+
+    /** Documento interno, sin plata: se imprime tal cual (`window.print()`),
+     * no se descarga como archivo — nunca sale del taller. Sale SIEMPRE, sin
+     * pasar por `/aptitud` (decisión del usuario, 2026-09-21). */
+    const imprimirHojaTrabajo = () => {
+        const area = document.getElementById('hoja-trabajo-area');
+        if (!cot || !area) return;
+        abrirVentanaImpresion({
+            titulo: `Hoja de Trabajo — Cotización ${cot.numero}`,
+            contenidoHtml: area.innerHTML,
+        });
+    };
 
     /** Chips de propuestas. Cambiar de una a otra recarga desde el servidor: los
      * ítems de las demás llegan sin despiece y sin sus blobs. */
@@ -438,6 +510,24 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
 
                         {/* ── Acciones ─────────────────────────────────────── */}
                         <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-slate-100">
+                            {activa && (
+                                <button
+                                    onClick={descargarPdf}
+                                    disabled={descargandoPdf}
+                                    title={`Descarga el PDF de la propuesta ${activa.etiqueta} para enviar al cliente`}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-50 transition disabled:opacity-50"
+                                >
+                                    {descargandoPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                                    Descargar PDF{activa ? ` (${activa.etiqueta})` : ''}
+                                </button>
+                            )}
+                            <button
+                                onClick={imprimirHojaTrabajo}
+                                title="Documento interno para el taller, sin precios — sale siempre, no depende de la aptitud para orden de corte"
+                                className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-50 transition"
+                            >
+                                <Printer className="w-4 h-4" /> Hoja de Trabajo
+                            </button>
                             <button
                                 onClick={evaluarAptitud}
                                 disabled={cargandoAptitud}
@@ -490,6 +580,14 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                                 )}
                             </div>
                         ))}
+                    </div>
+                )}
+
+                {/* Área oculta que alimenta `imprimirHojaTrabajo()`: `abrirVentanaImpresion`
+                    sólo necesita el HTML, así que no hace falta mostrarla en pantalla. */}
+                {cot && (
+                    <div id="hoja-trabajo-area" style={{ display: 'none' }}>
+                        <PrintableHojaTrabajo cot={cot} propuesta={activa} modulos={modulos} planos={planos} despieces={despieces} />
                     </div>
                 )}
             </div>

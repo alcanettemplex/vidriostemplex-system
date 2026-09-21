@@ -36,8 +36,9 @@ Verificación en vivo (2026-09-19): Sistema5020, 1000×1500 mm, mate, vidrio cla
 - `backend-api/src/cotizador/` — motores portados (~4.700 LOC), `cache.ts`, `modules/` (6 módulos),
   `lib/` (cálculo, despiece, plano, aptitud, calibración, sincronización con Proveedores)
 - `backend-api/src/controllers/cotizador_*.controller.ts` — 9 controladores
-- `backend-api/src/routes/cotizador.routes.ts` — **40 endpoints** bajo `/api/cotizador`
-- `backend-api/src/scripts/pruebas_cotizador/` — 5 suites, `npm run test:cotizador`
+- `backend-api/src/routes/cotizador.routes.ts` — **51 endpoints** bajo `/api/cotizador` (verificado
+  por conteo el 2026-09-21 — la cifra anterior, 40, ya estaba desactualizada antes de hoy)
+- `backend-api/src/scripts/pruebas_cotizador/` — 6 suites, `npm run test:cotizador`
 
 **Frontend** — `frontend-web/src/features/cotizador/`, 5 pestañas:
 Cotizar · Actual · Guardadas · Calibración · Configuración. Sin Redux (estado local, mismo criterio
@@ -192,10 +193,42 @@ Ver `docs/modulos/compras.md` para las reglas del módulo del que vienen esos co
 
 ---
 
+## Generador de perfilería para SAP (2026-09-21)
+
+`cotizador/lib/generadorSapPerfileria.ts` — función pura, **aislada**: no toca Postgres, no conoce
+`sap_items` ni `ODP`, y no decide aptitud (eso sigue siendo de `evaluarAptitudOrden()`; el llamador
+debe filtrar los ítems con `porItem[].imprimible === true` **antes** de pasarlos aquí). Dado el
+despiece ya calculado de los ítems de una propuesta, produce las columnas `CANT.`/`DIMENSION` de una
+SAP, agrupadas por código de catálogo (que ya codifica perfil+color).
+
+Reglas de negocio confirmadas por el maestro del taller el 2026-09-21 — no vuelvas a preguntarlas,
+ver el detalle completo en `cotizador-vision.md`:
+- **Barra comercial fija en 6 m**, para cualquier perfil (`MM_POR_BARRA` en el archivo).
+- **`CANT.` no es bin-packing** — es `ceil(metros totales con 5 % de desperdicio / 6)`. El retal lo
+  gestiona el taller a mano, ingresándolo a inventario; pedir de más es aceptable, pedir de menos no.
+- Las **letras A, B, C…** de cada fila siguen el **orden de entrada del asesor** (primera aparición
+  del código entre los ítems), no una heurística geométrica. Distinto de la heurística
+  horizontal/vertical de `ordenCorte.ts` (piezas dentro de UN despiece), que sigue sin confirmar.
+- Perfiles que el proveedor entrega ya cortados: sin tratamiento especial, a criterio del asesor.
+
+Para que el generador pueda leer `codigo` y `desperdicioPct` por corte sin re-derivar la lógica de
+color/fallback, `motorDespiece.ts` ahora los agrega (aditivo) a cada elemento de
+`resultado.cortes.perfiles[]` — campos nuevos, ninguno existente cambió. Consecuencia: **los blobs
+de cotización guardados antes del 2026-09-21 no traen estos dos campos**, así que el generador los
+excluye con advertencia explícita ("clona la propuesta para regenerar") en vez de asumir 0 % de
+desperdicio o adivinar el código.
+
+⚠️ **Sigue sin conectarse a nada** — no hay endpoint, no hay botón en `SAPModal`. Bloqueado por la
+falta de vínculo Cotización↔ODP (`cotizador-vision.md` → sección "Identidad"): sin saber qué
+cotización alimenta qué SAP, no hay desde dónde invocarlo.
+
+---
+
 ## Pruebas
 
-`npm --prefix backend-api run test:cotizador` — 5 suites, **37 pruebas**. En verde desde el
-2026-09-19 (37/37).
+`npm --prefix backend-api run test:cotizador` — 6 suites, **65 pruebas**. En verde (65/65,
+verificado en corrida limpia el 2026-09-21; una corrida con el pool de Supabase ya ocupado por otra
+cosa dio 28 fallos falsos — ver advertencia de conexiones más abajo).
 
 ### ⚠️ Bajar el backend dev antes de correrlas
 
@@ -244,13 +277,87 @@ fallan por datos, no por código. **No confiar en él como red antes de regenera
 
 ---
 
+## PDF de cotización (2026-09-21)
+
+`GET /api/cotizador/cotizaciones/:id/propuestas/:pid/pdf` — el documento que el asesor envía al
+cliente por WhatsApp (`cotizador-vision.md` → "Aprobación del cliente, en dos tiempos", fase 1: PDF
+a mano, el asesor marca `APROBADA` en el sistema). Botón "Descargar PDF" en
+`ModalDetalleCotizacion.tsx`, sobre la propuesta que se esté mirando (no forzosamente la elegida).
+
+- **`pdfmake@0.3.11` exacto** (instalado, `--save-exact`) — 0.3 reescribió el motor sobre `pdfkit` y
+  cambió la API entera frente a la 0.2. Por eso **no** se instaló `@types/pdfmake` (describe la 0.2,
+  declararía una API que ya no existe): los tipos mínimos que usa el generador están a mano en
+  `backend-api/src/types/pdfmake.d.ts`. ⚠️ Esa declaración ambiental no llega sola al programa de
+  `ts-node` si nadie más la importa (a diferencia de `tsc`, que usa el `include` del tsconfig
+  entero) — de ahí el `/// <reference path=... />` en `generadorPdfCotizacion.ts`.
+- **Fuente:** Helvetica (las 14 estándar de pdfkit, sin archivos que embeber). La identidad visual
+  del Cotizador en pantalla usa Space Grotesk/Manrope, pero traerlas al PDF exige generar un
+  `vfs_fonts` propio — no entró en esta v1.
+- **`setLocalAccessPolicy`**: pdfkit resuelve las 14 fuentes estándar por el mismo camino que un
+  archivo local (`PDFDocument.provideFont` → `validateLocalFile`), así que negar la política entera
+  bloquea también `Helvetica-Bold`. Sólo se permiten los 4 nombres que declara
+  `pdfmake/standard-fonts/Helvetica`; cualquier otra ruta sigue denegada — el documento nunca
+  referencia un archivo del disco, el logo llega como data URI.
+- **Contenido real, no de relleno**: el módulo lee `cotizador.empresa` / `cotizador.empresa_logo`
+  (`store/empresaStore.ts`), que ya tenían sembrados desde el 2026-09-07
+  (`2026-09-07_sembrar_datos_cotizador.ts`) los datos reales de Vidrios Templex — razón social, NIT,
+  cuenta Bancolombia, garantía, validez de la oferta (8 días hábiles) y **las 11 condiciones
+  comerciales verbatim** del negocio. No hizo falta ninguna migración ni placeholder: esa
+  infraestructura se construyó por adelantado pensando en esta etapa.
+- **Ítems en el PDF muestran `subtotalConAiu` (sin IVA), no `item.total`**: el IVA de cada ítem
+  guardado en su blob está "a precio lleno, sin el descuento de la propuesta" (ver "Propuestas y
+  cargos" más arriba); sumar esos `total` no cuadraría con `total_productos`. El PDF pone un solo
+  IVA agrupado al final, como cualquier factura — matemáticamente consistente con el contrato de
+  `calcularTotalesPropuesta`, que es de donde salen los 5 totales que el PDF sólo lee (no recalcula).
+- **"Otras propuestas presentadas"**: sólo si la cotización tiene más de una — nombre + total, nunca
+  su detalle completo (ya lo fija `cotizador-vision.md`).
+- **Paleta estimada del logo real** (`frontend-web/public/assets/images/logotemplex.png`), no un
+  código de marca confirmado — navy `#1B3A63` / azul `#2E75B6`. Es el único punto a tocar si el
+  usuario da los códigos exactos.
+
+---
+
+## Hoja de Trabajo (2026-09-21)
+
+Documento **interno para el taller, sin plata** — no confundir con el PDF de cotización de arriba
+(ese sí lleva precios y es para el cliente). Botón "Hoja de Trabajo" en `ModalDetalleCotizacion.tsx`,
+junto al de "Descargar PDF". **Dos páginas**, con dos niveles de confianza distintos:
+
+- **Página 1 — resumen + plano.** Lo que tecleó el asesor (sistema, color, vidrio, vano) más el
+  plano esquemático (`DiagramaProducto`, el mismo que ya usa "Vista técnica"). Es siempre cierto,
+  cotizado o no.
+- **Página 2 — especificaciones de corte por perfil y vidrio** (2026-09-21, segunda vuelta: el
+  usuario pidió el despiece completo tras ver la v1). Nuevo endpoint de solo lectura
+  `GET /cotizaciones/:id/items/:itemId/despiece`, que reutiliza `ordenarParaTaller()`
+  (`ordenCorte.ts`) para el orden de los perfiles — la única función pensada para esto, no se
+  reimplementa en el frontend. **Sale siempre** (sigue sin pasar por `/aptitud`: es el único
+  documento de taller que existe), pero si `nivelCorte` es `C`/desconocido o `hayErrores` es
+  `true` — el mismo criterio que `NIVELES_APTOS_PARA_CORTE` en `motorDespiece.ts` — la sección de
+  ese ítem lleva un aviso rojo "medidas no validadas, verificar antes de cortar" en vez de
+  bloquear la impresión. `esConfiable()` en `PrintableHojaTrabajo.tsx` replica ese criterio
+  explícitamente; si `NIVELES_APTOS_PARA_CORTE` cambia, hay que tocar también ahí.
+- **100 % lectura, sin recalcular nada.** `cot.items` de la propuesta que se está mirando ya trae
+  `input` completo; el plano y el despiece se piden por ítem (mismo patrón: por propuesta activa),
+  y ahora se cargan en cuanto se abre el detalle — antes los planos sólo se pedían al entrar a
+  "Vista técnica", pero la Hoja de Trabajo se imprime desde "Normal".
+- **`window.print()` vía `abrirVentanaImpresion()`**, no pdfmake — mismo patrón que
+  `PrintableProduccion`/`PrintableOA` de la ODP real. A diferencia del PDF de cotización, esta hoja
+  nunca sale del edificio, así que no necesita ser un archivo portátil.
+- **Campos técnicos de la página 1 resueltos de forma genérica** contra `modulo.campos`
+  (`GET /modulos`, el mismo contrato que ya usa el formulario de Cotizar), filtrando por
+  `grupo: 'medidas' | 'vidrio'` —
+  nunca `'cliente'` (ahí vive el segmento PA/PM/PB, comercial) ni `'comercial'`. Ningún mapeo a mano
+  de los 6 módulos: si un módulo nuevo se agrega al registry, esta hoja lo soporta solo.
+- ⚠️ **No confundir con `ordenCorte.ts`**: ese archivo ordena las PIEZAS dentro de un despiece para
+  una futura Orden de Corte (heurística horizontal/vertical, sin confirmar con el taller); la Hoja
+  de Trabajo no llega a ese nivel de detalle y no lo usa.
+- Componente: `frontend-web/src/features/cotizador/components/PrintableHojaTrabajo.tsx`, renderizado
+  siempre oculto (`display:none`) dentro del modal; el botón lee su `innerHTML` al imprimir.
+
+---
+
 ## Lo que falta
 
-- **PDF de cotización** — único bloque sin empezar de la Etapa 4. Con propuestas, debe imprimir
-  la elegida y poder mostrar las demás como alternativas. `pdfmake@0.3.11` **exacto, sin
-  `^`** (0.3 es pre-release); **no** instalar `@types/pdfmake`, describe la API 0.2. La Hoja de
-  Trabajo sale **siempre** (no pasa por `/aptitud`) y no imprime medidas calculadas de pieza ni
-  cotas de paño.
 - 3 de 8 suites de pruebas: `aptitudOrden`, `hojaTrabajo`, `pdf`.
 - Regenerar golden master y centinela del catálogo.
 - Los 24 diseños nivel C.

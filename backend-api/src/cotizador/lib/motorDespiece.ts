@@ -280,6 +280,12 @@ export function calcularDespiece({
       incertidumbreMm: p.modelo ? p.modelo.dispersionMm : null,
       cantidad: p.cantidad,
       metrosNetos: round2(metrosNetos),
+      // Código de catálogo ya resuelto para el color de esta pieza (null si no
+      // hay precio en ningún color — ver el `items.push` de ERROR debajo) y el
+      // % de desperdicio de ESTE perfil, para que un consumidor externo (SAP)
+      // pueda calcular barras sin recalcular la lógica de color/desperdicio.
+      codigo: codigo ?? null,
+      desperdicioPct: p.desperdicioPct ?? 0,
     });
 
     if (!codigo) {

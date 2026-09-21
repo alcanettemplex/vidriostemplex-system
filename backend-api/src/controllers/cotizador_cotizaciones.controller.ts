@@ -11,6 +11,9 @@ import * as store from '../cotizador/store/cotizacionStore';
 import { ErrorCotizador } from '../cotizador/store/cotizacionStore';
 import { evaluarAptitudOrden } from '../cotizador/lib/aptitudOrden';
 import { sugerirSMO, tiposObra } from '../cotizador/lib/cargos';
+import * as empresaStore from '../cotizador/store/empresaStore';
+import { generarPdfCotizacion } from '../cotizador/lib/generadorPdfCotizacion';
+import type { CotizacionPdf, PropuestaPdf } from '../cotizador/lib/generadorPdfCotizacion';
 
 const clienteSchema = z
   .object({
@@ -466,5 +469,44 @@ export const smoSugerido = async (req: Request, res: Response) => {
     res.json({ ...sugerirSMO({ items, tipoObra }), tiposObra: tiposObra() });
   } catch (e) {
     fallo(res, 'smoSugerido', e, 'No se pudo calcular la mano de obra sugerida.');
+  }
+};
+
+/**
+ * GET /cotizaciones/:id/propuestas/:pid/pdf — el PDF que el asesor envía al
+ * cliente por WhatsApp (`cotizador-vision.md` → "Aprobación del cliente, en
+ * dos tiempos", fase 1).
+ *
+ * `store.obtener(id, {propuesta: pid})` ya trae exactamente lo que hace falta:
+ * la propuesta `pid` con sus ítems y cargos completos, y las demás propuestas
+ * de la misma cotización en modo ligero (sólo totales) — que es lo único que
+ * el PDF muestra de ellas, en "Otras propuestas presentadas".
+ */
+export const descargarPdfPropuesta = async (req: Request, res: Response) => {
+  const ids = idsRuta(req, res);
+  if (!ids) return;
+  try {
+    const cot = await store.obtener(ids.id, { propuesta: ids.pid });
+    if (!cot) return res.status(404).json({ error: 'Cotización no encontrada.' });
+    const propuestas = (cot.propuestas ?? []) as PropuestaPdf[];
+    const propuesta = propuestas.find((p) => p.id === ids.pid);
+    if (!propuesta) return res.status(404).json({ error: 'Esa propuesta no existe en esta cotización.' });
+
+    const empresa = await empresaStore.leer(true);
+    const buffer = await generarPdfCotizacion({
+      cotizacion: cot as CotizacionPdf,
+      propuesta,
+      otrasPropuestas: propuestas.filter((p) => p.id !== ids.pid),
+      empresa,
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="cotizacion-${cot.numero}-${propuesta.etiqueta}.pdf"`
+    );
+    res.send(buffer);
+  } catch (e) {
+    fallo(res, 'descargarPdfPropuesta', e, 'No se pudo generar el PDF de la cotización.');
   }
 };

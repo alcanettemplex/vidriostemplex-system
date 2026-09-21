@@ -4396,3 +4396,197 @@ mostrar 3 fallos justo después de tocar el centinela. Bajar el backend, correr,
 - Toda la maquinaria de calibración queda **intacta y operativa**, solo deja de ser obligatoria.
 - Las medidas pueden salir **±1 mm**; conviene que el maestro lo sepa.
 - Sin commit: el cambio queda en el working tree a la espera de orden.
+
+---
+
+## 2026-09-21 — Generador de perfilería para SAP (aislado)
+
+### Contexto
+El usuario respondió las 6 preguntas pendientes al maestro del taller que dejó abierta la
+conversación del 2026-09-20 (`cotizador-vision.md`). Con eso se pudo construir el generador de
+`CANT.`/`DIMENSION` de una SAP a partir del despiece de una propuesta — pero **explícitamente
+aislado**: "aun no vamos a vincular con el ERP, todo será aislado para poder ensayar bien ya que el
+ERP está en producción y no quiero fallos luego".
+
+### Respuestas del maestro (no volver a preguntar)
+1. Barra comercial: **siempre 6 m**, cualquier perfil.
+2. Cuántas barras pedir: **no importa optimizar** (sin bin-packing) — el retal se gestiona a mano,
+   ingresándolo a inventario.
+3. El 5 % de desperdicio: **real**, se aplica siempre.
+4. Letras A, B, C de la SAP: **orden de entrada del asesor**, no geometría. (Distinto de la
+   heurística horizontal/vertical de `ordenCorte.ts`, que sigue sin confirmar — no se tocó.)
+5. Perfiles ya cortados por el proveedor: a criterio del asesor, sin tratamiento especial.
+6. Qué mira primero en una SAP: nada puntual, "está todo".
+
+### Cambios
+- `motorDespiece.ts`: 2 campos aditivos (`codigo`, `desperdicioPct`) en cada elemento de
+  `resultado.cortes.perfiles[]` — nada existente cambió.
+- `cotizador/lib/generadorSapPerfileria.ts` (nuevo): función pura, agrupa cortes por código,
+  `CANT.=ceil(metros con 5% desperdicio / 6m)`, `DIMENSION` consolidado por medida, letras por
+  primera aparición. No toca Postgres, `sap_items` ni `ODP`; el llamador debe filtrar primero por
+  `evaluarAptitudOrden(...).porItem[].imprimible`.
+- 10 pruebas nuevas (`generadorSapPerfileria.test.ts`), sin precarga de caché (no las necesita).
+- `test:cotizador`: 6 suites, **65 pruebas, 65/65 en verde** (verificado en corrida limpia; una
+  corrida con el pool de Supabase ya ocupado dio 28 fallos falsos — mismo síntoma documentado antes).
+
+### Decisión de diseño explícita
+Blobs de cotización guardados **antes** de este cambio no traen `codigo`/`desperdicioPct`: el
+generador los excluye con advertencia ("clona la propuesta para regenerar") en vez de asumir 0 % o
+adivinar el código. Solo afecta a las ~4-5 cotizaciones existentes con propuestas.
+
+### Estado que queda
+- Generador construido y probado, **sin ningún punto de entrada real** (sin endpoint, sin botón en
+  `SAPModal`). Sigue bloqueado por la falta de vínculo Cotización↔ODP, y **el usuario confirmó que
+  eso se pospone a propósito** hasta poder ensayar el motor sin arriesgar el ERP en producción.
+- `docs/modulos/cotizador.md` y `cotizador-vision.md` actualizados con las respuestas y la nueva
+  sección del generador.
+- Sin commit: el cambio queda en el working tree a la espera de orden.
+
+---
+
+## 2026-09-21 (2) — PDF de cotización (aislado)
+
+### Contexto
+Mismo día, siguiente paso dentro del Cotizador aislado: el usuario pidió replicar un formato de
+referencia (imagen "Arquitectura") pero con la lógica de negocio real de Templex, T&C
+predeterminados "por ahora, luego te paso los reales", logo y paleta de Templex.
+
+### Hallazgo que cambió el plan a mitad de camino
+El plan original proponía agregar `terminos_condiciones` a `cotizador.parametro` con placeholders.
+Antes de tocar BD se encontró que **ya existe** `cotizador.empresa` / `cotizador.empresa_logo`
+(`store/empresaStore.ts`), sembrada el 2026-09-07 desde el Excel origen con **datos reales de
+Vidrios Templex**: razón social, NIT, cuenta Bancolombia, garantía, validez de oferta (8 días
+hábiles) y **las 11 condiciones comerciales verbatim** del negocio — comentario de código
+literalmente decía "el generador de PDF (Etapa 4) lo tomará de la caché". Se verificó contra
+Supabase real antes de escribir una línea del generador. Resultado: **cero migración de BD**, y el
+documento sale con contenido real desde el primer PDF, no con placeholders.
+
+### Cambios
+- `pdfmake@0.3.11` instalado exacto (`--save-exact`), sin `@types/pdfmake` (describe la 0.2; la 0.3
+  reescribió la API sobre `pdfkit`).
+- `src/types/pdfmake.d.ts` (nuevo) — tipos mínimos a mano para lo que usa el generador.
+- `cotizador/lib/generadorPdfCotizacion.ts` (nuevo) — arma el `docDefinition` y renderiza a Buffer.
+  Fuente Helvetica (sin embeber TTF); paleta estimada del logo real (`logotemplex.png`); ítems
+  muestran `subtotalConAiu` (sin IVA) para cuadrar con `total_productos`, con un solo IVA agrupado
+  al final — no `item.total`, que ya trae IVA "a precio lleno" sin el descuento de la propuesta.
+- `descargarPdfPropuesta` en `cotizador_cotizaciones.controller.ts` +
+  `GET /cotizaciones/:id/propuestas/:pid/pdf`.
+- Botón "Descargar PDF" en `ModalDetalleCotizacion.tsx` (blob download, mismo patrón que
+  `ManualVisor.tsx`/`PedidosPVPage.tsx`: error genérico, nunca se intenta leer `.error` de un Blob).
+
+### Dos bugs de integración de pdfmake, atrapados al generar un PDF real (no por los tipos)
+1. **`ts-node/register` no ve la declaración ambiental** si nada la importa (a diferencia de `tsc`,
+   que usa el `include` del tsconfig entero) → TS7016 al correr un script, aunque `npm run build`
+   compilaba limpio. Fix: `/// <reference path="../../types/pdfmake.d.ts" />` en el propio módulo.
+2. **`setLocalAccessPolicy(() => false)` bloqueaba las fuentes estándar**: pdfkit resuelve
+   `Helvetica-Bold` por el mismo camino que un archivo local. Fix: permitir sólo los 4 nombres que
+   declara `standard-fonts/Helvetica`, negar cualquier otra ruta.
+
+### Verificado
+PDF real generado contra `cotizacion_id=11` / `propuesta_id=12` (la única que existe hoy con datos),
+leído visualmente: logo, paleta, tabla de ítems, total destacado y las 11 condiciones reales, todo
+correcto. `npm run test:cotizador` 65/65. `npm run build` (backend) y `tsc --noEmit` (frontend)
+limpios. Backend real levantado con `npm run dev`, ruta nueva responde 401 (no 404) sin token, igual
+que `/estado` — confirma que quedó montada.
+
+### Pendiente / fuera de esta v1
+- Paleta y garantía/T&C: ya son datos reales de `cotizador.empresa`, no placeholders — pero la
+  paleta de color SÍ es estimada del logo a ojo, no un código de marca confirmado.
+- Tipografía Space Grotesk/Manrope no se embebió (harían falta los TTF + `vfs_fonts` propio).
+- Sección "Otras propuestas presentadas" sin probar contra un caso real con más de una propuesta
+  (hoy solo existe una cotización con propuestas en la BD).
+- **Siguiente paso, ya pedido por el usuario:** la Hoja de Trabajo, documento interno para el
+  taller — sin plata, no pasa por `/aptitud`.
+- Sin commit: el cambio queda en el working tree a la espera de orden.
+
+---
+
+## 2026-09-21 (3) — Hoja de Trabajo (interna, sin plata)
+
+### Contexto
+Siguiente paso ya acordado. Antes de diseñarla se encontró en `SESSION_LOG.md` (2026-09-10) que el
+proyecto standalone original (`PLANTILLA COTIZACIONES`, máquina de casa, no accesible desde aquí) ya
+tenía una Hoja de Trabajo construida — se preguntó al usuario en vez de adivinar el formato.
+Respuestas: (1) resumen por producto sin despiece (diseño/sistema, color, vidrio, cantidad, vano tal
+como lo tecleó el asesor); (2) es y será el **único** documento de taller — no habrá una Orden de
+Corte separada con medidas exactas, por eso sale siempre sin pasar por `/aptitud`.
+
+### Diseño resultante
+100% frontend, sin BD ni endpoint nuevo: `cot.items` de la propuesta que se está mirando en
+`ModalDetalleCotizacion.tsx` ya trae `input` completo. Los campos técnicos se resuelven de forma
+**genérica** contra `modulo.campos` (`GET /modulos`), filtrando `grupo: 'medidas' | 'vidrio'` —
+mismo contrato que ya usa el formulario de Cotizar, sin mapear los 6 módulos a mano. Impresión con
+`window.print()` vía `abrirVentanaImpresion()` (patrón de `PrintableProduccion`/`PrintableOA` de la
+ODP real), no pdfmake: es un documento que nunca sale del edificio.
+
+### Cambios
+- `frontend-web/src/features/cotizador/components/PrintableHojaTrabajo.tsx` (nuevo).
+- `ModalDetalleCotizacion.tsx`: carga `apiGetModulos()` una vez, botón "Hoja de Trabajo" junto al de
+  "Descargar PDF", área oculta (`display:none`) que alimenta `abrirVentanaImpresion`.
+
+### Verificado
+`tsc --noEmit` del frontend limpio. **No verificado visualmente** (sin herramienta de navegador en
+esta sesión): el usuario debe probarlo en el frontend ya corriendo (hot-reload) y confirmar que el
+layout impreso se ve bien.
+
+### Pendiente
+- Confirmación visual del usuario.
+- Sin commit: el cambio queda en el working tree a la espera de orden.
+
+---
+
+## 2026-09-21 (4) — Hoja de Trabajo v2 (plano + despiece) y limpieza de procesos huérfanos
+
+### Lo que pidió el usuario tras ver la v1
+Al ver la Hoja de Trabajo impresa, pidió agregar: el plano al final de la página 1, y una página 2
+con las especificaciones de corte por perfil y vidrio. Esto último es literalmente el despiece
+pieza por pieza que la v1 excluía a propósito — se le señaló la tensión con el motor de aptitud
+(un nivel C tiene error que crece sin tope con vidrio templado de por medio) antes de tocar código.
+Decisión: la página 2 **sale siempre**, pero con aviso rojo cuando `nivelCorte` no es A/B o hay
+errores — ni bloqueo ni silencio.
+
+### Cambios
+- Backend: `despieceDeItem` en `cotizador_plano.controller.ts` +
+  `GET /cotizaciones/:id/items/:itemId/despiece` — reutiliza `ordenarParaTaller()` (`ordenCorte.ts`),
+  no reimplementa el orden de piezas.
+- Frontend: `ModalDetalleCotizacion.tsx` deja de gatear la carga de planos a "Vista técnica" (ahora
+  se piden en cuanto se abre el detalle) y agrega la misma carga para despieces.
+  `PrintableHojaTrabajo.tsx` gana el plano por ítem (página 1) y la página 2 completa con
+  `page-break-before`, tabla de perfiles/vidrio y el aviso de confiabilidad (`esConfiable()`,
+  espejo explícito de `NIVELES_APTOS_PARA_CORTE`).
+
+### Incidente encontrado y resuelto: procesos de `backend-api run dev` huérfanos
+Al verificar el nuevo endpoint se descubrió que **401 no prueba que una ruta específica exista** —
+`authMiddleware`/`requireRole` corren para cualquier path bajo `/api/cotizador/*`, exista la ruta
+o no (confirmado con una ruta inventada: también 401, mientras que fuera del prefijo da 404). El
+método de verificación usado en las dos entradas anteriores de hoy (SAP y PDF) era más débil de lo
+que parecía.
+
+Al buscar una verificación real se encontró la causa de fondo de los `EMAXCONNSESSION` que vinieron
+apareciendo toda la sesión: **4 generaciones distintas de `npm --prefix backend-api run dev` +
+`nodemon`** acumuladas como procesos vivos (una incluso de antes del `/clear` con el que empezó
+esta conversación), cada una habiendo abierto su propio pool de Sequelize antes de chocar por
+puerto ocupado (`EADDRINUSE`) contra la anterior y quedarse esperando sin cerrar nunca esa
+conexión. Se identificaron con `Get-CimInstance Win32_Process` (línea de comando completa, no sólo
+`tasklist`) para no tocar por error los procesos de otras herramientas del IDE (playwright,
+chrome-devtools-mcp, antigravity) ni el frontend real del usuario. Se mataron las 4 generaciones +
+la actual, y se levantó una sola instancia limpia.
+
+**Lección para la próxima vez que se levante el backend en esta sesión:** verificar primero con
+`netstat` si el puerto 3001 ya está en uso, y si `npm run dev` falla o queda "esperando cambios de
+archivo" sin llegar a "escuchando en el puerto", no asumir que quedó bien — revisar el log
+completo y matar el proceso huérfano por PID antes de reintentar.
+
+### Verificado
+Despiece probado en proceso directo (sin HTTP, para evitar la falsa señal del 401) contra
+`cotizacion_id=11`/`item_id=16`: `nivelCorte: "B"`, `hayErrores: false` → confiable, perfiles
+ordenados por `ordenarParaTaller` (horizontales primero), vidrio con descripción real. `tsc --noEmit`
+del frontend y `npm run build` del backend limpios. El log del backend limpio mostró en vivo al
+usuario navegando el módulo (listado, detalle, plano) con peticiones autenticadas reales — la
+carga de plano desde la vista Normal funciona.
+
+### Pendiente
+- Falta que el usuario confirme visualmente la página 2 impresa — puede necesitar refrescar el
+  navegador (F5) para que el nuevo `useEffect` de despieces corra: React Fast Refresh no siempre
+  reinicia los hooks de un componente que ya estaba montado cuando cambia el código.
+- Sin commit: el cambio queda en el working tree a la espera de orden.

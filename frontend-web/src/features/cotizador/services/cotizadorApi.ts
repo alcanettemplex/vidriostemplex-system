@@ -3,7 +3,7 @@ import axios from 'axios';
 import API from '../../../services/config';
 import {
     AnalisisPieza, Aptitud, CargoEntrada, ComparativaPropuestas, ContrasteCalibracion,
-    Cotizacion, CotizacionEntrada, CotizacionLigera, DisenoResumen, EstadoCotizador,
+    Cotizacion, CotizacionEntrada, CotizacionLigera, DespieceItem, DisenoResumen, EstadoCotizador,
     EstadoSistemaCalibracion, FiltrosListado, HistorialCalibracion, HolguraCalibracion,
     MaterialCalibracion, ModuloMeta, MultiplicadorCategoria, Parametros, PiezaCalibracion,
     Plano, ProductoCatalogo, ResultadoCalculo, ResultadoRecalculoCategoria,
@@ -46,6 +46,15 @@ export const apiPrevisualizarPlano = (disenoId: string, anchoCm: number, altoCm:
  */
 export const apiPlanoDeItem = (cotizacionId: number, itemId: number, propuestaId?: number | null) =>
     axios.get<Plano>(`${BASE}/cotizaciones/${cotizacionId}/items/${itemId}/plano`, {
+        params: propuestaId ? { propuesta: propuestaId } : undefined,
+    });
+
+/** GET /items/:itemId/despiece — página 2 de la Hoja de Trabajo (perfiles y
+ * vidrio, ya ordenados para taller). Mismo motivo que `apiPlanoDeItem` para
+ * exigir `propuestaId` explícito: el despiece sale del blob `resultado`, y el
+ * backend sólo carga los de UNA propuesta a la vez. */
+export const apiDespieceDeItem = (cotizacionId: number, itemId: number, propuestaId?: number | null) =>
+    axios.get<DespieceItem>(`${BASE}/cotizaciones/${cotizacionId}/items/${itemId}/despiece`, {
         params: propuestaId ? { propuesta: propuestaId } : undefined,
     });
 
@@ -130,6 +139,14 @@ export const apiGuardarCargos = (cotizacionId: number, propuestaId: number, carg
 /** GET /comparar — tabla lado a lado. La pantalla que se gira hacia el cliente. */
 export const apiCompararPropuestas = (cotizacionId: number) =>
     axios.get<ComparativaPropuestas>(`${BASE}/cotizaciones/${cotizacionId}/comparar`);
+
+/** GET /propuestas/:pid/pdf — el documento que se envía al cliente por
+ * WhatsApp. `responseType: 'blob'` porque la respuesta es binaria
+ * (`application/pdf`), no JSON. */
+export const apiDescargarPdfPropuesta = (cotizacionId: number, propuestaId: number) =>
+    axios.get<Blob>(`${BASE}/cotizaciones/${cotizacionId}/propuestas/${propuestaId}/pdf`, {
+        responseType: 'blob',
+    });
 
 /** GET /propuestas/:pid/smo-sugerido — `{ monto, explicacion, tiposObra }`. El
  * monto es una SUGERENCIA: si el vendedor lo cambia, el cargo pasa a MANUAL.

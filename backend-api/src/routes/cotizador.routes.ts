@@ -13,7 +13,7 @@ import {
   getModulos,
 } from '../controllers/cotizador_catalogo.controller';
 import { cotizarItem } from '../controllers/cotizador_cotizar.controller';
-import { previsualizarPlano, planoDeItem } from '../controllers/cotizador_plano.controller';
+import { previsualizarPlano, planoDeItem, despieceDeItem } from '../controllers/cotizador_plano.controller';
 import {
   listarCotizaciones,
   obtenerCotizacion,
@@ -30,6 +30,7 @@ import {
   compararPropuestas,
   smoSugerido,
   smoSugeridoBorrador,
+  descargarPdfPropuesta,
 } from '../controllers/cotizador_cotizaciones.controller';
 import {
   listarPrecios,
@@ -106,6 +107,7 @@ router.post('/precios', crearPrecio);
 router.get('/cotizaciones/:id/aptitud', aptitudCotizacion);
 router.get('/cotizaciones/:id/comparar', compararPropuestas);
 router.get('/cotizaciones/:id/items/:itemId/plano', planoDeItem);
+router.get('/cotizaciones/:id/items/:itemId/despiece', despieceDeItem);
 
 // Propuestas (A/B/C…) de una cotización — 2026-09-20. Las rutas con un segmento
 // literal al final (`/clonar`, `/elegir`, `/cargos`, `/smo-sugerido`) van antes
@@ -115,6 +117,7 @@ router.post('/cotizaciones/:id/propuestas/:pid/clonar', clonarPropuesta);
 router.patch('/cotizaciones/:id/propuestas/:pid/elegir', elegirPropuesta);
 router.put('/cotizaciones/:id/propuestas/:pid/cargos', guardarCargosPropuesta);
 router.get('/cotizaciones/:id/propuestas/:pid/smo-sugerido', smoSugerido);
+router.get('/cotizaciones/:id/propuestas/:pid/pdf', descargarPdfPropuesta);
 router.patch('/cotizaciones/:id/propuestas/:pid', actualizarPropuesta);
 router.delete('/cotizaciones/:id/propuestas/:pid', eliminarPropuesta);
 router.post('/cotizaciones/:id/propuestas', crearPropuesta);

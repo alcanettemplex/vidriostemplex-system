@@ -197,6 +197,11 @@ export interface CortePerfil {
   descripcion: string | null;
   medidaMm: number;
   cantidad: number;
+  /** Código de catálogo ya resuelto para el color cotizado; `null` si el perfil
+   * no tiene precio en ningún color (ver la línea ERROR gemela en `items`). */
+  codigo?: string | null;
+  /** % de desperdicio de ESTE perfil (`cotizador.diseno_perfil.desperdicio_pct`). */
+  desperdicioPct?: number;
   [clave: string]: unknown;
 }
 

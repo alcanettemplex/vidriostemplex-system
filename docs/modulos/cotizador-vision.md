@@ -159,21 +159,27 @@ elegido; no hay nada que diseñar aquí.
 
 ---
 
-## Preguntas pendientes para el maestro del taller
+## Preguntas al maestro del taller — respondidas el 2026-09-21
 
-Ordenadas por lo que desbloquean. Las de color quedaron respondidas y se eliminaron.
+1. **¿Cuánto mide la barra comercial de cada perfil?** **Siempre 6 m, para cualquier perfil.** No
+   varía por referencia.
+2. **¿Cómo se decide cuántas barras pedir?** **No hay que empaquetar (bin packing).** El usuario lo
+   calificó como "lo de menos": basta con la columna DIMENSION con los cortes; el retal sobrante lo
+   gestiona él mismo, ingresándolo a inventario. `CANT.` es una estimación redondeada hacia arriba,
+   no una optimización de corte.
+3. **¿El 5 % de desperdicio es real?** Sí, confirmado — se aplica siempre.
+4. **Las letras A, B, C…** siguen **el orden en que el asesor las ingresa**, no una heurística de
+   geometría. ⚠️ No confundir con [`ordenCorte.ts`](../../backend-api/src/cotizador/lib/ordenCorte.ts):
+   ese archivo ordena las PIEZAS dentro de un despiece para la Orden de Corte (otro documento, otro
+   problema) y **sigue sin confirmar con el taller** — esta respuesta no lo resuelve ni lo toca.
+5. **Perfiles que el proveedor entrega ya cortados:** queda **a criterio del asesor**, sin
+   distinción especial en el sistema.
+6. **¿Qué mira primero al recibir una SAP?** Nada en particular — "en la SAP está todo (accesorios y
+   perfiles), no hay algo que diga qué miro primero o qué me falta".
 
-1. **¿Cuánto mide la barra comercial de cada perfil?** ¿6 m siempre, o varía por referencia? Es el
-   dato que falta para poder llenar `CANT.`.
-2. **¿Cómo se decide hoy cuántas barras pedir?** ¿Se agrupan los cortes para aprovechar la barra, o
-   se pide por aproximación? ¿Qué se hace con el retal?
-3. **¿El 5 % de desperdicio es real** o es un número heredado? ¿Cambia según el perfil?
-4. **Las letras A, B, C…** ¿siguen algún orden (horizontales, luego verticales) o es el orden en que
-   el asesor las escribió? — Hoy [`ordenCorte.ts`](../../backend-api/src/cotizador/lib/ordenCorte.ts)
-   usa una heurística que su propia cabecera declara como suposición sin confirmar.
-5. **Perfiles que el proveedor entrega ya cortados:** el usuario indica que esos casos se manejan
-   con **códigos generales**. Falta saber *cuáles* son esos códigos y cuándo se usan.
-6. **¿Qué mira usted primero al recibir una SAP, y qué le falta siempre?**
+Con esto se construyó el generador aislado — ver `docs/modulos/cotizador.md` →
+"Generador de perfilería para SAP". Sigue **sin conectar** a `SAPModal` ni a `ODP`: falta el vínculo
+Cotización↔ODP (sección "Identidad" más abajo) para saber qué cotización alimenta qué SAP.
 
 ---
 
@@ -217,8 +223,11 @@ Ordenadas por lo que desbloquean. Las de color quedaron respondidas y se elimina
 
 ## Orden sugerido (no autorizado todavía)
 
-1. **Perfilería en la SAP** — lo que el usuario marcó como primer objetivo. Bloqueado por la
-   pregunta 1 al maestro.
-2. **PDF de la cotización** — es lo que hace que el módulo se empiece a usar de verdad.
-3. **Identidad** (`cliente_id`, `asesor_usuario_id`) — barata, aditiva, y base de todo lo demás.
+1. ~~**Perfilería en la SAP**~~ — el generador (cálculo puro CANT./DIMENSION) se construyó el
+   2026-09-21, ver `docs/modulos/cotizador.md`. **Sigue pendiente** conectarlo: hace falta el
+   vínculo Cotización↔ODP (punto 3) y el botón en `SAPModal` que lo invoque.
+2. ~~**PDF de la cotización**~~ y ~~**Hoja de Trabajo**~~ — ambos construidos el 2026-09-21, ver
+   `docs/modulos/cotizador.md`.
+3. **Identidad** (`cliente_id`, `asesor_usuario_id`) — barata, aditiva, y base de todo lo demás
+   (incluida la conexión de perfilería del punto 1).
 4. Estadísticas, tab Comercial, planos, ODP desde cotización.

@@ -3,6 +3,7 @@
 import { Request, Response } from 'express';
 import { calcularPlano } from '../cotizador/lib/planoProducto';
 import { getDiseno } from '../cotizador/lib/motorDespiece';
+import { ordenarParaTaller } from '../cotizador/lib/ordenCorte';
 import * as cache from '../cotizador/cache';
 import * as store from '../cotizador/store/cotizacionStore';
 import type { Diseno } from '../cotizador/tipos';
@@ -146,5 +147,56 @@ export const planoDeItem = async (req: Request, res: Response) => {
   } catch (e) {
     console.error('planoDeItem:', e instanceof Error ? e.message : e);
     res.status(500).json({ error: 'No se pudo calcular el plano de este ítem.' });
+  }
+};
+
+/**
+ * GET /cotizaciones/:id/items/:itemId/despiece
+ *
+ * Especificaciones de corte por perfil y vidrio de un ítem ya guardado, para
+ * la página 2 de la Hoja de Trabajo (2026-09-21). Sólo lee `resultado.cortes`
+ * tal como quedó guardado — no recalcula nada — y ordena los perfiles con
+ * `ordenarParaTaller()`, la única función del módulo pensada para presentar
+ * piezas en una hoja de taller (ver `ordenCorte.ts`: heurística sin confirmar
+ * con el maestro, pero es el único sitio que la aplica, para que el día que se
+ * confirme el orden real baste con tocar ahí).
+ *
+ * `nivelCorte`/`hayErrores` viajan aparte para que el frontend decida si avisa
+ * que las medidas no están validadas — son las mismas columnas denormalizadas
+ * que ya usa la tabla de "Normal", no un cálculo nuevo.
+ */
+export const despieceDeItem = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const itemId = Number(req.params.itemId);
+    if (!Number.isInteger(id) || !Number.isInteger(itemId)) {
+      return res.status(400).json({ error: 'El identificador de cotización o de ítem no es válido.' });
+    }
+
+    const propuesta = typeof req.query.propuesta === 'string' ? req.query.propuesta : undefined;
+    const cot = await store.obtener(id, { propuesta });
+    if (!cot) return res.status(404).json({ error: 'Cotización no encontrada.' });
+
+    const item = (cot.items ?? []).find((i: { id: number }) => i.id === itemId);
+    if (!item) {
+      return res.status(404).json({
+        error: 'Ese ítem no existe en la propuesta que se está consultando.',
+      });
+    }
+
+    const resultado = item.resultado;
+    if (!resultado?.cortes) {
+      return res.status(400).json({ error: 'Este ítem no tiene despiece por diseño.' });
+    }
+
+    res.json({
+      perfiles: ordenarParaTaller(resultado.cortes.perfiles ?? []),
+      vidrios: resultado.cortes.vidrios ?? [],
+      nivelCorte: item.nivelCorte ?? null,
+      hayErrores: item.hayErrores === true,
+    });
+  } catch (e) {
+    console.error('despieceDeItem:', e instanceof Error ? e.message : e);
+    res.status(500).json({ error: 'No se pudo calcular el despiece de este ítem.' });
   }
 };

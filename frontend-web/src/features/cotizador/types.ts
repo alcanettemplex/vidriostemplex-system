@@ -160,6 +160,37 @@ export interface Plano {
     avisos: string[];
 }
 
+/** Un corte de perfil, ya ordenado para taller por `ordenarParaTaller()`
+ * (`grupoOrden`: 0 horizontales, 1 verticales, 2 el resto). */
+export interface CorteDespiecePerfil {
+    ref: string;
+    descripcion: string | null;
+    medidaMm: number;
+    cantidad: number;
+    nivelCorte?: string | null;
+    incertidumbreMm?: number | null;
+    grupoOrden: number;
+    [clave: string]: unknown;
+}
+
+export interface CorteDespieceVidrio {
+    descripcion: string | null;
+    anchoMm: number;
+    altoMm: number;
+    cantidad: number;
+    [clave: string]: unknown;
+}
+
+/** GET /cotizaciones/:id/items/:itemId/despiece — página 2 de la Hoja de
+ * Trabajo. `nivelCorte`/`hayErrores` son las mismas columnas denormalizadas
+ * del ítem: sirven para avisar cuando la medida no está validada. */
+export interface DespieceItem {
+    perfiles: CorteDespiecePerfil[];
+    vidrios: CorteDespieceVidrio[];
+    nivelCorte: string | null;
+    hayErrores: boolean;
+}
+
 // ─── Cotizaciones guardadas ─────────────────────────────────────────────────
 
 export type EstadoCotizacion = 'PENDIENTE' | 'APROBADA' | 'CANCELADO' | 'PERDIDO';
