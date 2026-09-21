@@ -4,6 +4,35 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-21 — Autocompletes de catálogo: el orden es alfabético, no por relevancia
+
+**Severidad:** Baja · **Estimación:** 45 min
+
+Detectado al reportarse que buscar `190` en *Ingresar Perfilería* no mostraba `TRA0608`
+(8025 TRASLAPE 190 NEGRO). La causa inmediata era el corte silencioso del desplegable
+—8 sugerencias en `IngresarPerfilModal.tsx`, 10 en `AgregarPrecioModal.tsx`— y ya está
+corregida: ambos muestran hasta 50 con scroll.
+
+Queda el problema de fondo: **el orden es el alfabético que entrega el backend**
+(`catalogo.controller.ts`, `ORDER BY codigo ASC, nombre ASC` con `q`; `categoria ASC,
+nombre ASC` sin `q` — y `categoria` es `null` en toda la perfilería, así que manda el
+nombre). Con `190`, los cuatro primeros resultados son sillares **2190** — el dígito
+buscado aparece dentro de un número mayor — y empujan hacia abajo los traslapes 190 que
+sí se buscaban. Con 11 coincidencias se resuelve bajando la vista; con un término más
+frecuente vuelve a ser incómodo.
+
+Arreglo propuesto y **descartado por el usuario en su momento** (prefirió el cambio
+mínimo): ordenar por relevancia —código exacto → código parcial → palabra completa en el
+nombre → substring— penalizando el match embebido en un número más largo. Se puede hacer
+solo en cliente (`getSuggestions`) sin tocar el backend.
+
+Efecto colateral del fix aplicado, sin acción pendiente: subir `limit` a 50 en
+`AgregarPrecioModal` hace que la segunda pasada por sinónimos de `getCatalogo`
+(`limit: limite * 2`) pida hasta 100 filas de dos columnas en vez de 20, y solo cuando los
+aciertos directos no llenan el cupo. Despreciable frente al baseline de egress.
+
+---
+
 ## 2026-09-20 — Cotizador: tres cabos sueltos que dejó el cambio a propuestas y cargos
 
 **Severidad:** Baja a Media · **Estimación:** 10 min, 1 h y 30 min respectivamente

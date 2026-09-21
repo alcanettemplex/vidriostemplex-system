@@ -44,9 +44,12 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
       setLoadingBusqueda(true);
       try {
         const { data } = await axios.get<ProductoCatalogo[]>(`${API}/api/catalogo`, {
-          params: { q: buscando, limit: 10 },
+          // El tope iba en 10 y el corte era silencioso: una búsqueda con más
+          // coincidencias escondía productos que sí existen. El `limit` viaja al
+          // servidor, así que subir solo el slice no habría cambiado nada.
+          params: { q: buscando, limit: 50 },
         });
-        setProductos(Array.isArray(data) ? data.slice(0, 10) : []);
+        setProductos(Array.isArray(data) ? data.slice(0, 50) : []);
       } catch { setProductos([]); }
       finally { setLoadingBusqueda(false); }
     }, 350);
@@ -173,7 +176,7 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
                       position: 'absolute', top: '100%', left: 0, right: 0,
                       background: 'var(--surface)', border: '1px solid var(--border)',
                       borderRadius: RADIUS.lg, zIndex: 100, boxShadow: '0 8px 24px rgba(0,0,0,.2)',
-                      overflow: 'hidden',
+                      overflowY: 'auto', maxHeight: 288,
                     }}>
                       {productos.map(p => (
                         <div
