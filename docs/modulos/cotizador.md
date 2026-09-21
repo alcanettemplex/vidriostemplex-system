@@ -6,6 +6,11 @@ ni el catálogo del módulo Proveedores por su cuenta (sí toma costos de ahí, 
 
 Solo `root` / `admin`.
 
+> **Para qué se está construyendo:** el destino del módulo —integrar el Excel de cotización, traer
+> el despiece a la SAP, cargar el plano en el Det. Técnico y tener estadística comercial— está en
+> [`cotizador-vision.md`](cotizador-vision.md). Ese documento es **destino, no pendiente**: el
+> aislamiento descrito arriba sigue vigente y nada de allí se implementa sin orden explícita.
+
 ---
 
 ## Lo primero que hay que entender: cotizar y cortar son dos cosas distintas
