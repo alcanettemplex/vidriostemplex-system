@@ -41,6 +41,7 @@ import SupervisionLineamientoItem from './supervision_lineamiento_item.model';
 import Proveedor from './proveedor.model';
 import ProveedorProducto from './proveedor_producto.model';
 import ProveedorProductoPrecio from './proveedor_producto_precio.model';
+import ProveedorProductoCodigo from './proveedor_producto_codigo.model';
 import ProveedorCodigoPendiente from './proveedor_codigo_pendiente.model';
 import ProductoAlias from './producto_alias.model';
 import FacturaProveedorProcesada from './factura_proveedor_procesada.model';
@@ -330,6 +331,16 @@ ProveedorProductoPrecio.belongsTo(ProveedorProducto, { foreignKey: 'proveedor_pr
 Usuario.hasMany(ProveedorProductoPrecio, { foreignKey: 'registrado_por', as: 'precios_registrados' });
 ProveedorProductoPrecio.belongsTo(Usuario, { foreignKey: 'registrado_por', as: 'registrador' });
 
+// Los N códigos con los que un proveedor factura el mismo producto (2026-09-21).
+// `onDelete: CASCADE` es seguro aquí: los códigos son atributos de la equivalencia,
+// no un activo histórico como `proveedor_producto_precio` — y la equivalencia se da
+// de baja lógicamente (`activo=false`), nunca se borra.
+ProveedorProducto.hasMany(ProveedorProductoCodigo, { foreignKey: 'proveedor_producto_id', as: 'codigos', onDelete: 'CASCADE' });
+ProveedorProductoCodigo.belongsTo(ProveedorProducto, { foreignKey: 'proveedor_producto_id', as: 'equivalencia' });
+
+Proveedor.hasMany(ProveedorProductoCodigo, { foreignKey: 'proveedor_id', as: 'codigos_producto' });
+ProveedorProductoCodigo.belongsTo(Proveedor, { foreignKey: 'proveedor_id', as: 'proveedor' });
+
 Proveedor.hasMany(ProveedorCodigoPendiente, { foreignKey: 'proveedor_id', as: 'codigos_pendientes' });
 ProveedorCodigoPendiente.belongsTo(Proveedor, { foreignKey: 'proveedor_id', as: 'proveedor' });
 
@@ -424,6 +435,7 @@ const MODELOS_AUDITADOS = [
   { model: Proveedor, tabla: 'proveedores', pk: 'id' },
   { model: ProveedorProducto, tabla: 'proveedor_producto', pk: 'id' },
   { model: ProveedorProductoPrecio, tabla: 'proveedor_producto_precio', pk: 'id' },
+  { model: ProveedorProductoCodigo, tabla: 'proveedor_producto_codigo', pk: 'id' },
   { model: ProveedorCodigoPendiente, tabla: 'proveedor_codigo_pendiente', pk: 'id' },
   { model: ProductoAlias, tabla: 'producto_alias', pk: 'id' },
   { model: FacturaProveedorProcesada, tabla: 'factura_proveedor_procesada', pk: 'id' },
@@ -551,6 +563,7 @@ export {
   Proveedor,
   ProveedorProducto,
   ProveedorProductoPrecio,
+  ProveedorProductoCodigo,
   ProveedorCodigoPendiente,
   ProductoAlias,
   FacturaProveedorProcesada,

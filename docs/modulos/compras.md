@@ -1327,3 +1327,109 @@ dispara en la transición, porque la factura siguiente ya no mueve el precio.
 sintéticos (incluidos los casos reales de ambas facturas, el descuento dentro de `cac:Price`, el
 cargo de línea, el descuento de documento y las dos bonificaciones), más el volcado de XML reales
 pasándole rutas por argumento.
+
+---
+
+## Varios códigos del proveedor para un mismo producto (2026-09-21)
+
+### El síntoma
+
+Un código ya mapeado volvía a aparecer en "Por Mapear" al cargar otra factura. El usuario lo
+detectó en GRUPO ROLDAN: `GRP701NG` pedía mapeo cuando `SIL0601` ya estaba vinculado a ese
+proveedor.
+
+### La causa
+
+No era el mismo código. El proveedor factura el mismo sillar 7038 como **`GRE701NG`** (facturas de
+septiembre) y como **`GRP701NG`** (agosto), con descripciones idénticas salvo el peso de la tira.
+El matching de la ingesta es exacto sobre `codigo_proveedor`, así que el segundo código era, para
+el sistema, un código desconocido.
+
+Hasta aquí el comportamiento era correcto. El defecto real estaba **un paso después**: al vincular
+el código nuevo, el `findOrCreate` de `vincularPendiente` encontraba la equivalencia ya existente
+—misma `(proveedor, producto, modalidad)`— y la rama `if (!creado)` solo escribía el código si el
+campo estaba vacío:
+
+```ts
+if (!pp.getDataValue('codigo_proveedor')) cambios.codigo_proveedor = pendiente...;
+```
+
+Resultado: el pendiente pasaba a `MAPEADO`, la equivalencia conservaba el código viejo y la
+siguiente factura con el código nuevo volvía a la bandeja. **Bucle de mapeo sin ninguna señal de
+error.** Y no se arreglaba sobrescribiendo: la UNIQUE `(proveedor_id, catalogo_producto_id,
+unidad_compra)` impide tener dos filas para el mismo producto y modalidad, así que la estructura
+no admitía dos códigos.
+
+### Alcance medido en producción (2026-09-21)
+
+| Medición | Valor |
+|---|---|
+| Colisiones GRE/GRP en ROLDAN | **5** (CAB0601, SIL0601, HOR0602, TRA0602, ENG0602), todas de FE-FELC89390 |
+| Mapeos huérfanos ya existentes | **15** en 5 proveedores: VENTANAS Y PUERTAS (6), VEA (4), VITELSA (2), ACVICOL (2), AVQ (1) |
+| Facturas de ROLDAN con `lineas_actualizadas = 0` | **7 de 7** — la ingesta nunca actualizó un precio sola en ese proveedor |
+| Equivalencias totales / con código | 237 / 208 |
+
+Los 15 huérfanos prueban que **no era un caso de ROLDAN**: el módulo llevaba tiempo perdiendo
+mapeos en silencio.
+
+### La solución
+
+Tabla nueva **`proveedor_producto_codigo`**: N códigos por equivalencia.
+
+- **UNIQUE `(proveedor_producto_id, codigo_proveedor)`**, no `(proveedor_id, codigo_proveedor)`.
+  El proveedor 1029 factura `3`, `11` y `32` en dos modalidades del mismo producto (UNIDAD y M2),
+  que son dos filas distintas de `proveedor_producto`: una UNIQUE por proveedor las habría roto.
+  Que un código apunte a dos **productos** distintos sí es un error, y se rechaza con **409** desde
+  la aplicación para poder explicarlo en vez de reventar con una violación de constraint.
+- **`proveedor_id` denormalizado**: la consulta caliente es `WHERE proveedor_id = X AND
+  codigo_proveedor IN (...)` por lote de factura. Sin la columna, cada lote paga un JOIN. Ninguna
+  ruta mueve una equivalencia de proveedor, así que no puede desincronizarse.
+- **`proveedor_producto.codigo_proveedor` se conserva** como copia de lectura del código principal.
+  Lo consultan los dos buscadores, el comparador, tres listados y tres componentes del frontend;
+  eliminarlo convertía un cambio aditivo en una reescritura. La tabla nueva es la fuente de verdad.
+- **Un único punto de resolución**: `utils/proveedorCodigos.ts`. El lookup estaba duplicado en tres
+  sitios (ingesta de FE, importación de listas y el modal) con reglas que ya divergían. Vive en
+  `utils/` y no en el controlador por la misma razón que `pedidoPvCapacidad.ts`: el controlador
+  arrastra la augmentación de `Request.user` que los scripts con `ts-node` no resuelven.
+
+### Casos borde resueltos
+
+1. **Dos códigos alias en la misma factura.** Una pasada previa decide qué código escribe cada
+   equivalencia **antes** de tocar nada: gana el **precio mayor** (decisión del usuario, coherente
+   con el `maxPrecio` que ya rige dentro de un código) y se emite el aviso
+   `CODIGOS_ALIAS_MISMA_FACTURA`. Sin esa pasada, la segunda línea pisaba a la primera y el
+   histórico quedaba con dos registros del mismo CUFE.
+2. **Desvincular una equivalencia** devuelve **todos** sus códigos a la bandeja. Dejar fuera los
+   secundarios los volvía invisibles y sin capturar precio — que es exactamente cómo nacieron los
+   15 huérfanos.
+3. **Quitar el código principal** promueve el más antiguo restante y sincroniza la copia de
+   lectura. Quitar el último deja la equivalencia sin código: estado válido, hoy hay 29 así
+   (creadas por el script de precios por tira del 2026-09-17).
+4. **`editarPrecio` y `agregarPrecioManual` ya no sobrescriben** el código: lo suman. Escribir un
+   código nuevo desde la pestaña Equivalencias lo marca principal y conserva los anteriores, para
+   que las facturas viejas sigan enganchando.
+
+### Lo que ve el usuario
+
+- **Modal de vinculación**: cuando el producto elegido ya tiene equivalencia con ese proveedor y
+  esa modalidad, un aviso ámbar dice que el código **se agregará como adicional** y qué códigos ya
+  existen. Antes no decía nada y por eso se confirmaban vinculaciones que se evaporaban.
+- **Pestaña Equivalencias**: chips con los códigos secundarios, botón `+ código` para dar de alta
+  uno sin esperar a que llegue una factura, y `×` para quitarlo.
+- **Comparador**: contador `+N` con los códigos alternativos en el tooltip.
+
+### Migración
+
+`backend-api/src/scripts/2026-09-21_codigos_multiples_proveedor.ts` (ya ejecutado). Idempotente.
+Crea la tabla, hace el backfill (208 códigos, todos principales), normaliza la copia de lectura y
+**devuelve a `PENDIENTE` los 15 mapeos huérfanos** — la bandeja no guarda a qué producto se
+vincularon, así que no se pueden reparar solos; hay que re-mapearlos a mano, y ahora el re-mapeo sí
+agrega el código.
+
+### Pendiente operativo
+
+Los 5 pares GRE/GRP de ROLDAN siguen en la bandeja: el usuario confirmó que **son el mismo perfil**,
+así que hay que vincularlos desde "Por Mapear" al mismo producto del catálogo. Al hacerlo, el
+código se suma y el precio de agosto entra como **retroactivo** (12-ago es anterior al vigente de
+14-sep), sin desplazar el vigente. Ojo al dato que queda abierto: los pesos de la tira difieren
+entre 9 % y 15 % entre ambas referencias.

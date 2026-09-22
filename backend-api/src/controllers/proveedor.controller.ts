@@ -8,6 +8,7 @@ import {
   Proveedor,
   ProveedorProducto,
   ProveedorProductoPrecio,
+  ProveedorProductoCodigo,
   ProveedorCodigoPendiente,
   FacturaProveedorProcesada,
   ProductoAlias,
@@ -16,6 +17,14 @@ import {
 } from '../models';
 import { procesarBufferFactura, derivarCodigo, FacturaParseada } from '../utils/dianXmlParser';
 import { siguePrecios } from '../utils/proveedorReglas';
+import {
+  resolverEquivalenciasPorCodigo,
+  codigoEnOtroProducto,
+  registrarCodigo,
+  quitarCodigo,
+  listarCodigos,
+  normalizarCodigo,
+} from '../utils/proveedorCodigos';
 import { programarRecalculo } from '../cotizador/lib/sincronizacionProveedores';
 
 // ─── Constantes de dominio ────────────────────────────────────────────────────
@@ -847,10 +856,22 @@ export const buscarEnModulo = async (req: Request, res: Response) => {
           limit: LIMITE_GRUPO * 2,
         }),
 
-        // 3. Productos por el código o la descripción que usa el proveedor
+        // 3. Productos por el código o la descripción que usa el proveedor.
+        //    Busca en TODOS sus códigos, no solo en el principal: quien tiene la
+        //    factura delante escribe el código que ve impreso, que puede ser
+        //    cualquiera de los que el proveedor usa para ese producto.
         ProveedorProducto.findAll({
-          where: { activo: true, ...condiciones(['codigo_proveedor', 'descripcion_proveedor']) },
-          include: [{ model: Proveedor, as: 'proveedor', attributes: ['id', 'nombre_comercial'] }],
+          where: {
+            activo: true,
+            [Op.or]: [
+              condiciones(['codigo_proveedor', 'descripcion_proveedor']),
+              condiciones(['$codigos.codigo_proveedor$']),
+            ],
+          },
+          include: [
+            { model: Proveedor, as: 'proveedor', attributes: ['id', 'nombre_comercial'] },
+            { model: ProveedorProductoCodigo, as: 'codigos', attributes: ['codigo_proveedor'], required: false },
+          ],
           attributes: ['id', 'catalogo_producto_id', 'codigo_proveedor', 'descripcion_proveedor'],
           limit: LIMITE_GRUPO * 2,
           subQuery: false,
@@ -1185,6 +1206,15 @@ export const consultarPrecios = async (req: Request, res: Response) => {
           where: { activo: true },
           attributes: ['id', 'nit', 'nombre_comercial'],
         },
+        {
+          // Los códigos alternativos con los que este proveedor factura el producto.
+          // `separate` para no multiplicar filas contra el include del proveedor.
+          model: ProveedorProductoCodigo,
+          as: 'codigos',
+          attributes: ['id', 'codigo_proveedor', 'principal'],
+          separate: true,
+          order: [['principal', 'DESC'], ['id', 'ASC']],
+        },
       ],
       order: [['precio_actual', 'ASC']],
       attributes: [
@@ -1222,6 +1252,14 @@ export const consultarPrecios = async (req: Request, res: Response) => {
         proveedor_producto_id: pp.id,
         proveedor: pp.proveedor,
         codigo_proveedor: pp.codigo_proveedor,
+        // Los demás códigos con los que este proveedor factura el mismo producto.
+        // El modal de vinculación los usa para avisar, antes de confirmar, que el
+        // código nuevo se sumará a una equivalencia que ya existe.
+        codigos: (pp.codigos ?? []).map((c: any) => ({
+          id: c.id,
+          codigo_proveedor: c.codigo_proveedor,
+          principal: c.principal,
+        })),
         descripcion_proveedor: pp.descripcion_proveedor,
         unidad_compra: pp.unidad_compra,
         precio_sin_iva: precioActual,
@@ -1313,10 +1351,10 @@ export const agregarPrecioManual = async (req: Request, res: Response) => {
     });
 
     if (!creado) {
-      // Reactivar el mapeo si venía dado de baja y refrescar cómo lo nombra el proveedor
+      // Reactivar el mapeo si venía dado de baja y refrescar cómo lo nombra el proveedor.
+      // El código ya NO se sobrescribe: se suma a los que ya tenga la equivalencia.
       const cambios: any = {};
       if (pp.getDataValue('activo') === false) cambios.activo = true;
-      if (datos.codigo_proveedor) cambios.codigo_proveedor = datos.codigo_proveedor;
       if (datos.descripcion_proveedor) cambios.descripcion_proveedor = datos.descripcion_proveedor;
       if (Object.keys(cambios).length) await pp.update(cambios, { transaction: t });
 
@@ -1336,6 +1374,35 @@ export const agregarPrecioManual = async (req: Request, res: Response) => {
         },
         { transaction: t }
       );
+    }
+
+    // El código escrito a mano entra al registro de códigos como uno más
+    if (datos.codigo_proveedor) {
+      const ocupadoPor = await codigoEnOtroProducto(
+        proveedor_id,
+        datos.codigo_proveedor,
+        datos.catalogo_producto_id,
+        t
+      );
+      if (ocupadoPor) {
+        const otro = await CatalogoProducto.findByPk(ocupadoPor.getDataValue('catalogo_producto_id'), {
+          attributes: ['codigo'],
+          transaction: t,
+        });
+        await t.rollback();
+        return fallar(
+          res,
+          409,
+          `El código ${datos.codigo_proveedor} ya está vinculado a ${otro?.getDataValue('codigo') ?? 'otro producto'} ` +
+            'en este proveedor. Un mismo código no puede apuntar a dos productos distintos.'
+        );
+      }
+      await registrarCodigo(pp, datos.codigo_proveedor, {
+        descripcion: datos.descripcion_proveedor || null,
+        origen: 'MANUAL',
+        principal: creado,
+        transaction: t,
+      });
     }
 
     if (datos.guardar_alias && datos.descripcion_proveedor) {
@@ -1375,10 +1442,40 @@ export const editarPrecio = async (req: Request, res: Response) => {
     const userId = req.user?.id ?? null;
 
     const updates: any = {};
-    if (datos.codigo_proveedor !== undefined) updates.codigo_proveedor = datos.codigo_proveedor;
     if (datos.descripcion_proveedor !== undefined) updates.descripcion_proveedor = datos.descripcion_proveedor;
     if (datos.unidad_compra !== undefined) updates.unidad_compra = datos.unidad_compra;
     if (Object.keys(updates).length) await pp.update(updates, { transaction: t });
+
+    // Editar el código desde aquí lo AGREGA y lo marca principal; los anteriores
+    // se conservan para que las facturas viejas sigan enganchando. Para eliminar
+    // uno está DELETE /equivalencias/:id/codigos/:codigo_id.
+    if (datos.codigo_proveedor) {
+      const ocupadoPor = await codigoEnOtroProducto(
+        Number(pp.getDataValue('proveedor_id')),
+        datos.codigo_proveedor,
+        Number(pp.getDataValue('catalogo_producto_id')),
+        t
+      );
+      if (ocupadoPor) {
+        const otro = await CatalogoProducto.findByPk(ocupadoPor.getDataValue('catalogo_producto_id'), {
+          attributes: ['codigo'],
+          transaction: t,
+        });
+        await t.rollback();
+        return fallar(
+          res,
+          409,
+          `El código ${datos.codigo_proveedor} ya está vinculado a ${otro?.getDataValue('codigo') ?? 'otro producto'} ` +
+            'en este proveedor. Un mismo código no puede apuntar a dos productos distintos.'
+        );
+      }
+      await registrarCodigo(pp, datos.codigo_proveedor, {
+        descripcion: datos.descripcion_proveedor ?? null,
+        origen: 'MANUAL',
+        principal: true,
+        transaction: t,
+      });
+    }
 
     let resultado: ResultadoPrecio | null = null;
     if (datos.precio !== undefined) {
@@ -1531,12 +1628,38 @@ export const vincularPendiente = async (req: Request, res: Response) => {
     const fechaFactura = aFechaISO(pendiente.getDataValue('fecha_deteccion'));
     const fechaVigencia = datos.fecha_precio || fechaFactura || new Date().toISOString().split('T')[0];
 
+    const codigoPendiente = pendiente.getDataValue('codigo_proveedor');
+
+    // Un código no puede apuntar a dos productos distintos del mismo proveedor:
+    // la ingesta dejaría de ser determinista y el precio caería en la fila
+    // equivocada. Entre dos MODALIDADES del mismo producto sí es legítimo.
+    const ocupadoPor = await codigoEnOtroProducto(
+      proveedor_id,
+      codigoPendiente,
+      datos.catalogo_producto_id,
+      t
+    );
+    if (ocupadoPor) {
+      const otro = await CatalogoProducto.findByPk(ocupadoPor.getDataValue('catalogo_producto_id'), {
+        attributes: ['codigo', 'nombre'],
+        transaction: t,
+      });
+      await t.rollback();
+      return fallar(
+        res,
+        409,
+        `El código ${codigoPendiente} ya está vinculado a ${otro?.getDataValue('codigo') ?? 'otro producto'}` +
+          `${otro ? ` (${otro.getDataValue('nombre')})` : ''} en este proveedor. ` +
+          'Un mismo código no puede apuntar a dos productos distintos: desvincula el anterior si fue un error.'
+      );
+    }
+
     const [pp, creado] = await ProveedorProducto.findOrCreate({
       where: { proveedor_id, catalogo_producto_id: datos.catalogo_producto_id, unidad_compra: datos.unidad_compra },
       defaults: {
         proveedor_id,
         catalogo_producto_id: datos.catalogo_producto_id,
-        codigo_proveedor: pendiente.getDataValue('codigo_proveedor'),
+        codigo_proveedor: codigoPendiente,
         descripcion_proveedor: descripcion || null,
         unidad_compra: datos.unidad_compra,
         precio_actual: precio,
@@ -1549,7 +1672,6 @@ export const vincularPendiente = async (req: Request, res: Response) => {
       // Reutilizar un mapeo dado de baja en lugar de dejarlo inactivo y sin efecto
       const cambios: any = {};
       if (pp.getDataValue('activo') === false) cambios.activo = true;
-      if (!pp.getDataValue('codigo_proveedor')) cambios.codigo_proveedor = pendiente.getDataValue('codigo_proveedor');
       if (Object.keys(cambios).length) await pp.update(cambios, { transaction: t });
 
       if (precio !== null) {
@@ -1582,6 +1704,24 @@ export const vincularPendiente = async (req: Request, res: Response) => {
       );
     }
 
+    // Registrar el código como uno más de esta equivalencia.
+    //
+    // Antes, cuando la equivalencia ya existía, el código nuevo se descartaba en
+    // silencio (solo se escribía si el campo estaba vacío): el pendiente quedaba
+    // MAPEADO, la equivalencia conservaba el código viejo y la siguiente factura
+    // con el código nuevo volvía a la bandeja. Un bucle de mapeo sin señal de
+    // error — 5 casos en GRUPO ROLDAN y 15 huérfanos en otros 5 proveedores.
+    const { creado: codigoNuevo } = await registrarCodigo(pp, codigoPendiente, {
+      descripcion: descripcion || null,
+      origen: 'BANDEJA',
+      principal: creado,
+      transaction: t,
+    });
+    const totalCodigos = await ProveedorProductoCodigo.count({
+      where: { proveedor_producto_id: pp.getDataValue('id') },
+      transaction: t,
+    });
+
     // Guardar la descripción como alias solo si el usuario lo pidió: la casilla
     // "Recordar como sinónimo" existía en pantalla pero no se consultaba.
     const alias = (datos.descripcion_alias || descripcion).trim();
@@ -1596,7 +1736,15 @@ export const vincularPendiente = async (req: Request, res: Response) => {
     await pendiente.update({ estado: 'MAPEADO' }, { transaction: t });
 
     await t.commit();
-    res.json({ message: 'Código vinculado exitosamente', proveedor_producto: pp });
+    res.json({
+      message:
+        !creado && codigoNuevo
+          ? `Código agregado: ${producto.getDataValue('codigo')} ya tenía equivalencia con este proveedor y ahora responde a ${totalCodigos} códigos.`
+          : 'Código vinculado exitosamente',
+      proveedor_producto: pp,
+      codigo_agregado: !creado && codigoNuevo,
+      total_codigos: totalCodigos,
+    });
   } catch (err: any) {
     await t.rollback();
     if (err instanceof z.ZodError) return fallar(res, 400, mensajeZod(err));
@@ -1758,6 +1906,16 @@ export const listarEquivalencias = async (req: Request, res: Response) => {
       include: [
         { model: Proveedor, as: 'proveedor', attributes: ['id', 'nombre_comercial', 'nit'] },
         { model: CatalogoProducto, as: 'producto', attributes: ['id', 'codigo', 'nombre', 'es_aluminio'] },
+        {
+          // `separate` evita el cartesiano contra los otros dos includes. Lleva
+          // `order` explícito a propósito: en una consulta separada el orden del
+          // padre no se hereda (lección del análisis de egress del 2026-08-01).
+          model: ProveedorProductoCodigo,
+          as: 'codigos',
+          attributes: ['id', 'codigo_proveedor', 'principal', 'origen'],
+          separate: true,
+          order: [['principal', 'DESC'], ['id', 'ASC']],
+        },
       ],
       attributes: [
         'id', 'proveedor_id', 'catalogo_producto_id', 'codigo_proveedor', 'descripcion_proveedor',
@@ -1803,7 +1961,6 @@ export const desvincularEquivalencia = async (req: Request, res: Response) => {
     }
 
     const proveedor_id = pp.getDataValue('proveedor_id');
-    const codigo_proveedor = pp.getDataValue('codigo_proveedor');
     const descripcion_proveedor = pp.getDataValue('descripcion_proveedor');
     const precio_actual = pp.getDataValue('precio_actual');
     const fecha_precio_actual = pp.getDataValue('fecha_precio_actual');
@@ -1811,9 +1968,27 @@ export const desvincularEquivalencia = async (req: Request, res: Response) => {
 
     await pp.update({ activo: false }, { transaction: t });
 
-    if (codigo_proveedor) {
+    // Vuelven TODOS los códigos de la equivalencia, no solo el principal: si el
+    // proveedor factura este producto con tres códigos, dejar dos fuera de la
+    // bandeja los volvería invisibles y sin capturar precio.
+    const codigosEquivalencia = await listarCodigos(Number(pp.getDataValue('id')), t);
+    const codigos: Array<{ codigo: string; descripcion: string | null }> = codigosEquivalencia.map((c) => ({
+      codigo: String(c.getDataValue('codigo_proveedor')),
+      descripcion: (c.getDataValue('descripcion_proveedor') as string | null) ?? descripcion_proveedor ?? null,
+    }));
+
+    // Respaldo para las equivalencias anteriores al registro de códigos que no
+    // alcanzaron el backfill (creadas entre la migración y este despliegue)
+    if (codigos.length === 0 && pp.getDataValue('codigo_proveedor')) {
+      codigos.push({
+        codigo: String(pp.getDataValue('codigo_proveedor')),
+        descripcion: descripcion_proveedor ?? null,
+      });
+    }
+
+    for (const { codigo, descripcion } of codigos) {
       const pendiente = await ProveedorCodigoPendiente.findOne({
-        where: { proveedor_id, codigo_proveedor },
+        where: { proveedor_id, codigo_proveedor: codigo },
         transaction: t,
       });
 
@@ -1839,8 +2014,8 @@ export const desvincularEquivalencia = async (req: Request, res: Response) => {
         await ProveedorCodigoPendiente.create(
           {
             proveedor_id,
-            codigo_proveedor,
-            descripcion_proveedor: descripcion_proveedor || null,
+            codigo_proveedor: codigo,
+            descripcion_proveedor: descripcion || null,
             precio_detectado: precio_actual || null,
             unidad_detectada: unidad_compra,
             veces_visto: 1,
@@ -1853,7 +2028,13 @@ export const desvincularEquivalencia = async (req: Request, res: Response) => {
     }
 
     await t.commit();
-    res.json({ message: 'Equivalencia desvinculada y devuelta a Por Mapear. Su histórico de precios se conserva.' });
+    res.json({
+      message:
+        codigos.length > 1
+          ? `Equivalencia desvinculada. Sus ${codigos.length} códigos volvieron a Por Mapear y su histórico de precios se conserva.`
+          : 'Equivalencia desvinculada y devuelta a Por Mapear. Su histórico de precios se conserva.',
+      codigos_devueltos: codigos.length,
+    });
   } catch (err: any) {
     await t.rollback();
     const { status, mensaje } = mensajeDeError(err, 'No se pudo desvincular la equivalencia');
@@ -1878,6 +2059,128 @@ export const historicoEquivalencia = async (req: Request, res: Response) => {
     res.json(historico);
   } catch (err: any) {
     const { status, mensaje } = mensajeDeError(err, 'No se pudo cargar el histórico de precios');
+    fallar(res, status, mensaje, err);
+  }
+};
+
+// ─── Códigos de una equivalencia (varios códigos por producto) ───────────────
+
+/**
+ * Un proveedor puede facturar el mismo producto interno con varios códigos
+ * distintos. Estos tres endpoints gestionan esa lista desde la pestaña
+ * Equivalencias; la ingesta la consume sola y no necesita intervención.
+ */
+
+const agregarCodigoSchema = z.object({
+  codigo: z.string().trim().min(1, 'Escribe el código del proveedor').max(100),
+  descripcion: z.string().trim().optional().nullable(),
+  principal: z.boolean().default(false),
+}).strict();
+
+// ─── GET /api/proveedores/equivalencias/:id/codigos ──────────────────────────
+export const listarCodigosEquivalencia = async (req: Request, res: Response) => {
+  try {
+    const pp = await ProveedorProducto.findByPk(req.params.id, { attributes: ['id'] });
+    if (!pp) return fallar(res, 404, 'La equivalencia ya no existe. Refresca la lista.');
+    res.json(await listarCodigos(Number(pp.getDataValue('id'))));
+  } catch (err: any) {
+    const { status, mensaje } = mensajeDeError(err, 'No se pudieron cargar los códigos');
+    fallar(res, status, mensaje, err);
+  }
+};
+
+// ─── POST /api/proveedores/equivalencias/:id/codigos ─────────────────────────
+export const agregarCodigoEquivalencia = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const datos = agregarCodigoSchema.parse(req.body);
+    const pp = await ProveedorProducto.findByPk(req.params.id, { transaction: t });
+    if (!pp) {
+      await t.rollback();
+      return fallar(res, 404, 'La equivalencia ya no existe. Refresca la lista.');
+    }
+
+    const ocupadoPor = await codigoEnOtroProducto(
+      Number(pp.getDataValue('proveedor_id')),
+      datos.codigo,
+      Number(pp.getDataValue('catalogo_producto_id')),
+      t
+    );
+    if (ocupadoPor) {
+      const otro = await CatalogoProducto.findByPk(ocupadoPor.getDataValue('catalogo_producto_id'), {
+        attributes: ['codigo', 'nombre'],
+        transaction: t,
+      });
+      await t.rollback();
+      return fallar(
+        res,
+        409,
+        `El código ${datos.codigo} ya está vinculado a ${otro?.getDataValue('codigo') ?? 'otro producto'}` +
+          `${otro ? ` (${otro.getDataValue('nombre')})` : ''} en este proveedor. ` +
+          'Un mismo código no puede apuntar a dos productos distintos.'
+      );
+    }
+
+    const { creado } = await registrarCodigo(pp, datos.codigo, {
+      descripcion: datos.descripcion ?? null,
+      origen: 'MANUAL',
+      principal: datos.principal,
+      transaction: t,
+    });
+
+    // El código puede haber estado esperando en la bandeja: darlo de alta aquí
+    // resuelve ese pendiente igual que hacerlo desde el modal de vinculación.
+    await ProveedorCodigoPendiente.update(
+      { estado: 'MAPEADO' },
+      {
+        where: {
+          proveedor_id: pp.getDataValue('proveedor_id'),
+          codigo_proveedor: normalizarCodigo(datos.codigo),
+          estado: 'PENDIENTE',
+        },
+        transaction: t,
+      }
+    );
+
+    await t.commit();
+    res.status(creado ? 201 : 200).json({
+      message: creado ? `Código ${normalizarCodigo(datos.codigo)} agregado` : 'Ese código ya estaba registrado',
+      codigos: await listarCodigos(Number(pp.getDataValue('id'))),
+    });
+  } catch (err: any) {
+    await t.rollback();
+    if (err instanceof z.ZodError) return fallar(res, 400, mensajeZod(err));
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo agregar el código');
+    fallar(res, status, mensaje, err);
+  }
+};
+
+// ─── DELETE /api/proveedores/equivalencias/:id/codigos/:codigo_id ────────────
+export const quitarCodigoEquivalencia = async (req: Request, res: Response) => {
+  const t = await sequelize.transaction();
+  try {
+    const pp = await ProveedorProducto.findByPk(req.params.id, { transaction: t });
+    if (!pp) {
+      await t.rollback();
+      return fallar(res, 404, 'La equivalencia ya no existe. Refresca la lista.');
+    }
+
+    const { eliminado, nuevoPrincipal } = await quitarCodigo(
+      pp,
+      parseInt(req.params.codigo_id, 10),
+      t
+    );
+
+    await t.commit();
+    res.json({
+      message: nuevoPrincipal
+        ? `Código ${eliminado} eliminado. ${nuevoPrincipal} pasa a ser el principal.`
+        : `Código ${eliminado} eliminado. La equivalencia se queda sin código hasta que registres otro.`,
+      codigos: await listarCodigos(Number(pp.getDataValue('id'))),
+    });
+  } catch (err: any) {
+    await t.rollback();
+    const { status, mensaje } = mensajeDeError(err, 'No se pudo eliminar el código');
     fallar(res, status, mensaje, err);
   }
 };
@@ -2104,23 +2407,17 @@ export const importarListaPrecios = async (req: Request, res: Response) => {
     // ── 3. Contrastar contra lo ya conocido de este proveedor ──────────────────
     const codigos = Array.from(new Set(filas.map((f) => f.codigo)));
 
-    const [equivalencias, bandeja] = await Promise.all([
-      ProveedorProducto.findAll({
-        where: { proveedor_id: proveedorId, codigo_proveedor: { [Op.in]: codigos }, activo: true },
-        attributes: ['id', 'codigo_proveedor', 'catalogo_producto_id', 'unidad_compra', 'precio_actual', 'fecha_precio_actual'],
-      }),
+    // Mismo lookup que la ingesta de facturas: resuelve por todos los códigos de
+    // cada equivalencia, no solo por el principal.
+    const [equivPorCodigo, bandeja] = await Promise.all([
+      resolverEquivalenciasPorCodigo(proveedorId, codigos),
       ProveedorCodigoPendiente.findAll({
         where: { proveedor_id: proveedorId, codigo_proveedor: { [Op.in]: codigos } },
         attributes: ['id', 'codigo_proveedor', 'estado'],
       }),
     ]);
 
-    const equivPorCodigo = new Map<string, any[]>();
-    for (const eq of equivalencias) {
-      const cod = eq.getDataValue('codigo_proveedor');
-      if (!equivPorCodigo.has(cod)) equivPorCodigo.set(cod, []);
-      equivPorCodigo.get(cod)!.push(eq);
-    }
+    const equivalencias = Array.from(new Set(Array.from(equivPorCodigo.values()).flat()));
     const bandejaPorCodigo = new Map<string, any>();
     for (const b of bandeja) bandejaPorCodigo.set(b.getDataValue('codigo_proveedor'), b);
 
@@ -2403,7 +2700,8 @@ interface PrecioActualizadoItem {
 
 interface AvisoLote {
   tipo: 'UNIDAD_DISTINTA' | 'IVA_DISTINTO' | 'MONEDA' | 'NOTA_CREDITO' | 'PROVEEDOR_NUEVO'
-      | 'BONIFICACION' | 'DESCUENTO_ALTO' | 'DESCUENTO_GLOBAL';
+      | 'BONIFICACION' | 'DESCUENTO_ALTO' | 'DESCUENTO_GLOBAL'
+      | 'CODIGOS_ALIAS_MISMA_FACTURA';
   proveedor_nombre: string;
   detalle: string;
 }
@@ -2708,25 +3006,20 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
           }
         }
 
-        // Equivalencias y bandeja de este proveedor, en dos consultas
+        // Equivalencias y bandeja de este proveedor, en dos consultas.
+        // El lookup resuelve por TODOS los códigos de cada equivalencia, no solo
+        // por el principal: un proveedor puede facturar el mismo producto con
+        // varios códigos y cualquiera de ellos debe actualizar el mismo precio.
         const codigos = Array.from(agrupadas.keys()).map(k => k.split('|')[0]);
-        const [equivalencias, bandeja] = await Promise.all([
-          ProveedorProducto.findAll({
-            where: { proveedor_id: proveedorId, codigo_proveedor: { [Op.in]: codigos }, activo: true },
-            transaction: t,
-          }),
+        const [equivPorCodigo, bandeja] = await Promise.all([
+          resolverEquivalenciasPorCodigo(proveedorId, codigos, t),
           ProveedorCodigoPendiente.findAll({
             where: { proveedor_id: proveedorId, codigo_proveedor: { [Op.in]: codigos } },
             transaction: t,
           }),
         ]);
 
-        const equivPorCodigo = new Map<string, any[]>();
-        for (const eq of equivalencias) {
-          const cod = eq.getDataValue('codigo_proveedor');
-          if (!equivPorCodigo.has(cod)) equivPorCodigo.set(cod, []);
-          equivPorCodigo.get(cod)!.push(eq);
-        }
+        const equivalencias = Array.from(new Set(Array.from(equivPorCodigo.values()).flat()));
         const bandejaPorCodigo = new Map<string, any>();
         for (const b of bandeja) bandejaPorCodigo.set(b.getDataValue('codigo_proveedor'), b);
 
@@ -2756,6 +3049,29 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
         // detectado el de la otra modalidad — dos cifras no comparables en una casilla.
         const codigosVistosEnFactura = new Set<string>();
 
+        /**
+         * Qué equivalencia recibe qué precio, decidido antes de escribir nada.
+         *
+         * Desde que un producto puede tener varios códigos del proveedor, una misma
+         * factura puede traer dos de ellos apuntando a la MISMA fila de precio
+         * (GRE701NG y GRP701NG del sillar 7038). Sin esta pasada previa, la segunda
+         * línea pisaba a la primera y el histórico quedaba con dos registros del
+         * mismo CUFE. Se resuelve por el precio MAYOR —decisión del usuario, y
+         * coherente con el `maxPrecio` que ya se aplica dentro de un mismo código—
+         * y se deja aviso de que hubo que elegir.
+         */
+        const elegidoPorEquivalencia = new Map<number, { codigo: string; precio: number }>();
+        for (const [clave, info] of agrupadas.entries()) {
+          const cod = clave.split('|')[0];
+          for (const eq of equivPorCodigo.get(cod) ?? []) {
+            const ppId = Number(eq.getDataValue('id'));
+            const previo = elegidoPorEquivalencia.get(ppId);
+            if (!previo || info.maxPrecio > previo.precio) {
+              elegidoPorEquivalencia.set(ppId, { codigo: cod, precio: info.maxPrecio });
+            }
+          }
+        }
+
         for (const [clave, info] of agrupadas.entries()) {
           const codigoProv = clave.split('|')[0];
           const candidatas = equivPorCodigo.get(codigoProv) ?? [];
@@ -2775,6 +3091,36 @@ export const cargarFacturasLote = async (req: Request, res: Response) => {
               objetivo = candidatas.filter(eq => eq.getDataValue('unidad_compra') === info.unidad);
             } else if (candidatas.length === 1) {
               objetivo = candidatas;
+            }
+          }
+
+          // Otro código de esta misma factura apunta a la misma fila con un precio
+          // más alto: se cede el turno y se avisa, en vez de escribir dos veces.
+          if (objetivo.length > 0) {
+            const cedidas = objetivo.filter((eq) => {
+              const elegido = elegidoPorEquivalencia.get(Number(eq.getDataValue('id')));
+              return elegido && elegido.codigo !== codigoProv;
+            });
+            for (const eq of cedidas) {
+              const elegido = elegidoPorEquivalencia.get(Number(eq.getDataValue('id')))!;
+              const producto = productosPorId.get(Number(eq.getDataValue('catalogo_producto_id')));
+              avisos.push({
+                tipo: 'CODIGOS_ALIAS_MISMA_FACTURA',
+                proveedor_nombre: proveedorNombre,
+                detalle:
+                  `${docRef} trae ${codigoProv} y ${elegido.codigo} apuntando al mismo producto` +
+                  `${producto ? ` (${producto.getDataValue('codigo')})` : ''}. ` +
+                  `Se aplicó el precio mayor ($${elegido.precio.toLocaleString('es-CO')}, de ${elegido.codigo}). ` +
+                  'Si no son el mismo perfil, sepáralos en dos productos del catálogo.',
+              });
+            }
+            objetivo = objetivo.filter((eq) => {
+              const elegido = elegidoPorEquivalencia.get(Number(eq.getDataValue('id')));
+              return !elegido || elegido.codigo === codigoProv;
+            });
+            if (objetivo.length === 0) {
+              omitidas++;
+              continue;
             }
           }
 

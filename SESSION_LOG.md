@@ -4590,3 +4590,59 @@ carga de plano desde la vista Normal funciona.
   navegador (F5) para que el nuevo `useEffect` de despieces corra: React Fast Refresh no siempre
   reinicia los hooks de un componente que ya estaba montado cuando cambia el código.
 - Sin commit: el cambio queda en el working tree a la espera de orden.
+
+---
+
+## 2026-09-21 — Proveedores: varios códigos del proveedor por producto interno
+
+### Origen
+El usuario detectó que `GRP701NG` (GRUPO ROLDAN) pedía mapeo cuando ese producto ya estaba mapeado.
+
+### Diagnóstico
+No era el mismo código: lo mapeado era **`GRE701NG`**; el proveedor usa dos códigos para el mismo
+sillar 7038. El matching exacto por `codigo_proveedor` era correcto, pero el defecto estaba un paso
+después — al vincular, `findOrCreate` encontraba la equivalencia existente y **descartaba el código
+nuevo en silencio** (solo lo escribía si el campo estaba vacío). El pendiente quedaba `MAPEADO`, la
+equivalencia conservaba el código viejo y la siguiente factura volvía a la bandeja: bucle de mapeo
+sin señal de error.
+
+Medido en producción: 5 colisiones GRE/GRP en ROLDAN, **15 mapeos huérfanos** en otros 5 proveedores
+(VENTANAS Y PUERTAS, VEA, VITELSA, ACVICOL, AVQ) y 7 de 7 facturas de ROLDAN con
+`lineas_actualizadas = 0`. El problema llevaba tiempo actuando en silencio.
+
+### Decisiones del usuario
+1. Dos códigos alias en la misma factura → aplicar el **precio mayor** y avisar.
+2. Los 15 huérfanos → devolverlos a `PENDIENTE`.
+3. GRP70xNG y GRE70xNG **son el mismo perfil**.
+
+### Cambios
+**BD:** tabla `proveedor_producto_codigo` (N códigos por equivalencia), UNIQUE
+`(proveedor_producto_id, codigo_proveedor)` — no por proveedor, porque el 1029 usa el mismo código
+en dos modalidades. `proveedor_id` denormalizado para el lookup por índice.
+`proveedor_producto.codigo_proveedor` se conserva como copia de lectura del principal.
+
+**Backend:** modelo nuevo + asociaciones + auditoría (41 modelos, 33 tablas revertibles); helper
+`utils/proveedorCodigos.ts` que unifica el lookup antes duplicado en tres sitios; ingesta de FE e
+importación de listas resolviendo por todos los códigos; `vincularPendiente` agrega en vez de
+descartar; validación 409 si un código apunta a dos productos; `desvincularEquivalencia` devuelve
+todos los códigos; 3 rutas nuevas de gestión (declaradas **antes** de `DELETE /equivalencias/:id`);
+aviso `CODIGOS_ALIAS_MISMA_FACTURA` con pasada previa que decide el ganador antes de escribir.
+
+**Frontend:** aviso en `VincularCodigoModal` ("se agregará como código adicional"), chips y
+alta/baja de códigos en `EquivalenciasTab`, contador `+N` en `ConsultarPreciosTab`.
+
+**Migración:** `2026-09-21_codigos_multiples_proveedor.ts`, ejecutada — 208 códigos migrados, 208
+principales, 0 desalineados, 15 huérfanos devueltos a `PENDIENTE`.
+
+### Verificado
+`npm run build` del backend y `react-scripts build` + `tsc --noEmit` del frontend, limpios. Prueba
+dirigida contra el código compilado y la BD real dentro de una transacción con **ROLLBACK**: 15/15
+comprobaciones en verde (resolución por ambos códigos, tolerancia a caja y espacios, un solo
+principal, detección del choque entre productos, promoción del principal al quitar uno,
+sincronización de la copia de lectura). Integridad confirmada tras el rollback: 208/208 y
+`GRP701NG` sin registrar.
+
+### Pendiente
+- Vincular desde "Por Mapear" los 5 pares GRE/GRP de ROLDAN y re-mapear los 15 huérfanos
+  rescatados. Dato abierto: los pesos de tira difieren 9–15 % entre ambas referencias.
+- Sin commit: backend y frontend van juntos, a la espera de orden.

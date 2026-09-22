@@ -27,6 +27,15 @@ interface EquivalenciaItem {
   precio_anterior_2: number | null;
   fecha_anterior_2: string | null;
   activo: boolean;
+  /** Todos los códigos con los que este proveedor factura el producto (2026-09-21) */
+  codigos?: CodigoEquivalencia[];
+}
+
+interface CodigoEquivalencia {
+  id: number;
+  codigo_proveedor: string;
+  principal: boolean;
+  origen?: string;
 }
 
 interface HistoricoItem {
@@ -124,10 +133,59 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
 
   useEffect(() => { cargarEquivalencias(); }, [cargarEquivalencias]);
 
-  const handleDesvincular = async (item: EquivalenciaItem) => {
+  /**
+   * Un proveedor puede facturar el mismo producto con varios códigos. Agregarlos
+   * aquí evita tener que esperar a que llegue una factura con el código nuevo
+   * para poder vincularlo desde la bandeja.
+   */
+  const handleAgregarCodigo = async (item: EquivalenciaItem) => {
+    const codigo = window.prompt(
+      `Otro código con el que ${item.proveedor?.nombre_comercial} factura ${item.catalogo_producto?.codigo}:\n\n` +
+        'Cualquiera de sus códigos actualizará este mismo precio.'
+    );
+    if (!codigo || !codigo.trim()) return;
+
+    try {
+      const { data } = await axios.post(`${API}/api/proveedores/equivalencias/${item.id}/codigos`, {
+        codigo: codigo.trim(),
+      });
+      toast.success(data?.message ?? 'Código agregado');
+      cargarEquivalencias();
+      if (onActualizarContador) onActualizarContador();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'No se pudo agregar el código');
+    }
+  };
+
+  const handleQuitarCodigo = async (item: EquivalenciaItem, codigo: CodigoEquivalencia) => {
     if (
       !window.confirm(
-        `¿Desvincular la equivalencia de "${item.proveedor?.nombre_comercial} (${item.codigo_proveedor})"?\n\nEl código regresará a la bandeja "Por Mapear" y su histórico de precios se conserva.`
+        `¿Quitar el código "${codigo.codigo_proveedor}" de ${item.catalogo_producto?.codigo}?\n\n` +
+          'Las facturas que lo traigan volverán a caer en "Por Mapear".'
+      )
+    ) return;
+
+    try {
+      const { data } = await axios.delete(
+        `${API}/api/proveedores/equivalencias/${item.id}/codigos/${codigo.id}`
+      );
+      toast.info(data?.message ?? 'Código eliminado');
+      cargarEquivalencias();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'No se pudo eliminar el código');
+    }
+  };
+
+  const handleDesvincular = async (item: EquivalenciaItem) => {
+    const totalCodigos = item.codigos?.length ?? (item.codigo_proveedor ? 1 : 0);
+    const detalleCodigos =
+      totalCodigos > 1
+        ? `Sus ${totalCodigos} códigos (${(item.codigos ?? []).map((c) => c.codigo_proveedor).join(', ')}) regresarán`
+        : 'El código regresará';
+
+    if (
+      !window.confirm(
+        `¿Desvincular la equivalencia de "${item.proveedor?.nombre_comercial} (${item.codigo_proveedor})"?\n\n${detalleCodigos} a la bandeja "Por Mapear" y su histórico de precios se conserva.`
       )
     ) return;
 
@@ -350,6 +408,50 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
                     >
                       {item.codigo_proveedor || 'S/C'}
                     </div>
+
+                    {/* Los demás códigos con los que este proveedor factura el mismo
+                        producto. Cualquiera de ellos actualiza este precio. */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4, alignItems: 'center' }}>
+                      {(item.codigos ?? [])
+                        .filter((c) => !c.principal)
+                        .map((c) => (
+                          <span
+                            key={c.id}
+                            title="Código adicional: también actualiza este precio"
+                            style={{
+                              fontFamily: 'monospace', fontSize: FONT.tiny, fontWeight: 600,
+                              color: 'var(--text-muted, #64748b)', background: 'var(--surface-sunken, #f1f5f9)',
+                              border: '1px solid var(--border-subtle, #e2e8f0)',
+                              padding: '1px 6px', borderRadius: RADIUS.xs,
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                            }}
+                          >
+                            {c.codigo_proveedor}
+                            <button
+                              onClick={() => handleQuitarCodigo(item, c)}
+                              title={`Quitar ${c.codigo_proveedor} de esta equivalencia`}
+                              style={{
+                                border: 'none', background: 'transparent', cursor: 'pointer',
+                                padding: 0, display: 'flex', color: 'var(--text-faint, #94a3b8)',
+                              }}
+                            >
+                              <X size={10} />
+                            </button>
+                          </span>
+                        ))}
+                      <button
+                        onClick={() => handleAgregarCodigo(item)}
+                        title="Agregar otro código con el que este proveedor factura el mismo producto"
+                        style={{
+                          fontSize: FONT.tiny, fontWeight: 600, color: 'var(--primary, #4338ca)',
+                          background: 'transparent', border: '1px dashed var(--border-strong, #cbd5e1)',
+                          borderRadius: RADIUS.xs, padding: '1px 6px', cursor: 'pointer',
+                        }}
+                      >
+                        + código
+                      </button>
+                    </div>
+
                     {item.descripcion_proveedor && (
                       <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #64748b)', marginTop: 2 }}>
                         {item.descripcion_proveedor}

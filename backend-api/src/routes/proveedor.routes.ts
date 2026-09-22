@@ -30,6 +30,9 @@ import {
   listarEquivalencias,
   desvincularEquivalencia,
   historicoEquivalencia,
+  listarCodigosEquivalencia,
+  agregarCodigoEquivalencia,
+  quitarCodigoEquivalencia,
   listarFacturasProcesadas,
   importarListaPrecios,
   buscarEnModulo,
@@ -103,6 +106,14 @@ router.patch('/codigos-pendientes/:id/restaurar', restaurarPendiente);
 // ─── Equivalencias (mapeos confirmados) ──────────────────────────────────────
 router.get('/equivalencias', listarEquivalencias);
 router.get('/equivalencias/:id/historico', historicoEquivalencia);
+
+// Varios códigos del proveedor por producto interno (2026-09-21): el mismo perfil
+// llega facturado como GRE701NG o GRP701NG y cualquiera debe mover el mismo precio.
+router.get('/equivalencias/:id/codigos', listarCodigosEquivalencia);
+router.post('/equivalencias/:id/codigos', agregarCodigoEquivalencia);
+router.delete('/equivalencias/:id/codigos/:codigo_id', quitarCodigoEquivalencia);
+
+// Va después de las rutas con sufijo para que `/equivalencias/:id` no las capture
 router.delete('/equivalencias/:id', desvincularEquivalencia);
 
 // ─── Editar / desactivar un mapeo puntual ────────────────────────────────────

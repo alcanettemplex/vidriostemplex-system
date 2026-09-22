@@ -29,6 +29,8 @@ interface PrecioProveedor {
   fecha_anterior_2: string | null;
   variacion_pct: number | null;
   precio_anomalo: boolean;
+  /** Todos los códigos con los que el proveedor factura el producto (2026-09-21) */
+  codigos?: { id: number; codigo_proveedor: string; principal: boolean }[];
 }
 
 interface ResultadoConsulta {
@@ -535,6 +537,19 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                           {p.codigo_proveedor && (
                             <div style={{ fontSize: FONT.xs, color: 'var(--text-muted)', fontFamily: 'monospace' }}>
                               {p.codigo_proveedor}
+                              {/* Este proveedor factura el mismo producto con más de un
+                                  código; cualquiera de ellos mueve este precio. */}
+                              {(p.codigos ?? []).filter((c) => !c.principal).length > 0 && (
+                                <span
+                                  title={`También lo factura como: ${(p.codigos ?? [])
+                                    .filter((c) => !c.principal)
+                                    .map((c) => c.codigo_proveedor)
+                                    .join(', ')}`}
+                                  style={{ color: 'var(--text-faint, #94a3b8)', marginLeft: 5 }}
+                                >
+                                  +{(p.codigos ?? []).filter((c) => !c.principal).length}
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>

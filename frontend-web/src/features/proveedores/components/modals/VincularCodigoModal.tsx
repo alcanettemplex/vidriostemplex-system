@@ -99,6 +99,16 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
 
   const nombreProveedor = pendiente.proveedor?.nombre_comercial || pendiente.proveedor_nombre || `Proveedor #${pendiente.proveedor_id}`;
 
+  // ¿Este mismo proveedor ya factura el producto elegido en esta misma modalidad?
+  // Si es así, el código no crea una equivalencia nueva: se suma a la existente.
+  // Vale la pena decirlo antes de confirmar, porque cambia lo que va a pasar.
+  const equivalenciaExistente = preciosComparativos.find(
+    (pc: any) => Number(pc.proveedor?.id) === Number(pendiente.proveedor_id) && pc.unidad_compra === unidadCompra
+  );
+  const codigosExistentes: string[] = (equivalenciaExistente?.codigos ?? [])
+    .map((c: any) => String(c.codigo_proveedor))
+    .filter((c: string) => c.toUpperCase() !== String(pendiente.codigo_proveedor).trim().toUpperCase());
+
   // Desglose del descuento de la factura. Los códigos detectados antes del 2026-09-19 no
   // lo traen: en esos la pantalla se comporta igual que antes, con una sola cifra.
   const precioBruto = Number(pendiente.precio_bruto_detectado ?? 0);
@@ -209,7 +219,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
     setGuardando(true);
     try {
       const fechaFactura = pendiente.fecha_deteccion ? pendiente.fecha_deteccion.split('T')[0] : '';
-      await axios.post(`${API}/api/proveedores/codigos-pendientes/${pendiente.id}/vincular`, {
+      const { data } = await axios.post(`${API}/api/proveedores/codigos-pendientes/${pendiente.id}/vincular`, {
         catalogo_producto_id: productoSeleccionado.id,
         unidad_compra: unidadCompra,
         precio: precioNum,
@@ -218,7 +228,11 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
         descripcion_alias: pendiente.descripcion_proveedor || undefined,
       });
 
-      toast.success(`Código ${pendiente.codigo_proveedor} vinculado a ${productoSeleccionado.codigo}`);
+      toast.success(
+        data?.codigo_agregado
+          ? `${pendiente.codigo_proveedor} agregado a ${productoSeleccionado.codigo}: ahora responde a ${data.total_codigos} códigos de este proveedor`
+          : `Código ${pendiente.codigo_proveedor} vinculado a ${productoSeleccionado.codigo}`
+      );
       onVinculado();
       onClose();
     } catch (err: any) {
@@ -698,6 +712,37 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                         Este producto aún no tiene precios registrados de ningún proveedor. ¡Será el primero!
                       </div>
                     )}
+                  </motion.div>
+                )}
+
+                {/* Este proveedor ya factura el mismo producto con otro código.
+                    Antes no se decía nada y la vinculación se perdía en silencio:
+                    el pendiente quedaba MAPEADO, la equivalencia conservaba el
+                    código viejo y la siguiente factura volvía a la bandeja. */}
+                {equivalenciaExistente && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{
+                      background: 'var(--warning-soft, rgba(245, 158, 11, 0.08))',
+                      border: '1px solid var(--warning, #f59e0b)',
+                      borderRadius: RADIUS.xl, padding: 12,
+                      display: 'flex', gap: 8, alignItems: 'flex-start',
+                    }}
+                  >
+                    <AlertTriangle size={15} style={{ color: '#b45309', flexShrink: 0, marginTop: 1 }} />
+                    <div style={{ fontSize: FONT.sm, color: 'var(--text, #0f172a)', lineHeight: 1.45 }}>
+                      <strong>{productoSeleccionado?.codigo}</strong> ya está vinculado a este proveedor
+                      {codigosExistentes.length > 0 && (
+                        <> como <strong>{codigosExistentes.join(', ')}</strong></>
+                      )}
+                      {' '}en esta modalidad.{' '}
+                      <strong>{pendiente.codigo_proveedor}</strong> se agregará como código adicional: en adelante
+                      cualquiera de los dos actualizará el mismo precio y ninguno volverá a Por Mapear.
+                      <div style={{ fontSize: FONT.xs, color: 'var(--text-muted)', marginTop: 4 }}>
+                        Si no son el mismo producto físico, cancela y vincúlalo a un producto distinto del catálogo.
+                      </div>
+                    </div>
                   </motion.div>
                 )}
 
