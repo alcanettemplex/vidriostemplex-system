@@ -4,6 +4,29 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-22 — Cotizador: `nivelCorte` nulo se trata como "A" en la tabla de piezas de Calibración
+
+**Severidad:** Baja · **Estimación:** 15 min
+
+Encontrado al extraer `ChipNivelCorte` (`ui/index.tsx`) durante un refactor visual de
+`TabCalibracion.tsx`. `PiezaCalibracion.nivelCorte` es `NivelCorte | null`, pero el ternario
+original (`p.nivelCorte === 'C' ? … : p.nivelCorte === 'B' ? … : (<span>A</span>)`) caía a "A"
+—el mejor caso, "todas las medidas determinadas"— para cualquier valor que no fuera literalmente
+`'C'` o `'B'`, **incluido `null`**. Una pieza sin nivel calculado se pinta hoy como si su medida
+estuviera determinada, en vez de mostrarse como "sin nivel" o tratarse como el caso más
+conservador (C).
+
+No se corrigió en este refactor porque era estrictamente visual (extender el sistema de diseño
+del Cotizador a Calibración/Configuración/Guardadas/modales, sin tocar lógica) — se preservó el
+comportamiento exacto pasando `p.nivelCorte ?? 'A'` al nuevo componente compartido, ver
+`TabCalibracion.tsx` (tabla de piezas de `PanelSistema`).
+
+**Para resolverlo:** decidir con el taller qué debe verse cuando `nivelCorte` es `null` (¿pasa
+alguna vez en datos reales, o es sólo un artefacto del tipo?) y, si aplica, tratarlo como C
+(bloqueado, conservador) en vez de A.
+
+---
+
 ## 2026-09-21 — Hook de auditoría `afterUpdate`/`afterCreate`/`afterDestroy` no espera su propio INSERT
 
 **Severidad:** Media · **Estimación:** 15 min

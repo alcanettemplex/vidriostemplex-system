@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertCircle } from 'lucide-react';
 
 import { CampoMeta, OpcionCampo } from '../types';
+import { CONTROL_ERROR, CONTROL_LABEL_CLASS, CONTROL_NORMAL } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Un solo campo de formulario, renderizado según `campo.tipo`. Data-driven desde
@@ -12,17 +13,22 @@ import { CampoMeta, OpcionCampo } from '../types';
 // la unidad no es obvia, y estado de error con `aria-invalid` +
 // `aria-describedby`. El color nunca es el único portador del error: siempre va
 // acompañado de icono y texto.
-// ─────────────────────────────────────────────────────────────────────────────
-
-const labelClass = 'block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1';
+//
+// El alto fijo (40px), el ring de foco y el estado de error son los tokens
+// compartidos de `ui/index.tsx` — este archivo fue su origen (ver ese archivo,
+// "Campos de formulario") y sigue componiendo su propia cadena de clases en vez
+// de usar `<Input>` porque necesita el sufijo de unidad (mm/%) dentro del
+// control, que un override por className no puede garantizar en este build de
+// Tailwind (ver CotizadorPage.tsx, comentario de CUERPO_TRABAJO).
+const labelClass = CONTROL_LABEL_CLASS;
 
 // 40px de alto: el objetivo de clic mínimo que pide la guía, y suficiente para
 // que el sufijo de unidad quepa dentro del control sin apretar el texto.
 const controlBase =
     'w-full h-10 px-3 text-sm rounded-lg bg-white text-slate-800 border transition ' +
     'focus:outline-none focus:ring-2';
-const controlNormal = 'border-slate-300 hover:border-slate-400 focus:border-indigo-500 focus:ring-indigo-200';
-const controlError = 'border-rose-400 bg-rose-50/40 focus:border-rose-500 focus:ring-rose-200';
+const controlNormal = CONTROL_NORMAL;
+const controlError = CONTROL_ERROR;
 
 // Las flechas nativas del input numérico se pisan con el sufijo de unidad: se
 // ocultan sólo en esos campos (las teclas de flecha siguen funcionando igual).

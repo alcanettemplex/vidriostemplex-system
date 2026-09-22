@@ -3,8 +3,8 @@ import { toast } from 'react-toastify';
 import { Loader2, CheckCircle2, Scale, RefreshCw } from 'lucide-react';
 
 import { apiCompararPropuestas } from '../services/cotizadorApi';
-import { ComparativaPropuestas, PropuestaComparada, TipoCargo } from '../types';
-import { fmtCOP, fmtPct } from '../format';
+import { ComparativaPropuestas, PropuestaComparada } from '../types';
+import { ETIQUETA_CARGO_CORTA, fmtCOP, fmtPct } from '../format';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Comparador de propuestas — la pantalla que se gira hacia el cliente.
@@ -30,14 +30,6 @@ interface Props {
      * rechaza con 409 y el padre muestra el mensaje del backend. */
     onElegir?: (propuestaId: number) => void | Promise<void>;
 }
-
-const ETIQUETA_CARGO: Record<TipoCargo, string> = {
-    SMO: 'Mano de obra',
-    ANDAMIO: 'Andamio',
-    HUACAL: 'Huacal',
-    FLETE: 'Flete',
-    OTRO: 'Otro',
-};
 
 const Celda: React.FC<{ children: React.ReactNode; fuerte?: boolean; clase?: string }> = ({ children, fuerte, clase = '' }) => (
     <td className={`px-3 py-2 text-right whitespace-nowrap tabular-nums font-cotizador-head tabular-nums ${fuerte ? 'font-black text-slate-900' : 'font-semibold text-slate-700'} ${clase}`}>
@@ -170,7 +162,7 @@ const ComparadorPropuestas: React.FC<Props> = ({ cotizacionId, recargarToken, on
                                         {fmtCOP(p.totales.cargos)}
                                         {p.cargos.length > 0 && (
                                             <span className="block text-[10.5px] font-normal text-slate-400 leading-tight mt-0.5">
-                                                {p.cargos.map((c) => `${ETIQUETA_CARGO[c.tipo] || c.tipo} ${fmtCOP(c.total)}`).join(' · ')}
+                                                {p.cargos.map((c) => `${ETIQUETA_CARGO_CORTA[c.tipo] || c.tipo} ${fmtCOP(c.total)}`).join(' · ')}
                                             </span>
                                         )}
                                     </Celda>

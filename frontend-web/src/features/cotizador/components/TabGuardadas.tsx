@@ -8,6 +8,7 @@ import { apiListarCotizaciones, apiObtenerCotizacion, apiEliminarCotizacion } fr
 import { Cotizacion, CotizacionLigera, EstadoCotizacion, FiltrosListado } from '../types';
 import { fmtCOP, fmtCOPCorto, fmtFecha } from '../format';
 import ModalDetalleCotizacion from './modals/ModalDetalleCotizacion';
+import { Campo, ChipEstadoCotizacion, Input, Select, Tarjeta } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pestaña "Guardadas" del Cotizador — listado con filtros server-side de
@@ -22,19 +23,6 @@ const ESTADOS: { v: EstadoCotizacion; l: string }[] = [
     { v: 'CANCELADO', l: 'Cancelado' },
     { v: 'PERDIDO', l: 'Perdido' },
 ];
-
-const badgeEstado = (estado: EstadoCotizacion): string => {
-    switch (estado) {
-        case 'PENDIENTE': return 'bg-amber-100 text-amber-800 border-amber-200';
-        case 'APROBADA': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-        case 'CANCELADO': return 'bg-slate-100 text-slate-600 border-slate-200';
-        case 'PERDIDO': return 'bg-rose-100 text-rose-800 border-rose-200';
-        default: return 'bg-slate-100 text-slate-600 border-slate-200';
-    }
-};
-
-const inputClass = 'w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200';
-const labelClass = 'block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1';
 
 type OrdenCampo = 'numero' | 'cliente' | 'estado' | 'items' | 'total' | 'fecha';
 
@@ -176,7 +164,7 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
     const th = (campo: OrdenCampo, texto: string, extra = '') => (
         <th
             onClick={() => ordenar(campo)}
-            className={`px-4 py-3 font-medium cursor-pointer select-none hover:bg-slate-100 transition whitespace-nowrap ${extra}`}
+            className={`px-4 py-3 text-[11px] font-bold uppercase tracking-wide cursor-pointer select-none hover:bg-slate-100 transition whitespace-nowrap ${extra}`}
         >
             {texto}<IconoOrden campo={campo} />
         </th>
@@ -233,45 +221,41 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                 </p>
             )}
             {/* ── Filtros ──────────────────────────────────────────────────── */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-                <div>
-                    <label className={labelClass}>Cliente</label>
-                    <input className={inputClass} placeholder="Nombre del cliente" value={cliente} onChange={e => setCliente(e.target.value)} />
-                </div>
-                <div>
-                    <label className={labelClass}>Estado</label>
-                    <select className={inputClass} value={estado} onChange={e => setEstado(e.target.value)}>
+            <Tarjeta cuerpoClassName="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <Campo etiqueta="Cliente">
+                    <Input placeholder="Nombre del cliente" value={cliente} onChange={e => setCliente(e.target.value)} />
+                </Campo>
+                <Campo etiqueta="Estado">
+                    <Select value={estado} onChange={e => setEstado(e.target.value)}>
                         <option value="">Todos</option>
                         {ESTADOS.map(e => <option key={e.v} value={e.v}>{e.l}</option>)}
-                    </select>
-                </div>
-                <div>
-                    <label className={labelClass}>N.°</label>
-                    <input type="number" className={inputClass} placeholder="Número" value={numero} onChange={e => setNumero(e.target.value)} />
-                </div>
-                <div>
-                    <label className={labelClass}>Buscar</label>
+                    </Select>
+                </Campo>
+                <Campo etiqueta="N.°">
+                    <Input type="number" placeholder="Número" value={numero} onChange={e => setNumero(e.target.value)} />
+                </Campo>
+                <Campo etiqueta="Buscar">
                     <div className="relative">
                         <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input className={`${inputClass} pl-9`} placeholder="Obra, contacto…" value={q} onChange={e => setQ(e.target.value)} />
+                        <Input className="pl-9" placeholder="Obra, contacto…" value={q} onChange={e => setQ(e.target.value)} />
                     </div>
-                </div>
-            </div>
+                </Campo>
+            </Tarjeta>
 
             {/* ── Resultados ───────────────────────────────────────────────── */}
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <Tarjeta sinRelleno>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                        <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
                             <tr>
                                 {th('numero', 'N.°')}
-                                <th className="px-4 py-3 font-medium text-left">Cliente</th>
-                                <th className="px-4 py-3 font-medium text-left">Asesor</th>
+                                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-left">Cliente</th>
+                                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-left">Asesor</th>
                                 {th('estado', 'Estado')}
                                 {th('items', 'Ítems')}
                                 {th('total', 'Total', 'text-right')}
                                 {th('fecha', 'Fecha')}
-                                <th className="px-4 py-3 font-medium text-right">Acciones</th>
+                                <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -308,9 +292,7 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                                     </td>
                                     <td className="px-4 py-3 text-slate-500 max-w-[160px] truncate">{c.asesor || '—'}</td>
                                     <td className="px-4 py-3 text-center">
-                                        <span className={`px-2 py-0.5 rounded-full border text-[11px] font-bold whitespace-nowrap ${badgeEstado(c.estado)}`}>
-                                            {ESTADOS.find(e => e.v === c.estado)?.l || c.estado}
-                                        </span>
+                                        <ChipEstadoCotizacion estado={c.estado} />
                                     </td>
                                     <td className="px-4 py-3 text-center text-slate-600">{itemsDeLaElegida(c)}</td>
                                     <td className="px-4 py-3 text-right text-slate-700 whitespace-nowrap">{totalDeFila(c).nodo}</td>
@@ -338,7 +320,7 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </Tarjeta>
 
             {detalleId !== null && (
                 <ModalDetalleCotizacion

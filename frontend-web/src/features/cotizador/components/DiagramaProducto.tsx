@@ -116,7 +116,7 @@ const DiagramaProducto: React.FC<Props> = ({ plano, cargando }) => {
                                 <line x1={ox} y1={y} x2={ox + anchoMm} y2={y} />
                                 <line x1={ox} y1={y - margenTop * 0.08} x2={ox} y2={y + margenTop * 0.08} />
                                 <line x1={ox + anchoMm} y1={y - margenTop * 0.08} x2={ox + anchoMm} y2={y + margenTop * 0.08} />
-                                <text x={ox + anchoMm / 2} y={y - margenTop * 0.1} textAnchor="middle" fontSize={fuenteCota} fill="#475569" stroke="none" fontFamily="Space Grotesk, sans-serif">
+                                <text x={ox + anchoMm / 2} y={y - margenTop * 0.1} textAnchor="middle" fontSize={fuenteCota * 1.4} fontWeight="bold" fill="#000000" stroke="none" fontFamily="Space Grotesk, sans-serif">
                                     {Math.round(c.anchoMm)} mm
                                 </text>
                             </g>
@@ -136,8 +136,9 @@ const DiagramaProducto: React.FC<Props> = ({ plano, cargando }) => {
                                     x={x - margenLeft * 0.12}
                                     y={cy}
                                     textAnchor="middle"
-                                    fontSize={fuenteCota}
-                                    fill="#475569"
+                                    fontSize={fuenteCota * 1.4}
+                                    fontWeight="bold"
+                                    fill="#000000"
                                     stroke="none"
                                     fontFamily="Space Grotesk, sans-serif"
                                     transform={`rotate(-90 ${x - margenLeft * 0.12} ${cy})`}
@@ -185,7 +186,7 @@ const DiagramaProducto: React.FC<Props> = ({ plano, cargando }) => {
                         const cx = ox + panel.xMm + panel.anchoMm / 2;
                         const cy = oy + panel.yMm + panel.altoMm / 2;
                         return (
-                            <text key={`cp-${i}`} x={cx} y={cy} textAnchor="middle" fontSize={fuenteCota * 0.85} fill="#0369a1" fontFamily="Space Grotesk, sans-serif">
+                            <text key={`cp-${i}`} x={cx} y={cy} textAnchor="middle" fontSize={fuenteCota * 1.3} fontWeight="bold" fill="#000000" fontFamily="Space Grotesk, sans-serif">
                                 {Math.round(c.anchoMm)}×{Math.round(c.altoMm)} mm
                             </text>
                         );

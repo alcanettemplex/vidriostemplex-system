@@ -317,40 +317,53 @@ a mano, el asesor marca `APROBADA` en el sistema). Botón "Descargar PDF" en
 
 ---
 
-## Hoja de Trabajo (2026-09-21)
+## Hoja de Trabajo (2026-09-21, rediseñada 2026-09-22)
 
 Documento **interno para el taller, sin plata** — no confundir con el PDF de cotización de arriba
 (ese sí lleva precios y es para el cliente). Botón "Hoja de Trabajo" en `ModalDetalleCotizacion.tsx`,
-junto al de "Descargar PDF". **Dos páginas**, con dos niveles de confianza distintos:
+junto al de "Descargar PDF".
 
-- **Página 1 — resumen + plano.** Lo que tecleó el asesor (sistema, color, vidrio, vano) más el
-  plano esquemático (`DiagramaProducto`, el mismo que ya usa "Vista técnica"). Es siempre cierto,
-  cotizado o no.
-- **Página 2 — especificaciones de corte por perfil y vidrio** (2026-09-21, segunda vuelta: el
-  usuario pidió el despiece completo tras ver la v1). Nuevo endpoint de solo lectura
-  `GET /cotizaciones/:id/items/:itemId/despiece`, que reutiliza `ordenarParaTaller()`
-  (`ordenCorte.ts`) para el orden de los perfiles — la única función pensada para esto, no se
-  reimplementa en el frontend. **Sale siempre** (sigue sin pasar por `/aptitud`: es el único
-  documento de taller que existe), pero si `nivelCorte` es `C`/desconocido o `hayErrores` es
-  `true` — el mismo criterio que `NIVELES_APTOS_PARA_CORTE` en `motorDespiece.ts` — la sección de
-  ese ítem lleva un aviso rojo "medidas no validadas, verificar antes de cortar" en vez de
-  bloquear la impresión. `esConfiable()` en `PrintableHojaTrabajo.tsx` replica ese criterio
-  explícitamente; si `NIVELES_APTOS_PARA_CORTE` cambia, hay que tocar también ahí.
+**Una página por ítem** (2026-09-22, reemplaza el esquema original de "página 1 con el resumen de
+TODOS los ítems + página 2 con las specs de TODOS los ítems" — ver git log si hace falta el diseño
+viejo). A pedido explícito del usuario, es una **réplica del formato de
+`frontend-web/src/features/odp/components/PrintableDetalleTecnico.tsx`** (la Hoja de Detalle
+Técnico de la ODP real): misma cabecera (logo + título centrado + caja con número, aquí el número
+de ÍTEM en vez del de ODP), misma tabla de datos con bordes gruesos (`.excel-table`), mismas DOS
+cajas apiladas con borde grueso — arriba el plano (donde el ODP pone el croquis), abajo "Cortes del
+taller" (donde el ODP pone "Observación de instalación"). Tamaño Carta, no A4 — distinto del resto
+de printables del Cotizador, que son A4.
+
+- **Ambas cajas tienen ALTURA FIJA** (430px el plano, 400px los cortes — decisión explícita del
+  usuario, igual que el ODP). La del plano sí lleva `overflow: hidden` (como el ODP: es una imagen/
+  SVG que se ajusta con `preserveAspectRatio`); la de cortes **no** — es una tabla de largo
+  variable, y si un ítem trae más perfiles de los que caben en 400px la tabla se sale del borde en
+  vez de truncar filas. Perder una medida de corte por un borde imperfecto sería peor que el borde.
+- **Ítem sin diseño:** no tiene ni plano ni despiece calculable — el endpoint
+  `GET /cotizaciones/:id/items/:itemId/despiece` rechaza con 400 "Este ítem no tiene despiece por
+  diseño" cuando `resultado.cortes` no existe (sólo lo llena `calcularDespiecePorDiseno`, la rama
+  que corre cuando el vendedor eligió un diseño). Igual lleva su página completa, con aviso en cada
+  caja ("Sin plano — cotizado por medidas libres" / "Sin despiece calculado") — no desaparece del
+  documento.
+- **Aviso de confiabilidad**, sin cambios de criterio: reutiliza `ordenarParaTaller()`
+  (`ordenCorte.ts`) para el orden de los perfiles y el mismo corte que `NIVELES_APTOS_PARA_CORTE`
+  en `motorDespiece.ts` (A y B pasan, C o "sin nivel" avisan) — `esConfiable()` en
+  `PrintableHojaTrabajo.tsx` replica ese criterio explícitamente; si `NIVELES_APTOS_PARA_CORTE`
+  cambia, hay que tocar también ahí. **Sale siempre** (sigue sin pasar por `/aptitud`: es el único
+  documento de taller que existe), avisa en rojo en vez de bloquear la impresión.
 - **100 % lectura, sin recalcular nada.** `cot.items` de la propuesta que se está mirando ya trae
   `input` completo; el plano y el despiece se piden por ítem (mismo patrón: por propuesta activa),
-  y ahora se cargan en cuanto se abre el detalle — antes los planos sólo se pedían al entrar a
-  "Vista técnica", pero la Hoja de Trabajo se imprime desde "Normal".
+  y se cargan en cuanto se abre el detalle — antes los planos sólo se pedían al entrar a "Vista
+  técnica", pero la Hoja de Trabajo se imprime desde "Normal".
 - **`window.print()` vía `abrirVentanaImpresion()`**, no pdfmake — mismo patrón que
   `PrintableProduccion`/`PrintableOA` de la ODP real. A diferencia del PDF de cotización, esta hoja
   nunca sale del edificio, así que no necesita ser un archivo portátil.
-- **Campos técnicos de la página 1 resueltos de forma genérica** contra `modulo.campos`
-  (`GET /modulos`, el mismo contrato que ya usa el formulario de Cotizar), filtrando por
-  `grupo: 'medidas' | 'vidrio'` —
-  nunca `'cliente'` (ahí vive el segmento PA/PM/PB, comercial) ni `'comercial'`. Ningún mapeo a mano
-  de los 6 módulos: si un módulo nuevo se agrega al registry, esta hoja lo soporta solo.
 - ⚠️ **No confundir con `ordenCorte.ts`**: ese archivo ordena las PIEZAS dentro de un despiece para
   una futura Orden de Corte (heurística horizontal/vertical, sin confirmar con el taller); la Hoja
-  de Trabajo no llega a ese nivel de detalle y no lo usa.
+  de Trabajo no llega a ese nivel de detalle, sólo reutiliza su función de orden.
+- **La v1 (2026-09-21) resolvía los campos técnicos de "página 1" de forma genérica** contra
+  `modulo.campos` filtrando por `grupo: 'medidas' | 'vidrio'`. Esa tabla **se eliminó** en el
+  rediseño del 2026-09-22 — "sólo plano y cortes", instrucción explícita del usuario — así que ese
+  mecanismo genérico ya no se usa aquí (sigue vivo en otros puntos del árbol, no se tocó).
 - Componente: `frontend-web/src/features/cotizador/components/PrintableHojaTrabajo.tsx`, renderizado
   siempre oculto (`display:none`) dentro del modal; el botón lee su `innerHTML` al imprimir.
 

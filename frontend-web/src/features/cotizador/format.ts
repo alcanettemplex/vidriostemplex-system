@@ -1,3 +1,26 @@
+import { TipoCargo } from './types';
+
+/** Etiqueta legible de un tipo de cargo de obra, para vistas con espacio (cada
+ * cargo en su propia fila): `ModalDetalleCotizacion`. */
+export const ETIQUETA_CARGO: Record<TipoCargo, string> = {
+    SMO: 'Mano de obra',
+    ANDAMIO: 'Alquiler de andamio',
+    HUACAL: 'Huacal / embalaje',
+    FLETE: 'Acarreo / flete',
+    OTRO: 'Otro servicio',
+};
+
+/** Misma etiqueta, versión corta: para `ComparadorPropuestas`, donde varios
+ * cargos se listan uno tras otro en una sola celda ("Mano de obra $450.000 ·
+ * Flete $200.000…") y la versión larga no cabe. */
+export const ETIQUETA_CARGO_CORTA: Record<TipoCargo, string> = {
+    SMO: 'Mano de obra',
+    ANDAMIO: 'Andamio',
+    HUACAL: 'Huacal',
+    FLETE: 'Flete',
+    OTRO: 'Otro',
+};
+
 export const fmtCOP = (v: number | null | undefined) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(v) || 0);
 

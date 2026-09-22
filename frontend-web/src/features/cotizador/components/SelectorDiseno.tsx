@@ -4,6 +4,7 @@ import { Check, ChevronDown, LayoutGrid, Search, X } from 'lucide-react';
 
 import { apiGetDisenos } from '../services/cotizadorApi';
 import { DisenoResumen } from '../types';
+import { ChipNivelCorte } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Selector de diseño de catálogo. Solo lo usa el módulo "ventanas": si se elige
@@ -51,12 +52,6 @@ function nombreSistema(sistema: string): string {
 // sea la de cortar — el margen de corte de cada perfil se calibra aparte y sigue
 // sin medir. Quien decide si se puede emitir una orden es `aptitudOrden.ts` en
 // el backend, con ocho condiciones de las que ésta es una.
-const NIVEL_ESTILO: Record<string, { chip: string; titulo: string }> = {
-    A: { chip: 'bg-emerald-50 text-emerald-700 ring-emerald-200', titulo: 'Nivel A — todas las medidas determinadas al milímetro' },
-    B: { chip: 'bg-amber-50 text-amber-700 ring-amber-200', titulo: 'Nivel B — alguna pieza que divide puede variar ±1 mm; el resto está determinado' },
-    C: { chip: 'bg-slate-100 text-slate-500 ring-slate-200', titulo: 'Nivel C — alguna pieza sigue con la fórmula aproximada: su desviación no está acotada' },
-};
-
 const labelClass = 'block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1';
 
 interface Props {
@@ -251,7 +246,6 @@ const SelectorDiseno: React.FC<Props> = ({ modulo, value, onChange, sistema }) =
                                 </div>
                                 {items.map(d => {
                                     const activo = d.id === value;
-                                    const nivel = NIVEL_ESTILO[d.nivelCorte] || NIVEL_ESTILO.C;
                                     return (
                                         <button
                                             key={d.id}
@@ -281,12 +275,7 @@ const SelectorDiseno: React.FC<Props> = ({ modulo, value, onChange, sistema }) =
                                                     </span>
                                                 )}
                                             </span>
-                                            <span
-                                                title={nivel.titulo}
-                                                className={`px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ring-1 ring-inset flex-shrink-0 ${nivel.chip}`}
-                                            >
-                                                {d.nivelCorte}
-                                            </span>
+                                            <ChipNivelCorte nivel={d.nivelCorte} className="flex-shrink-0" />
                                         </button>
                                     );
                                 })}

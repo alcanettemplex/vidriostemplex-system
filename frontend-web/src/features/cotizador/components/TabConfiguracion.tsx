@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Loader2, Save, Calculator, AlertTriangle, RefreshCw, Percent } from 'lucide-react';
+import { Loader2, Save, Calculator, AlertTriangle, RefreshCw, Percent, SlidersHorizontal } from 'lucide-react';
 
 import {
     apiListarMultiplicadores, apiGuardarMultiplicador, apiRecalcularCategoria,
@@ -8,6 +8,7 @@ import {
 } from '../services/cotizadorApi';
 import { MultiplicadorCategoria, Parametros, ResultadoRecalculoCategoria } from '../types';
 import { fmtCOP } from '../format';
+import { BotonPrimario, BotonSecundario, Campo, Input, Tarjeta } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pestaña "Configuración" del Cotizador — solo root/admin (gate heredado del
@@ -32,11 +33,6 @@ import { fmtCOP } from '../format';
 //                     atascados en un multiplicador viejo (1,514500) para
 //                     siempre.
 // ─────────────────────────────────────────────────────────────────────────────
-
-const inputClass = 'w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200';
-const labelClass = 'block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1';
-const btnPrimary = 'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50';
-const btnSecundario = 'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50';
 
 const TabConfiguracion: React.FC = () => (
     <div className="p-4 space-y-6">
@@ -134,17 +130,12 @@ const SeccionMultiplicadores: React.FC = () => {
     };
 
     return (
-        <section className="border border-slate-200 rounded-xl overflow-hidden">
-            <header className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
-                <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                    <Percent className="w-4 h-4 text-indigo-600" /> Multiplicador costo → precio de venta, por categoría
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                    Una categoría sin multiplicador no es "×1": el motor que actualiza precios desde Proveedores
-                    se abstiene de tocarla por completo.
-                </p>
-            </header>
-
+        <Tarjeta
+            titulo="Multiplicador costo → precio de venta, por categoría"
+            icono={Percent}
+            descripcion={'Una categoría sin multiplicador no es "×1": el motor que actualiza precios desde Proveedores se abstiene de tocarla por completo.'}
+            sinRelleno
+        >
             {cargando ? (
                 <div className="p-8 flex justify-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
             ) : (
@@ -180,8 +171,8 @@ const SeccionMultiplicadores: React.FC = () => {
                                 </td>
                                 {(['pa', 'pm', 'pb'] as const).map((k) => (
                                     <td key={k} className="px-3 py-2.5">
-                                        <input
-                                            className={`${inputClass} w-24`}
+                                        <Input
+                                            className="w-24"
                                             inputMode="decimal"
                                             value={edicion[f.categoria]?.[k] ?? ''}
                                             placeholder="—"
@@ -192,8 +183,7 @@ const SeccionMultiplicadores: React.FC = () => {
                                     </td>
                                 ))}
                                 <td className="px-3 py-2.5">
-                                    <input
-                                        className={inputClass}
+                                    <Input
                                         value={edicion[f.categoria]?.motivo ?? ''}
                                         placeholder="Por qué cambia"
                                         onChange={(e) =>
@@ -203,17 +193,19 @@ const SeccionMultiplicadores: React.FC = () => {
                                 </td>
                                 <td className="px-3 py-2.5 whitespace-nowrap">
                                     <div className="flex gap-1.5 justify-end">
-                                        <button onClick={() => guardar(f.categoria)} disabled={guardando === f.categoria} className={btnPrimary}>
-                                            {guardando === f.categoria ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Guardar
-                                        </button>
-                                        <button
+                                        <BotonPrimario compacto icono={Save} cargando={guardando === f.categoria} onClick={() => guardar(f.categoria)}>
+                                            Guardar
+                                        </BotonPrimario>
+                                        <BotonSecundario
+                                            compacto
+                                            icono={Calculator}
+                                            cargando={recalculando === f.categoria}
+                                            disabled={!f.configurado}
                                             onClick={() => previsualizar(f.categoria)}
-                                            disabled={!f.configurado || recalculando === f.categoria}
-                                            className={btnSecundario}
                                             title={f.configurado ? 'Ver qué precios cambiarían' : 'Configurá un multiplicador primero'}
                                         >
-                                            {recalculando === f.categoria ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Calculator className="w-3.5 h-3.5" />} Recalcular
-                                        </button>
+                                            Recalcular
+                                        </BotonSecundario>
                                     </div>
                                 </td>
                             </tr>
@@ -229,14 +221,15 @@ const SeccionMultiplicadores: React.FC = () => {
                             Previsualización — {previsualizacion.categoria}
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={() => setPrevisualizacion(null)} className={btnSecundario}>Cancelar</button>
-                            <button
-                                onClick={() => aplicar(previsualizacion.categoria)}
+                            <BotonSecundario compacto onClick={() => setPrevisualizacion(null)}>Cancelar</BotonSecundario>
+                            <BotonPrimario
+                                compacto
+                                icono={RefreshCw}
                                 disabled={previsualizacion.cambios.length === 0 || recalculando !== null}
-                                className={btnPrimary}
+                                onClick={() => aplicar(previsualizacion.categoria)}
                             >
-                                <RefreshCw className="w-3.5 h-3.5" /> Aplicar a {previsualizacion.cambios.length} producto(s)
-                            </button>
+                                Aplicar a {previsualizacion.cambios.length} producto(s)
+                            </BotonPrimario>
                         </div>
                     </div>
                     <p className="text-xs text-slate-600">{previsualizacion.resumen}</p>
@@ -308,7 +301,7 @@ const SeccionMultiplicadores: React.FC = () => {
                     )}
                 </div>
             )}
-        </section>
+        </Tarjeta>
     );
 };
 
@@ -413,35 +406,28 @@ const SeccionParametros: React.FC = () => {
 
     if (cargando) {
         return (
-            <section className="border border-slate-200 rounded-xl p-8 flex justify-center text-slate-400">
+            <Tarjeta className="p-8 flex justify-center text-slate-400">
                 <Loader2 className="w-5 h-5 animate-spin" />
-            </section>
+            </Tarjeta>
         );
     }
 
     return (
-        <section className="border border-slate-200 rounded-xl overflow-hidden">
-            <header className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
-                <h2 className="text-sm font-bold text-slate-800">Parámetros de negocio</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                    Afectan el cálculo de toda cotización nueva. Las cotizaciones ya guardadas conservan los valores
-                    con los que se calcularon.
-                </p>
-            </header>
-
-            <form onSubmit={guardar} className="p-4 space-y-4">
+        <Tarjeta
+            titulo="Parámetros de negocio"
+            icono={SlidersHorizontal}
+            descripcion="Afectan el cálculo de toda cotización nueva. Las cotizaciones ya guardadas conservan los valores con los que se calcularon."
+        >
+            <form onSubmit={guardar} className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     {CAMPOS_RAIZ.map((c) => (
-                        <div key={c.clave}>
-                            <label className={labelClass}>{c.label}</label>
-                            <input
-                                className={inputClass}
+                        <Campo key={c.clave} etiqueta={c.label} ayuda={c.ayuda}>
+                            <Input
                                 inputMode="decimal"
                                 value={valores[c.clave] ?? ''}
                                 onChange={(e) => setValores((s) => ({ ...s, [c.clave]: e.target.value }))}
                             />
-                            {c.ayuda && <p className="text-[10px] text-slate-400 mt-0.5">{c.ayuda}</p>}
-                        </div>
+                        </Campo>
                     ))}
                 </div>
 
@@ -451,30 +437,27 @@ const SeccionParametros: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                         {CAMPOS_SMO.map((c) => (
-                            <div key={c.clave}>
-                                <label className={labelClass}>{c.label}</label>
-                                <input
-                                    className={inputClass}
+                            <Campo key={c.clave} etiqueta={c.label}>
+                                <Input
                                     inputMode="decimal"
                                     value={valores[`smo.${c.clave}`] ?? ''}
                                     onChange={(e) => setValores((s) => ({ ...s, [`smo.${c.clave}`]: e.target.value }))}
                                 />
-                            </div>
+                            </Campo>
                         ))}
                     </div>
                 </div>
 
                 <div className="flex items-end gap-3">
-                    <div className="flex-1">
-                        <label className={labelClass}>Motivo del cambio</label>
-                        <input className={inputClass} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Queda en el historial" />
-                    </div>
-                    <button type="submit" disabled={guardando} className={btnPrimary}>
-                        {guardando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Guardar parámetros
-                    </button>
+                    <Campo etiqueta="Motivo del cambio" className="flex-1">
+                        <Input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Queda en el historial" />
+                    </Campo>
+                    <BotonPrimario type="submit" icono={Save} cargando={guardando}>
+                        Guardar parámetros
+                    </BotonPrimario>
                 </div>
             </form>
-        </section>
+        </Tarjeta>
     );
 };
 

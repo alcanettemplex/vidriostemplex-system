@@ -1,16 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import {
-    X, Loader2, Edit3, ClipboardCheck, CheckCircle2, XCircle, AlertTriangle, HardHat, Download, Printer,
+    Loader2, Edit3, ClipboardCheck, CheckCircle2, XCircle, AlertTriangle, HardHat, Download, Printer,
 } from 'lucide-react';
 
 import { apiObtenerCotizacion, apiAptitudCotizacion, apiPlanoDeItem, apiDespieceDeItem, apiDescargarPdfPropuesta, apiGetModulos } from '../../services/cotizadorApi';
-import { Aptitud, Cotizacion, DespieceItem, ItemCotizacion, ModuloMeta, Plano, Propuesta, TipoCargo } from '../../types';
-import { fmtCOP, fmtFecha, fmtPct } from '../../format';
+import { Aptitud, Cotizacion, DespieceItem, ItemCotizacion, ModuloMeta, Plano, Propuesta } from '../../types';
+import { ETIQUETA_CARGO, fmtCOP, fmtFecha, fmtPct } from '../../format';
 import { abrirVentanaImpresion } from '../../../../utils/printWindow';
 import DiagramaProducto from '../DiagramaProducto';
 import ComparadorPropuestas from '../ComparadorPropuestas';
 import PrintableHojaTrabajo from '../PrintableHojaTrabajo';
+import { BotonPrimario, BotonSecundario, ChipEstadoCotizacion, FilaDato, ModalShell } from '../ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modal de detalle de una cotización guardada — tres vistas:
@@ -48,24 +49,6 @@ interface Props {
 }
 
 type Vista = 'normal' | 'tecnico' | 'comparar';
-
-const badgeEstado = (estado: string): string => {
-    switch (estado) {
-        case 'PENDIENTE': return 'bg-amber-100 text-amber-800 border-amber-200';
-        case 'APROBADA': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-        case 'CANCELADO': return 'bg-slate-100 text-slate-600 border-slate-200';
-        case 'PERDIDO': return 'bg-rose-100 text-rose-800 border-rose-200';
-        default: return 'bg-slate-100 text-slate-600 border-slate-200';
-    }
-};
-
-const ETIQUETA_CARGO: Record<TipoCargo, string> = {
-    SMO: 'Mano de obra',
-    ANDAMIO: 'Alquiler de andamio',
-    HUACAL: 'Huacal / embalaje',
-    FLETE: 'Acarreo / flete',
-    OTRO: 'Otro servicio',
-};
 
 const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, onReabrir }) => {
     const [cot, setCot] = useState<Cotizacion | null>(null);
@@ -262,35 +245,26 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-slate-200">
-                {/* Header */}
-                <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
-                    <div>
-                        <h2 className="text-lg font-bold text-slate-800">
-                            Cotización {cot ? <span className="font-cotizador-head">{`N.° ${cot.numero}`}</span> : ''}
-                        </h2>
-                        {cot && <p className="text-xs text-slate-500 font-medium">{cot.cliente?.nombre || 'Sin cliente'}</p>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-bold">
-                            {([['normal', 'Normal'], ['tecnico', 'Técnica'], ['comparar', 'Comparar']] as const).map(([v, texto]) => (
-                                <button
-                                    key={v}
-                                    onClick={() => setVista(v)}
-                                    className={`px-3 py-1.5 transition ${vista === v ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
-                                >
-                                    {texto}
-                                </button>
-                            ))}
-                        </div>
-                        <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
-                            <X className="w-5 h-5" />
+        <ModalShell
+            titulo={<>Cotización {cot ? <span className="font-cotizador-head">{`N.° ${cot.numero}`}</span> : ''}</>}
+            subtitulo={cot ? (cot.cliente?.nombre || 'Sin cliente') : undefined}
+            anchoMaximo="max-w-4xl"
+            onClose={onClose}
+            accionesHeader={
+                <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-bold">
+                    {([['normal', 'Normal'], ['tecnico', 'Técnica'], ['comparar', 'Comparar']] as const).map(([v, texto]) => (
+                        <button
+                            key={v}
+                            onClick={() => setVista(v)}
+                            className={`px-3 py-1.5 transition ${vista === v ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                        >
+                            {texto}
                         </button>
-                    </div>
+                    ))}
                 </div>
-
-                {cargando ? (
+            }
+        >
+            {cargando ? (
                     <div className="py-20 flex items-center justify-center text-slate-400">
                         <Loader2 className="w-6 h-6 animate-spin mr-2" /> Cargando cotización…
                     </div>
@@ -301,25 +275,22 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                 ) : vista === 'normal' ? (
                     <div className="p-6 space-y-5">
                         {/* ── Cabecera ─────────────────────────────────────── */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 border border-slate-200 rounded-xl p-4">
-                            <div className="space-y-1 text-sm">
-                                <div><span className="text-slate-400">Cliente:</span> <span className="font-semibold text-slate-800">{cot.cliente?.nombre || '—'}</span></div>
-                                {cot.cliente?.obra && <div><span className="text-slate-400">Obra:</span> <span className="text-slate-700">{cot.cliente.obra}</span></div>}
-                                {cot.cliente?.direccion && <div><span className="text-slate-400">Dirección:</span> <span className="text-slate-700">{cot.cliente.direccion}</span></div>}
-                                {cot.cliente?.telefono && <div><span className="text-slate-400">Teléfono:</span> <span className="text-slate-700">{cot.cliente.telefono}</span></div>}
-                                {cot.cliente?.contacto && <div><span className="text-slate-400">Contacto:</span> <span className="text-slate-700">{cot.cliente.contacto}</span></div>}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 bg-slate-50 border border-slate-200 rounded-xl px-4">
+                            <div>
+                                <FilaDato etiqueta="Cliente" valor={cot.cliente?.nombre} />
+                                {cot.cliente?.obra && <FilaDato etiqueta="Obra" valor={cot.cliente.obra} />}
+                                {cot.cliente?.direccion && <FilaDato etiqueta="Dirección" valor={cot.cliente.direccion} />}
+                                {cot.cliente?.telefono && <FilaDato etiqueta="Teléfono" valor={cot.cliente.telefono} />}
+                                {cot.cliente?.contacto && <FilaDato etiqueta="Contacto" valor={cot.cliente.contacto} />}
                             </div>
-                            <div className="space-y-1 text-sm">
-                                <div><span className="text-slate-400">Asesor:</span> <span className="font-semibold text-slate-800">{cot.asesor || '—'}</span></div>
-                                <div><span className="text-slate-400">Segmento:</span> <span className="text-slate-700">{cot.segmentoCliente}</span></div>
-                                <div>
-                                    <span className="text-slate-400">Estado:</span>{' '}
-                                    <span className={`px-2 py-0.5 rounded-full border text-[11px] font-bold ${badgeEstado(cot.estado)}`}>{cot.estado}</span>
-                                </div>
+                            <div>
+                                <FilaDato etiqueta="Asesor" valor={cot.asesor} />
+                                <FilaDato etiqueta="Segmento" valor={cot.segmentoCliente} />
+                                <FilaDato etiqueta="Estado" valor={<ChipEstadoCotizacion estado={cot.estado} />} />
                                 {/* El descuento vivo es el de la PROPUESTA; el de la
                                     cabecera quedó legado y siempre vale 0. */}
-                                <div><span className="text-slate-400">Descuento de la propuesta:</span> <span className="text-slate-700">{fmtPct(activa?.descuentoPct ?? 0)}</span></div>
-                                <div><span className="text-slate-400">Fecha:</span> <span className="text-slate-700">{fmtFecha(cot.creadaEn)}</span></div>
+                                <FilaDato etiqueta="Descuento de la propuesta" valor={fmtPct(activa?.descuentoPct ?? 0)} />
+                                <FilaDato etiqueta="Fecha" valor={fmtFecha(cot.creadaEn)} />
                             </div>
                         </div>
 
@@ -511,38 +482,31 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                         {/* ── Acciones ─────────────────────────────────────── */}
                         <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-slate-100">
                             {activa && (
-                                <button
+                                <BotonSecundario
+                                    icono={Download}
+                                    cargando={descargandoPdf}
                                     onClick={descargarPdf}
-                                    disabled={descargandoPdf}
                                     title={`Descarga el PDF de la propuesta ${activa.etiqueta} para enviar al cliente`}
-                                    className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-50 transition disabled:opacity-50"
                                 >
-                                    {descargandoPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                                     Descargar PDF{activa ? ` (${activa.etiqueta})` : ''}
-                                </button>
+                                </BotonSecundario>
                             )}
-                            <button
+                            <BotonSecundario
+                                icono={Printer}
                                 onClick={imprimirHojaTrabajo}
                                 title="Documento interno para el taller, sin precios — sale siempre, no depende de la aptitud para orden de corte"
-                                className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-50 transition"
                             >
-                                <Printer className="w-4 h-4" /> Hoja de Trabajo
-                            </button>
-                            <button
+                                Hoja de Trabajo
+                            </BotonSecundario>
+                            <BotonSecundario
+                                icono={ClipboardCheck}
+                                cargando={cargandoAptitud}
                                 onClick={evaluarAptitud}
-                                disabled={cargandoAptitud}
                                 title="Se evalúa siempre sobre la propuesta elegida: la orden de corte sale de ella."
-                                className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-50 transition disabled:opacity-50"
                             >
-                                {cargandoAptitud ? <Loader2 className="w-4 h-4 animate-spin" /> : <ClipboardCheck className="w-4 h-4" />}
                                 Evaluar aptitud de la propuesta elegida
-                            </button>
-                            <button
-                                onClick={reabrir}
-                                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition shadow-sm"
-                            >
-                                <Edit3 className="w-4 h-4" /> Reabrir para editar
-                            </button>
+                            </BotonSecundario>
+                            <BotonPrimario icono={Edit3} onClick={reabrir}>Reabrir para editar</BotonPrimario>
                         </div>
                     </div>
                 ) : (
@@ -585,13 +549,12 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
 
                 {/* Área oculta que alimenta `imprimirHojaTrabajo()`: `abrirVentanaImpresion`
                     sólo necesita el HTML, así que no hace falta mostrarla en pantalla. */}
-                {cot && (
-                    <div id="hoja-trabajo-area" style={{ display: 'none' }}>
-                        <PrintableHojaTrabajo cot={cot} propuesta={activa} modulos={modulos} planos={planos} despieces={despieces} />
-                    </div>
-                )}
-            </div>
-        </div>
+            {cot && (
+                <div id="hoja-trabajo-area" style={{ display: 'none' }}>
+                    <PrintableHojaTrabajo cot={cot} propuesta={activa} modulos={modulos} planos={planos} despieces={despieces} />
+                </div>
+            )}
+        </ModalShell>
     );
 };
 

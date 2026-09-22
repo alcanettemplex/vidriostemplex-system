@@ -276,7 +276,7 @@ interface Props {
     onDuplicarLegado?: () => void;
 }
 
-const inputClass = 'w-full min-w-0 h-8 px-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:bg-slate-50 disabled:text-slate-400';
+const inputClass = 'w-full min-w-0 h-7 px-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:bg-slate-50 disabled:text-slate-400';
 const numClass = `${inputClass} text-right font-cotizador-head tabular-nums`;
 
 /** Toda celda de dinero lleva estas clases: Space Grotesk para la cifra y
@@ -294,8 +294,15 @@ const IMPORTE = 'font-cotizador-head tabular-nums';
  * Por debajo de `sm` no hay rejilla: cada fila se apila con `flex-wrap`, y por
  * eso todo input lleva su propio `aria-label` — apilada, la fila pierde de
  * vista la cabecera de columna que la explicaba. */
-const COLUMNAS = 'sm:grid-cols-[minmax(0,1fr)_minmax(4.5rem,7rem)_minmax(5rem,8.5rem)_2.5rem_minmax(5rem,7.5rem)] sm:gap-x-3';
-const REJILLA = `flex flex-wrap items-center gap-x-3 gap-y-2 sm:grid sm:items-center sm:gap-y-0 ${COLUMNAS}`;
+// La columna de concepto tenía `minmax(0,1fr)`: se estiraba a llenar TODO el
+// ancho sobrante del contenedor antes de llegar a la columna de Cantidad, y
+// como el panel vivía a lo ancho completo de la pantalla, ese sobrante era un
+// hueco muerto enorme entre el texto y los números (evidencia: captura del
+// usuario, 2026-09-22). Con un tope de 18rem el checkbox+texto quedan pegados
+// a las columnas de plata — el resto del ancho lo libera el panel entero, no
+// esta columna sola (ver `max-w-4xl` en el `<section>` de abajo).
+const COLUMNAS = 'sm:grid-cols-[minmax(0,18rem)_minmax(4.5rem,7rem)_minmax(5rem,8.5rem)_2.5rem_minmax(5rem,7.5rem)] sm:gap-x-3';
+const REJILLA = `flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:grid sm:items-center sm:gap-y-0 ${COLUMNAS}`;
 
 /** Los campos numéricos se muestran vacíos cuando valen 0: un "0" escrito en un
  * campo de dinero se confunde con un importe decidido. El placeholder recuerda
@@ -331,10 +338,10 @@ const FilaCargo: React.FC<{
     /** Controles propios de la fila (selector de obra, Sugerir, explicación). */
     pie?: React.ReactNode;
 }> = ({ icono, titulo, activo, onToggle, deshabilitado, total, aplicaIva, onAplicaIva, cantidad, unitario, pie }) => (
-    <div className={`px-3 py-1.5 border-b border-slate-100 transition-colors ${activo ? 'bg-white' : 'bg-slate-50/60'}`}>
+    <div className={`px-3 py-1 border-b border-slate-100 transition-colors ${activo ? 'bg-white' : 'bg-slate-50/60'}`}>
         <div className={REJILLA}>
             {/* Concepto */}
-            <label className="flex items-center gap-2 min-h-[32px] min-w-[150px] flex-1 sm:min-w-0 cursor-pointer select-none">
+            <label className="flex items-center gap-2 min-h-[28px] min-w-[150px] flex-1 sm:min-w-0 cursor-pointer select-none">
                 <input
                     type="checkbox"
                     checked={activo}
@@ -395,7 +402,7 @@ const FilaCargo: React.FC<{
             <div className="flex items-center justify-center">
                 {activo && (
                     <label
-                        className="inline-flex items-center justify-center gap-1 min-h-[32px] min-w-[32px] cursor-pointer select-none"
+                        className="inline-flex items-center justify-center gap-1 min-h-[28px] min-w-[28px] cursor-pointer select-none"
                         title="Desmarcar sólo si el proveedor factura sin IVA"
                     >
                         <input
@@ -419,7 +426,7 @@ const FilaCargo: React.FC<{
             </div>
         </div>
 
-        {activo && pie && <div className="mt-1.5 sm:pl-[26px]">{pie}</div>}
+        {activo && pie && <div className="mt-1 sm:pl-[26px]">{pie}</div>}
     </div>
 );
 
@@ -553,8 +560,8 @@ const PanelCargosObra: React.FC<Props> = ({
     );
 
     return (
-        <section className="border border-slate-200 rounded-2xl overflow-hidden bg-white">
-            <header className="bg-gradient-to-b from-indigo-50 to-violet-50 border-b border-indigo-100 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
+        <section className="border border-slate-200 rounded-xl overflow-hidden bg-white max-w-4xl">
+            <header className="bg-gradient-to-b from-indigo-50 to-violet-50 border-b border-indigo-100 px-3.5 py-2 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0 flex-wrap">
                     <HardHat className="w-4 h-4 text-indigo-600 shrink-0" />
                     <h3 className="text-sm font-bold text-slate-800 font-cotizador-head">Cargos de obra</h3>
@@ -592,7 +599,7 @@ const PanelCargosObra: React.FC<Props> = ({
             <div className={bloqueado ? 'opacity-50 pointer-events-none' : ''}>
                 {/* Cabecera de columnas. Oculta en móvil, donde la fila se apila y
                     cada campo se explica con su propio aria-label / rótulo. */}
-                <div className={`hidden sm:grid ${COLUMNAS} px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold uppercase tracking-wide text-slate-400`}>
+                <div className={`hidden sm:grid ${COLUMNAS} px-3 py-1 bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold uppercase tracking-wide text-slate-400`}>
                     <span>Concepto</span>
                     <span className="text-right">Cantidad</span>
                     <span className="text-right">Valor unit.</span>
@@ -706,7 +713,7 @@ const PanelCargosObra: React.FC<Props> = ({
                     Única sección que sigue siendo una LISTA: líneas que se añaden
                     y se quitan, con su descripción libre. Se pintan con la misma
                     rejilla para que su importe caiga en la columna de totales. */}
-                <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-slate-50/70 border-b border-slate-100">
+                <div className="flex items-center justify-between gap-2 px-3 py-1 bg-slate-50/70 border-b border-slate-100">
                     <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400">
                         Otros servicios
                     </span>
@@ -722,12 +729,12 @@ const PanelCargosObra: React.FC<Props> = ({
                 </div>
 
                 {valor.otros.length === 0 ? (
-                    <p className="px-3 py-2 text-[11.5px] text-slate-400 border-b border-slate-100">
+                    <p className="px-3 py-1.5 text-[11.5px] text-slate-400 border-b border-slate-100">
                         Sin servicios adicionales.
                     </p>
                 ) : (
                     valor.otros.map((o, i) => (
-                        <div key={o.key} className="px-3 py-1.5 border-b border-slate-100">
+                        <div key={o.key} className="px-3 py-1 border-b border-slate-100">
                             <div className={REJILLA}>
                                 {/* Concepto: descripción libre + quitar la línea */}
                                 <div className="flex items-center gap-1.5 min-w-[150px] flex-1 sm:min-w-0">
@@ -809,7 +816,7 @@ const PanelCargosObra: React.FC<Props> = ({
                     Sólo la suma de estas líneas, sin IVA: el total de la propuesta
                     lo sigue calculando el backend. La línea punteada lo separa de
                     los cargos para que no se lea como una fila más. */}
-                <div className={`px-3 py-2.5 border-t border-dashed border-slate-300 bg-slate-50/40 justify-between ${REJILLA}`}>
+                <div className={`px-3 py-2 border-t border-dashed border-slate-300 bg-slate-50/40 justify-between ${REJILLA}`}>
                     <span className="text-[11.5px] font-extrabold uppercase tracking-wide text-slate-500 sm:col-span-4 sm:text-right">
                         Subtotal cargos
                     </span>
@@ -819,7 +826,7 @@ const PanelCargosObra: React.FC<Props> = ({
                 </div>
 
                 {!cotizacionId && (
-                    <p className="px-3 py-2 text-[11px] text-slate-400 leading-snug">
+                    <p className="px-3 py-1.5 text-[11px] text-slate-400 leading-snug">
                         Los cargos se guardan junto con la cotización. Si no tocas este panel, al guardarla el sistema
                         añade la mano de obra y el flete sugeridos según los ítems.
                     </p>

@@ -15,6 +15,7 @@ import {
     HolguraCalibracion, PiezaCalibracion,
 } from '../types';
 import { fmtFecha, fmtPct } from '../format';
+import { BotonPeligro, BotonPrimario, BotonSecundario, Campo, Chip, ChipNivelCorte, Input, Select, Tarjeta } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pestaña "Calibración" del Cotizador — solo root/admin (mismo gate que el
@@ -29,12 +30,10 @@ import { fmtFecha, fmtPct } from '../format';
 
 type SubTab = 'sistemas' | 'holguras' | 'historial';
 
-const badgeEstado = (estado: EstadoSistemaCalibracion['estado']): string => {
-    switch (estado) {
-        case 'EN_PRODUCCION': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-        case 'VALIDADO': return 'bg-sky-100 text-sky-800 border-sky-200';
-        default: return 'bg-amber-100 text-amber-800 border-amber-200';
-    }
+const TONO_ESTADO_SISTEMA: Record<EstadoSistemaCalibracion['estado'], 'esmeralda' | 'indigo' | 'ambar'> = {
+    EN_PRODUCCION: 'esmeralda',
+    VALIDADO: 'indigo',
+    EN_CALIBRACION: 'ambar',
 };
 
 const labelEstado = (estado: EstadoSistemaCalibracion['estado']): string => {
@@ -45,11 +44,9 @@ const labelEstado = (estado: EstadoSistemaCalibracion['estado']): string => {
     }
 };
 
-const inputClass = 'px-2.5 py-1.5 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200';
-const labelClass = 'block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1';
-const btnPrimary = 'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50';
-const btnSecundario = 'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50';
-const btnPeligro = 'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 disabled:opacity-50';
+const ChipEstadoSistema: React.FC<{ estado: EstadoSistemaCalibracion['estado'] }> = ({ estado }) => (
+    <Chip tono={TONO_ESTADO_SISTEMA[estado] ?? 'ambar'}>{labelEstado(estado)}</Chip>
+);
 
 const TabCalibracion: React.FC = () => {
     const [sub, setSub] = useState<SubTab>('sistemas');
@@ -142,10 +139,7 @@ const TabCalibracion: React.FC = () => {
 
             {sub === 'sistemas' && (
                 <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
-                    <div className="border border-slate-200 rounded-xl overflow-hidden">
-                        <div className="bg-slate-50 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                            Sistemas ({sistemas.length})
-                        </div>
+                    <Tarjeta titulo={`Sistemas (${sistemas.length})`} sinRelleno>
                         {cargandoSistemas ? (
                             <div className="p-6 flex justify-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
                         ) : (
@@ -158,9 +152,7 @@ const TabCalibracion: React.FC = () => {
                                         >
                                             <div className="flex items-center justify-between gap-2">
                                                 <span className="text-sm font-semibold text-slate-800">{s.sistema}</span>
-                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${badgeEstado(s.estado)}`}>
-                                                    {labelEstado(s.estado)}
-                                                </span>
+                                                <ChipEstadoSistema estado={s.estado} />
                                             </div>
                                             <div className="text-xs text-slate-500 mt-0.5">
                                                 {s.piezasConMargen}/{s.piezasTotales - s.piezasVetadas} piezas calibradas
@@ -175,7 +167,7 @@ const TabCalibracion: React.FC = () => {
                                 ))}
                             </ul>
                         )}
-                    </div>
+                    </Tarjeta>
 
                     <div>
                         {!sistemaSel ? (
@@ -227,16 +219,18 @@ const PanelSistema: React.FC<PanelSistemaProps> = ({
                 <div className="text-xs text-slate-500">{sistema.motivo}</div>
             </div>
             <div className="flex items-center gap-2">
-                <button onClick={() => onTogglePausa(sistema)} className={btnSecundario}>
-                    {sistema.pausadoManualmente ? <><Play className="w-3.5 h-3.5" /> Reanudar</> : <><Pause className="w-3.5 h-3.5" /> Pausar</>}
-                </button>
-                <button onClick={() => onToggleFirma(sistema)} className={sistema.firmaMaestro ? btnPeligro : btnPrimary}>
-                    <PenLine className="w-3.5 h-3.5" /> {sistema.firmaMaestro ? 'Retirar firma' : 'Firmar como maestro'}
-                </button>
+                <BotonSecundario compacto icono={sistema.pausadoManualmente ? Play : Pause} onClick={() => onTogglePausa(sistema)}>
+                    {sistema.pausadoManualmente ? 'Reanudar' : 'Pausar'}
+                </BotonSecundario>
+                {sistema.firmaMaestro ? (
+                    <BotonPeligro compacto icono={PenLine} onClick={() => onToggleFirma(sistema)}>Retirar firma</BotonPeligro>
+                ) : (
+                    <BotonPrimario compacto icono={PenLine} onClick={() => onToggleFirma(sistema)}>Firmar como maestro</BotonPrimario>
+                )}
             </div>
         </div>
 
-        <div className="border border-slate-200 rounded-xl overflow-hidden">
+        <Tarjeta sinRelleno>
             <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-slate-500">
                     <tr>
@@ -258,13 +252,11 @@ const PanelSistema: React.FC<PanelSistemaProps> = ({
                             <td className="px-3 py-2 font-semibold text-slate-800">{p.ref}</td>
                             <td className="px-3 py-2 text-slate-600">{p.material}</td>
                             <td className="px-3 py-2">
-                                {p.nivelCorte === 'C' ? (
-                                    <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">C — vetada</span>
-                                ) : p.nivelCorte === 'B' ? (
-                                    <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">B</span>
-                                ) : (
-                                    <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">A</span>
-                                )}
+                                {/* `p.nivelCorte` es `NivelCorte | null`; el ternario original caía a
+                                    "A" cuando no era ni 'C' ni 'B' (incluido `null`) — se preserva ese
+                                    comportamiento exacto en vez de decidir aquí un tratamiento nuevo
+                                    para el caso sin nivel, que es un cambio de lógica y no de forma. */}
+                                <ChipNivelCorte nivel={p.nivelCorte ?? 'A'} alertaEnC />
                             </td>
                             <td className="px-3 py-2 text-slate-600">
                                 {p.margenEfectivo.origen === 'sin-calibrar' ? (
@@ -275,13 +267,13 @@ const PanelSistema: React.FC<PanelSistemaProps> = ({
                             </td>
                             <td className="px-3 py-2 text-slate-600">{p.contrastesVigentes}</td>
                             <td className="px-3 py-2 text-right">
-                                <button onClick={() => onSeleccionarPieza(p)} className={btnSecundario}>Ver</button>
+                                <BotonSecundario compacto onClick={() => onSeleccionarPieza(p)}>Ver</BotonSecundario>
                             </td>
                         </tr>
                     ))}
                 </tbody>
             </table>
-        </div>
+        </Tarjeta>
 
         {piezaSel && (
             <PanelPieza sistema={sistema.sistema} pieza={piezaSel} onCambio={onCambio} />
@@ -390,9 +382,7 @@ const PanelPieza: React.FC<{ sistema: string; pieza: PiezaCalibracion; onCambio:
         <div className="border border-indigo-200 rounded-xl p-3 bg-indigo-50/30 space-y-3">
             <div className="flex items-center justify-between">
                 <div className="text-sm font-bold text-slate-800">Pieza {pieza.ref} — {pieza.material}</div>
-                <button onClick={analizar} disabled={analizando} className={btnPrimary}>
-                    {analizando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />} Analizar
-                </button>
+                <BotonPrimario compacto icono={CheckCircle2} cargando={analizando} onClick={analizar}>Analizar</BotonPrimario>
             </div>
 
             {analisis && (
@@ -401,7 +391,7 @@ const PanelPieza: React.FC<{ sistema: string; pieza: PiezaCalibracion; onCambio:
                         <>
                             <p className="font-semibold text-emerald-800">Se puede proponer un margen de {analisis.margenMm} mm ({analisis.tipo}).</p>
                             <p className="text-emerald-700 mt-1">{analisis.explicacion}</p>
-                            <button onClick={aprobar} className={`${btnPrimary} mt-2`}>Aprobar este margen</button>
+                            <BotonPrimario compacto className="mt-2" onClick={aprobar}>Aprobar este margen</BotonPrimario>
                         </>
                     ) : (
                         <p className="text-amber-800">{analisis.motivo}</p>
@@ -410,31 +400,24 @@ const PanelPieza: React.FC<{ sistema: string; pieza: PiezaCalibracion; onCambio:
             )}
 
             <form onSubmit={registrar} className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
+                <Campo etiqueta="Sistema calculó (mm)">
+                    <Input value={medidaSistema} onChange={(e) => setMedidaSistema(e.target.value)} inputMode="decimal" required />
+                </Campo>
+                <Campo etiqueta="Maestro cortó (mm)">
+                    <Input value={medidaMaestro} onChange={(e) => setMedidaMaestro(e.target.value)} inputMode="decimal" required />
+                </Campo>
+                <Campo etiqueta="Ancho vano (mm)">
+                    <Input value={anchoVano} onChange={(e) => setAnchoVano(e.target.value)} inputMode="decimal" />
+                </Campo>
+                <Campo etiqueta="Alto vano (mm)">
+                    <Input value={altoVano} onChange={(e) => setAltoVano(e.target.value)} inputMode="decimal" />
+                </Campo>
                 <div>
-                    <label className={labelClass}>Sistema calculó (mm)</label>
-                    <input className={inputClass} value={medidaSistema} onChange={(e) => setMedidaSistema(e.target.value)} inputMode="decimal" required />
+                    <BotonPrimario compacto type="submit" icono={PlusCircle} cargando={guardando}>Registrar</BotonPrimario>
                 </div>
-                <div>
-                    <label className={labelClass}>Maestro cortó (mm)</label>
-                    <input className={inputClass} value={medidaMaestro} onChange={(e) => setMedidaMaestro(e.target.value)} inputMode="decimal" required />
-                </div>
-                <div>
-                    <label className={labelClass}>Ancho vano (mm)</label>
-                    <input className={inputClass} value={anchoVano} onChange={(e) => setAnchoVano(e.target.value)} inputMode="decimal" />
-                </div>
-                <div>
-                    <label className={labelClass}>Alto vano (mm)</label>
-                    <input className={inputClass} value={altoVano} onChange={(e) => setAltoVano(e.target.value)} inputMode="decimal" />
-                </div>
-                <div>
-                    <button type="submit" disabled={guardando} className={btnPrimary}>
-                        {guardando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PlusCircle className="w-3.5 h-3.5" />} Registrar
-                    </button>
-                </div>
-                <div className="col-span-2 md:col-span-5">
-                    <label className={labelClass}>Nota (opcional)</label>
-                    <input className={`${inputClass} w-full`} value={nota} onChange={(e) => setNota(e.target.value)} />
-                </div>
+                <Campo etiqueta="Nota (opcional)" className="col-span-2 md:col-span-5">
+                    <Input value={nota} onChange={(e) => setNota(e.target.value)} />
+                </Campo>
             </form>
 
             <div>
@@ -446,7 +429,7 @@ const PanelPieza: React.FC<{ sistema: string; pieza: PiezaCalibracion; onCambio:
                 ) : (
                     <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-lg">
                         <table className="w-full text-xs">
-                            <thead className="bg-slate-50 text-slate-500">
+                            <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
                                 <tr>
                                     <th className="text-left px-2 py-1.5">Fecha</th>
                                     <th className="text-left px-2 py-1.5">Sistema</th>
@@ -544,10 +527,7 @@ const PanelHolguras: React.FC<{ sistemas: EstadoSistemaCalibracion[] }> = ({ sis
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <div className="bg-slate-50 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                    Holguras vigentes
-                </div>
+            <Tarjeta titulo="Holguras vigentes" sinRelleno>
                 {cargando ? (
                     <div className="p-6 flex justify-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin" /></div>
                 ) : holguras.length === 0 ? (
@@ -571,19 +551,20 @@ const PanelHolguras: React.FC<{ sistemas: EstadoSistemaCalibracion[] }> = ({ sis
                                     <td className="px-3 py-2 text-slate-500">{h.nota || '—'}</td>
                                     <td className="px-3 py-2 text-slate-500">{h.definido_por || '—'}</td>
                                     <td className="px-3 py-2 text-right">
-                                        <button onClick={() => anular(h)} className={btnPeligro}><XCircle className="w-3.5 h-3.5" /> Anular</button>
+                                        <BotonPeligro compacto icono={XCircle} onClick={() => anular(h)}>Anular</BotonPeligro>
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 )}
-            </div>
+            </Tarjeta>
 
-            <div className="border border-slate-200 rounded-xl p-4 h-fit">
-                <p className="text-xs text-slate-500 mb-3">
-                    Descuento del vano a la medida de fabricación (depende de la obra/instalación, no del perfil).
-                </p>
+            <Tarjeta
+                titulo="Fijar holgura"
+                descripcion="Descuento del vano a la medida de fabricación (depende de la obra/instalación, no del perfil)."
+                className="h-fit"
+            >
                 <form onSubmit={fijar} className="space-y-3">
                     <div className="flex gap-3">
                         <label className="flex items-center gap-1.5 text-sm">
@@ -594,30 +575,25 @@ const PanelHolguras: React.FC<{ sistemas: EstadoSistemaCalibracion[] }> = ({ sis
                         </label>
                     </div>
                     {ambito === 'sistema' && (
-                        <select className={`${inputClass} w-full`} value={sistema} onChange={(e) => setSistema(e.target.value)} required>
+                        <Select value={sistema} onChange={(e) => setSistema(e.target.value)} required>
                             <option value="">Elegí un sistema…</option>
                             {sistemas.map((s) => <option key={s.sistema} value={s.sistema}>{s.sistema}</option>)}
-                        </select>
+                        </Select>
                     )}
                     <div className="grid grid-cols-2 gap-2">
-                        <div>
-                            <label className={labelClass}>Ancho (mm)</label>
-                            <input className={`${inputClass} w-full`} value={ancho} onChange={(e) => setAncho(e.target.value)} inputMode="decimal" required />
-                        </div>
-                        <div>
-                            <label className={labelClass}>Alto (mm)</label>
-                            <input className={`${inputClass} w-full`} value={alto} onChange={(e) => setAlto(e.target.value)} inputMode="decimal" required />
-                        </div>
+                        <Campo etiqueta="Ancho (mm)">
+                            <Input value={ancho} onChange={(e) => setAncho(e.target.value)} inputMode="decimal" required />
+                        </Campo>
+                        <Campo etiqueta="Alto (mm)">
+                            <Input value={alto} onChange={(e) => setAlto(e.target.value)} inputMode="decimal" required />
+                        </Campo>
                     </div>
-                    <div>
-                        <label className={labelClass}>Nota</label>
-                        <input className={`${inputClass} w-full`} value={nota} onChange={(e) => setNota(e.target.value)} />
-                    </div>
-                    <button type="submit" disabled={guardando} className={btnPrimary}>
-                        {guardando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PlusCircle className="w-3.5 h-3.5" />} Fijar holgura
-                    </button>
+                    <Campo etiqueta="Nota">
+                        <Input value={nota} onChange={(e) => setNota(e.target.value)} />
+                    </Campo>
+                    <BotonPrimario type="submit" icono={PlusCircle} cargando={guardando}>Fijar holgura</BotonPrimario>
                 </form>
-            </div>
+            </Tarjeta>
         </div>
     );
 };
@@ -639,7 +615,7 @@ const PanelHistorial: React.FC = () => {
     if (items.length === 0) return <div className="p-6 text-sm text-slate-400">Sin movimientos todavía.</div>;
 
     return (
-        <div className="border border-slate-200 rounded-xl overflow-hidden">
+        <Tarjeta sinRelleno>
             <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-slate-500">
                     <tr>
@@ -658,7 +634,7 @@ const PanelHistorial: React.FC = () => {
                     ))}
                 </tbody>
             </table>
-        </div>
+        </Tarjeta>
     );
 };
 

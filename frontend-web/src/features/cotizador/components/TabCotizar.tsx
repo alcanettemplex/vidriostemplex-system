@@ -104,9 +104,21 @@ const TabCotizar: React.FC<Props> = ({ segmentoDefault, onAgregarItem, panelCarg
                 </div>
             )}
 
-            {panelCargos}
-
-            <SelectorProducto modulos={modulos} moduloId={moduloId} onCambiar={cambiarModulo} />
+            {/* Cargos de obra y tipo de producto van lado a lado en escritorio:
+                antes iban apilados y cada uno ocupaba el 100% del ancho aunque
+                ninguno lo necesitara (Cargos de obra ya tiene su propio
+                `max-w-4xl`; el selector se acomoda solo al espacio que le
+                queda, ver SelectorProducto.tsx). En pantallas angostas siguen
+                apilados: la tabla de cargos no tiene a dónde encogerse más.
+                `items-stretch` iguala el alto de las dos columnas — el panel
+                de descripción de SelectorProducto es lo que crece para llenar
+                la diferencia, no queda un hueco vacío debajo de las tarjetas. */}
+            <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-stretch">
+                <div className="w-full lg:max-w-4xl lg:min-w-0">{panelCargos}</div>
+                <div className="w-full lg:flex-1 lg:min-w-0">
+                    <SelectorProducto modulos={modulos} moduloId={moduloId} onCambiar={cambiarModulo} />
+                </div>
+            </div>
 
             {moduloActivo && (
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 items-start">

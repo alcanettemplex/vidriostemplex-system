@@ -4646,3 +4646,88 @@ sincronización de la copia de lectura). Integridad confirmada tras el rollback:
 - Vincular desde "Por Mapear" los 5 pares GRE/GRP de ROLDAN y re-mapear los 15 huérfanos
   rescatados. Dato abierto: los pesos de tira difieren 9–15 % entre ambas referencias.
 - Sin commit: backend y frontend van juntos, a la espera de orden.
+
+---
+
+## 2026-09-22 — Cotizador: extender el sistema de diseño, rediseñar la Hoja de Trabajo y compactar Cotizar
+
+### Origen
+El usuario pidió continuar el rediseño visual del Cotizador iniciado el 2026-09-20, extendiéndolo a
+las pantallas que quedaron fuera esa vez, y luego una serie de ajustes puntuales guiados por
+capturas reales de la app corriendo en local. Alcance acordado explícitamente: solo visual/
+estructura de UI, sin tocar flujos ni lógica de negocio.
+
+### Fase 0–5: extender `ui/index.tsx` al resto del módulo
+El rediseño del 2026-09-20 solo había tocado 8 de 17 archivos del Cotizador (el flujo de cotizar).
+Quedaban con estilos propios/antiguos: Guardadas, Calibración, Configuración, los 2 modales y los
+selectores.
+
+- **Primitivas nuevas en `ui/index.tsx`:** `Input`/`Select`/`Campo` (extraídos del estilo de
+  `CampoDinamico`, el control más cuidado del módulo), `BotonPeligro` + variante `compacto` de
+  `BotonPrimario`/`Secundario`, `ChipEstadoCotizacion`, `ChipNivelCorte` (unifica el estilo "ring" de
+  `SelectorDiseno` con el de `TabCalibracion`, con `alertaEnC` porque en Calibración el nivel C sí
+  bloquea y en el selector es solo informativo), `ModalShell` (chrome compartido de los 2 modales),
+  `Tarjeta` con `descripcion`/`sinRelleno`.
+- **Migrados:** `TabGuardadas`, `TabConfiguracion`, `TabCalibracion`, `ModalDetalleCotizacion`,
+  `ModalClonarPropuesta`, `ComparadorPropuestas`, `SelectorDiseno`, `CampoDinamico`. Deduplicado
+  `badgeEstado()` (copiada literal en 2 archivos) y el chrome de los modales (calcado carácter por
+  carácter en los 2). `ETIQUETA_CARGO` resultó ser dos variantes reales (larga/corta), no un
+  duplicado — quedaron como `ETIQUETA_CARGO`/`ETIQUETA_CARGO_CORTA` en `format.ts`.
+- **Hallazgo, no corregido (fuera de alcance):** en la tabla de piezas de `TabCalibracion`,
+  `nivelCorte: null` se pintaba como "A" (el mejor caso) en el ternario original. Se preservó ese
+  comportamiento exacto al extraer `ChipNivelCorte` — documentado en `TECH_DEBT.md` 2026-09-22 para
+  que el taller decida el tratamiento correcto.
+
+### Hoja de Trabajo — rediseño completo, réplica de `PrintableDetalleTecnico` (ODP)
+A pedido explícito del usuario: **una página Carta por ítem** (antes: página 1 con el resumen de
+TODOS los ítems + página 2 con las specs de TODOS), en el mismo formato que la Hoja de Detalle
+Técnico de la ODP real — cabecera logo/título centrado/caja con número, tabla `excel-table` de
+bordes gruesos, dos cajas apiladas con borde: arriba el plano, abajo "Cortes del taller" (perfiles +
+vidrios), reemplazando donde el ODP pone la observación de instalación.
+
+- Ambas cajas con **altura fija** (decisión explícita del usuario, como el ODP). La del plano lleva
+  `overflow:hidden` (imagen/SVG que se ajusta solo); la de cortes **no** — es una tabla de largo
+  variable, y si un ítem trae más perfiles de los que caben la tabla se sale del borde en vez de
+  truncar filas: perder una medida de corte sería peor que un borde imperfecto.
+- **Ítems sin diseño** (medidas libres): no tienen ni plano ni despiece calculable (el backend
+  rechaza `/despiece` con 400 sin `disenoId`). Tras preguntarlo, quedaron con su propia página
+  también, con aviso en cada caja en vez de desaparecer del documento.
+- Se eliminó la tabla de campos técnicos que existía en la v1 (sistema/color/vidrio/medidas
+  tecleadas) — instrucción explícita del usuario ("solo eso": plano + cortes).
+- `docs/modulos/cotizador.md` actualizado: la sección "Hoja de Trabajo" describía el esquema de 2
+  páginas anterior.
+
+### `DiagramaProducto` — cotas más legibles
+Ancho, alto y medida del vidrio/paño: texto 40–53 % más grande, negro y negrita — antes gris/azul
+sin negrita. Pedido explícito ("es el dato principal del diseño"). Es un componente compartido
+(Vista técnica, Hoja de Trabajo, previsualización en Cotizar): el cambio se ve en los tres sitios.
+
+### `TabCotizar` — compactación guiada por capturas reales
+- **`PanelCargosObra`:** alturas de fila y de controles reducidas (`h-8`→`h-7`, `py-1.5`→`py-1` en
+  cabecera/filas/subtotal), `rounded-2xl`→`rounded-xl` para consistencia con el resto del módulo.
+- **Causa raíz del espacio desperdiciado**, encontrada tras una captura del usuario: la columna
+  "Concepto" del grid era `minmax(0,1fr)` — se tragaba todo el ancho sobrante del contenedor antes
+  de llegar a las columnas de plata, y como el panel vivía a lo ancho completo de la pantalla, ese
+  sobrante era enorme. Se topó la columna a `18rem` y el panel completo a `max-w-4xl`.
+- **Layout lado a lado:** Cargos de obra y el selector de tipo de producto, antes apilados (cada uno
+  al 100 % del ancho), ahora van en una fila (`items-stretch` en escritorio; siguen apilados en
+  pantallas angostas, la tabla de cargos no tiene a dónde encogerse más).
+- **`SelectorProducto`:** grid `grid-cols-[repeat(auto-fit,minmax(120px,1fr))]` en vez de
+  `sm:`/`lg:grid-cols-N` — esos breakpoints reaccionan al ancho del *viewport*, no del contenedor, y
+  ahora este selector puede vivir con un ancho variable. Las 6 tarjetas quedan del mismo alto (se
+  sacó la descripción truncada de adentro, que además solo aparecía en la activa). Panel nuevo
+  debajo con la **descripción completa** del módulo activo, `flex-1` para llenar el espacio que
+  antes quedaba vacío bajo las tarjetas cuando Cargos de obra es más alto.
+
+### Verificado
+`tsc --noEmit` del frontend limpio en cada paso (9 corridas durante la sesión, 0 errores en todas).
+Verificación visual: el usuario, con capturas reales de cada iteración corriendo en local
+(`localhost:3000`), no en un ambiente de prueba aislado.
+
+### Pendiente
+Ninguno abierto de esta sesión. `TECH_DEBT.md` 2026-09-22 documenta el hallazgo de `nivelCorte`
+nulo en Calibración (no corregido, fuera del alcance visual acordado).
+
+### Commit
+- 17 archivos, +888/−750 líneas — todo dentro de `frontend-web/src/features/cotizador/`,
+  `docs/modulos/cotizador.md` y `TECH_DEBT.md`. Sin cambios de backend ni de BD.
