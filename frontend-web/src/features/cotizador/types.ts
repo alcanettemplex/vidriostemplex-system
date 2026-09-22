@@ -7,7 +7,20 @@ export type SegmentoCliente = 'PA' | 'PM' | 'PB';
 
 // ─── Módulos de producto (registry) ────────────────────────────────────────
 
-export type TipoCampo = 'string' | 'number' | 'boolean' | 'select';
+// 'lineas' (2026-09-22) no es un control simple como los otros cuatro: es la
+// tabla editable de códigos del catálogo que usa el módulo "Ítem libre", y la
+// renderiza `EditorLineasLibres` a través de `CampoDinamico`. Su valor es un
+// `LineaLibre[]`, no un primitivo.
+export type TipoCampo = 'string' | 'number' | 'boolean' | 'select' | 'lineas';
+
+/** Una línea del BOM que el vendedor arma a mano en el módulo "Ítem libre".
+ * `cantidad` se interpreta según la unidad que el catálogo declara para ese
+ * código (m², metros lineales o unidades): lo decide el producto, no un campo
+ * aparte — misma regla que el Excel de los asesores. */
+export interface LineaLibre {
+    codigo: string;
+    cantidad: number | '';
+}
 
 export interface OpcionCampo {
     value: string | number;

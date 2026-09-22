@@ -3,13 +3,13 @@
  *
  * POR QUÉ EXISTE ESTE SCRIPT
  * --------------------------
- * Los despieces del cotizador se extrajeron de AlumSoftware midiendo cada diseño
+ * Los despieces del cotizador se extrajeron del software de origen midiendo cada diseño
  * a 3 medidas (1000×1200, 500×1200, 1000×600) y ajustando por mínimos cuadrados
  * una recta `medida = a*ancho + b*alto + c`. Con 3 puntos y 3 incógnitas la recta
  * pasa por sus muestras por pura álgebra, así que el ajuste nunca pudo fallar —
  * y por eso el catálogo arrastra la advertencia de "no validado".
  *
- * El problema real no era ése. AlumSoftware NO calcula con una recta: calcula
+ * El problema real no era ése. El software de origen NO calcula con una recta: calcula
  * `trunc((ancho - k) / nº de paneles)`. Como las 3 medidas de extracción son
  * todas múltiplos de 100, esa división daba entero casi siempre y el truncamiento
  * quedó invisible. La regresión "absorbió" el redondeo moviendo la pendiente:
@@ -39,7 +39,7 @@
  * EL SUPUESTO QUE NO SE PUEDE VERIFICAR DESDE AQUÍ
  * -----------------------------------------------
  * `dispersionMm` acota la distancia entre los modelos DENTRO del espacio de
- * búsqueda. Si el cálculo real de AlumSoftware viviera fuera de ese espacio —un
+ * búsqueda. Si el cálculo real del software de origen viviera fuera de ese espacio —un
  * recorte condicional, un mínimo, una tabla por tamaño— ningún modelo de esta
  * familia lo representaría y la cota no diría nada sobre ese caso. El espacio se
  * eligió porque cubre lo que un despiece de carpintería hace de verdad (repartir
@@ -50,7 +50,7 @@
  *
  * SEGURIDAD DEL EMPAREJAMIENTO
  * ----------------------------
- * Cada pieza del ERP se empareja con su contraparte de AlumSoftware y sólo se
+ * Cada pieza del ERP se empareja con su contraparte del software de origen y sólo se
  * acepta el modelo si la fórmula lineal guardada en la BD coincide con la que el
  * origen calculó para esa misma pieza. Si no coincide, el emparejamiento es
  * dudoso y la pieza se deja SIN modelo (seguirá usando la recta de hoy). No se
@@ -60,7 +60,7 @@
  * USO
  *   npx ts-node src/scripts/2026-09-13_reconstruir_modelos_corte.ts [rutaMultimedida.json]
  *
- * Por defecto busca el multimedida.json del proyecto AlumSoftware. La salida va a
+ * Por defecto busca el multimedida.json del proyecto externo de origen. La salida va a
  * src/scripts/datos_cotizador/modelos_corte.json (versionado en git), de modo que
  * aplicar los modelos no requiera tener ese proyecto a mano.
  */
@@ -78,8 +78,19 @@ dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 // Configuración
 // ---------------------------------------------------------------------------
 
-const RUTA_MULTIMEDIDA_POR_DEFECTO =
-  'C:/Users/User/Desktop/AlcanetPro/Aplicaciones/AlumSoftware/data/multimedida.json';
+// `multimedida.json` vive FUERA del repo, en el proyecto externo del que se
+// extrajeron los despieces. La ruta no se escribe aquí por dos razones: el nombre
+// del software de origen no debe aparecer en el código del ERP (decisión 8 del
+// Cotizador, ver docs/modulos/cotizador.md), y la que estaba escrita apuntaba al
+// escritorio de OTRA máquina (`C:/Users/User/...`), así que ya no resolvía. Se
+// pasa como argumento, o por COTIZADOR_DATOS_ORIGEN (la carpeta que lo contiene).
+//
+// No hace falta para aplicar los modelos: la salida de este script
+// (`datos_cotizador/modelos_corte.json`) está versionada, que es justamente para
+// no necesitar el proyecto externo a mano.
+const RUTA_MULTIMEDIDA_POR_DEFECTO = process.env.COTIZADOR_DATOS_ORIGEN
+  ? path.join(process.env.COTIZADOR_DATOS_ORIGEN, 'multimedida.json')
+  : '';
 
 const SALIDA = path.join(__dirname, 'datos_cotizador', 'modelos_corte.json');
 
@@ -132,7 +143,7 @@ interface Punto {
  * ¿Este modelo devuelve siempre un número entero de milímetros?
  *
  * Se comprobó sobre los reportes crudos del origen (844 celdas de medida en 60
- * reportes): AlumSoftware **nunca** emite una medida de corte con decimales. Un
+ * reportes): el software de origen **nunca** emite una medida de corte con decimales. Un
  * modelo como `(ancho - 6) / 2` sin redondeo reproduce las 3 observaciones —en
  * ellas la división cae exacta— pero en un vano cualquiera devuelve 595,5 mm, y
  * eso el origen no lo produce nunca. Descartarlos no es una preferencia estética:
@@ -166,7 +177,7 @@ function buscarModelos(puntos: Punto[]): ModeloCorte[] {
       for (const q of COEFS) {
         // p=q=0 SÍ se admite: es la pieza cuya medida no depende del vano
         // (`medida = r`). Son 8 perfiles reales, todos "Horizontal" de diseños
-        // con marco, que AlumSoftware devuelve como constante (15, 30, 4, 13 mm).
+        // con marco, que el software de origen devuelve como constante (15, 30, 4, 13 mm).
         // Es un modelo exacto de lo observado, y por eso se acepta — pero una
         // medida que no escala con la ventana casi siempre significa que al
         // despiece le falta un parámetro que el formulario no pide (el ancho del
@@ -369,8 +380,9 @@ async function main() {
   const ruta = process.argv[2] ?? RUTA_MULTIMEDIDA_POR_DEFECTO;
   if (!fs.existsSync(ruta)) {
     throw new Error(
-      `No se encuentra el archivo de extracciones: ${ruta}\n` +
-        `Pásalo como argumento: npx ts-node src/scripts/2026-09-13_reconstruir_modelos_corte.ts <ruta>`
+      `No se encuentra el archivo de extracciones: ${ruta || '(sin ruta)'}\n` +
+        `Pásalo como argumento: npx ts-node src/scripts/2026-09-13_reconstruir_modelos_corte.ts <ruta>\n` +
+        `O define la carpeta que lo contiene: COTIZADOR_DATOS_ORIGEN=D:/ruta/al/proyecto/data`
     );
   }
 
@@ -561,8 +573,8 @@ async function main() {
         extracciones: crudo.length,
         vanosPrueba: VANOS_PRUEBA,
         nota:
-          'Modelos de corte reconstruidos por búsqueda entera sobre las observaciones reales de ' +
-          'AlumSoftware. dispersionMm es la separación máxima entre todos los modelos compatibles ' +
+          'Modelos de corte reconstruidos por búsqueda entera sobre las observaciones reales ' +
+          'del software de origen. dispersionMm es la separación máxima entre todos los modelos compatibles ' +
           'con esas observaciones, medida en los vanos de prueba: es la incertidumbre que queda, ' +
           'no un error medido contra el taller.',
         stats,

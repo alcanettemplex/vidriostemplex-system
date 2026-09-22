@@ -1,0 +1,344 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, Trash2, Search, AlertTriangle } from 'lucide-react';
+
+import { apiGetCatalogo } from '../services/cotizadorApi';
+import { LineaLibre, ProductoCatalogo, SegmentoCliente } from '../types';
+import { fmtCOP } from '../format';
+import { claseControl, CONTROL_LABEL_CLASS } from './ui';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tabla editable de líneas del módulo "Ítem libre": el vendedor elige un código
+// del catálogo, escribe una cantidad y ve el precio al instante.
+//
+// Reemplaza los TRECE bloques "PLANTILLAS" de la hoja `Formato Digital` del
+// Excel de los asesores, donde esto mismo se hacía con `VLOOKUP` sobre
+// `Tabla_Costos`: código a la izquierda, descripción/unidad/precio resueltos
+// solos, y una celda de cantidad cuyo significado dependía de la unidad del
+// producto.
+//
+// LA UNIDAD MANDA. No hay un selector de "tipo de línea": el catálogo dice si el
+// código se cotiza `X M2`, `X METRO`/`ML` o `UND`, y de ahí sale el rótulo de la
+// cantidad (m² / ml / und). Es la misma regla que aplica el motor en
+// `modules/itemLibre.ts` (`claseDeUnidad`), duplicada aquí sólo para rotular:
+// quien calcula sigue siendo el backend.
+//
+// EL CATÁLOGO SE PIDE UNA VEZ, ENTERO. Es la excepción que documenta
+// `apiGetCatalogo`: el vendedor puede necesitar cualquier código, el endpoint
+// responde desde la caché en memoria del backend (no toca Postgres, no suma
+// egress) y filtrar en memoria evita una petición por tecla.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Cuántas coincidencias se ofrecen a la vez. Más que esto y la lista tapa el
+ * formulario en vez de ayudar; el vendedor afina la búsqueda. */
+const MAX_SUGERENCIAS = 8;
+
+/** Mínimo de caracteres antes de sugerir. Con 1 sola letra el catálogo entero
+ * "coincide" y la lista no dice nada útil. */
+const MIN_BUSQUEDA = 2;
+
+/** Misma clasificación que `claseDeUnidad` en backend-api/src/cotizador/modules/
+ * itemLibre.ts. Si cambia allá, cambia aquí: allá decide el cálculo, aquí sólo
+ * el rótulo, y verlos divergir sería ver una etiqueta que miente. */
+function rotuloCantidad(unidad: string | null | undefined): string {
+    const u = String(unidad ?? '').toUpperCase().replace(/\s+/g, ' ').trim();
+    if (u.includes('M2')) return 'm²';
+    if (u.includes('METRO') || u === 'ML') return 'ml';
+    return 'und';
+}
+
+function precioDe(producto: ProductoCatalogo, segmento: SegmentoCliente): number {
+    if (segmento === 'PB') return producto.precio_pb;
+    if (segmento === 'PM') return producto.precio_pm;
+    return producto.precio_pa;
+}
+
+interface Props {
+    value: LineaLibre[];
+    onChange: (lineas: LineaLibre[]) => void;
+    /** Segmento elegido en el formulario: decide cuál de los tres precios se
+     * previsualiza. Llega desde `FormularioModulo`, que es quien tiene el input
+     * completo — `CampoDinamico` solo lo pasa de largo. */
+    segmento: SegmentoCliente;
+    error?: string | null;
+}
+
+const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, error }) => {
+    const [catalogo, setCatalogo] = useState<ProductoCatalogo[]>([]);
+    const [cargando, setCargando] = useState(true);
+    const [fallo, setFallo] = useState(false);
+    // Índice de la fila cuyo buscador está abierto, y el texto que se escribió.
+    // Uno solo a la vez: dos listas abiertas se superponen.
+    const [filaAbierta, setFilaAbierta] = useState<number | null>(null);
+    const [busqueda, setBusqueda] = useState('');
+    const contenedorRef = useRef<HTMLDivElement>(null);
+
+    const lineas = Array.isArray(value) ? value : [];
+
+    useEffect(() => {
+        let vivo = true;
+        apiGetCatalogo()
+            .then(({ data }) => { if (vivo) setCatalogo(Array.isArray(data) ? data : []); })
+            .catch(() => { if (vivo) setFallo(true); })
+            .finally(() => { if (vivo) setCargando(false); });
+        return () => { vivo = false; };
+    }, []);
+
+    // Cerrar el buscador al hacer clic fuera. Sin esto queda una lista flotando
+    // sobre el resto del formulario y tapando los campos de abajo.
+    useEffect(() => {
+        if (filaAbierta === null) return;
+        const alClic = (e: MouseEvent) => {
+            if (contenedorRef.current && !contenedorRef.current.contains(e.target as Node)) {
+                setFilaAbierta(null);
+            }
+        };
+        document.addEventListener('mousedown', alClic);
+        return () => document.removeEventListener('mousedown', alClic);
+    }, [filaAbierta]);
+
+    const porCodigo = useMemo(() => {
+        const mapa = new Map<string, ProductoCatalogo>();
+        catalogo.forEach(p => mapa.set(p.codigo.toUpperCase(), p));
+        return mapa;
+    }, [catalogo]);
+
+    const sugerencias = useMemo(() => {
+        const q = busqueda.trim().toUpperCase();
+        if (q.length < MIN_BUSQUEDA) return [];
+        const resultado: ProductoCatalogo[] = [];
+        // Primero los que empiezan por el texto (el vendedor que ya sabe el
+        // código lo escribe entero), después los que lo contienen en cualquier
+        // parte de código o descripción.
+        for (const p of catalogo) {
+            if (p.codigo.toUpperCase().startsWith(q)) resultado.push(p);
+            if (resultado.length >= MAX_SUGERENCIAS) return resultado;
+        }
+        for (const p of catalogo) {
+            if (resultado.includes(p)) continue;
+            if (p.codigo.toUpperCase().includes(q) || p.descripcion.toUpperCase().includes(q)) {
+                resultado.push(p);
+            }
+            if (resultado.length >= MAX_SUGERENCIAS) break;
+        }
+        return resultado;
+    }, [busqueda, catalogo]);
+
+    const actualizar = (i: number, cambio: Partial<LineaLibre>) => {
+        onChange(lineas.map((l, idx) => (idx === i ? { ...l, ...cambio } : l)));
+    };
+
+    const agregar = () => {
+        onChange([...lineas, { codigo: '', cantidad: '' }]);
+        // La fila nueva abre su buscador sola: agregarla y tener que hacer un
+        // clic más para poder escribir es un paso de sobra en un formulario que
+        // se llena muchas veces al día.
+        setFilaAbierta(lineas.length);
+        setBusqueda('');
+    };
+
+    const quitar = (i: number) => {
+        onChange(lineas.filter((_, idx) => idx !== i));
+        setFilaAbierta(null);
+    };
+
+    const elegir = (i: number, producto: ProductoCatalogo) => {
+        actualizar(i, { codigo: producto.codigo });
+        setFilaAbierta(null);
+        setBusqueda('');
+    };
+
+    const totalLineas = lineas.reduce((acc, l) => {
+        const p = porCodigo.get(String(l.codigo).toUpperCase());
+        const cant = Number(l.cantidad);
+        if (!p || !Number.isFinite(cant)) return acc;
+        return acc + precioDe(p, segmento) * cant;
+    }, 0);
+
+    return (
+        <div ref={contenedorRef}>
+            <label className={CONTROL_LABEL_CLASS}>
+                Materiales y acabados <span className="text-rose-500">*</span>
+            </label>
+
+            {fallo && (
+                <p className="mb-2 text-[12px] text-rose-600 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    No se pudo cargar el catálogo. Recarga la página para volver a intentarlo.
+                </p>
+            )}
+
+            <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+                {/* Cabecera: sólo desde sm. En móvil cada línea se lee como
+                    tarjeta apilada y una cabecera de 5 columnas no aplicaría. */}
+                <div className="hidden sm:grid grid-cols-[minmax(0,2.2fr)_88px_110px_110px_32px] gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200 text-[10.5px] font-bold uppercase tracking-wide text-slate-500">
+                    <span>Producto</span>
+                    <span className="text-right">Cantidad</span>
+                    <span className="text-right">Precio unit.</span>
+                    <span className="text-right">Subtotal</span>
+                    <span />
+                </div>
+
+                {lineas.length === 0 && (
+                    <p className="px-3 py-4 text-[12.5px] text-slate-400">
+                        Sin líneas todavía. Agrega el vidrio, los perfiles y los accesorios que lleva este ítem.
+                    </p>
+                )}
+
+                {lineas.map((linea, i) => {
+                    const producto = porCodigo.get(String(linea.codigo).toUpperCase()) ?? null;
+                    const desconocido = Boolean(String(linea.codigo).trim()) && !producto && !cargando;
+                    const precio = producto ? precioDe(producto, segmento) : 0;
+                    const cant = Number(linea.cantidad);
+                    const subtotal = producto && Number.isFinite(cant) ? precio * cant : 0;
+                    const abierto = filaAbierta === i;
+
+                    return (
+                        <div
+                            key={i}
+                            className="grid grid-cols-1 sm:grid-cols-[minmax(0,2.2fr)_88px_110px_110px_32px] gap-2 px-3 py-2 border-b border-slate-100 last:border-b-0 items-start"
+                        >
+                            {/* ── Producto: buscador + lo ya elegido ── */}
+                            <div className="min-w-0 relative">
+                                {abierto ? (
+                                    <>
+                                        <div className="relative">
+                                            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                            <input
+                                                autoFocus
+                                                className={claseControl(false, 'pl-8 text-[12.5px]')}
+                                                placeholder={cargando ? 'Cargando catálogo…' : 'Código o descripción…'}
+                                                disabled={cargando}
+                                                value={busqueda}
+                                                onChange={e => setBusqueda(e.target.value)}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Escape') { setFilaAbierta(null); setBusqueda(''); }
+                                                    // Enter con una sola coincidencia la toma: el caso
+                                                    // normal cuando el vendedor escribe el código exacto.
+                                                    if (e.key === 'Enter' && sugerencias.length > 0) {
+                                                        e.preventDefault();
+                                                        elegir(i, sugerencias[0]);
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                        {busqueda.trim().length >= MIN_BUSQUEDA && (
+                                            <ul className="absolute z-20 left-0 right-0 mt-1 max-h-64 overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                                                {sugerencias.length === 0 && (
+                                                    <li className="px-3 py-2 text-[12px] text-slate-400">Sin coincidencias.</li>
+                                                )}
+                                                {sugerencias.map(p => (
+                                                    <li key={p.codigo}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => elegir(i, p)}
+                                                            className="w-full text-left px-3 py-2 hover:bg-indigo-50 border-b border-slate-100 last:border-b-0"
+                                                        >
+                                                            <span className="block text-[12px] font-bold text-slate-700">{p.codigo}</span>
+                                                            <span className="block text-[11.5px] text-slate-500 leading-snug">{p.descripcion}</span>
+                                                            <span className="block text-[10.5px] text-slate-400 mt-0.5">
+                                                                {p.unidad} · {fmtCOP(precioDe(p, segmento))}
+                                                            </span>
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => { setFilaAbierta(i); setBusqueda(String(linea.codigo || '')); }}
+                                        className={
+                                            'w-full text-left rounded-lg border px-2.5 py-1.5 transition ' +
+                                            (desconocido
+                                                ? 'border-rose-300 bg-rose-50/50 hover:border-rose-400'
+                                                : 'border-slate-300 bg-white hover:border-slate-400')
+                                        }
+                                    >
+                                        {producto ? (
+                                            <>
+                                                <span className="block text-[12px] font-bold text-slate-700">{producto.codigo}</span>
+                                                <span className="block text-[11.5px] text-slate-500 leading-snug truncate">
+                                                    {producto.descripcion}
+                                                </span>
+                                            </>
+                                        ) : desconocido ? (
+                                            <span className="block text-[12px] text-rose-600 font-semibold">
+                                                {linea.codigo} — no está en el catálogo
+                                            </span>
+                                        ) : (
+                                            <span className="block text-[12px] text-slate-400">Elegir producto…</span>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* ── Cantidad, rotulada por la unidad del producto ── */}
+                            <div className="relative">
+                                <input
+                                    type="number"
+                                    min={0}
+                                    step="any"
+                                    aria-label={`Cantidad de la línea ${i + 1}`}
+                                    className={claseControl(false, 'text-right pr-8 text-[12.5px]')}
+                                    value={linea.cantidad === '' ? '' : linea.cantidad}
+                                    onChange={e => {
+                                        const texto = e.target.value;
+                                        actualizar(i, { cantidad: texto === '' ? '' : Number(texto) });
+                                    }}
+                                />
+                                <span className="absolute inset-y-0 right-2.5 flex items-center text-[10.5px] font-bold text-slate-400 pointer-events-none">
+                                    {producto ? rotuloCantidad(producto.unidad) : ''}
+                                </span>
+                            </div>
+
+                            <div className="text-right text-[12.5px] text-slate-500 sm:pt-2 tabular-nums">
+                                {producto ? fmtCOP(precio) : '—'}
+                            </div>
+                            <div className="text-right text-[12.5px] font-bold text-slate-700 sm:pt-2 tabular-nums">
+                                {producto ? fmtCOP(subtotal) : '—'}
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => quitar(i)}
+                                aria-label={`Quitar la línea ${i + 1}`}
+                                title="Quitar línea"
+                                className="justify-self-start sm:justify-self-center sm:mt-1.5 p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
+                    );
+                })}
+
+                <div className="flex items-center justify-between gap-3 px-3 py-2 bg-slate-50 border-t border-slate-200">
+                    <button
+                        type="button"
+                        onClick={agregar}
+                        className="inline-flex items-center gap-1.5 text-[12px] font-bold text-indigo-600 hover:text-indigo-700"
+                    >
+                        <Plus className="w-3.5 h-3.5" /> Agregar línea
+                    </button>
+                    {lineas.length > 0 && (
+                        <span className="text-[12px] text-slate-500">
+                            Materiales:{' '}
+                            <strong className="text-slate-700 tabular-nums">{fmtCOP(totalLineas)}</strong>
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            {/* El total de arriba es la suma cruda de las líneas: todavía sin AIU,
+                sin la cantidad de piezas iguales y sin IVA. Decirlo evita que se
+                lea como el precio del ítem y se compare contra el resultado. */}
+            <p className="mt-1.5 text-[10.5px] text-slate-400">
+                Suma de materiales antes de AIU, cantidad de piezas e IVA. El precio del ítem sale al calcular.
+            </p>
+
+            {error && <p className="mt-1 text-[11.5px] text-rose-600">{error}</p>}
+        </div>
+    );
+};
+
+export default EditorLineasLibres;

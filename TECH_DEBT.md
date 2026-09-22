@@ -4,6 +4,44 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-22 — `npm run lint` del backend está roto: ESLint 10 con config de ESLint 8
+
+**Severidad:** Media (DX) · **Estimación:** 1-2 h
+
+Descubierto al intentar lintar los archivos nuevos del módulo "Ítem libre". **No lo rompió ese
+cambio: estaba roto de antes** y cualquier `npm --prefix backend-api run lint` falla igual desde
+que se subió ESLint.
+
+```
+ESLint: 10.0.3
+ESLint couldn't find an eslint.config.(js|mjs|cjs) file.
+```
+
+Dos incompatibilidades a la vez:
+
+1. `package.json` declara `"eslint": "^10.0.3"`, pero la configuración sigue siendo
+   `backend-api/.eslintrc.json` — el formato *eslintrc* dejó de ser el default en ESLint 9 y la
+   versión instalada ya no lo lee.
+2. El script es `eslint src/ --ext .ts`, y `--ext` **también** se eliminó en ESLint 9: aunque se
+   migrara la config, el script seguiría fallando.
+
+Consecuencia real: **el proyecto no tiene linter operativo hoy**, ni `lint` ni `lint:fix`. La
+verificación efectiva es `npm run build` (tsc), que sí corre y sí pasa — pero tsc no ve lo que veía
+ESLint (variables sin usar en algunos casos, `no-explicit-any`, promesas sin await). Dado que no
+hay tests automatizados fuera del Cotizador, perder el linter deja menos red de la que parece.
+
+**Para resolverlo:** migrar a `eslint.config.js` (flat config) con `typescript-eslint` v8, mover
+las reglas de `.eslintrc.json`, y cambiar el script a `eslint src/` (sin `--ext`, que en flat
+config se resuelve con el campo `files`). Ojo con las reglas *type-aware*: piden
+`parserOptions.projectService`, y activarlas sobre ~47 modelos y ~30 controladores va a sacar un
+lote de hallazgos preexistentes que hay que decidir si se arreglan o se silencian de entrada.
+
+Alternativa de menor esfuerzo, si no se quiere migrar ahora: fijar `eslint` en `^8.57.0` en
+`devDependencies` y dejar el `.eslintrc.json` como está. Recupera el linter en minutos, a cambio de
+quedarse en una versión sin soporte.
+
+---
+
 ## 2026-09-22 — Cotizador: `nivelCorte` nulo se trata como "A" en la tabla de piezas de Calibración
 
 **Severidad:** Baja · **Estimación:** 15 min
@@ -145,7 +183,7 @@ la pestaña Calibración) quedó intacta y operativa.
 desambiguan con **una sola lectura en una medida no redonda** — la óptima, calculada por barrido, es
 **903 × 601 mm** (cierra 241 de 419 piezas; con 902×701 se llega a 293). La lista de los 139 diseños
 afectados está lista y los 139 están cubiertos por `fix_mapa.json`. **Bloqueador: la cuenta de
-AlumSoftware está vencida** (`/inactivo.html` — "SUSCRIPCIÓN VENCIDA"). Con un mes de suscripción,
+del software de origen está vencida** (`/inactivo.html` — "SUSCRIPCIÓN VENCIDA"). Con un mes de suscripción,
 el scraper existente lo resuelve desatendido. Alternativa sin suscripción: el catálogo técnico del
 fabricante de perfilería, que trae las cotas y permite escribir las fórmulas directamente.
 
@@ -179,13 +217,14 @@ desde el 2026-09-11, 6 de 10 fallan por datos. Ahí la red sigue caída.
 
 ---
 
-## 2026-09-19 (4) — Cotizador: el nombre del software externo volvió a aparecer en `src/`
+## ~~2026-09-19 (4) — Cotizador: el nombre del software externo volvió a aparecer en `src/`~~ — RESUELTO 2026-09-22
 
-**Severidad:** Baja · **Estimación:** 20 min
+**Severidad:** Baja · **Estimación:** 20 min · **Resuelto el 2026-09-22**, aplicando exactamente la
+solución que esta entrada prescribía (ver "Cómo se cerró" al final).
 
 La decisión 11 del plan maestro del Cotizador dice que el nombre del software de origen **no puede
 aparecer en ningún dato ni código del ERP**, y su verificación es
-`grep -ri "alumsoftware" backend-api/src frontend-web/src` → **0**. Hoy da **4 archivos**, todos
+`grep -ri "<nombre del software de origen>" backend-api/src frontend-web/src` → **0**. Hoy da **4 archivos**, todos
 introducidos el 2026-09-13 (no por el cambio de hoy, que no lo menciona en ninguno de sus 2
 archivos):
 
@@ -194,7 +233,7 @@ archivos):
   carpeta del proyecto externo
 - `scripts/2026-09-13_reconstruir_modelos_corte.ts` — en comentarios y ruta por defecto
 - `scripts/datos_cotizador/modelos_corte.json` — en el campo `nota`, que **es un dato**, no un
-  comentario: *"…observaciones reales de AlumSoftware"*
+  comentario: *"…observaciones reales del software de origen"*
 
 **Matiz:** los tres `.ts` son scripts one-off ya ejecutados; el riesgo real es el JSON, porque es un
 artefacto de datos que se lee en runtime durante la reconstrucción. Los comentarios de los scripts
@@ -204,6 +243,34 @@ comprueba.
 
 **Solución:** reemplazar el nombre por "el software de origen" en el `nota` del JSON y en los
 comentarios, y mover la ruta absoluta a una variable de entorno o argumento de línea de comandos.
+
+### Cómo se cerró (2026-09-22)
+
+Eso es literalmente lo que se hizo, más la limpieza de la documentación:
+
+- **Los 15 usos en prosa** de los 3 scripts pasaron a "el software de origen" / "el proyecto externo
+  de origen", cuidando la gramática (*"de el"* no queda en ninguno).
+- **Las 3 rutas absolutas** (`C:/Users/User/Desktop/.../data/...`) salieron del código. Ahora la
+  carpeta se pasa por **`COTIZADOR_DATOS_ORIGEN`** (o como argumento, en
+  `reconstruir_modelos_corte.ts`), con un error explícito si falta. Detalle que la entrada original
+  no señalaba: **esas rutas apuntaban al escritorio de OTRA máquina** (`C:/Users/User/...`, y esta
+  máquina es `PRODUCCION`), así que llevaban tiempo sin resolver en ninguna parte — no era sólo un
+  problema de nombre.
+- **El campo `nota` del JSON** quedó neutralizado. Se reserializó con `json.dump(indent=2,
+  ensure_ascii=False)` y el diff salió de **2 líneas**: ni un número ni una clave de los 163 diseños
+  cambió. También se corrigió el generador de esa nota
+  (`reconstruir_modelos_corte.ts`) para que no la vuelva a escribir con el nombre.
+- **Se verificó la BASE DE DATOS**, que la entrada original no cubría: barrido `ILIKE` sobre las
+  **327 columnas de texto y 22 JSONB** de los schemas `public` y `cotizador` → **0 apariciones**. El
+  `nota` nunca se sembró (sólo lo escribe el script, en el archivo), y `cotizador.producto.fuente`
+  —el campo que sí viaja al frontend como `fuentePrecio`— ya venía neutralizado desde la siembra
+  ("referencia externa · <acabado>").
+- **La documentación** (`docs/modulos/cotizador.md`, `TECH_DEBT.md`, `SESSION_LOG.md`) tenía 18 usos
+  más, incluido el dominio de la aplicación externa. También se neutralizaron, y los dos comandos de
+  verificación pasaron a `grep -ri "<nombre del software de origen>" …`: quien conoce el nombre puede
+  correr el grep, y el repositorio deja de deletrearlo.
+
+**Estado:** `grep -ri` en `backend-api/src` y `frontend-web/src` → **0**. En todo el repositorio → 0.
 
 ---
 

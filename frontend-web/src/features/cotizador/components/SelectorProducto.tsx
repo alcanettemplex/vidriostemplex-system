@@ -1,15 +1,15 @@
 import React from 'react';
 import {
-    LayoutGrid, PanelTop, DoorOpen, DoorClosed, Square, Sparkles, Package,
+    LayoutGrid, PanelTop, DoorOpen, DoorClosed, Square, Sparkles, Package, ListPlus,
 } from 'lucide-react';
 
 import { ModuloMeta } from '../types';
 import { Etiqueta } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Selector de producto del cotizador: las seis tarjetas de módulo en una fila,
-// la activa en indigo sólido y el resto neutras, más la descripción completa
-// del módulo elegido debajo.
+// Selector de producto del cotizador: una tarjeta por módulo (seis productos más
+// "Ítem libre" desde el 2026-09-22), la activa en indigo sólido y el resto
+// neutras, más la descripción completa del módulo elegido debajo.
 //
 // Vivía dentro de `TabCotizar` como bloque suelto; se extrae para que la
 // pestaña quede con la estructura del configurador (contexto → cargos →
@@ -38,6 +38,7 @@ const ICONOS_MODULO: Record<string, React.ComponentType<{ className?: string }>>
     'cabinas-batientes': DoorClosed,
     tablero: Square,
     espejo: Sparkles,
+    'item-libre': ListPlus,
 };
 
 interface Props {

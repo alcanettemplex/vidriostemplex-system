@@ -24,8 +24,17 @@ export const apiGetModulos = () => axios.get<ModuloMeta[]>(`${BASE}/modulos`);
 
 export const apiGetParametros = () => axios.get<Parametros>(`${BASE}/parametros`);
 
-/** GET /catalogo — productos con precio. Siempre con `categoria`: sin filtro son
- * 430 filas y ninguna pantalla las necesita todas. */
+/** GET /catalogo — productos con precio.
+ *
+ * Normalmente con `categoria`: sin filtro vienen todas las filas del catálogo y
+ * casi ninguna pantalla las necesita.
+ *
+ * LA EXCEPCIÓN (2026-09-22) es `EditorLineasLibres`, el buscador del módulo
+ * "Ítem libre": ahí el vendedor tiene que poder elegir CUALQUIER código, así que
+ * pide el catálogo entero una sola vez al montarse y filtra en memoria. Es
+ * barato aunque sea grande — el endpoint responde desde la caché en memoria del
+ * backend, no toca Postgres y no suma egress— y filtrar local evita una petición
+ * por cada tecla que escribe el vendedor. */
 export const apiGetCatalogo = (categoria?: string) =>
     axios.get<ProductoCatalogo[]>(`${BASE}/catalogo`, { params: categoria ? { categoria } : undefined });
 

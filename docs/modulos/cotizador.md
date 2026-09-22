@@ -33,12 +33,13 @@ Verificación en vivo (2026-09-19): Sistema5020, 1000×1500 mm, mate, vidrio cla
 ## Dónde vive
 
 **Backend**
-- `backend-api/src/cotizador/` — motores portados (~4.700 LOC), `cache.ts`, `modules/` (6 módulos),
+- `backend-api/src/cotizador/` — motores portados (~4.700 LOC), `cache.ts`, `modules/` (**7**: los 6
+  de producto más `itemLibre`, ver "Ítem libre" más abajo),
   `lib/` (cálculo, despiece, plano, aptitud, calibración, sincronización con Proveedores)
 - `backend-api/src/controllers/cotizador_*.controller.ts` — 9 controladores
 - `backend-api/src/routes/cotizador.routes.ts` — **51 endpoints** bajo `/api/cotizador` (verificado
   por conteo el 2026-09-21 — la cifra anterior, 40, ya estaba desactualizada antes de hoy)
-- `backend-api/src/scripts/pruebas_cotizador/` — 6 suites, `npm run test:cotizador`
+- `backend-api/src/scripts/pruebas_cotizador/` — 7 suites, `npm run test:cotizador`
 
 **Frontend** — `frontend-web/src/features/cotizador/`, 5 pestañas:
 Cotizar · Actual · Guardadas · Calibración · Configuración. Sin Redux (estado local, mismo criterio
@@ -226,9 +227,11 @@ cotización alimenta qué SAP, no hay desde dónde invocarlo.
 
 ## Pruebas
 
-`npm --prefix backend-api run test:cotizador` — 6 suites, **65 pruebas**. En verde (65/65,
-verificado en corrida limpia el 2026-09-21; una corrida con el pool de Supabase ya ocupado por otra
-cosa dio 28 fallos falsos — ver advertencia de conexiones más abajo).
+`npm --prefix backend-api run test:cotizador` — 7 suites, **84 pruebas**. En verde (84/84,
+verificado el 2026-09-22 **suite por suite**: 11 `codigoDiseno` · 16 `plano` · 3 `humo` ·
+7 `accesorios` · 18 `cargos` · 10 `generadorSapPerfileria` · 19 `itemLibre`). Una corrida con el
+pool de Supabase ya ocupado por otra cosa dio 28 fallos falsos el 2026-09-21 y 47 el 2026-09-22 —
+ver advertencia de conexiones más abajo.
 
 ### ⚠️ Bajar el backend dev antes de correrlas
 
@@ -242,6 +245,24 @@ SequelizeConnectionError: (EMAXCONNSESSION) max clients reached in session mode
 Engaña, porque **no falla la suite que toca el cambio**: fallan las que dependen de la caché, que
 pueden ser cualquiera. Mordió dos veces en la misma sesión y da la impresión de una regresión que no
 existe. Liberar el puerto 3001, correr, y volver a levantar.
+
+### Cómo verificar SIN bajar el backend dev (2026-09-22)
+
+El patrón del fallo falso es reconocible de un golpe: **fallan exactamente las suites que precargan
+caché y pasan las puras**. Medido con `npm run dev` levantado, corriendo las 7 seguidas:
+
+```
+codigoDiseno  11/11 ✅   plano 16/16 ✅   generadorSapPerfileria 10/10 ✅   ← no tocan Postgres
+humo 0/3 ❌   accesorios 0/7 ❌   cargos 0/18 ❌   itemLibre 0/19 ❌        ← precargan caché
+```
+
+Las cuatro de abajo pasan al 100 % **corridas de una en una**, con unos 12 s entre ellas para que el
+pooler libere. Cada suite abre su caché en el `before` y la cierra en el `after`, así que una sola a
+la vez cabe junto al backend dev; el problema es solaparlas. Sirve para verificar un cambio sin
+interrumpir a nadie, y es lo que se hizo el 2026-09-22.
+
+Un `0/N` limpio —ni una sola prueba pasando— es casi siempre esto y casi nunca una regresión: una
+regresión real rompe algunas pruebas, no todas.
 
 ### El centinela del catálogo
 
@@ -271,7 +292,17 @@ fallan por datos, no por código. **No confiar en él como red antes de regenera
 6. Sin identidad de usuario: `asesor` / `registrado_por` son texto libre, sin FK a `usuarios`.
 7. Auditoría solo en 5 tablas: producto, precio_override, cotizacion, cotizacion_item, parametro.
 8. **El nombre del software externo de origen no puede aparecer en ningún dato ni código del ERP.**
-   Verificación: `grep -ri "alumsoftware" backend-api/src frontend-web/src` → 0.
+   Verificación: `grep -ri "<nombre del software de origen>" backend-api/src frontend-web/src` → 0.
+   **El repositorio ya no deletrea ese nombre en ninguna parte** (2026-09-22), tampoco en esta
+   documentación, así que el `grep` lo tiene que escribir quien lo conozca. Se repasó, además, lo que
+   la regla no decía explícitamente y es donde de verdad importa: la **base de datos**. Barrido
+   `ILIKE` sobre las 327 columnas de texto y 22 JSONB de `public` + `cotizador` → **0**.
+   `cotizador.producto.fuente` —el único campo que viaja al frontend como `fuentePrecio`— ya venía
+   neutralizado desde la siembra ("referencia externa · <acabado>").
+   Se incumplió entre el 2026-09-13 y el 2026-09-22 en 4 archivos de `scripts/`, uno de ellos un
+   **dato** (`modelos_corte.json`, campo `nota`); lo detectó el `TECH_DEBT.md` 2026-09-19 (4) y se
+   cerró ahí mismo. Si vuelve a aparecer, el sitio probable es un script one-off nuevo: los
+   comentarios que explican de dónde salieron los despieces son la tentación natural.
 9. Unidades visibles en milímetros; contrato interno en centímetros.
 10. El milímetro del nivel B es **indiferente**, en aluminio y en vidrio (2026-09-19).
 
@@ -369,11 +400,201 @@ de printables del Cotizador, que son A4.
 
 ---
 
+## Ítem libre — el 7º módulo (2026-09-22)
+
+El ítem que el asesor arma **línea por línea** con cualquier código del catálogo, para lo que no
+encaja en ninguno de los seis productos: fachadas, divisiones de oficina, barandas, pasamanos.
+
+**Por qué existe:** el Excel de los asesores no tiene sólo los seis productos. La hoja
+`Formato Digital` tiene además **trece bloques idénticos rotulados "PLANTILLAS"** donde el vendedor
+escribe un código, el Excel le resuelve descripción / unidad / precio del segmento con
+`VLOOKUP(Tabla_Costos, MATCH(segmento, COSTOS!L1:W1))`, y él pone el área o la cantidad. En el
+archivo vivo hay ítems rotulados **"Fachada"**, **"División de oficina"** y **"Mayor seguridad"**.
+Mientras el ERP sólo supiera cotizar los seis módulos, **el Excel no se podía jubilar**.
+
+`backend-api/src/cotizador/modules/itemLibre.ts` + `registry.ts`.
+**Sin migración de BD:** `cotizacion_item.modulo_id` es `STRING(30)` sin FK ("el registry vive en
+código"), `input` es JSONB, y `diseno_id`/`sistema`/`nivel_corte` son nullable.
+
+### Las cuatro cosas que NO hace, a propósito
+
+1. **No emite `cortes`.** Sin diseño no hay despiece, ni plano, ni nivel — igual que en el Excel.
+   `aptitudOrden` ya trataba la ausencia de `resultado.cortes` como `SIN_DESPIECE_POR_DISENO`, y la
+   Hoja de Trabajo ya imprimía sus avisos "Sin plano" / "Sin despiece calculado": **no hubo que
+   tocar ninguno de los dos.**
+2. **No agrega SMO ni flete al BOM**, aunque el Excel sí los pone como dos líneas más (`SMO01`,
+   `GTFA26`). `totalizar()` multiplica cada línea del BOM por `cantidadPiezas`: meterlos ahí
+   reproduce el bug medido el 2026-09-20 (cinco piezas, cinco fletes). Son cargos de la propuesta.
+3. **No declara `descuentoPct`** — un solo descuento, en la propuesta.
+4. **No hace `unidadOverride`.** La unidad que vale es la del catálogo, que es la misma que el
+   formulario usó para rotular la cantidad; forzarla sería contradecir la etiqueta que vio el
+   vendedor.
+
+### La unidad del catálogo decide qué significa `cantidad`
+
+No hay campo "tipo de línea": lo decide el producto, como en el Excel. `claseDeUnidad()` clasifica
+por **contenido y no por lista exacta**, para que una unidad nueva caiga en el grupo correcto en vez
+de degradarse a "unidades" en silencio.
+
+| Clase | Unidades reales hoy | Rótulo |
+|---|---|---|
+| área | `X M2` (37 productos) | m² |
+| lineal | `X METRO` (217) · `ML` (2) | ml |
+| unidad | `UND` (176) | und |
+
+⚠️ **`PERF01` y `ELE1101` NO son `UND` en el catálogo del ERP**: están como `X METRO`
+(`PERFORACION HASTA 20MM`), aunque la tabla ACABADOS del Excel los listaba como `UNID`. Por eso
+`tablero.ts` los pide con `unidadOverride: "UND"` — ese módulo sabe que cuenta piezas, no metros. En
+un ítem libre, un código así cobra su cantidad **como metros lineales**. Lo descubrió una prueba que
+los usaba de ejemplo de "UND" y falló; el ejemplo correcto es `BES0302`.
+
+### Frontend
+
+`EditorLineasLibres.tsx` (nuevo) es una tabla editable con buscador de catálogo, precio en vivo del
+segmento elegido y subtotal por línea. Se engancha por el tipo de campo **`lineas`** (nuevo en el
+union `TipoCampo`), que `CampoDinamico` delega entero — no es un control con label, es una tabla.
+
+Tres detalles del enganche:
+- **El buscador pide el catálogo ENTERO una vez** y filtra en memoria. Es la excepción a la nota de
+  `apiGetCatalogo` ("siempre con `categoria`"): aquí el vendedor puede necesitar cualquier código.
+  Barato: el endpoint responde desde la caché en memoria del backend, no toca Postgres, no suma
+  egress.
+- **`CampoDinamico` recibe `segmento`** (prop nueva, opcional). Un campo no ve a sus hermanos, y la
+  previsualización de precio necesita saber si es PA, PM o PB; lo pasa `FormularioModulo`, que sí
+  tiene el input completo.
+- **`esVacio()` ahora trata `[]` como vacío.** Sin eso, un ítem libre sin una sola línea pasaba la
+  validación de `requerido` y el 400 lo daba el motor, con el toast genérico en vez del
+  "Completa: …" que señala el campo.
+
+### `descripcionItem` dejó de ser `null` fijo
+
+`TabCotizar` guardaba **todos** los ítems con `descripcionItem: null`, así que todos caían al
+respaldo `"<modulo> #N"` de `cotizacionStore`. Para un ítem libre eso le llegaría al cliente como
+`"item-libre #3"` en vez de `"Fachada oficina 2º piso"`. Ahora lee el campo del input si el módulo
+lo declara: es **genérico**, cualquier módulo que declare `descripcionItem` gana nombre propio.
+
+### Consecuencia aceptada
+
+`evaluarAptitudOrden` marca la cotización completa como `imprimible` sólo si **todos** sus ítems lo
+son. Un ítem libre apaga esa bandera agregada — igual que ya pasaba con un espejo o un tablero. Lo
+que el taller usa es `porItem`, ítem por ítem, así que no se pierde información.
+
+### Lo que no hubo que tocar (verificado, no supuesto)
+
+`clonarPropuesta` es data-driven: `moduloAcepta()` mira `meta.campos`, y como el ítem libre no
+declara `codigoVidrio`/`pelicula`/`matizado`, se copia intacto con una advertencia legible. El
+`cotizarItem` del controlador despacha por `getModulo()` sin lista fija. El PDF lee
+`subtotalConAiu` y `descripcion_item`. `generadorSapPerfileria` nunca lo recibe porque el llamador
+filtra por `imprimible`. La Hoja de Trabajo sólo usa `modulo.nombre` como respaldo del rótulo.
+
+**Centinela actualizado:** `cargos.test.ts` afirmaba `listarModulos().length === 6`; ahora **7**, con
+el renglón que explica por qué. Sigue vigilando lo mismo (que nadie vuelva a declarar
+`descuentoPct`).
+
+---
+
+## El Excel de los asesores — qué más quedó fuera del port (2026-09-22)
+
+Auditoría del archivo que usan hoy los asesores
+(`ORIGINAL PARA COPIAR no tocar.xlsb`, 20 hojas, 1,1 MB). **Sin VBA** — 0 módulos, toda la lógica
+está en fórmulas, así que es auditable al 100 %. Se trabajó siempre sobre una copia; el original no
+se abrió en modo escritura.
+
+Lo que ya estaba portado y verificado: los 6 módulos 1:1, el AIU `0,96` (`COSTOS!G7`), los estados
+`PENDIENTE/APROBADA/CANCELADO/PERDIDO` (`Parametros!G`), los segmentos PA/PM/PB, las cuatro tarifas
+de SMO, los kits `K1000…K2000`, los cargos `GTFA26`/`ALQU36`/`HUAC06`, y los bugs del Excel (#4
+código sin precio, #5 `PELI31` duplicado, #10 doble conteo).
+
+### 1. El modelo de márgenes: el *porqué* de los 12 multiplicadores
+
+`cotizador.multiplicador_categoria` guarda 12 números que el script de siembra documenta como
+*"observado en 221 de 363 productos"* y *"el usuario lo aportó"* — es decir, se obtuvieron por
+**ingeniería inversa estadística**. `COSTOS!A1:D16` tiene la máquina que los produce:
+
+```
+PRODUCC 18,55%   ADMON 20,39%   VTAS 12,08%   FNROS 3,99%
+UTILIDAD ESPERADA  11% (PA) / 10% (PM) / 9% (PB)
+T. GTOS FIJOS      66,01% / 65,01% / 64,01%
+Comisión: VIDRIO 11/10/9%  ·  ACABADO-ACCESORIO-PERFILERÍA 10/8/7%
+```
+
+Factor = `1 / (1 − Σ cargas ponderadas)`, con ponderación distinta por categoría:
+
+| Categoría | Composición (PA) | Factor PA | En BD |
+|---|---|---|---|
+| ACABADO | ADMON×62,5% + VTAS×100% + comisión 10% | 1,534301 | ✅ igual |
+| VIDRIO | PRODUCC×70% + ADMON×50% + VTAS×50% + utilidad 11% | 1,672800 | ✅ igual |
+| ACCESORIO | PRODUCC×50% + ADMON×50% + VTAS×50% + comisión 10% | 1,550628 | ✅ igual |
+| PERFILERIA | PRODUCC×70% + ADMON×40% + VTAS×40% + comisión 10% | 1,561841 | ✅ igual |
+
+`PM = (PA + PB) / 2` siempre. Coinciden **dígito por dígito** con lo que hay en BD, lo que también
+explica los *outliers* de la siembra (12 de 14, 35 de 37, 221 de 363): son productos con precio
+puesto a mano, fuera del modelo.
+
+⚠️ **Asimetría real, documentada sin tocar** (decisión del usuario, 2026-09-22): VIDRIO es la única
+categoría cuya fórmula incluye *utilidad esperada* y **no** comisión; las otras tres incluyen
+comisión y no utilidad. Puede ser deliberado o un arrastre de 2021. **No se "corrigió": los precios
+de venta vigentes salen de ahí**, y unificarla movería el precio del vidrio en todas las
+cotizaciones futuras sin que nadie lo haya pedido.
+
+**No está implementado.** El ERP sigue guardando el resultado, no el modelo. Consecuencia: si ADMON
+sube del 20,39 % al 22 %, hay que recalcular 12 números a mano.
+
+### 2. La barra de 6 m ya estaba en el Excel
+
+`cotizador-vision.md` daba el largo de barra como "el dato que falta y bloquea todo", resuelto por
+testimonio del maestro el 2026-09-21. Estaba escrito: `COSTOS!N = IF(TIPO="PERFILERIA", W/6, W)` —
+el costo por metro se obtiene dividiendo el de la barra entre 6, en las 363 filas de perfilería— y
+`PRECIOS!E` = 6 por fila. El 6 m tiene respaldo documental, no sólo verbal.
+
+### 3. `Hoja3` — compras reales con Centro de Costos = ODP
+
+Export de facturas de compra con **`Vr und Restado dscto`** (precio neto de descuento: la regla 8 de
+Proveedores ya regía en su Excel), NIT del proveedor, prefijo y número del documento externo, y
+**Centro de Costos**, que en muchas filas es el número de ODP (`19356`) o una OA (`OA-3446`). Es
+**costo real imputado a la ODP** → margen real vs cotizado, que hoy el ERP no puede calcular. 597
+filas de 2022: histórico, no vivo.
+
+### 4. Existencia y costo promedio
+
+Las hojas ocultas `Word Office` y `wo5_03_19` son exports de inventario con **Existencia** y
+**Promedio** (costo promedio ponderado). El ERP costea con última compra
+(`proveedor_producto.precio_actual`): son dos números distintos para el mismo producto y el Excel
+tiene los dos. También aparece el prefijo `1` (`1BPB07` vs `BPB07`) separando código de venta de
+código de compra — la misma equivalencia que hoy resuelve `ProveedorProductoCodigo`.
+
+### 5. Campos del documento que el PDF no tiene
+
+El formato impreso (código **VR09**, versión 01) trae, además de lo ya portado:
+**PRODUCTO/SERVICIO**, **TOMA DE MEDIDA**, **FECHA DE ENTREGA**, **APROBÓ SI/NO** y
+**O.D.P. No: ____**. El papel ya pedía el vínculo cotización↔ODP que `cotizador-vision.md` pone como
+bloqueador: lo llenaban a mano.
+
+### 6. Lo que está roto en el Excel (contexto, no tarea)
+
+- **`Modificar_Cotización`** (oculta): todas sus `SUMIFS` son `#REF!`. La hoja para editar una
+  cotización guardada **no funciona**.
+- **`Resumen_Cotizaciones`** (oculta): tabla dinámica alimentada por esa misma hoja; sus valores en
+  caché son todos `2`. La estadística comercial del Excel **existió y se rompió** — matiza el "no
+  existe ninguna estadística comercial" de `cotizador-vision.md`.
+- **Fórmulas a libros externos** (`[3]`…`[8]`): el FACTOR de `PRECIOS!G2` y todos los costos de la
+  hoja `7038` salen de **copias externas del propio archivo**. El nombre "ORIGINAL PARA COPIAR" lo
+  explica: cada cotización es una copia y las copias se referencian entre sí. Un precio puede venir
+  de un archivo que ya nadie sabe dónde está.
+
+---
+
 ## Lo que falta
 
-- 3 de 8 suites de pruebas: `aptitudOrden`, `hojaTrabajo`, `pdf`.
+- 3 de 9 suites de pruebas: `aptitudOrden`, `hojaTrabajo`, `pdf`.
 - Regenerar golden master y centinela del catálogo.
 - Los 24 diseños nivel C.
+- **El modelo de márgenes, si se decide implementarlo** — hoy sólo documentado (ver arriba). Llevar
+  la estructura de gastos a tablas configurables y *derivar* los 12 multiplicadores en vez de
+  guardarlos a mano. No es una corrección: los números vigentes ya son correctos al dígito, así que
+  es valor futuro y cualquier error al portar la fórmula movería precios reales.
+- `npm run lint` del backend está roto de antes (ESLint 10 con `.eslintrc.json`), ver `TECH_DEBT.md`
+  2026-09-22. La verificación efectiva hoy es `npm run build` + `test:cotizador`.
 
 ---
 

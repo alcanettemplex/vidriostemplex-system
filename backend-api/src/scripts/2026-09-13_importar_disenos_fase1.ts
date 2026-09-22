@@ -1,13 +1,13 @@
 /**
  * Script: 2026-09-13_importar_disenos_fase1.ts
  *
- * FASE 1 de la importación de diseños faltantes desde el proyecto AlumSoftware.
- * Importa SOLO los diseños que cumplen las tres condiciones que los hacen
- * cotizables de inmediato, sin ningún trabajo de datos nuevo:
+ * FASE 1 de la importación de diseños faltantes desde el proyecto externo de
+ * origen. Importa SOLO los diseños que cumplen las tres condiciones que los
+ * hacen cotizables de inmediato, sin ningún trabajo de datos nuevo:
  *
  *   1. COMPLETOS      -> ≥4 perfiles con fórmula y ≥1 paño de vidrio. Descarta la
- *                        cola de diseños que el extractor de AlumSoftware dejó
- *                        degenerados (un solo perfil "Alfajía", sin vidrio ni
+ *                        cola de diseños que el extractor del software de origen
+ *                        dejó degenerados (un solo perfil "Alfajía", sin vidrio ni
  *                        marco): importarlos sólo cotizaría un perfil suelto.
  *   2. YA MAPEADOS    -> cada referencia de perfil del origen ya existe, con su
  *                        `codigos_por_color`, en un diseño del MISMO sistema que
@@ -48,8 +48,18 @@ dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
 import { parsearCodigo } from '../cotizador/lib/codigoDiseno';
 
-const RUTA_FORMULAS = 'C:/Users/User/Desktop/AlcanetPro/Aplicaciones/AlumSoftware/data/formulas.json';
-const RUTA_MULTIMEDIDA = 'C:/Users/User/Desktop/AlcanetPro/Aplicaciones/AlumSoftware/data/multimedida.json';
+// Los dos JSON de origen viven FUERA del repo, en el proyecto externo del que se
+// extrajeron los despieces. La ruta no se escribe aquí por dos razones: el nombre
+// del software de origen no debe aparecer en el código del ERP (decisión 8 del
+// Cotizador, ver docs/modulos/cotizador.md), y la que estaba escrita apuntaba al
+// escritorio de OTRA máquina (`C:/Users/User/...`), así que ya no resolvía en
+// ninguna parte. Este script es de un solo uso y ya corrió; quien lo re-ejecute
+// tiene que decir dónde están los archivos:
+//
+//   COTIZADOR_DATOS_ORIGEN=D:/ruta/al/proyecto/data npx ts-node src/scripts/...
+const DIR_ORIGEN = process.env.COTIZADOR_DATOS_ORIGEN ?? '';
+const RUTA_FORMULAS = path.join(DIR_ORIGEN, 'formulas.json');
+const RUTA_MULTIMEDIDA = path.join(DIR_ORIGEN, 'multimedida.json');
 const SALIDA_IDS = path.join(__dirname, 'datos_cotizador', 'importados_fase1_2026-09-13.json');
 
 const SISTEMAS = ['Sistema3831', 'Sistema3831-Reforzado', 'Sistema7038-Interior'];
@@ -140,6 +150,16 @@ async function main() {
   }
 
   // ─── Cargar origen ──────────────────────────────────────────────────────────
+  // Sin la variable de entorno, `path.join('', 'formulas.json')` daría la ruta
+  // relativa 'formulas.json' y el error sería un ENOENT sin pistas. Mejor decir
+  // qué falta.
+  if (!DIR_ORIGEN) {
+    throw new Error(
+      'Falta COTIZADOR_DATOS_ORIGEN: la carpeta `data` del proyecto externo con formulas.json y ' +
+        'multimedida.json. Esos archivos no están en el repo. Ejemplo:\n' +
+        '  COTIZADOR_DATOS_ORIGEN=D:/ruta/al/proyecto/data npx ts-node src/scripts/2026-09-13_importar_disenos_fase1.ts'
+    );
+  }
   const fm = JSON.parse(fs.readFileSync(RUTA_FORMULAS, 'utf8')) as Record<string, Record<string, DisenoOrigen>>;
   const mm = JSON.parse(fs.readFileSync(RUTA_MULTIMEDIDA, 'utf8')) as Array<{ sistemaNombre: string; diseno: string; ancho: number; alto: number }>;
 

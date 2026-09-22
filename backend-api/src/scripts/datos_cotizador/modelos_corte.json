@@ -24,7 +24,7 @@
       1777
     ]
   ],
-  "nota": "Modelos de corte reconstruidos por búsqueda entera sobre las observaciones reales de AlumSoftware. dispersionMm es la separación máxima entre todos los modelos compatibles con esas observaciones, medida en los vanos de prueba: es la incertidumbre que queda, no un error medido contra el taller.",
+  "nota": "Modelos de corte reconstruidos por búsqueda entera sobre las observaciones reales del software de origen. dispersionMm es la separación máxima entre todos los modelos compatibles con esas observaciones, medida en los vanos de prueba: es la incertidumbre que queda, no un error medido contra el taller.",
   "stats": {
     "perfilesConModelo": 1202,
     "perfilesSinOrigen": 0,

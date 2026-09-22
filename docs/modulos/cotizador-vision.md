@@ -29,6 +29,18 @@ Y como la cotización vive fuera del sistema, **no existe ninguna estadística c
 cotizaciones se hicieron, cuántas se aprobaron, por qué monto, cuáles quedaron sin seguimiento,
 quién las hizo. Nada de eso es hoy consultable.
 
+> **Matiz encontrado el 2026-09-22:** esa estadística **existió y se rompió**. El Excel tiene una
+> hoja oculta `Resumen_Cotizaciones` (tabla dinámica con Cotización / Segmentación / Producto /
+> Área-Cantidad / Valor unitario / Venta neta) alimentada por `Modificar_Cotización`, cuyas `SUMIFS`
+> están todas en `#REF!`. Las dos hojas están muertas. No cambia el destino, pero sí la lectura: no
+> es que nunca se haya querido medir, es que el archivo dejó de poder hacerlo.
+
+> **Cerrado el 2026-09-22 (punto 1):** el ERP ya puede cotizar lo que antes sólo salía del Excel.
+> Faltaba el **ítem libre** —los trece bloques "PLANTILLAS" de la hoja `Formato Digital`, donde el
+> asesor arma un ítem con cualquier código del catálogo— y con él las fachadas, divisiones de
+> oficina, barandas y pasamanos. Ver `cotizador.md` → "Ítem libre". Los puntos 2, 3 y 4 (plano y
+> despiece a mano, y re-teclear todo para la SAP) siguen abiertos.
+
 ---
 
 ## Los cinco destinos
@@ -121,7 +133,18 @@ principio. Es el significado de dos columnas.
 (la mayoritaria y la que el usuario declara correcta). No intentar **parsear** el histórico: hay al
 menos tres convenciones conviviendo y dos de ellas son de vidrio.
 
-### El dato que falta y bloquea todo
+### El dato que faltaba — RESUELTO (maestro 2026-09-21, respaldo documental 2026-09-22)
+
+> ✅ **Cerrado dos veces.** El maestro del taller confirmó el 2026-09-21 que la barra es **siempre
+> de 6 m** para cualquier perfil. La auditoría del Excel de los asesores del 2026-09-22 encontró
+> además que **el dato estaba escrito desde el principio**, sólo que fuera del ERP:
+> `COSTOS!N = IF(TIPO="PERFILERIA", W/6, W)` — el costo por metro de las 363 filas de perfilería se
+> obtiene dividiendo el costo de la barra entre 6 — y `PRECIOS!E` vale 6 en cada fila. Así que los
+> 6 m no dependen de un testimonio: son la base con la que ya se calculan los precios vigentes.
+> Ver `cotizador.md` → "El Excel de los asesores".
+>
+> Lo que sigue describe el estado ANTES de esas dos confirmaciones y se conserva porque explica por
+> qué el generador quedó como quedó.
 
 Para llenar `CANT.` hace falta saber **cuánto mide una barra comercial de cada perfil**, y ese dato
 **no existe en ninguna tabla del sistema**. Se buscó por nombre de columna (`largo`, `barra`,

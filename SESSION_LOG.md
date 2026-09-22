@@ -2812,8 +2812,8 @@ Enfoque confirmado con el usuario antes de implementar ("Porcentaje real + tope"
 ### De dónde salió esto
 El usuario preguntó qué eran los "3 puntos y 3 incógnitas" de la advertencia que aparecía en
 129 de 138 diseños, y después pasó la ruta del proyecto donde trabajó los despieces:
-`C:\Users\User\Desktop\AlcanetPro\Aplicaciones\AlumSoftware`. Es el **origen** del catálogo:
-1.992 extracciones reales de AlumSoftware, 652 diseños, 561 con fórmulas. Se comprobó pieza
+`C:\Users\User\Desktop\<proyecto externo de origen>`. Es el **origen** del catálogo:
+1.992 extracciones reales del software de origen, 652 diseños, 561 con fórmulas. Se comprobó pieza
 por pieza que los 137 diseños con perfiles del ERP tienen el despiece **idéntico** al de allí
 (multiconjunto de fórmulas por diseño): cero drift desde la importación.
 
@@ -2822,7 +2822,7 @@ La extracción tomó 3 medidas por diseño (1000×1200, 500×1200, 1000×600) y 
 cuadrados `medida = a*ancho + b*alto + c`. Con 3 puntos y 3 incógnitas el ajuste encaja por
 álgebra, no por acierto — de ahí la advertencia.
 
-Pero el problema de fondo era otro. AlumSoftware calcula `trunc((ancho − k) / nº de paneles)`.
+Pero el problema de fondo era otro. El software de origen calcula `trunc((ancho − k) / nº de paneles)`.
 **Las 3 medidas de extracción son todas múltiplos de 100**, así que esa división caía exacta y
 el truncamiento nunca se hizo visible: se verificó que en las 3 medidas extraídas ninguna
 fórmula del catálogo produce un decimal. La regresión absorbió el redondeo desplazando la
@@ -2878,7 +2878,7 @@ explica en vez de hablar de precisión. Afecta a 6 diseños: `Sistema7038-Interi
 La primera pasada emitía medidas como **595,5 mm**. Un modelo `(ancho − 6)/2` sin redondeo
 reproduce las 3 observaciones —en ellas la división cae exacta— pero en un vano cualquiera
 devuelve medio milímetro. Se comprobó sobre los reportes originales (**844 celdas de medida en
-60 reportes HTML: cero decimales**) que AlumSoftware nunca emite una medida de corte fraccionada,
+60 reportes HTML: cero decimales**) que el software de origen nunca emite una medida de corte fraccionada,
 así que esos candidatos son demostrablemente falsos y `siempreEntero()` los descarta. Ahora
 `595,5 → 596`, y se verificó que **las 8.466 medidas de los 138 diseños × 6 vanos son enteras**.
 Ninguna pieza se quedó sin modelo por el filtro.
@@ -2917,7 +2917,7 @@ de nivel B/C con los milímetros viejos.
   coinciden dentro de 1 mm, pero cuál es el verdadero no se sabe. **Se cierra con una sola
   observación en una medida no redonda** (el scraper del otro proyecto puede darla; el usuario
   no autorizó conectarse en esta sesión) o midiendo una pieza real.
-- **`dispersionMm` acota dentro del espacio de búsqueda.** Si AlumSoftware hiciera algo fuera
+- **`dispersionMm` acota dentro del espacio de búsqueda.** Si el software de origen hiciera algo fuera
   de esa familia (recorte condicional, tabla por tamaño), la cota no diría nada de ese caso.
 - **Nivel A ≠ apto para cortar.** Habla de la aritmética del software de origen, no del taller:
   el margen de corte por perfil sigue sin calibrar y `calibracion_contraste` sigue vacía. La
@@ -2939,7 +2939,7 @@ geométrica de que en los 138 diseños cada fila suma el ancho exterior y las fi
 
 Verificación activa sobre los 138 diseños × 6 vanos (incluidos los "feos" y dos absurdos):
 - 8.514 medidas emitidas: **0 no finitas, 0 no enteras**.
-- **3.126 comparaciones contra las observaciones reales de AlumSoftware: 0 discrepancias.** Los
+- **3.126 comparaciones contra las observaciones reales del software de origen: 0 discrepancias.** Los
   modelos reproducen exactamente lo que el software original devolvió.
 - Desviación máxima respecto de la recta anterior: **3,00 mm**, en `Sistema3831::WWWWWW` a
   3000×2400. Es justo la magnitud que anunciaba la advertencia vieja ("hasta 3,3 mm"), lo que
@@ -2969,7 +2969,7 @@ Ese mapeo NO vive en ningún archivo del repo (se hizo fuera; sólo quedó el re
 `disenos.json`), así que para diseños nuevos sólo se puede REUTILIZAR el de diseños gemelos ya
 en producción. Midiendo eso:
 - De 352 "faltantes", sólo **141 cotizaban** con el mapeo existente; 134 parciales; 40 sin nada.
-- Y de esos, muchos eran **degenerados**: el extractor de AlumSoftware los dejó con un solo
+- Y de esos, muchos eran **degenerados**: el extractor del software de origen los dejó con un solo
   perfil (una "Alfajía") sin vidrio ni marco. Importarlos cotizaría un perfil suelto.
 
 Filtrando por criterio estricto (≥4 perfiles con fórmula, ≥1 vidrio, todas las refs mapeadas en
@@ -4136,7 +4136,7 @@ Sistema3831-Semireforzado. Entre ellos suman 6 diseños nivel A de 163.
 
 ### Hallazgo que abarata el desbloqueo
 
-El `multimedida.json` de AlumSoftware no está en esta máquina y las 3 observaciones originales no se
+El `multimedida.json` del software de origen no está en esta máquina y las 3 observaciones originales no se
 guardaron (`medidas_respaldo` es solo el número `3`). Pero **son recuperables evaluando el modelo
 representante en los vanos de extracción** (1000×1200, 500×1200, 1000×600): un modelo solo se aceptó
 si las reproducía exactamente.
@@ -4150,13 +4150,13 @@ Para el caso concreto: perfil 148 (Horizontal) y el paño de 5020::XX tienen 60 
 en fabricación 997 mm predicen 483/484 y 463/464 respectivamente. **Una sola lectura en un ancho
 impar deja 30 candidatos con dispersión 0** — la pieza pasa a nivel A.
 
-### Decisión de método: el oráculo es AlumSoftware, no el taller
+### Decisión de método: el oráculo es el software de origen, no el taller
 
 `analizarPieza` sugiere resolver el nivel B "con dos o tres cortes en anchos que no sean múltiplos
 redondos". No funciona tal cual: los candidatos difieren 1 mm y el margen de corte del taller es
 desconocido (es justo lo que la calibración quiere medir), así que una medida de taller confunde
 fórmula y margen en un solo número. Decisión del usuario: la identificación se hace tecleando la
-ventana en AlumSoftware y leyendo su medida, que es exacta y no lleva margen. El taller sigue siendo
+ventana en el software de origen y leyendo su medida, que es exacta y no lleva margen. El taller sigue siendo
 el oráculo del margen, después, con la fórmula ya fija.
 
 ### Cambio ejecutado (Fase 0)
@@ -4274,9 +4274,9 @@ productos del Cotizador derivan su costo de proveedores y se recostean solos.
 ### Cómo empezó, y por qué el plan anterior se descartó entero
 
 La sesión arrancó con un plan de "Fase 1 — identificador de fórmula": pantalla nueva, columnas
-nuevas en `calibracion_contraste` y **318 ventanas tecleadas a mano** en AlumSoftware para
+nuevas en `calibracion_contraste` y **318 ventanas tecleadas a mano** en el software de origen para
 desambiguar las piezas nivel B. El usuario lo frenó en seco: *"no entiendo, requiero algo que creo
-que es simple… además AlumSoftware es solo referencial"*. Tenía razón en el fondo, y el plan se tiró.
+que es simple… además el software de origen es solo referencial"*. Tenía razón en el fondo, y el plan se tiró.
 
 Dos cosas se aclararon ahí y conviene no volver a mezclarlas:
 
@@ -4287,7 +4287,7 @@ Dos cosas se aclararon ahí y conviene no volver a mezclarlas:
 ### La causa raíz del nivel B, que no era falta de información sino una mala pregunta
 
 Se revisó `multimedida.json` (4,2 MB, **1.992 extracciones**, 652 diseños) en la carpeta del
-proyecto AlumSoftware — el archivo que el `SESSION_LOG` del 2026-09-17 dio por perdido: **está donde
+proyecto externo de origen — el archivo que el `SESSION_LOG` del 2026-09-17 dio por perdido: **está donde
 siempre estuvo**, en la ruta que el propio script de reconstrucción tiene por defecto.
 
 Los vanos extraídos son **1000×1200, 1000×600 y 500×1200**. Los tres son múltiplos de 100, así que
@@ -4300,7 +4300,7 @@ nivel B: no falta el dato, se preguntó en medidas que no podían revelarlo.
    **903 × 601 mm**, que cierra 241 de 419 piezas (57,5 %); con una segunda (902×701) se llega al
    69,9 %— y se preparó la lista filtrada de los **139 diseños** afectados (los 139 están en
    `fix_mapa.json`, cobertura 100 %). Se llegó a ejecutar el login. **La cuenta está vencida:**
-   `app.alumsoftware.com` redirige a `/inactivo.html` — *"Tu cuenta está pausada · SUSCRIPCIÓN
+   `<dominio del software de origen>` redirige a `/inactivo.html` — *"Tu cuenta está pausada · SUSCRIPCIÓN
    VENCIDA"*. Sin acceso no hay extracción posible.
 2. **Inferir la convención de redondeo** desde los perfiles ya confirmados. Descartado con datos:
    de los 980 nivel A, **975 usan `exacto` con n=1** — son piezas que no dividen (marco = ancho,
@@ -4731,3 +4731,191 @@ nulo en Calibración (no corregido, fuera del alcance visual acordado).
 ### Commit
 - 17 archivos, +888/−750 líneas — todo dentro de `frontend-web/src/features/cotizador/`,
   `docs/modulos/cotizador.md` y `TECH_DEBT.md`. Sin cambios de backend ni de BD.
+
+---
+
+## 2026-09-22 (2) — Auditoría del Excel de los asesores y módulo "Ítem libre" (7º motor)
+
+### Punto de partida
+
+El usuario pidió comparar `ORIGINAL PARA COPIAR no tocar.xlsb` (el archivo con el que cotizan hoy
+los asesores, en su OneDrive) contra el módulo Cotizador, para ver qué hay a fondo que sirva
+implementar o que falte.
+
+**Método:** copia al scratchpad y conversión con Excel COM con macros deshabilitadas
+(`AutomationSecurity = 3`, `EnableEvents = false`). **El original nunca se abrió en modo escritura.**
+El libro **no tiene VBA** (0 componentes): toda la lógica está en fórmulas, así que fue auditable al
+100 %. 20 hojas — 6 motores de producto, el formato impreso, 4 maestras ocultas y 5 hojas muertas.
+
+### Lo que la auditoría confirmó ya portado
+
+Los 6 módulos 1:1, el AIU `0,96` (`COSTOS!G7`), los estados `PENDIENTE/APROBADA/CANCELADO/PERDIDO`
+(`Parametros!G`, ENUM idéntico), los segmentos PA/PM/PB, las cuatro tarifas de SMO (cabinas 120k,
+fachadas 85k, armada 60k, persiana 110k), los kits `K1000…K2000`, los cargos
+`GTFA26`/`ALQU36`/`HUAC06` y los bugs #4/#5/#10 del Excel. El port es fiel hasta el piso de SMO del
+tablero.
+
+### Los 6 hallazgos nuevos
+
+1. **El modelo de márgenes** (`COSTOS!A1:D16`): la estructura de gastos fijos (PRODUCC 18,55 %,
+   ADMON 20,39 %, VTAS 12,08 %, FNROS 3,99 %, utilidad 11/10/9 %) y las ponderaciones por categoría
+   que **generan los 12 multiplicadores** de `cotizador.multiplicador_categoria` — que estaban en BD
+   obtenidos por ingeniería inversa estadística ("observado en 221 de 363 productos"). Coinciden
+   dígito por dígito, y el modelo explica los outliers de la siembra.
+2. **El ítem libre**: 13 bloques "PLANTILLAS" en `Formato Digital` sin contraparte en el ERP.
+3. **La barra de 6 m ya estaba escrita** en el Excel (`COSTOS!N = IF(TIPO="PERFILERIA", W/6, W)`),
+   pese a que `cotizador-vision.md` la daba por inexistente en todo el sistema.
+4. **`Hoja3`**: compras reales con `Vr und Restado dscto` (neto de descuento) y **Centro de Costos =
+   número de ODP** → costo real por ODP, que el ERP no puede calcular hoy.
+5. **`Word Office` / `wo5_03_19`** (ocultas): existencia y **costo promedio ponderado**, frente al
+   costo por última compra que usa el ERP.
+6. **Campos del documento VR09** que el PDF no tiene: PRODUCTO/SERVICIO, TOMA DE MEDIDA, FECHA DE
+   ENTREGA, APROBÓ SI/NO y **O.D.P. No** — el papel ya pedía el vínculo cotización↔ODP.
+
+Y tres cosas **rotas** en el Excel: `Modificar_Cotización` con todas sus `SUMIFS` en `#REF!`,
+`Resumen_Cotizaciones` (la estadística comercial existió y se rompió) y fórmulas que apuntan a
+**copias externas del propio archivo** (`[3]`…`[8]`), incluido el FACTOR de `PRECIOS!G2`.
+
+### Decisiones del usuario
+
+- Implementar **el ítem libre + documentar**; el modelo de márgenes queda **sólo documentado**.
+- La asimetría del factor de VIDRIO (única categoría con utilidad esperada y sin comisión) se
+  **documenta tal cual, sin tocar**: los precios de venta vigentes salen de ahí.
+
+### Cambios realizados
+
+**Backend**
+- `cotizador/modules/itemLibre.ts` (nuevo) — 7º motor. Valida, resuelve cada línea con
+  `lineaCatalogo()`, totaliza con `totalizar()`. **No** emite `cortes`, **no** mete SMO/flete en el
+  BOM (reproduciría el bug de los 5 fletes del 2026-09-20), **no** declara `descuentoPct`, **no**
+  hace `unidadOverride`. Exporta `claseDeUnidad()`, que clasifica por contenido y no por lista
+  exacta. Advierte por código repetido y por ítem sin nombre.
+- `cotizador/modules/registry.ts` — `"item-libre"` al final del mapa (el orden es el de las
+  tarjetas).
+- **Sin migración de BD**: `modulo_id` es `STRING(30)` sin FK, `input` es JSONB, y
+  `diseno_id`/`sistema`/`nivel_corte` son nullable.
+
+**Frontend**
+- `EditorLineasLibres.tsx` (nuevo) — tabla editable con buscador del catálogo, precio en vivo del
+  segmento y subtotal por línea. Pide el catálogo entero una vez (excepción documentada en
+  `apiGetCatalogo`: responde desde caché en memoria, no toca Postgres).
+- `types.ts` — `'lineas'` en `TipoCampo` + interfaz `LineaLibre`.
+- `CampoDinamico.tsx` — rama `lineas` que delega entera, y prop nueva `segmento`.
+- `FormularioModulo.tsx` — `valorInicial` → `[]`, `esVacio` trata `[]` como vacío, pasa `segmento`,
+  y `sm:col-span-2` para que la tabla no quede a media columna.
+- `TabCotizar.tsx` — `descripcionItem` deja de ser `null` fijo: lee el campo si el módulo lo
+  declara. Genérico, no específico del ítem libre.
+- `SelectorProducto.tsx` — ícono `ListPlus`.
+
+### Bugs y hallazgos durante la ejecución
+
+1. **`PERF01`/`ELE1101` no son `UND` en el catálogo del ERP**, son `X METRO` — lo descubrió una
+   prueba que los usaba como ejemplo de "unidades" y falló. Explica por qué `tablero.ts` los pide
+   con `unidadOverride: "UND"`. Documentado con la advertencia de que en un ítem libre un código así
+   cobra metros lineales.
+2. **Centinela de `cargos.test.ts`**: afirmaba `listarModulos().length === 6`. Actualizado a **7**
+   con el renglón que explica por qué, siguiendo la convención del centinela del catálogo.
+3. **`npm run lint` del backend está roto de antes** — `package.json` declara ESLint `^10.0.3` pero
+   la config es `.eslintrc.json` (formato eliminado en ESLint 9) y el script usa `--ext` (también
+   eliminado). Ni `lint` ni `lint:fix` corren. **No lo rompió este cambio.** Documentado en
+   `TECH_DEBT.md` con las dos salidas (migrar a flat config, 1-2 h; o fijar ESLint 8, minutos).
+
+### Verificación
+
+- `npm run build` del backend: **limpio**. `tsc --noEmit` del frontend: **limpio**.
+- `test:cotizador`: **84/84**, de 65. Nueva suite `itemLibre.test.ts` con **19 pruebas**
+  (contrato del módulo, las 4 clases de unidad, regresión del bug #10, ausencia de `cortes`,
+  ausencia de SMO/flete, código inexistente, mensajes por número de línea).
+- Se verificó **suite por suite sin bajar el backend dev**, hallazgo que quedó documentado en
+  `cotizador.md`: corriendo las 7 seguidas fallan en bloque las 4 que precargan caché (`0/N` limpio)
+  y pasan las 3 puras; de una en una, con ~12 s de drenaje, pasan todas. Un `0/N` sin una sola
+  prueba en verde es agotamiento del pooler, no una regresión.
+
+### Lo que NO hubo que tocar (verificado, no supuesto)
+
+`clonarPropuesta` (data-driven vía `moduloAcepta()`: copia el ítem intacto con advertencia),
+`aptitudOrden` (`!cortes` → `SIN_DESPIECE_POR_DISENO`), `PrintableHojaTrabajo` (ya imprime "Sin
+plano"/"Sin despiece"), `generadorSapPerfileria` (el llamador filtra por `imprimible`), el PDF y el
+controlador `cotizarItem` (despacha por `getModulo()`, sin lista fija).
+
+### Consecuencia aceptada
+
+`evaluarAptitudOrden` marca la cotización completa como `imprimible` sólo si **todos** sus ítems lo
+son, así que un ítem libre apaga esa bandera agregada — igual que ya pasaba con un espejo o un
+tablero. El taller usa `porItem`, ítem por ítem: no se pierde información.
+
+### Pendientes
+
+- El modelo de márgenes, si se decide implementarlo (hoy sólo documentado).
+- Costo real por ODP (`Hoja3`) y costo promedio (`Word Office`): sin decisión.
+- Los 5 campos del formato VR09 que el PDF no tiene.
+
+---
+
+## 2026-09-22 (3) — Retirar el nombre del software de origen del repositorio (cierra deuda del 2026-09-19)
+
+### Contexto
+
+Al terminar el ítem libre se reportó que la verificación de la **decisión 8** del Cotizador ("el
+nombre del software externo de origen no puede aparecer en ningún dato ni código del ERP") daba 16
+en vez de 0. El usuario ordenó corregirlo.
+
+**Corrección de encuadre:** no era un hallazgo nuevo. `TECH_DEBT.md` **2026-09-19 (4)** ya lo había
+diagnosticado archivo por archivo y prescrito la solución exacta. Se redescubrió por buscar el
+nombre en `src/` y `docs/` sin comprobar antes si ya tenía entrada de deuda técnica. Lo que se hizo
+hoy es ejecutar esa solución, no diseñarla.
+
+### Alcance real, medido antes de tocar
+
+| Dónde | Usos | Naturaleza |
+|---|---|---|
+| `2026-09-13_reconstruir_modelos_corte.ts` | 9 | 8 en comentarios + 1 ruta por defecto |
+| `2026-09-13_importar_disenos_fase1.ts` | 4 | 2 en comentarios + **2 rutas absolutas** |
+| `2026-09-13_aplicar_modelos_corte.ts` | 2 | comentarios |
+| `datos_cotizador/modelos_corte.json` | 1 | ⚠️ campo `nota` — **dato**, no comentario |
+| `docs/modulos/cotizador.md` · `TECH_DEBT.md` · `SESSION_LOG.md` | 18 | prosa, 2 comandos `grep`, 1 dominio |
+
+### Lo primero fue descartar que estuviera en la BASE
+
+El archivo era sólo la mitad del problema: si esa `nota` se había sembrado, el nombre estaría en
+Postgres. Se corrió un barrido de solo lectura (script temporal en el scratchpad, borrado después)
+con `ILIKE` sobre **327 columnas de texto y 22 JSONB** de los schemas `public` y `cotizador`:
+
+```
+=== RESULTADO para "<nombre del software de origen>" ===
+  ✅ 0 apariciones en la base de datos.
+```
+
+Dos razones por las que estaba limpia: el `nota` sólo lo escribe el script en el JSON —nadie lo lee
+para insertarlo— y `cotizador.producto.fuente`, que es el campo que el motor propaga al frontend
+como `fuentePrecio` y por tanto el que un cliente podría llegar a ver, ya venía neutralizado desde la
+siembra como `"referencia externa · <acabado>"`. Quien armó esa siembra fue cuidadoso.
+
+### Cambios
+
+- **Prosa (15 usos en 3 scripts):** a "el software de origen" / "el proyecto externo de origen",
+  cuidando la preposición para no dejar *"de el"*.
+- **Las 3 rutas absolutas** salieron del código: ahora la carpeta se pasa por
+  **`COTIZADOR_DATOS_ORIGEN`**, o como argumento en `reconstruir_modelos_corte.ts`, con error
+  explícito si falta. **Detalle que la entrada de deuda no señalaba:** esas rutas eran
+  `C:/Users/User/Desktop/...` — el escritorio de OTRA máquina (esta es `PRODUCCION`), así que
+  llevaban tiempo sin resolver. No era sólo un problema de nombre: era código muerto.
+- **El `nota` del JSON** neutralizado, y también **el generador de esa nota**, para que no la vuelva
+  a escribir con el nombre.
+- **Documentación:** los 18 usos restantes, incluido el dominio de la aplicación externa. Los dos
+  comandos de verificación pasaron a `grep -ri "<nombre del software de origen>" …` — quien conoce el
+  nombre puede correr el grep y el repositorio deja de deletrearlo.
+- **`TECH_DEBT.md` 2026-09-19 (4)** marcada como **RESUELTA** con la sección "Cómo se cerró".
+- **Decisión 8 de `cotizador.md`** ampliada: registra el incumplimiento del 2026-09-13 al 2026-09-22,
+  el barrido de la BD, y dónde es probable que reaparezca (comentarios de un script one-off nuevo).
+
+### Riesgo y verificación
+
+- **Un susto propio:** el `sed` que corregía la gramática de la `nota` se comió el `' +` del final de
+  una línea y rompió la concatenación del string. Lo atrapó `tsc` de inmediato; reparado y
+  recompilado.
+- El JSON se reserializó con `json.dump(indent=2, ensure_ascii=False)` y **el diff salió de 2
+  líneas**: el formato original ya era ése, así que no cambió ni un número ni una clave de los 163
+  diseños. Se verificó con `git diff --stat` antes de seguir.
+- `npm run build` del backend: limpio. `grep -ri` en todo el repositorio: **0**.
+- Los 3 scripts tocados son **one-off ya ejecutados**; no se re-ejecutaron y no había por qué.

@@ -73,7 +73,15 @@ const TabCotizar: React.FC<Props> = ({ segmentoDefault, onAgregarItem, panelCarg
             idTemp: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             moduloId: moduloActivo.id,
             moduloNombre: moduloActivo.nombre,
-            descripcionItem: null,
+            // El nombre que escribió el vendedor, si su módulo lo pide (hoy solo
+            // "Ítem libre" declara `descripcionItem`). Antes esto era `null` fijo
+            // y TODOS los ítems caían al fallback `"<modulo> #N"` de
+            // cotizacionStore; con un ítem libre eso le llegaría al cliente como
+            // "item-libre #3" en vez de "Fachada oficina 2º piso". Es genérico:
+            // cualquier módulo que declare el campo gana nombre propio.
+            descripcionItem: typeof ultimoInput.descripcionItem === 'string' && ultimoInput.descripcionItem.trim()
+                ? ultimoInput.descripcionItem.trim()
+                : null,
             input: ultimoInput,
             resultado: ultimoResultado,
         });

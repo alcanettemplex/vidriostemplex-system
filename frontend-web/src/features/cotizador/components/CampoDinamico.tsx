@@ -1,8 +1,9 @@
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
 
-import { CampoMeta, OpcionCampo } from '../types';
+import { CampoMeta, LineaLibre, OpcionCampo, SegmentoCliente } from '../types';
 import { CONTROL_ERROR, CONTROL_LABEL_CLASS, CONTROL_NORMAL } from './ui';
+import EditorLineasLibres from './EditorLineasLibres';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Un solo campo de formulario, renderizado según `campo.tipo`. Data-driven desde
@@ -51,9 +52,14 @@ interface Props {
      * formulario (FormularioModulo); aquí sólo se pinta. Ausente o `null` =
      * campo sano. */
     error?: string | null;
+    /** Segmento de cliente del formulario, sólo lo usa el campo `tipo: 'lineas'`
+     * para previsualizar el precio correcto (PA/PM/PB) de cada código elegido.
+     * Un campo no ve a sus hermanos, así que lo pasa el formulario, que sí tiene
+     * el input completo. */
+    segmento?: SegmentoCliente;
 }
 
-const CampoDinamico: React.FC<Props> = ({ campo, value, onChange, error }) => {
+const CampoDinamico: React.FC<Props> = ({ campo, value, onChange, error, segmento }) => {
     const idBase = React.useId();
     const controlId = `${idBase}-${campo.nombre}`;
     const errorId = `${controlId}-error`;
@@ -85,6 +91,21 @@ const CampoDinamico: React.FC<Props> = ({ campo, value, onChange, error }) => {
             <span>{error}</span>
         </p>
     ) : null;
+
+    // El campo `lineas` no es un control: es una tabla editable con su propio
+    // encabezado, su buscador de catálogo y su total. Se delega entera y se sale
+    // antes de armar label + control, porque no tiene ni uno ni otro en el
+    // sentido de los demás campos. Lo usa hoy el módulo "Ítem libre".
+    if (campo.tipo === 'lineas') {
+        return (
+            <EditorLineasLibres
+                value={(Array.isArray(value) ? value : []) as LineaLibre[]}
+                onChange={onChange}
+                segmento={segmento ?? 'PA'}
+                error={error}
+            />
+        );
+    }
 
     if (campo.tipo === 'boolean') {
         return (

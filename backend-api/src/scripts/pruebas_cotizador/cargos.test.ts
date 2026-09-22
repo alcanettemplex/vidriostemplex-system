@@ -237,9 +237,14 @@ test("ninguno de los 6 módulos deja ya líneas SMO ni GTFA26 en el BOM (barrido
 // formulario —que es data-driven y se arma desde `meta.campos`— deja de
 // pedirlo. Si alguien lo vuelve a declarar, reaparecen los dos descuentos y el
 // vendedor puede aplicarlos ambos sin darse cuenta.
+// 7 y no 6 desde el 2026-09-22: entró "item-libre", el ítem que el asesor arma
+// línea por línea con códigos del catálogo (los trece bloques "PLANTILLAS" de la
+// hoja `Formato Digital` del Excel de los asesores, que no tenían contraparte en
+// el ERP). El centinela sigue vigilando lo mismo —que nadie vuelva a declarar
+// `descuentoPct`—; sólo cambió cuántos módulos hay que revisar.
 test("ningún módulo declara ya `descuentoPct` en su meta.campos (el descuento es de la propuesta)", () => {
   const modulos = listarModulos();
-  assert.equal(modulos.length, 6, "deberían seguir siendo 6 módulos de producto");
+  assert.equal(modulos.length, 7, "deberían seguir siendo 7 módulos (6 productos + ítem libre)");
 
   const culpables: string[] = [];
   for (const m of modulos) {

@@ -61,9 +61,13 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
     const [aptitud, setAptitud] = useState<Aptitud | null>(null);
     const [cargandoAptitud, setCargandoAptitud] = useState(false);
     const [descargandoPdf, setDescargandoPdf] = useState(false);
-    // Meta de los 6 módulos, para resolver etiquetas de campo en la Hoja de
-    // Trabajo (grupo 'medidas'/'vidrio'). Se pide una sola vez: no cambia
-    // entre propuestas ni entre cotizaciones.
+    // Meta de los módulos (7 desde el 2026-09-22, con "item-libre"). Se pide una
+    // sola vez: no cambia entre propuestas ni entre cotizaciones.
+    //
+    // Hoy la Hoja de Trabajo sólo lee de aquí `modulo.nombre`, como respaldo del
+    // rótulo del ítem cuando no tiene `descripcionItem`. La resolución genérica
+    // de etiquetas por `grupo` que justificaba esta llamada desapareció con el
+    // rediseño del 2026-09-22, que dejó la hoja en sólo plano + cortes.
     const [modulos, setModulos] = useState<ModuloMeta[]>([]);
     useEffect(() => {
         apiGetModulos().then(res => setModulos(res.data)).catch(() => setModulos([]));

@@ -47,10 +47,17 @@ function valorInicial(campo: ModuloMeta['campos'][number], segmentoDefault: Segm
     if (campo.nombre === 'cantidadPiezas') return 1;
     if (campo.nombre === 'descuentoPct') return 0;
     if (campo.tipo === 'boolean') return false;
+    // El campo `lineas` (módulo "Ítem libre") vale un arreglo, no una cadena:
+    // arrancar en '' haría que el editor recibiera algo que no puede recorrer.
+    if (campo.tipo === 'lineas') return [];
     return '';
 }
 
 function esVacio(valor: unknown): boolean {
+    // Un arreglo vacío es un campo sin llenar: sin esto, un ítem libre sin una
+    // sola línea pasaba la validación de `requerido` y el 400 lo daba el motor,
+    // con el toast genérico en vez del "Completa: …" que señala el campo.
+    if (Array.isArray(valor)) return valor.length === 0;
     return valor === '' || valor === undefined || valor === null;
 }
 
@@ -134,6 +141,14 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
 
     const errorDe = (nombre: string) => (campoConError === nombre ? MENSAJE_REQUERIDO : null);
 
+    // Segmento vigente en el formulario, para el único campo que necesita ver a
+    // un hermano: la tabla de líneas del ítem libre, que previsualiza el precio
+    // PA/PM/PB de cada código. Se cae al default del padre mientras el select no
+    // se haya tocado.
+    const segmentoActual = (typeof input.segmentoCliente === 'string'
+        ? input.segmentoCliente
+        : segmentoDefault) as SegmentoCliente;
+
     const hayCampoSinGrupo = modulo.campos.some(c => !c.grupo);
 
     const botonCalcular = (
@@ -152,7 +167,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
     );
 
     // Red de seguridad: `grupo` es un campo opcional del contrato (ver types.ts)
-    // y hoy los 6 módulos lo declaran en todos sus campos, pero si alguno
+    // y hoy los 7 módulos lo declaran en todos sus campos, pero si alguno
     // llegara a omitirlo se prefiere el layout plano de siempre (todo visible,
     // sin dividir) antes que perder ese campo del formulario.
     if (hayCampoSinGrupo) {
@@ -168,6 +183,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
                                 value={input[campo.nombre]}
                                 onChange={setCampo(campo.nombre)}
                                 error={errorDe(campo.nombre)}
+                                segmento={segmentoActual}
                             />
                         ))}
                     </div>
@@ -227,12 +243,13 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {camposVisibles(campos).map(campo => (
-                                <div key={campo.nombre}>
+                                <div key={campo.nombre} className={campo.tipo === 'lineas' ? 'sm:col-span-2' : undefined}>
                                     <CampoDinamico
                                         campo={campo}
                                         value={input[campo.nombre]}
                                         onChange={setCampo(campo.nombre)}
                                         error={errorDe(campo.nombre)}
+                                        segmento={segmentoActual}
                                     />
                                     {campo.nombre === 'sistema' && campo.tipo === 'select' && (campo.opciones?.length ?? 0) > 1 && (
                                         <p className="text-[10.5px] text-slate-400 mt-1">Ver catálogo para disponibilidad por color.</p>

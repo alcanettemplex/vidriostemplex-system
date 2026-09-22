@@ -8,7 +8,7 @@
  * QUÉ CAMBIA Y POR QUÉ
  * --------------------
  * Hasta hoy cada pieza se calcula con una recta `a*ancho + b*alto + c` ajustada
- * sobre 3 observaciones. Esa recta no es el cálculo real de AlumSoftware: el real
+ * sobre 3 observaciones. Esa recta no es el cálculo real del software de origen: el real
  * es `trunc((ancho - k) / nº de paneles)`. Como las 3 medidas de extracción eran
  * múltiplos de 100, la división caía exacta y el truncamiento quedó invisible; la
  * regresión lo absorbió desplazando la pendiente (1/3 = 0,3333… quedó como
@@ -33,7 +33,7 @@
  *
  * OJO — QUÉ **NO** SIGNIFICA EL NIVEL A
  * -------------------------------------
- * "Determinada" es una afirmación sobre la ARITMÉTICA de AlumSoftware, no sobre
+ * "Determinada" es una afirmación sobre la ARITMÉTICA del software de origen, no sobre
  * el taller. Que la medida esté determinada no dice que sea la medida correcta
  * para cortar: eso depende del margen de corte de cada perfil, que se calibra
  * aparte contra piezas reales (`cotizador.calibracion_margen`) y sigue sin
