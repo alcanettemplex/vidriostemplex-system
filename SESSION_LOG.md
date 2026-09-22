@@ -4919,3 +4919,96 @@ siembra como `"referencia externa · <acabado>"`. Quien armó esa siembra fue cu
   diseños. Se verificó con `git diff --stat` antes de seguir.
 - `npm run build` del backend: limpio. `grep -ri` en todo el repositorio: **0**.
 - Los 3 scripts tocados son **one-off ya ejecutados**; no se re-ejecutaron y no había por qué.
+
+---
+
+## 2026-09-22 (4) — Vincular el lead APROBADO "Leonardo Ardila Osorio" a ODP-24357
+
+Cambio de DATOS en producción, no de código. Un solo registro.
+
+### Verificación previa (solo lectura, antes de escribir)
+
+| | Lead 2744 | ODP-24357 (id 608) |
+|---|---|---|
+| Nombre | `LEONARDO ARDILA OSORIO  - @neodiwhite` | cliente `LEONARDO ARDILA OSORIO` (id 1712, doc. 1088311500) · recibe `LEONARDO ARDILA` |
+| Teléfono | `3148660966` | `telefono_recibe` y celular del cliente: `3148660966` — **exacto** |
+| Estado | `APROBADO` (lo exige el endpoint) · `odp_id` NULL | `LISTO_INSTALAR`, creada 2026-09-21 |
+
+Identidad confirmada por **tres señales independientes** (nombre del lead, nombre del cliente de la
+ODP y teléfono idéntico). Se comprobó además que **ningún otro lead ni prospecto** apuntaba ya a la
+ODP 608 — importa porque `vincularODPAlLead` **no valida unicidad**: nada impide que dos leads
+apunten a la misma ODP.
+
+### Cómo se hizo
+
+`2026-09-22_vincular_lead_leonardo_ardila_odp24357.ts`, copiando el patrón de
+`2026-09-21_vincular_leads_aprobados_odp.ts`: **vía el endpoint HTTP real**
+`PATCH /api/crm/:id/vincular-odp` con un token `root` firmado al vuelo, no con un `UPDATE` directo,
+para que corran la validación de estado, la escritura del `LeadEvento` y el `emitirCambio('crm')`.
+(`root` no figura en el `requireRole` de esa ruta, pero `rbacMiddleware` lo deja pasar antes de mirar
+la lista.)
+
+El backend dev se había caído a mitad de sesión, así que hubo que levantarlo para poder usar el
+endpoint. Quedó corriendo.
+
+### Verificado después
+
+- `leads.odp_id` = 608 → ODP-24357 (`LISTO_INSTALAR`).
+- `LeadEvento` 10427: `SEGUIMIENTO` · *"Lead vinculado a ODP #608."* · `creado_por` 30.
+- `ultima_actividad` actualizada por el hook `LeadEvento.afterCreate` (21:13:11.892).
+- `auditoria_log`: `datos_anteriores {odp_id: null}` → `datos_nuevos.odp_id 608`, `usuario_id` 30.
+- Un solo lead apunta a la ODP 608.
+
+### Dos observaciones, sin tocar
+
+1. **La acción queda atribuida a ROOT** (`usuario_id` 30), no al asesor del lead (Alejandro Ardila,
+   id 13, que lo pasó a APROBADO diez minutos antes). Es correcto —fue una acción administrativa—
+   pero así se lee en el historial del lead.
+2. ~~**`leads.cliente_id` sigue en NULL**~~ — **CERRADO en el tramo (5)**, a petición del usuario.
+
+---
+
+## 2026-09-22 (5) — Conversión lead→cliente del CRM para el lead 2744
+
+Cierra la observación 2 del tramo (4). Cambio de DATOS, un solo registro.
+
+### El riesgo que había que descartar primero
+
+El cliente **ya existía** en la base (id 1712, doc. 1088311500), así que la pregunta no era cómo
+convertir sino **si el endpoint iba a duplicarlo**. No lo hace: `convertLeadToCliente` deduplica por
+`numero_documento` —`Cliente.findOne({ where: { numero_documento } })`— y si lo encuentra toma la
+rama de "cliente existente", que sólo vincula. Crea cliente únicamente cuando el documento no existe.
+Por eso el dato que importa del body es el documento.
+
+Se verificó antes de correr que ese documento devolviera **exactamente un** cliente: con documentos
+repetidos, ese `findOne` no lleva `order` y elegiría cualquiera de ellos.
+
+### Estado previo del lead 2744
+
+`APROBADO` · `cliente_id` NULL (si tuviera, el endpoint responde 409 "ya fue convertido") ·
+`cliente_es_nuevo` NULL · `fecha_cierre` NULL · `odp_id` 608.
+
+### Cómo se hizo
+
+`2026-09-22_convertir_lead_leonardo_ardila_cliente.ts`, vía
+`POST /api/crm/:id/convertir` con token `root`, mismo criterio que los dos scripts anteriores: el
+endpoint real, no un `UPDATE`.
+
+### Verificado después
+
+- `cliente_id` = **1712** · `cliente_es_nuevo` = **false** · `fecha_cierre` = 2026-09-22 22:05:32.
+- `odp_id` 608 intacto: la conversión no toca el vínculo con la ODP.
+- `LeadEvento` 10432: `CONVERSION` · *"Lead vinculado a cliente existente: LEONARDO ARDILA OSORIO
+  (ID: 1712)"*.
+- **`max(id)` de `clientes` sigue en 1712** y el documento sigue devolviendo una sola fila: prueba
+  dura de que no se creó ningún cliente duplicado.
+
+La cadena del lead queda completa: `APROBADO` → vinculado a ODP-24357 → convertido a cliente 1712.
+
+### Nota de operación
+
+El backend dev se cayó dos veces durante estos dos tramos y hubo que relanzarlo. El primer reintento
+falló con `ECONNREFUSED` pese a que `netstat` mostraba el 3001 en LISTENING: era una entrada
+transitoria del proceso anterior muriendo, no el nuevo ya listo. **Comprobar el puerto no basta para
+saber que el backend está listo** — lo fiable es pedirle una respuesta HTTP (un 401 de una ruta
+autenticada sirve) antes de lanzar el script.
