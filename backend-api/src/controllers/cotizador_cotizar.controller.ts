@@ -3,7 +3,7 @@
 // Es el endpoint que usa la pantalla de cotizar mientras el vendedor teclea
 // medidas: entra un input, sale el BOM con sus totales y sus advertencias.
 import { Request, Response } from 'express';
-import { getModulo } from '../cotizador/modules/registry';
+import { calcularItem, getModulo } from '../cotizador/modules/registry';
 
 /**
  * POST /cotizar/:moduloId
@@ -24,7 +24,7 @@ export const cotizarItem = async (req: Request, res: Response) => {
     return res.status(404).json({ error: `El módulo "${moduloId}" no existe.` });
   }
   try {
-    res.json(modulo.calcular(req.body ?? {}));
+    res.json(calcularItem(moduloId, req.body ?? {}));
   } catch (e) {
     // Un error del motor es casi siempre un dato que falta o que no calza, y
     // su mensaje ya está escrito para el usuario final.

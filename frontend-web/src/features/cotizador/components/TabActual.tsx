@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
     Trash2, Inbox, AlertTriangle, Save, Package, Plus, Copy, Layers,
-    CheckCircle2, Scale, FilePlus2, User, Briefcase, Receipt,
+    CheckCircle2, Scale, FilePlus2, User, Briefcase, Receipt, Pencil, Lock, Loader2,
 } from 'lucide-react';
 
 import { fmtCOP, fmtPct } from '../format';
@@ -71,6 +71,18 @@ interface Props {
     propuestas: ControlPropuestas;
     hayCambiosSinGuardar: boolean;
     onNuevaCotizacion: () => void;
+    /** Abre el ítem en Cotizar para editarlo en su posición. */
+    onEditarItem: (idTemp: string) => void;
+    /** Copia el ítem justo debajo, tal cual (mismo input, mismo resultado). */
+    onDuplicarItem: (idTemp: string) => void;
+    /** Cambiar el segmento RECALCULA todos los ítems: lo resuelve el padre. */
+    onCambiarSegmento: (segmento: SegmentoCliente) => void;
+    cambiandoSegmento: boolean;
+    /** Motivo por el que los ítems, el descuento, los cargos y el segmento no se
+     * pueden tocar (propuesta elegida de una cotización aprobada). */
+    bloqueoEdicion: string | null;
+    /** Ids de módulo que existen hoy: un ítem de un módulo retirado no se edita. */
+    modulosDisponibles: Set<string>;
 }
 
 const SEGMENTOS: { v: SegmentoCliente; l: string }[] = [
@@ -96,6 +108,7 @@ const inputClass = 'w-full px-3 py-2 text-sm border border-slate-200 rounded-lg 
 const labelClass = 'block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1';
 const btnChip = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-[11.5px] font-bold text-slate-600 hover:bg-slate-50 transition disabled:opacity-40 disabled:cursor-not-allowed';
 const thClass = 'px-3 py-2 text-[10.5px] font-extrabold uppercase tracking-wide whitespace-nowrap';
+const btnFila = 'p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-100/60 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-400';
 
 /**
  * Texto de respaldo cuando el ítem no trae `descripcionItem`.
@@ -145,9 +158,11 @@ const TabActual: React.FC<Props> = ({
     carrito, cabecera, onCambiarCabecera, onQuitarItem, onGuardar, guardando,
     numeroEnEdicion, asesoresSugeridos, estadosDisponibles, parametros,
     descuentoPct, onCambiarDescuento, cargos, onCambiarCargos, propuestas,
-    hayCambiosSinGuardar, onNuevaCotizacion,
+    hayCambiosSinGuardar, onNuevaCotizacion, onEditarItem, onDuplicarItem,
+    onCambiarSegmento, cambiandoSegmento, bloqueoEdicion, modulosDisponibles,
 }) => {
     const [comparando, setComparando] = useState(false);
+    const aprobada = Boolean(bloqueoEdicion);
 
     const cambiarCliente = (campo: keyof ClienteCotizacion, valor: string) => {
         onCambiarCabecera({ cliente: { ...cabecera.cliente, [campo]: valor } });
@@ -231,6 +246,13 @@ const TabActual: React.FC<Props> = ({
 
             {!sinNada && (
                 <>
+                    {bloqueoEdicion && (
+                        <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12.5px] text-emerald-800">
+                            <Lock className="w-4 h-4 mt-0.5 shrink-0" />
+                            <p>{bloqueoEdicion}</p>
+                        </div>
+                    )}
+
                     {/* ── Propuestas (A · B · C) ───────────────────────────────── */}
                     {hayPropuestas && (
                         <Tarjeta
@@ -409,12 +431,28 @@ const TabActual: React.FC<Props> = ({
                         <Tarjeta titulo="Comercial" icono={Briefcase}>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
-                                    <label className={labelClass} htmlFor="cot-segmento">Segmento</label>
+                                    {/* Cambiarlo RECALCULA todos los ítems de todas
+                                        las propuestas con la lista nueva: es un dato
+                                        de la cotización, no de cada ítem. */}
+                                    <label className={labelClass} htmlFor="cot-segmento">
+                                        Segmento
+                                        {cambiandoSegmento && (
+                                            <span className="ml-1.5 inline-flex items-center gap-1 normal-case tracking-normal text-indigo-600">
+                                                <Loader2 className="w-3 h-3 animate-spin" /> recalculando…
+                                            </span>
+                                        )}
+                                    </label>
                                     <select
                                         id="cot-segmento"
                                         className={inputClass}
                                         value={cabecera.segmentoCliente}
-                                        onChange={e => onCambiarCabecera({ segmentoCliente: e.target.value as SegmentoCliente })}
+                                        disabled={aprobada || legado || cambiandoSegmento}
+                                        title={aprobada
+                                            ? 'La cotización está aprobada: pásala a Pendiente para cambiar el segmento.'
+                                            : legado
+                                                ? 'Esta propuesta es legada: duplícala a la forma nueva antes de cambiar el segmento.'
+                                                : 'Al cambiarlo se recalculan todos los ítems con los precios del segmento nuevo.'}
+                                        onChange={e => onCambiarSegmento(e.target.value as SegmentoCliente)}
                                     >
                                         {SEGMENTOS.map(s => <option key={s.v} value={s.v}>{s.l}</option>)}
                                     </select>
@@ -448,8 +486,10 @@ const TabActual: React.FC<Props> = ({
                                         max={100}
                                         step={0.5}
                                         className={inputClass}
-                                        disabled={legado}
-                                        title={legado ? 'Las propuestas anteriores al cambio no aplican descuento.' : ''}
+                                        disabled={legado || aprobada}
+                                        title={legado
+                                            ? 'Las propuestas anteriores al cambio no aplican descuento.'
+                                            : aprobada ? 'La cotización está aprobada: pásala a Pendiente para cambiar el descuento.' : ''}
                                         value={descuentoPct * 100}
                                         onChange={e => {
                                             // Se manda como fracción y con tope 1: el backend
@@ -499,6 +539,7 @@ const TabActual: React.FC<Props> = ({
                         etiquetaPropuesta={activa?.etiqueta ?? null}
                         legado={legado}
                         onDuplicarLegado={propuestas.onDuplicar}
+                        aprobada={aprobada}
                     />
 
                     {/* ── Ítems del carrito ────────────────────────────────────── */}
@@ -546,13 +587,20 @@ const TabActual: React.FC<Props> = ({
                                                 Total
                                                 <span className="block font-bold normal-case tracking-normal text-slate-400">a precio lleno</span>
                                             </th>
-                                            <th className={`${thClass} w-10`}>
-                                                <span className="sr-only">Quitar</span>
+                                            <th className={`${thClass} w-28`}>
+                                                <span className="sr-only">Acciones</span>
                                             </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {carrito.map(item => (
+                                        {carrito.map((item, i) => {
+                                            const moduloExiste = modulosDisponibles.has(item.moduloId);
+                                            // Legada: su blob trae SMO y flete dentro del BOM, y
+                                            // recalcularla con el motor actual los sacaría.
+                                            const motivoNoEditar = bloqueoEdicion
+                                                ?? (legado ? 'Propuesta legada: duplícala a la forma nueva para editar sus ítems.' : null)
+                                                ?? (moduloExiste ? null : 'Este producto ya no existe en el cotizador: no se puede recalcular.');
+                                            return (
                                             <tr
                                                 key={item.idTemp}
                                                 className={item.resultado.hayErrores
@@ -571,6 +619,22 @@ const TabActual: React.FC<Props> = ({
                                                 </td>
                                                 <td className={`px-3 py-2 align-top text-[12.5px] ${item.resultado.hayErrores ? '' : 'text-slate-500'}`}>
                                                     {item.descripcionItem || descripcionRespaldo(item)}
+                                                    {item.resultado.personalizacion && (
+                                                        item.resultado.personalizacion.cambios.length +
+                                                        item.resultado.personalizacion.quitados.length +
+                                                        item.resultado.personalizacion.extras.length
+                                                    ) > 0 && (
+                                                        <span className="ml-1.5 align-middle">
+                                                            <Chip
+                                                                tono={item.resultado.perfileriaPersonalizada ? 'ambar' : 'indigo'}
+                                                                title={item.resultado.perfileriaPersonalizada
+                                                                    ? 'Tiene componentes personalizados, incluida perfilería: no sale en orden de corte.'
+                                                                    : 'Tiene componentes cambiados, quitados o agregados respecto del estándar.'}
+                                                            >
+                                                                Personalizado
+                                                            </Chip>
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td className="px-3 py-2 text-right align-top whitespace-nowrap font-cotizador-head tabular-nums">
                                                     {item.resultado.cantidadPiezas}
@@ -584,18 +648,38 @@ const TabActual: React.FC<Props> = ({
                                                 <td className={`px-3 py-2 text-right align-top whitespace-nowrap font-cotizador-head tabular-nums ${item.resultado.hayErrores ? '' : 'text-slate-500'}`}>
                                                     {fmtCOP(item.resultado.total)}
                                                 </td>
-                                                <td className="px-3 py-2 text-right align-top">
+                                                <td className="px-3 py-2 text-right align-top whitespace-nowrap">
+                                                    <button
+                                                        onClick={() => onEditarItem(item.idTemp)}
+                                                        disabled={Boolean(motivoNoEditar)}
+                                                        title={motivoNoEditar ?? `Editar el ítem ${i + 1}`}
+                                                        className={btnFila}
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                        <span className="sr-only">Editar {item.moduloNombre}</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => onDuplicarItem(item.idTemp)}
+                                                        disabled={Boolean(bloqueoEdicion || legado)}
+                                                        title={bloqueoEdicion ?? (legado ? 'Propuesta legada: duplícala a la forma nueva.' : 'Duplicar el ítem')}
+                                                        className={btnFila}
+                                                    >
+                                                        <Copy className="w-4 h-4" />
+                                                        <span className="sr-only">Duplicar {item.moduloNombre}</span>
+                                                    </button>
                                                     <button
                                                         onClick={() => onQuitarItem(item.idTemp)}
-                                                        title="Quitar ítem"
-                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-100/60 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
+                                                        disabled={Boolean(bloqueoEdicion)}
+                                                        title={bloqueoEdicion ?? 'Quitar ítem'}
+                                                        className={`${btnFila} hover:text-rose-600 hover:bg-rose-100/60 focus-visible:ring-rose-300`}
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                         <span className="sr-only">Quitar {item.moduloNombre}</span>
                                                     </button>
                                                 </td>
                                             </tr>
-                                        ))}
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>

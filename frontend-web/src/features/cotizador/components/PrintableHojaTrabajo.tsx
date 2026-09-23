@@ -159,6 +159,14 @@ const PrintableHojaTrabajo: React.FC<Props> = ({ cot, propuesta, modulos, planos
                                     </p>
                                 )}
 
+                                {tieneDiseno && despiece?.perfileriaPersonalizada && (
+                                    <p className="mt-1 mb-1 px-2 py-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-300">
+                                        ⚠ Perfilería personalizada por el asesor (perfil cambiado, quitado o agregado):
+                                        los cortes de este ítem se definen a mano. Las piezas "AGREGADO" son las que
+                                        añadió el asesor.
+                                    </p>
+                                )}
+
                                 {tieneDiseno && despiece && (despiece.perfiles.length > 0 || despiece.vidrios.length > 0) && (
                                     <div className="mt-1 grid grid-cols-2 gap-2">
                                         {despiece.perfiles.length > 0 && (

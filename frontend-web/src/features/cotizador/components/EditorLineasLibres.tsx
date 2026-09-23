@@ -4,6 +4,7 @@ import { Plus, Trash2, Search, AlertTriangle } from 'lucide-react';
 import { apiGetCatalogo } from '../services/cotizadorApi';
 import { LineaLibre, ProductoCatalogo, SegmentoCliente } from '../types';
 import { fmtCOP } from '../format';
+import { buscarEnCatalogo, MIN_BUSQUEDA, precioDe, rotuloCantidad } from '../catalogoUtil';
 import { claseControl, CONTROL_LABEL_CLASS } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,28 +30,10 @@ import { claseControl, CONTROL_LABEL_CLASS } from './ui';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Cuántas coincidencias se ofrecen a la vez. Más que esto y la lista tapa el
- * formulario en vez de ayudar; el vendedor afina la búsqueda. */
+ * formulario en vez de ayudar; el vendedor afina la búsqueda. La búsqueda, el
+ * rótulo por unidad y el precio por segmento viven en `catalogoUtil.ts`,
+ * compartidos con la personalización de componentes. */
 const MAX_SUGERENCIAS = 8;
-
-/** Mínimo de caracteres antes de sugerir. Con 1 sola letra el catálogo entero
- * "coincide" y la lista no dice nada útil. */
-const MIN_BUSQUEDA = 2;
-
-/** Misma clasificación que `claseDeUnidad` en backend-api/src/cotizador/modules/
- * itemLibre.ts. Si cambia allá, cambia aquí: allá decide el cálculo, aquí sólo
- * el rótulo, y verlos divergir sería ver una etiqueta que miente. */
-function rotuloCantidad(unidad: string | null | undefined): string {
-    const u = String(unidad ?? '').toUpperCase().replace(/\s+/g, ' ').trim();
-    if (u.includes('M2')) return 'm²';
-    if (u.includes('METRO') || u === 'ML') return 'ml';
-    return 'und';
-}
-
-function precioDe(producto: ProductoCatalogo, segmento: SegmentoCliente): number {
-    if (segmento === 'PB') return producto.precio_pb;
-    if (segmento === 'PM') return producto.precio_pm;
-    return producto.precio_pa;
-}
 
 interface Props {
     value: LineaLibre[];
@@ -102,26 +85,10 @@ const EditorLineasLibres: React.FC<Props> = ({ value, onChange, segmento, error 
         return mapa;
     }, [catalogo]);
 
-    const sugerencias = useMemo(() => {
-        const q = busqueda.trim().toUpperCase();
-        if (q.length < MIN_BUSQUEDA) return [];
-        const resultado: ProductoCatalogo[] = [];
-        // Primero los que empiezan por el texto (el vendedor que ya sabe el
-        // código lo escribe entero), después los que lo contienen en cualquier
-        // parte de código o descripción.
-        for (const p of catalogo) {
-            if (p.codigo.toUpperCase().startsWith(q)) resultado.push(p);
-            if (resultado.length >= MAX_SUGERENCIAS) return resultado;
-        }
-        for (const p of catalogo) {
-            if (resultado.includes(p)) continue;
-            if (p.codigo.toUpperCase().includes(q) || p.descripcion.toUpperCase().includes(q)) {
-                resultado.push(p);
-            }
-            if (resultado.length >= MAX_SUGERENCIAS) break;
-        }
-        return resultado;
-    }, [busqueda, catalogo]);
+    const sugerencias = useMemo(
+        () => buscarEnCatalogo(catalogo, busqueda, MAX_SUGERENCIAS),
+        [busqueda, catalogo]
+    );
 
     const actualizar = (i: number, cambio: Partial<LineaLibre>) => {
         onChange(lineas.map((l, idx) => (idx === i ? { ...l, ...cambio } : l)));

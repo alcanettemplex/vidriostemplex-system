@@ -7,14 +7,14 @@ import FolderTabs, { FOLDER_BODY } from '../../components/FolderTabs';
 import {
     apiEstadoCotizador, apiGetParametros, apiCrearCotizacion, apiActualizarCotizacion,
     apiObtenerCotizacion, apiCrearPropuesta, apiElegirPropuesta, apiEliminarPropuesta,
-    apiGuardarCargos,
+    apiGuardarCargos, apiGetModulos, apiCambiarSegmento, apiCotizarItem,
 } from './services/cotizadorApi';
 import {
-    ClienteCotizacion, Cotizacion, EstadoCotizacion, ItemCarrito, Parametros, Propuesta,
+    ClienteCotizacion, Cotizacion, EstadoCotizacion, ItemCarrito, ModuloMeta, Parametros, Propuesta,
     RespuestaPropuesta, SegmentoCliente,
 } from './types';
 import { fmtCOP } from './format';
-import TabCotizar from './components/TabCotizar';
+import TabCotizar, { ItemEnEdicion } from './components/TabCotizar';
 import TabActual from './components/TabActual';
 import TabGuardadas from './components/TabGuardadas';
 import TabCalibracion from './components/TabCalibracion';
@@ -111,8 +111,18 @@ const CotizadorPage: React.FC = () => {
 
     const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
     const [cabecera, setCabecera] = useState<CabeceraCotizacion>(CABECERA_INICIAL);
-    const [edicion, setEdicion] = useState<{ id: number; numero: number } | null>(null);
+    /** Cotización guardada que se está editando. `estado` es el GUARDADO, no el
+     * del select: el freno de "aprobada" depende de lo que hay en la base. */
+    const [edicion, setEdicion] = useState<{ id: number; numero: number; estado: EstadoCotizacion } | null>(null);
     const [guardando, setGuardando] = useState(false);
+
+    /** Una sola carga por visita. Antes la pedía TabCotizar al montarse, o sea
+     * en cada cambio de pestaña, y esta página no la tenía para rotular los
+     * ítems al reabrir una cotización (salían con el id: "ventanas"). */
+    const [modulos, setModulos] = useState<ModuloMeta[]>([]);
+    /** idTemp del ítem del carrito que se está editando en Cotizar. */
+    const [itemEditandoId, setItemEditandoId] = useState<string | null>(null);
+    const [cambiandoSegmento, setCambiandoSegmento] = useState(false);
 
     const [propuestas, setPropuestas] = useState<Propuesta[]>([]);
     const [propuestaActivaId, setPropuestaActivaId] = useState<number | null>(null);
@@ -151,8 +161,24 @@ const CotizadorPage: React.FC = () => {
                 if (!cargosTocadosRef.current) setCargos(cargosIniciales(res.data));
             })
             .catch(() => { /* la pestaña Actual cae a valores por defecto sin bloquear */ });
+
+        apiGetModulos()
+            .then(res => setModulos(res.data))
+            .catch(() => toast.error('No se pudo cargar la lista de productos del cotizador. Recarga la página.'));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const nombreModulo = useCallback(
+        (id: string) => modulos.find(m => m.id === id)?.nombre ?? id,
+        [modulos]
+    );
+
+    // Si se reabrió una cotización antes de que llegara la lista de módulos, sus
+    // ítems quedaron rotulados con el id: se corrigen en cuanto la lista llega.
+    useEffect(() => {
+        if (modulos.length === 0) return;
+        setCarrito(c => c.map(it => ({ ...it, moduloNombre: nombreModulo(it.moduloId) })));
+    }, [modulos, nombreModulo]);
 
     const cambiarTab = useCallback((key: string) => {
         setActiveTab(key as TabKey);
@@ -173,6 +199,25 @@ const CotizadorPage: React.FC = () => {
 
     const quitarItem = useCallback((idTemp: string) => {
         setCarrito(c => c.filter(i => i.idTemp !== idTemp));
+        setItemEditandoId(actual => (actual === idTemp ? null : actual));
+        setSucio(true);
+    }, []);
+
+    /** Copia exacta justo debajo del original: mismo input, mismo resultado.
+     * No se recalcula — es la misma pieza con los precios con que ya se cotizó. */
+    const duplicarItem = useCallback((idTemp: string) => {
+        setCarrito(c => {
+            const i = c.findIndex(x => x.idTemp === idTemp);
+            if (i < 0) return c;
+            const copia: ItemCarrito = { ...c[i], idTemp: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };
+            return [...c.slice(0, i + 1), copia, ...c.slice(i + 1)];
+        });
+        setSucio(true);
+    }, []);
+
+    const reemplazarItem = useCallback((item: ItemCarrito) => {
+        setCarrito(c => c.map(x => (x.idTemp === item.idTemp ? item : x)));
+        setItemEditandoId(null);
         setSucio(true);
     }, []);
 
@@ -193,6 +238,7 @@ const CotizadorPage: React.FC = () => {
         setCargos(cargosIniciales(parametros));
         setCargosTocados(false);
         cargosTocadosRef.current = false;
+        setItemEditandoId(null);
         setSucio(false);
     }, [parametros]);
 
@@ -221,7 +267,7 @@ const CotizadorPage: React.FC = () => {
         setCarrito(cot.items.map(it => ({
             idTemp: `existente-${it.id}`,
             moduloId: it.moduloId,
-            moduloNombre: it.moduloId,
+            moduloNombre: nombreModulo(it.moduloId),
             descripcionItem: it.descripcionItem,
             input: it.input,
             resultado: it.resultado,
@@ -232,9 +278,10 @@ const CotizadorPage: React.FC = () => {
         setCargos(cargosDesdeApi(activa?.cargos, parametros));
         setCargosTocados(false);
         cargosTocadosRef.current = false;
-        setEdicion({ id: cot.id, numero: cot.numero });
+        setEdicion({ id: cot.id, numero: cot.numero, estado: cot.estado });
+        setItemEditandoId(null);
         setSucio(false);
-    }, [parametros]);
+    }, [parametros, nombreModulo]);
 
     /** Carga en el carrito una cotización guardada, para editarla. */
     const reabrirCotizacion = useCallback((cot: Cotizacion) => {
@@ -384,16 +431,9 @@ const CotizadorPage: React.FC = () => {
                         conError(e, 'Los ítems se guardaron, pero los cargos de obra no.');
                     }
                 }
-                // ⚠️ `PUT /cotizaciones/:id` escribe en `propuestaId` pero responde
-                // con los blobs de la ELEGIDA, no con los de la propuesta que se
-                // acaba de escribir (el store llama a `obtener(id)` sin argumento).
-                // Sin este reenganche, guardar la propuesta B saltaría el carrito
-                // a la A. El PUT de cargos sí devuelve la correcta, por eso sólo se
-                // repite la lectura cuando hace falta.
-                if (destino && cot.propuestaActivaId !== destino) {
-                    const r = await apiObtenerCotizacion(edicion.id, destino);
-                    cot = r.data;
-                }
+                // Ya no hace falta volver a leer: `PUT /cotizaciones/:id` responde
+                // con la propuesta que se escribió (`obtener(id, {propuesta})` en
+                // el store), igual que el PUT de cargos.
                 aplicarCotizacion(cot);
                 toast.success(`Cotización N.° ${cot.numero} actualizada.`);
             } else {
@@ -424,6 +464,74 @@ const CotizadorPage: React.FC = () => {
         }
     }, [carrito, cabecera, descuentoPct, cargos, cargosTocados, edicion, propuestaActivaId, aplicarCotizacion, cambiarTab]);
 
+    /**
+     * Cambia el segmento (PA/PM/PB) y RECALCULA los ítems con la lista nueva.
+     *
+     * Con la cotización guardada lo hace el backend, sobre TODAS sus propuestas
+     * y en una sola transacción: el carrito sólo tiene la activa, y recalcular
+     * aquí dejaría las demás con la lista vieja. Como eso recarga desde el
+     * servidor, antes se pregunta por los cambios sin guardar.
+     *
+     * Sin guardar todavía, el carrito ES toda la cotización: se recalcula ítem
+     * por ítem con el mismo motor (`POST /cotizar`). Si uno falla no se cambia
+     * nada, igual que en el backend.
+     */
+    const cambiarSegmento = useCallback(async (segmento: SegmentoCliente) => {
+        if (segmento === cabecera.segmentoCliente) return;
+
+        if (edicion) {
+            if (!confirmarDescarte()) return;
+            setCambiandoSegmento(true);
+            try {
+                const { data } = await apiCambiarSegmento(edicion.id, segmento, propuestaActivaId);
+                aplicarCotizacion(data.cotizacion);
+                toast.success(`Segmento cambiado a ${segmento}: se recalcularon los ítems de todas las propuestas.`);
+                for (const aviso of data.advertencias ?? []) toast.warn(aviso, { autoClose: 9000 });
+            } catch (e) {
+                conError(e, 'No se pudo cambiar el segmento. No se modificó nada.');
+            } finally {
+                setCambiandoSegmento(false);
+            }
+            return;
+        }
+
+        if (carrito.length === 0) {
+            setCabecera(c => ({ ...c, segmentoCliente: segmento }));
+            return;
+        }
+        setCambiandoSegmento(true);
+        try {
+            const recalculados: ItemCarrito[] = [];
+            for (const it of carrito) {
+                const input = { ...it.input, segmentoCliente: segmento };
+                const { data } = await apiCotizarItem(it.moduloId, input);
+                if (data.hayErrores) {
+                    toast.warn(`"${it.descripcionItem || it.moduloNombre}" quedó con líneas sin precio en ${segmento}.`, { autoClose: 9000 });
+                }
+                recalculados.push({ ...it, input, resultado: data });
+            }
+            setCarrito(recalculados);
+            setCabecera(c => ({ ...c, segmentoCliente: segmento }));
+            setSucio(true);
+            toast.success(`Segmento cambiado a ${segmento}: ${recalculados.length} ítem(s) recalculados.`);
+        } catch (e) {
+            conError(e, 'No se pudo recalcular algún ítem con el segmento nuevo. No se modificó nada.');
+        } finally {
+            setCambiandoSegmento(false);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cabecera.segmentoCliente, edicion, carrito, propuestaActivaId, confirmarDescarte, aplicarCotizacion]);
+
+    const editarItem = useCallback((idTemp: string) => {
+        setItemEditandoId(idTemp);
+        cambiarTab('cotizar');
+    }, [cambiarTab]);
+
+    const guardarEdicionItem = useCallback((item: ItemCarrito) => {
+        reemplazarItem(item);
+        cambiarTab('actual');
+    }, [reemplazarItem, cambiarTab]);
+
     const abrirDetalleInicial = useMemo(() => {
         const id = searchParams.get('id');
         if (!id) return undefined;
@@ -435,6 +543,28 @@ const CotizadorPage: React.FC = () => {
         () => propuestas.find(p => p.id === propuestaActivaId) ?? null,
         [propuestas, propuestaActivaId]
     );
+
+    /**
+     * Regla 4 ampliada (2026-09-23): la propuesta elegida de una cotización
+     * APROBADA no se edita — ítems, descuento, cargos ni segmento. Lo impone el
+     * backend (409); aquí sólo se explica antes de que el vendedor lo intente.
+     * Mira el estado GUARDADO y el del select: si el vendedor la pasa a Pendiente
+     * en el select, puede editar y guardar ambas cosas juntas (el backend lo
+     * acepta porque en ese mismo guardado deja de estar aprobada).
+     */
+    const bloqueoEdicion = edicion?.estado === 'APROBADA' && cabecera.estado === 'APROBADA' && propuestaActiva?.elegida
+        ? `La cotización N.° ${edicion.numero} está aprobada y la propuesta ${propuestaActiva.etiqueta} es la elegida: ` +
+          'no se pueden cambiar sus ítems, descuento, cargos ni segmento porque puede haber material cortado. ' +
+          'Para editarla, cambia el estado a Pendiente.'
+        : null;
+
+    const itemEnEdicion: ItemEnEdicion | null = useMemo(() => {
+        if (!itemEditandoId) return null;
+        const i = carrito.findIndex(x => x.idTemp === itemEditandoId);
+        return i < 0 ? null : { item: carrito[i], posicion: i + 1 };
+    }, [itemEditandoId, carrito]);
+
+    const modulosDisponibles = useMemo(() => new Set(modulos.map(m => m.id)), [modulos]);
 
     if (cargandoEstado) {
         return (
@@ -546,8 +676,13 @@ const CotizadorPage: React.FC = () => {
                 <div className={activeTab === 'cotizar' || activeTab === 'actual' ? CUERPO_TRABAJO : FOLDER_BODY}>
                     {activeTab === 'cotizar' && (
                         <TabCotizar
-                            segmentoDefault={cabecera.segmentoCliente}
+                            modulos={modulos}
+                            segmento={cabecera.segmentoCliente}
                             onAgregarItem={agregarItem}
+                            edicion={itemEnEdicion}
+                            onGuardarEdicion={guardarEdicionItem}
+                            onCancelarEdicion={() => setItemEditandoId(null)}
+                            bloqueo={bloqueoEdicion}
                             // El panel de cargos va SIEMPRE visible en Cotizar (lo pidió
                             // el usuario): el mismo estado que se ve en Actual, para que
                             // el vendedor no tenga que cambiar de pestaña para ajustar la
@@ -571,6 +706,7 @@ const CotizadorPage: React.FC = () => {
                                     etiquetaPropuesta={propuestaActiva?.etiqueta ?? null}
                                     legado={propuestaActiva?.legadoCargosEnItems}
                                     onDuplicarLegado={duplicarPropuesta}
+                                    aprobada={Boolean(bloqueoEdicion)}
                                 />
                             }
                             destino={
@@ -599,6 +735,12 @@ const CotizadorPage: React.FC = () => {
                             propuestas={controlPropuestas}
                             hayCambiosSinGuardar={sucio}
                             onNuevaCotizacion={limpiarCotizacionActual}
+                            onEditarItem={editarItem}
+                            onDuplicarItem={duplicarItem}
+                            onCambiarSegmento={cambiarSegmento}
+                            cambiandoSegmento={cambiandoSegmento}
+                            bloqueoEdicion={bloqueoEdicion}
+                            modulosDisponibles={modulosDisponibles}
                         />
                     )}
                     {activeTab === 'guardadas' && (

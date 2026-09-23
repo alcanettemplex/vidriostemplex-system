@@ -1,6 +1,6 @@
 import React from 'react';
 import { toast } from 'react-toastify';
-import { HardHat, Plus, Trash2, Truck, Package2, Layers, Wand2, AlertTriangle } from 'lucide-react';
+import { HardHat, Plus, Trash2, Truck, Package2, Layers, Wand2, AlertTriangle, Lock } from 'lucide-react';
 
 import { apiSmoSugerido, apiSmoSugeridoBorrador } from '../services/cotizadorApi';
 import { CargoEntrada, CargoPropuesta, OrigenCargo, Parametros, TipoObraSeleccion } from '../types';
@@ -274,6 +274,9 @@ interface Props {
     /** Propuesta anterior al cambio: sus cargos están dentro de los ítems. */
     legado?: boolean;
     onDuplicarLegado?: () => void;
+    /** Propuesta elegida de una cotización APROBADA: el backend rechaza cambiar
+     * sus cargos (puede haber material cortado), así que se pinta de lectura. */
+    aprobada?: boolean;
 }
 
 const inputClass = 'w-full min-w-0 h-7 px-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:bg-slate-50 disabled:text-slate-400';
@@ -432,10 +435,11 @@ const FilaCargo: React.FC<{
 
 const PanelCargosObra: React.FC<Props> = ({
     valor, onChange, parametros, cotizacionId, propuestaId, itemsBorrador, etiquetaPropuesta, legado, onDuplicarLegado,
+    aprobada,
 }) => {
     const [sugiriendo, setSugiriendo] = React.useState(false);
     const ivaPct = Number(parametros?.iva) || 0;
-    const bloqueado = Boolean(legado);
+    const bloqueado = Boolean(legado || aprobada);
     const resumen = resumenCargos(valor, ivaPct);
 
     const set = (cambios: Partial<EstadoCargos>) => onChange({ ...valor, ...cambios });
@@ -489,11 +493,11 @@ const PanelCargosObra: React.FC<Props> = ({
             pedirSugerencia(tipoObra);
             return;
         }
-        // Carrito vacío: todavía no hay área sobre la que calcular nada, así que
-        // se muestra la tarifa vigente como referencia. En cuanto entre el primer
-        // ítem, el selector ya sugiere el monto por área como en una propuesta
-        // guardada; y si el vendedor nunca toca el panel, al guardar es el propio
-        // backend quien pone la mano de obra y el flete.
+        // Carrito vacío: todavía no hay piezas que contar, así que se muestra la
+        // tarifa vigente como referencia. En cuanto entre el primer ítem, el
+        // selector ya sugiere unidades × tarifa como en una propuesta guardada; y
+        // si el vendedor nunca toca el panel, al guardar es el propio backend
+        // quien pone la mano de obra y el flete.
         const tarifa = tarifaDe(parametros, tipoObra);
         set({
             smo: {
@@ -501,7 +505,7 @@ const PanelCargosObra: React.FC<Props> = ({
                 tipoObra,
                 origen: 'MANUAL',
                 explicacion: tarifa
-                    ? `Tarifa vigente ${fmtCOP(tarifa)} por m². El monto sugerido por área se calcula al guardar la cotización.`
+                    ? `Tarifa vigente ${fmtCOP(tarifa)} por unidad instalada. Las unidades se sugieren en cuanto agregues el primer ítem.`
                     : '',
             },
         });
@@ -560,7 +564,7 @@ const PanelCargosObra: React.FC<Props> = ({
     );
 
     return (
-        <section className="border border-slate-200 rounded-xl overflow-hidden bg-white max-w-4xl">
+        <section className="h-full border border-slate-200 rounded-xl overflow-hidden bg-white max-w-4xl">
             <header className="bg-gradient-to-b from-indigo-50 to-violet-50 border-b border-indigo-100 px-3.5 py-2 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0 flex-wrap">
                     <HardHat className="w-4 h-4 text-indigo-600 shrink-0" />
@@ -580,7 +584,17 @@ const PanelCargosObra: React.FC<Props> = ({
                 </div>
             </header>
 
-            {bloqueado && (
+            {aprobada && !legado && (
+                <div className="m-3 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12.5px] text-emerald-800">
+                    <Lock className="w-4 h-4 mt-0.5 shrink-0" />
+                    <p className="flex-1">
+                        La cotización está aprobada y esta es la propuesta elegida: sus cargos no se pueden cambiar.
+                        Pasa la cotización a Pendiente para editarlos.
+                    </p>
+                </div>
+            )}
+
+            {legado && (
                 <div className="m-3 flex flex-wrap items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12.5px] text-amber-800">
                     <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                     <p className="flex-1 min-w-[220px]">

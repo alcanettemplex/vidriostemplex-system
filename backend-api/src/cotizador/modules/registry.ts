@@ -18,6 +18,8 @@ import * as cabinasBatientes from "./cabinasBatientes";
 import * as tablero from "./tablero";
 import * as espejo from "./espejo";
 import * as itemLibre from "./itemLibre";
+import { aplicarPersonalizacion } from "../lib/personalizacion";
+import type { InputModulo } from "../tipos";
 
 // El orden de este objeto es el orden en que el frontend pinta las tarjetas de
 // producto. "item-libre" va último a propósito: es el cajón de lo que no encaja
@@ -38,4 +40,20 @@ export function listarModulos() {
 
 export function getModulo(id: string) {
   return MODULOS[id as keyof typeof MODULOS] ?? null;
+}
+
+/**
+ * Calcula UN ítem: el motor de su módulo más la personalización del asesor
+ * (`input.personalizacion`: cambiar / quitar / agregar componentes).
+ *
+ * Es la ÚNICA puerta para calcular un ítem (2026-09-23): botón Calcular,
+ * variante de propuesta y cambio de segmento pasan todos por aquí, así que una
+ * personalización nunca se pierde por recalcular. El motor no la ve: recibe el
+ * input sin esa clave y la personalización se aplica sobre su despiece.
+ */
+export function calcularItem(moduloId: string, input: InputModulo) {
+  const modulo = getModulo(moduloId);
+  if (!modulo) throw new Error(`El producto "${moduloId}" no existe en el cotizador.`);
+  const { personalizacion, ...paraMotor } = input ?? {};
+  return aplicarPersonalizacion(modulo.calcular(paraMotor), personalizacion, String(paraMotor.segmentoCliente ?? 'PA'));
 }

@@ -22,6 +22,51 @@ export interface LineaLibre {
     cantidad: number | '';
 }
 
+// ─── Personalización de componentes (2026-09-23) ────────────────────────────
+// Espejo de `backend-api/src/cotizador/lib/personalizacion.ts`. Vive en
+// `input.personalizacion` del ítem: el backend la aplica sobre el despiece del
+// motor cada vez que se calcula, así que sobrevive a editar, cambiar el
+// segmento o clonar la propuesta.
+
+export interface ExtraComponente {
+    codigo: string;
+    /** Unidades del catálogo; no se usa en perfiles. */
+    cantidad?: number;
+    /** Sólo perfiles: medida de cada pieza (mm) × piezas, +5 % de desperdicio. */
+    medidaMm?: number;
+    piezas?: number;
+}
+
+export interface PersonalizacionItem {
+    cambios?: Array<{ de: string; a: string }>;
+    quitados?: string[];
+    extras?: ExtraComponente[];
+}
+
+export interface ResumenPersonalizacion {
+    cambios: Array<{ de: string; a: string; descripcionDe: string; descripcionA: string }>;
+    quitados: Array<{ codigo: string; descripcion: string; valorTotal: number }>;
+    extras: Array<{ codigo: string; descripcion: string; cantidad: number; unidad: string; medidaMm?: number; piezas?: number }>;
+    afectaPerfileria: boolean;
+}
+
+/** Producto del catálogo GENERAL del ERP que todavía no está en el Cotizador —
+ * GET /catalogo-general. */
+export interface ProductoCatalogoGeneral {
+    id: number;
+    codigo: string;
+    nombre: string;
+    proveedor: {
+        nombre: string;
+        unidadCompra: string;
+        precio: number;
+        /** Por metro cuando se compra la tira de 6 m. */
+        costoNormalizado: number;
+        fecha: string | null;
+    } | null;
+    sugerido: { categoria: string | null; unidad: string | null };
+}
+
 export interface OpcionCampo {
     value: string | number;
     label: string;
@@ -93,6 +138,10 @@ export interface ResultadoCalculo {
     hayErrores: boolean;
     advertencias: string[];
     areaM2?: number;
+    /** Resumen de lo que personalizó el asesor (2026-09-23). Ausente = despiece estándar. */
+    personalizacion?: ResumenPersonalizacion;
+    /** Se tocó un perfil: el ítem no sale en orden de corte ni SAP. */
+    perfileriaPersonalizada?: boolean;
     // Sólo presentes cuando el ítem se calculó POR DISEÑO (disenoId válido):
     diseno?: DisenoRef;
     aptoParaCorte?: boolean;
@@ -202,6 +251,8 @@ export interface DespieceItem {
     vidrios: CorteDespieceVidrio[];
     nivelCorte: string | null;
     hayErrores: boolean;
+    /** El asesor cambió, quitó o agregó un perfil (2026-09-23). */
+    perfileriaPersonalizada?: boolean;
 }
 
 // ─── Cotizaciones guardadas ─────────────────────────────────────────────────

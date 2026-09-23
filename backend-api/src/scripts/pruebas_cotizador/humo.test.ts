@@ -12,8 +12,10 @@ import assert from "node:assert/strict";
 import { calcular as calcularVentanas } from "../../cotizador/modules/ventanas";
 import { listarCatalogo } from "../../cotizador/lib/catalogo";
 import { listarDisenos } from "../../cotizador/lib/motorDespiece";
+import { inventarioPiezasDeSistema } from "../../cotizador/lib/aptitudOrden";
 
 import { before, after } from "node:test";
+import { QueryTypes } from "sequelize";
 import { sequelize } from "../../models";
 import * as cache from "../../cotizador/cache";
 
@@ -66,9 +68,41 @@ test("cotizar Sistema5020::OX a 150x120 da un total positivo sin errores", () =>
 //
 // El número sigue siendo un centinela a propósito — si cambia sin que nadie lo
 // espere, es que se mezclaron los precios provisionales con el catálogo real.
-test("el catálogo tiene los 469 productos extraídos del Excel", () => {
+//
+// DESDE EL 2026-09-23 EL NÚMERO FIJO ES SÓLO EL DE ORIGEN `CATALOGO` (464). Ese
+// día se habilitó traer productos del catálogo general desde la pantalla
+// (origen `ALTA`): con el total fijo en 469 la prueba se habría puesto en rojo
+// con cada importación normal, que es justo el centinela que "falla siempre" de
+// arriba. Lo que vigila sigue intacto: el catálogo que ven los motores es
+// exactamente CATALOGO + ALTA de la base, sin un solo PROVISIONAL.
+test("el catálogo real sigue en 464 y los motores ven CATALOGO + ALTA, sin provisionales", async () => {
+  const [conteo] = (await sequelize.query(
+    `SELECT COUNT(*) FILTER (WHERE origen = 'CATALOGO' AND NOT provisional)::int AS catalogo,
+            COUNT(*) FILTER (WHERE origen = 'ALTA' AND NOT provisional)::int AS alta
+     FROM cotizador.producto`,
+    { type: QueryTypes.SELECT }
+  )) as Array<{ catalogo: number; alta: number }>;
+  assert.equal(conteo.catalogo, 464);
   const productos = listarCatalogo();
-  assert.equal(productos.length, 469);
+  assert.equal(productos.length, conteo.catalogo + conteo.alta);
+  assert.ok(productos.every((p) => !p.provisional));
+});
+
+// Regresión del 2026-09-23: el VIDRIO de un sistema tomaba el nivel del PRIMER
+// diseño con vidrio, y Sistema3831 tiene diseños con vidrio A, B y C — salía A.
+// Debe ser el peor de todos, igual que los perfiles.
+test("el VIDRIO de un sistema lleva el peor nivel de vidrio de sus diseños", () => {
+  const ORDEN = ["A", "B", "C"];
+  for (const sistema of ["Sistema3831", "Sistema3831-Reforzado", "Sistema7038-Interior"]) {
+    const niveles = cache
+      .getDisenos()
+      .filter((d) => d.sistema === sistema && d.vidrios.length > 0)
+      .map((d) => d.nivelVidrio ?? "A");
+    const peor = niveles.reduce((a, b) => (ORDEN.indexOf(b) > ORDEN.indexOf(a) ? b : a), "A");
+    const vidrio = inventarioPiezasDeSistema(sistema).find((p) => p.ref === "VIDRIO");
+    assert.equal(vidrio?.nivelCorte, peor, `${sistema}: niveles ${[...new Set(niveles)].join(",")}`);
+    assert.equal(peor, "C", `${sistema} tenía diseños con vidrio C al escribir esta prueba`);
+  }
 });
 
 test("el catálogo de diseños tiene los 163 diseños generados", () => {

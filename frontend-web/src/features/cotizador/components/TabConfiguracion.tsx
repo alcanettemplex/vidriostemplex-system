@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Loader2, Save, Calculator, AlertTriangle, RefreshCw, Percent, SlidersHorizontal } from 'lucide-react';
+import { Loader2, Save, Calculator, AlertTriangle, RefreshCw, Percent, SlidersHorizontal, PackageSearch } from 'lucide-react';
 
 import {
     apiListarMultiplicadores, apiGuardarMultiplicador, apiRecalcularCategoria,
     apiGetParametros, apiEditarParametros,
 } from '../services/cotizadorApi';
-import { MultiplicadorCategoria, Parametros, ResultadoRecalculoCategoria } from '../types';
+import { MultiplicadorCategoria, Parametros, ProductoCatalogo, ResultadoRecalculoCategoria } from '../types';
+import ModalCatalogoGeneral from './modals/ModalCatalogoGeneral';
 import { fmtCOP } from '../format';
 import { BotonPrimario, BotonSecundario, Campo, Input, Tarjeta } from './ui';
 
@@ -36,10 +37,49 @@ import { BotonPrimario, BotonSecundario, Campo, Input, Tarjeta } from './ui';
 
 const TabConfiguracion: React.FC = () => (
     <div className="p-4 space-y-6">
+        <SeccionCatalogoGeneral />
         <SeccionMultiplicadores />
         <SeccionParametros />
     </div>
 );
+
+// ─── Traer productos del catálogo general (2026-09-23) ──────────────────────
+// Lo que existe en el catálogo del ERP pero no en el del Cotizador (caso real:
+// VMINIBOR, vidrio miniboreal) se trae desde aquí, vinculado a Proveedores. El
+// mismo modal se abre desde "Cambiar / Agregar componente" en Cotizar.
+
+const SeccionCatalogoGeneral: React.FC = () => {
+    const [abierto, setAbierto] = useState(false);
+    const [traidos, setTraidos] = useState<ProductoCatalogo[]>([]);
+
+    return (
+        <Tarjeta
+            titulo="Productos del catálogo general"
+            icono={PackageSearch}
+            descripcion="Trae al Cotizador un producto que sólo existe en el catálogo del ERP. Queda vinculado: su precio sale del proveedor más barato × el multiplicador de su categoría, y se actualiza solo."
+            accion={<BotonPrimario compacto icono={PackageSearch} onClick={() => setAbierto(true)}>Traer del catálogo general</BotonPrimario>}
+        >
+            {traidos.length === 0 ? (
+                <p className="text-[12.5px] text-slate-400">Nada traído en esta sesión.</p>
+            ) : (
+                <ul className="space-y-1 text-[12.5px]">
+                    {traidos.map(p => (
+                        <li key={p.codigo} className="flex justify-between gap-3">
+                            <span><strong>{p.codigo}</strong> — {p.descripcion} <span className="text-slate-400">({p.categoria}, {p.unidad})</span></span>
+                            <span className="tabular-nums text-slate-600">PA {fmtCOP(p.precio_pa)}</span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+            {abierto && (
+                <ModalCatalogoGeneral
+                    onClose={() => setAbierto(false)}
+                    onImportado={p => { setAbierto(false); setTraidos(t => [p, ...t]); }}
+                />
+            )}
+        </Tarjeta>
+    );
+};
 
 // ─── Multiplicadores por categoría ──────────────────────────────────────────
 

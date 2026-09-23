@@ -21,6 +21,7 @@ import {
   crearCotizacion,
   actualizarCotizacion,
   eliminarCotizacion,
+  cambiarSegmento,
   crearPropuesta,
   clonarPropuesta,
   actualizarPropuesta,
@@ -57,6 +58,10 @@ import {
   anularHolgura,
   listarHistorial,
 } from '../controllers/cotizador_calibracion.controller';
+import {
+  buscarCatalogoGeneral,
+  importarDesdeCatalogoGeneral,
+} from '../controllers/cotizador_catalogo_general.controller';
 import {
   listarMultiplicadores,
   guardarMultiplicador,
@@ -103,11 +108,16 @@ router.delete('/precios/:codigo', darDeBajaPrecio);
 router.get('/precios', listarPrecios);
 router.post('/precios', crearPrecio);
 
+// Traer productos del catálogo general del ERP, vinculados a Proveedores (2026-09-23).
+router.get('/catalogo-general', buscarCatalogoGeneral);
+router.post('/catalogo-general/importar', importarDesdeCatalogoGeneral);
+
 // Literales antes de ':id' — mismo motivo.
 router.get('/cotizaciones/:id/aptitud', aptitudCotizacion);
 router.get('/cotizaciones/:id/comparar', compararPropuestas);
 router.get('/cotizaciones/:id/items/:itemId/plano', planoDeItem);
 router.get('/cotizaciones/:id/items/:itemId/despiece', despieceDeItem);
+router.patch('/cotizaciones/:id/segmento', cambiarSegmento);
 
 // Propuestas (A/B/C…) de una cotización — 2026-09-20. Las rutas con un segmento
 // literal al final (`/clonar`, `/elegir`, `/cargos`, `/smo-sugerido`) van antes

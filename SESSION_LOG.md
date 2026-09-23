@@ -5012,3 +5012,168 @@ falló con `ECONNREFUSED` pese a que `netstat` mostraba el 3001 en LISTENING: er
 transitoria del proceso anterior muriendo, no el nuevo ya listo. **Comprobar el puerto no basta para
 saber que el backend está listo** — lo fiable es pedirle una respuesta HTTP (un 401 de una ruta
 autenticada sirve) antes de lanzar el script.
+
+---
+
+## 2026-09-23 — Cotizador: segmento único con recálculo, editar/duplicar ítems, aprobadas de solo lectura y nivel de vidrio del sistema
+
+### Origen
+Primera sesión con Opus 5.5 (el usuario lo dejó como modelo por defecto). Sin commits por traer.
+Se levantaron backend y frontend en local y se analizó el módulo de cotizar. Tres hallazgos del
+carrito confirmados en el código: el segmento de la cabecera se podía cambiar sin recalcular los
+ítems (mezcla PA/PB silenciosa), los ítems no se podían editar (sólo quitar) y al reabrir una
+cotización los productos salían con el id del módulo ("ventanas").
+
+### Decisiones del usuario
+- Incluir: carrito (segmento + editar), deuda técnica y —descartado después— campos VR09 del PDF.
+- Cotización **aprobada**: bloquear en backend + UI la edición de la propuesta elegida.
+- Segmento: **recálculo automático** al cambiarlo.
+- **PDF VR09: queda pendiente**, no se trabaja por ahora.
+- Deuda: sólo "VIDRIO del sistema = peor nivel". No se priorizaron el nulo→C, normalizar `areaM2`
+  ni las 3 suites faltantes.
+- Se autorizó consumir **1 número del consecutivo** para la prueba contra la base, "identificada
+  como prueba para no confundir" → cotización **N.° 13**.
+
+### Hallazgos del análisis
+- Una cotización tiene varias propuestas y el carrito sólo la activa: el recálculo por segmento
+  tiene que ser del servidor, sobre todas, o quedarían mezcladas. Cambió el diseño propuesto.
+- El backend **no impedía** editar ítems de una aprobada: la regla 4 sólo cubría elegir/borrar.
+- El frontend reenvía todos los ítems en cada guardado → el freno necesita saber si algo cambió
+  de verdad.
+- `areaM2` ya no interviene en la mano de obra (SMO por unidad desde el 2026-09-20): la entrada de
+  `TECH_DEBT.md` estaba desactualizada. Corregida.
+- `nivelCorte` nulo en Calibración: **0 casos reales**. Pero al medirlo apareció un bug real: la
+  pieza VIDRIO tomaba el nivel del **primer** diseño (y dependía del orden de Postgres). En
+  Sistema3831, 3831-Reforzado y 7038-Interior salía A teniendo diseños C.
+- Deuda menor resuelta al pasar: `PanelCargosObra` decía "tarifa por m²" (es por unidad), y
+  `CotizadorPage` volvía a leer la cotización tras guardar para esquivar un comportamiento del PUT
+  que ya estaba corregido en el store.
+
+### Cambios
+**Backend**
+- `cotizacionStore.ts`: `exigirPropuestaEditable()` (409 en `actualizar`, `actualizarPropuesta`,
+  `guardarCargos`, `cambiarSegmento` sobre la elegida de una aprobada; desaprobar en el mismo
+  guardado libera); `exigirMismoSegmento()` (400 en `crear`/`actualizar`); `actualizar` rechaza
+  cambiar el segmento por PUT (409); `reconciliarItems` devuelve si hubo cambios reales
+  (`isDeepStrictEqual`) y ya no reescribe filas idénticas; `cambiarSegmento()` nuevo, atómico,
+  sobre todas las propuestas, 409 con propuestas legadas.
+- `cotizador_cotizaciones.controller.ts` + `cotizador.routes.ts`: `PATCH /cotizaciones/:id/segmento`
+  (Zod `.strict()`).
+- `aptitudOrden.ts`: VIDRIO con `peorNivel` entre diseños.
+- `humo.test.ts`: regresión del nivel de vidrio (3 sistemas).
+
+**Frontend** (`features/cotizador/`)
+- `CotizadorPage`: carga única de módulos (nombre correcto al reabrir), editar/duplicar/reemplazar
+  ítem, `cambiarSegmento` (servidor si está guardada, ítem por ítem si no, con reversión),
+  `bloqueoEdicion` (estado guardado y del select), se quitó la relectura tras guardar.
+- `FormularioModulo`: el segmento deja de ser campo del ítem; `inputInicial` para editar; oculta
+  tarjetas de grupo sin campos visibles.
+- `TabCotizar`: modo edición ("Guardar cambios en el ítem N" / "Cancelar edición"), chip "Precios
+  PA", descarta resultados de otro segmento, bloqueo en aprobada; recibe `modulos` del padre.
+- `TabActual`: acciones Editar/Duplicar/Quitar por fila, select de segmento que recalcula,
+  aviso de aprobada, descuento bloqueado.
+- `PanelCargosObra`: prop `aprobada` con su propio aviso; texto de tarifa corregido.
+- `cotizadorApi.ts`: `apiCambiarSegmento`.
+
+**BD:** sin migración.
+
+### Verificación
+- Backend `npm run build` limpio; frontend `tsc --noEmit` limpio y sin avisos ESLint del módulo.
+- `test:cotizador` suite por suite con el backend dev arriba: **85/85**.
+- Contra Supabase (script en el scratchpad): **24/24**. Cotizaciones reales 11 y 12 sólo en
+  caminos de rechazo (4 × 409 cada una, `version` intacta). Flujo completo sobre la **N.° 13 de
+  PRUEBA** — cliente "PRUEBA DEL SISTEMA — NO ES UN CLIENTE", asesor `PRUEBA-SISTEMA`, dejada
+  **CANCELADA**: mezcla de segmentos → 400; PA→PB recalculó (689.497,08 → 611.267,61); PUT de
+  segmento → 409; aprobar con los mismos ítems → OK; corregir cliente estando aprobada → OK; quitar
+  ítem / segmento / cargos estando aprobada → 409; desaprobar y quitar en el mismo guardado → OK.
+- Verificación visual: pendiente del usuario en `localhost:3000`.
+
+### Pendientes
+- Plan detallado de **personalizar componentes** (capas 1 y 3, incluida perfilería) — acordado,
+  siguiente en la cola.
+- PDF VR09 (decisión: pendiente).
+- La cotización N.° 13 de prueba queda en la base: borrarla es decisión del usuario.
+
+### Ajuste visual de Cotizar (misma sesión, a partir de una captura del usuario)
+Opción elegida: "orden actual, sólo alineado". La fila Cargos de obra | Producto pasa a la misma
+rejilla 2/5–3/5 que Configuración | Resultado (antes era flex con otro reparto y los bordes no
+caían en la misma línea). `SelectorProducto` es ahora una tarjeta con borde, tarjetas en 4
+columnas (4 + 3, nombres en una línea) que absorben la altura sobrante, y la descripción como texto
+corto en vez de un panel que se estiraba vacío. "Vista técnica" sólo aparece con resultado: sin
+nada calculado quedaba un segundo aviso vacío. `PanelCargosObra` lleva `h-full`. Sólo presentación;
+`tsc` limpio.
+
+---
+
+## 2026-09-23 (2) — Cotizador: personalizar componentes de un ítem y traer productos del catálogo general
+
+### Origen
+El usuario preguntó de dónde sale el precio de la manija MRO1101 ($100.790,82) y pidió poder
+editar, agregar o quitar componentes dentro de un sistema (cambiar un perfil por otro, agregar un
+pedazo de perfil, otra chapa, un vidrio miniboreal).
+
+### Rastro del precio (respuesta, sin cambios)
+Costo $65.000 = proveedor activo más barato (ACVICOL, empatado con AVQ; Ventanas y Puertas a
+$103.613 descartado), sincronizado solo el 2026-09-17 (antes costo $76.500). × multiplicador
+ACCESORIO PA 1,550628 = $100.790,82 (PM 1,440712, PB 1,330796). El 1,550628 sale de `COSTOS` del
+Excel: PRODUCC 50 % + ADMON 50 % + VTAS 50 % + comisión 10 % = 35,51 % → 1/(1−0,3551). Al calcular:
+÷ AIU 0,96 → $104.990,44; + IVA 19 % → $124.938,62.
+
+### Decisiones del usuario
+- Capas 1 (traer del catálogo general) y 3 (personalizar) juntas; la 2 (todos los vidrios en el
+  selector) descartada.
+- Perfilería **sí** personalizable, dejando el ítem fuera de orden de corte y SAP.
+- Perfil extra como **mm × piezas + 5 %**.
+
+### Cambios
+**Backend**
+- `cotizador/lib/personalizacion.ts` (nuevo) — cambios/quitados/extras sobre el despiece del motor.
+- `modules/registry.ts` — `calcularItem()`, única puerta de cálculo; la usan `cotizarItem`,
+  `clonarPropuesta` y `cambiarSegmento` (antes llamaban `modulo.calcular` directo).
+- `lib/aptitudOrden.ts` — motivo `PERFILERIA_PERSONALIZADA` (condición 5b) y la condición 8 no
+  corre en esos ítems.
+- `controllers/cotizador_catalogo_general.controller.ts` (nuevo) + 2 rutas.
+- `cotizador_plano.controller.ts` — el despiece informa `perfileriaPersonalizada`.
+- Pruebas: `personalizacion.test.ts` (10, agregada a `test:cotizador`); centinela de `humo` pasa a
+  fijar sólo `CATALOGO` = 464 y comprobar que los motores ven `CATALOGO + ALTA` sin provisionales.
+
+**Frontend** (`features/cotizador/`)
+- `catalogoUtil.ts` (nuevo) — búsqueda de catálogo, clase/rótulo de unidad y precio por segmento,
+  extraídos de `EditorLineasLibres` (que ahora los importa).
+- `modals/ModalComponente.tsx` y `modals/ModalCatalogoGeneral.tsx` (nuevos).
+- `ResultadoCalculo` — acciones por línea, chips "Cambiado · antes X" / "Agregado", quitados con
+  Restaurar, "Agregar componente".
+- `TabCotizar` — estado de personalización y recálculo en servidor; `FormularioModulo` la reenvía
+  al Calcular; `TabActual` marca "Personalizado"; `TabConfiguracion` sección nueva;
+  `PrintableHojaTrabajo` aviso de perfilería personalizada.
+
+**BD:** sin migración. **Dato nuevo:** VMINIBOR dado de alta en `cotizador.producto` (origen `ALTA`,
+vinculado a `catalogo_productos` id 1210): costo 31.932,76 → PA 53.417,12 · PM 50.663,94 · PB
+47.910,76.
+
+### Verificación
+- Backend `build` y frontend `tsc` limpios, sin avisos ESLint del módulo.
+- `test:cotizador`: **95/95** suite por suite (`humo` dio 0/4 por agotamiento del pooler justo tras
+  un reinicio de nodemon y 4/4 al repetirla sola — el patrón documentado).
+- Contra Supabase: **15/15** (alta real de VMINIBOR, 409 al repetirla; personalización sobre la
+  cotización de PRUEBA N.° 13 guardada, motivo de corte correcto, segmento cambiado conservando la
+  personalización). La N.° 13 quedó CANCELADA de nuevo. Backend dev reiniciado: caché con 596
+  productos.
+
+### Pendientes / notas
+- El PDF al cliente no menciona la personalización: una ventana con miniboreal sale como
+  "Ventanas" (los módulos de sistema no piden nombre de ítem). Preexistente; el asesor puede
+  aclararlo en la nota de la propuesta. Candidato a mejora.
+- Una variante con otro vidrio (`ModalClonarPropuesta`) sobre un ítem con el vidrio cambiado a
+  mano: el cambio deja de aplicar (su código original ya no está) y se avisa — comportamiento
+  buscado, no un error.
+- **Cotización N.° 13 = dato de PRUEBA** (cliente "PRUEBA DEL SISTEMA — NO ES UN CLIENTE"), estado
+  CANCELADO. Su ítem es una ventana 5020 con miniboreal + JAM0108 630 mm × 2 agregado, por eso
+  muestra "No imprimible" con dos motivos (estado ≠ APROBADA y perfilería personalizada). Es lo
+  esperado, no un bug. Borrarla o conservarla es decisión del usuario.
+- **PDF con campos del formato VR09:** sigue pendiente por decisión del usuario — no trabajarlo
+  sin orden.
+- **Para continuar en la otra máquina:** `git pull`; no hay migración que correr (VMINIBOR ya
+  está en la BD compartida y la caché lo carga al arrancar). Falta la revisión visual del usuario
+  de todo lo de hoy en Cotizar (segmento, editar/duplicar, aprobadas, personalización, catálogo
+  general).

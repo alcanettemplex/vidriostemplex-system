@@ -6,8 +6,8 @@ import {
     Cotizacion, CotizacionEntrada, CotizacionLigera, DespieceItem, DisenoResumen, EstadoCotizador,
     EstadoSistemaCalibracion, FiltrosListado, HistorialCalibracion, HolguraCalibracion,
     MaterialCalibracion, ModuloMeta, MultiplicadorCategoria, Parametros, PiezaCalibracion,
-    Plano, ProductoCatalogo, ResultadoCalculo, ResultadoRecalculoCategoria,
-    RespuestaPropuesta, SugerenciaSMO, TipoObraSeleccion,
+    Plano, ProductoCatalogo, ProductoCatalogoGeneral, ResultadoCalculo, ResultadoRecalculoCategoria,
+    RespuestaPropuesta, SegmentoCliente, SugerenciaSMO, TipoObraSeleccion,
 } from '../types';
 
 const BASE = `${API}/api/cotizador`;
@@ -37,6 +37,20 @@ export const apiGetParametros = () => axios.get<Parametros>(`${BASE}/parametros`
  * por cada tecla que escribe el vendedor. */
 export const apiGetCatalogo = (categoria?: string) =>
     axios.get<ProductoCatalogo[]>(`${BASE}/catalogo`, { params: categoria ? { categoria } : undefined });
+
+/** GET /catalogo-general?q= — productos del catálogo del ERP que todavía no
+ * están en el Cotizador, con su mejor precio de proveedor. Mínimo 2 caracteres. */
+export const apiBuscarCatalogoGeneral = (q: string) =>
+    axios.get<ProductoCatalogoGeneral[]>(`${BASE}/catalogo-general`, { params: { q } });
+
+/** POST /catalogo-general/importar — lo da de alta en el Cotizador vinculado a
+ * Proveedores; su precio sale de costo × multiplicador de la categoría. */
+export const apiImportarCatalogoGeneral = (datos: {
+    catalogoProductoId: number;
+    categoria: string;
+    unidad: string;
+    costoManual?: number;
+}) => axios.post<{ producto: ProductoCatalogo; advertencias: string[] }>(`${BASE}/catalogo-general/importar`, datos);
 
 /** POST /cotizar/:moduloId — calcula UN ítem, sin guardar nada. */
 export const apiCotizarItem = (moduloId: string, input: Record<string, unknown>) =>
@@ -95,6 +109,16 @@ export const apiActualizarCotizacion = (id: number, datos: CotizacionEntrada) =>
 
 export const apiEliminarCotizacion = (id: number) =>
     axios.delete<void>(`${BASE}/cotizaciones/${id}`);
+
+/** PATCH /segmento — cambia PA/PM/PB y el backend recalcula con el motor los
+ * ítems de TODAS las propuestas, en una sola transacción: si uno no se puede
+ * recalcular no cambia nada (409). `propuestaId` es la que se quiere de vuelta
+ * con sus blobs (la que el vendedor tiene abierta). */
+export const apiCambiarSegmento = (id: number, segmentoCliente: SegmentoCliente, propuestaId?: number | null) =>
+    axios.patch<{ cotizacion: Cotizacion; advertencias: string[] }>(`${BASE}/cotizaciones/${id}/segmento`, {
+        segmentoCliente,
+        ...(propuestaId ? { propuestaId } : {}),
+    });
 
 // ─── Propuestas (A/B/C…) de una cotización ──────────────────────────────────
 // Toda respuesta de escritura devuelve la cotización recargada (y las de crear

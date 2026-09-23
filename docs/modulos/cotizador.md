@@ -37,8 +37,9 @@ Verificación en vivo (2026-09-19): Sistema5020, 1000×1500 mm, mate, vidrio cla
   de producto más `itemLibre`, ver "Ítem libre" más abajo),
   `lib/` (cálculo, despiece, plano, aptitud, calibración, sincronización con Proveedores)
 - `backend-api/src/controllers/cotizador_*.controller.ts` — 9 controladores
-- `backend-api/src/routes/cotizador.routes.ts` — **51 endpoints** bajo `/api/cotizador` (verificado
-  por conteo el 2026-09-21 — la cifra anterior, 40, ya estaba desactualizada antes de hoy)
+- `backend-api/src/routes/cotizador.routes.ts` — **54 endpoints** bajo `/api/cotizador` (51 contados
+  el 2026-09-21; el 2026-09-23 se sumaron `PATCH /cotizaciones/:id/segmento`,
+  `GET /catalogo-general` y `POST /catalogo-general/importar`)
 - `backend-api/src/scripts/pruebas_cotizador/` — 7 suites, `npm run test:cotizador`
 
 **Frontend** — `frontend-web/src/features/cotizador/`, 5 pestañas:
@@ -175,6 +176,12 @@ Dos invariantes que no se negocian:
 `EN_PRODUCCION` nunca se escribe a mano: "reanudar" un sistema escribe `'VALIDADO'` como centinela,
 porque `madurezDeSistema` solo trata de forma especial la cadena exacta `'EN_CALIBRACION'`.
 
+**La pieza VIDRIO de un sistema lleva el PEOR nivel de vidrio de sus diseños** (2026-09-23,
+`inventarioPiezasDeSistema` en `aptitudOrden.ts`). Antes tomaba el del primer diseño que traía
+vidrio —además dependiente del orden en que Postgres devolviera las cabeceras—, y Sistema3831,
+3831-Reforzado y 7038-Interior, que tienen diseños con vidrio A, B y C, salían en A. Ninguno de los
+163 diseños tiene `nivel_vidrio` nulo (medido ese día).
+
 ---
 
 ## Precios: de dónde sale el costo
@@ -227,9 +234,11 @@ cotización alimenta qué SAP, no hay desde dónde invocarlo.
 
 ## Pruebas
 
-`npm --prefix backend-api run test:cotizador` — 7 suites, **84 pruebas**. En verde (84/84,
-verificado el 2026-09-22 **suite por suite**: 11 `codigoDiseno` · 16 `plano` · 3 `humo` ·
-7 `accesorios` · 18 `cargos` · 10 `generadorSapPerfileria` · 19 `itemLibre`). Una corrida con el
+`npm --prefix backend-api run test:cotizador` — 8 suites, **95 pruebas**. En verde (95/95,
+verificado el 2026-09-23 **suite por suite**: 11 `codigoDiseno` · 16 `plano` · 4 `humo` ·
+7 `accesorios` · 18 `cargos` · 10 `generadorSapPerfileria` · 19 `itemLibre` · 10
+`personalizacion`). La 3ª de `humo` es la regresión del nivel de vidrio del sistema (ver
+Calibración). Una corrida con el
 pool de Supabase ya ocupado por otra cosa dio 28 fallos falsos el 2026-09-21 y 47 el 2026-09-22 —
 ver advertencia de conexiones más abajo.
 
@@ -266,10 +275,12 @@ regresión real rompe algunas pruebas, no todas.
 
 ### El centinela del catálogo
 
-`humo.test.ts` afirma un número exacto de productos (**469** desde el 2026-09-16). No es un dato
-decorativo: vigila que los **126 productos `PROVISIONAL`** —precios del software externo, no
-verificados— no se mezclen con el catálogo real (464 `CATALOGO` + 5 `ALTA`). Si el conteo cambia sin
-que nadie lo espere, esa mezcla es la primera sospecha.
+`humo.test.ts` vigila que los **126 productos `PROVISIONAL`** —precios del software externo, no
+verificados— no se mezclen con el catálogo real. **Desde el 2026-09-23 el número fijo es sólo el de
+origen `CATALOGO` (464)** y la prueba comprueba que los motores ven exactamente `CATALOGO + ALTA` de
+la base, sin ningún provisional. Antes fijaba el total (469), y con la importación desde el
+catálogo general (origen `ALTA`) se habría puesto en rojo con cada alta normal. Hoy: 464 + 6 `ALTA`
+(la 6ª es VMINIBOR).
 
 Cada vez que crezca legítimamente hay que **actualizar el número y dejar el renglón** explicando por
 qué, como hacen las entradas anteriores del archivo. Un centinela que falla siempre deja de vigilar:
@@ -584,8 +595,124 @@ bloqueador: lo llenaban a mano.
 
 ---
 
+## Segmento, edición de ítems y cotizaciones aprobadas (2026-09-23)
+
+### El segmento es de la COTIZACIÓN, no del ítem
+
+Antes cada ítem pedía su "Tipo de cliente" en el formulario, y el segmento de la cabecera se podía
+cambiar después sin recalcular nada: la cotización decía PB con ítems preciados en PA, sin aviso.
+
+- El formulario **ya no pide el segmento** (`CAMPOS_DE_LA_COTIZACION` en `FormularioModulo.tsx`):
+  lo inyecta al calcular desde la cabecera. Un resultado pendiente calculado con otro segmento se
+  descarta. Cotizar muestra un chip "Precios PA".
+- Cambiar el segmento en Actual **recalcula automáticamente** (decisión del usuario):
+  - Cotización **guardada** → `PATCH /cotizaciones/:id/segmento` → `cambiarSegmento()` del store:
+    recalcula con el motor los ítems de **todas** las propuestas en una transacción. Tiene que ser
+    en el servidor porque el carrito sólo tiene la propuesta activa. **Atómico**: si un ítem no se
+    puede recalcular no cambia nada (409). Un ítem que queda sin precio en la lista nueva se guarda y
+    vuelve en `advertencias`, como en el clonado.
+  - Cotización **sin guardar** → el carrito es toda la cotización: `CotizadorPage` recalcula ítem
+    por ítem con `POST /cotizar`; si uno falla, se revierte todo.
+- El backend **rechaza la mezcla**: `crear()`/`actualizar()` responden 400 si un ítem trae
+  `input.segmentoCliente` distinto del de la cotización, y `actualizar()` responde 409 si se intenta
+  cambiar el segmento por el PUT normal.
+- Rechaza (409) con una propuesta **legada**: recalcularla sacaría el SMO y el flete del precio.
+
+### Editar y duplicar ítems
+
+Acciones por fila en Actual: **Editar** abre el ítem en Cotizar con su input (`inputInicial` de
+`FormularioModulo`); "Guardar cambios en el ítem N" lo reemplaza **en su posición**. **Duplicar**
+copia input y resultado justo debajo, sin recalcular. Editar se deshabilita en propuestas legadas y
+en ítems cuyo módulo ya no existe.
+
+### Cotización aprobada: la elegida es de solo lectura
+
+`exigirPropuestaEditable()` en el store — 409 al cambiar ítems o descuento (`actualizar`,
+`actualizarPropuesta`), cargos (`guardarCargos`) o segmento (`cambiarSegmento`) de la elegida de una
+cotización `APROBADA`.
+
+- **`reconciliarItems` devuelve si algo cambió de verdad** (comparación profunda con
+  `isDeepStrictEqual`, insensible al orden de claves del JSONB). Necesario porque el frontend
+  reenvía la lista completa en cada guardado: sin esto, corregir el teléfono del cliente de una
+  aprobada daría 409. De paso, las filas idénticas ya no se reescriben.
+- Pasar a Pendiente **en el mismo guardado** que edita, sí se permite.
+- Las propuestas NO elegidas de una aprobada siguen editables (no pueden ir a corte sin
+  desaprobar).
+- La UI (`bloqueoEdicion` en `CotizadorPage`) mira el estado **guardado** y el del select a la vez
+  y deshabilita ítems, descuento, cargos y segmento con el motivo; el estado sigue editable.
+
+Verificado contra Supabase el 2026-09-23: 24/24 comprobaciones, con las cotizaciones reales 11 y 12
+sólo en caminos de rechazo (quedaron intactas) y el flujo completo sobre la **N.° 13, cotización de
+PRUEBA** ("PRUEBA DEL SISTEMA — NO ES UN CLIENTE", asesor `PRUEBA-SISTEMA`, estado CANCELADO). Ese
+número del consecutivo lo consumió la prueba con autorización del usuario; **no es un cliente**.
+
+---
+
+## Personalizar componentes y traer del catálogo general (2026-09-23)
+
+El asesor cotiza un sistema y el motor arma el despiece estándar; el cliente pide otra chapa, un
+vidrio miniboreal o un pedazo de perfil de más. Dos piezas:
+
+### Traer productos del catálogo general
+`controllers/cotizador_catalogo_general.controller.ts` — `GET /catalogo-general?q=` busca en
+`public.catalogo_productos` lo que **no** está en el Cotizador (ni por código ni por vínculo), con el
+mejor proveedor (mismo filtro que la sincronización: proveedor activo y `seguir_precios = true`,
+costo por metro si se compra `TIRA_6M`). `POST /catalogo-general/importar` lo da de alta con origen
+`ALTA`, `catalogo_producto_id` enlazado, historial `dar-de-alta`, y corre
+`recalcularCostoDesdeProveedor` para fijar costo y precios (costo × multiplicador de la categoría).
+Sin proveedor con precio exige `costoManual`, que Proveedores reemplazará solo. 409 si ya está; 400
+si el código pasa de 20 caracteres (`cotizador.producto.codigo`).
+
+El catálogo general casi nunca trae categoría ni unidad (1.205 de 1.271 sin categoría, ninguno con
+unidad): quien importa las elige, sugeridas desde la unidad de compra del proveedor (M2 → VIDRIO/X
+M2, TIRA_6M → PERFILERIA/X METRO, UNIDAD → ACCESORIO/UND). Avisa si la unidad elegida no calza con
+la de compra.
+
+Frontend: `modals/ModalCatalogoGeneral.tsx`, desde Configuración ("Productos del catálogo
+general") y desde el buscador de componentes ("¿No aparece? Tráelo del catálogo general").
+
+**Primera alta real:** VMINIBOR (vidrio miniboreal), proveedor TODOVIDRIO Y ALUMINIO $31.932,76/m²
+→ PA $53.417,12 · PM $50.663,94 · PB $47.910,76.
+
+### Personalizar los componentes de un ítem
+`cotizador/lib/personalizacion.ts` + `calcularItem()` en `modules/registry.ts`, **la única puerta
+para calcular un ítem**: la usan `POST /cotizar`, `clonarPropuesta` y `cambiarSegmento`.
+
+- Vive en `input.personalizacion = { cambios: [{de, a}], quitados: [código], extras: [{codigo,
+  cantidad} | {codigo, medidaMm, piezas}] }` y se aplica **sobre el despiece que el motor da en ese
+  momento**, con los precios del segmento vigente. Por eso sobrevive a editar el ítem, cambiar el
+  segmento y clonar la propuesta. Sin personalización, `calcularItem` devuelve exactamente lo mismo
+  que el motor (probado con `deepEqual`).
+- **Cambio:** sólo entre la misma clase de unidad (`claseDeUnidad` del Ítem libre: m² / metro /
+  unidad); si no, 400. Si el código original ya no está en el despiece (cambió el color, el
+  diseño, o una variante cambió el vidrio), el cambio **se ignora con aviso**, nunca se adivina.
+- **Extra de perfil:** medida mm × piezas + **5 %** de desperdicio (`DESPERDICIO_PERFIL_EXTRA_PCT`),
+  y entra en `cortes.perfiles` con `ref: 'AGREGADO'` para que el taller lo vea.
+- **Vidrio cambiado:** `cortes.vidrios[].descripcion` pasa al vidrio nuevo (la Hoja de Trabajo
+  corta el que se va a usar).
+- **Perfilería tocada** (cambiada, quitada o agregada): `aptoParaCorte = false`,
+  `perfileriaPersonalizada = true`. `aptitudOrden` emite el motivo nuevo
+  **`PERFILERIA_PERSONALIZADA`** (condición 5b — la 5 se reevalúa sobre nivel y errores y sin esto
+  volvía a dar el ítem por apto) y **no corre la condición 8** en ese ítem (daría un falso "la
+  estructura del diseño cambió"). Queda fuera de `generadorSapPerfileria` porque el llamador filtra
+  por `imprimible`. La Hoja de Trabajo muestra un aviso ámbar (`despiece.perfileriaPersonalizada`).
+- Frontend: la tabla de `ResultadoCalculo` en Cotizar tiene Cambiar / Quitar por línea, "Agregar
+  componente", Deshacer y Restaurar (`modals/ModalComponente.tsx`); cada acción recalcula en el
+  servidor. `FormularioModulo` reenvía la personalización vigente al pulsar Calcular. Actual marca
+  el ítem "Personalizado" (ámbar si tocó perfilería). La búsqueda de catálogo, el rótulo por unidad
+  y el precio por segmento viven en `catalogoUtil.ts`, compartidos con el Ítem libre.
+
+Verificado contra Supabase el 2026-09-23 (15/15): búsqueda y alta de VMINIBOR (y 409 al repetirla);
+sobre la cotización de PRUEBA N.° 13, vidrio → VMINIBOR + perfil agregado, guardado, motivo
+`PERFILERIA_PERSONALIZADA` sin falso positivo de la condición 8, y cambio de segmento conservando
+la personalización con precio distinto. La N.° 13 quedó de nuevo CANCELADA.
+
+---
+
 ## Lo que falta
 
+- **Campos del formato VR09 en el PDF**: decisión del usuario del 2026-09-23 — queda pendiente, no
+  se trabaja por ahora (ver "El Excel de los asesores", punto 5).
 - 3 de 9 suites de pruebas: `aptitudOrden`, `hojaTrabajo`, `pdf`.
 - Regenerar golden master y centinela del catálogo.
 - Los 24 diseños nivel C.
@@ -667,6 +794,8 @@ y la UI ofrece duplicarla.
    desmarcar-y-marcar dentro de una transacción: a mitad de camino habría dos.
 4. No se aprueba sin propuesta elegida (400), y no se cambia ni se borra la elegida de una
    cotización aprobada sin quitarle antes la aprobación (409): puede haber material ya cortado.
+   **Ampliada el 2026-09-23:** de esa elegida tampoco se cambian ítems, descuento, cargos ni el
+   segmento de la cotización — ver "Segmento, edición de ítems y cotizaciones aprobadas".
 5. Clonar una propuesta recalcula sus ítems con el motor cambiando vidrio, película y matizado —
    es la respuesta a "cotíceme esto en 5 mm y en templado". Avisa si el vidrio elegido no tiene
    precio (hoy `CL4MM03LM` y `CL4MM08SP` están en $0).

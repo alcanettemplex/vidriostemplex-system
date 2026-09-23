@@ -35,6 +35,7 @@
 // 4. EL NÚMERO SALE DE UN CONTADOR CON ROW-LOCK, no de `max(numero)+1`. Ese
 //    patrón es un read-then-write clásico: dos vendedores guardando a la vez
 //    leen el mismo máximo y ambos escriben el mismo número. Ver `siguienteNumero`.
+import { isDeepStrictEqual } from 'util';
 import { QueryTypes, Op, Transaction } from 'sequelize';
 import {
   sequelize,
@@ -50,7 +51,7 @@ import {
   type CargoParaTotales,
   type TipoCargo,
 } from '../lib/cargos';
-import { getModulo } from '../modules/registry';
+import { calcularItem, getModulo } from '../modules/registry';
 
 /** Error de negocio con el código HTTP que le corresponde y un mensaje ya
  * redactado para el vendedor. El controlador sólo lo traduce a respuesta: así
@@ -183,6 +184,45 @@ function espejoDe(it: ItemEntrada) {
     iva: Number(r.iva ?? 0),
     total: Number(r.total ?? 0),
   };
+}
+
+/**
+ * REGLA 4 AMPLIADA (2026-09-23): la propuesta elegida de una cotización
+ * APROBADA no se toca — ni sus ítems, ni su descuento, ni sus cargos. Es el
+ * mismo motivo por el que ya no se podía cambiar ni borrar: puede haber
+ * material cortado con lo que se aprobó. Para cambiarla, primero se le quita la
+ * aprobación.
+ */
+function exigirPropuestaEditable(cot: Fila, propuesta: Fila, accion: string) {
+  if (cot.estado === 'APROBADA' && propuesta.elegida) {
+    throw new ErrorCotizador(
+      409,
+      `Esta cotización está aprobada: para ${accion} de la propuesta ${propuesta.etiqueta} primero hay que pasarla a Pendiente. ` +
+        'Puede haber material cortado con lo que se aprobó.'
+    );
+  }
+}
+
+/**
+ * El segmento (PA/PM/PB) es de la COTIZACIÓN, no del ítem (2026-09-23). Cada
+ * ítem guarda el suyo en `input.segmentoCliente` porque es con el que el motor
+ * lo preció; si no coincide con el de la cotización, esa mezcla se rechaza en
+ * vez de guardarse en silencio con precios de dos listas distintas.
+ *
+ * Un ítem sin el dato no se juzga: no hay con qué compararlo.
+ */
+function exigirMismoSegmento(items: ItemEntrada[], segmento: string) {
+  for (const [i, it] of items.entries()) {
+    const s = it.input?.segmentoCliente;
+    if (typeof s === 'string' && s !== segmento) {
+      const nombre = it.descripcionItem?.trim() || `el ítem ${i + 1}`;
+      throw new ErrorCotizador(
+        400,
+        `"${nombre}" está calculado con precios ${s} y la cotización es ${segmento}. ` +
+          'Recalcula los ítems con el segmento de la cotización antes de guardar.'
+      );
+    }
+  }
 }
 
 function aCotizacion(fila: Fila, items: Fila[] | null, propuestas: Fila[] | null, propuestaActivaId: number | null) {
@@ -743,13 +783,20 @@ async function cargarPropuesta(cotizacionId: number, propuestaId: number, t: Tra
  * recreando: Sequelize omite el UPDATE cuando `changed()` está vacío, así que un
  * ítem que no se tocó no dispara el hook de auditoría y no genera una fila más.
  * Con delete+insert, guardar dos veces una propuesta de 8 ítems escribiría 16
- * filas de auditoría con sus blobs, sin que nada hubiera cambiado. */
+ * filas de auditoría con sus blobs, sin que nada hubiera cambiado.
+ *
+ * Devuelve si algo cambió de verdad. El frontend reenvía la lista COMPLETA en
+ * cada guardado (también cuando sólo se corrigió el teléfono del cliente), así
+ * que el freno de la cotización aprobada necesita distinguir "reenvió lo mismo"
+ * de "cambió un ítem". La comparación es profunda e insensible al orden de las
+ * claves, que Postgres no conserva en JSONB. */
 async function reconciliarItems(
   cotizacionId: number,
   propuestaId: number,
   items: ItemEntrada[],
   t: Transaction
-) {
+): Promise<boolean> {
+  let huboCambios = false;
   const existentes = (await CotizadorCotizacionItem.findAll({
     where: { propuesta_id: propuestaId },
     transaction: t,
@@ -768,9 +815,17 @@ async function reconciliarItems(
     };
     const existente = porOrden.get(i);
     if (existente) {
-      await existente.update(valores, { transaction: t });
       porOrden.delete(i);
+      const igual =
+        (existente.modulo_id ?? '') === valores.modulo_id &&
+        (existente.descripcion_item ?? null) === valores.descripcion_item &&
+        isDeepStrictEqual(existente.input ?? {}, valores.input) &&
+        isDeepStrictEqual(existente.resultado ?? {}, valores.resultado);
+      if (igual) continue;
+      huboCambios = true;
+      await existente.update(valores, { transaction: t });
     } else {
+      huboCambios = true;
       await CotizadorCotizacionItem.create(
         { cotizacion_id: cotizacionId, propuesta_id: propuestaId, orden: i, ...valores } as Fila,
         { transaction: t }
@@ -779,8 +834,10 @@ async function reconciliarItems(
   }
   // Los que sobran (la propuesta perdió ítems) sí se borran.
   for (const sobrante of porOrden.values()) {
+    huboCambios = true;
     await sobrante.destroy({ transaction: t });
   }
+  return huboCambios;
 }
 
 /** Crea una propuesta con sus ítems y sus cargos dentro de una transacción ya
@@ -870,6 +927,8 @@ export async function crear(datos: CotizacionEntrada) {
   if (entradas.filter((p) => p.elegida).length > 1) {
     throw new ErrorCotizador(400, 'Solo una propuesta puede quedar marcada como elegida.');
   }
+  const segmento = datos.segmentoCliente ?? 'PA';
+  for (const entrada of entradas) exigirMismoSegmento(entrada.items ?? [], segmento);
 
   const ahora = new Date();
   const t = await sequelize.transaction();
@@ -887,7 +946,7 @@ export async function crear(datos: CotizacionEntrada) {
         cliente_telefono: datos.cliente?.telefono ?? null,
         cliente_obra: datos.cliente?.obra ?? null,
         cliente_contacto: datos.cliente?.contacto ?? null,
-        segmento_cliente: datos.segmentoCliente ?? 'PA',
+        segmento_cliente: segmento,
         asesor: datos.asesor ?? '',
         // Columna legada: se deja en 0 a propósito. El descuento vivo está en
         // la propuesta. Ver el comentario de `aCotizacion`.
@@ -937,7 +996,17 @@ export async function actualizar(id: number, datos: CotizacionEntrada) {
       cambios.cliente_obra = datos.cliente?.obra ?? null;
       cambios.cliente_contacto = datos.cliente?.contacto ?? null;
     }
-    if (datos.segmentoCliente !== undefined) cambios.segmento_cliente = datos.segmentoCliente;
+    // El segmento de una cotización YA GUARDADA no se cambia por aquí: cambiarlo
+    // sin recalcular dejaría los ítems de todas sus propuestas con precios de
+    // otra lista. Para eso está `cambiarSegmento()`, que recalcula todo junto.
+    if (datos.segmentoCliente !== undefined && datos.segmentoCliente !== cot.segmento_cliente) {
+      throw new ErrorCotizador(
+        409,
+        `Esta cotización está en ${cot.segmento_cliente}. Para pasarla a ${datos.segmentoCliente} usa el cambio de segmento, ` +
+          'que recalcula los ítems de todas sus propuestas con los precios nuevos.'
+      );
+    }
+    if (datos.items !== undefined) exigirMismoSegmento(datos.items, cot.segmento_cliente);
     if (datos.asesor !== undefined) cambios.asesor = datos.asesor;
     if (datos.estado !== undefined) cambios.estado = datos.estado;
 
@@ -976,12 +1045,24 @@ export async function actualizar(id: number, datos: CotizacionEntrada) {
         );
       }
       idDestino = Number(destino.id);
+      let huboCambios = false;
       if (datos.descuentoPct !== undefined) {
-        const fila = (await CotizadorPropuesta.findByPk(destino.id, { transaction: t })) as Fila;
-        await fila.update({ descuento_pct: Number(datos.descuentoPct) || 0 }, { transaction: t });
+        const nuevo = Number(datos.descuentoPct) || 0;
+        if ((Number(destino.descuento_pct) || 0) !== nuevo) {
+          huboCambios = true;
+          const fila = (await CotizadorPropuesta.findByPk(destino.id, { transaction: t })) as Fila;
+          await fila.update({ descuento_pct: nuevo }, { transaction: t });
+        }
       }
       if (datos.items !== undefined) {
-        await reconciliarItems(id, destino.id, datos.items, t);
+        huboCambios = (await reconciliarItems(id, destino.id, datos.items, t)) || huboCambios;
+      }
+      // Se evalúa DESPUÉS de reconciliar porque sólo ahí se sabe si algo cambió
+      // de verdad; si cambió, el throw deshace lo escrito con el rollback. Quitar
+      // la aprobación en este mismo guardado sí libera la edición.
+      const sigueAprobada = (datos.estado ?? cot.estado) === 'APROBADA';
+      if (huboCambios && sigueAprobada) {
+        exigirPropuestaEditable(cot, destino, 'cambiar los ítems o el descuento');
       }
       await recalcularPropuesta(destino.id, t);
     }
@@ -1218,7 +1299,9 @@ export async function clonarPropuesta(
       }
 
       try {
-        const resultado = modulo.calcular(input);
+        // Por `calcularItem` y no por `modulo.calcular`: conserva la
+        // personalización del ítem (chapa cambiada, perfil agregado…).
+        const resultado = calcularItem(moduloId, input);
         if (resultado?.hayErrores) {
           const lineas = (resultado.items ?? []) as Array<{ error?: boolean; descripcion?: string }>;
           const motivo = lineas.find((l) => l.error)?.descripcion ?? 'hay líneas sin precio';
@@ -1269,6 +1352,118 @@ export async function clonarPropuesta(
   }
 }
 
+/**
+ * Cambia el segmento (PA/PM/PB) de una cotización guardada y RECALCULA con el
+ * motor todos los ítems de TODAS sus propuestas (2026-09-23).
+ *
+ * Tiene que ser aquí y no en el navegador: el carrito sólo tiene la propuesta
+ * activa, así que recalcular allá dejaría las demás con precios de la lista
+ * vieja y la cotización mezclando PA con PB.
+ *
+ * ATÓMICO, a diferencia de `clonarPropuesta`: el recálculo lo dispara el
+ * vendedor al cambiar un select, sin revisar ítem por ítem, así que si uno no
+ * se puede recalcular no se cambia NADA. Un ítem que sí se recalcula pero queda
+ * sin precio en la lista nueva se guarda igual (es un dato del catálogo, no un
+ * fallo del cálculo) y vuelve en `advertencias`.
+ *
+ * Rechaza la cotización aprobada (regla 4) y la que tenga una propuesta legada:
+ * en esas, el SMO y el flete viven dentro del BOM de cada ítem, y recalcular con
+ * el motor actual los sacaría del precio sin avisar.
+ */
+export async function cambiarSegmento(
+  cotizacionId: number,
+  segmento: string,
+  { propuestaActiva }: { propuestaActiva?: number } = {}
+) {
+  const advertencias: string[] = [];
+  const t = await sequelize.transaction();
+  try {
+    const cot = (await CotizadorCotizacion.findByPk(cotizacionId, { transaction: t })) as Fila | null;
+    if (!cot) throw new ErrorCotizador(404, 'Cotización no encontrada.');
+
+    if (cot.segmento_cliente !== segmento) {
+      if (cot.estado === 'APROBADA') {
+        throw new ErrorCotizador(
+          409,
+          'Esta cotización está aprobada: para cambiarle el segmento primero hay que pasarla a Pendiente. ' +
+            'Puede haber material cortado con lo que se aprobó.'
+        );
+      }
+      const propuestas = await propuestasDe(cotizacionId, t);
+      const legada = propuestas.find((p) => p.legado_cargos_en_items);
+      if (legada) {
+        throw new ErrorCotizador(
+          409,
+          `La propuesta ${legada.etiqueta} es anterior al cambio de cargos: su mano de obra y su flete están dentro del precio de los ítems ` +
+            'y recalcularla los sacaría. Duplícala a la forma nueva y borra la legada antes de cambiar el segmento.'
+        );
+      }
+
+      for (const p of propuestas) {
+        const items = (await CotizadorCotizacionItem.findAll({
+          where: { propuesta_id: p.id },
+          order: [['orden', 'ASC']],
+          transaction: t,
+        })) as unknown as Array<Fila & { update: (v: Fila, o: Fila) => Promise<unknown> }>;
+
+        for (const f of items) {
+          const moduloId: string = f.modulo_id ?? '';
+          const etiquetaItem = f.descripcion_item || `${moduloId} #${(Number(f.orden) || 0) + 1}`;
+          const modulo = getModulo(moduloId);
+          if (!modulo) {
+            throw new ErrorCotizador(
+              409,
+              `"${etiquetaItem}" (propuesta ${p.etiqueta}) es de un producto que ya no existe en el cotizador: ` +
+                'no se puede recalcular, así que no se cambió el segmento.'
+            );
+          }
+          const input = { ...(f.input ?? {}), segmentoCliente: segmento };
+          let resultado: Record<string, unknown>;
+          try {
+            resultado = calcularItem(moduloId, input);
+          } catch (e) {
+            const motivo = e instanceof Error ? e.message : 'error desconocido';
+            throw new ErrorCotizador(
+              409,
+              `No se pudo recalcular "${etiquetaItem}" (propuesta ${p.etiqueta}) con precios ${segmento}: ${motivo}. ` +
+                'No se cambió nada.'
+            );
+          }
+          if (resultado?.hayErrores) {
+            const lineas = (resultado.items ?? []) as Array<{ error?: boolean; descripcion?: string }>;
+            const motivo = lineas.find((l) => l.error)?.descripcion ?? 'hay líneas sin precio';
+            advertencias.push(`"${etiquetaItem}" (propuesta ${p.etiqueta}) quedó con errores de precio: ${motivo}`);
+          }
+          await f.update(
+            {
+              input,
+              resultado,
+              ...espejoDe({ moduloId, descripcionItem: f.descripcion_item, input, resultado }),
+            },
+            { transaction: t }
+          );
+        }
+        await recalcularPropuesta(p.id, t);
+      }
+
+      await cot.update(
+        { segmento_cliente: segmento, version: (Number(cot.version) || 1) + 1, actualizada_en: new Date() },
+        { transaction: t }
+      );
+      await sincronizarCabecera(cotizacionId, t);
+    }
+
+    await t.commit();
+    return {
+      advertencias,
+      cotizacion: await obtener(cotizacionId, propuestaActiva ? { propuesta: propuestaActiva } : {}),
+    };
+  } catch (e) {
+    await t.rollback();
+    throw e;
+  }
+}
+
 function nombreLegible(campo: string): string {
   if (campo === 'codigoVidrio') return 'el vidrio';
   if (campo === 'pelicula') return 'la película';
@@ -1285,7 +1480,13 @@ export async function actualizarPropuesta(
 ) {
   const t = await sequelize.transaction();
   try {
-    const { propuesta } = await cargarPropuesta(cotizacionId, propuestaId, t);
+    const { cot, propuesta } = await cargarPropuesta(cotizacionId, propuestaId, t);
+    if (
+      datos.descuentoPct !== undefined &&
+      (Number(propuesta.descuento_pct) || 0) !== (Number(datos.descuentoPct) || 0)
+    ) {
+      exigirPropuestaEditable(cot, propuesta, 'cambiar el descuento');
+    }
     const cambios: Fila = { actualizada_en: new Date() };
     if (datos.nombre !== undefined) cambios.nombre = datos.nombre;
     if (datos.nota !== undefined) cambios.nota = datos.nota;
@@ -1420,7 +1621,8 @@ export async function eliminarPropuesta(cotizacionId: number, propuestaId: numbe
 export async function guardarCargos(cotizacionId: number, propuestaId: number, cargos: CargoEntrada[]) {
   const t = await sequelize.transaction();
   try {
-    const { propuesta } = await cargarPropuesta(cotizacionId, propuestaId, t);
+    const { cot, propuesta } = await cargarPropuesta(cotizacionId, propuestaId, t);
+    exigirPropuestaEditable(cot, propuesta, 'cambiar los cargos de obra');
     if (propuesta.legado_cargos_en_items) {
       throw new ErrorCotizador(
         409,

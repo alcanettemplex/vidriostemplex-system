@@ -77,6 +77,7 @@ export const CODIGOS_MOTIVO = {
   MEDIDA_PERFIL_DESACTUALIZADA: "MEDIDA_PERFIL_DESACTUALIZADA",
   MEDIDA_VIDRIO_DESACTUALIZADA: "MEDIDA_VIDRIO_DESACTUALIZADA",
   DESPIECE_NO_VERIFICABLE: "DESPIECE_NO_VERIFICABLE",
+  PERFILERIA_PERSONALIZADA: "PERFILERIA_PERSONALIZADA",
 };
 
 export interface MotivoAptitud {
@@ -153,10 +154,16 @@ const peorNivel = (a: string | null, b: string | null): string | null =>
  * Inventario de piezas calibrables de UN sistema: una entrada por referencia
  * de perfil (nivel = el PEOR de todas sus variantes de fórmula, igual que en
  * calibracion.routes.js) más, si el sistema tiene vidrio, una pieza
- * `{ref:"VIDRIO"}` — su nivel es el `nivelVidrio` del PRIMER diseño de ese
- * sistema que trae vidrio, sin combinar con los demás (mismo comportamiento,
- * intencional o no, de `inventarioPiezas()` en calibracion.routes.js: se
- * replica tal cual para no divergir).
+ * `{ref:"VIDRIO"}` con el PEOR `nivelVidrio` de sus diseños.
+ *
+ * Hasta el 2026-09-23 era el del PRIMER diseño que traía vidrio, heredado del
+ * origen "intencional o no". Medido ese día: Sistema3831, 3831-Reforzado y
+ * 7038-Interior tienen diseños con vidrio A, B y C, y el VIDRIO del sistema
+ * salía A — Calibración lo contaba como calibrable cuando en parte de sus
+ * diseños ningún margen constante lo corrige. Además dependía del orden en que
+ * Postgres devolviera las cabeceras (`cargarDisenos` no ordena). Ahora sigue la
+ * misma regla que los perfiles. `cotizador_calibracion.controller.ts` usa esta
+ * misma función, así que pantalla y bloqueo siguen sin poder divergir.
  *
  * Exportada (además de para uso interno) porque construir a mano, en un
  * test, un `margenes.pieza` que cubra el 100% de un sistema real requiere
@@ -178,8 +185,10 @@ export function inventarioPiezasDeSistema(
       if (!existente) piezas.set(p.ref, { ref: p.ref, material: "aluminio", nivelCorte: p.nivelCorte });
       else existente.nivelCorte = peorNivel(existente.nivelCorte, p.nivelCorte);
     }
-    if (d.vidrios.length && !piezas.has("VIDRIO")) {
-      piezas.set("VIDRIO", { ref: "VIDRIO", material: "vidrio", nivelCorte: d.nivelVidrio });
+    if (d.vidrios.length) {
+      const vidrio = piezas.get("VIDRIO");
+      if (!vidrio) piezas.set("VIDRIO", { ref: "VIDRIO", material: "vidrio", nivelCorte: d.nivelVidrio });
+      else vidrio.nivelCorte = peorNivel(vidrio.nivelCorte, d.nivelVidrio);
     }
   }
   return [...piezas.values()];
@@ -551,6 +560,23 @@ function evaluarItem(
     );
   }
 
+  // 5b. Perfilería personalizada (2026-09-23). El asesor cambió, quitó o agregó
+  // un perfil: el despiece calculado ya no describe lo que se va a fabricar,
+  // así que el ítem no sale en orden de corte (decisión del usuario). Va aparte
+  // de la condición 5 a propósito: ésa se REEVALÚA sobre el nivel y los errores
+  // del blob, y sin este chequeo volvería a dar el ítem por apto.
+  const perfileriaPersonalizada = resultado.perfileriaPersonalizada === true;
+  if (perfileriaPersonalizada) {
+    motivos.push(
+      crearMotivo(
+        CODIGOS_MOTIVO.PERFILERIA_PERSONALIZADA,
+        "Se personalizó la perfilería de este ítem (se cambió, quitó o agregó un perfil): el despiece calculado " +
+          "ya no corresponde a lo que se va a fabricar. Los cortes de este ítem se definen a mano.",
+        null
+      )
+    );
+  }
+
   // 6. Sin errores de presupuesto (códigos de catálogo inexistentes, etc.).
   if (resultado.hayErrores !== false) {
     motivos.push(
@@ -583,8 +609,13 @@ function evaluarItem(
 
   // 8. El despiece guardado sigue vigente: recalculado con los mismos datos
   // de entrada, da las mismas medidas ahora mismo.
-  const vigencia = verificarVigencia(item);
-  if (vigencia.desactualizado) motivos.push(...vigencia.motivos);
+  // Con perfilería personalizada no se compara: el despiece guardado difiere del
+  // del diseño POR DECISIÓN del asesor, y el motivo 5b ya explica el bloqueo.
+  // Compararlo sólo añadiría un "la estructura del diseño cambió" falso.
+  if (!perfileriaPersonalizada) {
+    const vigencia = verificarVigencia(item);
+    if (vigencia.desactualizado) motivos.push(...vigencia.motivos);
+  }
 
   return { itemId: item.id, imprimible: motivos.length === 0, motivos };
 }

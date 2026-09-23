@@ -18,14 +18,10 @@ import { Etiqueta } from './ui';
 // resultado, ni las propuestas. Quién resetea el cálculo al cambiar de módulo
 // sigue siendo el padre, exactamente como antes.
 //
-// PANEL DE DESCRIPCIÓN (2026-09-22): antes la tarjeta activa metía su propia
-// descripción recortada a 3 líneas (`descripcionCorta`) dentro del botón, lo
-// que además la hacía más alta que las otras cinco. Se sacó de ahí a un panel
-// aparte, debajo de la fila — todas las tarjetas quedan del mismo alto, y el
-// texto ya no se trunca. El panel lleva `flex-1` para llenar el espacio que
-// sobra cuando este selector vive al lado de Cargos de obra (más alto) en
-// `TabCotizar`: la altura la fuerza el padre con `items-stretch` + `h-full`
-// aquí, este panel es lo único elástico dentro.
+// DESCRIPCIÓN (2026-09-22, ajustada 2026-09-23): la descripción del módulo
+// activo va debajo de las tarjetas, completa, como texto corto. Hasta el
+// 2026-09-23 era un panel con `flex-1` que se estiraba hasta el alto de Cargos
+// de obra y quedaba casi vacío; ahora lo elástico son las filas de tarjetas.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Íconos por id de módulo (backend-api/src/cotizador/modules/registry.ts). No
@@ -53,16 +49,18 @@ const SelectorProducto: React.FC<Props> = ({ modulos, moduloId, onCambiar }) => 
     const IconoActivo = activo ? (ICONOS_MODULO[activo.id] || Package) : Package;
 
     return (
-        <div className="h-full flex flex-col gap-2.5">
+        // Tarjeta con borde, como Cargos de obra a su lado: las dos llenan el
+        // mismo alto (`h-full` + `items-stretch` del padre) y sus bordes caen
+        // en la misma línea.
+        <div className="h-full flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3">
             <div
                 role="group"
                 aria-label="Producto a cotizar"
-                // `auto-fit`/`minmax` en vez de `sm:`/`lg:grid-cols-N`: ese breakpoint
-                // reacciona al ANCHO DEL VIEWPORT, no al del contenedor. Desde que este
-                // selector puede vivir al lado de Cargos de obra (ancho variable, no
-                // toda la pantalla), necesita acomodarse solo al espacio real que le
-                // toque, sin importar qué tan angosto o ancho sea el viewport.
-                className="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-2.5"
+                // 4 columnas fijas (2026-09-23): con `auto-fit` las 7 tarjetas caían
+                // en una sola fila y los nombres se partían en dos líneas. Con 4 quedan
+                // 4 + 3, y `auto-rows-fr` + `flex-1` reparten la altura sobrante entre
+                // las filas en vez de dejar un bloque vacío debajo.
+                className="flex-1 grid grid-cols-2 sm:grid-cols-4 auto-rows-fr gap-2.5"
             >
                 {modulos.map(m => {
                     const esActivo = moduloId === m.id;
@@ -103,14 +101,12 @@ const SelectorProducto: React.FC<Props> = ({ modulos, moduloId, onCambiar }) => 
                 })}
             </div>
 
-            {/* Descripción completa del módulo elegido — sin recortar, sin
-                `title` como único lugar donde leerla. Crece con `flex-1` para
-                ocupar el resto de la columna cuando el hermano (Cargos de
-                obra) es más alto. */}
+            {/* Descripción completa del módulo elegido, sin recortar. Ya no es un
+                panel que se estira: la altura sobrante la toman las tarjetas. */}
             {activo && (
-                <div className="flex-1 min-h-0 rounded-xl border border-slate-200 bg-white p-4">
+                <div className="border-t border-slate-100 pt-2.5">
                     <Etiqueta icono={IconoActivo}>{activo.nombre}</Etiqueta>
-                    <p className="mt-2 text-[13px] text-slate-600 leading-relaxed">{activo.descripcion}</p>
+                    <p className="mt-1 text-[12px] text-slate-500 leading-snug">{activo.descripcion}</p>
                 </div>
             )}
         </div>

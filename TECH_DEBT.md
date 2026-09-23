@@ -63,6 +63,14 @@ comportamiento exacto pasando `p.nivelCorte ?? 'A'` al nuevo componente comparti
 alguna vez en datos reales, o es sólo un artefacto del tipo?) y, si aplica, tratarlo como C
 (bloqueado, conservador) en vez de A.
 
+**Medido el 2026-09-23 — hoy no ocurre.** El único origen posible del nulo es la pieza `VIDRIO`,
+que toma `diseno.nivel_vidrio` (nullable); `diseno_perfil.nivel_corte` es `NOT NULL`. Los 163
+diseños tienen `nivel_vidrio` lleno: **0 nulos**. El respaldo `?? 'A'` también vive en el backend
+(`cotizador_calibracion.controller.ts`, `analizarPieza`), así que un cambio a "C" habría que hacerlo
+en los dos sitios. No se tocó (el usuario no lo priorizó). Lo que SÍ apareció al medir fue un bug
+real del mismo inventario —el VIDRIO tomaba el nivel del primer diseño, no el peor— y se corrigió
+ese día: ver `docs/modulos/cotizador.md` → Calibración.
+
 ---
 
 ## 2026-09-21 — Hook de auditoría `afterUpdate`/`afterCreate`/`afterDestroy` no espera su propio INSERT
@@ -137,6 +145,13 @@ da $382.500 en ventanas y $127.500 en tablero — instalar tres tableros cuesta 
 Como el monto es editable, no es un cobro automático equivocado, pero la sugerencia engaña.
 Arreglo: normalizar `areaM2` para que todos devuelvan el área total. Toca el contrato de salida de
 los 6 módulos y lo que pinta `ResultadoCalculo.tsx`. **Pendiente de decisión del usuario.**
+
+**Actualizado el 2026-09-23 — la consecuencia descrita ya no existe.** Desde el mismo 2026-09-20
+`sugerirSMO` cobra **unidades × tarifa**, no área × tarifa, así que `areaM2` dejó de intervenir en
+la mano de obra; y ninguna pantalla lo muestra (0 usos en el frontend, fuera de `types.ts`). Hoy es
+un dato informativo sin consumidor. La inconsistencia de significado sigue (tablero y espejo
+devuelven el área de una pieza; cabinas e ítem libre no se revisaron ese día), y sólo importará si
+algún día se usa para estadística de m² vendidos. El usuario no lo priorizó. Severidad real: **Baja**.
 
 **2. `propuesta_cargo` no guarda `tipo_obra`, solo su etiqueta legible en `descripcion`.** Para
 repoblar el selector de mano de obra al reabrir una propuesta, el frontend replica

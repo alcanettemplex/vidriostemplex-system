@@ -194,6 +194,8 @@ export const despieceDeItem = async (req: Request, res: Response) => {
       vidrios: resultado.cortes.vidrios ?? [],
       nivelCorte: item.nivelCorte ?? null,
       hayErrores: item.hayErrores === true,
+      // El asesor tocó un perfil: estos cortes ya no son sólo los del diseño.
+      perfileriaPersonalizada: resultado.perfileriaPersonalizada === true,
     });
   } catch (e) {
     console.error('despieceDeItem:', e instanceof Error ? e.message : e);

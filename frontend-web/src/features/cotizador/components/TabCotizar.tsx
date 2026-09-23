@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
-import { Plus, Layers, Calculator, PencilRuler } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Plus, Layers, Calculator, PencilRuler, Pencil, X, Save, Lock } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-import { apiGetModulos } from '../services/cotizadorApi';
-import { ItemCarrito, ModuloMeta, ResultadoCalculo as TResultadoCalculo, SegmentoCliente } from '../types';
+import {
+    ItemCarrito, LineaBOM, ModuloMeta, PersonalizacionItem, ResultadoCalculo as TResultadoCalculo, SegmentoCliente,
+} from '../types';
+import { apiCotizarItem } from '../services/cotizadorApi';
 import FormularioModulo from './FormularioModulo';
 import ResultadoCalculo from './ResultadoCalculo';
+import ModalComponente, { AccionComponente } from './modals/ModalComponente';
 import DiagramaProducto from './DiagramaProducto';
 import FichaProducto from './FichaProducto';
 import SelectorProducto from './SelectorProducto';
-import { BotonPrimario, EstadoVacio, Tarjeta } from './ui';
+import { BotonPrimario, BotonSecundario, Chip, EstadoVacio, Tarjeta } from './ui';
 import { usePlanoPrevisualizacion } from '../hooks/usePlano';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26,11 +29,40 @@ import { usePlanoPrevisualizacion } from '../hooks/usePlano';
 //
 // Sigue sin guardar nada: cada cálculo es local hasta que se pulsa "Agregar",
 // y quien es dueño del carrito y de la propuesta activa es CotizadorPage.
+//
+// MODO EDICIÓN (2026-09-23): cuando Actual manda a editar un ítem, el
+// formulario se abre con su input y el botón pasa a "Guardar cambios en el
+// ítem N", que lo reemplaza EN SU POSICIÓN. El segmento ya no es un campo del
+// formulario: es el de la cotización, que llega por `segmento`.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Deja fuera los arreglos vacíos; null si no queda nada (el ítem vuelve a ser
+ * estándar y el input no carga una clave vacía). */
+function limpiarPersonalizacion(p: PersonalizacionItem | null): PersonalizacionItem | null {
+    if (!p) return null;
+    const r: PersonalizacionItem = {};
+    if (p.cambios?.length) r.cambios = p.cambios;
+    if (p.quitados?.length) r.quitados = p.quitados;
+    if (p.extras?.length) r.extras = p.extras;
+    return Object.keys(r).length ? r : null;
+}
+
+/** Ítem del carrito que se está editando, con su posición para el rótulo. */
+export interface ItemEnEdicion {
+    item: ItemCarrito;
+    posicion: number;
+}
+
 interface Props {
-    segmentoDefault: SegmentoCliente;
+    modulos: ModuloMeta[];
+    segmento: SegmentoCliente;
     onAgregarItem: (item: ItemCarrito) => void;
+    edicion: ItemEnEdicion | null;
+    onGuardarEdicion: (item: ItemCarrito) => void;
+    onCancelarEdicion: () => void;
+    /** Motivo por el que no se puede agregar ni editar (propuesta elegida de una
+     * cotización aprobada). null = se puede. */
+    bloqueo: string | null;
     /** Panel de cargos de obra, inyectado por el padre: pertenece a la
      * PROPUESTA, no al ítem que se está configurando, y por eso va arriba del
      * todo y no dentro de la columna de configuración. */
@@ -39,27 +71,109 @@ interface Props {
     destino?: string;
 }
 
-const TabCotizar: React.FC<Props> = ({ segmentoDefault, onAgregarItem, panelCargos, destino }) => {
-    const [modulos, setModulos] = useState<ModuloMeta[]>([]);
-    const [moduloId, setModuloId] = useState<string>('');
+const TabCotizar: React.FC<Props> = ({
+    modulos, segmento, onAgregarItem, edicion, onGuardarEdicion, onCancelarEdicion, bloqueo, panelCargos, destino,
+}) => {
+    const [moduloId, setModuloId] = useState<string>(edicion?.item.moduloId ?? modulos[0]?.id ?? '');
     const [ultimoInput, setUltimoInput] = useState<Record<string, unknown> | null>(null);
     const [ultimoResultado, setUltimoResultado] = useState<TResultadoCalculo | null>(null);
+    /** Componentes cambiados / quitados / agregados del ítem en configuración. */
+    const [personalizacion, setPersonalizacion] = useState<PersonalizacionItem | null>(null);
+    const [recalculando, setRecalculando] = useState(false);
+    const [modalComponente, setModalComponente] = useState<{ modo: 'cambiar' | 'agregar'; linea?: LineaBOM } | null>(null);
 
-    React.useEffect(() => {
-        apiGetModulos()
-            .then(res => {
-                setModulos(res.data);
-                if (res.data.length > 0) setModuloId(res.data[0].id);
-            })
-            .catch(() => toast.error('No se pudo cargar la lista de módulos del cotizador.'));
-    }, []);
+    // La lista de módulos llega del padre de forma asíncrona: si al montar
+    // todavía estaba vacía, se elige el primero en cuanto aparece.
+    useEffect(() => {
+        if (!moduloId && modulos.length > 0) setModuloId(modulos[0].id);
+    }, [modulos, moduloId]);
+
+    // Entrar a editar otro ítem: su módulo y un lienzo limpio.
+    const idEdicion = edicion?.item.idTemp ?? null;
+    useEffect(() => {
+        if (!edicion) return;
+        setModuloId(edicion.item.moduloId);
+        setUltimoInput(null);
+        setUltimoResultado(null);
+        setPersonalizacion(limpiarPersonalizacion(
+            (edicion.item.input.personalizacion as PersonalizacionItem | undefined) ?? null
+        ));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [idEdicion]);
+
+    // Un resultado calculado con otro segmento ya no vale: sus precios son de
+    // otra lista. Se descarta en vez de dejar que se agregue y el backend lo
+    // rechace al guardar.
+    useEffect(() => {
+        if (ultimoInput && ultimoInput.segmentoCliente !== segmento) {
+            setUltimoInput(null);
+            setUltimoResultado(null);
+        }
+    }, [segmento, ultimoInput]);
 
     const moduloActivo = modulos.find(m => m.id === moduloId) || null;
 
     const cambiarModulo = (id: string) => {
+        if (edicion && id !== edicion.item.moduloId) onCancelarEdicion();
         setModuloId(id);
         setUltimoInput(null);
         setUltimoResultado(null);
+        setPersonalizacion(null);
+    };
+
+    /** Recalcula el ítem en el servidor con otra personalización. Si falla, se
+     * queda todo como estaba: el vendedor ve el error y el despiece anterior. */
+    const recalcularCon = async (nueva: PersonalizacionItem | null) => {
+        if (!ultimoInput || !moduloActivo) return;
+        const p = limpiarPersonalizacion(nueva);
+        const input: Record<string, unknown> = { ...ultimoInput };
+        delete input.personalizacion;
+        if (p) input.personalizacion = p;
+        setRecalculando(true);
+        try {
+            const { data } = await apiCotizarItem(moduloActivo.id, input);
+            setUltimoResultado(data);
+            setUltimoInput(input);
+            setPersonalizacion(p);
+        } catch (e: any) {
+            toast.error(e?.response?.data?.error || 'No se pudo recalcular el ítem con ese cambio.');
+        } finally {
+            setRecalculando(false);
+        }
+    };
+
+    const p = personalizacion ?? {};
+    const acciones = {
+        ocupado: recalculando,
+        onCambiar: (linea: LineaBOM) => setModalComponente({ modo: 'cambiar', linea }),
+        onAgregar: () => setModalComponente({ modo: 'agregar' }),
+        onRestaurar: (codigo: string) => recalcularCon({ ...p, quitados: (p.quitados ?? []).filter(q => q !== codigo) }),
+        onDeshacerCambio: (de: string) => recalcularCon({ ...p, cambios: (p.cambios ?? []).filter(c => c.de !== de) }),
+        onQuitar: (linea: LineaBOM) => {
+            if (linea.personalizada === 'agregada') {
+                const extras = [...(p.extras ?? [])];
+                const i = extras.findIndex(x => x.codigo.toUpperCase() === linea.codigo.toUpperCase());
+                if (i >= 0) extras.splice(i, 1);
+                recalcularCon({ ...p, extras });
+                return;
+            }
+            // Quitar una línea ya cambiada = quitar el componente ORIGINAL.
+            const original = typeof linea.codigoOriginal === 'string' ? linea.codigoOriginal : linea.codigo;
+            recalcularCon({
+                ...p,
+                cambios: (p.cambios ?? []).filter(c => c.de !== original),
+                quitados: [...(p.quitados ?? []).filter(q => q !== original), original],
+            });
+        },
+    };
+
+    const alConfirmarComponente = (accion: AccionComponente) => {
+        setModalComponente(null);
+        if (accion.tipo === 'cambio') {
+            recalcularCon({ ...p, cambios: [...(p.cambios ?? []).filter(c => c.de !== accion.de), { de: accion.de, a: accion.a }] });
+        } else {
+            recalcularCon({ ...p, extras: [...(p.extras ?? []), accion.extra] });
+        }
     };
 
     const handleResultado = (resultado: TResultadoCalculo, input: Record<string, unknown>) => {
@@ -67,10 +181,10 @@ const TabCotizar: React.FC<Props> = ({ segmentoDefault, onAgregarItem, panelCarg
         setUltimoInput(input);
     };
 
-    const agregarAlCarrito = () => {
-        if (!ultimoResultado || !ultimoInput || !moduloActivo) return;
-        onAgregarItem({
-            idTemp: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    const confirmar = () => {
+        if (!ultimoResultado || !ultimoInput || !moduloActivo || bloqueo) return;
+        const item: ItemCarrito = {
+            idTemp: edicion?.item.idTemp ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             moduloId: moduloActivo.id,
             moduloNombre: moduloActivo.nombre,
             // El nombre que escribió el vendedor, si su módulo lo pide (hoy solo
@@ -84,10 +198,17 @@ const TabCotizar: React.FC<Props> = ({ segmentoDefault, onAgregarItem, panelCarg
                 : null,
             input: ultimoInput,
             resultado: ultimoResultado,
-        });
-        toast.success('Ítem agregado a la cotización actual.');
+        };
+        if (edicion) {
+            onGuardarEdicion(item);
+            toast.success(`Ítem ${edicion.posicion} actualizado.`);
+        } else {
+            onAgregarItem(item);
+            toast.success('Ítem agregado a la cotización actual.');
+        }
         setUltimoResultado(null);
         setUltimoInput(null);
+        setPersonalizacion(null);
     };
 
     const disenoId = typeof ultimoInput?.disenoId === 'string' ? ultimoInput.disenoId : undefined;
@@ -96,6 +217,9 @@ const TabCotizar: React.FC<Props> = ({ segmentoDefault, onAgregarItem, panelCarg
     const { plano, cargando: cargandoPlano } = usePlanoPrevisualizacion(disenoId, anchoCm, altoCm);
 
     const hayResultado = Boolean(ultimoResultado && ultimoInput);
+    const textoBoton = edicion
+        ? `Guardar cambios en el ítem ${edicion.posicion}`
+        : destino ? `Agregar a ${destino}` : 'Agregar a la cotización actual';
 
     return (
         // El fondo `bg-slate-50` lo pone el cuerpo de la carpeta en
@@ -105,25 +229,48 @@ const TabCotizar: React.FC<Props> = ({ segmentoDefault, onAgregarItem, panelCarg
                 que se está configurando sino a la propuesta entera: el flete y la
                 mano de obra se cobran una vez, no una por producto. */}
             {destino && (
-                <div className="flex items-center gap-2 text-[12.5px] text-slate-500 px-1">
+                <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-slate-500 px-1">
                     <Layers className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                    Lo que calcules aquí se agrega a{' '}
-                    <span className="font-bold text-indigo-700">{destino}</span>
+                    <span>
+                        Lo que calcules aquí se agrega a{' '}
+                        <span className="font-bold text-indigo-700">{destino}</span>
+                    </span>
+                    <Chip tono="indigo" title="El segmento es de la cotización: se cambia en la pestaña Actual y recalcula todos los ítems.">
+                        Precios {segmento}
+                    </Chip>
                 </div>
             )}
 
-            {/* Cargos de obra y tipo de producto van lado a lado en escritorio:
-                antes iban apilados y cada uno ocupaba el 100% del ancho aunque
-                ninguno lo necesitara (Cargos de obra ya tiene su propio
-                `max-w-4xl`; el selector se acomoda solo al espacio que le
-                queda, ver SelectorProducto.tsx). En pantallas angostas siguen
-                apilados: la tabla de cargos no tiene a dónde encogerse más.
-                `items-stretch` iguala el alto de las dos columnas — el panel
-                de descripción de SelectorProducto es lo que crece para llenar
-                la diferencia, no queda un hueco vacío debajo de las tarjetas. */}
-            <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-stretch">
-                <div className="w-full lg:max-w-4xl lg:min-w-0">{panelCargos}</div>
-                <div className="w-full lg:flex-1 lg:min-w-0">
+            {bloqueo && (
+                <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12.5px] text-emerald-800">
+                    <Lock className="w-4 h-4 mt-0.5 shrink-0" />
+                    <p>{bloqueo}</p>
+                </div>
+            )}
+
+            {edicion && (
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-[12.5px] text-indigo-800">
+                    <Pencil className="w-4 h-4 shrink-0" />
+                    <p className="flex-1 min-w-[220px]">
+                        Editando el <span className="font-bold">ítem {edicion.posicion}</span> ({edicion.item.moduloNombre}).
+                        Cambia lo que necesites, pulsa Calcular y luego guarda: el ítem conserva su lugar en la lista.
+                    </p>
+                    <BotonSecundario compacto icono={X} onClick={onCancelarEdicion}>
+                        Cancelar edición
+                    </BotonSecundario>
+                </div>
+            )}
+
+            {/* Cargos de obra (2/5) y producto (3/5): la MISMA rejilla de 5
+                columnas que la fila de configuración | resultado de abajo, para
+                que los bordes de las cuatro tarjetas caigan en la misma línea
+                (2026-09-23; antes esta fila era flex con otro reparto y no
+                alineaba). `items-stretch` iguala el alto; en SelectorProducto
+                lo absorben las filas de tarjetas. En pantallas angostas se
+                apilan. */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 items-stretch">
+                <div className="lg:col-span-2 min-w-0">{panelCargos}</div>
+                <div className="lg:col-span-3 min-w-0">
                     <SelectorProducto modulos={modulos} moduloId={moduloId} onCambiar={cambiarModulo} />
                 </div>
             </div>
@@ -133,27 +280,31 @@ const TabCotizar: React.FC<Props> = ({ segmentoDefault, onAgregarItem, panelCarg
                     {/* ── Configuración (2/5) ─────────────────────────────── */}
                     {/* Sin tarjeta envolvente: cada grupo de campos trae la suya
                         (ver FormularioModulo) y anidarlas daría blanco sobre
-                        blanco con doble borde. */}
+                        blanco con doble borde. La `key` incluye el ítem en
+                        edición para que el formulario se remonte con su input. */}
                     <div className="lg:col-span-2 space-y-3">
                         <FormularioModulo
-                            key={moduloActivo.id}
+                            key={`${moduloActivo.id}-${idEdicion ?? 'nuevo'}`}
                             modulo={moduloActivo}
-                            segmentoDefault={segmentoDefault}
+                            segmento={segmento}
+                            inputInicial={edicion && edicion.item.moduloId === moduloActivo.id ? edicion.item.input : null}
+                            personalizacion={personalizacion}
                             onResultado={handleResultado}
                         />
                     </div>
 
                     {/* ── Resultado (3/5) ─────────────────────────────────── */}
                     <div className="lg:col-span-3 space-y-3">
-                        {/* El diagrama trae su propio marco y resuelve solo los
-                            casos "cargando" y "sin plano" (medidas libres), así
-                            que aquí sólo le pone el título de sección. */}
-                        <Tarjeta titulo="Vista técnica" icono={PencilRuler}>
-                            <DiagramaProducto plano={plano} cargando={cargandoPlano} />
-                        </Tarjeta>
-
                         {hayResultado ? (
                             <>
+                                {/* Sólo con resultado (2026-09-23): antes se pintaba
+                                    siempre y, sin nada calculado, quedaban dos avisos
+                                    vacíos seguidos diciendo lo mismo. El diagrama
+                                    resuelve solo "cargando" y "sin plano". */}
+                                <Tarjeta titulo="Vista técnica" icono={PencilRuler}>
+                                    <DiagramaProducto plano={plano} cargando={cargandoPlano} />
+                                </Tarjeta>
+
                                 {/* Ficha y despiece traen su propia Tarjeta: envolverlos
                                     otra vez daría doble borde. */}
                                 <FichaProducto
@@ -162,7 +313,10 @@ const TabCotizar: React.FC<Props> = ({ segmentoDefault, onAgregarItem, panelCarg
                                     modulo={moduloActivo}
                                 />
 
-                                <ResultadoCalculo resultado={ultimoResultado as TResultadoCalculo} />
+                                <ResultadoCalculo
+                                    resultado={ultimoResultado as TResultadoCalculo}
+                                    acciones={bloqueo ? undefined : acciones}
+                                />
 
                                 {/* Anclado al fondo de la ventana mientras se recorre
                                     el despiece: con 15-20 líneas de materiales, el
@@ -173,13 +327,14 @@ const TabCotizar: React.FC<Props> = ({ segmentoDefault, onAgregarItem, panelCarg
                                 <div className="sticky bottom-0 -mx-1 px-1 pt-2 pb-1 bg-gradient-to-t from-slate-50 via-slate-50 to-transparent">
                                     <BotonPrimario
                                         ancho
-                                        icono={Plus}
-                                        onClick={agregarAlCarrito}
-                                        disabled={ultimoResultado?.hayErrores}
-                                        title={ultimoResultado?.hayErrores ? 'Corrige las líneas en error antes de agregar el ítem.' : ''}
+                                        icono={edicion ? Save : Plus}
+                                        onClick={confirmar}
+                                        disabled={Boolean(ultimoResultado?.hayErrores || bloqueo)}
+                                        title={bloqueo
+                                            ?? (ultimoResultado?.hayErrores ? 'Corrige las líneas en error antes de agregar el ítem.' : '')}
                                         className="py-3 shadow-lg shadow-indigo-600/25"
                                     >
-                                        {destino ? `Agregar a ${destino}` : 'Agregar a la cotización actual'}
+                                        {textoBoton}
                                     </BotonPrimario>
                                 </div>
                             </>
@@ -187,13 +342,25 @@ const TabCotizar: React.FC<Props> = ({ segmentoDefault, onAgregarItem, panelCarg
                             <Tarjeta>
                                 <EstadoVacio
                                     icono={Calculator}
-                                    titulo="Todavía no hay nada calculado"
-                                    detalle="Completa la configuración de la izquierda y pulsa Calcular. Aquí aparecerán la ficha del producto, el despiece de materiales y el total."
+                                    titulo={edicion ? 'Recalcula para guardar los cambios' : 'Todavía no hay nada calculado'}
+                                    detalle={edicion
+                                        ? 'El formulario ya trae los datos del ítem. Ajusta lo que necesites y pulsa Calcular.'
+                                        : 'Completa la configuración de la izquierda y pulsa Calcular. Aquí aparecerán la ficha del producto, el despiece de materiales y el total.'}
                                 />
                             </Tarjeta>
                         )}
                     </div>
                 </div>
+            )}
+
+            {modalComponente && (
+                <ModalComponente
+                    modo={modalComponente.modo}
+                    linea={modalComponente.linea ?? null}
+                    segmento={segmento}
+                    onClose={() => setModalComponente(null)}
+                    onConfirmar={alConfirmarComponente}
+                />
             )}
         </div>
     );

@@ -124,6 +124,14 @@ const editarPropuestaSchema = z
   })
   .strict();
 
+const segmentoSchema = z
+  .object({
+    segmentoCliente: z.enum(['PA', 'PM', 'PB'], { message: 'El segmento debe ser PA, PM o PB.' }),
+    /** Qué propuesta devolver con sus blobs: la que el vendedor tiene abierta. */
+    propuestaId: z.number().int().positive().optional(),
+  })
+  .strict();
+
 const cargosSchema = z
   .object({
     cargos: z.array(cargoSchema).max(20, 'Una propuesta no puede llevar más de 20 cargos de obra.'),
@@ -285,6 +293,24 @@ export const actualizarCotizacion = async (req: Request, res: Response) => {
     res.json(actualizada);
   } catch (e) {
     fallo(res, 'actualizarCotizacion', e, 'No se pudo actualizar la cotización.');
+  }
+};
+
+/**
+ * PATCH /cotizaciones/:id/segmento — cambia PA/PM/PB y recalcula con el motor
+ * los ítems de TODAS las propuestas, en una sola transacción. Si un ítem no se
+ * puede recalcular no cambia nada (409); los que quedan sin precio en la lista
+ * nueva vuelven en `advertencias`.
+ */
+export const cambiarSegmento = async (req: Request, res: Response) => {
+  const id = idValido(req.params.id);
+  if (id === null) return res.status(400).json({ error: 'El identificador de cotización no es válido.' });
+  try {
+    const { segmentoCliente, propuestaId } = segmentoSchema.parse(req.body ?? {});
+    const r = await store.cambiarSegmento(id, segmentoCliente, { propuestaActiva: propuestaId });
+    res.json(r);
+  } catch (e) {
+    fallo(res, 'cambiarSegmento', e, 'No se pudo cambiar el segmento de la cotización.');
   }
 };
 

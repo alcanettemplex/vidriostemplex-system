@@ -3,7 +3,7 @@ import { Calculator, Users, Ruler, Droplet, Percent } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { apiCotizarItem } from '../services/cotizadorApi';
-import { CampoMeta, GrupoCampo, ModuloMeta, OpcionCampo, ResultadoCalculo, SegmentoCliente } from '../types';
+import { CampoMeta, GrupoCampo, ModuloMeta, OpcionCampo, PersonalizacionItem, ResultadoCalculo, SegmentoCliente } from '../types';
 import CampoDinamico from './CampoDinamico';
 import SelectorDiseno from './SelectorDiseno';
 import { BotonPrimario, Chip, Tarjeta } from './ui';
@@ -42,8 +42,7 @@ const GRUPO_CONFIG: Record<GrupoCampo, {
  * (y sigue igual que antes); esto dice por qué, ahí donde hay que arreglarlo. */
 const MENSAJE_REQUERIDO = 'Este dato es obligatorio para calcular.';
 
-function valorInicial(campo: ModuloMeta['campos'][number], segmentoDefault: SegmentoCliente): unknown {
-    if (campo.nombre === 'segmentoCliente') return segmentoDefault;
+function valorInicial(campo: ModuloMeta['campos'][number]): unknown {
     if (campo.nombre === 'cantidadPiezas') return 1;
     if (campo.nombre === 'descuentoPct') return 0;
     if (campo.tipo === 'boolean') return false;
@@ -88,17 +87,30 @@ function esCampoAlto(campo: CampoMeta): boolean {
 // un dato que se iba a ignorar.
 const CAMPOS_DERIVADOS_DEL_DISENO = ['cuerpos', 'alasCorredizas'];
 
+// El segmento (PA/PM/PB) es de la COTIZACIÓN desde el 2026-09-23: lo decide la
+// cabecera y se inyecta al calcular. Pedirlo por ítem permitía mezclar precios
+// de dos listas en la misma cotización sin que nadie lo notara.
+const CAMPOS_DE_LA_COTIZACION = ['segmentoCliente'];
+
 interface Props {
     modulo: ModuloMeta;
-    segmentoDefault: SegmentoCliente;
+    /** Segmento vigente de la cotización: con el que se calcula este ítem. */
+    segmento: SegmentoCliente;
+    /** Input de un ítem ya agregado, cuando se está editando. */
+    inputInicial?: Record<string, unknown> | null;
+    /** Componentes cambiados / quitados / agregados (2026-09-23). Los gobierna
+     * TabCotizar desde la tabla de materiales; aquí sólo viajan al calcular,
+     * para que volver a pulsar Calcular (p. ej. tras cambiar una medida) no los
+     * pierda. */
+    personalizacion?: PersonalizacionItem | null;
     onResultado: (resultado: ResultadoCalculo, input: Record<string, unknown>) => void;
 }
 
-const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultado }) => {
+const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, personalizacion, onResultado }) => {
     const [input, setInput] = useState<Record<string, unknown>>(() => {
         const inicial: Record<string, unknown> = {};
-        modulo.campos.forEach(campo => { inicial[campo.nombre] = valorInicial(campo, segmentoDefault); });
-        return inicial;
+        modulo.campos.forEach(campo => { inicial[campo.nombre] = valorInicial(campo); });
+        return inputInicial ? { ...inicial, ...inputInicial } : inicial;
     });
     const [cargando, setCargando] = useState(false);
     // Nombre del campo que hizo fallar el último intento de calcular. Es sólo
@@ -114,7 +126,8 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
     };
 
     const hayDiseno = Boolean(input.disenoId);
-    const campoOculto = (nombre: string) => hayDiseno && CAMPOS_DERIVADOS_DEL_DISENO.includes(nombre);
+    const campoOculto = (nombre: string) =>
+        CAMPOS_DE_LA_COTIZACION.includes(nombre) || (hayDiseno && CAMPOS_DERIVADOS_DEL_DISENO.includes(nombre));
     const camposVisibles = (campos: CampoMeta[]) => campos.filter(c => !campoOculto(c.nombre));
 
     const calcular = async () => {
@@ -130,8 +143,13 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
 
         setCargando(true);
         try {
-            const { data } = await apiCotizarItem(modulo.id, input);
-            onResultado(data, input);
+            // El input del formulario puede traer una personalización vieja (la del
+            // ítem al abrirlo en edición): manda la vigente, que es la de TabCotizar.
+            const enviado: Record<string, unknown> = { ...input, segmentoCliente: segmento };
+            delete enviado.personalizacion;
+            if (personalizacion) enviado.personalizacion = personalizacion;
+            const { data } = await apiCotizarItem(modulo.id, enviado);
+            onResultado(data, enviado);
         } catch (e: any) {
             toast.error(e?.response?.data?.error || 'No se pudo calcular el ítem.');
         } finally {
@@ -140,14 +158,6 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
     };
 
     const errorDe = (nombre: string) => (campoConError === nombre ? MENSAJE_REQUERIDO : null);
-
-    // Segmento vigente en el formulario, para el único campo que necesita ver a
-    // un hermano: la tabla de líneas del ítem libre, que previsualiza el precio
-    // PA/PM/PB de cada código. Se cae al default del padre mientras el select no
-    // se haya tocado.
-    const segmentoActual = (typeof input.segmentoCliente === 'string'
-        ? input.segmentoCliente
-        : segmentoDefault) as SegmentoCliente;
 
     const hayCampoSinGrupo = modulo.campos.some(c => !c.grupo);
 
@@ -183,7 +193,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
                                 value={input[campo.nombre]}
                                 onChange={setCampo(campo.nombre)}
                                 error={errorDe(campo.nombre)}
-                                segmento={segmentoActual}
+                                segmento={segmento}
                             />
                         ))}
                     </div>
@@ -201,7 +211,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
     });
 
     const camposCliente = camposPorGrupo.get('cliente') || [];
-    const chipsCliente = camposCliente
+    const chipsCliente = camposVisibles(camposCliente)
         .filter(c => c.tipo === 'select')
         .map(c => labelDeOpcion(c, input[c.nombre]))
         .filter((v): v is string => v !== null)
@@ -218,7 +228,9 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
 
     return (
         <div className="space-y-3">
-            {GRUPOS_ORDEN.filter(g => (camposPorGrupo.get(g) || []).length > 0).map(grupo => {
+            {/* Por campos VISIBLES: un grupo cuyo único campo era el segmento
+                quedaría como tarjeta vacía ahora que el segmento no se pide aquí. */}
+            {GRUPOS_ORDEN.filter(g => camposVisibles(camposPorGrupo.get(g) || []).length > 0).map(grupo => {
                 const campos = camposPorGrupo.get(grupo)!;
                 const cfg = GRUPO_CONFIG[grupo];
 
@@ -249,7 +261,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmentoDefault, onResultad
                                         value={input[campo.nombre]}
                                         onChange={setCampo(campo.nombre)}
                                         error={errorDe(campo.nombre)}
-                                        segmento={segmentoActual}
+                                        segmento={segmento}
                                     />
                                     {campo.nombre === 'sistema' && campo.tipo === 'select' && (campo.opciones?.length ?? 0) > 1 && (
                                         <p className="text-[10.5px] text-slate-400 mt-1">Ver catálogo para disponibilidad por color.</p>
