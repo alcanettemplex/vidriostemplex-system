@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Plus, Layers, Calculator, PencilRuler, Pencil, X, Save, Lock } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -12,8 +12,9 @@ import ModalComponente, { AccionComponente } from './modals/ModalComponente';
 import DiagramaProducto from './DiagramaProducto';
 import FichaProducto from './FichaProducto';
 import SelectorProducto from './SelectorProducto';
-import { BotonPrimario, BotonSecundario, Chip, EstadoVacio, Tarjeta } from './ui';
+import { BotonPrimario, BotonSecundario, EstadoVacio, Tarjeta } from './ui';
 import { usePlanoPrevisualizacion } from '../hooks/usePlano';
+import { colorPropuesta, rotuloPropuesta } from '../propuestaColor';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pestaña "Cotizar" — el configurador.
@@ -34,6 +35,12 @@ import { usePlanoPrevisualizacion } from '../hooks/usePlano';
 // formulario se abre con su input y el botón pasa a "Guardar cambios en el
 // ítem N", que lo reemplaza EN SU POSICIÓN. El segmento ya no es un campo del
 // formulario: es el de la cotización, que llega por `segmento`.
+//
+// DESTINO VISIBLE (2026-09-23): una franja del color de la propuesta dice arriba
+// para cuál se está cotizando, y el botón "Agregar a Propuesta B" lleva ese
+// mismo color. Antes era una línea gris de 12px que el usuario no vio. Y si
+// cambia el tipo de cliente con un ítem calculado sin agregar, ese ítem se
+// recalcula solo en vez de perderse.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Deja fuera los arreglos vacíos; null si no queda nada (el ítem vuelve a ser
@@ -67,12 +74,14 @@ interface Props {
      * PROPUESTA, no al ítem que se está configurando, y por eso va arriba del
      * todo y no dentro de la columna de configuración. */
     panelCargos?: React.ReactNode;
-    /** Etiqueta de la propuesta a la que se agregará lo que se calcule aquí. */
-    destino?: string;
+    /** Propuesta a la que se agregará lo que se calcule aquí. */
+    destino: { etiqueta: string; nombre: string | null; items: number; guardada: boolean };
+    onVerPropuesta: () => void;
 }
 
 const TabCotizar: React.FC<Props> = ({
     modulos, segmento, onAgregarItem, edicion, onGuardarEdicion, onCancelarEdicion, bloqueo, panelCargos, destino,
+    onVerPropuesta,
 }) => {
     const [moduloId, setModuloId] = useState<string>(edicion?.item.moduloId ?? modulos[0]?.id ?? '');
     const [ultimoInput, setUltimoInput] = useState<Record<string, unknown> | null>(null);
@@ -101,17 +110,34 @@ const TabCotizar: React.FC<Props> = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [idEdicion]);
 
-    // Un resultado calculado con otro segmento ya no vale: sus precios son de
-    // otra lista. Se descarta en vez de dejar que se agregue y el backend lo
-    // rechace al guardar.
-    useEffect(() => {
-        if (ultimoInput && ultimoInput.segmentoCliente !== segmento) {
-            setUltimoInput(null);
-            setUltimoResultado(null);
-        }
-    }, [segmento, ultimoInput]);
-
     const moduloActivo = modulos.find(m => m.id === moduloId) || null;
+
+    // Un resultado calculado con otro tipo de cliente ya no vale: sus precios son
+    // de otra lista, y el backend lo rechazaría al guardar. Antes se descartaba
+    // y el vendedor tenía que volver a pulsar Calcular; ahora se recalcula solo
+    // con el mismo input (y su personalización). Sólo si eso falla se descarta.
+    const recalculandoSegmento = useRef(false);
+    useEffect(() => {
+        if (!ultimoInput || ultimoInput.segmentoCliente === segmento || !moduloActivo) return;
+        if (recalculandoSegmento.current) return;
+        recalculandoSegmento.current = true;
+        const input = { ...ultimoInput, segmentoCliente: segmento };
+        setRecalculando(true);
+        apiCotizarItem(moduloActivo.id, input)
+            .then(({ data }) => {
+                setUltimoResultado(data);
+                setUltimoInput(input);
+            })
+            .catch(() => {
+                setUltimoResultado(null);
+                setUltimoInput(null);
+                toast.warn('No se pudo recalcular el ítem en curso con el tipo de cliente nuevo: vuelve a pulsar Calcular.');
+            })
+            .finally(() => {
+                recalculandoSegmento.current = false;
+                setRecalculando(false);
+            });
+    }, [segmento, ultimoInput, moduloActivo]);
 
     const cambiarModulo = (id: string) => {
         if (edicion && id !== edicion.item.moduloId) onCancelarEdicion();
@@ -201,10 +227,13 @@ const TabCotizar: React.FC<Props> = ({
         };
         if (edicion) {
             onGuardarEdicion(item);
-            toast.success(`Ítem ${edicion.posicion} actualizado.`);
+            // `info`: el ítem cambió en pantalla, no en la base (el título de
+            // `success` es "Guardado").
+            toast.info(`Ítem ${edicion.posicion} actualizado. Recuerda guardar (Ctrl+S).`);
         } else {
+            // El aviso lo da CotizadorPage, que sabe cuántos ítems lleva la
+            // propuesta y puede ofrecer "Ver propuesta".
             onAgregarItem(item);
-            toast.success('Ítem agregado a la cotización actual.');
         }
         setUltimoResultado(null);
         setUltimoInput(null);
@@ -217,9 +246,11 @@ const TabCotizar: React.FC<Props> = ({
     const { plano, cargando: cargandoPlano } = usePlanoPrevisualizacion(disenoId, anchoCm, altoCm);
 
     const hayResultado = Boolean(ultimoResultado && ultimoInput);
+    const color = colorPropuesta(destino.etiqueta);
+    const rotulo = rotuloPropuesta({ etiqueta: destino.etiqueta, nombre: destino.nombre });
     const textoBoton = edicion
         ? `Guardar cambios en el ítem ${edicion.posicion}`
-        : destino ? `Agregar a ${destino}` : 'Agregar a la cotización actual';
+        : `Agregar a la ${rotulo}`;
 
     return (
         // El fondo `bg-slate-50` lo pone el cuerpo de la carpeta en
@@ -227,17 +258,31 @@ const TabCotizar: React.FC<Props> = ({
         <div className="p-4 space-y-3">
             {/* Destino y cargos van arriba del todo porque no pertenecen al ítem
                 que se está configurando sino a la propuesta entera: el flete y la
-                mano de obra se cobran una vez, no una por producto. */}
-            {destino && (
-                <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-slate-500 px-1">
-                    <Layers className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                    <span>
-                        Lo que calcules aquí se agrega a{' '}
-                        <span className="font-bold text-indigo-700">{destino}</span>
-                    </span>
-                    <Chip tono="indigo" title="El segmento es de la cotización: se cambia en la pestaña Actual y recalcula todos los ítems.">
-                        Precios {segmento}
-                    </Chip>
+                mano de obra se cobran una vez, no una por producto. La franja
+                lleva el color de la propuesta, el mismo de su pestaña en la barra
+                y del botón "Agregar a". */}
+            {!edicion && (
+                <div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border px-3.5 py-2.5 ${color.franja}`}>
+                    <Layers className={`w-4 h-4 shrink-0 ${color.texto}`} />
+                    <p className="flex-1 min-w-[240px] text-[13px] leading-snug">
+                        Estás cotizando para la <span className="font-extrabold">{rotulo}</span>
+                        <span className="opacity-80">
+                            {' '}· precios {segmento}
+                            {' '}· {destino.items === 0
+                                ? 'todavía sin ítems'
+                                : `${destino.items} ítem${destino.items === 1 ? '' : 's'}`}
+                            {!destino.guardada && ' · sin guardar'}
+                        </span>
+                    </p>
+                    {destino.items > 0 && (
+                        <button
+                            type="button"
+                            onClick={onVerPropuesta}
+                            className={`text-[12px] font-bold underline underline-offset-2 ${color.texto}`}
+                        >
+                            Ver sus ítems
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -328,14 +373,20 @@ const TabCotizar: React.FC<Props> = ({
                                     <BotonPrimario
                                         ancho
                                         icono={edicion ? Save : Plus}
+                                        cargando={recalculando}
                                         onClick={confirmar}
                                         disabled={Boolean(ultimoResultado?.hayErrores || bloqueo)}
-                                        title={bloqueo
-                                            ?? (ultimoResultado?.hayErrores ? 'Corrige las líneas en error antes de agregar el ítem.' : '')}
-                                        className="py-3 shadow-lg shadow-indigo-600/25"
+                                        title={bloqueo ?? undefined}
+                                        claseColor={edicion ? undefined : color.boton}
+                                        className="py-3 shadow-lg"
                                     >
                                         {textoBoton}
                                     </BotonPrimario>
+                                    {ultimoResultado?.hayErrores && !bloqueo && (
+                                        <p className="mt-1.5 text-center text-[11.5px] font-semibold text-rose-600">
+                                            Corrige las líneas en rojo del despiece para poder agregar el ítem.
+                                        </p>
+                                    )}
                                 </div>
                             </>
                         ) : (

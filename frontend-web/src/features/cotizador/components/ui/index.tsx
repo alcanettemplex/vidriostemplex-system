@@ -217,6 +217,15 @@ interface PropsBoton extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     compacto?: boolean;
 }
 
+interface PropsBotonPrimario extends PropsBoton {
+    /** Reemplaza el índigo por otro color de fondo (el de la propuesta en
+     * "Agregar a Propuesta B"). Reemplaza, no se suma: dos clases `bg-*` en el
+     * mismo elemento las resuelve el orden del CSS, no el del atributo, y el
+     * resultado sería impredecible. Vive sólo aquí para que los otros botones no
+     * lo reenvíen al `<button>` del DOM. */
+    claseColor?: string;
+}
+
 const BASE_BOTON =
     'inline-flex items-center justify-center rounded-lg font-bold transition ' +
     'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-400 ' +
@@ -232,11 +241,12 @@ const iconoBoton = (compacto: boolean) => (compacto ? 'w-3.5 h-3.5' : 'w-4 h-4')
 /** CTA. Mientras `cargando` queda deshabilitado y muestra spinner: es lo que
  * evita el doble envío en una conexión lenta, que aquí significaría cotizar
  * dos veces. */
-export const BotonPrimario: React.FC<PropsBoton> = ({
+export const BotonPrimario: React.FC<PropsBotonPrimario> = ({
     cargando = false,
     icono: Icono,
     ancho = false,
     compacto = false,
+    claseColor = 'bg-indigo-600 text-white hover:bg-indigo-700',
     disabled,
     children,
     className = '',
@@ -245,7 +255,7 @@ export const BotonPrimario: React.FC<PropsBoton> = ({
     <button
         {...resto}
         disabled={disabled || cargando}
-        className={`${BASE_BOTON} ${TAMANO_BOTON[compacto ? 'compacto' : 'normal']} bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm ${ancho ? 'w-full' : ''} ${className}`}
+        className={`${BASE_BOTON} ${TAMANO_BOTON[compacto ? 'compacto' : 'normal']} ${claseColor} shadow-sm ${ancho ? 'w-full' : ''} ${className}`}
     >
         {cargando ? <Loader2 className={`${iconoBoton(compacto)} animate-spin`} /> : Icono && <Icono className={iconoBoton(compacto)} />}
         {children}

@@ -4,6 +4,24 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-23 — Cotizador: los cambios sin guardar se pierden al navegar por el menú lateral
+
+**Severidad:** Media (UX, pérdida de trabajo) · **Estimación:** 3-5 h (migrar el router) o 1 h (parche)
+
+La barra de trabajo del Cotizador avisa antes de perder cambios en todas las acciones internas y al
+cerrar/recargar la pestaña (`beforeunload`). **No** avisa si el vendedor hace clic en otro módulo del
+menú lateral: `AppRoutes.tsx` usa `<BrowserRouter>` (router declarativo) y el bloqueo de navegación
+de React Router (`useBlocker`) sólo existe con un router de datos (`createBrowserRouter` +
+`RouterProvider`). La cotización en construcción vive en estado local de `CotizadorPage`, así que al
+desmontarse se pierde sin preguntar.
+
+Opciones: (1) migrar `AppRoutes` a `createBrowserRouter` — beneficia a todo formulario largo del
+ERP, pero toca el enrutado completo (roles, `RoleRoute`, rutas sin `AppShell`); (2) parche: un
+contexto "hay cambios sin guardar" que `Sidebar.tsx` consulte antes de navegar; (3) guardar un
+borrador del carrito en `sessionStorage` y ofrecer recuperarlo al volver.
+
+---
+
 ## 2026-09-22 — `npm run lint` del backend está roto: ESLint 10 con config de ESLint 8
 
 **Severidad:** Media (DX) · **Estimación:** 1-2 h

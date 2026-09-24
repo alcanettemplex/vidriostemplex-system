@@ -199,6 +199,40 @@ El motor `lib/sincronizacionProveedores.ts` (enganchado en `actualizarPrecio`) m
 
 Ver `docs/modulos/compras.md` para las reglas del módulo del que vienen esos costos.
 
+### Cómo llega el costo al mapear en Proveedores (verificado en código el 2026-09-23)
+
+Toda vía que mueve un precio en Proveedores —`vincularPendiente` (bandeja Por Mapear),
+`agregarPrecioManual`, `editarPrecio`, `importarListaPrecios` y `cargarFacturasLote`— pasa por
+`actualizarPrecio()` de `proveedor.controller.ts`, que tras el commit llama a
+`programarRecalculo(catalogo_producto_id)`. Ese recálculo toma el **proveedor más barato por costo
+normalizado** (perfilería: prefiere `TIRA_6M` ÷ 6), aplica el multiplicador de la categoría,
+escribe `costo_unitario` + PA/PM/PB, deja historial y **recarga la caché**: el precio nuevo llega a
+Cotizar sin reiniciar el backend.
+
+Condiciones para que funcione — si falla una, el costo no se mueve y no hay aviso:
+1. El producto del Cotizador tiene `catalogo_producto_id` (hoy 459 de 470; los 11 sin vínculo nunca
+   se sincronizan aunque se mapeen).
+2. La equivalencia en Proveedores apunta a **ese mismo** `catalogo_producto_id`.
+3. El proveedor está activo y con `seguir_precios = true`.
+4. No es un precio retroactivo (factura anterior al vigente).
+
+**Estado medido el 2026-09-23** (productos vinculados, sin provisionales):
+
+| Categoría | Con proveedor seguido (costo vivo) | Sin ninguna equivalencia (costo sembrado del Excel) |
+|---|---|---|
+| PERFILERIA | 60 | 172 |
+| ACCESORIO | 50 | 121 (+1 solo con proveedor no seguido) |
+| VIDRIO | 11 | 29 |
+| ACABADO | 7 | 8 |
+
+Los 330 sin equivalencia **sí tienen precio** (el sembrado); se irán volviendo vivos solos a medida
+que el usuario mapee códigos en Proveedores — decisión del usuario, no requiere código. De los 470
+productos que ven los motores (464 `CATALOGO` + 6 `ALTA`), **459 tienen precio**; los 11 en $0 están
+listados en "Lo que falta". Los 126 `PROVISIONAL` no los ve ningún motor.
+
+Al mapear, el precio de venta puede **saltar** respecto al sembrado (el costo del Excel era de otra
+fecha): no es un error, es el costo real entrando.
+
 ---
 
 ## Generador de perfilería para SAP (2026-09-21)
@@ -648,6 +682,61 @@ número del consecutivo lo consumió la prueba con autorización del usuario; **
 
 ---
 
+## Barra de trabajo y flujo de propuestas (2026-09-23, UX)
+
+Pedido del usuario: "que el sistema sea amigable, aplica las mejores prácticas". Motivo: no encontró
+cómo agregar un ítem a la Propuesta B (el destino era una línea gris de 12 px y las propuestas sólo
+se manejaban en Actual). **Sólo frontend** — backend, BD y reglas intactos.
+
+- **`components/BarraTrabajo.tsx`** — fija arriba de **Cotizar y Actual** (ya no sale en Guardadas).
+  Fila 1: cotización + estado + cliente · **Tipo de cliente PA | PM | PB** (control segmentado,
+  `role="radiogroup"`) · **Guardar** con estado (*Cambios sin guardar* / *Guardando…* / ✓
+  *Guardado*) y **Ctrl+S**. Fila 2: **pestañas de propuesta** (clic cambia, doble clic o lápiz
+  renombra — usa `PATCH …/propuestas/:pid` que existía sin UI; sólo actualiza `propuestas`, no
+  vuelca la cotización, para no pisar ítems sin guardar), **"Nueva propuesta ▾"** (vacía / copia
+  exacta / variante con otro vidrio) y las cifras de siempre.
+- **Color fijo por propuesta** (`propuestaColor.ts`): A índigo, B verde azulado, C ámbar, D rosa,
+  E violeta — en la pestaña, la franja de Cotizar, el botón "Agregar a" y el punto de las tarjetas
+  de Actual. Clases literales (Tailwind). `rotuloPropuesta()` da el mismo texto en todos lados.
+- **Cotizar:** franja "Estás cotizando para la Propuesta B · … · precios PA · N ítems"; botón
+  `Agregar a la Propuesta B · <nombre>` del color de la propuesta (`BotonPrimario` ganó
+  `claseColor`). Cambiar el tipo de cliente con un ítem calculado sin agregar **lo recalcula solo**
+  (antes se descartaba).
+- **`ModalCambiosSinGuardar`** reemplaza los `window.confirm` "¿seguir? se perderán": **Guardar y
+  continuar** (principal, foco inicial) · Descartar · Cancelar (Esc). Lo usa `prepararAccion()` en
+  `CotizadorPage` antes de cambiar/crear/elegir/borrar propuesta, cambiar el tipo de cliente o
+  empezar cotización nueva. **Borrar propuesta** antes descartaba en silencio los cambios de la
+  activa; ya no.
+- **Cotización sin guardar:** "Nueva propuesta" guarda primero ("Guardar y crear: …") — consume el
+  número del consecutivo, igual que guardar. Guardar por primera vez **ya no salta a Actual**.
+- **Tipo de cliente bloqueado** si la cotización está aprobada **o cualquier** propuesta es legada
+  (el backend recalcula todas; antes sólo se miraba la activa y, parado en la B de una aprobada, el
+  control parecía disponible y respondía 409).
+- `persistir()` devuelve la cotización guardada (o null) para que las acciones "guarden y
+  continúen" con la respuesta en mano; `guardarCotizacion` es su envoltorio.
+- Avisos: el adaptador `services/configurarNotificaciones.ts` (Sileo) titula todo `success` como
+  **"Guardado"** — lo que aún no está guardado (ítem agregado/editado, segmento cambiado sin
+  guardar) va como `info`. Sileo acepta JSX en la descripción (aviso con "Ver propuesta").
+- **Aviso al salir** (`beforeunload`) con cambios pendientes. ⚠️ No cubre la navegación interna del
+  ERP (menú lateral): la app usa `BrowserRouter` y `useBlocker` exige router de datos — ver
+  `TECH_DEBT.md` 2026-09-23.
+- Actual: el tipo de cliente queda de **sólo lectura** ("Se cambia arriba, en la barra"); la tarjeta
+  Propuestas conserva elegir / borrar / comparar; el botón de abajo dice "Guardar cotización N.° X"
+  (mismo verbo que la barra).
+
+**Verificado 2026-09-23:** `tsc` y ESLint del módulo limpios; E2E con Playwright (Edge instalado,
+token firmado localmente para el usuario 30) sobre la cotización de PRUEBA N.° 13: **20/20** —
+copia B, renombrar, agregar a B desde Cotizar, PB con ítem en curso, modal "Guardar y continuar"
+(B quedó con 2 ítems en BD), Ctrl+S sin cambios, PB aplicado a todas en servidor, sin errores JS. La
+N.° 13 quedó como estaba (sólo A, PA, CANCELADO, $426.278,16). El script limpia la N.° 13 también
+si falla a mitad.
+
+⚠️ El ítem de la N.° 13 se creó por API **sin el campo `sistema`**: al editarlo, el formulario pide
+elegir el sistema. Es un artefacto del dato de prueba (los ítems creados desde la UI, N.° 11 y 12,
+sí lo traen), no un defecto de "Editar ítem".
+
+---
+
 ## Personalizar componentes y traer del catálogo general (2026-09-23)
 
 El asesor cotiza un sistema y el motor arma el despiece estándar; el cliente pide otra chapa, un
@@ -709,17 +798,132 @@ la personalización con precio distinto. La N.° 13 quedó de nuevo CANCELADA.
 
 ---
 
-## Lo que falta
+## Los 18 diseños que no se pueden cotizar (diagnóstico 2026-09-23)
 
-- **Campos del formato VR09 en el PDF**: decisión del usuario del 2026-09-23 — queda pendiente, no
-  se trabaja por ahora (ver "El Excel de los asesores", punto 5).
-- 3 de 9 suites de pruebas: `aptitudOrden`, `hojaTrabajo`, `pdf`.
-- Regenerar golden master y centinela del catálogo.
-- Los 24 diseños nivel C.
-- **El modelo de márgenes, si se decide implementarlo** — hoy sólo documentado (ver arriba). Llevar
-  la estructura de gastos a tablas configurables y *derivar* los 12 multiplicadores en vez de
-  guardarlos a mano. No es una corrección: los números vigentes ya son correctos al dígito, así que
-  es valor futuro y cualquier error al portar la fórmula movería precios reales.
+**No es un problema de precio: es de código.** Los 18 comparten uno de tres perfiles cuyo
+`codigos_por_color` está **vacío (`{}`)** en `cotizador.diseno_perfil` — el motor no sabe qué código
+Templex usar en ningún color, así que no hay producto que preciar. Aparecen 28 veces en total, y
+**sólo** en estos 18 diseños (ninguno cotizable los usa).
+
+| Ref (original) | Descripción | Diseños | Sistemas |
+|---|---|---|---|
+| `511` (`511-B`) | Retícula de Aluminio | 8 | Sistema5020 `XX_RETICULA2` · Sistema744 `OXXO_RETICULA`, `XX_RETICULA`, `XX_RETICULA_2x5`, `XXX_3P_RETICULA` · Sistema8025 `OX_RETICULA`, `XX_RETICULA`, `XXX_RETICULA` |
+| `REC30X10` (`REC30X10-AI`) | Tubular 30 mm × 10 mm | 5 | Cabina Deslizante Torino: `OX`, `OXO`, `OXXO`, `OXXO_FACHADA`, `XO` |
+| `ROD1PULG` (`ROD1PULG-AI`) | Tubo Redondo Diám. 1 Pulgada | 5 | Cabina Deslizante Primavera: `OX`, `OXO`, `OXXO`, `XO` · Cabina Batiente `PP_PLEGABLE_RODAMIENTO` |
+
+Todos son nivel **B** (aptos para corte una vez cotizables).
+
+**Lo que necesita el usuario (dato de negocio):** el código Templex de cada uno de los tres perfiles
+**por color** (`MATE`, `CRUDO`, `NEGRO`, `BLANCO`, `BRONCE`, `GRISPLATA`), o confirmar que un perfil
+existe sólo en ciertos colores. Candidatos vistos en `catalogo_productos` que hay que confirmar, no
+asumir: `TUB0511` (id 1132, sin descripción).
+
+**Pista del sufijo `-AI`:** `REC30X10-AI` y `ROD1PULG-AI` parecen ser **acero inoxidable**, no
+aluminio (confirmado para el tubo de 1", ver abajo). Si es así, no tienen color: el mismo código va
+en los seis colores de `codigos_por_color`. Confirmar con el usuario para el 30×10; el `-B` de
+`511-B` sigue sin explicar.
+
+### `ROD1PULG` = `TUB0316` (dato del usuario, 2026-09-23)
+
+Medido ese día:
+- `TUB0316` está en `catalogo_productos` (id **1114**), alias *"Tubo 1" de 1800 mm inox"*. **No**
+  está en `cotizador.producto`: hay que darlo de alta (catálogo general → importar).
+- Un solo proveedor: **ACVICOL**, modalidad **`UNIDAD`**, **$37.500** por tubo de 1.800 mm,
+  activo y seguido.
+
+⚠️ **Choque de unidades — decidir antes de escribir el script.** El despiece pide este perfil en
+milímetros y el motor cobra perfilería **por metro**, pero el proveedor lo vende **por tubo de
+1,8 m**. `sincronizacionProveedores.ts` sólo normaliza `TIRA_6M` (÷ 6); un `UNIDAD` lo tomaría como
+costo por metro y cobraría $37.500/m en vez de ~$20.833/m. Opciones a presentar:
+1. Alta como `PERFILERIA` / `X METRO` con costo $20.833,33 (= 37.500 ÷ 1,8) y **sin sincronización**
+   (el sync lo pisaría con 37.500) — rápida, pero el precio queda congelado.
+2. Generalizar la normalización del sync a "largo de la pieza" (hoy fijo en 6 m para `TIRA_6M`),
+   para que un `UNIDAD` de 1,8 m se divida entre 1,8 — correcta, toca Proveedores.
+3. Cobrarlo por tubo entero (`UND`, `ceil(mm totales / 1800)`), como se compra — toca el motor.
+
+✅ **Decidido por el usuario el 2026-09-23: tubos enteros según el ancho** — hasta 1.800 mm es 1
+tubo, de 1.801 a 3.600 mm son 2, y así sucesivamente. "Ese tubo lo venden a esa medida y es un solo
+precio, no se vende fraccionado." Precio por tubo ($37.500 de costo × multiplicador), que el
+vínculo con ACVICOL (`UNIDAD`) puede seguir alimentando sin normalizar. Implica que el motor aprenda
+a cobrar **un perfil por pieza entera** (hoy toda la perfilería se cobra por metro en
+`motorDespiece.ts`, `lineaCatalogo(codigo, metrosConDesperdicio, …)`): hace falta saber el largo de
+pieza del producto (1.800 mm) — probablemente una columna nueva en `cotizador.producto` o un dato
+por producto — y definir si el 5 % de desperdicio aplica antes del redondeo (con piezas enteras
+normalmente **no**: el sobrante ya es el desperdicio). Plan detallado en la sesión del 2026-09-24.
+
+**Trampa — `cotizable` es un flag GRABADO, no se recalcula.** `cotizador.diseno.cotizable` y
+`refs_sin_precio` se escribieron en la siembra del 2026-09-07; `cache.ts` los lee tal cual y
+`motorDespiece.listarDisenos(soloCotizables)` filtra por él. Llenar los códigos **no** hace aparecer
+los diseños: el script que cargue los códigos tiene que, en la misma transacción:
+1. escribir `codigos_por_color` de las 28 filas de `diseno_perfil`,
+2. verificar que cada código exista en `cotizador.producto` con precio > 0 (si no, darlo de alta
+   desde el catálogo general — `POST /catalogo-general/importar`),
+3. poner `cotizable = true` y `refs_sin_precio = '[]'` en los 18 diseños,
+4. recargar la caché (reiniciar backend o `recargarPrecios()`),
+
+y verificarse cotizando al menos un diseño de cada sistema.
+
+---
+
+## Productos en $0 (2026-09-23)
+
+| Código | Qué es | Decisión del usuario |
+|---|---|---|
+| `CL4MM03LM` | Vidrio claro 2+2 laminado | **Producto sobre pedido**: el precio se pide al proveedor por cotización. Cuando llegue, cargarlo en Proveedores (precio manual sobre `catalogo_producto_id` 423) y el sync lo propaga solo |
+| `CL4MM08SP` | Vidrio claro 4 mm templado STV | Igual — sobre pedido, `catalogo_producto_id` 425 |
+| `KDE0303` | Kit deslizante 6 mm en L | **Identificar con el usuario a qué sistema pertenecen y su código Templex** |
+| `KDE0304` | Kit deslizante 6 mm tres cuerpos | ídem |
+| `KVE001` | Kit ventanería especial | ídem |
+| `SDR0301` | Set de rodamiento AN 208 | ídem |
+| `CM572A` | Cerradura a muro 5724 | ídem |
+| `1BPB07`, `1BPB10`, `1PERF01`, `1BOQN02` | "CODIGO NO EXISTE" — prefijo `1` de código de compra | Basura de la siembra; decidir baja |
+
+Los 5 kits **no bloquean ningún diseño hoy**: ninguno está en `diseno_perfil` ni en
+`mapeo_accesorio`, y ningún módulo los referencia en código. Sólo cobrarían $0 si un asesor los elige
+a mano en un ítem libre o en la personalización. Todos están vinculados a `catalogo_productos`, así
+que cargando su precio en Proveedores se costean solos.
+
+---
+
+## Cotización sin cliente ni asesor — deliberado mientras está aislado
+
+Hoy se puede guardar y aprobar una cotización sin cliente y sin asesor (`clienteSchema` y `asesor`
+son `optional()`; las N.° 11 y 12 están así). **No es un bug a corregir ahora** (decisión del
+usuario, 2026-09-23): el módulo está aislado y en preparación; la obligatoriedad llega con la
+identidad real (`cliente_id`, `asesor_usuario_id`) al lanzarlo a producción. Queda como condición de
+salida del paso 6 de la hoja de ruta.
+
+---
+
+## Hoja de ruta — se ataca un punto a la vez, en este orden
+
+Decisión del usuario (2026-09-23): los pendientes se trabajan uno por uno en el orden que proponga
+Claude. El orden va de lo que desbloquea cotizar hoy a lo que conecta con el ERP.
+
+1. **Los 18 diseños no cotizables** — ver sección arriba. *Siguiente sesión (2026-09-24, oficina).*
+2. **Los 5 kits/accesorios en $0** — identificar sistema y código Templex con el usuario; de paso,
+   decidir la baja de las 4 filas "CODIGO NO EXISTE".
+3. **Vidrios sobre pedido** (`CL4MM03LM`, `CL4MM08SP`) — cargar el precio del proveedor cuando
+   llegue. Evaluar además marcar productos "sobre pedido" para que el motor avise "precio a
+   cotizar con el proveedor" en vez de cobrar $0.
+4. **El PDF no menciona la personalización** — una ventana con miniboreal sale como "Ventanas". Es
+   lo que ve el cliente.
+5. **Red de pruebas** — las 3 suites faltantes (`aptitudOrden`, `hojaTrabajo`, `pdf`) y regenerar el
+   golden master, antes de tocar el flujo del ERP.
+6. **Identidad y acceso de asesores** — `cliente_id`, `asesor_usuario_id`, rol asesor con sus
+   cotizaciones y sin Configuración/Calibración, cliente y asesor obligatorios. Rompe el aislamiento:
+   **requiere orden explícita**.
+7. **Destino** (`cotizador-vision.md`) — ODP desde cotización, generador de perfilería al
+   `SAPModal`, plano al Det. Técnico, estadísticas, enlace público. Requiere orden explícita.
+
+Fuera de la fila:
+- **Campos del formato VR09 en el PDF** — en pausa por decisión del usuario (ver "El Excel de los
+  asesores", punto 5).
+- **Los 24 diseños nivel C** — bloqueados por la cuenta vencida del software de origen.
+- **El modelo de márgenes** — hoy sólo documentado (ver arriba). Llevar la estructura de gastos a
+  tablas configurables y *derivar* los 12 multiplicadores. No es una corrección: los números
+  vigentes ya son correctos al dígito, y un error al portar la fórmula movería precios reales.
+- **Mapear los 330 productos con costo sembrado** — lo hace el usuario en Proveedores, sin código.
 - `npm run lint` del backend está roto de antes (ESLint 10 con `.eslintrc.json`), ver `TECH_DEBT.md`
   2026-09-22. La verificación efectiva hoy es `npm run build` + `test:cotizador`.
 

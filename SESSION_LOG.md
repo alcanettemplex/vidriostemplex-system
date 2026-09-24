@@ -5177,3 +5177,99 @@ vinculado a `catalogo_productos` id 1210): costo 31.932,76 → PA 53.417,12 · P
   está en la BD compartida y la caché lo carga al arrancar). Falta la revisión visual del usuario
   de todo lo de hoy en Cotizar (segmento, editar/duplicar, aprobadas, personalización, catálogo
   general).
+
+---
+
+## 2026-09-23 (3) — Cotizador: análisis de lo que falta y agenda para la oficina (solo documentación)
+
+### Origen
+Pull (ya al día), servicios levantados en local y análisis del módulo Cotizar. Sin cambios de
+código. Consultas de solo lectura contra Supabase (scripts en el scratchpad, no versionados).
+
+### Hallazgos
+- **Costos:** de los 459 productos vinculados, sólo 128 tienen un proveedor seguido; 330 no tienen
+  ninguna equivalencia en Proveedores y conservan el costo sembrado del Excel. Verificado en código
+  que se irán volviendo vivos solos al mapear: toda vía de Proveedores pasa por `actualizarPrecio()`
+  → `programarRecalculo()` → recálculo + recarga de caché. Todos los productos visibles tienen
+  precio salvo 11 en $0.
+- **18 diseños no cotizables:** no les falta precio, les falta CÓDIGO. Tres perfiles con
+  `codigos_por_color = {}`: `511` Retícula (8 ventanas 5020/744/8025), `REC30X10` Tubular 30×10
+  (5 cabinas Torino), `ROD1PULG` Tubo redondo 1" (4 Primavera + plegable). Y `cotizable` es un flag
+  grabado en la siembra: llenar los códigos no basta, hay que voltearlo en el mismo script.
+- **Productos en $0:** 2 vidrios sobre pedido, 5 kits/accesorios sin identificar (no bloquean ningún
+  diseño) y 4 filas basura "CODIGO NO EXISTE".
+- Se puede aprobar sin cliente/asesor (N.° 11 y 12): **deliberado** mientras el módulo esté aislado.
+- Asesores sin acceso (solo `root`/`admin`); 3 cotizaciones en total, todas de ventanas.
+
+### Decisiones del usuario
+- Costos sin proveedor: se cargan a medida que él mapee en Proveedores. Sin código.
+- `CL4MM03LM` y `CL4MM08SP` son sobre pedido: pedir precio al proveedor.
+- Los 5 kits (`KDE0303`, `KDE0304`, `KVE001`, `SDR0301`, `CM572A`): recordárselos mañana para
+  identificar sistema y código Templex.
+- Cliente/asesor obligatorios: llega con la identidad real al lanzar a producción.
+- Pendientes: uno por uno, en el orden que proponga Claude → hoja de ruta de 7 pasos en
+  `docs/modulos/cotizador.md`.
+
+### Documentación
+- `docs/modulos/cotizador.md`: "Cómo llega el costo al mapear en Proveedores", "Los 18 diseños que
+  no se pueden cotizar", "Productos en $0", "Cotización sin cliente ni asesor — deliberado" y la
+  "Hoja de ruta" que reemplaza a "Lo que falta".
+
+### Para mañana (2026-09-24, oficina)
+1. `git pull` (esta entrada y la doc viajan en el commit que el usuario ordene).
+2. **Los 18 diseños:** el usuario trae el código Templex por color de la retícula 511, el tubular
+   30×10 y el tubo redondo de 1". Luego: plan → script que llena `codigos_por_color`, da de alta lo
+   que falte desde el catálogo general, voltea `cotizable` y recarga la caché → cotizar uno de cada
+   sistema.
+3. **Recordar los 5 kits** para identificarlos.
+4. **Dato ya recibido:** `ROD1PULG` = `TUB0316` (tubo 1" inox de 1.800 mm, ACVICOL $37.500 por
+   UNIDAD, no está aún en `cotizador.producto`). Hay un choque de unidades (el motor cobra por metro,
+   el proveedor vende por tubo de 1,8 m) con 3 opciones documentadas en `cotizador.md` → decidir
+   antes del script. Faltan los códigos de `511` y `REC30X10`.
+5. Propuesta pendiente de "procede": selector PA/PM/PB visible en todas las pestañas (hoy sólo está
+   en Actual, dentro de la tarjeta del cliente).
+
+---
+
+## 2026-09-23 (4) — Cotizador: barra de trabajo y flujo de propuestas amigable (frontend)
+
+### Origen
+El usuario no encontró cómo agregar un ítem a la Propuesta B, pidió el selector PA/PM/PB visible en
+cualquier momento y "que el sistema sea amigable, aplica las mejores prácticas". Plan aprobado con
+"procede". Las dos preguntas abiertas (guardado manual vs automático, colores por propuesta) se
+resolvieron con la recomendación: **guardado manual** (botón siempre visible + Ctrl+S + aviso al
+salir) y **colores fijos por propuesta**.
+
+### Decisiones del usuario (misma sesión)
+- `TUB0316` (= `ROD1PULG`): **tubos enteros según el ancho** (hasta 1.800 mm = 1 tubo, 1.801-3.600 =
+  2…), precio por tubo, no fraccionado. Documentado en `cotizador.md`; se implementa mañana.
+
+### Cambios (sólo frontend, `features/cotizador/`)
+- Nuevos: `components/BarraTrabajo.tsx`, `components/modals/ModalCambiosSinGuardar.tsx`,
+  `propuestaColor.ts`.
+- `CotizadorPage.tsx`: `persistir()` (devuelve la cotización), `prepararAccion()` (guardar /
+  descartar / cancelar antes de acciones que recargan), `nuevaPropuesta(tipo)`,
+  `renombrarPropuesta`, `nuevaCotizacion`, Ctrl+S, `beforeunload`; el tipo de cliente se bloquea si
+  la cotización está aprobada o cualquier propuesta es legada; guardar por primera vez ya no salta a
+  Actual; borrar propuesta ya no descarta en silencio los cambios de la activa.
+- `TabCotizar.tsx`: franja y botón del color de la propuesta; recalcula el ítem en curso al cambiar
+  el tipo de cliente.
+- `TabActual.tsx`: tipo de cliente de sólo lectura; fuera los botones de crear propuesta (están en
+  la barra); punto de color en las tarjetas; "Guardar cotización N.° X".
+- `ui/index.tsx`: `BotonPrimario` acepta `claseColor`.
+- Avisos de acciones aún no guardadas → `info` (el adaptador Sileo titula todo `success` como
+  "Guardado").
+
+### Verificación
+- `tsc --noEmit` y ESLint del módulo: limpios. Dev server: "No issues found".
+- E2E Playwright (Edge instalado; token firmado localmente para el usuario 30) sobre la cotización
+  de PRUEBA N.° 13: **20/20**. La N.° 13 quedó igual (sólo A, PA, CANCELADO, $426.278,16).
+- Hallazgo: el ítem de la N.° 13 no trae `sistema` porque se creó por API; no es defecto de la UI.
+
+### Deuda registrada
+- `TECH_DEBT.md` 2026-09-23: la navegación por el menú lateral no avisa de cambios sin guardar
+  (`BrowserRouter` no admite `useBlocker`).
+
+### Pendientes
+- Revisión visual del usuario en `localhost:3000`.
+- Sin commit: el usuario decide cuándo (documentación de toda la sesión + este cambio).

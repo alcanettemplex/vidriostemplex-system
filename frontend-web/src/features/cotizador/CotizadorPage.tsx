@@ -7,21 +7,22 @@ import FolderTabs, { FOLDER_BODY } from '../../components/FolderTabs';
 import {
     apiEstadoCotizador, apiGetParametros, apiCrearCotizacion, apiActualizarCotizacion,
     apiObtenerCotizacion, apiCrearPropuesta, apiElegirPropuesta, apiEliminarPropuesta,
-    apiGuardarCargos, apiGetModulos, apiCambiarSegmento, apiCotizarItem,
+    apiGuardarCargos, apiGetModulos, apiCambiarSegmento, apiCotizarItem, apiActualizarPropuesta,
 } from './services/cotizadorApi';
 import {
     ClienteCotizacion, Cotizacion, EstadoCotizacion, ItemCarrito, ModuloMeta, Parametros, Propuesta,
     RespuestaPropuesta, SegmentoCliente,
 } from './types';
-import { fmtCOP } from './format';
+import { rotuloPropuesta } from './propuestaColor';
 import TabCotizar, { ItemEnEdicion } from './components/TabCotizar';
 import TabActual from './components/TabActual';
 import TabGuardadas from './components/TabGuardadas';
 import TabCalibracion from './components/TabCalibracion';
 import TabConfiguracion from './components/TabConfiguracion';
+import BarraTrabajo, { TipoNuevaPropuesta } from './components/BarraTrabajo';
 import PanelCargosObra, { EstadoCargos, cargosADTO, cargosDesdeApi, cargosIniciales, resumenCargos } from './components/PanelCargosObra';
 import ModalClonarPropuesta from './components/modals/ModalClonarPropuesta';
-import { Chip } from './components/ui';
+import ModalCambiosSinGuardar, { DecisionCambios } from './components/modals/ModalCambiosSinGuardar';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Módulo Cotizador — /cotizador, solo root/admin.
@@ -82,23 +83,28 @@ type TabKey = 'cotizar' | 'actual' | 'guardadas' | 'calibracion' | 'configuracio
  */
 const CUERPO_TRABAJO = FOLDER_BODY.replace('bg-white', 'bg-slate-50');
 
-/** Dato de la barra de contexto: rótulo pequeño arriba, cifra debajo. Los tres
- * (ítems, productos, total) se leen como una fila de indicadores en vez de
- * como una frase corrida, que era lo que hacía difícil encontrar el total. */
-const DatoContexto: React.FC<{ etiqueta: string; valor: React.ReactNode; destacado?: boolean }> = ({
-    etiqueta, valor, destacado = false,
-}) => (
-    <div className="text-right">
-        <div className="text-[10px] font-extrabold uppercase tracking-wide text-slate-400">{etiqueta}</div>
-        <div
-            className={`font-cotizador-head tabular-nums font-bold leading-tight whitespace-nowrap ${
-                destacado ? 'text-[15px] text-indigo-700' : 'text-[13px] text-slate-800'
-            }`}
-        >
-            {valor}
-        </div>
-    </div>
-);
+/** Tope de propuestas por cotización. Réplica de `MAX_PROPUESTAS` del store: no
+ * es un número técnico, es donde el comparador deja de caber en una pantalla
+ * girada hacia el cliente. Aquí sólo deshabilita el botón; quien de verdad lo
+ * impone (con un 409) es el backend. */
+const MAX_PROPUESTAS = 5;
+
+/** Qué propuesta queda activa al volcar una cotización del servidor: la que
+ * nombra el backend; si no la manda —dato viejo sin propuestas— la elegida, y
+ * si no, la primera. */
+function idPropuestaActiva(cot: Cotizacion): number | null {
+    const lista = cot.propuestas ?? [];
+    return cot.propuestaActivaId ?? lista.find(p => p.elegida)?.id ?? lista[0]?.id ?? null;
+}
+
+/** Contexto con que arranca una acción de propuesta, ya con lo pendiente resuelto. */
+interface ContextoAccion {
+    cotId: number;
+    pid: number | null;
+    /** La cotización recién guardada, si hubo que guardar: el estado de React no
+     * se actualiza hasta el próximo render, y la acción la necesita ya. */
+    cot: Cotizacion | null;
+}
 
 const CotizadorPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -144,6 +150,12 @@ const CotizadorPage: React.FC = () => {
     const [sucio, setSucio] = useState(false);
     const [ocupado, setOcupado] = useState(false);
     const [clonando, setClonando] = useState<Propuesta | null>(null);
+    /** Pregunta abierta de "cambios sin guardar": qué iba a hacer el vendedor y
+     * a quién devolverle la respuesta (ver `preguntarCambios`). */
+    const [preguntaCambios, setPreguntaCambios] = useState<{
+        accion: string;
+        resolver: (d: DecisionCambios) => void;
+    } | null>(null);
 
     useEffect(() => {
         apiEstadoCotizador()
@@ -192,10 +204,38 @@ const CotizadorPage: React.FC = () => {
 
     const marcarSucio = useCallback(() => setSucio(true), []);
 
+    const propuestaActiva = useMemo(
+        () => propuestas.find(p => p.id === propuestaActivaId) ?? null,
+        [propuestas, propuestaActivaId]
+    );
+
+    /** Agrega el ítem y dice DÓNDE quedó y qué falta: antes el aviso era "Ítem
+     * agregado a la cotización actual", que no nombraba la propuesta ni recordaba
+     * que agregar no es guardar. Va como `info` y no `success` a propósito: el
+     * adaptador de avisos (`services/configurarNotificaciones.ts`) titula todo
+     * `success` como "Guardado", y aquí todavía no se guardó nada. */
     const agregarItem = useCallback((item: ItemCarrito) => {
         setCarrito(c => [...c, item]);
         setSucio(true);
-    }, []);
+        const n = carrito.length + 1;
+        const nombre = item.descripcionItem || item.moduloNombre;
+        toast.info(
+            <div className="text-[13px] leading-snug">
+                <p>
+                    <span className="font-bold">{nombre}</span> agregado a la{' '}
+                    <span className="font-bold">{rotuloPropuesta(propuestaActiva)}</span> ({n} ítem{n === 1 ? '' : 's'}).
+                </p>
+                <p className="text-[12px] opacity-80 mt-0.5">Recuerda guardar (Ctrl+S).</p>
+                <button
+                    type="button"
+                    onClick={() => cambiarTab('actual')}
+                    className="mt-1.5 text-[12px] font-bold underline underline-offset-2"
+                >
+                    Ver propuesta
+                </button>
+            </div>
+        );
+    }, [carrito.length, propuestaActiva, cambiarTab]);
 
     const quitarItem = useCallback((idTemp: string) => {
         setCarrito(c => c.filter(i => i.idTemp !== idTemp));
@@ -252,10 +292,7 @@ const CotizadorPage: React.FC = () => {
      */
     const aplicarCotizacion = useCallback((cot: Cotizacion) => {
         const lista = cot.propuestas ?? [];
-        const activaId = cot.propuestaActivaId
-            ?? lista.find(p => p.elegida)?.id
-            ?? lista[0]?.id
-            ?? null;
+        const activaId = idPropuestaActiva(cot);
         const activa = lista.find(p => p.id === activaId) ?? null;
 
         setCabecera({
@@ -289,112 +326,37 @@ const CotizadorPage: React.FC = () => {
         cambiarTab('actual');
     }, [aplicarCotizacion, cambiarTab]);
 
-    /** Toda acción de propuesta recarga desde el servidor: si hay cambios sin
-     * guardar, se pregunta antes en vez de perderlos en silencio. */
-    const confirmarDescarte = useCallback(() => {
-        if (!sucio) return true;
-        return window.confirm(
-            'Tienes cambios sin guardar en esta propuesta (ítems, descuento o cargos). ' +
-            'Si continúas se perderán. ¿Seguir de todas formas?'
-        );
-    }, [sucio]);
-
     const conError = (e: any, respaldo: string) => toast.error(e?.response?.data?.error || respaldo);
 
-    const activarPropuesta = useCallback(async (pid: number) => {
-        if (!edicion || pid === propuestaActivaId) return;
-        if (!confirmarDescarte()) return;
-        setOcupado(true);
-        try {
-            const { data } = await apiObtenerCotizacion(edicion.id, pid);
-            aplicarCotizacion(data);
-        } catch (e) {
-            conError(e, 'No se pudo abrir esa propuesta.');
-        } finally {
-            setOcupado(false);
-        }
-    }, [edicion, propuestaActivaId, confirmarDescarte, aplicarCotizacion]);
+    /** Abre "Tienes cambios sin guardar" y espera la respuesta del vendedor. Es
+     * una promesa para que cada acción se lea de corrido: pregunto → según la
+     * respuesta, guardo, descarto o no hago nada. */
+    const preguntarCambios = useCallback((accion: string) => new Promise<DecisionCambios>(resolve => {
+        setPreguntaCambios({
+            accion,
+            resolver: (d) => {
+                setPreguntaCambios(null);
+                resolve(d);
+            },
+        });
+    }), []);
 
-    /** Propuesta nueva y VACÍA: el vendedor la llena desde Cotizar. */
-    const nuevaPropuesta = useCallback(async () => {
-        if (!edicion || !confirmarDescarte()) return;
-        setOcupado(true);
-        try {
-            const { data } = await apiCrearPropuesta(edicion.id, {});
-            aplicarCotizacion(data.cotizacion);
-            toast.success('Propuesta creada. Agrégale ítems desde la pestaña Cotizar.');
-        } catch (e) {
-            conError(e, 'No se pudo crear la propuesta.');
-        } finally {
-            setOcupado(false);
-        }
-    }, [edicion, confirmarDescarte, aplicarCotizacion]);
-
-    /** Copia EXACTA de la activa (mismos ítems, mismos cargos, sin recalcular).
-     * Para cambiar el vidrio de golpe está el modal de clonado. */
-    const duplicarPropuesta = useCallback(async () => {
-        if (!edicion || !propuestaActivaId || !confirmarDescarte()) return;
-        setOcupado(true);
-        try {
-            const { data } = await apiCrearPropuesta(edicion.id, { desdePropuestaId: propuestaActivaId });
-            aplicarCotizacion(data.cotizacion);
-            toast.success('Propuesta duplicada.');
-        } catch (e) {
-            conError(e, 'No se pudo duplicar la propuesta.');
-        } finally {
-            setOcupado(false);
-        }
-    }, [edicion, propuestaActivaId, confirmarDescarte, aplicarCotizacion]);
-
-    const elegirPropuesta = useCallback(async (pid: number) => {
-        if (!edicion || !confirmarDescarte()) return;
-        setOcupado(true);
-        try {
-            const { data } = await apiElegirPropuesta(edicion.id, pid);
-            aplicarCotizacion(data);
-            toast.success('Propuesta marcada como elegida: es la que se cobra y la que sale a corte.');
-        } catch (e) {
-            conError(e, 'No se pudo elegir la propuesta.');
-        } finally {
-            setOcupado(false);
-        }
-    }, [edicion, confirmarDescarte, aplicarCotizacion]);
-
-    const borrarPropuesta = useCallback(async (pid: number) => {
-        if (!edicion) return;
-        const p = propuestas.find(x => x.id === pid);
-        if (!window.confirm(`¿Borrar la propuesta ${p?.etiqueta ?? ''}? Se pierden sus ítems y sus cargos.`)) return;
-        setOcupado(true);
-        try {
-            const { data } = await apiEliminarPropuesta(edicion.id, pid);
-            aplicarCotizacion(data);
-            toast.success('Propuesta borrada.');
-        } catch (e) {
-            conError(e, 'No se pudo borrar la propuesta.');
-        } finally {
-            setOcupado(false);
-        }
-    }, [edicion, propuestas, aplicarCotizacion]);
-
-    const abrirClonado = useCallback(() => {
-        if (!confirmarDescarte()) return;
-        const activa = propuestas.find(p => p.id === propuestaActivaId);
-        if (activa) setClonando(activa);
-    }, [confirmarDescarte, propuestas, propuestaActivaId]);
-
-    const trasClonar = useCallback((r: RespuestaPropuesta) => {
-        setClonando(null);
-        aplicarCotizacion(r.cotizacion);
-        toast.success('Variante creada con los cambios pedidos.');
-        // El clonado no bloquea si algún ítem sale con errores de precio: se
-        // avisa, una a una, para que el vendedor sepa qué revisar.
-        for (const aviso of r.advertencias ?? []) toast.warn(aviso, { autoClose: 9000 });
-    }, [aplicarCotizacion]);
-
-    const guardarCotizacion = useCallback(async () => {
+    /**
+     * Guarda la propuesta activa y devuelve la cotización tal como quedó en el
+     * servidor, o null si no se pudo (el motivo ya se le mostró al vendedor).
+     *
+     * Es el guardado de siempre, separado de `guardarCotizacion` para que las
+     * acciones de propuesta puedan "guardar y continuar" con la respuesta en la
+     * mano: el estado de React no se actualiza hasta el próximo render.
+     *
+     * Ya no salta a la pestaña Actual al guardar por primera vez: con el botón
+     * Guardar en la barra de trabajo, el vendedor puede estar en Cotizar y
+     * sacarlo de ahí sin pedirlo le rompe el flujo.
+     */
+    const persistir = useCallback(async (): Promise<Cotizacion | null> => {
         if (carrito.length === 0) {
             toast.error('Agrega al menos un ítem antes de guardar.');
-            return;
+            return null;
         }
         setGuardando(true);
         try {
@@ -435,7 +397,8 @@ const CotizadorPage: React.FC = () => {
                 // con la propuesta que se escribió (`obtener(id, {propuesta})` en
                 // el store), igual que el PUT de cargos.
                 aplicarCotizacion(cot);
-                toast.success(`Cotización N.° ${cot.numero} actualizada.`);
+                toast.success(`Cotización N.° ${cot.numero} guardada.`);
+                return cot;
             } else {
                 // Al crear se usa el contrato NUEVO (`propuestas: [...]`) para que
                 // los cargos que el vendedor ya ajustó en Cotizar entren en la
@@ -454,15 +417,207 @@ const CotizadorPage: React.FC = () => {
                     }],
                 });
                 aplicarCotizacion(data);
-                cambiarTab('actual');
-                toast.success(`Cotización N.° ${data.numero} guardada. Ya puedes añadirle propuestas alternativas.`);
+                toast.success(
+                    `Cotización N.° ${data.numero} guardada como Propuesta A. ` +
+                    'Si el cliente quiere otra opción, usa "Nueva propuesta" en la barra de arriba.',
+                    { autoClose: 7000 }
+                );
+                return data;
             }
         } catch (e) {
-            conError(e, 'No se pudo guardar la cotización.');
+            conError(e, 'No se pudo guardar la cotización. Tus cambios siguen en pantalla: revisa el aviso e inténtalo de nuevo.');
+            return null;
         } finally {
             setGuardando(false);
         }
-    }, [carrito, cabecera, descuentoPct, cargos, cargosTocados, edicion, propuestaActivaId, aplicarCotizacion, cambiarTab]);
+    }, [carrito, cabecera, descuentoPct, cargos, cargosTocados, edicion, propuestaActivaId, aplicarCotizacion]);
+
+    const guardarCotizacion = useCallback(async () => {
+        await persistir();
+    }, [persistir]);
+
+    /** Cómo se nombra dónde están los cambios pendientes, en el modal. */
+    const dondeCambios = edicion ? `la ${rotuloPropuesta(propuestaActiva)}` : 'la cotización nueva';
+
+    /**
+     * Deja todo listo para una acción que recarga desde el servidor (cambiar de
+     * propuesta, crear otra, elegir, borrar, cambiar el tipo de cliente) y
+     * devuelve con qué ids seguir, o null si el vendedor canceló o el guardado
+     * falló.
+     *
+     *   · Cotización nueva: no existe en el servidor, así que se guarda primero
+     *     — es lo que permite "Guardar y crear Propuesta B" de un solo clic.
+     *   · Guardada y sin cambios: se sigue directo.
+     *   · Guardada con cambios: se pregunta. Antes era un `window.confirm` que
+     *     sólo ofrecía perderlos o no hacer nada.
+     */
+    const prepararAccion = useCallback(async (accion: string): Promise<ContextoAccion | null> => {
+        if (!edicion) {
+            const cot = await persistir();
+            return cot ? { cotId: cot.id, pid: idPropuestaActiva(cot), cot } : null;
+        }
+        if (!sucio) return { cotId: edicion.id, pid: propuestaActivaId, cot: null };
+
+        const decision = await preguntarCambios(accion);
+        if (decision === 'cancelar') return null;
+        if (decision === 'descartar') return { cotId: edicion.id, pid: propuestaActivaId, cot: null };
+        const cot = await persistir();
+        return cot ? { cotId: cot.id, pid: idPropuestaActiva(cot), cot } : null;
+    }, [edicion, sucio, propuestaActivaId, persistir, preguntarCambios]);
+
+    const activarPropuesta = useCallback(async (pid: number) => {
+        if (!edicion || pid === propuestaActivaId) return;
+        const destino = propuestas.find(p => p.id === pid) ?? null;
+        const ctx = await prepararAccion(`cambiar a la ${rotuloPropuesta(destino)}`);
+        if (!ctx) return;
+        setOcupado(true);
+        try {
+            const { data } = await apiObtenerCotizacion(ctx.cotId, pid);
+            aplicarCotizacion(data);
+        } catch (e) {
+            conError(e, 'No se pudo abrir esa propuesta. Recarga la página si el problema sigue.');
+        } finally {
+            setOcupado(false);
+        }
+    }, [edicion, propuestaActivaId, propuestas, prepararAccion, aplicarCotizacion]);
+
+    /**
+     * Crea otra propuesta para el mismo cliente, de las tres maneras que ofrece
+     * el menú "Nueva propuesta" de la barra:
+     *   · vacía  → se abre Cotizar para armar su primer ítem;
+     *   · copia  → mismos ítems y cargos, sin recalcular;
+     *   · variante → abre el modal que recalcula todo con otro vidrio.
+     * Con la cotización sin guardar, primero la guarda (ver `prepararAccion`).
+     */
+    const nuevaPropuesta = useCallback(async (tipo: TipoNuevaPropuesta) => {
+        const accion = tipo === 'vacia'
+            ? 'crear una propuesta vacía'
+            : tipo === 'copia' ? 'copiar la propuesta' : 'crear una variante con otro vidrio';
+        const ctx = await prepararAccion(accion);
+        if (!ctx) return;
+
+        if (tipo === 'variante') {
+            const lista = ctx.cot?.propuestas ?? propuestas;
+            const base = lista.find(p => p.id === ctx.pid) ?? null;
+            if (base) setClonando(base);
+            return;
+        }
+
+        setOcupado(true);
+        try {
+            const { data } = await apiCrearPropuesta(
+                ctx.cotId,
+                tipo === 'copia' && ctx.pid ? { desdePropuestaId: ctx.pid } : {}
+            );
+            aplicarCotizacion(data.cotizacion);
+            const nueva = (data.cotizacion.propuestas ?? []).find(p => p.id === data.propuestaId) ?? null;
+            if (tipo === 'vacia') {
+                cambiarTab('cotizar');
+                toast.success(`${rotuloPropuesta(nueva)} creada y vacía: configura aquí su primer ítem.`);
+            } else {
+                const origen = (ctx.cot?.propuestas ?? propuestas).find(p => p.id === ctx.pid) ?? null;
+                toast.success(
+                    `${rotuloPropuesta(nueva)} creada como copia de la ${origen?.etiqueta ?? 'anterior'}. ` +
+                    'Agrega, quita o edita lo que cambie.'
+                );
+            }
+        } catch (e) {
+            conError(e, 'No se pudo crear la propuesta.');
+        } finally {
+            setOcupado(false);
+        }
+    }, [prepararAccion, propuestas, aplicarCotizacion, cambiarTab]);
+
+    /** Copia exacta de la activa. La usa el aviso de propuesta legada ("duplícala
+     * a la forma nueva"), que es el único sitio que la pide por nombre. */
+    const duplicarPropuesta = useCallback(() => { nuevaPropuesta('copia'); }, [nuevaPropuesta]);
+
+    const elegirPropuesta = useCallback(async (pid: number) => {
+        if (!edicion) return;
+        const destino = propuestas.find(p => p.id === pid) ?? null;
+        const ctx = await prepararAccion(`marcar la ${rotuloPropuesta(destino)} como elegida`);
+        if (!ctx) return;
+        setOcupado(true);
+        try {
+            const { data } = await apiElegirPropuesta(ctx.cotId, pid);
+            aplicarCotizacion(data);
+            toast.success('Propuesta marcada como elegida: es la que se cobra y la que sale a corte.');
+        } catch (e) {
+            conError(e, 'No se pudo elegir la propuesta.');
+        } finally {
+            setOcupado(false);
+        }
+    }, [edicion, propuestas, prepararAccion, aplicarCotizacion]);
+
+    const borrarPropuesta = useCallback(async (pid: number) => {
+        if (!edicion) return;
+        const p = propuestas.find(x => x.id === pid) ?? null;
+        if (!window.confirm(`¿Borrar la ${rotuloPropuesta(p)}? Se pierden sus ítems y sus cargos, y no se puede deshacer.`)) return;
+        // Borrar recarga la cotización: sin esto, los cambios pendientes de la
+        // propuesta activa se perdían en silencio aunque se borrara otra.
+        const ctx = await prepararAccion(`borrar la ${rotuloPropuesta(p)}`);
+        if (!ctx) return;
+        setOcupado(true);
+        try {
+            const { data } = await apiEliminarPropuesta(ctx.cotId, pid);
+            aplicarCotizacion(data);
+            toast.success('Propuesta borrada.');
+        } catch (e) {
+            conError(e, 'No se pudo borrar la propuesta.');
+        } finally {
+            setOcupado(false);
+        }
+    }, [edicion, propuestas, prepararAccion, aplicarCotizacion]);
+
+    const trasClonar = useCallback((r: RespuestaPropuesta) => {
+        setClonando(null);
+        aplicarCotizacion(r.cotizacion);
+        const nueva = (r.cotizacion.propuestas ?? []).find(p => p.id === r.propuestaId) ?? null;
+        toast.success(
+            <div className="text-[13px] leading-snug">
+                <p><span className="font-bold">{rotuloPropuesta(nueva)}</span> creada con el vidrio nuevo.</p>
+                <button
+                    type="button"
+                    onClick={() => cambiarTab('cotizar')}
+                    className="mt-1.5 text-[12px] font-bold underline underline-offset-2"
+                >
+                    Agregarle más ítems en Cotizar
+                </button>
+            </div>,
+            { autoClose: 8000 }
+        );
+        // El clonado no bloquea si algún ítem sale con errores de precio: se
+        // avisa, una a una, para que el vendedor sepa qué revisar.
+        for (const aviso of r.advertencias ?? []) toast.warn(aviso, { autoClose: 9000 });
+    }, [aplicarCotizacion, cambiarTab]);
+
+    /** Nombre de la propuesta activa ("Templado + tablero"). Sólo toca la lista de
+     * propuestas: volcar la cotización entera pisaría los ítems sin guardar. */
+    const renombrarPropuesta = useCallback(async (nombre: string): Promise<boolean> => {
+        if (!edicion || !propuestaActivaId) return false;
+        try {
+            const { data } = await apiActualizarPropuesta(edicion.id, propuestaActivaId, { nombre: nombre || null });
+            if (data.propuestas) setPropuestas(data.propuestas);
+            toast.success(nombre ? `Nombre guardado: "${nombre}".` : 'Nombre quitado.');
+            return true;
+        } catch (e) {
+            conError(e, 'No se pudo cambiar el nombre de la propuesta.');
+            return false;
+        }
+    }, [edicion, propuestaActivaId]);
+
+    /** "Cotización nueva": con cambios pendientes, pregunta igual que las demás
+     * acciones — también en una cotización todavía sin guardar, que es donde más
+     * trabajo se podía perder con el `window.confirm` anterior. */
+    const nuevaCotizacion = useCallback(async () => {
+        if (sucio) {
+            const decision = await preguntarCambios('empezar una cotización nueva');
+            if (decision === 'cancelar') return;
+            if (decision === 'guardar' && !(await persistir())) return;
+        }
+        limpiarCotizacionActual();
+        cambiarTab('cotizar');
+    }, [sucio, preguntarCambios, persistir, limpiarCotizacionActual, cambiarTab]);
 
     /**
      * Cambia el segmento (PA/PM/PB) y RECALCULA los ítems con la lista nueva.
@@ -480,15 +635,16 @@ const CotizadorPage: React.FC = () => {
         if (segmento === cabecera.segmentoCliente) return;
 
         if (edicion) {
-            if (!confirmarDescarte()) return;
+            const ctx = await prepararAccion(`cambiar el tipo de cliente a ${segmento}`);
+            if (!ctx) return;
             setCambiandoSegmento(true);
             try {
-                const { data } = await apiCambiarSegmento(edicion.id, segmento, propuestaActivaId);
+                const { data } = await apiCambiarSegmento(ctx.cotId, segmento, ctx.pid);
                 aplicarCotizacion(data.cotizacion);
-                toast.success(`Segmento cambiado a ${segmento}: se recalcularon los ítems de todas las propuestas.`);
+                toast.success(`Tipo de cliente cambiado a ${segmento}: se recalcularon los precios de todas las propuestas.`);
                 for (const aviso of data.advertencias ?? []) toast.warn(aviso, { autoClose: 9000 });
             } catch (e) {
-                conError(e, 'No se pudo cambiar el segmento. No se modificó nada.');
+                conError(e, 'No se pudo cambiar el tipo de cliente. No se modificó nada.');
             } finally {
                 setCambiandoSegmento(false);
             }
@@ -513,14 +669,15 @@ const CotizadorPage: React.FC = () => {
             setCarrito(recalculados);
             setCabecera(c => ({ ...c, segmentoCliente: segmento }));
             setSucio(true);
-            toast.success(`Segmento cambiado a ${segmento}: ${recalculados.length} ítem(s) recalculados.`);
+            // `info`: sin guardar todavía (el título de `success` diría "Guardado").
+            toast.info(`Tipo de cliente cambiado a ${segmento}: ${recalculados.length} ítem(s) recalculados. Recuerda guardar.`);
         } catch (e) {
-            conError(e, 'No se pudo recalcular algún ítem con el segmento nuevo. No se modificó nada.');
+            conError(e, 'No se pudo recalcular algún ítem con el tipo de cliente nuevo. No se modificó nada.');
         } finally {
             setCambiandoSegmento(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [cabecera.segmentoCliente, edicion, carrito, propuestaActivaId, confirmarDescarte, aplicarCotizacion]);
+    }, [cabecera.segmentoCliente, edicion, carrito, prepararAccion, aplicarCotizacion]);
 
     const editarItem = useCallback((idTemp: string) => {
         setItemEditandoId(idTemp);
@@ -538,11 +695,6 @@ const CotizadorPage: React.FC = () => {
         const vista = searchParams.get('vista') === 'tecnico' ? 'tecnico' as const : 'normal' as const;
         return { id: Number(id), vista };
     }, [searchParams]);
-
-    const propuestaActiva = useMemo(
-        () => propuestas.find(p => p.id === propuestaActivaId) ?? null,
-        [propuestas, propuestaActivaId]
-    );
 
     /**
      * Regla 4 ampliada (2026-09-23): la propuesta elegida de una cotización
@@ -565,6 +717,38 @@ const CotizadorPage: React.FC = () => {
     }, [itemEditandoId, carrito]);
 
     const modulosDisponibles = useMemo(() => new Set(modulos.map(m => m.id)), [modulos]);
+
+    // Cerrar la pestaña o recargar con cambios pendientes: el navegador pregunta.
+    // No cubre los clics en el menú lateral del ERP — la app usa `BrowserRouter`,
+    // y bloquear la navegación interna (`useBlocker`) exige un router de datos.
+    useEffect(() => {
+        if (!sucio) return;
+        const alSalir = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+        window.addEventListener('beforeunload', alSalir);
+        return () => window.removeEventListener('beforeunload', alSalir);
+    }, [sucio]);
+
+    // Ctrl+S (⌘S en Mac) guarda desde Cotizar o Actual. En esas dos pestañas se
+    // anula siempre el "Guardar página como…" del navegador, aunque no haya nada
+    // que guardar: abrirlo ahí nunca es lo que el vendedor quería.
+    useEffect(() => {
+        const alTeclado = (e: KeyboardEvent) => {
+            if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 's') return;
+            if (activeTab !== 'cotizar' && activeTab !== 'actual') return;
+            e.preventDefault();
+            if (guardando || preguntaCambios) return;
+            if (edicion && !sucio) {
+                toast.info('No hay cambios por guardar.', { autoClose: 2500 });
+                return;
+            }
+            guardarCotizacion();
+        };
+        window.addEventListener('keydown', alTeclado);
+        return () => window.removeEventListener('keydown', alTeclado);
+    }, [activeTab, guardando, preguntaCambios, edicion, sucio, guardarCotizacion]);
 
     if (cargandoEstado) {
         return (
@@ -604,62 +788,63 @@ const CotizadorPage: React.FC = () => {
         cotizacionId: edicion?.id ?? null,
         ocupado,
         onActivar: activarPropuesta,
-        onNueva: nuevaPropuesta,
         onDuplicar: duplicarPropuesta,
-        onClonar: abrirClonado,
         onElegir: elegirPropuesta,
         onBorrar: borrarPropuesta,
     };
 
+    // El tipo de cliente se recalcula en TODAS las propuestas (el backend lo
+    // hace en una transacción), así que lo frena cualquier propuesta que no se
+    // pueda recalcular — no sólo la que se está mirando: la elegida de una
+    // aprobada o una legada. Antes sólo se miraba la activa y, parado en la B de
+    // una aprobada, el control parecía disponible y el backend respondía 409.
+    const motivoNoSegmento = edicion?.estado === 'APROBADA' && cabecera.estado === 'APROBADA'
+        ? 'La cotización está aprobada: pásala a Pendiente (pestaña Actual) para cambiar el tipo de cliente.'
+        : propuestas.some(p => p.legadoCargosEnItems)
+            ? 'Hay una propuesta legada: duplícala a la forma nueva antes de cambiar el tipo de cliente.'
+            : null;
+
+    const motivoNoNueva = propuestas.length >= MAX_PROPUESTAS
+        ? `Una cotización admite como máximo ${MAX_PROPUESTAS} propuestas.`
+        : !edicion && carrito.length === 0
+            ? 'Agrega al menos un ítem antes de crear otra propuesta.'
+            : null;
+
+    const barraVisible = activeTab === 'cotizar' || activeTab === 'actual';
+
     return (
         <div className="p-4 md:p-6 font-cotizador">
             <div className="relative">
-                {/* Barra de contexto: visible en las pestañas de cotización (no en
-                    Calibración ni Configuración, que no tienen carrito ni cliente en
-                    construcción), por eso vive en el shell y no en cada Tab. */}
-                {activeTab !== 'calibracion' && activeTab !== 'configuracion' && (
-                    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 bg-white border border-slate-200 rounded-xl px-4 py-2.5 mb-3">
-                        {/* Izquierda: en qué estás. El punto de color y los chips dicen
-                            el estado; el cliente va debajo en gris, que es donde el ojo
-                            no lo confunde con el número de cotización. */}
-                        <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                                <span
-                                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${edicion ? 'bg-emerald-500' : 'bg-slate-300'}`}
-                                />
-                                <span className="text-[13px] font-bold text-slate-800 font-cotizador-head tabular-nums">
-                                    {edicion ? `Cotización N.° ${edicion.numero}` : 'Cotización sin guardar'}
-                                </span>
-                                {propuestaActiva && (
-                                    <Chip tono="indigo">
-                                        Propuesta {propuestaActiva.etiqueta}
-                                        {propuestaActiva.elegida ? ' · elegida' : ''}
-                                    </Chip>
-                                )}
-                                {sucio && <Chip tono="ambar">Cambios sin guardar</Chip>}
-                            </div>
-                            <div className="text-[12px] text-slate-500 truncate mt-0.5">
-                                {cabecera.cliente.nombre || 'Cliente sin asignar'}
-                            </div>
-                        </div>
-
-                        {/* Derecha: las cifras. Mismos tres datos de siempre —los ítems
-                            de la propuesta, el precio de lista de los productos y el
-                            total que quedó guardado—, ahora alineados y con el total
-                            destacado. */}
-                        <div className="flex items-center gap-5">
-                            <DatoContexto etiqueta="Ítems" valor={carrito.length} />
-                            <DatoContexto etiqueta="Productos" valor={fmtCOP(totalProductos)} />
-                            <DatoContexto etiqueta="Cargos de obra" valor={fmtCOP(totalCargosObra)} />
-                            {propuestaActiva && (
-                                <DatoContexto
-                                    etiqueta="Total guardado"
-                                    valor={fmtCOP(propuestaActiva.totales.total)}
-                                    destacado
-                                />
-                            )}
-                        </div>
-                    </div>
+                {/* Barra de trabajo: en Cotizar y Actual, que son las dos pestañas
+                    donde se arma la cotización. Vive en el shell y no en cada Tab
+                    para que cambiar de pestaña no la mueva de sitio. */}
+                {barraVisible && (
+                    <BarraTrabajo
+                        numero={edicion?.numero ?? null}
+                        estado={edicion?.estado ?? cabecera.estado}
+                        cliente={cabecera.cliente.nombre ?? ''}
+                        sucio={sucio}
+                        guardando={guardando}
+                        motivoNoGuardar={carrito.length === 0 ? 'Agrega al menos un ítem a esta propuesta antes de guardar.' : null}
+                        onGuardar={guardarCotizacion}
+                        propuestas={propuestas}
+                        activaId={propuestaActivaId}
+                        ocupado={ocupado}
+                        onActivar={activarPropuesta}
+                        onNueva={nuevaPropuesta}
+                        onRenombrar={renombrarPropuesta}
+                        motivoNoNueva={motivoNoNueva}
+                        segmento={cabecera.segmentoCliente}
+                        onCambiarSegmento={cambiarSegmento}
+                        cambiandoSegmento={cambiandoSegmento}
+                        motivoNoSegmento={motivoNoSegmento}
+                        cifras={{
+                            items: carrito.length,
+                            productos: totalProductos,
+                            cargos: totalCargosObra,
+                            totalGuardado: propuestaActiva ? propuestaActiva.totales.total : null,
+                        }}
+                    />
                 )}
 
                 <FolderTabs
@@ -709,11 +894,13 @@ const CotizadorPage: React.FC = () => {
                                     aprobada={Boolean(bloqueoEdicion)}
                                 />
                             }
-                            destino={
-                                propuestaActiva
-                                    ? `Propuesta ${propuestaActiva.etiqueta}${propuestaActiva.nombre ? ` · ${propuestaActiva.nombre}` : ''}`
-                                    : 'Cotización nueva sin guardar'
-                            }
+                            destino={{
+                                etiqueta: propuestaActiva?.etiqueta ?? 'A',
+                                nombre: propuestaActiva?.nombre ?? null,
+                                items: carrito.length,
+                                guardada: Boolean(edicion),
+                            }}
+                            onVerPropuesta={() => cambiarTab('actual')}
                         />
                     )}
                     {activeTab === 'actual' && (
@@ -734,11 +921,9 @@ const CotizadorPage: React.FC = () => {
                             onCambiarCargos={cambiarCargos}
                             propuestas={controlPropuestas}
                             hayCambiosSinGuardar={sucio}
-                            onNuevaCotizacion={limpiarCotizacionActual}
+                            onNuevaCotizacion={nuevaCotizacion}
                             onEditarItem={editarItem}
                             onDuplicarItem={duplicarItem}
-                            onCambiarSegmento={cambiarSegmento}
-                            cambiandoSegmento={cambiandoSegmento}
                             bloqueoEdicion={bloqueoEdicion}
                             modulosDisponibles={modulosDisponibles}
                         />
@@ -758,6 +943,15 @@ const CotizadorPage: React.FC = () => {
                     segmentoCliente={cabecera.segmentoCliente}
                     onClose={() => setClonando(null)}
                     onClonada={trasClonar}
+                />
+            )}
+
+            {preguntaCambios && (
+                <ModalCambiosSinGuardar
+                    accion={preguntaCambios.accion}
+                    donde={dondeCambios}
+                    puedeGuardar={carrito.length > 0}
+                    onDecidir={preguntaCambios.resolver}
                 />
             )}
         </div>
