@@ -36,6 +36,10 @@ export interface Producto {
   fuente?: string;
   acabadoExacto?: boolean;
   sospechosoValorPorDefecto?: boolean;
+  /** Largo de la pieza comercial (mm) de un perfil que se cobra por pieza
+   * entera. Ausente = se cobra por metro. Como los campos de arriba, solo se
+   * emite cuando tiene valor. */
+  largoPiezaMm?: number;
   ultimoCambio?: { fecha: string; por: string | null; motivo: string | null };
 }
 
@@ -202,6 +206,11 @@ export interface CortePerfil {
   codigo?: string | null;
   /** % de desperdicio de ESTE perfil (`cotizador.diseno_perfil.desperdicio_pct`). */
   desperdicioPct?: number;
+  /** Solo en piezas que se venden por unidad (`UND`): cuántas se cobraron por
+   * este corte. Con él, la SAP pide piezas y no barras de 6 m. */
+  piezasEnteras?: number;
+  /** Largo de la pieza comercial (mm), si la pieza por unidad lo tiene. */
+  largoPiezaMm?: number;
   [clave: string]: unknown;
 }
 

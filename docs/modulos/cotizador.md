@@ -268,7 +268,9 @@ cotización alimenta qué SAP, no hay desde dónde invocarlo.
 
 ## Pruebas
 
-`npm --prefix backend-api run test:cotizador` — 8 suites, **95 pruebas**. En verde (95/95,
+`npm --prefix backend-api run test:cotizador` — **9 suites, 104 pruebas** desde el 2026-09-25
+(+ `piezaEntera`, 9; 104/104 ese día con el backend abajo). Lo que sigue es el detalle del
+2026-09-23, 8 suites, **95 pruebas**. En verde (95/95,
 verificado el 2026-09-23 **suite por suite**: 11 `codigoDiseno` · 16 `plano` · 4 `humo` ·
 7 `accesorios` · 18 `cargos` · 10 `generadorSapPerfileria` · 19 `itemLibre` · 10
 `personalizacion`). La 3ª de `humo` es la regresión del nivel de vidrio del sistema (ver
@@ -321,7 +323,9 @@ qué, como hacen las entradas anteriores del archivo. Un centinela que falla sie
 el fallo que importa se confunde con el ruido de fondo.
 
 ⚠️ El **golden master** (`test:cotizador:golden`) sí sigue obsoleto desde el 2026-09-11 — 6 de 10
-fallan por datos, no por código. **No confiar en él como red antes de regenerarlo.**
+fallan por datos, no por código. **No confiar en él como red antes de regenerarlo.** En la máquina
+de la oficina (2026-09-25) ni siquiera corre: las 10 salen `# SKIP` (0 pass, 0 fail) — no es una
+señal verde.
 
 ---
 
@@ -798,7 +802,27 @@ la personalización con precio distinto. La N.° 13 quedó de nuevo CANCELADA.
 
 ---
 
-## Los 18 diseños que no se pueden cotizar (diagnóstico 2026-09-23)
+## Los 18 diseños que no se podían cotizar (diagnóstico 2026-09-23 · 13 cerrados 2026-09-25)
+
+> ✅ **Cerrado el 2026-09-25: 163 de 163 cotizables.** Dos scripts, ambos reversibles con
+> `--revertir`: `2026-09-25_cotizador_platina_511_y_tubo_inox.ts` (`511` y `ROD1PULG`, 13 diseños)
+> y `2026-09-25_cotizador_tubular_torino_kik0301.ts` (`REC30X10`, los 5 de Torino) — ver
+> "Perfiles por pieza entera" más abajo.
+>
+> - `REC30X10` = **`KIK0301` "KIT TUBO RECTANGULAR"** (dato del usuario), mismo código en los seis
+>   colores. Es un kit "todo en uno" que **trae las rodachinas**: **1 kit por riel, cualquier
+>   ancho** (OXXO_TORINO lleva dos). Costo corregido por el usuario: $210.000 sembrado →
+>   **$150.550** (ACCESORIO, PA $233.447,05), sin proveedor.
+>
+> - `511` = **PLATINA P-30 1 x 1 1/2**: MATE `P300101`, CRUDO `P300301`, NEGRO `P300601` (dato del
+>   usuario). No existe en blanco, bronce ni gris plata: el motor cae a mate con aviso. Sin
+>   proveedor con precio → alta con **costo manual $80.000 por barra de 6 m** ($13.333,33/m, PA
+>   $20.824,55/m), el mismo en los tres colores; se volverá vivo al mapear una factura en
+>   Proveedores (como `TIRA_6M`, la sincronización divide entre 6, coherente con este costo).
+> - `ROD1PULG` = `TUB0316`, mismo código en los seis colores (inox). Costo de ACVICOL $37.500 por
+>   tubo, multiplicador PERFILERIA → PA $58.569,04 por tubo.
+>
+> Lo que sigue es el diagnóstico original, conservado como contexto.
 
 **No es un problema de precio: es de código.** Los 18 comparten uno de tres perfiles cuyo
 `codigos_por_color` está **vacío (`{}`)** en `cotizador.diseno_perfil` — el motor no sabe qué código
@@ -863,6 +887,45 @@ los diseños: el script que cargue los códigos tiene que, en la misma transacci
 
 y verificarse cotizando al menos un diseño de cada sistema.
 
+### Perfiles por pieza entera (2026-09-25)
+
+**La regla la decide la UNIDAD del producto que resuelve el perfil:** si es `UND`, se cobra por
+piezas enteras, nunca por metro, y **sin** el 5 % de desperdicio (el sobrante ya lo es).
+`cotizador.producto.largo_pieza_mm` (DOUBLE, nullable, `CHECK > 0`) dice cuántas:
+
+| Producto | Unidad | `largo_pieza_mm` | Se cobra por corte |
+|---|---|---|---|
+| Perfil normal | `X METRO` | NULL | metros × (1 + 5 %) |
+| `TUB0316` tubo inox | `UND` | 1800 | `cantidad × ceil(medida / 1800)` |
+| `KIK0301` kit tubo rectangular | `UND` | NULL | `cantidad × 1` — cualquier ancho |
+
+Antes del 2026-09-25 ningún perfil de diseño resolvía a un producto `UND` (medido), así que la regla
+no movió el precio de ningún diseño que ya se cotizaba.
+
+- **Motor** (`motorDespiece.ts`): **por corte** — dos cortes de 800 mm son 2 tubos, no se juntan
+  en uno. `.toFixed(6)` antes del `ceil`, para que 1.800/1.800 no dé 2.
+- **Cortes:** llevan `piezasEnteras` (lo que se cobró) **sólo** si el producto es `UND`, y
+  `largoPiezaMm` sólo si además tiene largo; `medidaMm` sigue siendo el corte real (p. ej. 1.500),
+  no el largo del tubo. Los perfiles por metro no llevan ninguna de las dos claves.
+- **SAP** (`generadorSapPerfileria.ts`): `CANT.` = suma de `piezasEnteras`, no `ceil(metros / 6)`.
+  La cuenta vive sólo en el motor.
+- **Rodachinas:** `KITS_CON_RODACHINAS` en `cabinasCorredizas.ts` (hoy `{KIK0301}`). Si el kit
+  está en el despiece (Torino) o es el del sistema libre "tubo rectangular", no se suman las 4
+  `ROD0401`. ⚠️ Esto **bajó** el precio del cálculo libre con tubo rectangular, que las cobraba.
+  Glasvit (`KDG0306`) tiene la misma contradicción sin confirmar — `TECH_DEBT.md` 2026-09-25 (2).
+- **Caché y tipo `Producto`:** `largoPiezaMm` se emite sólo cuando tiene valor, igual que los
+  metadatos de los provisionales — un producto normal sigue con sus 9 claves.
+- **Sincronización con Proveedores:** no se tocó. Un `UNIDAD` ya entra como costo por pieza, que es
+  justo lo que se cobra.
+- ⚠️ **No se edita desde la UI**: ni Configuración ni el alta del catálogo general lo exponen. Hoy
+  sólo por script (`TECH_DEBT.md` 2026-09-25). Personalizar un ítem no puede cambiar una platina
+  por el tubo: son clases de unidad distintas (metro vs unidad) y se rechaza con 400.
+
+Pruebas: `piezaEntera.test.ts` (9) — frontera 1.800/1.801/3.600/3.601, dos cortes en un diseño,
+kit 1 por riel a 1.200 y 3.000 mm y 2 en OXXO, rodachinas por los dos caminos (y regresión: los
+demás sistemas siguen con sus 4), SAP en piezas, color de la platina con respaldo a mate, y los 18
+diseños sin líneas en error (163 cotizables).
+
 ---
 
 ## Productos en $0 (2026-09-23)
@@ -900,7 +963,7 @@ salida del paso 6 de la hoja de ruta.
 Decisión del usuario (2026-09-23): los pendientes se trabajan uno por uno en el orden que proponga
 Claude. El orden va de lo que desbloquea cotizar hoy a lo que conecta con el ERP.
 
-1. **Los 18 diseños no cotizables** — ver sección arriba. *Siguiente sesión (2026-09-24, oficina).*
+1. ~~**Los 18 diseños no cotizables**~~ — **cerrado el 2026-09-25**, 163/163.
 2. **Los 5 kits/accesorios en $0** — identificar sistema y código Templex con el usuario; de paso,
    decidir la baja de las 4 filas "CODIGO NO EXISTE".
 3. **Vidrios sobre pedido** (`CL4MM03LM`, `CL4MM08SP`) — cargar el precio del proveedor cuando

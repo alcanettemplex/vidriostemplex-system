@@ -87,6 +87,15 @@ const BOTON_POR_TIPO = {
   acrilicoTransparente: "BHA0901",
 };
 
+// --- Kits que ya traen las rodachinas ----------------------------------------------
+// KIK0301 (kit tubo rectangular) es "todo en uno" y trae las rodachinas: sumar
+// además las 4 ROD0401 las cobraba dos veces (confirmado por el usuario,
+// 2026-09-25). Rige en los dos caminos: por diseño (Torino, cuyo tubular es
+// KIK0301) y por medidas libres con sistema "tubo_rectangular".
+// ⚠️ KDG0306 (Glasvit) dice lo mismo en su comentario de abajo y sí se le suman:
+// sin confirmar, ver TECH_DEBT.md 2026-09-25 (2).
+const KITS_CON_RODACHINAS = new Set(["KIK0301"]);
+
 // --- Espesor "original" documentado en el Excel para cada sistema ------------------
 // (usado solo para decidir si hay que avisar que la combinación es una extrapolación).
 const ESPESOR_ORIGINAL_POR_SISTEMA = {
@@ -165,7 +174,10 @@ export function calcular(input: InputModulo) {
         // Herrajes: mismas cantidades que el cálculo libre, que son las que ya
         // estaban en uso. No se derivan del diseño porque el catálogo de diseños
         // no trae accesorios con precio en Templex.
-        lineas.push(lineaCatalogo("ROD0401", 4, seg));
+        const kitTraeRodachinas = (cortes.perfiles || []).some(
+          (c) => typeof c.codigo === "string" && KITS_CON_RODACHINAS.has(c.codigo)
+        );
+        if (!kitTraeRodachinas) lineas.push(lineaCatalogo("ROD0401", 4, seg));
         lineas.push(lineaCatalogo("PERF01", 2, seg));
         lineas.push(lineaCatalogo("BOQN02", 2, seg));
         lineas.push(lineaCatalogo(botonCodigo, 1, seg));
@@ -267,7 +279,9 @@ export function calcular(input: InputModulo) {
   // Excel original no documentaba una tabla explícita de cantidades para estos ítems
   // en Cabinas Corredizas (a diferencia de Cabinas Batientes), por lo que se tomaron
   // valores de ingeniería razonables y se dejan documentados aquí y en advertencias.
-  items.push(lineaCatalogo("ROD0401", 4, segmentoCliente)); // 2 rodachinas por paño × 2 paños
+  // 2 rodachinas por paño × 2 paños — salvo que el kit del sistema ya las traiga.
+  const kitTraeRodachinas = items.some((l) => KITS_CON_RODACHINAS.has(l.codigo));
+  if (!kitTraeRodachinas) items.push(lineaCatalogo("ROD0401", 4, segmentoCliente));
   items.push(lineaCatalogo("PERF01", 2, segmentoCliente)); // perforación para halador, 1 por paño móvil
   items.push(lineaCatalogo("BOQN02", 2, segmentoCliente)); // boquilla cubre-perforación
   items.push(lineaCatalogo(botonCodigo, 1, segmentoCliente)); // botón haladera del paño móvil, según tipoBoton

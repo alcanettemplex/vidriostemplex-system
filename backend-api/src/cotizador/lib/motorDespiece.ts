@@ -266,6 +266,22 @@ export function calcularDespiece({
     const metrosNetos = (medidaFinalMm / 1000) * p.cantidad;
     const metrosConDesperdicio = metrosNetos * (1 + (p.desperdicioPct ?? 0) / 100);
 
+    // Pieza que se vende POR UNIDAD (`UND`) aunque el diseño la trate como perfil:
+    // se cobra por piezas enteras, nunca por metro, y sin desperdicio (el
+    // sobrante ya lo es). Dos casos reales (2026-09-25):
+    //   - Con largo de pieza (TUB0316, tubo inox de 1.800 mm, "no se vende
+    //     fraccionado"): ceil(medida / largo) por corte — hasta 1.800 mm uno,
+    //     de 1.801 a 3.600 dos. Por corte, no agrupando cortes cortos en un tubo.
+    //   - Sin largo (KIK0301, kit tubo rectangular "todo en uno"): 1 por corte,
+    //     cualquier ancho — OXXO_TORINO lleva dos rieles, dos kits.
+    // `.toFixed(6)` antes del ceil: 1800/1800 no debe dar 2 por punto flotante.
+    const producto = codigo ? getProducto(codigo) : null;
+    const largoPiezaMm = producto?.largoPiezaMm;
+    const vendePorUnidad = (producto?.unidad ?? "").trim().toUpperCase() === "UND";
+    const piezasEnteras = vendePorUnidad
+      ? p.cantidad * (largoPiezaMm ? Math.ceil(Number((medidaFinalMm / largoPiezaMm).toFixed(6))) : 1)
+      : null;
+
     cortesPerfil.push({
       ref: p.ref,
       descripcion: p.descripcion,
@@ -286,6 +302,10 @@ export function calcularDespiece({
       // pueda calcular barras sin recalcular la lógica de color/desperdicio.
       codigo: codigo ?? null,
       desperdicioPct: p.desperdicioPct ?? 0,
+      // Solo si se vende por unidad: la SAP pide exactamente las piezas que se
+      // cobraron, no barras de 6 m. Los perfiles por metro no llevan estas claves.
+      ...(piezasEnteras !== null ? { piezasEnteras } : {}),
+      ...(piezasEnteras !== null && largoPiezaMm ? { largoPiezaMm } : {}),
     });
 
     if (!codigo) {
@@ -301,7 +321,7 @@ export function calcularDespiece({
       });
       continue;
     }
-    items.push(lineaCatalogo(codigo, metrosConDesperdicio, segmentoCliente));
+    items.push(lineaCatalogo(codigo, piezasEnteras ?? metrosConDesperdicio, segmentoCliente));
   }
 
   // --- Vidrios ------------------------------------------------------------

@@ -107,6 +107,8 @@ async function cargarProductos(): Promise<Map<string, Producto>> {
         base.sospechosoValorPorDefecto = f.sospechoso_valor_por_defecto as boolean;
       }
     }
+    // Mismo criterio: la clave solo existe en los perfiles por pieza entera.
+    if (f.largo_pieza_mm != null) base.largoPiezaMm = Number(f.largo_pieza_mm);
     mapa.set(base.codigo, base);
   }
 

@@ -4,6 +4,34 @@ Deuda técnica identificada durante el desarrollo. Formato: fecha, severidad, de
 
 ---
 
+## 2026-09-25 (2) — Cotizador: ¿el kit Glasvit (`KDG0306`) también trae las rodachinas?
+
+**Severidad:** Media (posible cobro de más) · **Estimación:** 10 min una vez confirmado
+
+El usuario confirmó que `KIK0301` (kit tubo rectangular) trae las rodachinas y se dejaron de sumar
+las 4 `ROD0401` con ese kit (`KITS_CON_RODACHINAS` en `cabinasCorredizas.ts`). El comentario del
+caso `glasvit` del mismo archivo dice lo mismo de `KDG0306` —*"rieles+rodachinas incluidos en el
+kit"*— y aun así el cálculo libre le suma 4 `ROD0401` (≈ $9.900 en PA por cabina). No se tocó sin
+confirmación. Si el usuario confirma: agregar `KDG0306` al Set, y una prueba en `piezaEntera.test.ts`.
+
+---
+
+## 2026-09-25 — Cotizador: `largo_pieza_mm` solo se puede fijar por script
+
+**Severidad:** Baja · **Estimación:** 1-2 h
+
+`cotizador.producto.largo_pieza_mm` (perfil que se cobra por pieza entera, hoy sólo `TUB0316` a
+1.800 mm) no aparece en la pestaña Configuración ni en el alta desde el catálogo general
+(`POST /catalogo-general/importar`, `importarSchema` es `.strict()` y no lo acepta). El siguiente
+perfil que se venda por pieza —o un cambio de largo del tubo si el proveedor cambia la
+presentación— exige un script. Arreglo: campo opcional "Se vende por pieza de ___ mm" en el alta y
+en la edición de producto, sólo para PERFILERIA con unidad `UND`.
+
+Relacionado: el costo manual de la platina P-30 (`P300101`/`P300301`/`P300601`, $80.000 por barra
+de 6 m) está congelado hasta que alguien mapee una factura de esos códigos en Proveedores.
+
+---
+
 ## 2026-09-23 — Cotizador: los cambios sin guardar se pierden al navegar por el menú lateral
 
 **Severidad:** Media (UX, pérdida de trabajo) · **Estimación:** 3-5 h (migrar el router) o 1 h (parche)

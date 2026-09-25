@@ -25,9 +25,11 @@
 //   5. Los perfiles que el proveedor entrega ya cortados quedan a criterio del
 //      asesor: este generador no los distingue de los demás.
 //
-// BARRA DE 6 m: por ahora fija para todo perfil. Si algún día un perfil mide
-// otra cosa, el dato vive en `cotizador.diseno_perfil` (o donde el usuario
-// decida) y este único punto (`MM_POR_BARRA`) es el que hay que tocar.
+// BARRA DE 6 m: fija para todo perfil que se vende por metro. La excepción
+// (2026-09-25) es la pieza que se vende POR UNIDAD —TUB0316, tubo inox de
+// 1.800 mm, y KIK0301, kit tubo rectangular—: su corte trae `piezasEnteras`,
+// calculado por motorDespiece, y `CANT.` es esa suma: exactamente lo que se
+// cobró. La cuenta vive en un solo sitio, el motor; aquí sólo se suma.
 const MM_POR_BARRA = 6000;
 
 import type { CortePerfil } from "../tipos";
@@ -53,7 +55,8 @@ export interface FilaPerfileriaSAP {
   descripcion: string;
   /** Formato taller: "4-400/ 2-1000/ 2-1900" (cantidad-medida_mm). */
   dimension: string;
-  /** Barras completas de 6 m a pedir, redondeadas hacia arriba. */
+  /** Barras completas de 6 m a pedir, redondeadas hacia arriba — o piezas
+   * enteras, si el perfil se vende por pieza (`largoPiezaMm`). */
   cantidad: number;
 }
 
@@ -79,6 +82,8 @@ interface GrupoPerfil {
   descripcion: string;
   /** metros lineales YA con el desperdicio de cada corte aplicado. */
   metrosConDesperdicio: number;
+  /** Piezas enteras acumuladas; `null` si el perfil se vende por metro. */
+  piezasEnteras: number | null;
   /** medida_mm (redondeada al mm) -> cantidad de piezas, en orden de
    * primera aparición para que `dimension` salga estable. */
   cortesPorMedida: Map<number, number>;
@@ -138,6 +143,7 @@ export function generarPerfileriaSAP(items: ItemParaPerfileriaSAP[]): ResultadoG
           codigo: corte.codigo,
           descripcion: corte.descripcion ?? corte.ref,
           metrosConDesperdicio: 0,
+          piezasEnteras: null,
           cortesPorMedida: new Map(),
           ordenMedidas: [],
         };
@@ -146,6 +152,9 @@ export function generarPerfileriaSAP(items: ItemParaPerfileriaSAP[]): ResultadoG
       }
 
       grupo.metrosConDesperdicio += metrosConDesperdicio;
+      if (typeof corte.piezasEnteras === "number") {
+        grupo.piezasEnteras = (grupo.piezasEnteras ?? 0) + corte.piezasEnteras;
+      }
       const cantidadPrevia = grupo.cortesPorMedida.get(medidaRedondeada);
       if (cantidadPrevia === undefined) {
         grupo.ordenMedidas.push(medidaRedondeada);
@@ -168,7 +177,9 @@ export function generarPerfileriaSAP(items: ItemParaPerfileriaSAP[]): ResultadoG
       // matemáticamente cae justo en un múltiplo de 6 m puede llegar como
       // 12.000000000000002 por acumulación de punto flotante y pedir una
       // barra de más.
-      cantidad: Math.ceil(Number((grupo.metrosConDesperdicio / (MM_POR_BARRA / 1000)).toFixed(6))),
+      cantidad:
+        grupo.piezasEnteras ??
+        Math.ceil(Number((grupo.metrosConDesperdicio / (MM_POR_BARRA / 1000)).toFixed(6))),
     };
   });
 

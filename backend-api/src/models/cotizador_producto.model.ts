@@ -30,6 +30,11 @@ CotizadorProducto.init({
   sospechoso_valor_por_defecto: { type: DataTypes.BOOLEAN },
   creado_en: { type: DataTypes.DATE },
   creado_por: { type: DataTypes.STRING(80) },
+  // Largo de la pieza comercial en mm, SOLO para perfiles que se venden por
+  // pieza entera y no por metro (hoy TUB0316, tubo inox de 1.800 mm). Con
+  // valor, motorDespiece cobra ceil(medida / largo) piezas por corte, sin
+  // desperdicio. NULL = se cobra por metro, como el resto (2026-09-25).
+  largo_pieza_mm: { type: DataTypes.DOUBLE },
 }, {
   sequelize,
   modelName: 'CotizadorProducto',

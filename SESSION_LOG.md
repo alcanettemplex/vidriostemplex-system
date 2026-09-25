@@ -5273,3 +5273,84 @@ salir) y **colores fijos por propuesta**.
 ### Pendientes
 - Revisión visual del usuario en `localhost:3000`.
 - Sin commit: el usuario decide cuándo (documentación de toda la sesión + este cambio).
+
+---
+
+## 2026-09-25 — Cotizador: platina de la retícula `511` y tubo inox `ROD1PULG` por pieza entera (13 de 18 diseños)
+
+### Origen
+Punto 1 de la hoja de ruta de `cotizador.md`. El usuario dio el código por color de la retícula
+`511` = PLATINA P-30 1 x 1 1/2 (MATE `P300101`, CRUDO `P300301`, NEGRO `P300601`; no existe en los
+otros tres colores → respaldo a mate con aviso, el comportamiento vigente) y su costo, $80.000.
+Pidió hacer `511` + `ROD1PULG` juntos. Dijo "procede" sin responder tres confirmaciones; se aplicó
+lo propuesto: **$80.000 por barra de 6 m** (no por metro), **mismo costo en los tres colores** y el
+tubo con **multiplicador PERFILERIA**. Si algo de eso no es así, se corrige por script.
+
+### Cambios
+- BD — `backend-api/src/scripts/2026-09-25_cotizador_platina_511_y_tubo_inox.ts` (**ejecutado**
+  contra Supabase, reversible con `--revertir`): columna `cotizador.producto.largo_pieza_mm` +
+  CHECK > 0; alta de `P300101`/`P300301`/`P300601` (PERFILERIA / X METRO, costo $13.333,33/m, PA
+  $20.824,55) y `TUB0316` (PERFILERIA / UND, pieza 1.800 mm, costo ACVICOL $37.500, PA $58.569,04),
+  con historial `dar-de-alta`; `codigos_por_color` en 16 renglones de `511` y 6 de `ROD1PULG`; 13
+  diseños `cotizable = true`. Resultado: **158 cotizables · 5 bloqueados** (Torino, `REC30X10`).
+- Backend: `cotizador_producto.model.ts` (`largo_pieza_mm`), `tipos.ts` (`Producto.largoPiezaMm`,
+  `CortePerfil.largoPiezaMm`), `cache.ts` (lo emite sólo si tiene valor), `motorDespiece.ts` (cobra
+  `cantidad × ceil(medida / largo)` piezas sin desperdicio), `generadorSapPerfileria.ts` (`CANT.` en
+  piezas para esos perfiles).
+- Pruebas: `piezaEntera.test.ts` (7), agregada a `test:cotizador`.
+- Docs: `docs/modulos/cotizador.md` (diseños, "Perfiles por pieza entera", pruebas, hoja de ruta),
+  `TECH_DEBT.md` 2026-09-25.
+
+### Verificación
+- `tsc --noEmit` limpio. `test:cotizador` **102/102** (backend dev abajo).
+- Una cotización real por sistema con `calcularItem` (la misma puerta que `POST /cotizar`), sin
+  errores: 5020 retícula negro $636.339,97 · 744 retícula mate $910.894,97 · 8025 retícula crudo
+  $1.087.201,87 · Primavera OX 1.500 mm $788.271,28 (1 tubo) · Batiente plegable $974.142,89 (1 tubo).
+- Golden master: las 10 salen `# SKIP` en esta máquina — no es red.
+
+### Riesgo anotado
+La BD es la de producción. Hasta desplegar este backend, el backend desplegado (código viejo) ve
+los 13 diseños como cotizables cuando recargue su caché, y cobraría `TUB0316` por **metros como
+unidades** (1,575 "tubos" a 1.500 mm en vez de 1). La platina no tiene ese problema.
+
+### Pendientes
+- `REC30X10` (Torino, 5 diseños): código por color del usuario.
+- Sin commit ni push: el usuario decide.
+
+---
+
+## 2026-09-25 (2) — Cotizador: tubular Torino = `KIK0301`, un kit por riel — 163/163 diseños cotizables
+
+### Origen
+El usuario dio el código del `REC30X10`: `KIK0301` "KIT TUBO RECTANGULAR", un kit (ACCESORIO/UND)
+que el cálculo libre ya usaba como 1 fijo por cabina. Asignarlo tal cual lo habría cobrado por
+metro (1,575 kits a 1.500 mm). Decisiones del usuario (con opciones): **1 kit por riel, cualquier
+ancho** (OXXO_TORINO = 2); **el kit trae las rodachinas**; **costo $150.550** (el sembrado era
+$210.000). Ordenó "procede, verifica, si todo correcto commit y push".
+
+### Cambios
+- BD — `2026-09-25_cotizador_tubular_torino_kik0301.ts` (**ejecutado**, `--revertir` restaura el
+  costo desde su historial): `KIK0301` costo $150.550 → PA $233.447,05 · PM $216.899,19 · PB
+  $200.351,34 (historial `editar-precio`); `codigos_por_color` de los 6 renglones `REC30X10`; 5
+  diseños cotizables → **163/163**.
+- `motorDespiece.ts`: la regla pasa de "tiene largo de pieza" a "**el producto es `UND`**": con largo
+  `ceil(medida/largo)` por corte, sin largo 1 por corte. El corte guarda `piezasEnteras`.
+- `generadorSapPerfileria.ts`: `CANT.` suma `piezasEnteras` del motor (la cuenta vive en un sitio).
+- `cabinasCorredizas.ts`: `KITS_CON_RODACHINAS = {KIK0301}` — sin `ROD0401` por diseño (Torino) ni
+  en el cálculo libre "tubo rectangular" (**baja** ese precio, que las cobraba).
+- `piezaEntera.test.ts`: 9 pruebas (+2). Docs: `cotizador.md`, `TECH_DEBT.md` 2026-09-25 (2).
+
+### Verificación
+- `tsc --noEmit` y `npm run build` limpios; `test:cotizador` **104/104** (backend abajo).
+- `calcularItem`: Torino OX 1.500 mm $995.985,80 (1 kit, sin rodachinas) · OXXO 2.500 mm
+  $2.701.857,61 (2 kits); retícula 5020/744/8025, Primavera y Batiente sin cambios respecto a (1).
+- Medido antes de cambiar la regla: ningún perfil de diseño resolvía a un producto `UND` salvo
+  `TUB0316`, así que ningún diseño cotizable cambió de precio.
+
+### Riesgo anotado (amplía el de la entrada anterior)
+Hasta desplegar, el backend desplegado con código viejo, si recarga su caché, cobraría también
+`KIK0301` por metros en Torino (~1,575 kits a 1.500 mm) y seguiría sumando las rodachinas.
+
+### Pendientes
+- Confirmar si Glasvit (`KDG0306`) trae las rodachinas (`TECH_DEBT.md` 2026-09-25 (2)).
+- Desplegar el backend.
