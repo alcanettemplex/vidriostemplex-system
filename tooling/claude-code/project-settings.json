@@ -27,6 +27,35 @@
       "Bash(git diff:*)",
       "Bash(git log)",
       "Bash(git diff)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean *)",
+      "Bash(git -C * reset --hard*)",
+      "Bash(git -C * clean *)",
+      "PowerShell(git reset --hard*)",
+      "PowerShell(git clean *)",
+      "PowerShell(git -C * reset --hard*)",
+      "PowerShell(git -C * clean *)",
+      "PowerShell(Remove-Item * -Recurse*)",
+      "PowerShell(Remove-Item -Recurse *)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"",
+            "timeout": 30,
+            "statusMessage": "Revisando sincronización con el remoto..."
+          }
+        ]
+      }
     ]
   }
 }
