@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import {
     Loader2, Edit3, ClipboardCheck, CheckCircle2, XCircle, AlertTriangle, HardHat, Download, Printer,
-} from 'lucide-react';
+} from '../../../../components/ui/icons';
 
 import { apiObtenerCotizacion, apiAptitudCotizacion, apiPlanoDeItem, apiDespieceDeItem, apiDescargarPdfPropuesta, apiGetModulos } from '../../services/cotizadorApi';
 import { Aptitud, Cotizacion, DespieceItem, ItemCotizacion, ModuloMeta, Plano, Propuesta } from '../../types';
@@ -402,10 +402,10 @@ const ModalDetalleCotizacion: React.FC<Props> = ({ id, vistaInicial, onClose, on
                                                         <span className="text-slate-400"> · {c.descripcion}</span>
                                                     )}
                                                     {c.origen === 'SUGERIDO' && (
-                                                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-[10px] font-bold text-indigo-700">Sugerido</span>
+                                                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-[11px] font-bold text-indigo-700">Sugerido</span>
                                                     )}
                                                     {!c.aplicaIva && (
-                                                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-500">Sin IVA</span>
+                                                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-500">Sin IVA</span>
                                                     )}
                                                 </td>
                                                 <td className="px-3 py-2 text-right text-slate-500 whitespace-nowrap">

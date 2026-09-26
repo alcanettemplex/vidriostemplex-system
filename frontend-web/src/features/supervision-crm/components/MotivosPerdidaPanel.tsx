@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, Inbox } from 'lucide-react';
+import { RefreshCw, Inbox } from '../../../components/ui/icons';
 import { MotivoPerdida } from '../types';
 
 const COLORS = ['bg-apple-red', 'bg-apple-orange', 'bg-apple-purple', 'bg-apple-blue', 'bg-apple-teal', 'bg-apple-text-tertiary', 'bg-apple-green', 'bg-apple-yellow'];

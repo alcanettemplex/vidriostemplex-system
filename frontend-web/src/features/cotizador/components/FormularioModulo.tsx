@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calculator, Users, Ruler, Droplet, Percent } from 'lucide-react';
+import { Calculator, Users, Ruler, Droplet, Percent } from '../../../components/ui/icons';
 import { toast } from 'react-toastify';
 
 import { apiCotizarItem } from '../services/cotizadorApi';

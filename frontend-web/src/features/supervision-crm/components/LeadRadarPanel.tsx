@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Phone, User, Clock, TrendingUp, PhoneCall, RefreshCw, Inbox } from 'lucide-react';
+import { Phone, User, Clock, TrendingUp, PhoneCall, RefreshCw, Inbox } from '../../../components/ui/icons';
 import { SupervisionLeadItem } from '../types';
 
 const fmtCOP = (v: number) =>

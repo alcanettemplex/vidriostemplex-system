@@ -1,10 +1,10 @@
 import React from 'react';
-import { LucideIcon, Info } from 'lucide-react';
+import { IconComponent, Info } from '../../../components/ui/icons';
 
 interface KPICardProps {
   label: string;
   value: string;
-  icon: LucideIcon;
+  icon: IconComponent;
   accent: 'blue' | 'purple' | 'red' | 'orange' | 'green';
   sublabel?: string;
   description?: string;

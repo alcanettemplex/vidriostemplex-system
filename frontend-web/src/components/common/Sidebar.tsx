@@ -1,201 +1,21 @@
 import React, { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import {
-  LayoutDashboard,
-  Users,
-  FileText,
-  Wrench,
-  ShoppingCart,
-  Calculator,
-  Truck,
-  Settings,
-  Sliders,
-  Ruler,
-  UserPlus,
-  Package,
-  GlassWater,
-  PackageCheck,
-  Shield,
-  Target,
-  X,
-  BookOpen,
-  BarChart2,
-  Crosshair,
-  Building2,
-  FileSpreadsheet,
-} from 'lucide-react';
+import { X } from '../ui/icons';
 import { TemplexLogo } from '../ui/TemplexLogo';
+import { SECTION_LABELS, esRutaActiva, itemsVisiblesPara, ItemMenu } from './navegacion';
 
 /**
- * MAPA DE ACCESOS POR ROL
- * Cada ítem define qué roles pueden verlo.
- * Se usa el array 'allowedRoles' para filtrar en tiempo de renderizado.
- * Los roles nuevos son: 'taller', 'compras', 'contabilidad', 'gerencia'
+ * Menú lateral — sistema visual "Cristal y Aluminio" (2026-09-25).
+ *
+ * Panel azul noche de altura completa con el logo en blanco: separa la
+ * navegación del área de trabajo sin competir con ella. El mapa de ítems y el
+ * filtro por rol viven en ./navegacion.ts (compartidos con la barra superior).
+ *
+ * En móvil es un cajón que se abre desde la barra superior; en escritorio queda
+ * fijo. Ancho (w-64) y alto de cabecera (h-16) son los que AppShell y las
+ * páginas ya descuentan con md:pl-64 / pt-16: no cambiarlos por separado.
  */
-const MENU_ITEMS_CONFIG = [
-  {
-    text: 'Dashboard',
-    icon: LayoutDashboard,
-    path: '/',
-    allowedRoles: ['root', 'admin', 'gerencia', 'marketing', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'instalador', 'conductor', 'contabilidad', 'compras', 'asistente_administrativo'],
-    section: 'general'
-  },
-  {
-    text: 'Clientes',
-    icon: Users,
-    path: '/clientes',
-    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'asistente_administrativo'],
-    section: 'comercial'
-  },
-  {
-    text: 'Prospectos',
-    icon: UserPlus,
-    path: '/prospectos',
-    allowedRoles: ['admin', 'marketing', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'asistente_administrativo'],
-    section: 'comercial'
-  },
-  {
-    text: 'Órdenes (ODP)',
-    icon: FileText,
-    path: '/odp',
-    allowedRoles: ['admin', 'marketing', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'contabilidad', 'compras', 'produccion', 'asistente_administrativo'],
-    section: 'comercial'
-  },
-  {
-    text: 'CRM & Leads',
-    icon: Target,
-    path: '/crm',
-    allowedRoles: ['admin', 'gerencia', 'asesor_comercial', 'asistente_administrativo', 'marketing', 'jefe_produccion'],
-    section: 'comercial'
-  },
-  {
-    text: 'Producción',
-    icon: Wrench,
-    path: '/produccion',
-    allowedRoles: ['admin', 'marketing', 'gerencia', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion', 'asistente_administrativo'],
-    section: 'produccion'
-  },
-  {
-    text: 'Toma de Medidas',
-    icon: Ruler,
-    path: '/toma-medidas',
-    allowedRoles: ['admin', 'marketing', 'gerencia', 'jefe_produccion', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'],
-    section: 'produccion'
-  },
-  {
-    text: 'Instalaciones',
-    icon: Truck,
-    path: '/instalaciones',
-    allowedRoles: ['admin', 'marketing', 'gerencia', 'jefe_produccion', 'instalador', 'conductor', 'asesor_comercial', 'compras', 'produccion', 'asistente_administrativo'],
-    section: 'produccion'
-  },
-  {
-    text: 'Compras',
-    icon: ShoppingCart,
-    path: '/compras',
-    allowedRoles: ['admin', 'marketing', 'gerencia', 'compras', 'jefe_produccion'],
-    section: 'logistica'
-  },
-  {
-    // Precios de compra — información comercialmente sensible (margen/negociación)
-    text: 'Proveedores',
-    icon: Building2,
-    path: '/proveedores',
-    allowedRoles: ['root', 'admin'],
-    section: 'logistica'
-  },
-  {
-    // Módulo aislado del flujo del ERP (no genera ODP) — ver plan de migración
-    text: 'Cotizador',
-    icon: FileSpreadsheet,
-    path: '/cotizador',
-    allowedRoles: ['root', 'admin'],
-    section: 'comercial'
-  },
-  {
-    text: 'Inventario Perfilería',
-    icon: Package,
-    path: '/inventario',
-    allowedRoles: ['admin', 'marketing', 'gerencia', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras'],
-    section: 'logistica'
-  },
-  {
-    text: 'Pedidos PV',
-    icon: GlassWater,
-    path: '/pedidos-pv',
-    allowedRoles: ['admin', 'marketing', 'gerencia', 'asesor_comercial', 'jefe_produccion', 'produccion', 'auxiliar_produccion', 'compras', 'asistente_administrativo'],
-    section: 'logistica'
-  },
-  {
-    text: 'Facturas vs Salidas',
-    icon: PackageCheck,
-    path: '/facturas-salidas',
-    allowedRoles: ['admin', 'marketing', 'gerencia', 'contabilidad', 'compras', 'produccion'],
-    section: 'logistica'
-  },
-  {
-    text: 'Contabilidad',
-    icon: Calculator,
-    path: '/contabilidad',
-    allowedRoles: ['admin', 'gerencia', 'contabilidad', 'asistente_administrativo'],
-    section: 'finanzas'
-  },
-  {
-    text: 'Usuarios',
-    icon: Settings,
-    path: '/usuarios',
-    allowedRoles: ['admin', 'gerencia'],
-    section: 'admin'
-  },
-  {
-    text: 'Supervisión CRM',
-    icon: Crosshair,
-    path: '/supervision-crm',
-    allowedRoles: ['root'],
-    section: 'sistema'
-  },
-  {
-    text: 'Configuración',
-    icon: Sliders,
-    path: '/configuracion',
-    allowedRoles: ['admin', 'gerencia'],
-    section: 'admin'
-  },
-  {
-    text: 'ROOT',
-    icon: Shield,
-    path: '/root',
-    allowedRoles: ['root'],
-    section: 'sistema'
-  },
-  {
-    text: 'Informe Ejecutivo',
-    icon: BarChart2,
-    path: '/informe-ejecutivo',
-    allowedRoles: ['root'],
-    section: 'sistema'
-  },
-  {
-    text: 'Manuales',
-    icon: BookOpen,
-    path: '/manuales',
-    allowedRoles: ['root', 'admin', 'gerencia', 'marketing', 'asesor_comercial', 'jefe_produccion', 'taller', 'produccion', 'auxiliar_produccion', 'instalador', 'conductor', 'contabilidad', 'compras', 'asistente_administrativo'],
-    section: 'ayuda'
-  },
-];
-
-// Etiquetas de sección para separadores visuales en el menú
-const SECTION_LABELS: Record<string, string> = {
-  general: 'General',
-  comercial: 'Comercial',
-  produccion: 'Producción',
-  logistica: 'Logística',
-  finanzas: 'Finanzas',
-  admin: 'Administración',
-  sistema: 'Sistema',
-  ayuda: 'Ayuda',
-};
 
 interface SidebarProps {
   isOpen: boolean;
@@ -221,16 +41,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   const userRole = (user?.rol || user?.role)?.toLowerCase() || '';
 
-  // Filtrar el menú por rol
-  const authorizedMenu = MENU_ITEMS_CONFIG.filter(item => {
-    if (!userRole) return false;
-    if (userRole === 'root') return item.allowedRoles.includes('root') || item.section === 'ayuda';
-    if (userRole === 'admin') return item.section !== 'sistema';
-    return item.allowedRoles.includes(userRole);
-  });
-
   // Agrupar por sección para mostrar separadores
-  const sections = authorizedMenu.reduce((acc: Record<string, typeof authorizedMenu>, item) => {
+  const sections = itemsVisiblesPara(userRole).reduce((acc: Record<string, ItemMenu[]>, item) => {
     if (!acc[item.section]) acc[item.section] = [];
     acc[item.section].push(item);
     return acc;
@@ -240,7 +52,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     <>
       {/* Backdrop — solo mobile */}
       <div
-        className={`fixed inset-0 bg-black/40 z-40 md:hidden transition-opacity duration-300
+        className={`fixed inset-0 bg-slate-950/50 backdrop-blur-[2px] z-40 md:hidden transition-opacity duration-300
           ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
         aria-hidden="true"
@@ -249,48 +61,44 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       {/* Drawer / Sidebar */}
       <aside
         className={`
-          fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-slate-200 overflow-y-auto flex flex-col
-          z-[60] transition-transform duration-300 ease-in-out
+          fixed left-0 top-0 bottom-0 w-64 flex flex-col
+          bg-gradient-to-b from-[#101a2e] via-[#0c1424] to-[#090e19]
+          border-r border-white/[0.06]
+          z-[60] transition-transform duration-300 ease-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-          md:top-16 md:translate-x-0 md:z-30
+          md:translate-x-0 md:z-30
         `}
       >
-        {/* Cabecera con logo y botón cerrar — solo mobile */}
-        <div className="md:hidden flex items-center justify-between px-4 pt-4 pb-3 border-b border-slate-100">
-          <TemplexLogo className="h-8 w-28" />
+        {/* Resplandor de marca: luz fría sobre la esquina superior, como reflejo en vidrio */}
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(120%_80%_at_0%_0%,rgba(52,116,242,0.22),transparent_60%)]"
+          aria-hidden="true"
+        />
+
+        {/* Cabecera — misma altura que la barra superior */}
+        <div className="relative h-16 shrink-0 flex items-center justify-between px-5 border-b border-white/[0.06]">
+          <Link to="/" onClick={onClose} aria-label="Ir al inicio">
+            <TemplexLogo tono="blanco" className="h-9 w-32 justify-start" />
+          </Link>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition"
+            className="md:hidden p-2 -mr-2 rounded-lg text-[#9aa4b5] hover:text-white hover:bg-white/[0.08] transition"
             aria-label="Cerrar menú"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Chip del rol actual */}
-        <div className="px-4 pt-5 pb-3">
-          <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              {user?.nombre_completo?.[0]?.toUpperCase() || 'U'}
-            </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-bold text-slate-800 truncate">{user?.nombre_completo || 'Usuario'}</p>
-              <p className="text-[11px] text-indigo-600 font-semibold uppercase tracking-wider capitalize">{userRole}</p>
-            </div>
-          </div>
-        </div>
-
         {/* Menú con secciones */}
-        <nav className="flex-1 px-3 pb-6 space-y-5 overflow-y-auto">
+        <nav className="relative flex-1 px-3 pt-4 pb-6 space-y-6 overflow-y-auto [scrollbar-color:rgba(255,255,255,0.14)_transparent]">
           {Object.entries(sections).map(([section, items]) => (
             <div key={section}>
-              <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 px-2 mb-1">
+              <p className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8591a5]">
                 {SECTION_LABELS[section] || section}
               </p>
               <div className="space-y-0.5">
                 {items.map((item) => {
-                  const isActive = location.pathname === item.path ||
-                    (item.path !== '/' && location.pathname.startsWith(item.path));
+                  const isActive = esRutaActiva(location.pathname, item.path);
                   const Icon = item.icon;
 
                   return (
@@ -298,13 +106,24 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                       key={item.text}
                       to={item.path}
                       onClick={onClose}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${isActive
-                        ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100'
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`group relative flex items-center gap-3 h-10 px-3 rounded-lg text-[13.5px] transition-colors duration-150 ${isActive
+                        ? 'bg-white/[0.09] text-white font-semibold ring-1 ring-inset ring-white/[0.07]'
+                        : 'text-[#c3cad6] font-medium hover:bg-white/[0.05] hover:text-white'
                         }`}
                     >
-                      <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
-                      {item.text}
+                      {isActive && (
+                        <span
+                          className="absolute -left-3 top-2 bottom-2 w-[3px] rounded-r-full bg-templex-400 shadow-[0_0_12px_rgba(89,151,251,0.8)]"
+                          aria-hidden="true"
+                        />
+                      )}
+                      <Icon
+                        size={19}
+                        weight="duotone"
+                        className={`shrink-0 transition-colors ${isActive ? 'text-templex-300' : 'text-[#8591a5] group-hover:text-[#dfe4ec]'}`}
+                      />
+                      <span className="truncate">{item.text}</span>
                     </Link>
                   );
                 })}
@@ -313,9 +132,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           ))}
         </nav>
 
-        {/* Footer del sidebar */}
-        <div className="px-4 py-3 border-t border-slate-100">
-          <p className="text-[10px] text-slate-400 text-center font-medium">Vidrios Templex System v1.0</p>
+        {/* Pie — lema de la marca */}
+        <div className="relative shrink-0 px-5 py-4 border-t border-white/[0.06]">
+          <p className="text-[12px] font-medium text-[#c3cad6]">Respaldo y confianza</p>
+          <p className="text-[11px] text-[#8591a5]">Vidrios Templex · ERP v1.0</p>
         </div>
       </aside>
     </>

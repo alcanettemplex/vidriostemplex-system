@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { AlertTriangle, Save, Trash2 } from 'lucide-react';
+import { AlertTriangle, Save, Trash2 } from '../../../../components/ui/icons';
 
 import { BotonPeligro, BotonPrimario, BotonSecundario, ModalShell } from '../ui';
 

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import {
     Search, Edit3, Trash2, Inbox, Loader2, ChevronUp, ChevronDown, ChevronsUpDown,
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 
 import { apiListarCotizaciones, apiObtenerCotizacion, apiEliminarCotizacion } from '../services/cotizadorApi';
 import { Cotizacion, CotizacionLigera, EstadoCotizacion, FiltrosListado } from '../types';
@@ -279,7 +279,7 @@ const TabGuardadas: React.FC<Props> = ({ onReabrir, abrirDetalleInicial }) => {
                                         {c.numero}
                                         {(c.propuestas?.length ?? 0) > 1 && (
                                             <span
-                                                className="ml-1.5 px-1.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-[10px] font-bold text-indigo-700 align-middle"
+                                                className="ml-1.5 px-1.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-[11px] font-bold text-indigo-700 align-middle"
                                                 title={`${c.propuestas!.length} propuestas: ${c.propuestas!.map(p => p.etiqueta).join(' · ')}`}
                                             >
                                                 {c.propuestas!.length} props.

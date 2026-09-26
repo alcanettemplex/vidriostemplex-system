@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     AlertCircle, AlertTriangle, Lightbulb, ListTree, Receipt, Replace, Trash2, Plus, Undo2, Loader2, Sparkles,
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 
 import { LineaBOM, ResultadoCalculo as TResultadoCalculo } from '../types';
 import { fmtCOP, fmtPct } from '../format';
@@ -49,7 +49,7 @@ const colorCategoria = (item: { error: boolean; categoria?: string; unidad?: str
     if (item.error) return '#e11d48';
     const pista = `${item.categoria ?? ''} ${item.unidad ?? ''} ${item.descripcion ?? ''}`.toUpperCase();
     if (pista.includes('VIDRIO')) return '#38bdf8';
-    return '#94a3b8';
+    return '#6f7a8c';
 };
 
 /** `provisional`, `fuentePrecio` y `revisarPrecio` viajan por el index signature

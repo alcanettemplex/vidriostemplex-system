@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Check, ChevronDown, LayoutGrid, Search, X } from 'lucide-react';
+import { Check, ChevronDown, LayoutGrid, Search, X } from '../../../components/ui/icons';
 
 import { apiGetDisenos } from '../services/cotizadorApi';
 import { DisenoResumen } from '../types';

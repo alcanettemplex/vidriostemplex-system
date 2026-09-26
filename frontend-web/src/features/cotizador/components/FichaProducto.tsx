@@ -1,5 +1,5 @@
 import React from 'react';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList } from '../../../components/ui/icons';
 
 import { CampoMeta, ModuloMeta, OpcionCampo, ResultadoCalculo as TResultadoCalculo } from '../types';
 import { Chip, EstadoVacio, FilaDato, Tarjeta } from './ui';

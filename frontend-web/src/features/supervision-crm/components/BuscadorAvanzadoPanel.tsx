@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
-import { Search, Download, Loader2, Truck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Download, Loader2, Truck, ChevronLeft, ChevronRight } from '../../../components/ui/icons';
 import {
   apiGetBuscadorODP, apiExportarBuscadorODPExcel, apiGetBuscadorLeads, apiExportarBuscadorLeadsExcel,
 } from '../supervisionService';
@@ -415,7 +415,7 @@ const BuscadorAvanzadoPanel: React.FC<Props> = ({ fechaDesde, fechaHasta, asesor
           {modo === 'odp' ? (
             <table className="w-full text-xs whitespace-nowrap">
               <thead>
-                <tr className="bg-apple-bg text-apple-text-tertiary uppercase text-[10px] font-bold tracking-wider">
+                <tr className="bg-apple-bg text-apple-text-tertiary uppercase text-[11px] font-bold tracking-wider">
                   <th className="px-4 py-3 text-left">ODP</th>
                   <th className="px-4 py-3 text-left">Cliente</th>
                   <th className="px-4 py-3 text-left">Fuente</th>
@@ -437,7 +437,7 @@ const BuscadorAvanzadoPanel: React.FC<Props> = ({ fechaDesde, fechaHasta, asesor
                     <td className="px-4 py-3 font-bold text-apple-text">
                       {item.numero_odp}
                       {item.es_no_conformidad && (
-                        <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-apple-red/10 text-apple-red align-middle">NC</span>
+                        <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[11px] font-bold bg-apple-red/10 text-apple-red align-middle">NC</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-apple-text-secondary truncate max-w-[180px]">{item.cliente_nombre || '—'}</td>
@@ -445,12 +445,12 @@ const BuscadorAvanzadoPanel: React.FC<Props> = ({ fechaDesde, fechaHasta, asesor
                     <td className="px-4 py-3 text-apple-text-secondary">{item.asesor_nombre || '—'}</td>
                     <td className="px-4 py-3 text-apple-text-secondary">{item.estado_produccion}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${item.estado_facturacion === 'FACTURADA' ? 'bg-apple-green/10 text-apple-green' : 'bg-apple-gray text-apple-text-secondary'}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${item.estado_facturacion === 'FACTURADA' ? 'bg-apple-green/10 text-apple-green' : 'bg-apple-gray text-apple-text-secondary'}`}>
                         {item.estado_facturacion}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
                         item.estado_caja === 'ABONADO' ? 'bg-apple-green/10 text-apple-green'
                           : item.estado_caja === 'CANCELADO' ? 'bg-apple-red/10 text-apple-red'
                           : 'bg-apple-orange/10 text-apple-orange'
@@ -474,7 +474,7 @@ const BuscadorAvanzadoPanel: React.FC<Props> = ({ fechaDesde, fechaHasta, asesor
           ) : (
             <table className="w-full text-xs whitespace-nowrap">
               <thead>
-                <tr className="bg-apple-bg text-apple-text-tertiary uppercase text-[10px] font-bold tracking-wider">
+                <tr className="bg-apple-bg text-apple-text-tertiary uppercase text-[11px] font-bold tracking-wider">
                   <th className="px-4 py-3 text-left">Nombre</th>
                   <th className="px-4 py-3 text-left">Teléfono</th>
                   <th className="px-4 py-3 text-left">Asesor</th>
@@ -493,7 +493,7 @@ const BuscadorAvanzadoPanel: React.FC<Props> = ({ fechaDesde, fechaHasta, asesor
                     <td className="px-4 py-3 text-apple-text-secondary">{item.telefono}</td>
                     <td className="px-4 py-3 text-apple-text-secondary">{item.asesor_nombre}</td>
                     <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-apple-blue/10 text-apple-blue">{item.estado_crm}</span>
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-apple-blue/10 text-apple-blue">{item.estado_crm}</span>
                     </td>
                     <td className="px-4 py-3 text-center text-apple-text-secondary">{item.dias_en_etapa}d</td>
                     <td className="px-4 py-3 text-apple-text-secondary">{item.fuente_lead || '—'}</td>

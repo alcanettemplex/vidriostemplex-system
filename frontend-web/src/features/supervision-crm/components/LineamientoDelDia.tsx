@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { CheckCircle2, Circle, RefreshCw, Sparkles, ChevronLeft, ChevronRight, NotebookPen } from 'lucide-react';
+import { CheckCircle2, Circle, RefreshCw, Sparkles, ChevronLeft, ChevronRight, NotebookPen } from '../../../components/ui/icons';
 import {
   apiGenerarLineamiento, apiGetLineamiento, apiMarcarItemLineamiento,
   apiGuardarNotasLineamiento, apiGetAdherenciaLineamiento,
@@ -214,7 +214,7 @@ const LineamientoDelDia: React.FC<Props> = ({ asesorId, asesorNombre }) => {
                     {ORIGEN_LABEL[item.origen]}{item.lead?.telefono ? ` · ${item.lead.telefono}` : ''}
                   </p>
                 </div>
-                <span className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 uppercase ${PRIORIDAD_BADGE[item.prioridad]}`}>
+                <span className={`text-[11px] font-bold px-2 py-1 rounded-full shrink-0 uppercase ${PRIORIDAD_BADGE[item.prioridad]}`}>
                   {item.prioridad}
                 </span>
               </button>

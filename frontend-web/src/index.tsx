@@ -1,5 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+// Tipografía del sistema visual, servida desde el propio build (sin CDN): la
+// ventana de impresión y los equipos con red restringida la cargan igual.
+import '@fontsource-variable/geist';
+import '@fontsource-variable/geist-mono';
 import './index.css';
 import App from './app/App';
 

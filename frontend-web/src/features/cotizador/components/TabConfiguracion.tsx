@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Loader2, Save, Calculator, AlertTriangle, RefreshCw, Percent, SlidersHorizontal, PackageSearch } from 'lucide-react';
+import { Loader2, Save, Calculator, AlertTriangle, RefreshCw, Percent, SlidersHorizontal, PackageSearch } from '../../../components/ui/icons';
 
 import {
     apiListarMultiplicadores, apiGuardarMultiplicador, apiRecalcularCategoria,

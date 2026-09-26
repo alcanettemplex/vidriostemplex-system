@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar } from 'lucide-react';
+import { Calendar } from '../ui/icons';
 
 interface PeriodSelectorProps {
   mes: number;
@@ -17,7 +17,7 @@ const PeriodSelector: React.FC<PeriodSelectorProps> = ({ mes, anio, onChange }) 
 
   return (
     <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-1 shadow-sm">
-      <div className="flex items-center gap-2 px-3 text-slate-500">
+      <div className="flex items-center gap-2 px-3 text-slate-700">
         <Calendar className="w-4 h-4" />
         <span className="text-xs font-bold uppercase tracking-wider">Periodo</span>
       </div>

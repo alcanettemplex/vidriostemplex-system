@@ -37,10 +37,29 @@ interface OpcionesImpresion {
     alto?: number;
 }
 
+/**
+ * Los imprimibles se diseñaron sobre la fuente del sistema (Segoe UI en Windows) y
+ * varios son formularios de proveedor con filas y celdas contadas (Pedido PV
+ * Templacol, 29 ítems). El rediseño "Cristal y Aluminio" (2026-09-25) pasó la
+ * pantalla a Geist con cifras tabulares, que tienen otro ancho: aquí se devuelve
+ * el papel a la métrica con la que se maquetó, para que ningún formulario
+ * desborde. Va antes de `estilos`, así un imprimible puede pedir otra fuente.
+ * Los encabezados solo pierden el tracking negativo de la capa base; un
+ * `tracking-*` explícito sigue ganando por especificidad de clase.
+ */
+export const METRICA_IMPRESA = `
+:root {
+  --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+body { font-variant-numeric: normal; }
+h1, h2, h3 { letter-spacing: normal; }
+`;
+
 /** Si alguna imagen no responde, no dejamos la ventana colgada sin imprimir. */
 const TIMEOUT_RESPALDO_MS = 4000;
 
-const escaparHtml = (texto: string): string =>
+export const escaparHtml = (texto: string): string =>
     texto.replace(/[&<>"]/g, (c) => (
         { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string
     ));
@@ -57,7 +76,7 @@ const neutralizarCierre = (css: string): string => css.replace(/<\//g, '<\\/');
  * otro origen (`cssRules` lanza SecurityError, p. ej. una fuente remota) se
  * conserva su etiqueta original como respaldo.
  */
-const recolectarEstilos = (): string => {
+export const recolectarEstilos = (): string => {
     const piezas: string[] = [];
 
     for (const hoja of Array.from(document.styleSheets)) {
@@ -124,6 +143,7 @@ export const abrirVentanaImpresion = ({
 ${recolectarEstilos()}
 <style>
 body { margin: 0; padding: 0; }
+${METRICA_IMPRESA}
 ${estilos}
 </style>
 </head><body>${contenidoHtml}</body></html>`);

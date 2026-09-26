@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     LayoutGrid, PanelTop, DoorOpen, DoorClosed, Square, Sparkles, Package, ListPlus,
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 
 import { ModuloMeta } from '../types';
 import { Etiqueta } from './ui';

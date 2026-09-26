@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
     Trash2, Inbox, AlertTriangle, Save, Package, Copy, Layers,
     CheckCircle2, Scale, FilePlus2, User, Briefcase, Receipt, Pencil, Lock,
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 
 import { fmtCOP, fmtPct } from '../format';
 import {

@@ -7,7 +7,7 @@ import { loginStart, loginSuccess, loginFailure } from './authSlice';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Eye, EyeOff, Lock, User, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Lock, User, Loader2 } from '../../components/ui/icons';
 import { motion } from 'framer-motion';
 
 const loginSchema = z.object({

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle } from '../../../components/ui/icons';
 
 import { CampoMeta, LineaLibre, OpcionCampo, SegmentoCliente } from '../types';
 import { CONTROL_ERROR, CONTROL_LABEL_CLASS, CONTROL_NORMAL } from './ui';

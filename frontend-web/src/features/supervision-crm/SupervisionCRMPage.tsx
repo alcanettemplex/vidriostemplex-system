@@ -6,7 +6,7 @@ import {
   Crosshair, ArrowLeft, RefreshCw, Gem, Clock3, TrendingDown, Target,
   Calendar, User, DollarSign, PhoneCall, CheckCircle2,
   Timer, UserPlus, Award, Landmark, Percent, Wallet,
-} from 'lucide-react';
+} from '../../components/ui/icons';
 import KPICard from './components/KPICard';
 import LeadRadarPanel from './components/LeadRadarPanel';
 import MotivosPerdidaPanel from './components/MotivosPerdidaPanel';

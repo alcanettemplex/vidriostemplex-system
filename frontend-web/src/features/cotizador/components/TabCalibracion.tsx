@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import {
     Loader2, Pause, Play, PenLine, PlusCircle, XCircle, CheckCircle2, History, Ruler, Layers,
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 
 import {
     apiListarEstadoSistemas, apiActualizarEstadoSistema, apiListarPiezasDeSistema,
@@ -429,7 +429,7 @@ const PanelPieza: React.FC<{ sistema: string; pieza: PiezaCalibracion; onCambio:
                 ) : (
                     <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-lg">
                         <table className="w-full text-xs">
-                            <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                            <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-slate-500">
                                 <tr>
                                     <th className="text-left px-2 py-1.5">Fecha</th>
                                     <th className="text-left px-2 py-1.5">Sistema</th>

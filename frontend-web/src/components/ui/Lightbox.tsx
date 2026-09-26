@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X, Printer } from 'lucide-react';
+import { X, Printer } from './icons';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface LightboxProps {

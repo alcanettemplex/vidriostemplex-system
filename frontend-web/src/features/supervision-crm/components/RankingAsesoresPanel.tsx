@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trophy, Loader2, Users } from 'lucide-react';
+import { Trophy, Loader2, Users } from '../../../components/ui/icons';
 import { RankingAsesorItem } from '../types';
 
 interface Props {
@@ -19,9 +19,9 @@ const RankingAsesoresPanel: React.FC<Props> = ({ ranking, loading, disabled }) =
       <div className="flex items-center gap-2 px-4 py-3 border-b border-apple-hairline">
         <Trophy className="w-4 h-4 text-apple-orange" />
         <span className="text-xs font-bold text-apple-text uppercase tracking-wider">Ranking de Asesores</span>
-        <span className="text-[10px] text-apple-text-tertiary font-medium ml-1">(siempre todos, ignora el filtro de asesor)</span>
+        <span className="text-[11px] text-apple-text-tertiary font-medium ml-1">(siempre todos, ignora el filtro de asesor)</span>
         <span
-          className="text-[10px] text-apple-text-tertiary font-medium ml-auto"
+          className="text-[11px] text-apple-text-tertiary font-medium ml-auto"
           title="El % de conversión incluye leads del CRM, prospectos directos y clientes recurrentes gestionados por el asesor — no solo los leads listados."
         >
           % incluye prospectos y recurrentes
@@ -45,8 +45,8 @@ const RankingAsesoresPanel: React.FC<Props> = ({ ranking, loading, disabled }) =
             <div key={r.asesor_id} className="flex items-center gap-3 px-4 py-2.5">
               <span className="w-6 text-center text-sm shrink-0">{MEDALLAS[idx] || `#${idx + 1}`}</span>
               <span className="flex-1 min-w-0 text-xs font-bold text-apple-text truncate">{r.asesor_nombre}</span>
-              <span className="text-[10px] font-semibold text-apple-text-tertiary w-16 text-right shrink-0">{r.total_leads} leads</span>
-              <span className="text-[10px] font-bold text-apple-blue w-14 text-right shrink-0">{r.conversion_pct}%</span>
+              <span className="text-[11px] font-semibold text-apple-text-tertiary w-16 text-right shrink-0">{r.total_leads} leads</span>
+              <span className="text-[11px] font-bold text-apple-blue w-14 text-right shrink-0">{r.conversion_pct}%</span>
               <span className="text-xs font-bold text-apple-green w-20 text-right shrink-0">{fmtCOP(r.monto_vendido)}</span>
             </div>
           ))}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, X } from '../../../../components/ui/icons';
 
 import { EstadoCotizacion } from '../../types';
 
@@ -354,7 +354,7 @@ export const Campo: React.FC<{
             {etiqueta}{requerido && <span className="text-rose-500"> *</span>}
         </label>
         {children}
-        {ayuda && <p className="text-[10px] text-slate-400 mt-0.5">{ayuda}</p>}
+        {ayuda && <p className="text-[11px] text-slate-400 mt-0.5">{ayuda}</p>}
     </div>
 );
 

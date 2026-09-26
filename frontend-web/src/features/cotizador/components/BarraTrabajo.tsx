@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Plus, ChevronDown, Check, Pencil, Save, Loader2, CheckCircle2, FilePlus2, Copy, Layers,
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 
 import { fmtCOP } from '../format';
 import { EstadoCotizacion, Propuesta, SegmentoCliente } from '../types';
@@ -66,7 +66,7 @@ const DatoContexto: React.FC<{ etiqueta: string; valor: React.ReactNode; destaca
     etiqueta, valor, destacado = false,
 }) => (
     <div className="text-right">
-        <div className="text-[10px] font-extrabold uppercase tracking-wide text-slate-400">{etiqueta}</div>
+        <div className="text-[11px] font-extrabold uppercase tracking-wide text-slate-400">{etiqueta}</div>
         <div
             className={`font-cotizador-head tabular-nums font-bold leading-tight whitespace-nowrap ${
                 destacado ? 'text-[15px] text-indigo-700' : 'text-[13px] text-slate-800'
@@ -242,7 +242,7 @@ const BarraTrabajo: React.FC<Props> = ({
                             >
                                 <Save className="w-4 h-4" />
                                 {guardada ? 'Guardar' : 'Guardar cotización'}
-                                <kbd className="hidden md:inline ml-1 px-1 rounded bg-indigo-500/60 text-[10px] font-semibold">Ctrl+S</kbd>
+                                <kbd className="hidden md:inline ml-1 px-1 rounded bg-indigo-500/60 text-[11px] font-semibold">Ctrl+S</kbd>
                             </button>
                         </div>
                     ) : (

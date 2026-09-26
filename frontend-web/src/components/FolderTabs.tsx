@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Barra de pestañas estilo "carpeta de archivador" (manila): solapas con esquinas
@@ -48,33 +48,85 @@ interface Props {
   className?: string;
 }
 
-const FolderTabs: React.FC<Props> = ({ tabs, activeKey, onChange, className = '' }) => (
-  <div className={`flex items-end gap-1 px-2 pt-1 overflow-x-auto ${className}`}>
-    {tabs.map((t, i) => {
-      const c = PALETA[i % PALETA.length];
-      const activo = t.key === activeKey;
-      const hasBadge = t.badge !== undefined && t.badge !== null && t.badge !== '';
-      return (
-        <button
-          key={t.key}
-          onClick={() => onChange(t.key)}
-          className={`flex-shrink-0 flex items-center justify-center gap-1.5 px-4 rounded-t-xl border border-b-0 transition-all ${
-            activo
-              ? 'bg-white border-slate-200 text-indigo-700 pt-2.5 pb-3 -mb-px z-10 shadow-[0_-2px_6px_rgba(15,23,42,0.06)]'
-              : `${c.bg} ${c.border} ${c.text} ${c.hover} pt-2 pb-2.5`
-          }`}
-        >
-          {t.icon}
-          <span className={`whitespace-nowrap text-sm ${activo ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
-          {hasBadge && (
-            <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${activo ? 'bg-indigo-100 text-indigo-700' : (t.badgeClassName || c.badge)}`}>
-              {t.badge}
-            </span>
-          )}
-        </button>
-      );
-    })}
-  </div>
-);
+/**
+ * Cuando las pestañas no caben (Instalaciones tiene 7), la barra se desplaza de lado.
+ * Antes nada lo indicaba y la última pestaña quedaba cortada a la mitad: ahora el
+ * borde por el que hay más pestañas se desvanece, y la activa se trae a la vista.
+ * Se usa máscara (no un degradado pintado encima) porque el fondo detrás de la barra
+ * cambia según la página.
+ */
+const FolderTabs: React.FC<Props> = ({ tabs, activeKey, onChange, className = '' }) => {
+  const barraRef = useRef<HTMLDivElement>(null);
+  const [desborde, setDesborde] = useState({ izquierda: false, derecha: false });
+
+  const medir = useCallback(() => {
+    const el = barraRef.current;
+    if (!el) return;
+    const izquierda = el.scrollLeft > 2;
+    const derecha = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+    setDesborde(prev => (prev.izquierda === izquierda && prev.derecha === derecha ? prev : { izquierda, derecha }));
+  }, []);
+
+  useEffect(() => {
+    const el = barraRef.current;
+    if (!el) return;
+    medir();
+    const observador = new ResizeObserver(medir);
+    observador.observe(el);
+    el.addEventListener('scroll', medir, { passive: true });
+    return () => {
+      observador.disconnect();
+      el.removeEventListener('scroll', medir);
+    };
+  }, [medir, tabs.length]);
+
+  // Solo desplaza la barra (horizontal): scrollIntoView movería también la página.
+  useEffect(() => {
+    const el = barraRef.current;
+    const activa = el?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!el || !activa) return;
+    const inicio = activa.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft;
+    const fin = inicio + activa.offsetWidth;
+    if (inicio < el.scrollLeft) el.scrollLeft = inicio - 16;
+    else if (fin > el.scrollLeft + el.clientWidth) el.scrollLeft = fin - el.clientWidth + 16;
+  }, [activeKey]);
+
+  const mascara =
+    desborde.izquierda && desborde.derecha ? '[mask-image:linear-gradient(to_right,transparent,black_40px,black_calc(100%-40px),transparent)]'
+    : desborde.derecha ? '[mask-image:linear-gradient(to_right,black_calc(100%-48px),transparent)]'
+    : desborde.izquierda ? '[mask-image:linear-gradient(to_right,transparent,black_48px)]'
+    : '';
+
+  return (
+    <div ref={barraRef} role="tablist" className={`flex items-end gap-1 px-2 pt-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${mascara} ${className}`}>
+      {tabs.map((t, i) => {
+        const c = PALETA[i % PALETA.length];
+        const activo = t.key === activeKey;
+        const hasBadge = t.badge !== undefined && t.badge !== null && t.badge !== '';
+        return (
+          <button
+            key={t.key}
+            role="tab"
+            aria-selected={activo}
+            onClick={() => onChange(t.key)}
+            className={`flex-shrink-0 flex items-center justify-center gap-1.5 px-4 rounded-t-xl border border-b-0 transition-all ${
+              activo
+                ? 'bg-white border-slate-200 text-indigo-700 pt-2.5 pb-3 -mb-px z-10 shadow-[0_-2px_6px_rgba(15,23,42,0.06)]'
+                : `${c.bg} ${c.border} ${c.text} ${c.hover} pt-2 pb-2.5`
+            }`}
+          >
+            {t.icon}
+            <span className={`whitespace-nowrap text-sm ${activo ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
+            {hasBadge && (
+              <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${activo ? 'bg-indigo-100 text-indigo-700' : (t.badgeClassName || c.badge)}`}>
+                {t.badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
 
 export default FolderTabs;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, AlertTriangle, X } from 'lucide-react';
+import { Calendar, AlertTriangle, X } from '../ui/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface DateRangeSelectorProps {
@@ -101,18 +101,19 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
 
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
-      <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
-        <div className="flex items-center gap-2 text-slate-500 pr-2 border-r border-slate-100">
-          <Calendar className="w-4 h-4" />
-          <span className="text-xs font-bold uppercase tracking-wider">Periodo</span>
+      {/* flex-wrap: a 390px los dos tramos (Desde/Hasta) no caben en una fila y se salían de la pantalla */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm max-w-full">
+        <div className="flex items-center gap-2 text-slate-900 pr-2 border-r border-slate-200">
+          <Calendar className="w-4 h-4 text-slate-600" />
+          <span className="text-xs font-semibold uppercase tracking-wider">Periodo</span>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Desde</span>
+          <span className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Desde</span>
           <select
             value={desdeVal.mes}
             onChange={e => handleDesdeMes(parseInt(e.target.value))}
-            className="bg-transparent text-sm font-semibold text-slate-700 outline-none cursor-pointer border border-slate-200 rounded px-1.5 h-7"
+            className="bg-transparent text-sm font-normal text-slate-900 outline-none cursor-pointer border border-slate-200 rounded px-1.5 h-7"
           >
             {MESES.map((nombre, index) => (
               <option key={index + 1} value={index + 1}>{nombre}</option>
@@ -121,7 +122,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
           <select
             value={desdeVal.anio}
             onChange={e => handleDesdeAnio(parseInt(e.target.value))}
-            className="bg-transparent text-sm font-semibold text-slate-700 outline-none cursor-pointer h-7"
+            className="bg-transparent text-sm font-normal text-slate-900 outline-none cursor-pointer h-7"
           >
             {years.map(y => (
               <option key={y} value={y}>{y}</option>
@@ -132,11 +133,11 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
         <span className="text-slate-300 text-lg font-light">→</span>
 
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Hasta</span>
+          <span className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Hasta</span>
           <select
             value={hastaVal.mes}
             onChange={e => handleHastaMes(parseInt(e.target.value))}
-            className="bg-transparent text-sm font-semibold text-slate-700 outline-none cursor-pointer border border-slate-200 rounded px-1.5 h-7"
+            className="bg-transparent text-sm font-normal text-slate-900 outline-none cursor-pointer border border-slate-200 rounded px-1.5 h-7"
           >
             {MESES.map((nombre, index) => (
               <option key={index + 1} value={index + 1}>{nombre}</option>
@@ -145,7 +146,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
           <select
             value={hastaVal.anio}
             onChange={e => handleHastaAnio(parseInt(e.target.value))}
-            className="bg-transparent text-sm font-semibold text-slate-700 outline-none cursor-pointer h-7"
+            className="bg-transparent text-sm font-normal text-slate-900 outline-none cursor-pointer h-7"
           >
             {years.map(y => (
               <option key={y} value={y}>{y}</option>
@@ -198,7 +199,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
                 <h3 className="text-lg font-bold text-slate-800 tracking-tight">
                   Límite de Período Excedido
                 </h3>
-                <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                <p className="text-sm text-slate-800 mt-2 leading-relaxed">
                   {mensajeExcedido}
                 </p>
               </div>

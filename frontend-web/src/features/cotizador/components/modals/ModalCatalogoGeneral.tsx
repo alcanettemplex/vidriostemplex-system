@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, PackagePlus, AlertTriangle, Loader2 } from 'lucide-react';
+import { Search, PackagePlus, AlertTriangle, Loader2 } from '../../../../components/ui/icons';
 import { toast } from 'react-toastify';
 
 import { apiBuscarCatalogoGeneral, apiImportarCatalogoGeneral, apiListarMultiplicadores } from '../../services/cotizadorApi';

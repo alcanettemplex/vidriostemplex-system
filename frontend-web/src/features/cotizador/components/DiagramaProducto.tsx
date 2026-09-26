@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, Ruler } from 'lucide-react';
+import { Loader2, Ruler } from '../../../components/ui/icons';
 
 import { CotaPlano, Plano } from '../types';
 import { Chip, EstadoVacio } from './ui';

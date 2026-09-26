@@ -1,3 +1,5 @@
+import { METRICA_IMPRESA, escaparHtml, recolectarEstilos } from './printWindow';
+
 /**
  * Helper para impresión silenciosa (compatible con modo Kiosk / --kiosk-printing)
  * mediante un iframe invisible en segundo plano, sin requerir ventanas emergentes (popups).
@@ -10,39 +12,6 @@ interface OpcionesImpresionSilenciosa {
 }
 
 const TIMEOUT_RESPALDO_MS = 4000;
-
-const escaparHtml = (texto: string): string =>
-    texto.replace(/[&<>"]/g, (c) => (
-        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string
-    ));
-
-const neutralizarCierre = (css: string): string => css.replace(/<\//g, '<\\/');
-
-/**
- * Serializa las hojas de estilo ya cargadas en memoria respetando la cascada.
- */
-const recolectarEstilos = (): string => {
-    const piezas: string[] = [];
-
-    for (const hoja of Array.from(document.styleSheets)) {
-        let reglas: CSSRuleList | null = null;
-        try {
-            reglas = hoja.cssRules;
-        } catch {
-            reglas = null;
-        }
-
-        if (reglas) {
-            const texto = Array.from(reglas).map((r) => r.cssText).join('\n');
-            if (texto) piezas.push(`<style>${neutralizarCierre(texto)}</style>`);
-        } else {
-            const nodo = hoja.ownerNode as HTMLElement | null;
-            if (nodo?.outerHTML) piezas.push(nodo.outerHTML);
-        }
-    }
-
-    return piezas.join('\n');
-};
 
 const esperarImagenes = (doc: Document): Promise<void> => {
     const pendientes = Array.from(doc.images).filter((img) => !img.complete);
@@ -97,6 +66,7 @@ ${recolectarEstilos()}
 <style>
 @page { size: letter portrait; margin: 4mm; }
 body { margin: 0; padding: 0; font-family: sans-serif; }
+${METRICA_IMPRESA}
 .sap-table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
 .sap-table th, .sap-table td { border: 1px solid #000; padding: 2px 4px; }
 .sap-table th { font-weight: bold; text-align: center; background-color: #f0f0f0; }

@@ -60,7 +60,7 @@ export const ESTADOS_ODP: Record<EstadoProduccion, EstadoConfig> = {
     label: 'En espera',
     corto: 'En espera',
     badge: 'bg-slate-100 text-slate-700 border-slate-200',
-    hex: '#94a3b8',
+    hex: '#6f7a8c',
     descripcion: 'La orden aún no ha entrado a producción.',
   },
   VISITA_TECNICA: {
@@ -164,7 +164,7 @@ export const getEstadoODP = (estado?: string | null): EstadoConfig =>
     label: estado ? estado.replace(/_/g, ' ') : '—',
     corto: estado ? estado.replace(/_/g, ' ') : '—',
     badge: 'bg-slate-100 text-slate-700 border-slate-200',
-    hex: '#94a3b8',
+    hex: '#6f7a8c',
     descripcion: '',
   };
 

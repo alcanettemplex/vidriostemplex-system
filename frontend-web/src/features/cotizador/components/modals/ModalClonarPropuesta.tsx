@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Copy, AlertTriangle, Info } from 'lucide-react';
+import { Copy, AlertTriangle, Info } from '../../../../components/ui/icons';
 
 import { apiClonarPropuesta, apiGetCatalogo, apiGetModulos } from '../../services/cotizadorApi';
 import { OpcionCampo, ProductoCatalogo, Propuesta, RespuestaPropuesta, SegmentoCliente } from '../../types';

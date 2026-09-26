@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, MapPin, Search, CheckCircle2, ChevronRight, X, UploadCloud, UserCircle, FileSignature } from 'lucide-react';
+import { Camera, MapPin, Search, CheckCircle2, ChevronRight, X, UploadCloud, UserCircle, FileSignature } from '../../components/ui/icons';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';

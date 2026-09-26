@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Loader2, CheckCircle2, Scale, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle2, Scale, RefreshCw } from '../../../components/ui/icons';
 
 import { apiCompararPropuestas } from '../services/cotizadorApi';
 import { ComparativaPropuestas, PropuestaComparada } from '../types';
@@ -114,7 +114,7 @@ const ComparadorPropuestas: React.FC<Props> = ({ cotizacionId, recargarToken, on
                                     <div className="flex items-center justify-end gap-1.5">
                                         <span className="font-cotizador-head tabular-nums font-black text-slate-800 text-base">{p.etiqueta}</span>
                                         {p.elegida && (
-                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold">
+                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] font-bold">
                                                 <CheckCircle2 className="w-3 h-3" /> Elegida
                                             </span>
                                         )}

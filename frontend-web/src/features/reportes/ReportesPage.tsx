@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { motion } from 'framer-motion';
-import { FileDown, Download, BarChart2, FileText, CheckCircle2, TrendingUp } from 'lucide-react';
+import { FileDown, Download, BarChart2, FileText, CheckCircle2, TrendingUp } from '../../components/ui/icons';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';

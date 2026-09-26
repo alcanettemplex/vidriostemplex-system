@@ -19,11 +19,11 @@
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
     -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!-- Tipografía exclusiva del módulo Supervisión CRM (features/supervision-crm) -->
+    <!-- Tipografía exclusiva del módulo Cotizador (features/cotizador). La del resto
+         del ERP (Geist) viaja en el build: ver src/index.tsx. Plus Jakarta Sans se
+         cargaba aquí para Supervisión CRM, que ya no la usa (usa font-apple). -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <!-- Tipografía exclusiva del módulo Cotizador (features/cotizador) -->
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <!--
       Notice the use of %PUBLIC_URL% in the tags above.

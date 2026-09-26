@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Calculator as IconCotizar, ClipboardList, Archive, Loader2, AlertTriangle, Gauge, Settings } from 'lucide-react';
+import { Calculator as IconCotizar, ClipboardList, Archive, Loader2, AlertTriangle, Gauge, Settings } from '../../components/ui/icons';
 
 import FolderTabs, { FOLDER_BODY } from '../../components/FolderTabs';
 import {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { toast } from 'react-toastify';
-import { HardHat, Plus, Trash2, Truck, Package2, Layers, Wand2, AlertTriangle, Lock } from 'lucide-react';
+import { HardHat, Plus, Trash2, Truck, Package2, Layers, Wand2, AlertTriangle, Lock } from '../../../components/ui/icons';
 
 import { apiSmoSugerido, apiSmoSugeridoBorrador } from '../services/cotizadorApi';
 import { CargoEntrada, CargoPropuesta, OrigenCargo, Parametros, TipoObraSeleccion } from '../types';
@@ -613,7 +613,7 @@ const PanelCargosObra: React.FC<Props> = ({
             <div className={bloqueado ? 'opacity-50 pointer-events-none' : ''}>
                 {/* Cabecera de columnas. Oculta en móvil, donde la fila se apila y
                     cada campo se explica con su propio aria-label / rótulo. */}
-                <div className={`hidden sm:grid ${COLUMNAS} px-3 py-1 bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold uppercase tracking-wide text-slate-400`}>
+                <div className={`hidden sm:grid ${COLUMNAS} px-3 py-1 bg-slate-50 border-b border-slate-200 text-[11px] font-extrabold uppercase tracking-wide text-slate-400`}>
                     <span>Concepto</span>
                     <span className="text-right">Cantidad</span>
                     <span className="text-right">Valor unit.</span>

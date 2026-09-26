@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Trash2, Search, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Search, AlertTriangle } from '../../../components/ui/icons';
 
 import { apiGetCatalogo } from '../services/cotizadorApi';
 import { LineaLibre, ProductoCatalogo, SegmentoCliente } from '../types';

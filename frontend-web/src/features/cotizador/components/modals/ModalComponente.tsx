@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Replace, Plus, PackageSearch } from 'lucide-react';
+import { Search, Replace, Plus, PackageSearch } from '../../../../components/ui/icons';
 import { toast } from 'react-toastify';
 
 import { apiGetCatalogo } from '../../services/cotizadorApi';
