@@ -5354,3 +5354,142 @@ Hasta desplegar, el backend desplegado con código viejo, si recarga su caché, 
 ### Pendientes
 - Confirmar si Glasvit (`KDG0306`) trae las rodachinas (`TECH_DEBT.md` 2026-09-25 (2)).
 - Desplegar el backend.
+
+---
+
+## 2026-09-25 (3) — Auditoría de instrucciones (prompt-audit) contra Opus 5.5
+
+### Origen
+Pull de `4925347` + servicios en local; luego auditoría de todo el texto que llega al modelo. El código
+de la app no llama a ningún LLM: la superficie es `CLAUDE.md`, el índice de memoria y dos documentos
+de rol. El usuario ordenó "procede" sobre el diff propuesto.
+
+### Hallazgo principal
+`CLAUDE.md` daba por hechas protecciones que en la máquina de `C:\Users\User\Desktop\...` **no
+existen**: `.claude/settings.json` tiene 26 `allow`, **0 `deny`** y ningún hook; `~/.claude/settings.json`
+no tiene `defaultMode`; `C:\dev\vidrios-templex-system` no existe. Las 4 reglas `deny` que el documento
+llamaba "único candado técnico" aquí no están.
+
+### Cambios
+- `CLAUDE.md`: sincronización entre máquinas y permisos reescritos como dependientes de la máquina
+  (leer los dos `settings.json` y avisar si faltan; `fetch` a mano si no hay hook). Quitada la
+  arqueología de Proveedores (14/14, arbitraje por cercanía, `$68.558,89` — sigue en `compras.md`),
+  de PedidoPV (88 ODP, PV 7012/7073/7077 — se conserva la razón en presente) y la estadística del `cd`.
+- Memoria (fuera del repo): índice de egress a una línea (contradecía su archivo: decía "sin
+  commitear" lo ya commiteado); agenda del Cotizador actualizada (18 diseños hechos, 163/163; quedan
+  los 5 kits y `KDG0306`); "6 reglas" → sin número (`CLAUDE.md` enumera 9).
+
+### Señalado, sin cambio
+- `CLAUDE.md` "Prompt Injection": repite un comportamiento por defecto; inofensivo.
+- `supervisorasesores.md`: lista fija de asesores sin verificar contra `usuarios`; nada lo referencia.
+- `chatbot.md`: el diseño pide que el cliente no perciba que habla con una IA — la política de uso de
+  Anthropic lo prohíbe si se construye con Claude. Decidir antes de construir.
+- `backend-api/package.json`: `openai` sin uso desde `42ffcc9`.
+
+### Instalado después, por orden del usuario: reglas `deny` + hook `SessionStart`
+- **Corrección a lo de arriba:** `tooling/claude-code/README.md` dice que el 2026-09-11 el usuario
+  eligió **sin** `bypassPermissions` y **sin** hook, y la plantilla tampoco traía reglas `deny`. La
+  primera reescritura de `CLAUDE.md` le atribuía a la plantilla un bypass que no tenía; corregido.
+- `.claude/settings.json`: se conservan los 26 `allow`; 12 `deny` (`rm -rf`/`rm -fr`, `git reset
+  --hard`, `git clean` —también con `git -C <ruta>`, que la primera versión dejaba pasar—,
+  `Remove-Item -Recurse` en dos órdenes), Bash y PowerShell. Probado: los 4 intentos bloqueados.
+- Hook `SessionStart` → `.claude/hooks/session-start.sh`: `git fetch` + atrás/adelante/sucios, JSON
+  con `systemMessage` y `additionalContext`. Lleva `"shell": "bash"`: desde PowerShell, `bash`
+  resuelve a `C:\WINDOWS\system32\bash.exe` (WSL, sin distribuciones) y falla. Probado a mano; se
+  verá en vivo al abrir la próxima sesión.
+- Copia versionada: `tooling/claude-code/project-settings.json` + `hooks/session-start.sh`; README
+  actualizado.
+
+### Despliegue del backend — cómo funciona
+Render auto-despliega al detectar un push a `main` (entrada 2026-09-05, `712773f`). `4925347` está
+en `origin/main` desde las 17:17. `/health` respondió 200 pero con `uptime` de 23 s: el servicio
+dormía y lo despertó la consulta, así que no prueba la versión. Todo `/api/cotizador` exige login
+`root`/`admin`, sin forma de verificarlo desde fuera. Confirmar en el panel de Render (Events).
+
+### Pendientes
+- Confirmar en Render que el deploy de `4925347` quedó "live".
+- `chatbot.md`: el usuario dice que ya no usará ese proyecto.
+- Sin commit ni push: el usuario decide.
+
+## 2026-09-25 (4) — Rediseño visual "Cristal y Aluminio", Fase 1: base global
+
+**Pedido del usuario:** cambiar el diseño del ERP: letras pequeñas, grises que no se distinguen del
+fondo, iconos genéricos. Eligió base global + fases, librería de iconos nueva y, al preguntarle por
+referencias, delegó la estética: "algo premium, no genérico". Autorizó instalar recursos y usar
+multiagentes. Detalle técnico: `design/sistema-visual/README.md`.
+
+### Cambios
+- `tailwind.config.js`: escala `slate`/`gray` reajustada ("aluminio"; `slate-400` pasa de 2,56:1 a
+  4,34:1 sobre blanco), color de marca `templex-*` (azul del logo), `font-black` = 800, sombras
+  `card`/`float`, `font-sans`/`font-mono` vía variables CSS.
+- Fuente **Geist** (`@fontsource-variable/geist` + `geist-mono`, sin CDN), cifras tabulares.
+- Iconos: `lucide-react` → **Phosphor** (`@phosphor-icons/react`) detrás del registro
+  `components/ui/icons.ts`. Codemod de 129 imports; ningún JSX cambió. Peso por defecto `bold`
+  (`IconContext` en `App.tsx`). `lucide-react` desinstalado. Iconos MUI de Pedidos PV y de 2 modales
+  del dashboard migrados al registro.
+- Legibilidad: 519 `text-[9px]`/`text-[10px]` → `text-[11px]`; 358 grises hexadecimales de la
+  escala vieja → escala nueva. Excluidos imprimibles, PDF, planos del Cotizador y módulos huérfanos.
+- Shell nuevo: menú lateral azul noche de altura completa, barra superior con sección › página y
+  menú de usuario. Mapa de módulos extraído a `components/common/navegacion.ts`.
+- `theme.ts` (MUI) alineado: primario Templex, Geist, botones sin mayúsculas, tablas y diálogos.
+- Imprimibles blindados: `METRICA_IMPRESA` (`utils/printWindow.ts`, también en `printSilent.ts`)
+  devuelve el papel a la fuente del sistema. `printSilent.ts` ya no duplica el recolector de estilos.
+- Correcciones que surgieron en la verificación: montos cortados en las tarjetas de Contabilidad,
+  `FolderTabs` con desvanecido cuando hay pestañas ocultas, desbordamiento lateral en CRM › Métricas,
+  botones "Crear ODC" desactivados ilegibles, texto tenue en la Agenda.
+
+### Bugs encontrados (no causados por el rediseño) y corregidos
+- Pedidos PV: la etiqueta "Repuesto ✓" se mostraba como "Repuesto âœ“" (doble codificación).
+- `AgendaTab.tsx`: `<Draggable>` sin `key` (aviso de React en cada render de la agenda).
+- `public/index.html` cargaba Plus Jakarta Sans desde Google Fonts sin que nada la usara.
+- Producción: etiqueta "EN ESPERA" blanca sobre ámbar (1,7:1) → texto ámbar oscuro.
+
+### Verificación
+- `tsc --noEmit` limpio; build de producción OK (Phosphor con tree-shaking: solo entran los 175
+  iconos usados).
+- Playwright con API simulada (sin backend ni Supabase): 13 módulos + shell en 1440px y 390px, con
+  capturas de antes y después. Un subagente armó las respuestas simuladas por módulo.
+- No verificado: impresión real de un imprimible con la métrica nueva (cambio de CSS de bajo riesgo)
+  y la app con datos reales.
+
+### Pendientes
+- Fases 2 (ODP y Producción), 3 (Dashboard/indicadores) y 4 (resto de listados); inicio de sesión;
+  tema oscuro. Deuda visual por módulo en `TECH_DEBT.md` (2026-09-25).
+- Sin commit ni push: el usuario decide.
+
+## 2026-09-26 — Rediseño visual, Fases 2–4 con 8 agentes en paralelo
+
+**Pedido del usuario:** "hay letras grises; si son títulos o toca resaltar, negras y en negrita; el
+resto sin negrita pero negras". Procede con fases 2, 3 y 4, multiagentes en paralelo con funciones
+específicas, **sin tocar imprimibles**.
+
+### Decisión técnica
+La regla NO se aplicó oscureciendo la escala `slate` global: esos tonos son texto claro sobre fondos
+oscuros en ~100 zonas. Se escribió como contrato ("Jerarquía tipográfica" en
+`design/sistema-visual/README.md`) y se aplicó módulo por módulo.
+
+### Hecho por el lead (compartido, antes y durante)
+- `theme.ts`: `text.secondary` → slate-700; encabezado de tabla MUI → slate-900.
+- `Navbar`, `DateRangeSelector` (ahora con `flex-wrap`: a 390px se salía de la pantalla),
+  `PeriodSelector`; `index.css`: `--text-muted` → slate-700, `--text-subtle` → slate-500;
+  `.glass-panel` casi opaco (95%).
+- Huella SHA-1 de los 15 archivos de impresión antes de lanzar; verificada idéntica al final.
+
+### Agentes (dueños exclusivos de carpeta)
+2a ODP · 2b Producción + Toma de Medidas · 3 Dashboard + Informe Ejecutivo · 4a Contabilidad,
+Facturas vs Salidas, Clientes, ROOT, Manuales · 4b Compras, Inventario, Pedidos PV · 4c CRM ·
+4d Instalaciones + Prospectos · 4e Proveedores, Usuarios, Configuración. Resumen de cada uno en el
+README del sistema visual. Dos cortes por límite de API; se reanudaron con su contexto.
+
+### Verificación
+- `tsc --noEmit` limpio; build de producción OK con las mismas 25 advertencias previas (ninguna nueva).
+- Imprimibles: huella idéntica. Archivos fuera de alcance (Cotizador, Supervisión CRM, huérfanos):
+  solo traen los cambios de la Fase 1.
+- Capturas antes/después por agente (1440 y 390px) con API simulada. No verificados en captura: la
+  mayoría de los modales (revisados por diff) y algunas pestañas sin mocks.
+- El dev server se cayó durante la sesión (un agente intentó levantar otro); se relevantó.
+
+### Pendientes
+- Deuda nueva en `TECH_DEBT.md` (2026-09-26): `fetch` en Informe Ejecutivo, código muerto, estado de
+  ruta crudo, contraste de `--primary`, etc.
+- Probar con datos reales antes de desplegar. Sin commit ni push: el usuario decide.

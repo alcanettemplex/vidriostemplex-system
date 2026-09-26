@@ -1317,3 +1317,78 @@ da 1,5 y el Excel no dice hacia dónde redondear; los propios diseños extraído
 exacta, **sin redondeo inventado**, para que la regla la fije el taller en el mapeo y no el motor.
 
 **Estimación:** 5 min una vez que el taller responda.
+
+---
+
+## 2026-09-25 — Rediseño visual, Fase 1: deuda visual que queda para las fases 2–4
+
+La Fase 1 (`design/sistema-visual/README.md`) corrigió la base global. Estas son las fallas de
+maquetación **por módulo** detectadas en la verificación con Playwright (datos simulados, 13
+módulos). La mayoría ya existían antes del rediseño; Geist con cifras tabulares ocupa un poco más de
+ancho que Segoe UI y algunas se acentuaron.
+
+### 1. `ODP-24340` partido en dos líneas — **severidad baja, ~30 min**
+El guion permite el salto de línea. Ocurre en ODP (ya ocurría antes), Pedidos PV, Facturas vs
+Salidas y Compras › Seguimiento. Arreglo: `whitespace-nowrap` en la celda del número de ODP.
+
+### 2. Píldoras de estado en dos líneas — **severidad baja, ~1 h**
+"Aluminio cortado", "Vidrio recibido", "Accesorios separados" se deforman en columnas estrechas
+(ODP, Contabilidad). Decidir por tabla entre `whitespace-nowrap` (más desplazamiento horizontal) o
+etiquetas cortas. Mismo caso: "FACTURA ANTICIPADA" (Facturas vs Salidas), la hora en Toma de
+Medidas ("2:00 / pm"), "MOD" que empuja "6000 mm" en Compras.
+
+### 3. Títulos de tarjetas KPI que ocupan dos líneas y desalinean la cifra — **baja, ~30 min**
+Pedidos PV ("CON DAÑO SIN REPONER", "VENCIDOS SIN LLEGAR") y Facturas vs Salidas ("PENDIENTES
+SA"). Se resuelve en la Fase 3 (indicadores) con una tarjeta de KPI compartida.
+
+### 4. Selector de etapas del CRM truncado — **media, ~30 min**
+"BOL…", "ASIG…", "EN C…": los nombres de etapa no caben. `features/crm/`.
+
+### 5. `LeadCard.tsx:125` — descripción en cursiva de 22px — **baja, 5 min**
+Desproporcionada frente al resto de la tarjeta; viene del commit `63f60c7`, no del rediseño.
+
+### 6. `CRMIcons.tsx` — iconos animados propios fuera del registro — **baja, ~1 h**
+No pasan por `components/ui/icons.ts`, así que no heredan el sistema; según el cuadro de la animación
+se ven diminutos.
+
+### 7. Pedidos PV con los azules por defecto de MUI escritos a mano — **baja, ~1 h**
+`#1976d2`, `#1565c0`, `#0288d1`… en `barColor` y en los KPI. Alinear con `templex-*` en la Fase 4.
+
+### 8. `text-slate-300` usado como texto sobre blanco — **baja, ~1 h**
+79 apariciones; con 1,6:1 de contraste casi no se lee. Muchas son guiones de celda vacía, que están
+bien así; revisar el resto.
+
+~~`utils/printSilent.ts` duplicaba `recolectarEstilos()` y `escaparHtml()` de `printWindow.ts`~~ —
+RESUELTO en la misma sesión: ahora los importa de `printWindow.ts`.
+
+---
+
+## 2026-09-26 — Rediseño visual, Fases 2–4: lo que quedó señalado
+
+Resueltos en las fases: puntos 1, 2, 3, 4, 5 y 7 de la entrada 2026-09-25 (ODP partido, píldoras
+deformadas, KPI desalineados, etapas del CRM truncadas, cursiva de 22px, azules MUI de Pedidos PV).
+El punto 8 (`text-slate-300` como texto) quedó resuelto dentro de los módulos rediseñados; persiste en
+Cotizador y Supervisión CRM, fuera de alcance.
+
+Nuevos, detectados por los agentes y **no corregidos** (fuera de "solo presentación" o de alcance):
+
+1. **`InformeEjecutivoPage.tsx` usa `fetch`**, contra la regla "Axios, nunca fetch" — baja, ~30 min.
+2. **Código muerto:** `components/dashboard/KPICard.tsx`, `charts/BarrasHorizontales.tsx`,
+   `BarrasVerticales.tsx`, `LineaVsBarras.tsx` y `features/crm/components/LeadCard.tsx` — nada los
+   importa. Decidir si se borran — baja, 10 min.
+3. **`ODPForm.tsx`: aviso de React "unique key"** en un `<select>` — baja, 10 min.
+4. **Listado de ODP a 1440px necesita desplazamiento horizontal** para ver "Listo Material" y
+   acciones (ya pasaba; ahora un poco más porque las píldoras ya no se parten). Cabe a 1920px.
+   Evaluar columnas ocultables — media, ~1 h.
+5. **Estado de ruta crudo** (`EN_CURSO`, `PENDIENTE`) en InstaladorView/ConductorView; JefeView ya
+   usa etiquetas legibles. Es cambio de texto visible: requiere visto bueno — baja, 15 min.
+6. **`InstaladorView.tsx` define su propio SVG `Truck`** (dibuja flechas ⇄) en vez del registro de
+   iconos — baja, 10 min.
+7. **Ranking de Ventas (dashboard):** los porcentajes usan hex claros que comparten variable con la
+   barra; separar color de texto (700) del de la barra — baja, 15 min.
+8. **`--primary` (#6366f1) como fondo de botón con texto blanco: 4,47:1**, justo bajo AA. Evaluar un
+   `--primary-solid` más oscuro en `index.css` — baja, 15 min.
+9. **`utils/estadosODP.ts`: los `badge` no traen `whitespace-nowrap`**; cada módulo lo agregó en el
+   uso. Moverlo a la fuente — baja, 10 min.
+10. **`TarjetaKPI` vive en `components/dashboard/`**; si otras pantallas la adoptan, subirla a
+    `components/ui/`.
