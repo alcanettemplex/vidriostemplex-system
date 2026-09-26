@@ -5,7 +5,7 @@ import {
   Archive, Calendar, Camera, AlertCircle, AlertTriangle, Shield, MessageSquare,
   ChevronDown, ChevronUp, User, ArrowRight, RefreshCw, Loader2, ExternalLink,
   Plus, Tag, Wrench,
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { fmt } from './ODPFichaModal.utils';
@@ -44,7 +44,7 @@ const HIST_CATS: Record<string, { bg: string; text: string; border: string; dot:
   instalacion: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500', label: 'Instalación', icon: <Truck className="w-3 h-3" /> },
   financiero:  { bg: 'bg-teal-50',    text: 'text-teal-700',    border: 'border-teal-200',    dot: 'bg-teal-500',    label: 'Financiero',  icon: <CreditCard className="w-3 h-3" /> },
   calidad:     { bg: 'bg-rose-50',    text: 'text-rose-700',    border: 'border-rose-200',    dot: 'bg-rose-500',    label: 'Calidad',     icon: <AlertTriangle className="w-3 h-3" /> },
-  sistema:     { bg: 'bg-slate-50',   text: 'text-slate-600',   border: 'border-slate-200',   dot: 'bg-slate-400',   label: 'Sistema',     icon: <MessageSquare className="w-3 h-3" /> },
+  sistema:     { bg: 'bg-slate-50',   text: 'text-slate-800',   border: 'border-slate-200',   dot: 'bg-slate-400',   label: 'Sistema',     icon: <MessageSquare className="w-3 h-3" /> },
 };
 
 // Colores y nombres de estado: `utils/estadosODP` es la fuente única (ver ese módulo).
@@ -73,12 +73,12 @@ function renderHistDetalle(ev: any, onOpenLightbox?: (src: string) => void): Rea
     <div className="space-y-2.5">
       <div className="flex items-center gap-2 flex-wrap">
         {meta.estado_anterior && <>
-          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getEstadoODP(meta.estado_anterior).badge}`}>{getEstadoODP(meta.estado_anterior).label}</span>
-          <ArrowRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getEstadoODP(meta.estado_anterior).badge}`}>{getEstadoODP(meta.estado_anterior).label}</span>
+          <ArrowRight className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
         </>}
-        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getEstadoODP(meta.estado_nuevo).badge}`} title={getEstadoODP(meta.estado_nuevo).descripcion}>{getEstadoODP(meta.estado_nuevo).label}</span>
+        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getEstadoODP(meta.estado_nuevo).badge}`} title={getEstadoODP(meta.estado_nuevo).descripcion}>{getEstadoODP(meta.estado_nuevo).label}</span>
       </div>
-      {meta.observacion && <p className="text-xs text-slate-600 bg-white rounded-lg px-3 py-2 border border-slate-200 italic leading-relaxed">"{meta.observacion}"</p>}
+      {meta.observacion && <p className="text-xs text-slate-700 bg-white rounded-lg px-3 py-2 border border-slate-200 italic leading-relaxed">"{meta.observacion}"</p>}
     </div>
   );
 
@@ -94,25 +94,25 @@ function renderHistDetalle(ev: any, onOpenLightbox?: (src: string) => void): Rea
           { l: 'Reportó',         v: meta.usuario_reporta?.nombre_completo },
         ].filter(r => r.v).map(r => (
           <div key={r.l}>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{r.l}</p>
-            <p className="font-semibold text-slate-700 mt-0.5">{r.v}</p>
+            <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider">{r.l}</p>
+            <p className="font-semibold text-slate-900 mt-0.5">{r.v}</p>
           </div>
         ))}
       </div>
-      {meta.causa       && <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Causa</p><p className="text-xs text-slate-600 bg-white rounded-lg px-3 py-2 border border-slate-200">{meta.causa}</p></div>}
-      {meta.efecto      && <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Efecto</p><p className="text-xs text-slate-600 bg-white rounded-lg px-3 py-2 border border-slate-200">{meta.efecto}</p></div>}
-      {meta.observaciones && <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Observaciones</p><p className="text-xs text-slate-600 bg-white rounded-lg px-3 py-2 border border-slate-200">{meta.observaciones}</p></div>}
+      {meta.causa       && <div><p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider mb-1">Causa</p><p className="text-xs text-slate-700 bg-white rounded-lg px-3 py-2 border border-slate-200">{meta.causa}</p></div>}
+      {meta.efecto      && <div><p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider mb-1">Efecto</p><p className="text-xs text-slate-700 bg-white rounded-lg px-3 py-2 border border-slate-200">{meta.efecto}</p></div>}
+      {meta.observaciones && <div><p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider mb-1">Observaciones</p><p className="text-xs text-slate-700 bg-white rounded-lg px-3 py-2 border border-slate-200">{meta.observaciones}</p></div>}
       <div className="flex items-center gap-2 pt-0.5 flex-wrap">
         {[
           { label: 'Vo.Bo. Responsable', ok: meta.vo_bo_responsable },
           { label: 'Vo.Bo. Gerencia',    ok: meta.vo_bo_gerencia },
         ].map(vb => (
-          <span key={vb.label} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${vb.ok ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-400 border-slate-200'}`}>
+          <span key={vb.label} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${vb.ok ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
             <CheckCircle2 className="w-3 h-3" />{vb.label}
           </span>
         ))}
         {meta.nueva_odp && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
             <ExternalLink className="w-3 h-3" />Reproceso: {meta.nueva_odp.numero_odp}
           </span>
         )}
@@ -126,10 +126,10 @@ function renderHistDetalle(ev: any, onOpenLightbox?: (src: string) => void): Rea
 
   if (tipo === 'RUTA_PROGRAMADA') return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-      {meta.vehiculo  && <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Vehículo</p><p className="font-semibold text-slate-700 mt-0.5">{meta.vehiculo.tipo.toUpperCase()} · {meta.vehiculo.placa}</p></div>}
-      {meta.conductor && <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Conductor</p><p className="font-semibold text-slate-700 mt-0.5">{meta.conductor.nombre_completo}</p></div>}
-      {meta.oficial   && <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Oficial</p><p className="font-semibold text-slate-700 mt-0.5">{meta.oficial.nombre_completo}</p></div>}
-      {(() => { const ayud = meta.instaladores?.filter((i: any) => i.id !== meta.oficial?.id); return ayud?.length > 0 ? <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Ayudantes</p><p className="font-semibold text-slate-700 mt-0.5">{ayud.map((i: any) => i.nombre_completo).join(', ')}</p></div> : null; })()}
+      {meta.vehiculo  && <div><p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Vehículo</p><p className="font-semibold text-slate-900 mt-0.5">{meta.vehiculo.tipo.toUpperCase()} · {meta.vehiculo.placa}</p></div>}
+      {meta.conductor && <div><p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Conductor</p><p className="font-semibold text-slate-900 mt-0.5">{meta.conductor.nombre_completo}</p></div>}
+      {meta.oficial   && <div><p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Oficial</p><p className="font-semibold text-slate-900 mt-0.5">{meta.oficial.nombre_completo}</p></div>}
+      {(() => { const ayud = meta.instaladores?.filter((i: any) => i.id !== meta.oficial?.id); return ayud?.length > 0 ? <div><p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Ayudantes</p><p className="font-semibold text-slate-900 mt-0.5">{ayud.map((i: any) => i.nombre_completo).join(', ')}</p></div> : null; })()}
     </div>
   );
 
@@ -142,7 +142,7 @@ function renderHistDetalle(ev: any, onOpenLightbox?: (src: string) => void): Rea
       )}
       {meta.instaladores?.length > 0 && (
         <div className="text-xs">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Equipo</p>
+          <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider mb-1.5">Equipo</p>
           <div className="space-y-0.5">{meta.instaladores.map((ins: any) => <p key={ins.id} className="font-medium text-slate-700">{ins.nombre_completo}</p>)}</div>
         </div>
       )}
@@ -150,17 +150,17 @@ function renderHistDetalle(ev: any, onOpenLightbox?: (src: string) => void): Rea
   );
 
   if (tipo === 'PAGO_REGISTRADO') return (
-    <div className="space-y-1 text-xs text-slate-600">
+    <div className="space-y-1 text-xs text-slate-800">
       {meta.registrador  && <p>Registró: <strong>{meta.registrador.nombre_completo}</strong></p>}
-      {meta.observaciones && <p className="italic text-slate-400">"{meta.observaciones}"</p>}
+      {meta.observaciones && <p className="italic text-slate-700">"{meta.observaciones}"</p>}
     </div>
   );
 
   if (tipo === 'PV_PROBLEMA') return (
-    <div className="space-y-1 text-xs text-slate-600">
+    <div className="space-y-1 text-xs text-slate-800">
       {meta.tipo_problema    && <p>Tipo: <strong>{meta.tipo_problema}</strong></p>}
       {meta.estado_reposicion && <p>Reposición: <strong>{meta.estado_reposicion}</strong></p>}
-      {meta.observaciones    && <p className="italic text-slate-400">"{meta.observaciones}"</p>}
+      {meta.observaciones    && <p className="italic text-slate-700">"{meta.observaciones}"</p>}
     </div>
   );
 
@@ -171,24 +171,24 @@ function renderHistChips(ev: any): React.ReactNode {
   const { tipo, meta } = ev;
 
   if (tipo === 'INSTALACION_FIN' && meta.datos_receptor)
-    return <span className="text-xs text-slate-500">Recibió: <strong>{meta.datos_receptor}</strong></span>;
+    return <span className="text-xs text-slate-700">Recibió: <strong>{meta.datos_receptor}</strong></span>;
 
   if (tipo === 'PV_LLEGADO' && meta.dias_diferencia != null)
-    return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${meta.dias_diferencia > 0 ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>{meta.dias_diferencia > 0 ? `${meta.dias_diferencia}d retraso` : 'A tiempo'}</span>;
+    return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${meta.dias_diferencia > 0 ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>{meta.dias_diferencia > 0 ? `${meta.dias_diferencia}d retraso` : 'A tiempo'}</span>;
 
   if (tipo === 'ODC_CREADA' || tipo === 'ODC_RECIBIDA')
-    return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${meta.tipo === 'vidrio' ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-violet-50 text-violet-700 border-violet-200'}`}><Tag className="w-2.5 h-2.5" />{meta.tipo === 'vidrio' ? 'Vidrio' : 'Perfilería'}</span>;
+    return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${meta.tipo === 'vidrio' ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-violet-50 text-violet-700 border-violet-200'}`}><Tag className="w-2.5 h-2.5" />{meta.tipo === 'vidrio' ? 'Vidrio' : 'Perfilería'}</span>;
 
   if (tipo === 'SA_GENERADA' && meta.fecha_sa)
-    return <span className="text-xs text-slate-500">Fecha SA: {fmtDate(meta.fecha_sa)}</span>;
+    return <span className="text-xs text-slate-700">Fecha SA: {fmtDate(meta.fecha_sa)}</span>;
 
   if (tipo === 'COT_CREADA' && meta.estado) {
     const c: Record<string, string> = { aprobada: 'bg-emerald-50 text-emerald-700 border-emerald-200', enviada: 'bg-blue-50 text-blue-700 border-blue-200', rechazada: 'bg-rose-50 text-rose-700 border-rose-200' };
-    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${c[meta.estado] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>{meta.estado}</span>;
+    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${c[meta.estado] || 'bg-slate-100 text-slate-800 border-slate-200'}`}>{meta.estado}</span>;
   }
 
   if (tipo === 'GARANTIA_CREADA' && meta.estado_produccion)
-    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${getEstadoODP(meta.estado_produccion).badge}`}>{getEstadoODP(meta.estado_produccion).label}</span>;
+    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${getEstadoODP(meta.estado_produccion).badge}`}>{getEstadoODP(meta.estado_produccion).label}</span>;
 
   return null;
 }
@@ -203,16 +203,16 @@ function renderHistStats(eventos: any[]): React.ReactNode {
     { label: 'Total eventos',    value: eventos.length, color: 'text-slate-700', sub: '' },
     { label: 'Pagos recibidos',  value: pagos.length > 0 ? fmt(totalPagado) : '—', color: 'text-teal-700', sub: pagos.length > 0 ? `${pagos.length} registro${pagos.length > 1 ? 's' : ''}` : '' },
     { label: 'Instalaciones',    value: instFin > 0 ? `${instFin} completada${instFin > 1 ? 's' : ''}` : '—', color: 'text-emerald-700', sub: '' },
-    { label: 'Alertas calidad',  value: alertas > 0 ? alertas : '—', color: alertas > 0 ? 'text-rose-600' : 'text-slate-400', sub: alertas > 0 ? 'NC / daños / PV' : '' },
+    { label: 'Alertas calidad',  value: alertas > 0 ? alertas : '—', color: alertas > 0 ? 'text-rose-600' : 'text-slate-700', sub: alertas > 0 ? 'NC / daños / PV' : '' },
   ];
 
   return (
     <div className="grid grid-cols-4 gap-3 mb-5">
       {stats.map(s => (
         <div key={s.label} className="bg-white rounded-xl border border-slate-100 px-4 py-3 shadow-sm">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{s.label}</p>
-          <p className={`text-lg font-black leading-tight ${s.color}`}>{s.value}</p>
-          {s.sub && <p className="text-[10px] text-slate-400 mt-0.5">{s.sub}</p>}
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-900 mb-0.5">{s.label}</p>
+          <p className={`text-lg font-bold leading-tight ${s.color}`}>{s.value}</p>
+          {s.sub && <p className="text-[11px] text-slate-700 mt-0.5">{s.sub}</p>}
         </div>
       ))}
     </div>
@@ -290,12 +290,12 @@ const TabHistorial: React.FC<{ odp: any; onOpenLightbox?: (src: string) => void 
       <div className="grid grid-cols-4 gap-3 mb-5">{Array.from({length:4}).map((_,i)=><div key={i} className="h-16 bg-white rounded-xl border border-slate-100 animate-pulse"/>)}</div>
       <div className="h-8 bg-slate-100 rounded-lg animate-pulse mb-4 w-48" />
       <div className="space-y-2">{Array.from({length:7}).map((_,i)=><div key={i} className="flex gap-3 pl-14"><div className="absolute left-[1.25rem] w-7 h-7 rounded-full bg-slate-200 animate-pulse"/><div className={`flex-1 h-${i%3===0?'16':i%3===1?'12':'10'} bg-white rounded-xl border border-slate-100 animate-pulse`}/></div>)}</div>
-      <div className="flex justify-center mt-6"><Loader2 className="w-5 h-5 text-slate-300 animate-spin"/></div>
+      <div className="flex justify-center mt-6"><Loader2 className="w-5 h-5 text-slate-500 animate-spin"/></div>
     </div>
   );
 
   if (error) return (
-    <div className="p-12 text-center text-slate-400">
+    <div className="p-12 text-center text-slate-700">
       <AlertCircle className="w-12 h-12 mx-auto mb-3 text-slate-200"/>
       <p className="font-bold">{error}</p>
       <button onClick={fetchHistorial} className="mt-3 flex items-center gap-1.5 mx-auto text-xs text-indigo-600 hover:text-indigo-800 font-bold">
@@ -336,9 +336,9 @@ const TabHistorial: React.FC<{ odp: any; onOpenLightbox?: (src: string) => void 
       <div className="flex items-center gap-2 mb-5 flex-wrap">
         <button
           onClick={() => setFiltros([])}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${filtros.length === 0 ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${filtros.length === 0 ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'}`}
         >
-          Todos <span className={`ml-1 text-[10px] ${filtros.length === 0 ? 'text-slate-300' : 'text-slate-400'}`}>{eventos.length}</span>
+          Todos <span className={`ml-1 text-[11px] ${filtros.length === 0 ? 'text-slate-300' : 'text-slate-400'}`}>{eventos.length}</span>
         </button>
         {Object.entries(HIST_CATS).map(([cat, cfg]) => {
           const count = eventos.filter(e => e.categoria === cat).length;
@@ -348,16 +348,16 @@ const TabHistorial: React.FC<{ odp: any; onOpenLightbox?: (src: string) => void 
             <button key={cat} onClick={() => toggleFiltro(cat)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${activo ? `${cfg.bg} ${cfg.text} ${cfg.border}` : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'}`}>
               {cfg.icon}{cfg.label}
-              <span className={`text-[10px] rounded-full min-w-[16px] text-center ${activo ? 'text-current opacity-70' : 'text-slate-400'}`}>{count}</span>
+              <span className={`text-[11px] rounded-full min-w-[16px] text-center ${activo ? 'text-current opacity-70' : 'text-slate-700'}`}>{count}</span>
             </button>
           );
         })}
       </div>
 
       {filtrados.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">
+        <div className="text-center py-16 text-slate-700">
           <History className="w-10 h-10 mx-auto mb-3 text-slate-200"/>
-          <p className="font-bold">Sin eventos para esta categoría</p>
+          <p className="font-medium">Sin eventos para esta categoría</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -368,7 +368,7 @@ const TabHistorial: React.FC<{ odp: any; onOpenLightbox?: (src: string) => void 
                   {fmtDayLabel(dayIso)}
                 </div>
                 <div className="flex-1 h-px bg-slate-200" />
-                <span className="text-[10px] text-slate-400 font-bold flex-shrink-0">{dayEvs.length} evento{dayEvs.length > 1 ? 's' : ''}</span>
+                <span className="text-[11px] text-slate-900 font-bold flex-shrink-0">{dayEvs.length} evento{dayEvs.length > 1 ? 's' : ''}</span>
               </div>
 
               <div className="relative pl-10">
@@ -410,7 +410,7 @@ const TabHistorial: React.FC<{ odp: any; onOpenLightbox?: (src: string) => void 
                           onClick={() => expandible && toggleExpanded(evKey)}
                         >
                           <div className={`flex items-start gap-3 ${esHito ? 'px-4 py-3' : 'px-4 py-2.5'}`}>
-                            <span className="text-[11px] font-mono text-slate-400 flex-shrink-0 mt-0.5 w-10 text-right">
+                            <span className="text-[11px] font-mono text-slate-700 flex-shrink-0 mt-0.5 w-10 text-right">
                               {fmtHora(ev.fecha)}
                             </span>
 
@@ -422,25 +422,25 @@ const TabHistorial: React.FC<{ odp: any; onOpenLightbox?: (src: string) => void 
                                 {renderHistChips(ev)}
                               </div>
                               {ev.subtitulo && (
-                                <p className="text-xs text-slate-500 mt-0.5 leading-snug">{ev.subtitulo}</p>
+                                <p className="text-xs text-slate-700 mt-0.5 leading-snug">{ev.subtitulo}</p>
                               )}
                             </div>
 
                             <div className="flex items-center gap-2 flex-shrink-0">
                               {ev.meta?.usuario?.nombre_completo && (
-                                <span className="hidden md:inline-flex items-center gap-1 text-[10px] text-slate-400 bg-slate-50 border border-slate-200 rounded-full px-2 py-0.5 font-medium">
+                                <span className="hidden md:inline-flex items-center gap-1 text-[11px] text-slate-700 bg-slate-50 border border-slate-200 rounded-full px-2 py-0.5 font-medium">
                                   <User className="w-2.5 h-2.5" />
                                   {ev.meta.usuario.nombre_completo.split(' ')[0]}
                                 </span>
                               )}
                               {ev.meta?.asesor?.nombre_completo && !ev.meta?.usuario?.nombre_completo && (
-                                <span className="hidden md:inline-flex items-center gap-1 text-[10px] text-slate-400 bg-slate-50 border border-slate-200 rounded-full px-2 py-0.5 font-medium">
+                                <span className="hidden md:inline-flex items-center gap-1 text-[11px] text-slate-700 bg-slate-50 border border-slate-200 rounded-full px-2 py-0.5 font-medium">
                                   <User className="w-2.5 h-2.5" />
                                   {ev.meta.asesor.nombre_completo.split(' ')[0]}
                                 </span>
                               )}
                               {expandible && (
-                                <div className={`flex-shrink-0 transition-colors ${isExp ? cat.text : 'text-slate-300'}`}>
+                                <div className={`flex-shrink-0 transition-colors ${isExp ? cat.text : 'text-slate-400'}`}>
                                   {isExp ? <ChevronUp className="w-3.5 h-3.5"/> : <ChevronDown className="w-3.5 h-3.5"/>}
                                 </div>
                               )}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { InfoRow, Badge, cajaColor, fmt } from './ODPFichaModal.utils';
-import { CreditCard, ExternalLink, AlertCircle } from 'lucide-react';
+import { CreditCard, ExternalLink, AlertCircle } from '../../../components/ui/icons';
 
 const TabFinanciero: React.FC<{ odp: any }> = ({ odp }) => {
   const valorTotal = Number(odp.valor_total) || 0;
@@ -18,8 +18,8 @@ const TabFinanciero: React.FC<{ odp: any }> = ({ odp }) => {
           { label: 'Estado Caja', value: odp.estado_caja?.replace(/_/g, ' '), color: cajaColor[odp.estado_caja] || 'bg-slate-100' },
         ].map((k, i) => (
           <div key={i} className={`border rounded-2xl p-5 ${k.color}`}>
-            <p className="text-[10px] font-extrabold uppercase tracking-widest opacity-70 mb-1">{k.label}</p>
-            <p className="text-xl font-black leading-none">{k.value}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest opacity-70 mb-1">{k.label}</p>
+            <p className="text-xl font-bold leading-none">{k.value}</p>
           </div>
         ))}
       </div>
@@ -27,23 +27,23 @@ const TabFinanciero: React.FC<{ odp: any }> = ({ odp }) => {
       {valorTotal > 0 && (
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
           <div className="flex justify-between items-center mb-2">
-            <p className="text-xs font-extrabold uppercase tracking-widest text-slate-500">Progreso de Cobro</p>
-            <p className="text-sm font-black text-slate-700">{pctCobrado.toFixed(0)}%</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-900">Progreso de Cobro</p>
+            <p className="text-sm font-bold text-slate-900">{pctCobrado.toFixed(0)}%</p>
           </div>
           <div className="bg-slate-100 rounded-full h-3">
             <div className={`h-3 rounded-full transition-all duration-700 ${pctCobrado === 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`} style={{ width: `${pctCobrado}%` }} />
           </div>
-          <div className="flex justify-between mt-1.5 text-[10px] text-slate-400 font-bold">
+          <div className="flex justify-between mt-1.5 text-[11px] text-slate-900 font-bold">
             <span>$0</span><span>{fmt(valorTotal)}</span>
           </div>
         </div>
       )}
 
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-        <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2"><CreditCard className="w-3.5 h-3.5" />Facturación Electrónica</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-900 mb-4 flex items-center gap-2"><CreditCard className="w-3.5 h-3.5" />Facturación Electrónica</h3>
         <div className="grid grid-cols-2 gap-4">
           <InfoRow label="Estado Facturación" value={<Badge className={odp.estado_facturacion === 'FACTURADA' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200'}>{odp.estado_facturacion}</Badge>} />
-          <InfoRow label="N° Factura Electrónica" value={odp.factura_electronica ? <span className="font-mono font-bold text-emerald-700">#{odp.factura_electronica}</span> : <span className="text-slate-400 text-xs italic">No emitida</span>} />
+          <InfoRow label="N° Factura Electrónica" value={odp.factura_electronica ? <span className="font-mono font-bold text-emerald-700">#{odp.factura_electronica}</span> : <span className="text-slate-700 text-xs italic">No emitida</span>} />
           <InfoRow label="Forma de Pago ODP" value={odp.forma_pago} />
           {odp.autorizacion_especial_despacho && <InfoRow label="Autorización Especial" value={<Badge className="bg-amber-100 text-amber-700 border-amber-200"><AlertCircle className="w-3 h-3" />Sí</Badge>} />}
           {odp.facturas_adicionales?.length > 0 && (
@@ -51,7 +51,7 @@ const TabFinanciero: React.FC<{ odp: any }> = ({ odp }) => {
               <InfoRow label="Facturas Adicionales" value={
                 <div className="flex flex-wrap gap-1.5">
                   {odp.facturas_adicionales.map((f: any) => (
-                    <span key={f.id} className="font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded text-xs">
+                    <span key={f.id} className="font-mono font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded text-xs">
                       #{f.numero_fe}
                     </span>
                   ))}

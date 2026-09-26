@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { X, Printer, DollarSign, ExternalLink } from 'lucide-react';
+import { X, Printer, DollarSign, ExternalLink } from '../../../components/ui/icons';
 import { useNavigate } from 'react-router-dom';
 import API from '../../../services/config';
 
@@ -30,7 +30,7 @@ interface COT {
 interface Props { odp: any; onClose: () => void; }
 
 const estadoColor: Record<string, string> = {
-  borrador: 'bg-slate-100 text-slate-600',
+  borrador: 'bg-slate-100 text-slate-800',
   enviada: 'bg-blue-100 text-blue-700',
   aprobada: 'bg-emerald-100 text-emerald-700',
   rechazada: 'bg-rose-100 text-rose-700',
@@ -66,8 +66,8 @@ const COTModal: React.FC<Props> = ({ odp, onClose }) => {
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-50 rounded-xl"><DollarSign className="w-5 h-5 text-blue-600" /></div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800">COT — Cotizaciones</h2>
-              <p className="text-xs text-slate-500">{odp.numero_odp} · {odp.cliente?.nombre_razon_social}</p>
+              <h2 className="text-lg font-bold text-slate-900">COT — Cotizaciones</h2>
+              <p className="text-xs text-slate-700">{odp.numero_odp} · {odp.cliente?.nombre_razon_social}</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -79,11 +79,11 @@ const COTModal: React.FC<Props> = ({ odp, onClose }) => {
             )}
             {mode === 'view' && (
               <button onClick={() => setMode('list')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
                 ← Volver
               </button>
             )}
-            <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition"><X className="w-5 h-5" /></button>
+            <button onClick={onClose} className="p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition"><X className="w-5 h-5" /></button>
           </div>
         </div>
 
@@ -92,7 +92,7 @@ const COTModal: React.FC<Props> = ({ odp, onClose }) => {
           {mode === 'list' && (
             <div className="p-6 space-y-4">
               {cots.length === 0 ? (
-                <div className="text-center py-16 text-slate-400">
+                <div className="text-center py-16 text-slate-700">
                   <DollarSign className="w-16 h-16 mx-auto mb-4 text-slate-200" />
                   <p className="font-bold text-lg">Sin cotizaciones</p>
                   <p className="text-sm">Registra la cotización enviada al cliente para esta ODP.</p>
@@ -102,19 +102,19 @@ const COTModal: React.FC<Props> = ({ odp, onClose }) => {
                   <div className="flex justify-between items-start">
                     <div>
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="font-black text-blue-700 text-xl tracking-tight">{cot.numero_cot}</span>
-                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${estadoColor[cot.estado] || 'bg-slate-100'}`}>
+                        <span className="font-bold text-blue-700 text-xl tracking-tight">{cot.numero_cot}</span>
+                        <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${estadoColor[cot.estado] || 'bg-slate-100'}`}>
                           {cot.estado.charAt(0).toUpperCase() + cot.estado.slice(1)}
                         </span>
                       </div>
-                      <p className="text-sm text-slate-500">Asesor: {cot.asesor?.nombre_completo} · {new Date(cot.fecha_creacion).toLocaleDateString('es-CO')} · Válida por {cot.validez_dias} días</p>
+                      <p className="text-sm text-slate-700">Asesor: {cot.asesor?.nombre_completo} · {new Date(cot.fecha_creacion).toLocaleDateString('es-CO')} · Válida por {cot.validez_dias} días</p>
                       <div className="flex gap-6 mt-3 flex-wrap">
-                        {cot.total_vidrio > 0 && <div><p className="text-xs text-slate-400 font-bold uppercase">Vidrios</p><p className="text-base font-bold text-slate-700">{fmt(cot.total_vidrio)}</p></div>}
-                        {cot.total_acabados > 0 && <div><p className="text-xs text-slate-400 font-bold uppercase">Acabados</p><p className="text-base font-bold text-slate-700">{fmt(cot.total_acabados)}</p></div>}
-                        {cot.total_gastos_instalacion > 0 && <div><p className="text-xs text-slate-400 font-bold uppercase">Gastos Inst.</p><p className="text-base font-bold text-slate-700">{fmt(cot.total_gastos_instalacion)}</p></div>}
-                        {cot.descuento > 0 && <div><p className="text-xs text-slate-400 font-bold uppercase">Descuento ({cot.descuento}%)</p><p className="text-base font-bold text-rose-600">-{fmt(cot.subtotal - cot.base_gravable)}</p></div>}
-                        <div><p className="text-xs text-slate-400 font-bold uppercase">Total Neto</p><p className="text-2xl font-black text-emerald-700">{fmt(cot.valor_total)}</p></div>
-                        <div><p className="text-xs text-slate-400 font-bold uppercase">Forma Pago</p><p className="text-base font-bold text-slate-700">{cot.forma_pago}</p></div>
+                        {cot.total_vidrio > 0 && <div><p className="text-xs text-slate-900 font-semibold uppercase">Vidrios</p><p className="text-base font-bold text-slate-900">{fmt(cot.total_vidrio)}</p></div>}
+                        {cot.total_acabados > 0 && <div><p className="text-xs text-slate-900 font-semibold uppercase">Acabados</p><p className="text-base font-bold text-slate-900">{fmt(cot.total_acabados)}</p></div>}
+                        {cot.total_gastos_instalacion > 0 && <div><p className="text-xs text-slate-900 font-semibold uppercase">Gastos Inst.</p><p className="text-base font-bold text-slate-900">{fmt(cot.total_gastos_instalacion)}</p></div>}
+                        {cot.descuento > 0 && <div><p className="text-xs text-slate-900 font-semibold uppercase">Descuento ({cot.descuento}%)</p><p className="text-base font-bold text-rose-700">-{fmt(cot.subtotal - cot.base_gravable)}</p></div>}
+                        <div><p className="text-xs text-slate-900 font-semibold uppercase">Total Neto</p><p className="text-2xl font-extrabold text-emerald-700">{fmt(cot.valor_total)}</p></div>
+                        <div><p className="text-xs text-slate-900 font-semibold uppercase">Forma Pago</p><p className="text-base font-bold text-slate-900">{cot.forma_pago}</p></div>
                       </div>
                     </div>
                     <button onClick={() => { setSelected(cot); setMode('view'); }}
@@ -131,7 +131,7 @@ const COTModal: React.FC<Props> = ({ odp, onClose }) => {
           {mode === 'view' && selected && (
             <div className="p-0">
               <div className="flex gap-3 p-4 border-b border-slate-100 print:hidden">
-                <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-blue-700 border border-blue-200 rounded-xl bg-blue-50 hover:bg-blue-100 transition">
+                <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-blue-700 border border-blue-200 rounded-xl bg-blue-50 hover:bg-blue-100 transition">
                   <Printer className="w-4 h-4" /> Imprimir
                 </button>
               </div>
@@ -230,7 +230,7 @@ const COTModal: React.FC<Props> = ({ odp, onClose }) => {
                   ))}
                 </div>
 
-                <div className="border-t-2 border-black pt-3 mt-8 flex justify-between text-[10px] text-gray-500">
+                <div className="border-t-2 border-black pt-3 mt-8 flex justify-between text-[11px] text-gray-500">
                   <span>Vidrios Templex — Sistema Integral</span>
                   <span>{selected.numero_cot} · ODP {odp.numero_odp}</span>
                 </div>

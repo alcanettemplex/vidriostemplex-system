@@ -20,16 +20,16 @@ export const fmt = (n: number) =>
 
 export const InfoRow: React.FC<{ label: string; value?: any; icon?: React.ReactNode }> = ({ label, value, icon }) => (
   <div className="flex items-start gap-2 py-2 border-b border-slate-50 last:border-0">
-    {icon && <span className="mt-0.5 text-slate-400 flex-shrink-0">{icon}</span>}
+    {icon && <span className="mt-0.5 text-slate-500 flex-shrink-0">{icon}</span>}
     <div className="flex-1 min-w-0">
-      <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">{label}</p>
-      <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate">{value || '—'}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-900">{label}</p>
+      <p className="text-sm text-slate-800 mt-0.5 truncate">{value || '—'}</p>
     </div>
   </div>
 );
 
 export const Badge: React.FC<{ className?: string; title?: string; children: React.ReactNode }> = ({ className, title, children }) => (
-  <span title={title} className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${className}`}>{children}</span>
+  <span title={title} className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${className}`}>{children}</span>
 );
 
 export const normalizarItemLabel = (item: string): string => {

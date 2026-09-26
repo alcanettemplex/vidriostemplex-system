@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   X, Wrench, Truck, DollarSign, AlertCircle, AlertTriangle, CreditCard, History, Shield, ChevronDown,
   ClipboardList, TrendingUp, Printer, Ban
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 import { cajaColor, Badge } from './ODPFichaModal.utils';
 import { getEstadoODP } from '../../../utils/estadosODP';
 import Lightbox, { useLightbox } from '../../../components/ui/Lightbox';
@@ -26,7 +26,7 @@ const TabButton: React.FC<{ active: boolean; icon: React.ReactNode; label: strin
     {icon}
     {label}
     {badge !== undefined && badge > 0 && (
-      <span className={`ml-1 min-w-[18px] h-[18px] text-[10px] font-black rounded-full flex items-center justify-center px-1 ${active ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'}`}>{badge}</span>
+      <span className={`ml-1 min-w-[18px] h-[18px] text-[11px] font-black rounded-full flex items-center justify-center px-1 ${active ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-800'}`}>{badge}</span>
     )}
   </button>
 );
@@ -131,7 +131,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
             {odp.es_no_conformidad && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 mb-3 flex items-center gap-2 text-xs">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                <span className="font-black text-amber-700">ODP DE REPROCESO</span>
+                <span className="font-bold text-amber-700">ODP DE REPROCESO</span>
                 <span className="text-amber-600">·</span>
                 <span className="text-amber-600">Referencia: <strong>{odp.odp_padre?.numero_odp || `ODP Padre #${odp.odp_padre_id}`}</strong></span>
               </div>
@@ -139,7 +139,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
             {odp.es_garantia && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 mb-3 flex items-center gap-2 text-xs">
                 <Shield className="w-3.5 h-3.5 text-blue-600" />
-                <span className="font-black text-blue-700">ODP DE GARANTÍA</span>
+                <span className="font-bold text-blue-700">ODP DE GARANTÍA</span>
                 <span className="text-blue-400">·</span>
                 <span className="text-blue-600">{odp.numero_garantia} · ODP Origen: <strong>{odp.odp_padre?.numero_odp || `#${odp.odp_padre_id}`}</strong></span>
               </div>
@@ -147,15 +147,15 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
             {odp.estado_produccion === 'PAUSADA' && (
               <div className="bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5 mb-3 flex items-center gap-2 text-xs">
                 <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                <span className="font-black text-rose-700">ODP PAUSADA</span>
+                <span className="font-bold text-rose-700">ODP PAUSADA</span>
                 <span className="text-rose-500">Esta ODP tiene un reporte de No Conformidad activo. Se marcará como completada al instalar la ODP de reproceso.</span>
               </div>
             )}
             {odp.estado_produccion === 'ANULADA' && (
               <div className="bg-gray-100 border border-gray-300 rounded-lg px-3 py-1.5 mb-3 flex items-center gap-2 text-xs">
                 <Ban className="w-3.5 h-3.5 text-gray-500" />
-                <span className="font-black text-gray-600">ODP ANULADA</span>
-                <span className="text-gray-500">No procedió. El registro y su historial se conservan — el motivo queda en la pestaña Historial.</span>
+                <span className="font-bold text-gray-900">ODP ANULADA</span>
+                <span className="text-gray-700">No procedió. El registro y su historial se conservan — el motivo queda en la pestaña Historial.</span>
               </div>
             )}
             <div className="flex justify-between items-start">
@@ -167,9 +167,9 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                 <div>
                   <div className="flex items-center gap-3 flex-wrap">
                     {odp.es_no_conformidad && (
-                      <span className="text-[10px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded">REPROCESO</span>
+                      <span className="text-[11px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded">REPROCESO</span>
                     )}
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">{odp.numero_odp}</h1>
+                    <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">{odp.numero_odp}</h1>
                     <Badge
                       className={getEstadoODP(odp.estado_produccion).badge}
                       title={getEstadoODP(odp.estado_produccion).descripcion}
@@ -182,8 +182,8 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-slate-500 font-medium mt-1">
-                    <span className="font-bold text-slate-700">{odp.cliente?.nombre_razon_social}</span>
+                  <p className="text-sm text-slate-700 font-medium mt-1">
+                    <span className="font-bold text-slate-900">{odp.cliente?.nombre_razon_social}</span>
                     {' · '}Asesor: {odp.asesor?.nombre_completo}
                     {' · '}Creado: {new Date(odp.fecha_creacion).toLocaleDateString('es-CO')}
                   </p>
@@ -200,7 +200,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                   if (esDerivada) {
                     return (
                       <button onClick={() => setShowReportarForm(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-rose-50 border border-rose-200 text-rose-600 rounded-lg hover:bg-rose-100 transition print:hidden">
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-rose-50 border border-rose-200 text-rose-700 rounded-lg hover:bg-rose-100 transition print:hidden">
                         <AlertCircle className="w-3.5 h-3.5" /> REPORTAR NC
                       </button>
                     );
@@ -209,7 +209,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                     <div className="relative print:hidden" ref={reportarMenuRef}>
                       <button
                         onClick={() => setReportarMenuOpen(v => !v)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-rose-50 border border-rose-200 text-rose-600 rounded-lg hover:bg-rose-100 transition"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-rose-50 border border-rose-200 text-rose-700 rounded-lg hover:bg-rose-100 transition"
                       >
                         <AlertCircle className="w-3.5 h-3.5" /> REPORTAR PROBLEMA <ChevronDown className="w-3 h-3" />
                       </button>
@@ -229,7 +229,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                               <AlertCircle className="w-4 h-4 text-rose-500" />
                               <div>
                                 <p className="font-bold text-xs">No Conformidad</p>
-                                <p className="text-[10px] text-slate-400">Crear ODP de reproceso</p>
+                                <p className="text-[11px] text-slate-700">Crear ODP de reproceso</p>
                               </div>
                             </button>
                             <button
@@ -239,7 +239,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                               <Shield className="w-4 h-4 text-blue-500" />
                               <div>
                                 <p className="font-bold text-xs">Garantía</p>
-                                <p className="text-[10px] text-slate-400">Crear ODP de garantía</p>
+                                <p className="text-[11px] text-slate-700">Crear ODP de garantía</p>
                               </div>
                             </button>
                           </motion.div>
@@ -249,10 +249,10 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
                   );
                 })()}
                 <button onClick={() => setActiveTab('imprimir')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition print:hidden">
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition print:hidden">
                   <Printer className="w-3.5 h-3.5" /> Imprimir
                 </button>
-                <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition flex-shrink-0">
+                <button onClick={onClose} className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-600 transition flex-shrink-0">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -274,7 +274,7 @@ const ODPFichaModal: React.FC<Props> = ({ odpId, onClose, initialTab = 'general'
               ))}
             </div>
           ) : !odp ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 p-8">
+            <div className="flex flex-col items-center justify-center h-full text-slate-700 p-8">
               <AlertCircle className="w-16 h-16 mb-4 text-slate-200" />
               <p className="font-bold text-lg">No se pudo cargar la ODP</p>
             </div>

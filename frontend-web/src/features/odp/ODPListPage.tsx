@@ -9,7 +9,7 @@ import {
     Plus, Search, FileText, CheckCircle2, Clock, Truck, Eye, Ban, RotateCcw, Edit3,
     AlertCircle, AlertTriangle, Package, DollarSign, Ruler, Printer, MoreVertical,
     ChevronUp, ChevronDown, ChevronsUpDown, Filter, Shield
-} from 'lucide-react';
+} from '../../components/ui/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import ODPForm from './components/ODPForm';
 import { getEstadoODP } from '../../utils/estadosODP';
@@ -129,7 +129,7 @@ const ActionsMenu: React.FC<{
         <div className="relative" ref={ref}>
             <button
                 onClick={() => setOpen(v => !v)}
-                className="text-slate-400 hover:text-slate-700 transition p-1.5 hover:bg-slate-100 rounded"
+                className="text-slate-500 hover:text-slate-700 transition p-1.5 hover:bg-slate-100 rounded"
                 title="Más acciones"
             >
                 <MoreVertical className="w-4 h-4" />
@@ -163,7 +163,7 @@ const ActionsMenu: React.FC<{
 
 // ─── Icono de ordenamiento ────────────────────────────────────────────────────
 const SortIcon: React.FC<{ field: SortField; sortField: SortField; sortDir: SortDir }> = ({ field, sortField, sortDir }) => {
-    if (sortField !== field) return <ChevronsUpDown className="w-3.5 h-3.5 ml-1 text-slate-300" />;
+    if (sortField !== field) return <ChevronsUpDown className="w-3.5 h-3.5 ml-1 text-slate-500" />;
     return sortDir === 'asc'
         ? <ChevronUp className="w-3.5 h-3.5 ml-1 text-blue-500" />
         : <ChevronDown className="w-3.5 h-3.5 ml-1 text-blue-500" />;
@@ -494,7 +494,7 @@ const ODPListPage: React.FC = () => {
 
     const hayFiltrosActivos = filterAsesor || filterEstado || filterMes || filterAnio;
 
-    const thClass = "px-4 py-3 font-medium cursor-pointer select-none hover:bg-slate-100 transition";
+    const thClass = "px-4 py-3 font-semibold whitespace-nowrap cursor-pointer select-none hover:bg-slate-100 transition";
     const isGarantiaTab = activeTab === 'garantia';
 
     return (
@@ -503,7 +503,7 @@ const ODPListPage: React.FC = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Órdenes de Producción</h1>
-                    <p className="text-slate-500 text-sm mt-1">Gestiona los pedidos y su flujo por planta</p>
+                    <p className="text-slate-700 text-sm mt-1">Gestiona los pedidos y su flujo por planta</p>
                 </div>
                 {!['asistente_administrativo', 'marketing'].includes(userRole) && (
                 <button
@@ -548,19 +548,19 @@ const ODPListPage: React.FC = () => {
                 <div className="flex gap-2 mb-3 px-1">
                     <button
                         onClick={() => setGarantiaSubTab('activas')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition border ${garantiaSubTab === 'activas' ? 'bg-white border-blue-200 text-blue-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white/60'}`}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition border ${garantiaSubTab === 'activas' ? 'bg-white border-blue-200 text-blue-700 shadow-sm' : 'border-transparent text-slate-700 hover:bg-white/60'}`}
                     >
                         <Shield className="w-3.5 h-3.5" />
                         Activas
-                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${garantiaSubTab === 'activas' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{garantiasActivas.length}</span>
+                        <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${garantiaSubTab === 'activas' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>{garantiasActivas.length}</span>
                     </button>
                     <button
                         onClick={() => setGarantiaSubTab('realizadas')}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition border ${garantiaSubTab === 'realizadas' ? 'bg-white border-emerald-200 text-emerald-700 shadow-sm' : 'border-transparent text-slate-500 hover:bg-white/60'}`}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition border ${garantiaSubTab === 'realizadas' ? 'bg-white border-emerald-200 text-emerald-700 shadow-sm' : 'border-transparent text-slate-700 hover:bg-white/60'}`}
                     >
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         Realizadas
-                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${garantiaSubTab === 'realizadas' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{garantiasRealizadas.length}</span>
+                        <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${garantiaSubTab === 'realizadas' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>{garantiasRealizadas.length}</span>
                     </button>
                 </div>
             )}
@@ -570,15 +570,15 @@ const ODPListPage: React.FC = () => {
                 deja fuera el ~78% terminado, que es justo lo que hay que cruzar contra
                 facturación. Ver ExploradorODPPanel. */}
             {activeTab === 'explorador' && (
-                <div className="glass-panel overflow-hidden">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-card overflow-hidden">
                     <ExploradorODPPanel onAbrirODP={(id) => setSelectedOdpDetail(id)} />
                 </div>
             )}
 
             {activeTab !== 'explorador' && (
-            <div className="glass-panel overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-card overflow-hidden">
                 {/* Barra de búsqueda y filtros */}
-                <div className="p-4 border-b border-slate-100 bg-white/50 space-y-3">
+                <div className="p-4 border-b border-slate-200 bg-white space-y-3">
                     {activeTab === 'completadas' ? (
                         <div className="flex gap-2">
                             <input
@@ -597,7 +597,7 @@ const ODPListPage: React.FC = () => {
                                 <Search className="w-4 h-4" /> Buscar
                             </button>
                             {searchResults && (
-                                <p className="text-xs text-slate-400 font-medium self-center ml-2">
+                                <p className="text-xs text-slate-700 font-medium self-center ml-2">
                                     {searchResults.count} resultado(s)
                                 </p>
                             )}
@@ -606,7 +606,7 @@ const ODPListPage: React.FC = () => {
                         <div className="flex flex-wrap gap-3 items-center">
                             {/* Búsqueda */}
                             <div className="relative flex-1 min-w-[200px]">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                                 <input
                                     type="text"
                                     placeholder="Buscar por ODP o cliente..."
@@ -666,7 +666,7 @@ const ODPListPage: React.FC = () => {
                             {hayFiltrosActivos && (
                                 <button
                                     onClick={() => { setFilterAsesor(''); setFilterEstado(''); setFilterMes(''); setFilterAnio(''); }}
-                                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-200 transition"
+                                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-700 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-200 transition"
                                 >
                                     <Filter className="w-3.5 h-3.5" /> Limpiar filtros
                                 </button>
@@ -674,8 +674,8 @@ const ODPListPage: React.FC = () => {
                         </div>
                     )}
                     {!['completadas', 'garantia'].includes(activeTab) && sorted.length !== tabBase.length && (
-                        <p className="text-xs text-slate-400 font-medium">
-                            Mostrando <span className="font-bold text-slate-600">{sorted.length}</span> de <span className="font-bold text-slate-600">{tabBase.length}</span> órdenes
+                        <p className="text-xs text-slate-700 font-medium">
+                            Mostrando <span className="font-bold text-slate-900">{sorted.length}</span> de <span className="font-bold text-slate-900">{tabBase.length}</span> órdenes
                         </p>
                     )}
                 </div>
@@ -684,9 +684,9 @@ const ODPListPage: React.FC = () => {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-slate-50/50 text-slate-500 text-xs uppercase tracking-wider">
+                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-900 text-xs uppercase tracking-wider font-semibold">
                                 {isGarantiaTab && (
-                                    <th className="px-4 py-3 font-medium whitespace-nowrap">Nº Garantía</th>
+                                    <th className="px-3 py-3 font-semibold whitespace-nowrap">Nº Garantía</th>
                                 )}
                                 {!isGarantiaTab && (
                                     <th className={thClass} onClick={() => handleSort('numero_odp')}>
@@ -709,7 +709,7 @@ const ODPListPage: React.FC = () => {
                                 )}
                                 {isGarantiaTab ? (
                                     <>
-                                        <th className="px-4 py-3 font-medium whitespace-nowrap">ODP Origen</th>
+                                        <th className="px-3 py-3 font-semibold whitespace-nowrap">ODP Origen</th>
                                         <th className={thClass} onClick={() => handleSort('fecha_creacion')}>
                                             <span className="flex items-center">Fecha Creación <SortIcon field="fecha_creacion" sortField={sortField} sortDir={sortDir} /></span>
                                         </th>
@@ -733,10 +733,10 @@ const ODPListPage: React.FC = () => {
                                         </th>
                                     </>
                                 )}
-                                <th className="px-4 py-3 font-medium text-right">Acciones</th>
+                                <th className="px-3 py-3 font-semibold text-right">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 bg-white/30">
+                        <tbody className="divide-y divide-slate-100 bg-white">
                             {loading ? (
                                 Array.from({ length: 5 }).map((_, idx) => (
                                     <tr key={idx} className="animate-pulse">
@@ -747,8 +747,8 @@ const ODPListPage: React.FC = () => {
                                 ))
                             ) : displayRows.length === 0 ? (
                                 <tr>
-                                    <td colSpan={isGarantiaTab ? 7 : (activeTab === 'listas' ? 11 : 10)} className="px-6 py-12 text-center text-slate-500">
-                                        <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                                    <td colSpan={isGarantiaTab ? 7 : (activeTab === 'listas' ? 11 : 10)} className="px-6 py-12 text-center text-slate-700">
+                                        <FileText className="w-12 h-12 text-slate-500 mx-auto mb-3" />
                                         No se encontraron órdenes de producción.
                                     </td>
                                 </tr>
@@ -759,49 +759,49 @@ const ODPListPage: React.FC = () => {
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: idx * 0.03 }}
                                         key={odp.id}
-                                        className="hover:bg-slate-50/80 transition group"
+                                        className="hover:bg-templex-50/40 transition-colors group"
                                     >
                                         {/* Nº Garantía — solo tab garantía, primera columna */}
                                         {isGarantiaTab && (
-                                            <td className="px-4 py-3">
+                                            <td className="px-3 py-3">
                                                 {(odp as any).numero_garantia
-                                                    ? <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-black border border-blue-200">
+                                                    ? <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold border border-blue-200">
                                                         <Shield className="w-3 h-3" />{(odp as any).numero_garantia}
                                                       </span>
-                                                    : <span className="text-slate-300 text-xs">—</span>}
+                                                    : <span className="text-slate-400 text-xs">—</span>}
                                             </td>
                                         )}
                                         {/* Nº ODP — oculto en tab garantía */}
                                         {!isGarantiaTab && (
-                                            <td className="px-4 py-3 font-semibold text-blue-600 text-sm">
+                                            <td className="px-3 py-3 font-bold text-blue-700 text-sm whitespace-nowrap">
                                                 <div className="flex items-center gap-1.5 flex-wrap">
                                                     {(odp as any).es_no_conformidad && (
-                                                        <span className="text-[9px] font-black bg-amber-500 text-white px-1 py-0.5 rounded leading-none">NC</span>
+                                                        <span className="text-[11px] font-bold bg-amber-500 text-white px-1 py-0.5 rounded leading-none">NC</span>
                                                     )}
                                                     {(odp as any).es_garantia && (
-                                                        <span className="text-[9px] font-black bg-blue-500 text-white px-1 py-0.5 rounded leading-none flex items-center gap-0.5">
+                                                        <span className="text-[11px] font-bold bg-blue-500 text-white px-1 py-0.5 rounded leading-none flex items-center gap-0.5">
                                                             <Shield className="w-2.5 h-2.5" /> {(odp as any).numero_garantia || 'G'}
                                                         </span>
                                                     )}
                                                     {odp.sin_items && !['LISTO_INSTALAR', 'PROGRAMADA', 'INSTALANDO', 'INSTALADA', 'ENTREGADA'].includes(odp.estado_produccion) && (
-                                                        <span className="text-[9px] font-black bg-orange-500 text-white px-1 py-0.5 rounded leading-none" title="Sin requerimientos — pendiente aprobación">SIN REQ.</span>
+                                                        <span className="text-[11px] font-bold bg-orange-500 text-white px-1 py-0.5 rounded leading-none" title="Sin requerimientos — pendiente aprobación">SIN REQ.</span>
                                                     )}
                                                     #{odp.numero_odp}
                                                 </div>
                                             </td>
                                         )}
                                         {/* Cliente */}
-                                        <td className="px-4 py-3 text-slate-700 font-medium text-sm max-w-[180px] truncate">
+                                        <td className="px-3 py-3 text-slate-900 font-semibold text-sm max-w-[170px] truncate">
                                             {odp.cliente.nombre_razon_social}
                                         </td>
                                         {/* Asesor */}
-                                        <td className="px-4 py-3 text-slate-500 text-sm">
+                                        <td className="px-3 py-3 text-slate-800 text-sm">
                                             {odp.asesor.nombre_completo}
                                         </td>
                                         {/* Estado taller */}
-                                        <td className="px-4 py-3">
+                                        <td className="px-3 py-3">
                                             <span
-                                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(odp.estado_produccion)}`}
+                                                className={`inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border ${getStatusColor(odp.estado_produccion)}`}
                                                 title={getEstadoODP(odp.estado_produccion).descripcion}
                                             >
                                                 {getStatusIcon(odp.estado_produccion)}
@@ -810,7 +810,7 @@ const ODPListPage: React.FC = () => {
                                         </td>
                                         {/* Fecha Liberado — solo tab Listas para instalar */}
                                         {activeTab === 'listas' && (
-                                            <td className="px-4 py-3 text-xs font-mono">
+                                            <td className="px-3 py-3 text-xs font-mono">
                                                 {odp.fecha_listo_instalar
                                                     ? <span className="text-indigo-700 font-semibold">
                                                         {new Date(odp.fecha_listo_instalar).toLocaleString('es-CO', {
@@ -819,68 +819,68 @@ const ODPListPage: React.FC = () => {
                                                             hour: '2-digit', minute: '2-digit',
                                                         })}
                                                       </span>
-                                                    : <span className="text-slate-300">—</span>}
+                                                    : <span className="text-slate-400">—</span>}
                                             </td>
                                         )}
                                         {/* Columnas variables según tab */}
                                         {isGarantiaTab ? (
                                             <>
                                                 {/* ODP Raíz */}
-                                                <td className="px-4 py-3 text-sm font-mono text-slate-600">
+                                                <td className="px-3 py-3 text-sm font-mono text-slate-800">
                                                     {(odp as any).odp_padre?.numero_odp
                                                         ? <span className="font-semibold">#{(odp as any).odp_padre.numero_odp}</span>
-                                                        : <span className="text-slate-300">—</span>}
+                                                        : <span className="text-slate-400">—</span>}
                                                 </td>
                                                 {/* Fecha Creación */}
-                                                <td className="px-4 py-3 text-xs font-mono">
+                                                <td className="px-3 py-3 text-xs font-mono">
                                                     {(odp as any).fecha_creacion
-                                                        ? <span className="text-slate-700 font-semibold">{new Date((odp as any).fecha_creacion).toLocaleDateString('es-CO')}</span>
-                                                        : <span className="text-slate-300">—</span>}
+                                                        ? <span className="text-slate-900 font-semibold">{new Date((odp as any).fecha_creacion).toLocaleDateString('es-CO')}</span>
+                                                        : <span className="text-slate-400">—</span>}
                                                 </td>
                                             </>
                                         ) : (
                                             <>
                                                 {/* Caja */}
-                                                <td className="px-4 py-3">
-                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getCajaColor(odp.estado_caja)}`}>
+                                                <td className="px-3 py-3">
+                                                    <span className={`inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold border ${getCajaColor(odp.estado_caja)}`}>
                                                         {odp.estado_caja.replace(/_/g, ' ')}
                                                     </span>
                                                 </td>
                                                 {/* Total */}
-                                                <td className="px-4 py-3 text-right text-xs font-semibold text-slate-700 whitespace-nowrap">
+                                                <td className="px-3 py-3 text-right text-xs font-semibold text-slate-900 whitespace-nowrap">
                                                     {Number(odp.valor_total) > 0
                                                         ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(odp.valor_total))
-                                                        : <span className="text-slate-300">—</span>}
+                                                        : <span className="text-slate-400">—</span>}
                                                 </td>
                                                 {/* Abono */}
-                                                <td className="px-4 py-3 text-right text-xs font-semibold text-emerald-700 whitespace-nowrap">
+                                                <td className="px-3 py-3 text-right text-xs font-semibold text-emerald-700 whitespace-nowrap">
                                                     {Number(odp.abono) > 0
                                                         ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(odp.abono))
-                                                        : <span className="text-slate-300">—</span>}
+                                                        : <span className="text-slate-400">—</span>}
                                                 </td>
                                                 {/* Restante */}
-                                                <td className="px-4 py-3 text-right text-xs whitespace-nowrap">
+                                                <td className="px-3 py-3 text-right text-xs whitespace-nowrap">
                                                     {(() => {
                                                         const rest = Math.max(0, Number(odp.valor_total || 0) - Number(odp.abono || 0));
                                                         return rest > 0
-                                                            ? <span className="font-bold text-rose-600">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(rest)}</span>
-                                                            : <span className="text-emerald-500 font-bold text-[10px] uppercase tracking-wide">Pagado</span>;
+                                                            ? <span className="font-bold text-rose-700">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(rest)}</span>
+                                                            : <span className="text-emerald-700 font-semibold text-[11px] uppercase tracking-wide">Pagado</span>;
                                                     })()}
                                                 </td>
                                                 {/* Listo Material */}
-                                                <td className="px-4 py-3 text-xs font-mono">
+                                                <td className="px-3 py-3 text-xs font-mono">
                                                     {odp.fecha_entrega
-                                                        ? <span className="text-slate-700 font-semibold">{new Date(odp.fecha_entrega).toLocaleDateString('es-CO')}</span>
-                                                        : <span className="text-slate-300">—</span>}
+                                                        ? <span className="text-slate-900 font-semibold">{new Date(odp.fecha_entrega).toLocaleDateString('es-CO')}</span>
+                                                        : <span className="text-slate-400">—</span>}
                                                 </td>
                                             </>
                                         )}
                                         {/* Acciones */}
-                                        <td className="px-4 py-3 text-right">
+                                        <td className="px-3 py-3 text-right">
                                             <div className="flex justify-end items-center gap-1">
                                                 <button
                                                     onClick={() => setSelectedOdpDetail(odp.id)}
-                                                    className="text-slate-400 hover:text-blue-600 transition p-1.5 hover:bg-blue-50 rounded"
+                                                    className="text-slate-500 hover:text-blue-600 transition p-1.5 hover:bg-blue-50 rounded"
                                                     title="Ver Ficha"
                                                 >
                                                     <Eye className="w-4 h-4" />
@@ -898,7 +898,7 @@ const ODPListPage: React.FC = () => {
                                                 <button
                                                     onClick={() => abrirConDetalle(odp.id, setEditingOdp)}
                                                     disabled={cargandoDetalle === odp.id}
-                                                    className="text-slate-400 hover:text-emerald-600 transition p-1.5 hover:bg-emerald-50 rounded disabled:opacity-40 disabled:cursor-wait"
+                                                    className="text-slate-500 hover:text-emerald-600 transition p-1.5 hover:bg-emerald-50 rounded disabled:opacity-40 disabled:cursor-wait"
                                                     title={cargandoDetalle === odp.id ? 'Cargando ODP…' : 'Editar'}
                                                 >
                                                     <Edit3 className="w-4 h-4" />
@@ -907,7 +907,7 @@ const ODPListPage: React.FC = () => {
                                                 {!['produccion','asistente_administrativo'].includes(userRole) && (
                                                 <button
                                                     onClick={() => setPrintOdp(odp)}
-                                                    className="text-slate-400 hover:text-slate-700 transition p-1.5 hover:bg-slate-100 rounded"
+                                                    className="text-slate-500 hover:text-slate-700 transition p-1.5 hover:bg-slate-100 rounded"
                                                     title="Imprimir"
                                                 >
                                                     <Printer className="w-4 h-4" />
@@ -943,17 +943,17 @@ const ODPListPage: React.FC = () => {
                             <button
                                 disabled={(tabPage[activeTab] || 1) <= 1}
                                 onClick={() => setTabPage(prev => ({ ...prev, [activeTab]: Math.max(1, (prev[activeTab] || 1) - 1) }))}
-                                className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                                className="px-3 py-1.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                             >
                                 ← Anterior
                             </button>
-                            <span className="text-sm text-slate-500">
+                            <span className="text-sm text-slate-700">
                                 Página {tabPage[activeTab] || 1} de {totalClientPages}
                             </span>
                             <button
                                 disabled={(tabPage[activeTab] || 1) >= totalClientPages}
                                 onClick={() => setTabPage(prev => ({ ...prev, [activeTab]: (prev[activeTab] || 1) + 1 }))}
-                                className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                                className="px-3 py-1.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                             >
                                 Siguiente →
                             </button>
@@ -965,17 +965,17 @@ const ODPListPage: React.FC = () => {
                         <button
                             disabled={searchResults.page <= 1}
                             onClick={() => handleSearch(searchResults.page - 1)}
-                            className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                            className="px-3 py-1.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                         >
                             ← Anterior
                         </button>
-                        <span className="text-sm text-slate-500">
+                        <span className="text-sm text-slate-700">
                             Página {searchResults.page} de {searchResults.totalPages}
                         </span>
                         <button
                             disabled={searchResults.page >= searchResults.totalPages}
                             onClick={() => handleSearch(searchResults.page + 1)}
-                            className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                            className="px-3 py-1.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                         >
                             Siguiente →
                         </button>
@@ -1043,7 +1043,7 @@ const ODPListPage: React.FC = () => {
                                 <Ban className="w-8 h-8" />
                             </div>
                             <h3 className="text-xl font-bold text-slate-900 mb-2">¿Anular esta ODP?</h3>
-                            <p className="text-slate-500 mb-4">
+                            <p className="text-slate-700 mb-4">
                                 <strong>{anulandoOdp.numero_odp}</strong> queda marcada como anulada — el registro y su
                                 historial se conservan, no se borra nada. Se puede reactivar después si hace falta.
                             </p>
@@ -1058,7 +1058,7 @@ const ODPListPage: React.FC = () => {
                             <div className="flex gap-3 justify-center">
                                 <button
                                     onClick={() => { setAnulandoOdp(null); setMotivoAnulacion(''); }}
-                                    className="px-5 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+                                    className="px-5 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
                                 >
                                     Cancelar
                                 </button>

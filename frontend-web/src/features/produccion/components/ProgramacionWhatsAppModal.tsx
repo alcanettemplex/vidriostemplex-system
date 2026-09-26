@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { X, Copy, Check, Calendar, MessageCircle } from 'lucide-react';
+import { X, Copy, Check, Calendar, MessageCircle } from '../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import API from '../../../services/config';
 
@@ -168,43 +168,43 @@ const ProgramacionWhatsAppModal: React.FC<Props> = ({ onClose }) => {
                 style={{ maxHeight: '90vh' }}
             >
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 flex-shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-green-500 flex items-center justify-center shadow-md shadow-green-100">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center shadow-sm shadow-emerald-600/25">
                             <MessageCircle className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                            <h3 className="font-black text-slate-800 text-sm">Compartir en WhatsApp</h3>
-                            <p className="text-xs text-slate-400 font-medium">Programación de instalaciones del día</p>
+                            <h3 className="font-bold text-slate-900 text-base">Compartir en WhatsApp</h3>
+                            <p className="text-xs text-slate-700">Programación de instalaciones del día</p>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
+                        className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
                     >
                         <X className="w-4 h-4" />
                     </button>
                 </div>
 
                 {/* Selector de fecha */}
-                <div className="px-6 py-3 border-b border-slate-100 flex-shrink-0">
+                <div className="px-6 py-3 border-b border-slate-200 flex-shrink-0">
                     <div className="flex items-center gap-3">
-                        <label className="text-xs font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">
+                        <label className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">
                             Fecha
                         </label>
                         <div className="relative flex-1">
-                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
                             <input
                                 type="date"
                                 value={fecha}
                                 onChange={e => setFecha(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-slate-50 outline-none"
+                                className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white outline-none"
                             />
                         </div>
                         {fecha !== hoy && (
                             <button
                                 onClick={() => setFecha(hoy)}
-                                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 whitespace-nowrap transition-colors"
+                                className="text-xs font-semibold text-indigo-700 hover:text-indigo-900 whitespace-nowrap transition-colors"
                             >
                                 Hoy
                             </button>
@@ -215,15 +215,15 @@ const ProgramacionWhatsAppModal: React.FC<Props> = ({ onClose }) => {
                 {/* Vista previa editable */}
                 <div className="flex-1 overflow-hidden flex flex-col px-6 py-4 gap-2 min-h-0">
                     <div className="flex items-center justify-between flex-shrink-0">
-                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                        <label className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider">
                             Vista previa
                         </label>
                         {loading && (
-                            <span className="text-xs text-green-500 font-medium animate-pulse">Cargando...</span>
+                            <span className="text-xs text-emerald-700 font-medium animate-pulse">Cargando...</span>
                         )}
                     </div>
                     <textarea
-                        className="flex-1 min-h-0 w-full border border-slate-200 rounded-xl p-4 text-xs font-mono text-slate-700 bg-slate-50 resize-none focus:ring-2 focus:ring-green-500 focus:outline-none leading-relaxed"
+                        className="flex-1 min-h-0 w-full border border-slate-300 rounded-xl p-4 text-[13px] font-mono text-slate-900 bg-slate-50 resize-none focus:ring-2 focus:ring-emerald-500 focus:outline-none leading-relaxed"
                         value={texto}
                         onChange={e => setTexto(e.target.value)}
                         spellCheck={false}
@@ -231,19 +231,19 @@ const ProgramacionWhatsAppModal: React.FC<Props> = ({ onClose }) => {
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-slate-100 flex gap-3 flex-shrink-0">
+                <div className="px-6 py-4 border-t border-slate-200 flex gap-3 flex-shrink-0">
                     <button
                         onClick={onClose}
-                        className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm"
+                        className="flex-1 py-2.5 font-semibold text-slate-800 border border-slate-300 rounded-xl hover:bg-slate-50 transition text-sm"
                     >
                         Cerrar
                     </button>
                     <button
                         onClick={handleCopiar}
-                        className={`flex-1 py-2.5 font-black text-white rounded-xl transition text-sm flex items-center justify-center gap-2 shadow-lg
+                        className={`flex-1 py-2.5 font-semibold text-white rounded-xl transition text-sm flex items-center justify-center gap-2 shadow-sm
                             ${copiado
-                                ? 'bg-emerald-500 shadow-emerald-100'
-                                : 'bg-green-500 hover:bg-green-600 shadow-green-100'
+                                ? 'bg-emerald-700 shadow-emerald-700/25'
+                                : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
                             }`}
                     >
                         {copiado ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   FileText, Package, Ruler, Images, Shield, AlertCircle, Printer, Banknote, FileCheck, Pencil
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 import axios from 'axios';
 import PrintableTalonario from './PrintableTalonario';
 import PrintableGarantia from './PrintableGarantia';
@@ -99,26 +99,26 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
           {(tieneGarantias || esGarantia) && (
             <button onClick={() => setSelectedFormat('garantia')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'garantia' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
               <Shield className="w-3 h-3 text-blue-500" /> Garantía
-              {tieneGarantias && <span className="text-[10px] bg-blue-500 text-white px-1.5 rounded-full">{odp.garantias.length}</span>}
+              {tieneGarantias && <span className="text-[11px] bg-blue-500 text-white px-1.5 rounded-full">{odp.garantias.length}</span>}
             </button>
           )}
           {(tieneNC || esNC) && (
             <button onClick={() => setSelectedFormat('noconformidad')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'noconformidad' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
               <AlertCircle className="w-3 h-3" /> No Conform.
-              {tieneNC && <span className="text-[10px] bg-rose-500 text-white px-1.5 rounded-full">{odp.no_conformidades.length}</span>}
+              {tieneNC && <span className="text-[11px] bg-rose-500 text-white px-1.5 rounded-full">{odp.no_conformidades.length}</span>}
             </button>
           )}
           {odp?.saps?.length > 0 && (
             <button onClick={() => setSelectedFormat('sap')} className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition ${selectedFormat === 'sap' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
               <Package className="w-3 h-3" /> SAP
-              <span className="text-[10px] bg-indigo-500 text-white px-1.5 rounded-full">{odp.saps.length}</span>
+              <span className="text-[11px] bg-indigo-500 text-white px-1.5 rounded-full">{odp.saps.length}</span>
             </button>
           )}
         </div>
 
         {selectedFormat === 'noconformidad' && odp?.no_conformidades?.length > 1 && (
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1 px-3">
-                <span className="text-[10px] font-black text-slate-400 uppercase">REPORTE:</span>
+                <span className="text-[11px] font-semibold text-slate-900 uppercase">REPORTE:</span>
                 <select className="bg-transparent text-xs font-bold outline-none" value={ncIndex} onChange={e => setNcIndex(parseInt(e.target.value))}>
                     {odp.no_conformidades.map((nc: any, idx: number) => (
                         <option key={idx} value={idx}>{nc.numero_reporte} - {new Date(nc.creado_en).toLocaleDateString()}</option>
@@ -128,7 +128,7 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
         )}
         {selectedFormat === 'garantia' && tieneGarantias && odp?.garantias?.length > 1 && (
             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1 px-3">
-                <span className="text-[10px] font-black text-slate-400 uppercase">GARANTÍA:</span>
+                <span className="text-[11px] font-semibold text-slate-900 uppercase">GARANTÍA:</span>
                 <select className="bg-transparent text-xs font-bold outline-none" value={garantiaIndex} onChange={e => setGarantiaIndex(parseInt(e.target.value))}>
                     {odp.garantias.map((g: any, idx: number) => (
                         <option key={idx} value={idx}>{g.numero_garantia} - {new Date(g.fecha_creacion).toLocaleDateString()}</option>
@@ -146,7 +146,7 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
                   className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition ${
                     odp?.factura_electronica
                       ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50'
                   }`}>
                   <FileCheck className="w-3.5 h-3.5" />
                   {odp?.factura_electronica ? (
@@ -154,7 +154,7 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
                       FE-{odp.factura_electronica}
                       {odp.fecha_factura && <span className="ml-1 font-sans font-medium opacity-70">· {fmtFecha(odp.fecha_factura)}</span>}
                       {odp.facturas_adicionales?.length > 0 && (
-                        <span className="ml-1 font-sans text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-100 px-1 rounded">
+                        <span className="ml-1 font-sans text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-100 px-1 rounded">
                           +{odp.facturas_adicionales.length}
                         </span>
                       )}
@@ -165,16 +165,16 @@ const TabImprimir: React.FC<{ odp: any; currentUser?: any }> = ({ odp, currentUs
               )}
               {puedeRegistrarAbono && (
                 <button onClick={() => setShowAbonoModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition">
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition">
                   <Banknote className="w-3.5 h-3.5" /> Registrar Abono
                 </button>
               )}
               {puedeVerAbonos && (
                 <button onClick={() => setShowAbonosModal(true)}
                   title="Ver, editar o eliminar los abonos de esta ODP"
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition">
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition">
                   Abonos
-                  <span className="text-[10px] font-black bg-slate-200 text-slate-700 px-1.5 rounded-full">{totalAbonos}</span>
+                  <span className="text-[11px] font-semibold bg-slate-200 text-slate-700 px-1.5 rounded-full">{totalAbonos}</span>
                 </button>
               )}
             </div>

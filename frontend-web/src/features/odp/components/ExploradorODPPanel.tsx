@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import {
     Search, X, Loader2, ChevronUp, ChevronDown, ChevronsUpDown,
     CalendarRange, AlertTriangle, Filter, Inbox,
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 
 import API from '../../../services/config';
 import { badgeEstadoODP, ESTADO_LABELS_CORTOS } from '../../../utils/estadosODP';
@@ -87,7 +87,7 @@ const FILTROS_INICIALES: FiltrosExplorador = {
 };
 
 const selectClass = 'w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200';
-const labelClass = 'block text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1';
+const labelClass = 'block text-[11px] font-semibold uppercase tracking-wide text-slate-900 mb-1';
 
 interface Props {
     /** Abre la ficha de la ODP. Reusa el modal que la página ya tiene montado. */
@@ -283,7 +283,7 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
     };
 
     const IconoOrden: React.FC<{ campo: string }> = ({ campo }) => {
-        if (filtros.orden_campo !== campo) return <ChevronsUpDown className="w-3.5 h-3.5 ml-1 text-slate-300 inline" />;
+        if (filtros.orden_campo !== campo) return <ChevronsUpDown className="w-3.5 h-3.5 ml-1 text-slate-500 inline" />;
         return filtros.orden_dir === 'ASC'
             ? <ChevronUp className="w-3.5 h-3.5 ml-1 text-indigo-500 inline" />
             : <ChevronDown className="w-3.5 h-3.5 ml-1 text-indigo-500 inline" />;
@@ -307,8 +307,8 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                     <CalendarRange className="w-4 h-4 text-indigo-600" />
-                    <span className="text-sm font-bold text-slate-700">Período</span>
-                    <span className="text-xs text-slate-400">— elige uno para ejecutar la consulta</span>
+                    <span className="text-sm font-bold text-slate-900">Período</span>
+                    <span className="text-xs text-slate-700">— elige uno para ejecutar la consulta</span>
                 </div>
 
                 <div className="flex flex-wrap gap-2 mb-3">
@@ -325,7 +325,7 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
                             onClick={() => aplicarPreset(p.k)}
                             className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${presetActivo === p.k
                                 ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                                : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-100'}`}
                         >
                             {p.l}
                         </button>
@@ -358,7 +358,7 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
                         />
                     </div>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-2">
+                <p className="text-[11px] text-slate-700 mt-2">
                     El rango solo aplica cuando tiene ambos extremos. «Fecha de factura» busca por presencia de
                     factura electrónica —principal o adicional— dentro del período.
                 </p>
@@ -368,9 +368,9 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
             <div className="bg-white border border-slate-200 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-3">
                     <Filter className="w-4 h-4 text-indigo-600" />
-                    <span className="text-sm font-bold text-slate-700">Estado de taller</span>
+                    <span className="text-sm font-bold text-slate-900">Estado de taller</span>
                     {estadosSel.length > 0 && (
-                        <button onClick={() => actualizar({ estados_produccion: [] })} className="text-xs text-slate-400 hover:text-rose-600 underline">
+                        <button onClick={() => actualizar({ estados_produccion: [] })} className="text-xs text-slate-700 hover:text-rose-600 underline">
                             quitar los {estadosSel.length}
                         </button>
                     )}
@@ -385,7 +385,7 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
                                 onClick={() => toggleGrupo(g)}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${activo
                                     ? 'bg-slate-800 text-white border-slate-800'
-                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                                    : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100'}`}
                             >
                                 {g.label}
                             </button>
@@ -400,9 +400,9 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
                             <button
                                 key={e}
                                 onClick={() => toggleEstado(e)}
-                                className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition ${activo
+                                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition ${activo
                                     ? badgeEstadoODP(e) + ' ring-2 ring-offset-1 ring-indigo-300'
-                                    : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'}`}
+                                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'}`}
                             >
                                 {ESTADO_LABELS_CORTOS[e] || e}
                             </button>
@@ -447,7 +447,7 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
                 <div>
                     <label className={labelClass}>Buscar</label>
                     <div className="relative">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
                             className={`${selectClass} pl-9`}
                             placeholder="Nº ODP o cliente"
@@ -492,7 +492,7 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
                         onClick={aplicarCarteraVencida}
                         disabled={diasCartera === null}
                         title={diasCartera === null ? 'No se pudo leer el umbral configurado' : `Créditos facturados hace más de ${diasCartera} días y aún con saldo`}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-bold border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                         <AlertTriangle className="w-4 h-4" />
                         Cartera vencida{diasCartera !== null && ` (${diasCartera}d)`}
@@ -504,12 +504,12 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
             {chips.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2">
                     {chips.map((c, i) => (
-                        <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[11px] font-bold">
+                        <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[11px] font-semibold">
                             {c.label}
                             <button onClick={c.quitar} className="hover:text-rose-600"><X className="w-3 h-3" /></button>
                         </span>
                     ))}
-                    <button onClick={limpiarTodo} className="text-[11px] font-bold text-slate-500 hover:text-rose-600 underline ml-1">
+                    <button onClick={limpiarTodo} className="text-[11px] font-bold text-slate-900 hover:text-rose-600 underline ml-1">
                         Limpiar todo
                     </button>
                 </div>
@@ -525,8 +525,8 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
                         { l: 'Pendiente', v: fmtCOP(totales.pendiente), c: 'text-rose-700' },
                     ].map(t => (
                         <div key={t.l} className="bg-white border border-slate-200 rounded-xl px-4 py-3">
-                            <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{t.l}</div>
-                            <div className={`text-lg font-black ${t.c}`}>{t.v}</div>
+                            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">{t.l}</div>
+                            <div className={`text-lg font-bold ${t.c}`}>{t.v}</div>
                         </div>
                     ))}
                 </div>
@@ -536,9 +536,9 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
             <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
                 {!periodoElegido ? (
                     <div className="py-16 text-center">
-                        <CalendarRange className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                        <p className="text-slate-600 font-semibold">Elige un período para consultar</p>
-                        <p className="text-slate-400 text-sm mt-1">
+                        <CalendarRange className="w-10 h-10 text-slate-500 mx-auto mb-3" />
+                        <p className="text-slate-900 font-semibold">Elige un período para consultar</p>
+                        <p className="text-slate-700 text-sm mt-1">
                             Usa «Todo el histórico» si buscas órdenes viejas — por ejemplo, entregadas hace meses y aún sin facturar.
                         </p>
                     </div>
@@ -546,7 +546,7 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
                     <>
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                                <thead className="bg-slate-50 text-slate-800 border-b border-slate-200">
                                     <tr>
                                         {th('numero_odp', 'Nº ODP')}
                                         <th className="px-4 py-3 font-medium text-left">Cliente</th>
@@ -563,15 +563,15 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {loading ? (
-                                        <tr><td colSpan={11} className="py-16 text-center text-slate-400">
+                                        <tr><td colSpan={11} className="py-16 text-center text-slate-700">
                                             <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                                             Consultando…
                                         </td></tr>
                                     ) : items.length === 0 ? (
                                         <tr><td colSpan={11} className="py-16 text-center">
-                                            <Inbox className="w-9 h-9 text-slate-300 mx-auto mb-2" />
-                                            <p className="text-slate-600 font-semibold">Ninguna ODP cumple estos filtros</p>
-                                            <p className="text-slate-400 text-sm mt-1">Revisa los chips de arriba: suele sobrar un filtro.</p>
+                                            <Inbox className="w-9 h-9 text-slate-500 mx-auto mb-2" />
+                                            <p className="text-slate-900 font-semibold">Ninguna ODP cumple estos filtros</p>
+                                            <p className="text-slate-700 text-sm mt-1">Revisa los chips de arriba: suele sobrar un filtro.</p>
                                         </td></tr>
                                     ) : items.map(o => (
                                         <tr
@@ -579,32 +579,32 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
                                             onClick={() => onAbrirODP(o.id)}
                                             className="hover:bg-indigo-50/40 cursor-pointer transition"
                                         >
-                                            <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">
+                                            <td className="px-4 py-3 font-bold text-slate-900 whitespace-nowrap">
                                                 {o.numero_odp}
-                                                {o.es_no_conformidad && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 text-[10px] font-black">NC</span>}
-                                                {o.es_garantia && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-[10px] font-black">GAR</span>}
-                                                {o.tipo_odp === 'OA' && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-[10px] font-black">OA</span>}
+                                                {o.es_no_conformidad && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 text-[11px] font-semibold">NC</span>}
+                                                {o.es_garantia && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-[11px] font-semibold">GAR</span>}
+                                                {o.tipo_odp === 'OA' && <span className="ml-1.5 px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-[11px] font-semibold">OA</span>}
                                             </td>
                                             <td className="px-4 py-3 text-slate-700 max-w-[220px] truncate" title={o.cliente_nombre || ''}>{o.cliente_nombre || '—'}</td>
-                                            <td className="px-4 py-3 text-slate-500 max-w-[160px] truncate">{o.asesor_nombre || '—'}</td>
+                                            <td className="px-4 py-3 text-slate-700 max-w-[160px] truncate">{o.asesor_nombre || '—'}</td>
                                             <td className="px-4 py-3 text-center">
-                                                <span className={`px-2 py-0.5 rounded-full border text-[11px] font-bold whitespace-nowrap ${badgeEstadoODP(o.estado_produccion)}`}>
+                                                <span className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold whitespace-nowrap ${badgeEstadoODP(o.estado_produccion)}`}>
                                                     {ESTADO_LABELS_CORTOS[o.estado_produccion] || o.estado_produccion}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-center">
-                                                <span className={`px-2 py-0.5 rounded-full border text-[11px] font-bold ${o.estado_facturacion === 'FACTURADA'
+                                                <span className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold ${o.estado_facturacion === 'FACTURADA'
                                                     ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
                                                     : 'bg-amber-100 text-amber-800 border-amber-200'}`}>
                                                     {o.estado_facturacion === 'FACTURADA' ? 'Facturada' : 'Pendiente'}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 text-center text-[11px] font-bold text-slate-600">{o.estado_caja}</td>
+                                            <td className="px-4 py-3 text-center text-[11px] font-bold text-slate-900">{o.estado_caja}</td>
                                             <td className="px-4 py-3 text-right text-slate-700 whitespace-nowrap">{fmtCOP(o.valor_total)}</td>
                                             <td className="px-4 py-3 text-right text-emerald-700 whitespace-nowrap">{fmtCOP(o.abono)}</td>
-                                            <td className={`px-4 py-3 text-right whitespace-nowrap font-bold ${o.pendiente > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{fmtCOP(o.pendiente)}</td>
-                                            <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{fmtFecha(o.fecha_creacion)}</td>
-                                            <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{fmtFecha(o.fecha_entrega)}</td>
+                                            <td className={`px-4 py-3 text-right whitespace-nowrap font-bold ${o.pendiente > 0 ? 'text-rose-600' : 'text-slate-700'}`}>{fmtCOP(o.pendiente)}</td>
+                                            <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{fmtFecha(o.fecha_creacion)}</td>
+                                            <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{fmtFecha(o.fecha_entrega)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -613,7 +613,7 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
 
                         {data && data.totalPages > 1 && (
                             <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/50">
-                                <span className="text-xs text-slate-500">
+                                <span className="text-xs text-slate-700">
                                     Mostrando {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, data.total)} de {data.total}
                                 </span>
                                 <div className="flex items-center gap-2">
@@ -624,7 +624,7 @@ const ExploradorODPPanel: React.FC<Props> = ({ onAbrirODP }) => {
                                     >
                                         Anterior
                                     </button>
-                                    <span className="text-xs text-slate-600 font-semibold">Página {page} de {data.totalPages}</span>
+                                    <span className="text-xs text-slate-900 font-semibold">Página {page} de {data.totalPages}</span>
                                     <button
                                         disabled={page >= data.totalPages}
                                         onClick={() => setPage(p => p + 1)}

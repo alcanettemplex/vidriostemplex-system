@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { X, Shield, AlertTriangle, CheckCircle, Send } from 'lucide-react';
+import { X, Shield, AlertTriangle, CheckCircle, Send } from '../../../components/ui/icons';
 import { differenceInMonths, isValid } from 'date-fns';
 
 import API from '../../../services/config';
@@ -68,7 +68,7 @@ const GarantiaFormModal: React.FC<Props> = ({ odp, onClose, onCreada }) => {
   };
 
   const inputClass = 'w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-400 outline-none transition';
-  const labelClass = 'block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-wider';
+  const labelClass = 'block text-[11px] font-semibold uppercase text-slate-900 mb-1 tracking-wider';
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
@@ -82,11 +82,11 @@ const GarantiaFormModal: React.FC<Props> = ({ odp, onClose, onCreada }) => {
               <Shield className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="font-black text-slate-800 text-sm">NUEVA SOLICITUD DE GARANTÍA</p>
+              <p className="font-bold text-slate-900 text-sm">NUEVA SOLICITUD DE GARANTÍA</p>
               <p className="text-[11px] text-blue-600 font-bold">{odp?.numero_odp} · {odp?.cliente?.nombre_razon_social}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-blue-100 rounded-xl text-slate-400 transition">
+          <button onClick={onClose} className="p-2 hover:bg-blue-100 rounded-xl text-slate-700 transition">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -97,8 +97,8 @@ const GarantiaFormModal: React.FC<Props> = ({ odp, onClose, onCreada }) => {
               <CheckCircle className="w-9 h-9 text-blue-500" />
             </div>
             <div>
-              <h3 className="text-lg font-black text-slate-800">Garantía Creada</h3>
-              <p className="text-sm text-slate-500 mt-1">
+              <h3 className="text-lg font-bold text-slate-900">Garantía Creada</h3>
+              <p className="text-sm text-slate-700 mt-1">
                 Se creó <span className="font-bold text-blue-700">{garantiaCreada?.numero_garantia}</span> vinculada a {odp?.numero_odp}.
               </p>
             </div>
@@ -146,7 +146,7 @@ const GarantiaFormModal: React.FC<Props> = ({ odp, onClose, onCreada }) => {
             </div>
 
             <div className="border-t border-slate-100 pt-4">
-              <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-3">Datos de contacto (pre-cargados, editables)</p>
+              <p className="text-[11px] font-semibold uppercase text-slate-900 tracking-wider mb-3">Datos de contacto (pre-cargados, editables)</p>
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -179,7 +179,7 @@ const GarantiaFormModal: React.FC<Props> = ({ odp, onClose, onCreada }) => {
 
             {/* Botones */}
             <div className="flex gap-3 pt-2 border-t border-slate-100">
-              <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition text-sm">
+              <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-900 font-bold rounded-2xl hover:bg-slate-200 transition text-sm">
                 Cancelar
               </button>
               <button

@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { Plus, Trash2, X, FileCheck, DollarSign, Package, AlertCircle, ChevronRight, ChevronLeft, Briefcase, Calendar } from 'lucide-react';
+import { Plus, Trash2, X, FileCheck, DollarSign, Package, AlertCircle, ChevronRight, ChevronLeft, Briefcase, Calendar } from '../../../components/ui/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import { getClientesCached, getCatalogoCached } from '../../../services/listasCache';
@@ -121,7 +121,7 @@ const ColorField: React.FC<{ index: number; register: any; control: any }> = ({ 
     const colorVal = useWatch({ control, name: `items.${index}.color` });
     return (
         <div className="w-full lg:w-2/12">
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Color</label>
+            <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">Color</label>
             <select
                 {...register(`items.${index}.color`)}
                 className="w-full p-2 text-sm border border-slate-200 rounded focus:ring-2 focus:ring-blue-500 bg-white"
@@ -432,11 +432,11 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="glass-panel w-full max-w-6xl max-h-[90vh] overflow-y-auto"
+                className="bg-white rounded-2xl border border-slate-200 shadow-float w-full max-w-6xl max-h-[90vh] overflow-y-auto"
             >
                 <div className="sticky top-0 bg-white/90 backdrop-blur-md px-6 py-4 border-b border-slate-200 flex justify-between items-center z-10">
                     <div>
-                        <h2 className="text-xl font-bold flex items-center gap-2">
+                        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                             <FileCheck className="w-5 h-5 text-blue-600" />
                             {odpToEdit ? 'Editar Orden de Producción' : 'Nueva Orden de Producción'}
                         </h2>
@@ -459,7 +459,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                             <div className={`h-full bg-blue-600 rounded-full transition-all duration-300 ${step === 2 ? 'w-full' : 'w-0'}`}></div>
                         </div>
                         <div className="flex-1 text-center">
-                            <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center font-bold mb-2 transition-colors ${step === 2 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                            <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center font-bold mb-2 transition-colors ${step === 2 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
                                 2
                             </div>
                             <span className={`text-xs font-bold uppercase ${step === 2 ? 'text-blue-600' : 'text-slate-400'}`}>Desglose Técnico</span>
@@ -481,7 +481,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                         <label className="block text-sm font-medium text-slate-700 mb-1">Cliente *</label>
                                         <input type="hidden" {...register('cliente_id')} />
                                         {odpToEdit ? (
-                                            <div className={`w-full p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-500`}>
+                                            <div className={`w-full p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-700`}>
                                                 {clienteSeleccionadoODP?.nombre_razon_social || 'Cliente'}
                                             </div>
                                         ) : (
@@ -506,10 +506,10 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                                     className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 hover:text-blue-700 transition-colors"
                                                                 >
                                                                     <span className="block font-medium">{c.nombre_razon_social}</span>
-                                                                    {c.numero_documento && <span className="block text-xs text-slate-400">{c.numero_documento}</span>}
+                                                                    {c.numero_documento && <span className="block text-xs text-slate-700">{c.numero_documento}</span>}
                                                                 </button>
                                                             )) : (
-                                                                <p className="px-4 py-3 text-sm text-slate-400 text-center">
+                                                                <p className="px-4 py-3 text-sm text-slate-700 text-center">
                                                                     {clienteBusqueda.trim().length >= 2 ? 'Sin resultados' : 'Escribe al menos 2 caracteres'}
                                                                 </p>
                                                             )}
@@ -529,7 +529,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                 <div className="flex items-start gap-2">
                                                     <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                                                     <div>
-                                                        <p className="text-xs font-bold text-amber-800 uppercase tracking-wide mb-1">
+                                                        <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide mb-1">
                                                             Este cliente tiene {prospectosBanner.length === 1 ? 'un prospecto activo' : `${prospectosBanner.length} prospectos activos`}
                                                         </p>
                                                         <ul className="text-xs text-amber-700 space-y-0.5 mb-2">
@@ -550,7 +550,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                         {/* Fuente del cliente (cuando el cliente aún no la tiene registrada) */}
                                         {requiereClienteFuente && (
                                             <div className="mt-2 bg-blue-50 border border-blue-300 rounded-lg px-4 py-3">
-                                                <label className="block text-xs font-bold text-blue-800 uppercase tracking-wide mb-1">
+                                                <label className="block text-xs font-semibold text-blue-800 uppercase tracking-wide mb-1">
                                                     ¿Cómo nos contactó este cliente? *
                                                 </label>
                                                 <p className="text-xs text-blue-700 mb-2">
@@ -577,8 +577,8 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                             onClick={() => setCalendarOpen(v => !v)}
                                             className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-left text-sm flex items-center gap-2 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                                         >
-                                            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-                                            <span className={fechaEntregaWatch ? 'text-slate-800' : 'text-slate-400'}>
+                                            <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
+                                            <span className={fechaEntregaWatch ? 'text-slate-800' : 'text-slate-700'}>
                                                 {fechaEntregaWatch ? fmtFechaBtn(fechaEntregaWatch) : 'Ver disponibilidad...'}
                                             </span>
                                         </button>
@@ -588,7 +588,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                     <button type="button" onClick={() => navegarMes(-1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition">
                                                         <ChevronLeft className="w-4 h-4 text-slate-600" />
                                                     </button>
-                                                    <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+                                                    <span className="text-sm font-semibold text-slate-900 uppercase tracking-wide">
                                                         {MESES_ES[calM - 1]} {calY}
                                                     </span>
                                                     <button type="button" onClick={() => navegarMes(1)} className="p-1.5 hover:bg-slate-100 rounded-lg transition">
@@ -597,7 +597,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                 </div>
                                                 <div className="grid grid-cols-7 mb-1">
                                                     {['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'].map(d => (
-                                                        <div key={d} className="text-center text-xs font-semibold text-slate-400 py-1">{d}</div>
+                                                        <div key={d} className="text-center text-xs font-semibold text-slate-900 py-1">{d}</div>
                                                     ))}
                                                 </div>
                                                 <div className="grid grid-cols-7 gap-y-0.5">
@@ -617,13 +617,13 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                             >
                                                                 <span className="leading-none font-medium">{dia}</span>
                                                                 {count > 0 && (
-                                                                    <span className={`text-[10px] leading-none mt-0.5 font-bold ${isSelected ? 'text-blue-100' : 'text-amber-500'}`}>{count}</span>
+                                                                    <span className={`text-[11px] leading-none mt-0.5 font-bold ${isSelected ? 'text-blue-100' : 'text-amber-500'}`}>{count}</span>
                                                                 )}
                                                             </button>
                                                         );
                                                     })}
                                                 </div>
-                                                <p className="text-[10px] text-slate-400 mt-3 text-center">Número en naranja = ODPs programadas ese día · Click para ver detalle</p>
+                                                <p className="text-[11px] text-slate-700 mt-3 text-center">Número en naranja = ODPs programadas ese día · Click para ver detalle</p>
                                             </div>
                                         )}
                                     </div>
@@ -645,11 +645,11 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                         </div>
                                         {!esOA && Number(valorTotalRaw) > 0 && (
                                             <div className="mt-2 p-2.5 bg-blue-50 border border-blue-100 rounded-lg text-xs space-y-0.5">
-                                                <div className="flex justify-between text-slate-600">
+                                                <div className="flex justify-between text-slate-800">
                                                     <span>Subtotal (sin IVA):</span>
                                                     <span className="font-semibold">{fmtCOP(subtotal)}</span>
                                                 </div>
-                                                <div className="flex justify-between text-slate-600">
+                                                <div className="flex justify-between text-slate-800">
                                                     <span>IVA 19%:</span>
                                                     <span className="font-semibold">{fmtCOP(ivaValor)}</span>
                                                 </div>
@@ -710,7 +710,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                             )}
 
                                             <div className="md:col-span-2">
-                                                <label className="block text-xs font-semibold text-slate-600 mb-1">Cant. *</label>
+                                                <label className="block text-xs font-semibold text-slate-900 mb-1">Cant. *</label>
                                                 <input
                                                     type="number"
                                                     {...register(`servicios_detalle.${index}.cantidad`)}
@@ -720,7 +720,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                             </div>
 
                                             <div className="md:col-span-4">
-                                                <label className="block text-xs font-semibold text-slate-600 mb-1">Servicio/Gestión *</label>
+                                                <label className="block text-xs font-semibold text-slate-900 mb-1">Servicio/Gestión *</label>
                                                 <select
                                                     {...register(`servicios_detalle.${index}.tipo_servicio`)}
                                                     className={`w-full p-2.5 bg-slate-50 border ${errors.servicios_detalle?.[index]?.tipo_servicio ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:bg-white`}
@@ -735,7 +735,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                             </div>
 
                                             <div className="md:col-span-6 space-y-2">
-                                                <label className="block text-xs font-semibold text-slate-600 mb-1">Descripción del Producto/Obra *</label>
+                                                <label className="block text-xs font-semibold text-slate-900 mb-1">Descripción del Producto/Obra *</label>
                                                 {catalogo.length > 0 && (
                                                     <div className="flex gap-2">
                                                         <select
@@ -772,17 +772,17 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                     className={`w-full p-2.5 bg-slate-50 border ${errors.servicios_detalle?.[index]?.descripcion ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:bg-white text-xs resize-none`}
                                                 />
                                                 {errors.servicios_detalle?.[index]?.descripcion && (
-                                                    <p className="text-xs text-red-500">{errors.servicios_detalle[index]?.descripcion?.message}</p>
+                                                    <p className="text-xs text-red-700">{errors.servicios_detalle[index]?.descripcion?.message}</p>
                                                 )}
                                             </div>
                                         </div>
                                     ))}
-                                    {errors.servicios_detalle?.root && <p className="text-red-500 text-sm">{errors.servicios_detalle.root.message}</p>}
+                                    {errors.servicios_detalle?.root && <p className="text-red-700 text-sm">{errors.servicios_detalle.root.message}</p>}
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
-                                        <h3 className="font-bold text-slate-800 text-sm uppercase">Requerimientos Adicionales</h3>
+                                        <h3 className="font-semibold text-slate-900 text-sm uppercase">Requerimientos Adicionales</h3>
                                         <div className="grid grid-cols-2 gap-3">
                                             {[
                                                 { key: 'matizado', label: 'Matizado' },
@@ -810,13 +810,13 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                     </div>
 
                                     <div className="bg-orange-50/50 p-5 rounded-xl border border-orange-200/50 space-y-4">
-                                        <h3 className="font-bold text-slate-800 text-sm uppercase flex items-center gap-2">
+                                        <h3 className="font-semibold text-slate-900 text-sm uppercase flex items-center gap-2">
                                             <Package className="w-4 h-4 text-orange-500" />
                                             Pedido Externo (Vidrio)
                                         </h3>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="block text-xs font-semibold text-slate-600 mb-1">Proveedor</label>
+                                                <label className="block text-xs font-semibold text-slate-900 mb-1">Proveedor</label>
                                                 <select
                                                     {...register('proveedor_vidrio')}
                                                     className="w-full text-sm p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -830,16 +830,16 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                             </div>
                                             {proveedorVidrio && !odpToEdit && (
                                                 <div>
-                                                    <label className="block text-xs font-semibold text-slate-600 mb-1">Núm. Pedido PV (auto)</label>
+                                                    <label className="block text-xs font-semibold text-slate-900 mb-1">Núm. Pedido PV (auto)</label>
                                                     <div className="w-full text-sm p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-mono font-bold">
                                                         {siguienteNumeroPV ?? '...'}
                                                     </div>
-                                                    <p className="text-xs text-slate-400 mt-1">Se asigna automáticamente al crear la ODP</p>
+                                                    <p className="text-xs text-slate-700 mt-1">Se asigna automáticamente al crear la ODP</p>
                                                 </div>
                                             )}
                                             {odpToEdit && odpToEdit.numero_pedido_proveedor && (
                                                 <div>
-                                                    <label className="block text-xs font-semibold text-slate-600 mb-1">Núm. Pedido PV</label>
+                                                    <label className="block text-xs font-semibold text-slate-900 mb-1">Núm. Pedido PV</label>
                                                     <div className="w-full text-sm p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-mono font-bold">
                                                         {odpToEdit.numero_pedido_proveedor}
                                                     </div>
@@ -912,7 +912,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                         />
                                         <label htmlFor="requiere_visita_tecnica" className="cursor-pointer">
                                             <p className="text-sm font-bold text-orange-800">Requiere visita técnica</p>
-                                            <p className="text-xs text-orange-600 mt-0.5">El cliente no tiene medidas. El jefe de producción debe realizar una visita antes de iniciar la orden.</p>
+                                            <p className="text-xs text-orange-700 mt-0.5">El cliente no tiene medidas. El jefe de producción debe realizar una visita antes de iniciar la orden.</p>
                                         </label>
                                     </div>
                                 )}
@@ -927,7 +927,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                         />
                                         <label htmlFor="es_no_conformidad" className="cursor-pointer">
                                             <p className="text-sm font-bold text-rose-800">Reposición / No Conformidad (sin cobro al cliente)</p>
-                                            <p className="text-xs text-rose-600 mt-0.5">Úsalo para reprocesos o reposiciones que no se cobran. La caja quedará en CANCELADO y la orden no exigirá factura electrónica para instalar.</p>
+                                            <p className="text-xs text-rose-700 mt-0.5">Úsalo para reprocesos o reposiciones que no se cobran. La caja quedará en CANCELADO y la orden no exigirá factura electrónica para instalar.</p>
                                         </label>
                                     </div>
                                 )}
@@ -1002,7 +1002,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                             >
                                                 <ColorField index={index} register={register} control={control} />
                                                 <div className="w-1/2 lg:w-1/12">
-                                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Esp. (mm)</label>
+                                                    <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">Esp. (mm)</label>
                                                     <input
                                                         type="text"
                                                         {...register(`items.${index}.espesor`)}
@@ -1010,7 +1010,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                     />
                                                 </div>
                                                 <div className="w-1/2 lg:w-2/12 border-l border-slate-200 pl-4">
-                                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Medidas (mm)</label>
+                                                    <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">Medidas (mm)</label>
                                                     <div className="flex gap-2">
                                                         <input
                                                             type="number"
@@ -1018,7 +1018,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                             {...register(`items.${index}.ancho_mm`)}
                                                             className="w-1/2 p-2 text-sm border border-slate-200 rounded focus:ring-2 focus:ring-blue-500"
                                                         />
-                                                        <span className="text-slate-400 self-center">×</span>
+                                                        <span className="text-slate-700 self-center">×</span>
                                                         <input
                                                             type="number"
                                                             placeholder="Alto"
@@ -1028,7 +1028,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                     </div>
                                                 </div>
                                                 <div className="w-1/3 lg:w-1/12 border-l border-slate-200 pl-4">
-                                                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Cant.</label>
+                                                    <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">Cant.</label>
                                                     <input
                                                         type="number"
                                                         {...register(`items.${index}.cantidad`)}
@@ -1039,31 +1039,31 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                 {/* Acabados + MTS PT + PROD */}
                                                 <div className="w-full lg:flex-1 grid grid-cols-4 gap-2 border-l border-slate-200 pl-4">
                                                     <div>
-                                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">PUL A*</label>
+                                                        <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">PUL A*</label>
                                                         <input type="number" min="0" max="9" {...register(`items.${index}.pulidos`)} className="w-full p-1.5 text-xs border border-slate-200 rounded text-center" placeholder="0" />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">PUL H*</label>
+                                                        <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">PUL H*</label>
                                                         <input type="number" min="0" max="9" {...register(`items.${index}.pulidos_h`)} className="w-full p-1.5 text-xs border border-slate-200 rounded text-center" placeholder="0" />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Perf.</label>
+                                                        <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">Perf.</label>
                                                         <input type="number" {...register(`items.${index}.perforaciones`)} className="w-full p-1.5 text-xs border border-slate-200 rounded text-center" />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Boq.</label>
+                                                        <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">Boq.</label>
                                                         <input type="number" {...register(`items.${index}.boquetes`)} className="w-full p-1.5 text-xs border border-slate-200 rounded text-center" />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Des.</label>
+                                                        <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">Des.</label>
                                                         <input {...register(`items.${index}.descuentos`)} className="w-full p-1.5 text-xs border border-slate-200 rounded" />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Otros**</label>
+                                                        <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">Otros**</label>
                                                         <input {...register(`items.${index}.otros`)} className="w-full p-1.5 text-xs border border-slate-200 rounded" />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">MTS PT</label>
+                                                        <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">MTS PT</label>
                                                         <input
                                                             readOnly
                                                             value={(() => {
@@ -1072,12 +1072,12 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                                 if (a > 0 && h > 0) return ((a / 1000) * (h / 1000)).toFixed(3);
                                                                 return '';
                                                             })()}
-                                                            className="w-full p-1.5 text-xs border border-slate-100 rounded bg-slate-50 text-slate-500 text-center"
+                                                            className="w-full p-1.5 text-xs border border-slate-100 rounded bg-slate-50 text-slate-700 text-center"
                                                             placeholder="m²"
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">PROD</label>
+                                                        <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wider mb-1">PROD</label>
                                                         <select {...register(`items.${index}.prod`)} className="w-full p-1.5 text-xs border border-slate-200 rounded bg-white">
                                                             <option value="">—</option>
                                                             <option value="PV">PV</option>
@@ -1160,9 +1160,9 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                 <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[70vh] flex flex-col">
                     <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
                         <div>
-                            <h3 className="font-bold text-slate-800">Carga — {fmtFechaModal(modalDia)}</h3>
+                            <h3 className="font-bold text-slate-900">Carga — {fmtFechaModal(modalDia)}</h3>
                             {!loadingDetalle && (
-                                <p className="text-xs text-slate-500 mt-0.5">
+                                <p className="text-xs text-slate-700 mt-0.5">
                                     {detalleDia.length === 0
                                         ? 'Sin ODPs programadas para este día'
                                         : `${detalleDia.length} ODP${detalleDia.length !== 1 ? 's' : ''} programada${detalleDia.length !== 1 ? 's' : ''}`}
@@ -1176,22 +1176,22 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
 
                     <div className="overflow-y-auto flex-1 p-5 space-y-4">
                         {loadingDetalle ? (
-                            <div className="text-center text-slate-400 py-8 text-sm">Cargando...</div>
+                            <div className="text-center text-slate-700 py-8 text-sm">Cargando...</div>
                         ) : detalleDia.length === 0 ? (
-                            <div className="text-center text-slate-400 py-8 text-sm">No hay ODPs programadas para este día</div>
+                            <div className="text-center text-slate-700 py-8 text-sm">No hay ODPs programadas para este día</div>
                         ) : (
                             detalleDia.map((odp: any) => (
                                 <div key={odp.id} className="border border-slate-200 rounded-lg overflow-hidden">
                                     <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-2">
-                                        <span className="font-bold text-slate-800 text-sm">ODP {odp.numero_odp}</span>
-                                        <span className="text-slate-500 text-xs">— {odp.cliente?.nombre_razon_social}</span>
+                                        <span className="font-bold text-slate-900 text-sm">ODP {odp.numero_odp}</span>
+                                        <span className="text-slate-700 text-xs">— {odp.cliente?.nombre_razon_social}</span>
                                     </div>
                                     <table className="w-full text-xs">
                                         <thead>
                                             <tr className="bg-slate-50/80 border-b border-slate-100">
-                                                <th className="px-3 py-1.5 text-left text-slate-500 font-semibold w-10">Cant.</th>
-                                                <th className="px-3 py-1.5 text-left text-slate-500 font-semibold w-36">Servicio/Gestión</th>
-                                                <th className="px-3 py-1.5 text-left text-slate-500 font-semibold">Descripción</th>
+                                                <th className="px-3 py-1.5 text-left text-slate-900 font-semibold w-10">Cant.</th>
+                                                <th className="px-3 py-1.5 text-left text-slate-900 font-semibold w-36">Servicio/Gestión</th>
+                                                <th className="px-3 py-1.5 text-left text-slate-900 font-semibold">Descripción</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -1199,7 +1199,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                                                 <tr key={idx} className={idx % 2 === 1 ? 'bg-slate-50/50' : ''}>
                                                     <td className="px-3 py-1.5 text-center font-medium text-slate-700">{s.cantidad}</td>
                                                     <td className="px-3 py-1.5 text-slate-700">{s.tipo_servicio}</td>
-                                                    <td className="px-3 py-1.5 text-slate-600">{s.descripcion}</td>
+                                                    <td className="px-3 py-1.5 text-slate-800">{s.descripcion}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -1213,7 +1213,7 @@ const ODPForm: React.FC<ODPFormProps> = ({ onClose, onSuccess, odpToEdit, asesor
                         <button
                             type="button"
                             onClick={() => setModalDia(null)}
-                            className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                            className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg transition"
                         >
                             Volver al Calendario
                         </button>

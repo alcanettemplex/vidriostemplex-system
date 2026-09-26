@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Trash2, Edit3, AlertCircle, ChevronDown, Search } from 'lucide-react';
+import { X, Plus, Trash2, Edit3, AlertCircle, ChevronDown, Search } from '../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import { useSelector } from 'react-redux';
 import sistemasSAP from '../data/sap-sistemas.json';
@@ -125,7 +125,7 @@ const AutocompleteCell: React.FC<{
                 onMouseDown={() => handleSelect(r)}
                 className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-blue-50 transition border-b border-slate-50 last:border-0"
               >
-                <span className="font-mono text-[10px] font-bold text-blue-700 shrink-0 mt-0.5 w-20">{r.codigo}</span>
+                <span className="font-mono text-[11px] font-bold text-blue-700 shrink-0 mt-0.5 w-20">{r.codigo}</span>
                 <span className="text-xs text-slate-700 leading-tight">{r.nombre}</span>
               </button>
             ))}
@@ -178,7 +178,7 @@ const TablaEditable: React.FC<{
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-xs">
         <thead>
-          <tr className="bg-slate-700 text-white text-[10px] uppercase tracking-wider">
+          <tr className="bg-slate-700 text-white text-[11px] uppercase tracking-wider">
             <th className="px-3 py-2 text-center w-10">ITEM</th>
             <th className="px-3 py-2 w-28">CÓDIGO</th>
             <th className="px-3 py-2">DESCRIPCIÓN</th>
@@ -192,7 +192,7 @@ const TablaEditable: React.FC<{
           {items.map((item, idx) => (
             <tr key={idx} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-blue-50/30 transition`}>
               {/* ITEM */}
-              <td className="px-3 py-1 text-center font-black text-slate-600 text-sm">{item.item}</td>
+              <td className="px-3 py-1 text-center font-bold text-slate-900 text-sm">{item.item}</td>
               {/* CÓDIGO */}
               <td className="px-1 py-0.5 border-x border-slate-100">
                 {canEdit ? (
@@ -229,7 +229,7 @@ const TablaEditable: React.FC<{
                     className="w-full border-0 bg-transparent px-2 py-1.5 text-xs focus:outline-none focus:bg-blue-50 rounded transition"
                   />
                 ) : (
-                  <span className="px-2 text-slate-600">{item.dimension || '—'}</span>
+                  <span className="px-2 text-slate-800">{item.dimension || '—'}</span>
                 )}
               </td>
               {/* CANTIDAD */}
@@ -244,7 +244,7 @@ const TablaEditable: React.FC<{
                     className="w-full border-0 bg-transparent px-2 py-1.5 text-xs text-center focus:outline-none focus:bg-blue-50 rounded transition"
                   />
                 ) : (
-                  <span className="px-2 font-bold text-slate-700">{item.cantidad}</span>
+                  <span className="px-2 font-bold text-slate-900">{item.cantidad}</span>
                 )}
               </td>
               {/* OBSERVACIÓN */}
@@ -257,14 +257,14 @@ const TablaEditable: React.FC<{
                     className="w-full border-0 bg-transparent px-2 py-1.5 text-xs focus:outline-none focus:bg-blue-50 rounded transition"
                   />
                 ) : (
-                  <span className="px-2 text-slate-500 text-xs">{item.observacion || '—'}</span>
+                  <span className="px-2 text-slate-700 text-xs">{item.observacion || '—'}</span>
                 )}
               </td>
               {/* ELIMINAR FILA */}
               {canEdit && (
                 <td className="px-1 text-center">
                   {items.length > 1 && (
-                    <button onClick={() => removeRow(idx)} className="p-1 text-slate-300 hover:text-red-500 transition">
+                    <button onClick={() => removeRow(idx)} className="p-1 text-slate-500 hover:text-red-500 transition">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
@@ -403,7 +403,7 @@ const SelectorSistema: React.FC<{
     <div className="p-6 space-y-5">
       {/* SELECTOR SISTEMA */}
       <div>
-        <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wider">Sistema</label>
+        <label className="block text-xs font-semibold text-slate-900 mb-2 uppercase tracking-wider">Sistema</label>
         <div className="relative">
           <select
             value={sistema}
@@ -415,14 +415,14 @@ const SelectorSistema: React.FC<{
               <option key={key} value={key}>{val.nombre}</option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
         </div>
       </div>
 
       {/* COLOR */}
       {sistemaActual && colores.length > 0 && (
         <div>
-          <label className="block text-xs font-bold text-slate-600 mb-2 uppercase tracking-wider">Color / Acabado</label>
+          <label className="block text-xs font-semibold text-slate-900 mb-2 uppercase tracking-wider">Color / Acabado</label>
           <div className="flex flex-wrap gap-2">
             {colores.map((c: string) => (
               <button
@@ -440,23 +440,23 @@ const SelectorSistema: React.FC<{
       {/* VISTA PREVIA PERFILES */}
       {sistemaActual && Object.keys(perfiles).length > 0 && (
         <div>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Perfiles del sistema</p>
+          <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-2">Perfiles del sistema</p>
           <div className="border border-slate-200 rounded-xl overflow-hidden">
             <table className="w-full text-xs">
               <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-3 py-2 text-left font-bold text-slate-500 w-10">ITEM</th>
-                  <th className="px-3 py-2 text-left font-bold text-slate-500">DESCRIPCIÓN</th>
-                  <th className="px-3 py-2 text-left font-bold text-slate-500 w-28">CÓDIGO</th>
+                  <th className="px-3 py-2 text-left font-bold text-slate-900 w-10">ITEM</th>
+                  <th className="px-3 py-2 text-left font-bold text-slate-900">DESCRIPCIÓN</th>
+                  <th className="px-3 py-2 text-left font-bold text-slate-900 w-28">CÓDIGO</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {Object.entries(perfiles).map(([letra, data]: [string, any]) => (
                   <tr key={letra}>
-                    <td className="px-3 py-1.5 font-black text-slate-600">{letra}</td>
+                    <td className="px-3 py-1.5 font-bold text-slate-900">{letra}</td>
                     <td className="px-3 py-1.5 text-slate-700">{data.desc}</td>
                     <td className="px-3 py-1.5 font-mono text-blue-700 font-bold">
-                      {color && data.codes?.[color] ? data.codes[color] : <span className="text-slate-300">—</span>}
+                      {color && data.codes?.[color] ? data.codes[color] : <span className="text-slate-400">—</span>}
                     </td>
                   </tr>
                 ))}
@@ -469,13 +469,13 @@ const SelectorSistema: React.FC<{
       {/* ACCESORIOS FIJOS (pta-tiporoma) */}
       {sistemaActual?.fijos && sistemaActual.fijos.length > 0 && (
         <div>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Accesorios fijos</p>
+          <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-2">Accesorios fijos</p>
           <div className="border border-slate-200 rounded-xl overflow-hidden">
             <table className="w-full text-xs">
               <tbody className="divide-y divide-slate-100">
                 {sistemaActual.fijos.map((f: any) => (
                   <tr key={f.item}>
-                    <td className="px-3 py-1.5 font-black text-slate-600 w-10">{f.item}</td>
+                    <td className="px-3 py-1.5 font-bold text-slate-900 w-10">{f.item}</td>
                     <td className="px-3 py-1.5 text-slate-700">{f.desc}</td>
                     <td className="px-3 py-1.5 font-mono text-blue-700 font-bold w-28">{f.cod}</td>
                   </tr>
@@ -489,13 +489,13 @@ const SelectorSistema: React.FC<{
       {/* UNIVERSALES */}
       {sistemaActual?.universales && sistemaActual.universales.length > 0 && (
         <div>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Accesorios universales</p>
+          <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-2">Accesorios universales</p>
           <div className="border border-slate-200 rounded-xl overflow-hidden">
             <table className="w-full text-xs">
               <tbody className="divide-y divide-slate-100">
                 {sistemaActual.universales.map((u: any) => (
                   <tr key={u.item}>
-                    <td className="px-3 py-1.5 font-black text-slate-600 w-10">{u.item}</td>
+                    <td className="px-3 py-1.5 font-bold text-slate-900 w-10">{u.item}</td>
                     <td className="px-3 py-1.5 text-slate-700">{u.desc}</td>
                     <td className="px-3 py-1.5 font-mono text-blue-700 font-bold w-28">{u.cod}</td>
                   </tr>
@@ -510,10 +510,10 @@ const SelectorSistema: React.FC<{
       {sistemaActual?.persiana && (
         <div className="border border-slate-200 rounded-xl p-4 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Persiana (opcional)</span>
+            <span className="text-xs font-semibold text-slate-900 uppercase tracking-wider">Persiana (opcional)</span>
             <button
               onClick={() => setPersianaOn(!persianaOn)}
-              className={`px-3 py-1 text-xs font-bold rounded-lg border transition ${persianaOn ? 'bg-green-600 text-white border-green-600' : 'bg-white text-slate-500 border-slate-300 hover:border-slate-400'}`}
+              className={`px-3 py-1 text-xs font-bold rounded-lg border transition ${persianaOn ? 'bg-green-600 text-white border-green-600' : 'bg-white text-slate-700 border-slate-300 hover:border-slate-400'}`}
             >
               {persianaOn ? 'ON' : 'OFF'}
             </button>
@@ -521,7 +521,7 @@ const SelectorSistema: React.FC<{
           {persianaOn && color && (
             <p className="text-xs font-mono text-blue-700 font-bold">
               {sistemaActual.persiana.codes?.[color] || '—'}
-              <span className="text-slate-500 font-normal ml-2">{sistemaActual.persiana.desc}</span>
+              <span className="text-slate-700 font-normal ml-2">{sistemaActual.persiana.desc}</span>
             </p>
           )}
         </div>
@@ -530,15 +530,15 @@ const SelectorSistema: React.FC<{
       {/* BRAZOS (selector) */}
       {sistemaActual?.brazos && sistemaActual.brazos.length > 0 && (
         <div>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Brazo (opcional)</p>
+          <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-2">Brazo (opcional)</p>
           <div className="flex flex-wrap gap-2">
             {sistemaActual.brazos.map((b: any) => (
               <button
                 key={b.item}
                 onClick={() => setBrazoSel(brazoSel?.item === b.item ? null : b)}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition ${brazoSel?.item === b.item ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition ${brazoSel?.item === b.item ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-300'}`}
               >
-                {b.label} <span className="font-mono text-[10px]">{b.cod}</span>
+                {b.label} <span className="font-mono text-[11px]">{b.cod}</span>
               </button>
             ))}
           </div>
@@ -548,15 +548,15 @@ const SelectorSistema: React.FC<{
       {/* MANIJAS (selector) */}
       {sistemaActual?.manijas && sistemaActual.manijas.length > 0 && (
         <div>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Manija (opcional)</p>
+          <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-2">Manija (opcional)</p>
           <div className="flex flex-wrap gap-2">
             {sistemaActual.manijas.map((m: any) => (
               <button
                 key={m.item}
                 onClick={() => setManijaSel(manijaSel?.item === m.item ? null : m)}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition ${manijaSel?.item === m.item ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition ${manijaSel?.item === m.item ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-300'}`}
               >
-                {m.label} <span className="font-mono text-[10px]">{m.cod}</span>
+                {m.label} <span className="font-mono text-[11px]">{m.cod}</span>
               </button>
             ))}
           </div>
@@ -566,7 +566,7 @@ const SelectorSistema: React.FC<{
       {/* RIELES (optiglass) */}
       {sistemaActual?.rieles && sistemaActual.rieles.length > 0 && (
         <div>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tipo de riel <span className="text-red-400">*</span></p>
+          <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-2">Tipo de riel <span className="text-red-400">*</span></p>
           <div className="flex flex-wrap gap-2">
             {sistemaActual.rieles.map((r: any) => (
               <button
@@ -574,7 +574,7 @@ const SelectorSistema: React.FC<{
                 onClick={() => setRielSel(rielSel?.item === r.item ? null : r)}
                 className={`px-4 py-2 text-xs font-bold rounded-lg border transition ${rielSel?.item === r.item ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300'}`}
               >
-                Riel {r.label} <span className="font-mono text-[10px]">{r.cod}</span>
+                Riel {r.label} <span className="font-mono text-[11px]">{r.cod}</span>
               </button>
             ))}
           </div>
@@ -584,22 +584,22 @@ const SelectorSistema: React.FC<{
       {/* OPCIONALES CON TOGGLE */}
       {Object.keys(TodosOpts).length > 0 && (
         <div>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Opcionales</p>
+          <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-2">Opcionales</p>
           <div className="space-y-2">
             {Object.entries(TodosOpts).map(([letra, opt]: [string, any]) => (
               <div key={letra} className="flex items-center justify-between border border-slate-200 rounded-lg px-4 py-2.5">
                 <div>
-                  <span className="text-xs font-black text-slate-600 mr-2">{letra}</span>
+                  <span className="text-xs font-bold text-slate-900 mr-2">{letra}</span>
                   <span className="text-xs text-slate-700">{opt.desc}</span>
                   {toggledOpts[letra] && (
-                    <span className="ml-2 font-mono text-[10px] font-bold text-blue-700">
+                    <span className="ml-2 font-mono text-[11px] font-bold text-blue-700">
                       {codigoOpt(opt) || '—'}
                     </span>
                   )}
                 </div>
                 <button
                   onClick={() => setToggledOpts(prev => ({ ...prev, [letra]: !prev[letra] }))}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg border transition ${toggledOpts[letra] ? 'bg-green-600 text-white border-green-600' : 'bg-white text-slate-500 border-slate-300 hover:border-slate-400'}`}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg border transition ${toggledOpts[letra] ? 'bg-green-600 text-white border-green-600' : 'bg-white text-slate-700 border-slate-300 hover:border-slate-400'}`}
                 >
                   {toggledOpts[letra] ? 'ON' : 'OFF'}
                 </button>
@@ -612,15 +612,15 @@ const SelectorSistema: React.FC<{
       {/* CHAPAS (selector) */}
       {sistemaActual?.chapas && sistemaActual.chapas.length > 0 && (
         <div>
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Chapa (opcional)</p>
+          <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-2">Chapa (opcional)</p>
           <div className="flex flex-wrap gap-2">
             {sistemaActual.chapas.map((ch: any) => (
               <button
                 key={ch.item}
                 onClick={() => setChapaSel(chapaSel?.item === ch.item ? null : ch)}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition ${chapaSel?.item === ch.item ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition ${chapaSel?.item === ch.item ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-300'}`}
               >
-                {ch.desc} <span className="font-mono text-[10px]">{ch.cod}</span>
+                {ch.desc} <span className="font-mono text-[11px]">{ch.cod}</span>
               </button>
             ))}
           </div>
@@ -628,7 +628,7 @@ const SelectorSistema: React.FC<{
       )}
 
       <div className="flex gap-3 pt-2 border-t border-slate-100">
-        <button onClick={onCancel} className="flex-1 py-2.5 text-sm font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+        <button onClick={onCancel} className="flex-1 py-2.5 text-sm font-bold text-slate-900 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
           Cancelar
         </button>
         <button
@@ -741,8 +741,8 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
         {/* Header */}
         <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-slate-800">SAP — Solicitud de Accesorios y Perfilería</h2>
-            <p className="text-xs text-slate-500 font-medium">{odp.numero_odp} · {odp.cliente?.nombre_razon_social}</p>
+            <h2 className="text-lg font-bold text-slate-900">SAP — Solicitud de Accesorios y Perfilería</h2>
+            <p className="text-xs text-slate-700 font-medium">{odp.numero_odp} · {odp.cliente?.nombre_razon_social}</p>
           </div>
           <div className="flex items-center gap-2">
             {mode === 'list' && canEdit && saps.length === 0 && (
@@ -754,11 +754,11 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
               </button>
             )}
             {(mode === 'editor' || mode === 'selector' || mode === 'create-choose') && (
-              <button onClick={() => setMode('list')} className="px-3 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition">
+              <button onClick={() => setMode('list')} className="px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100 rounded-xl transition">
                 ← Volver
               </button>
             )}
-            <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
+            <button onClick={onClose} className="p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -770,27 +770,27 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
           {mode === 'list' && (
             <div className="p-6 space-y-3">
               {saps.length === 0 ? (
-                <div className="text-center py-16 text-slate-400">
+                <div className="text-center py-16 text-slate-700">
                   <Search className="w-14 h-14 mx-auto mb-3 text-slate-200" />
-                  <p className="font-bold text-lg text-slate-500">Sin SAPs registradas</p>
+                  <p className="font-bold text-lg text-slate-900">Sin SAPs registradas</p>
                   <p className="text-sm mt-1">Crea la solicitud de accesorios y perfilería para esta ODP.</p>
                 </div>
               ) : saps.map(sap => (
                 <div key={sap.id} className="border border-slate-200 rounded-xl overflow-hidden">
                   <div className="flex justify-between items-center px-5 py-3 bg-slate-50 border-b border-slate-100">
                     <div className="flex items-center gap-3">
-                      <span className="font-black text-indigo-700 text-lg">{sap.numero_sap}</span>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                      <span className="font-bold text-indigo-700 text-lg">{sap.numero_sap}</span>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                         {sap.estado}
                       </span>
-                      <span className="text-xs text-slate-400">{sap.items.length} ítem(s) · {sap.asesor?.nombre_completo} · {new Date(sap.fecha_creacion).toLocaleDateString('es-CO')}</span>
+                      <span className="text-xs text-slate-700">{sap.items.length} ítem(s) · {sap.asesor?.nombre_completo} · {new Date(sap.fecha_creacion).toLocaleDateString('es-CO')}</span>
                     </div>
                     {canEdit && (
                       <div className="flex gap-2">
                         <button onClick={() => handleEditar(sap)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold border border-indigo-200 text-indigo-700 bg-white rounded-lg hover:bg-indigo-50 transition">
                           <Edit3 className="w-3.5 h-3.5" /> Editar
                         </button>
-                        <button onClick={() => setDeletingId(sap.id)} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
+                        <button onClick={() => setDeletingId(sap.id)} className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -811,17 +811,17 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
                       <tbody className="divide-y divide-slate-100">
                         {sap.items.map((item, i) => (
                           <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                            <td className="px-3 py-1.5 text-center font-black text-slate-600">{item.item}</td>
+                            <td className="px-3 py-1.5 text-center font-bold text-slate-900">{item.item}</td>
                             <td className="px-3 py-1.5 font-mono text-blue-700 font-bold">{item.codigo || '—'}</td>
                             <td className="px-3 py-1.5 text-slate-700">{item.descripcion || '—'}</td>
-                            <td className="px-3 py-1.5 text-slate-500">{item.dimension || '—'}</td>
+                            <td className="px-3 py-1.5 text-slate-700">{item.dimension || '—'}</td>
                             <td className="px-3 py-1.5 text-center font-bold">{item.cantidad}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  {sap.notas && <p className="px-5 py-2 text-xs text-slate-500 italic border-t border-slate-100">"{sap.notas}"</p>}
+                  {sap.notas && <p className="px-5 py-2 text-xs text-slate-700 italic border-t border-slate-100">"{sap.notas}"</p>}
                 </div>
               ))}
             </div>
@@ -830,23 +830,23 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
           {/* ── ELEGIR TIPO ── */}
           {mode === 'create-choose' && (
             <div className="p-10 flex flex-col items-center justify-center gap-6">
-              <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">¿Cómo quieres crear la SAP?</p>
+              <p className="text-sm font-semibold text-slate-900 uppercase tracking-widest">¿Cómo quieres crear la SAP?</p>
               <div className="flex gap-4 w-full max-w-md">
                 <button
                   onClick={() => abrirEditor()}
                   className="flex-1 py-8 flex flex-col items-center gap-3 border-2 border-slate-200 rounded-2xl hover:border-indigo-400 hover:bg-indigo-50/50 transition group"
                 >
-                  <Edit3 className="w-8 h-8 text-slate-400 group-hover:text-indigo-600 transition" />
-                  <span className="font-bold text-slate-700 group-hover:text-indigo-700">Manual</span>
-                  <span className="text-xs text-slate-400 text-center px-4">Ingresa los códigos y descripciones directamente</span>
+                  <Edit3 className="w-8 h-8 text-slate-500 group-hover:text-indigo-600 transition" />
+                  <span className="font-bold text-slate-900 group-hover:text-indigo-700">Manual</span>
+                  <span className="text-xs text-slate-700 text-center px-4">Ingresa los códigos y descripciones directamente</span>
                 </button>
                 <button
                   onClick={() => setMode('selector')}
                   className="flex-1 py-8 flex flex-col items-center gap-3 border-2 border-slate-200 rounded-2xl hover:border-indigo-400 hover:bg-indigo-50/50 transition group"
                 >
-                  <Search className="w-8 h-8 text-slate-400 group-hover:text-indigo-600 transition" />
-                  <span className="font-bold text-slate-700 group-hover:text-indigo-700">Por Sistema</span>
-                  <span className="text-xs text-slate-400 text-center px-4">Elige el sistema y color para autocompletar</span>
+                  <Search className="w-8 h-8 text-slate-500 group-hover:text-indigo-600 transition" />
+                  <span className="font-bold text-slate-900 group-hover:text-indigo-700">Por Sistema</span>
+                  <span className="text-xs text-slate-700 text-center px-4">Elige el sistema y color para autocompletar</span>
                 </button>
               </div>
             </div>
@@ -864,11 +864,11 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
           {mode === 'editor' && (
             <div className="p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
+                <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider">
                   {editingSap ? `Editando ${editingSap.numero_sap}` : 'Nueva SAP'}
                 </h3>
                 {editingSap && (
-                  <span className="text-xs text-slate-400">Puedes editar cualquier celda libremente</span>
+                  <span className="text-xs text-slate-700">Puedes editar cualquier celda libremente</span>
                 )}
               </div>
 
@@ -878,28 +878,28 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
 
               {itemsFaltantes.length > 0 && (
                 <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3">
-                  <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-1.5">
+                  <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-1.5">
                     Faltantes gestionados por Compras (solo lectura)
                   </p>
                   <div className="space-y-1">
                     {itemsFaltantes.map(f => (
-                      <div key={f.id} className="flex items-center gap-2 text-xs text-slate-600">
-                        <span className="font-black text-slate-700 w-5">{f.item}</span>
-                        <span className="text-white text-[9px] font-black bg-amber-500 rounded px-1">FALTA</span>
+                      <div key={f.id} className="flex items-center gap-2 text-xs text-slate-800">
+                        <span className="font-bold text-slate-900 w-5">{f.item}</span>
+                        <span className="text-white text-[11px] font-black bg-amber-500 rounded px-1">FALTA</span>
                         <span className="font-bold">{f.codigo}</span>
                         <span>{f.descripcion}</span>
-                        <span className="text-slate-400">· {f.cantidad} {f.und} · {f.dimension}</span>
+                        <span className="text-slate-700">· {f.cantidad} {f.und} · {f.dimension}</span>
                       </div>
                     ))}
                   </div>
-                  <p className="text-[10px] text-amber-600 mt-1.5">
+                  <p className="text-[11px] text-amber-700 mt-1.5">
                     Estos ítems se crearon al cubrir parcialmente con existencia de perfilería. Se administran desde Compras → Pendientes y heredan la letra de su ítem original.
                   </p>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Observaciones / Notas</label>
+                <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">Observaciones / Notas</label>
                 <textarea
                   value={notas}
                   onChange={e => setNotas(e.target.value)}
@@ -910,7 +910,7 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
               </div>
 
               <div className="flex gap-3 pt-2 border-t border-slate-100">
-                <button onClick={() => { setMode('list'); setEditingSap(null); }} className="flex-1 py-3 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+                <button onClick={() => { setMode('list'); setEditingSap(null); }} className="flex-1 py-3 font-bold text-slate-900 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
                   Cancelar
                 </button>
                 <button onClick={handleGuardar} disabled={loading} className="flex-1 py-3 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-50">
@@ -929,10 +929,10 @@ const SAPModal: React.FC<Props> = ({ odp, onClose }) => {
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-              <h3 className="font-bold text-slate-800 mb-2">¿Eliminar esta SAP?</h3>
-              <p className="text-sm text-slate-500 mb-5">Esta acción no se puede deshacer.</p>
+              <h3 className="font-bold text-slate-900 mb-2">¿Eliminar esta SAP?</h3>
+              <p className="text-sm text-slate-700 mb-5">Esta acción no se puede deshacer.</p>
               <div className="flex gap-3">
-                <button onClick={() => setDeletingId(null)} className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">Cancelar</button>
+                <button onClick={() => setDeletingId(null)} className="flex-1 py-2.5 font-bold text-slate-900 border border-slate-200 rounded-xl hover:bg-slate-50 transition">Cancelar</button>
                 <button onClick={() => handleEliminar(deletingId!)} className="flex-1 py-2.5 font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition">Sí, eliminar</button>
               </div>
             </motion.div>

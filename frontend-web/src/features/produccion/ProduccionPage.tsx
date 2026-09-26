@@ -40,7 +40,7 @@ import {
     Bot,
     Printer,
     CheckSquare,
-} from 'lucide-react';
+} from '../../components/ui/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import PrintableSAP from '../odp/components/PrintableSAP';
 import PrintableProduccion from '../odp/components/PrintableProduccion';
@@ -260,7 +260,7 @@ const getPaymentInfo = (odp: ODP): { label: string; cls: string } => {
     if (odp.estado_caja === 'CANCELADO') return { label: 'Cancelado ✓', cls: 'bg-emerald-50 text-emerald-700' };
     if (odp.estado_caja === 'CREDITO_APROBADO') return { label: 'Crédito aprobado', cls: 'bg-indigo-50 text-indigo-700' };
     if (odp.estado_caja === 'ABONADO') return { label: 'Abono parcial', cls: 'bg-amber-50 text-amber-700' };
-    return { label: 'Pendiente', cls: 'bg-slate-100 text-slate-500' };
+    return { label: 'Pendiente', cls: 'bg-slate-100 text-slate-700' };
 };
 
 const ProduccionPage: React.FC = () => {
@@ -812,15 +812,15 @@ const ProduccionPage: React.FC = () => {
     const currentManoOdps = manoSubTab === 'listos' ? pagoOkOdps : esperaPagoOdps;
 
     if (loading) return (
-        <div className="p-8 text-center text-slate-500 font-bold">Cargando Tablero de Taller...</div>
+        <div className="p-8 text-center text-slate-700 font-medium">Cargando Tablero de Taller...</div>
     );
 
     // ─── Renderizado del panel de detalle (reutilizable) ─────────────────────
     const renderPanel = () => {
         if (!panelOdp) return (
             <div className="flex flex-col items-center justify-center h-72 text-center p-8">
-                <MessageSquare className="w-10 h-10 text-slate-200 mb-3" />
-                <p className="text-slate-400 text-sm font-medium leading-relaxed">
+                <MessageSquare className="w-10 h-10 text-slate-400 mb-3" />
+                <p className="text-slate-700 text-sm leading-relaxed">
                     Selecciona una ODP de la tabla para ver su detalle y bitácora
                 </p>
             </div>
@@ -828,7 +828,7 @@ const ProduccionPage: React.FC = () => {
 
         const urgency = getUrgency(panelOdp.fecha_entrega);
         const pvEstadoConfig: Record<string, { label: string; cls: string }> = {
-            PENDIENTE:            { label: 'Pendiente',           cls: 'bg-slate-100 text-slate-500' },
+            PENDIENTE:            { label: 'Pendiente',           cls: 'bg-slate-100 text-slate-700' },
             ENVIADO:              { label: 'Enviado',              cls: 'bg-blue-100 text-blue-700' },
             CONFIRMADO_PROVEEDOR: { label: 'Confirmado',           cls: 'bg-indigo-100 text-indigo-700' },
             LLEGADO:              { label: 'Llegado — sin verif.', cls: 'bg-amber-100 text-amber-700' },
@@ -836,7 +836,7 @@ const ProduccionPage: React.FC = () => {
             PROBLEMA:             { label: '⚠ Problema',           cls: 'bg-rose-100 text-rose-700 animate-pulse' },
         };
         const sapEstadoCfg: Record<string, string> = {
-            borrador: 'bg-slate-100 text-slate-500',
+            borrador: 'bg-slate-100 text-slate-700',
             enviada:  'bg-blue-100 text-blue-700',
             aprobada: 'bg-emerald-100 text-emerald-700',
         };
@@ -844,7 +844,7 @@ const ProduccionPage: React.FC = () => {
             const s = estado.toLowerCase();
             if (s === 'recibida' || s === 'completada') return 'bg-emerald-100 text-emerald-700';
             if (s === 'parcial') return 'bg-amber-100 text-amber-700';
-            return 'bg-slate-100 text-slate-500';
+            return 'bg-slate-100 text-slate-700';
         };
 
         return (
@@ -859,35 +859,35 @@ const ProduccionPage: React.FC = () => {
                         <div>
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 <button
-                                    className="text-sm font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors"
+                                    className="text-sm font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors"
                                     onClick={() => setFichaOdpId(panelOdp.id)}
                                 >
                                     {panelOdp.numero_odp}
                                 </button>
                                 <button
                                     onClick={() => setSelectedQR(panelOdp.numero_odp)}
-                                    className="p-1.5 bg-slate-100 text-slate-400 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                    className="p-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
                                 >
                                     <QrCode className="w-3.5 h-3.5" />
                                 </button>
                                 {panelOdp.es_no_conformidad && (
-                                    <span className="text-[9px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded-full">REPROCESO</span>
+                                    <span className="text-[11px] font-bold bg-rose-600 text-white px-1.5 py-0.5 rounded-full">REPROCESO</span>
                                 )}
                                 {panelOdp.es_garantia && (
-                                    <span className="text-[9px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded-full">GARANTÍA</span>
+                                    <span className="text-[11px] font-bold bg-orange-600 text-white px-1.5 py-0.5 rounded-full">GARANTÍA</span>
                                 )}
                             </div>
-                            <p className="text-sm font-bold text-slate-800 leading-tight">{panelOdp.cliente.nombre_razon_social}</p>
-                            <span className={`inline-block mt-1.5 text-[9px] font-black px-1.5 py-0.5 rounded
-                                ${urgency.color === 'rose'   ? 'bg-rose-100 text-rose-600' :
-                                  urgency.color === 'orange' ? 'bg-orange-100 text-orange-600' :
-                                                               'bg-emerald-100 text-emerald-600'}`}>
+                            <p className="text-base font-semibold text-slate-900 leading-tight">{panelOdp.cliente.nombre_razon_social}</p>
+                            <span className={`inline-block mt-1.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-md
+                                ${urgency.color === 'rose'   ? 'bg-rose-100 text-rose-800' :
+                                  urgency.color === 'orange' ? 'bg-orange-100 text-orange-800' :
+                                                               'bg-emerald-100 text-emerald-800'}`}>
                                 {urgency.label}
                             </span>
                         </div>
                         <button
                             onClick={() => setPanelOdp(null)}
-                            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition-colors flex-shrink-0"
+                            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors flex-shrink-0"
                         >
                             <X className="w-4 h-4" />
                         </button>
@@ -900,7 +900,7 @@ const ProduccionPage: React.FC = () => {
                         <button
                             onClick={handleMarcarListoInstalar}
                             disabled={marcandoListo}
-                            className="w-full flex items-center justify-center gap-2 py-2 text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition disabled:opacity-40"
+                            className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-emerald-800 bg-emerald-50 border border-emerald-300 rounded-xl hover:bg-emerald-100 transition disabled:opacity-40"
                         >
                             <CheckCircle2 className="w-4 h-4" />
                             {marcandoListo ? 'Procesando...' : 'Marcar como Listo para Instalar'}
@@ -913,14 +913,14 @@ const ProduccionPage: React.FC = () => {
                     {/* Cristales */}
                     {(panelOdp.items?.length || 0) > 0 && (
                         <div>
-                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Cristales</h4>
+                            <h4 className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider mb-2">Cristales</h4>
                             <div className="space-y-1.5">
                                 {panelOdp.items.map((item, i) => (
-                                    <div key={i} className="flex justify-between items-center text-xs p-2 rounded-lg bg-slate-50">
-                                        <span className="font-bold text-slate-700">
-                                            {item.cantidad}x <span className="font-medium">{item.tipo_vidrio} {item.espesor}mm</span>
+                                    <div key={i} className="flex justify-between items-center text-xs p-2 rounded-lg bg-slate-50 border border-slate-200">
+                                        <span className="font-semibold text-slate-900">
+                                            {item.cantidad}x <span className="font-normal text-slate-800">{item.tipo_vidrio} {item.espesor}mm</span>
                                         </span>
-                                        <span className="text-slate-500 font-mono">{item.ancho_mm} × {item.alto_mm}</span>
+                                        <span className="text-slate-800 font-mono">{item.ancho_mm} × {item.alto_mm}</span>
                                     </div>
                                 ))}
                             </div>
@@ -929,9 +929,9 @@ const ProduccionPage: React.FC = () => {
 
                     {/* Pedido PV */}
                     {panelDetailLoading && (
-                        <div className="flex items-center justify-center gap-2 py-4 text-slate-400">
+                        <div className="flex items-center justify-center gap-2 py-4 text-slate-600">
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span className="text-xs font-medium">Cargando detalle...</span>
+                            <span className="text-xs text-slate-700">Cargando detalle...</span>
                         </div>
                     )}
 
@@ -939,54 +939,54 @@ const ProduccionPage: React.FC = () => {
                         const hoy = new Date();
                         return (
                             <div>
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                <h4 className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                                     <Truck className="w-3 h-3" />
                                     Pedido de Vidrio
                                 </h4>
                                 <div className="space-y-2">
                                     {panelDetail.pedidos_pv.map(pv => {
-                                        const cfg = pvEstadoConfig[pv.estado] ?? { label: pv.estado, cls: 'bg-slate-100 text-slate-500' };
+                                        const cfg = pvEstadoConfig[pv.estado] ?? { label: pv.estado, cls: 'bg-slate-100 text-slate-700' };
                                         let diasLabel: React.ReactNode = null;
                                         if (pv.fecha_entrega_prometida && pv.estado !== 'VERIFICADO') {
                                             const diff = Math.ceil((new Date(pv.fecha_entrega_prometida).getTime() - hoy.getTime()) / 86400000);
                                             diasLabel = diff < 0
-                                                ? <span className="text-rose-600 font-black">Vencida hace {Math.abs(diff)}d</span>
+                                                ? <span className="text-rose-700 font-semibold">Vencida hace {Math.abs(diff)}d</span>
                                                 : diff === 0
-                                                ? <span className="text-rose-600 font-black">Vence hoy</span>
-                                                : <span className="text-slate-500">Faltan {diff}d</span>;
+                                                ? <span className="text-rose-700 font-semibold">Vence hoy</span>
+                                                : <span className="text-slate-700">Faltan {diff}d</span>;
                                         }
                                         return (
                                             <div key={pv.id} className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
                                                 <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-slate-100">
                                                     <div>
-                                                        <p className="text-[9px] font-black text-slate-400 uppercase">{pv.proveedor}</p>
-                                                        <p className="text-xs font-black text-slate-800">#{pv.numero_pedido}</p>
+                                                        <p className="text-[11px] text-slate-700 uppercase tracking-wide">{pv.proveedor}</p>
+                                                        <p className="text-sm font-bold text-slate-900">#{pv.numero_pedido}</p>
                                                     </div>
-                                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.label}</span>
+                                                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.label}</span>
                                                 </div>
                                                 <div className="px-3 py-2 space-y-1.5">
                                                     {pv.fecha_envio && (
-                                                        <div className="flex items-center justify-between text-[10px]">
-                                                            <span className="flex items-center gap-1 text-slate-400 font-medium"><Clock className="w-3 h-3" /> Enviado</span>
-                                                            <span className="font-bold text-slate-600">{new Date(pv.fecha_envio).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}</span>
+                                                        <div className="flex items-center justify-between text-[11px]">
+                                                            <span className="flex items-center gap-1 text-slate-700"><Clock className="w-3 h-3" /> Enviado</span>
+                                                            <span className="font-semibold text-slate-900">{new Date(pv.fecha_envio).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}</span>
                                                         </div>
                                                     )}
                                                     {pv.fecha_entrega_prometida && (
-                                                        <div className="flex items-center justify-between text-[10px]">
-                                                            <span className="flex items-center gap-1 text-slate-400 font-medium"><Calendar className="w-3 h-3" /> Prometida</span>
-                                                            <span className="font-bold text-slate-600 flex items-center gap-1.5">
+                                                        <div className="flex items-center justify-between text-[11px]">
+                                                            <span className="flex items-center gap-1 text-slate-700"><Calendar className="w-3 h-3" /> Prometida</span>
+                                                            <span className="font-semibold text-slate-900 flex items-center gap-1.5">
                                                                 {new Date(pv.fecha_entrega_prometida).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
-                                                                {diasLabel && <span className="text-[9px]">({diasLabel})</span>}
+                                                                {diasLabel && <span className="text-[11px]">({diasLabel})</span>}
                                                             </span>
                                                         </div>
                                                     )}
                                                     {pv.fecha_llegada_real && (
-                                                        <div className="flex items-center justify-between text-[10px]">
-                                                            <span className="flex items-center gap-1 text-slate-400 font-medium"><CheckCircle2 className="w-3 h-3 text-emerald-500" /> Llegó</span>
-                                                            <span className="font-bold text-emerald-600">
+                                                        <div className="flex items-center justify-between text-[11px]">
+                                                            <span className="flex items-center gap-1 text-slate-700"><CheckCircle2 className="w-3 h-3 text-emerald-600" /> Llegó</span>
+                                                            <span className="font-semibold text-emerald-700">
                                                                 {new Date(pv.fecha_llegada_real).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
                                                                 {pv.dias_diferencia !== null && (
-                                                                    <span className={`ml-1 ${pv.dias_diferencia > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                                                    <span className={`ml-1 ${pv.dias_diferencia > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
                                                                         ({pv.dias_diferencia > 0 ? `+${pv.dias_diferencia}d tarde` : `${Math.abs(pv.dias_diferencia)}d antes`})
                                                                     </span>
                                                                 )}
@@ -994,14 +994,14 @@ const ProduccionPage: React.FC = () => {
                                                         </div>
                                                     )}
                                                     {pv.observaciones && (
-                                                        <p className="text-[9px] text-slate-500 italic border-t border-slate-100 pt-1.5 mt-1">{pv.observaciones}</p>
+                                                        <p className="text-xs text-slate-700 italic border-t border-slate-200 pt-1.5 mt-1">{pv.observaciones}</p>
                                                     )}
                                                     {/* Botones de acción según estado */}
                                                     {puedePV && ['ENVIADO', 'CONFIRMADO_PROVEEDOR'].includes(pv.estado) && (
                                                         <div className="border-t border-slate-100 pt-2 mt-1">
                                                             <button
                                                                 onClick={() => { setPvModalLlegada(pv); setPvFechaLlegada(''); }}
-                                                                className="w-full flex items-center justify-center gap-1.5 text-[10px] font-black py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition"
+                                                                className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition"
                                                             >
                                                                 <PackageCheck className="w-3.5 h-3.5" /> Registrar llegada
                                                             </button>
@@ -1011,13 +1011,13 @@ const ProduccionPage: React.FC = () => {
                                                         <div className="border-t border-slate-100 pt-2 mt-1 flex gap-1.5">
                                                             <button
                                                                 onClick={() => { setPvModalAccion({ pv, tipo: 'verificar' }); setPvObsAccion(''); }}
-                                                                className="flex-1 flex items-center justify-center gap-1 text-[10px] font-black py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition"
+                                                                className="flex-1 flex items-center justify-center gap-1 text-xs font-semibold py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition"
                                                             >
                                                                 <ShieldCheck className="w-3.5 h-3.5" /> Verificar
                                                             </button>
                                                             <button
                                                                 onClick={() => { setPvModalAccion({ pv, tipo: 'problema' }); setPvObsAccion(''); }}
-                                                                className="flex-1 flex items-center justify-center gap-1 text-[10px] font-black py-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition"
+                                                                className="flex-1 flex items-center justify-center gap-1 text-xs font-semibold py-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition"
                                                             >
                                                                 <TriangleAlert className="w-3.5 h-3.5" /> Problema
                                                             </button>
@@ -1035,7 +1035,7 @@ const ProduccionPage: React.FC = () => {
                     {/* SAP + ODC Perfilería */}
                     {!panelDetailLoading && panelDetail && panelDetail.saps.length > 0 && (
                         <div>
-                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                            <h4 className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                                 <ClipboardList className="w-3 h-3" />
                                 Perfilería / SAP
                             </h4>
@@ -1044,9 +1044,9 @@ const ProduccionPage: React.FC = () => {
                                     <div key={sap.id} className="rounded-xl border border-slate-200 overflow-hidden">
                                         <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-slate-100">
                                             <div>
-                                                <p className="text-[9px] font-black text-slate-400 uppercase">Solicitud</p>
+                                                <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Solicitud</p>
                                                 <button
-                                                    className="text-xs font-black text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
+                                                    className="text-sm font-bold text-indigo-700 hover:text-indigo-900 hover:underline transition-colors"
                                                     onClick={() => {
                                                         const sapFull = odpFullDetail?.saps?.find((s: any) => s.id === sap.id);
                                                         if (sapFull && odpFullDetail) setPrintSap({ odp: odpFullDetail, sap: sapFull });
@@ -1055,22 +1055,22 @@ const ProduccionPage: React.FC = () => {
                                                     {sap.numero_sap}
                                                 </button>
                                             </div>
-                                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full capitalize ${sapEstadoCfg[sap.estado] ?? 'bg-slate-100 text-slate-500'}`}>
+                                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${sapEstadoCfg[sap.estado] ?? 'bg-slate-100 text-slate-700'}`}>
                                                 {sap.estado}
                                             </span>
                                         </div>
                                         {sap.ordenes_compra.filter(o => o.tipo === 'perfileria').length > 0 ? (
                                             <div className="bg-slate-50 px-3 py-2 space-y-1.5">
                                                 {sap.ordenes_compra.filter(o => o.tipo === 'perfileria').map(odc => (
-                                                    <div key={odc.id} className="flex items-center justify-between text-[10px]">
+                                                    <div key={odc.id} className="flex items-center justify-between text-[11px]">
                                                         <div>
-                                                            <span className="font-black text-slate-700">{odc.numero_odc}</span>
-                                                            <span className="text-slate-400 ml-1">· {odc.proveedor}</span>
+                                                            <span className="font-semibold text-slate-900">{odc.numero_odc}</span>
+                                                            <span className="text-slate-700 ml-1">· {odc.proveedor}</span>
                                                         </div>
                                                         <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full capitalize ${odcEstadoCfg(odc.estado)}`}>{odc.estado}</span>
+                                                            <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full capitalize ${odcEstadoCfg(odc.estado)}`}>{odc.estado}</span>
                                                             {odc.fecha_recepcion && (
-                                                                <span className="text-[9px] text-emerald-600 font-bold">
+                                                                <span className="text-[11px] text-emerald-700 font-semibold">
                                                                     {new Date(odc.fecha_recepcion).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
                                                                 </span>
                                                             )}
@@ -1079,7 +1079,7 @@ const ProduccionPage: React.FC = () => {
                                                 ))}
                                             </div>
                                         ) : (
-                                            <p className="text-[9px] text-slate-400 italic px-3 py-2 bg-slate-50">Sin ODC creada</p>
+                                            <p className="text-xs text-slate-600 italic px-3 py-2 bg-slate-50">Sin ODC creada</p>
                                         )}
                                     </div>
                                 ))}
@@ -1093,27 +1093,27 @@ const ProduccionPage: React.FC = () => {
                             const s = estado.toLowerCase();
                             if (s === 'recibida' || s === 'completada') return 'bg-emerald-100 text-emerald-700';
                             if (s === 'parcial') return 'bg-amber-100 text-amber-700';
-                            return 'bg-slate-100 text-slate-500';
+                            return 'bg-slate-100 text-slate-700';
                         };
                         const odcsVidrio = panelDetail.saps.flatMap(s => s.ordenes_compra.filter(o => o.tipo === 'vidrio'));
                         if (odcsVidrio.length === 0) return null;
                         return (
                             <div>
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                <h4 className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                                     <ShoppingCart className="w-3 h-3" />
                                     ODC Vidrio
                                 </h4>
                                 <div className="space-y-1.5">
                                     {odcsVidrio.map(odc => (
-                                        <div key={odc.id} className="flex items-center justify-between text-[10px] px-3 py-2 rounded-xl bg-slate-50 border border-slate-200">
+                                        <div key={odc.id} className="flex items-center justify-between text-[11px] px-3 py-2 rounded-xl bg-slate-50 border border-slate-200">
                                             <div>
-                                                <span className="font-black text-slate-700">{odc.numero_odc}</span>
-                                                <span className="text-slate-400 ml-1">· {odc.proveedor}</span>
+                                                <span className="font-semibold text-slate-900">{odc.numero_odc}</span>
+                                                <span className="text-slate-700 ml-1">· {odc.proveedor}</span>
                                             </div>
                                             <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full capitalize ${odcEstadoCfg(odc.estado)}`}>{odc.estado}</span>
+                                                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full capitalize ${odcEstadoCfg(odc.estado)}`}>{odc.estado}</span>
                                                 {odc.fecha_recepcion && (
-                                                    <span className="text-[9px] text-emerald-600 font-bold">
+                                                    <span className="text-[11px] text-emerald-700 font-semibold">
                                                         {new Date(odc.fecha_recepcion).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
                                                     </span>
                                                 )}
@@ -1127,21 +1127,21 @@ const ProduccionPage: React.FC = () => {
 
                     {/* Bitácora */}
                     <div>
-                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                        <h4 className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                             <MessageSquare className="w-3 h-3" />
                             Bitácora del Taller
                         </h4>
                         <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1 mb-3">
                             {(notes[panelOdp.id]?.length || 0) === 0 ? (
-                                <p className="text-center text-xs text-slate-400 py-6 italic">
+                                <p className="text-center text-sm text-slate-600 py-6 italic">
                                     No hay notas registradas para esta ODP.
                                 </p>
                             ) : notes[panelOdp.id].map(n => (
-                                <div key={n.id} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                    <p className="text-xs text-slate-700 mb-1 leading-relaxed">{n.texto}</p>
-                                    <div className="flex justify-between text-[9px] font-black text-slate-400 uppercase tracking-wider">
-                                        <span>{n.usuario.nombre_completo}</span>
-                                        <span>
+                                <div key={n.id} className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                    <p className="text-[13px] text-slate-800 mb-1.5 leading-relaxed">{n.texto}</p>
+                                    <div className="flex justify-between gap-2 text-[11px] text-slate-700">
+                                        <span className="font-semibold text-slate-900">{n.usuario.nombre_completo}</span>
+                                        <span className="shrink-0">
                                             {new Date(n.fecha).toLocaleDateString()}{' '}
                                             {new Date(n.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
@@ -1152,7 +1152,7 @@ const ProduccionPage: React.FC = () => {
                         {!soloLectura && (<div className="relative">
                             <textarea
                                 rows={2}
-                                className="w-full p-3 pr-10 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 resize-none bg-white transition-all"
+                                className="w-full p-3 pr-10 text-[13px] text-slate-900 placeholder:text-slate-500 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 resize-none bg-white transition-all"
                                 placeholder="Agregar una nota técnica..."
                                 value={newNotes[panelOdp.id] || ''}
                                 onChange={e => setNewNotes(prev => ({ ...prev, [panelOdp.id]: e.target.value }))}
@@ -1165,7 +1165,7 @@ const ProduccionPage: React.FC = () => {
                             />
                             <button
                                 onClick={() => handleAddNote(panelOdp.id)}
-                                className="absolute right-2 bottom-2 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md shadow-indigo-100 transition-all"
+                                className="absolute right-2 bottom-2 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm transition-all"
                             >
                                 <Plus className="w-3.5 h-3.5" />
                             </button>
@@ -1182,19 +1182,19 @@ const ProduccionPage: React.FC = () => {
             <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-10">
                     <tr className="bg-slate-50 border-b border-slate-200">
-                        <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[220px] sticky left-0 bg-slate-50 z-20 border-r border-slate-200">
+                        <th className="text-left px-4 py-3 text-[11px] font-semibold text-slate-900 uppercase tracking-wider min-w-[220px] sticky left-0 bg-slate-50 z-20 border-r border-slate-200">
                             ODP / Cliente
                         </th>
                         {COLUMNS.map(col => (
                             <th key={col.key} className="px-2 py-3 text-center min-w-[72px]">
                                 <div className="flex flex-col items-center gap-0.5">
-                                    <col.Icon className="w-3.5 h-3.5 text-slate-400" />
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">{col.label}</span>
+                                    <col.Icon className="w-4 h-4 text-slate-600" />
+                                    <span className="text-[11px] font-semibold text-slate-900 uppercase tracking-wide">{col.label}</span>
                                 </div>
                             </th>
                         ))}
                         <th className="px-2 py-3 text-center min-w-[56px]">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Avance</span>
+                            <span className="text-[11px] font-semibold text-slate-900 uppercase tracking-wide">Avance</span>
                         </th>
                     </tr>
                 </thead>
@@ -1202,8 +1202,8 @@ const ProduccionPage: React.FC = () => {
                     {odps.length === 0 ? (
                         <tr>
                             <td colSpan={COLUMNS.length + 2} className="p-12 text-center">
-                                <CheckCircle2 className="w-12 h-12 text-slate-100 mx-auto mb-3" />
-                                <p className="text-slate-400 text-sm font-medium">{emptyMsg}</p>
+                                <CheckCircle2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                                <p className="text-slate-700 text-sm">{emptyMsg}</p>
                             </td>
                         </tr>
                     ) : odps.map(odp => {
@@ -1249,18 +1249,18 @@ const ProduccionPage: React.FC = () => {
                                                 setColorPicker({ odpId: odp.id, top: rect.bottom + 6, left: rect.left });
                                             }}
                                             className="w-4 h-4 rounded-full border-2 border-slate-300 flex-shrink-0 transition-transform hover:scale-125 focus:outline-none"
-                                            style={{ backgroundColor: odp.color_taller || '#f1f5f9' }}
+                                            style={{ backgroundColor: odp.color_taller || '#eef0f4' }}
                                         />
                                         <span
-                                            className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors cursor-pointer"
+                                            className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors cursor-pointer"
                                             onClick={e => { e.stopPropagation(); setFichaOdpId(odp.id); }}
                                         >
                                             {odp.numero_odp}
                                         </span>
-                                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded
-                                            ${urgency.color === 'rose'   ? 'bg-rose-50 text-rose-600' :
-                                              urgency.color === 'orange' ? 'bg-orange-50 text-orange-600' :
-                                                                           'bg-emerald-50 text-emerald-600'}`}>
+                                        <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-md ring-1 ring-inset
+                                            ${urgency.color === 'rose'   ? 'bg-rose-50 text-rose-700 ring-rose-200' :
+                                              urgency.color === 'orange' ? 'bg-orange-50 text-orange-700 ring-orange-200' :
+                                                                           'bg-emerald-50 text-emerald-700 ring-emerald-200'}`}>
                                             {urgency.label}
                                         </span>
                                         {impresa && (
@@ -1268,7 +1268,7 @@ const ProduccionPage: React.FC = () => {
                                                —el navegador no confirma que el papel salió— así que hay que
                                                poder devolver la orden a la cola desde donde se ve el estado. */
                                             <button
-                                                className="text-slate-400 flex-shrink-0 hover:text-indigo-600 transition-colors"
+                                                className="text-slate-600 flex-shrink-0 hover:text-indigo-700 transition-colors"
                                                 title={`OP impresa el ${fmtFechaHora(odp.fecha_impresion_op)}`
                                                     + (odp.impresa_por?.nombre_completo ? ` · ${odp.impresa_por.nombre_completo}` : '')
                                                     + '\nClic para devolverla a "Por Imprimir"'}
@@ -1284,18 +1284,18 @@ const ProduccionPage: React.FC = () => {
                                             </button>
                                         )}
                                         {odp.es_no_conformidad && (
-                                            <span className="text-[8px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded-full">NC</span>
+                                            <span className="text-[10px] font-bold bg-rose-600 text-white px-1.5 py-0.5 rounded-full">NC</span>
                                         )}
                                         {odp.es_garantia && (
-                                            <span className="text-[8px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded-full">GAR</span>
+                                            <span className="text-[10px] font-bold bg-orange-600 text-white px-1.5 py-0.5 rounded-full">GAR</span>
                                         )}
                                         {(odp.estado_produccion === 'EN_ESPERA' || odp.estado_produccion === 'VISITA_TECNICA') && (
-                                            <span className="text-[8px] font-black bg-amber-400 text-white px-1.5 py-0.5 rounded-full">
+                                            <span className="text-[10px] font-bold bg-amber-400 text-amber-950 px-1.5 py-0.5 rounded-full">
                                                 {odp.estado_produccion === 'VISITA_TECNICA' ? 'VISITA' : 'EN ESPERA'}
                                             </span>
                                         )}
                                     </div>
-                                    <p className="text-sm font-bold text-slate-700 truncate max-w-[190px]">
+                                    <p className="text-sm font-semibold text-slate-900 truncate max-w-[190px]">
                                         {odp.cliente.nombre_razon_social}
                                     </p>
                                 </td>
@@ -1311,7 +1311,7 @@ const ProduccionPage: React.FC = () => {
                                             <td key={col.key} className="px-2 py-3 text-center cursor-help"
                                                 title={motivo}
                                                 onClick={e => { e.stopPropagation(); toast.info(motivo, { toastId: `noaplica-${odp.id}-${col.key}` }); }}>
-                                                <span className="text-slate-200 text-sm select-none">—</span>
+                                                <span className="text-slate-400 text-sm select-none">—</span>
                                             </td>
                                         );
                                     }
@@ -1322,12 +1322,12 @@ const ProduccionPage: React.FC = () => {
                                                 : (TOOLTIP_AUTOMATICO[col.key] || undefined)}
                                             onClick={e => { e.stopPropagation(); toggleCheck(odp, col.key); }}>
                                             <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border-2 transition-all mx-auto
-                                                ${checked ? 'bg-emerald-50 border-emerald-400 text-emerald-600'
-                                                : locked  ? 'bg-slate-50 border-slate-100 cursor-not-allowed'
-                                                : !puedeEditarTaller ? 'bg-white border-slate-200 text-slate-300 cursor-help'
-                                                : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600 cursor-pointer'}`}>
-                                                {locked   ? <Lock className="w-4 h-4 text-slate-300" />
-                                                : checked  ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                                ${checked ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-600/25'
+                                                : locked  ? 'bg-slate-100 border-slate-200 cursor-not-allowed'
+                                                : !puedeEditarTaller ? 'bg-white border-slate-200 text-slate-400 cursor-help'
+                                                : 'bg-white border-slate-300 text-slate-600 hover:border-indigo-500 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer'}`}>
+                                                {locked   ? <Lock className="w-4 h-4 text-slate-400" />
+                                                : checked  ? <CheckCircle2 className="w-5 h-5 text-white" />
                                                 : <col.Icon className="w-4 h-4" />}
                                             </div>
                                         </td>
@@ -1335,8 +1335,8 @@ const ProduccionPage: React.FC = () => {
                                 })}
                                 <td className="px-2 py-3 text-center">
                                     <div className="flex flex-col items-center gap-1.5">
-                                        <span className={`text-xs font-black ${progress === 100 ? 'text-emerald-600' : 'text-slate-500'}`}>{progress}%</span>
-                                        <div className="w-9 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                        <span className={`text-sm font-bold ${progress === 100 ? 'text-emerald-700' : 'text-slate-900'}`}>{progress}%</span>
+                                        <div className="w-10 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                                             <div
                                                 className={`h-full rounded-full transition-all ${progress === 100 ? 'bg-emerald-500' : urgency.color === 'rose' ? 'bg-rose-500' : 'bg-indigo-500'}`}
                                                 style={{ width: `${progress}%` }}
@@ -1357,40 +1357,40 @@ const ProduccionPage: React.FC = () => {
         <div className="p-4 md:p-6 w-full space-y-4 text-slate-900">
 
             {/* ── Header ── */}
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                         <Wrench className="w-6 h-6 text-indigo-600" />
                         Control de Taller
                     </h1>
-                    <p className="text-slate-500 text-sm font-medium">Gestión dinámica de producción y bitácora</p>
+                    <p className="text-slate-700 text-sm">Gestión dinámica de producción y bitácora</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                 <button
                     onClick={() => setShowProgramacion(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md shadow-green-100 transition-all active:scale-95"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm shadow-emerald-600/20 transition-all active:scale-95"
                 >
                     <MessageCircle className="w-4 h-4" />
                     Compartir programación
                 </button>
-                <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200">
-                    <div className="px-4 py-2 text-center border-r border-slate-100">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Activas</p>
-                        <p className="text-xl font-black text-indigo-600 leading-none">{activeOdps.length}</p>
+                <div className="flex bg-white p-1.5 rounded-2xl shadow-card border border-slate-200">
+                    <div className="px-3 sm:px-4 py-2 text-center border-r border-slate-200">
+                        <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">Activas</p>
+                        <p className="text-2xl font-extrabold text-indigo-700 leading-none mt-1">{activeOdps.length}</p>
                     </div>
-                    <div className="px-4 py-2 text-center border-r border-slate-100">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Urgentes</p>
-                        <p className="text-xl font-black text-rose-600 leading-none">
+                    <div className="px-3 sm:px-4 py-2 text-center border-r border-slate-200">
+                        <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">Urgentes</p>
+                        <p className="text-2xl font-extrabold text-rose-700 leading-none mt-1">
                             {activeOdps.filter(o => getUrgency(o.fecha_entrega).weight >= 2).length}
                         </p>
                     </div>
-                    <div className="px-4 py-2 text-center border-r border-slate-100">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Despacho</p>
-                        <p className="text-xl font-black text-emerald-600 leading-none">{despachoOdps.length}</p>
+                    <div className="px-3 sm:px-4 py-2 text-center border-r border-slate-200">
+                        <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">Despacho</p>
+                        <p className="text-2xl font-extrabold text-emerald-700 leading-none mt-1">{despachoOdps.length}</p>
                     </div>
-                    <div className="px-4 py-2 text-center">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">En la mano</p>
-                        <p className="text-xl font-black text-amber-600 leading-none">{manoOdps.length}</p>
+                    <div className="px-3 sm:px-4 py-2 text-center">
+                        <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">En la mano</p>
+                        <p className="text-2xl font-extrabold text-amber-700 leading-none mt-1">{manoOdps.length}</p>
                     </div>
                 </div>
                 </div>
@@ -1401,10 +1401,10 @@ const ProduccionPage: React.FC = () => {
                 <FolderTabs
                     tabs={[
                         { key: 'activas',      label: 'Control Taller',    icon: <Wrench className="w-4 h-4" /> },
-                        { key: 'por_imprimir', label: 'Por Imprimir',      icon: <Printer className="w-4 h-4" />,       badge: porImprimirOdps.length || undefined, badgeClassName: 'bg-indigo-100 text-indigo-600' },
+                        { key: 'por_imprimir', label: 'Por Imprimir',      icon: <Printer className="w-4 h-4" />,       badge: porImprimirOdps.length || undefined, badgeClassName: 'bg-indigo-100 text-indigo-800' },
                         { key: 'pedido_mano',  label: 'Pedido en la mano', icon: <Inbox className="w-4 h-4" /> },
-                        { key: 'nc_garantias', label: 'NC / Garantías',    icon: <AlertTriangle className="w-4 h-4" />, badge: ncOdps.length || undefined, badgeClassName: 'bg-rose-100 text-rose-600' },
-                        { key: 'pausadas',     label: 'ODP Pausadas',      icon: <PauseCircle className="w-4 h-4" />,   badge: pausadasOdps.length || undefined, badgeClassName: 'bg-amber-100 text-amber-600' },
+                        { key: 'nc_garantias', label: 'NC / Garantías',    icon: <AlertTriangle className="w-4 h-4" />, badge: ncOdps.length || undefined, badgeClassName: 'bg-rose-100 text-rose-800' },
+                        { key: 'pausadas',     label: 'ODP Pausadas',      icon: <PauseCircle className="w-4 h-4" />,   badge: pausadasOdps.length || undefined, badgeClassName: 'bg-amber-100 text-amber-800' },
                         { key: 'automaticos',  label: 'Automáticos',       icon: <Bot className="w-4 h-4" /> },
                     ]}
                     activeKey={mainTab}
@@ -1419,18 +1419,18 @@ const ProduccionPage: React.FC = () => {
             {mainTab === 'activas' && (
                 <>
                     {/* Filtros */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 flex flex-col md:flex-row gap-3 items-center">
-                        <div className="relative flex-1 w-full">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <div className="bg-white rounded-2xl shadow-card border border-slate-200 p-3 flex flex-wrap gap-3 items-center">
+                        <div className="relative flex-1 min-w-[220px] w-full md:w-auto">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                             <input
                                 type="text"
                                 placeholder="Buscar por ODP o Cliente..."
-                                className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-slate-50 transition-all"
+                                className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm text-slate-900 placeholder:text-slate-500 bg-white transition-all"
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <div className="flex gap-2 flex-shrink-0">
+                        <div className="flex flex-wrap gap-1.5">
                             {[
                                 { id: 'TODAS',    label: 'Todas' },
                                 { id: 'URGENTES', label: 'Urgentes', icon: AlertCircle },
@@ -1442,19 +1442,19 @@ const ProduccionPage: React.FC = () => {
                                 <button
                                     key={f.id}
                                     onClick={() => setFilterType(f.id)}
-                                    className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5 transition-all
+                                    className={`px-3 py-1.5 rounded-xl border text-xs font-semibold uppercase tracking-wide whitespace-nowrap flex items-center gap-1.5 transition-all
                                         ${filterType === f.id
-                                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                                            : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm shadow-indigo-600/25'
+                                            : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50 hover:border-slate-300'}`}
                                 >
-                                    {f.icon && <f.icon className="w-3 h-3" />}
+                                    {f.icon && <f.icon className="w-3.5 h-3.5" />}
                                     {f.label}
                                 </button>
                             ))}
                         </div>
                         {/* Ordenamiento */}
-                        <div className="flex items-center gap-1.5 flex-shrink-0 border-l border-slate-200 pl-3">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Orden:</span>
+                        <div className="flex flex-wrap items-center gap-1.5 md:border-l md:border-slate-200 md:pl-3">
+                            <span className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider mr-0.5">Orden:</span>
                             {[
                                 { id: 'fecha',  label: 'Fecha' },
                                 { id: 'numero', label: '# ODP' },
@@ -1468,8 +1468,8 @@ const ProduccionPage: React.FC = () => {
                                             if (isActive) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
                                             else { setSortBy(s.id as any); setSortDir('asc'); }
                                         }}
-                                        className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1
-                                            ${isActive ? 'bg-slate-700 text-white' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all flex items-center gap-1
+                                            ${isActive ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50 hover:border-slate-300'}`}
                                     >
                                         {s.label}
                                         {isActive && (
@@ -1482,15 +1482,15 @@ const ProduccionPage: React.FC = () => {
                     </div>
 
                     {/* Split Panel */}
-                    <div className="flex gap-4 items-start">
+                    <div className="flex flex-col xl:flex-row gap-4 xl:items-start">
                         {/* Matriz */}
-                        <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                                <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                        <div className="w-full xl:flex-1 min-w-0 bg-white rounded-2xl shadow-card border border-slate-200 overflow-hidden">
+                            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center gap-3">
+                                <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                                     <Package className="w-4 h-4 text-indigo-500" />
                                     Línea de Producción ({filteredOdps.length})
                                 </h2>
-                                <span className="text-[10px] text-slate-400 font-medium hidden md:block">
+                                <span className="text-xs text-slate-700 hidden md:block">
                                     Click en celda para marcar · Click en fila para ver detalle y bitácora
                                 </span>
                             </div>
@@ -1499,8 +1499,8 @@ const ProduccionPage: React.FC = () => {
 
                         {/* Panel Detalle */}
                         <div
-                            className={`w-[340px] flex-shrink-0 rounded-2xl border shadow-sm overflow-hidden transition-all sticky top-4
-                                ${panelOdp ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-200'}`}
+                            className={`w-full xl:w-[340px] flex-shrink-0 rounded-2xl border shadow-card overflow-hidden transition-all xl:sticky xl:top-4
+                                ${panelOdp ? 'bg-white border-slate-200' : 'bg-white/60 border-dashed border-slate-300'}`}
                             style={{ maxHeight: 'calc(100vh - 200px)' }}
                         >
                             {renderPanel()}
@@ -1509,35 +1509,35 @@ const ProduccionPage: React.FC = () => {
 
                     {/* Zona de Despacho (solo instalacion/acarreo) */}
                     {despachoOdps.length > 0 && (
-                        <div className="bg-emerald-50 rounded-3xl border-2 border-emerald-100 overflow-hidden shadow-xl mt-2">
-                            <div className="bg-emerald-500/10 px-6 py-4 border-b border-emerald-100 flex items-center justify-between">
-                                <h2 className="text-lg font-black text-emerald-800 flex items-center gap-2">
+                        <div className="bg-emerald-50/60 rounded-2xl border border-emerald-200 overflow-hidden shadow-card mt-2">
+                            <div className="bg-emerald-100/60 px-4 sm:px-6 py-4 border-b border-emerald-200 flex flex-wrap items-center justify-between gap-2">
+                                <h2 className="text-lg font-bold text-emerald-900 flex items-center gap-2">
                                     <Truck className="w-5 h-5" />
                                     Zona de Despacho e Instalación
                                 </h2>
-                                <span className="bg-emerald-500 text-white font-black px-3 py-1.5 rounded-full text-xs shadow-lg shadow-emerald-100">
+                                <span className="bg-emerald-600 text-white font-semibold px-3 py-1.5 rounded-full text-xs shadow-sm">
                                     {despachoOdps.length} ÓRDENES LISTAS ✅
                                 </span>
                             </div>
-                            <div className="p-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                            <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                                 {despachoOdps.map(odp => (
-                                    <div key={odp.id} className="bg-white border-2 border-emerald-100 p-4 rounded-2xl shadow-sm hover:shadow-lg transition-all">
+                                    <div key={odp.id} className="bg-white border border-emerald-200 p-4 rounded-2xl shadow-card hover:shadow-card-hover transition-all">
                                         <div className="flex justify-between items-start mb-3">
                                             <span
-                                                className="font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-xl text-sm border border-emerald-100 cursor-pointer hover:bg-emerald-100 transition-colors"
+                                                className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl text-sm border border-emerald-200 cursor-pointer hover:bg-emerald-100 transition-colors"
                                                 onClick={() => setFichaOdpId(odp.id)}
                                             >
                                                 {odp.numero_odp}
                                             </span>
                                             <button
                                                 onClick={() => setSelectedQR(odp.numero_odp)}
-                                                className="p-1.5 bg-slate-50 text-slate-400 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                                className="p-1.5 bg-slate-50 text-slate-600 rounded-xl hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
                                             >
                                                 <QrCode className="w-4 h-4" />
                                             </button>
                                         </div>
-                                        <h3 className="text-sm font-bold text-slate-800 truncate">{odp.cliente.nombre_razon_social}</h3>
-                                        <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest mt-1">Lista para instalación</p>
+                                        <h3 className="text-sm font-semibold text-slate-900 truncate">{odp.cliente.nombre_razon_social}</h3>
+                                        <p className="text-[11px] text-emerald-700 font-semibold uppercase tracking-wider mt-1">Lista para instalación</p>
                                     </div>
                                 ))}
                             </div>
@@ -1565,9 +1565,9 @@ const ProduccionPage: React.FC = () => {
                 });
 
                 return (
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="bg-white rounded-2xl shadow-card border border-slate-200 overflow-hidden">
                         <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap justify-between items-center gap-3">
-                            <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                            <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                                 <Printer className="w-4 h-4 text-indigo-500" />
                                 Pendientes de imprimir ({porImprimirOdps.length})
                             </h2>
@@ -1577,7 +1577,7 @@ const ProduccionPage: React.FC = () => {
                                         onClick={() => setSeleccionImpresion(
                                             todasMarcadas ? new Set() : new Set(imprimibles.map(o => o.id))
                                         )}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all"
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 transition-all"
                                     >
                                         <CheckSquare className="w-3.5 h-3.5" />
                                         {todasMarcadas ? 'Quitar selección' : 'Seleccionar todas'}
@@ -1586,7 +1586,7 @@ const ProduccionPage: React.FC = () => {
                                 <button
                                     disabled={seleccionadas.length === 0 || preparandoImpresion || !puedeEditarTaller}
                                     onClick={() => handleImprimirLote(seleccionadas.map(o => o.id))}
-                                    className="flex items-center gap-2 px-5 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none disabled:cursor-not-allowed"
+                                    className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25 transition-all disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none disabled:cursor-not-allowed"
                                 >
                                     {preparandoImpresion
                                         ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Preparando…</>
@@ -1597,31 +1597,32 @@ const ProduccionPage: React.FC = () => {
 
                         {porImprimirOdps.length === 0 ? (
                             <div className="p-12 text-center">
-                                <CheckCircle2 className="w-12 h-12 text-emerald-100 mx-auto mb-3" />
-                                <p className="text-slate-400 text-sm font-medium">
+                                <CheckCircle2 className="w-12 h-12 text-emerald-300 mx-auto mb-3" />
+                                <p className="text-slate-700 text-sm">
                                     Todas las órdenes de la línea de producción ya están impresas.
                                 </p>
                             </div>
                         ) : (
+                            <div className="overflow-x-auto">
                             <table className="w-full text-left">
-                                <thead className="bg-white border-b border-slate-100">
+                                <thead className="bg-slate-50 border-b border-slate-200">
                                     <tr>
                                         <th className="px-4 py-3 w-10"></th>
-                                        <th className="px-2 py-3 text-[9px] font-black text-slate-400 uppercase tracking-wider">ODP / Cliente</th>
-                                        <th className="px-2 py-3 text-[9px] font-black text-slate-400 uppercase tracking-wider">Tipo</th>
-                                        <th className="px-2 py-3 text-[9px] font-black text-slate-400 uppercase tracking-wider">Etapa</th>
-                                        <th className="px-2 py-3 text-[9px] font-black text-slate-400 uppercase tracking-wider">Entrega</th>
-                                        <th className="px-2 py-3 text-right text-[9px] font-black text-slate-400 uppercase tracking-wider">Acciones</th>
+                                        <th className="px-2 py-3 text-[11px] font-semibold text-slate-900 uppercase tracking-wider">ODP / Cliente</th>
+                                        <th className="px-2 py-3 text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Tipo</th>
+                                        <th className="px-2 py-3 text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Etapa</th>
+                                        <th className="px-2 py-3 text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Entrega</th>
+                                        <th className="px-2 py-3 text-right text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {porImprimirOdps.map(odp => {
                                         const urgency = getUrgency(odp.fecha_entrega);
                                         const marcada = seleccionImpresion.has(odp.id);
-                                        const tipo = odp.es_garantia ? { label: 'Garantía', cls: 'bg-orange-50 text-orange-600' }
-                                            : odp.es_no_conformidad ? { label: 'NC', cls: 'bg-rose-50 text-rose-600' }
-                                            : odp.tipo_odp === 'OA' ? { label: 'OA', cls: 'bg-violet-50 text-violet-600' }
-                                            : { label: 'ODP', cls: 'bg-slate-100 text-slate-500' };
+                                        const tipo = odp.es_garantia ? { label: 'Garantía', cls: 'bg-orange-50 text-orange-800 ring-1 ring-inset ring-orange-200' }
+                                            : odp.es_no_conformidad ? { label: 'NC', cls: 'bg-rose-50 text-rose-800 ring-1 ring-inset ring-rose-200' }
+                                            : odp.tipo_odp === 'OA' ? { label: 'OA', cls: 'bg-violet-50 text-violet-800 ring-1 ring-inset ring-violet-200' }
+                                            : { label: 'ODP', cls: 'bg-slate-100 text-slate-800 ring-1 ring-inset ring-slate-200' };
                                         return (
                                             <tr key={odp.id} className={`transition-colors ${marcada ? 'bg-indigo-50/50' : 'hover:bg-slate-50'}`}>
                                                 <td className="px-4 py-3">
@@ -1635,35 +1636,35 @@ const ProduccionPage: React.FC = () => {
                                                 <td className="px-2 py-3">
                                                     <div className="flex items-center gap-2 flex-wrap mb-0.5">
                                                         <span
-                                                            className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors cursor-pointer"
+                                                            className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors cursor-pointer"
                                                             onClick={() => setFichaOdpId(odp.id)}
                                                         >
                                                             {odp.numero_odp}
                                                         </span>
                                                         {odp.sin_items && (
-                                                            <span className="text-[8px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full"
+                                                            <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full"
                                                                 title="Esta ODP no tiene requerimientos cargados: la OP saldría en blanco.">
                                                                 SIN ÍTEMS
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <p className="text-sm font-bold text-slate-700 truncate max-w-[280px]">
+                                                    <p className="text-sm font-semibold text-slate-900 truncate max-w-[280px]">
                                                         {odp.cliente.nombre_razon_social}
                                                     </p>
                                                 </td>
                                                 <td className="px-2 py-3">
-                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${tipo.cls}`}>{tipo.label}</span>
+                                                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${tipo.cls}`}>{tipo.label}</span>
                                                 </td>
                                                 <td className="px-2 py-3">
-                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                                    <span className="text-xs text-slate-800 uppercase tracking-wide whitespace-nowrap">
                                                         {odp.estado_produccion.replace(/_/g, ' ')}
                                                     </span>
                                                 </td>
                                                 <td className="px-2 py-3">
-                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded
-                                                        ${urgency.color === 'rose'   ? 'bg-rose-50 text-rose-600' :
-                                                          urgency.color === 'orange' ? 'bg-orange-50 text-orange-600' :
-                                                                                       'bg-emerald-50 text-emerald-600'}`}>
+                                                    <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-md ring-1 ring-inset
+                                                        ${urgency.color === 'rose'   ? 'bg-rose-50 text-rose-700 ring-rose-200' :
+                                                          urgency.color === 'orange' ? 'bg-orange-50 text-orange-700 ring-orange-200' :
+                                                                                       'bg-emerald-50 text-emerald-700 ring-emerald-200'}`}>
                                                         {urgency.label}
                                                     </span>
                                                 </td>
@@ -1672,7 +1673,7 @@ const ProduccionPage: React.FC = () => {
                                                         <button
                                                             disabled={preparandoImpresion || !puedeEditarTaller}
                                                             onClick={() => handleImprimirLote([odp.id])}
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                                                         >
                                                             <Printer className="w-3 h-3" /> Imprimir
                                                         </button>
@@ -1680,7 +1681,7 @@ const ProduccionPage: React.FC = () => {
                                                             disabled={!puedeEditarTaller}
                                                             title="Marcarla como impresa sin sacarla por impresora (ya salió por otro lado, se imprimió a mano, etc.)"
                                                             onClick={() => marcarImpresas([odp.id], true)}
-                                                            className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-slate-500 bg-slate-100 hover:bg-slate-200 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                                            className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-800 bg-white border border-slate-300 hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                                                         >
                                                             Ya impresa
                                                         </button>
@@ -1691,6 +1692,7 @@ const ProduccionPage: React.FC = () => {
                                     })}
                                 </tbody>
                             </table>
+                            </div>
                         )}
                     </div>
                 );
@@ -1702,7 +1704,7 @@ const ProduccionPage: React.FC = () => {
             {mainTab === 'pedido_mano' && (
                 <div className="space-y-4">
                     {/* Sub-tabs */}
-                    <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm w-fit">
+                    <div className="flex flex-wrap bg-white p-1 rounded-2xl border border-slate-200 shadow-card w-fit max-w-full">
                         {[
                             { id: 'listos',      label: 'Listo para entregar', count: pagoOkOdps.length,     color: 'emerald' },
                             { id: 'espera_pago', label: 'En espera de pago',   count: esperaPagoOdps.length, color: 'amber'   },
@@ -1710,12 +1712,12 @@ const ProduccionPage: React.FC = () => {
                             <button
                                 key={tab.id}
                                 onClick={() => setManoSubTab(tab.id as any)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all
-                                    ${manoSubTab === tab.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-slate-400 hover:text-slate-700'}`}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all
+                                    ${manoSubTab === tab.id ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/25' : 'text-slate-800 hover:text-slate-900 hover:bg-slate-50'}`}
                             >
                                 {tab.label}
-                                <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black
-                                    ${manoSubTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-semibold
+                                    ${manoSubTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800'}`}>
                                     {tab.count}
                                 </span>
                             </button>
@@ -1723,31 +1725,31 @@ const ProduccionPage: React.FC = () => {
                     </div>
 
                     {/* Tabla */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="bg-white rounded-2xl shadow-card border border-slate-200 overflow-hidden">
                         <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                            <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                            <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                                 <Inbox className="w-4 h-4 text-indigo-500" />
                                 {manoSubTab === 'listos' ? 'Listas para entregar' : 'En espera de pago'}
-                                <span className="text-slate-400">({currentManoOdps.length})</span>
+                                <span className="text-slate-700 font-normal">({currentManoOdps.length})</span>
                             </h2>
                         </div>
 
                         {currentManoOdps.length === 0 ? (
                             <div className="p-16 text-center">
-                                <CheckCircle2 className="w-12 h-12 text-slate-100 mx-auto mb-3" />
-                                <p className="text-slate-400 text-sm font-medium">No hay órdenes en esta categoría.</p>
+                                <CheckCircle2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                                <p className="text-slate-700 text-sm">No hay órdenes en esta categoría.</p>
                             </div>
                         ) : (
                             <div className="overflow-auto">
                                 <table className="w-full border-collapse">
                                     <thead>
                                         <tr className="bg-slate-50 border-b border-slate-200">
-                                            <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[200px]">ODP / Cliente</th>
-                                            <th className="px-4 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Entrega</th>
-                                            <th className="px-4 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Pago</th>
-                                            <th className="px-4 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[80px]">Estado caja</th>
+                                            <th className="text-left px-4 py-3 text-[11px] font-semibold text-slate-900 uppercase tracking-wider min-w-[200px]">ODP / Cliente</th>
+                                            <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Entrega</th>
+                                            <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Pago</th>
+                                            <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-900 uppercase tracking-wider min-w-[80px]">Estado caja</th>
                                             {puedeMarcarEntregada && (
-                                                <th className="px-4 py-3 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Acción</th>
+                                                <th className="px-4 py-3 text-center text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Acción</th>
                                             )}
                                         </tr>
                                     </thead>
@@ -1761,33 +1763,33 @@ const ProduccionPage: React.FC = () => {
                                                     <td className="px-4 py-3">
                                                         <div className="flex items-center gap-2 flex-wrap mb-0.5">
                                                             <span
-                                                                className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 cursor-pointer hover:bg-indigo-100"
+                                                                className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors cursor-pointer"
                                                                 onClick={() => setFichaOdpId(odp.id)}
                                                             >
                                                                 {odp.numero_odp}
                                                             </span>
                                                             {odp.es_no_conformidad && (
-                                                                <span className="text-[8px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded-full">NC</span>
+                                                                <span className="text-[10px] font-bold bg-rose-600 text-white px-1.5 py-0.5 rounded-full">NC</span>
                                                             )}
                                                             {odp.es_garantia && (
-                                                                <span className="text-[8px] font-black bg-orange-500 text-white px-1.5 py-0.5 rounded-full">GAR</span>
+                                                                <span className="text-[10px] font-bold bg-orange-600 text-white px-1.5 py-0.5 rounded-full">GAR</span>
                                                             )}
                                                         </div>
-                                                        <p className="text-sm font-bold text-slate-700">{odp.cliente.nombre_razon_social}</p>
+                                                        <p className="text-sm font-semibold text-slate-900">{odp.cliente.nombre_razon_social}</p>
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
-                                                        <span className={`text-[9px] font-black px-2 py-1 rounded-full
-                                                            ${urgency.color === 'rose' ? 'bg-rose-50 text-rose-600' : urgency.color === 'orange' ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                                        <span className={`text-[11px] font-semibold px-2 py-1 rounded-full ring-1 ring-inset
+                                                            ${urgency.color === 'rose' ? 'bg-rose-50 text-rose-700 ring-rose-200' : urgency.color === 'orange' ? 'bg-orange-50 text-orange-700 ring-orange-200' : 'bg-emerald-50 text-emerald-700 ring-emerald-200'}`}>
                                                             {urgency.label}
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
-                                                        <span className={`text-[9px] font-black px-2 py-1 rounded-full ${payInfo.cls}`}>
+                                                        <span className={`text-[11px] font-semibold px-2 py-1 rounded-full ${payInfo.cls}`}>
                                                             {payInfo.label}
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
-                                                        <span className="text-[9px] text-slate-500 font-medium">
+                                                        <span className="text-xs text-slate-800">
                                                             {odp.estado_caja || '—'}
                                                         </span>
                                                     </td>
@@ -1797,7 +1799,7 @@ const ProduccionPage: React.FC = () => {
                                                                 <button
                                                                     onClick={() => handleMarcarEntregada(odp)}
                                                                     disabled={marcandoEntregada === odp.id}
-                                                                    className="px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-black uppercase rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-all whitespace-nowrap"
+                                                                    className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-xl shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition-all whitespace-nowrap"
                                                                 >
                                                                     {marcandoEntregada === odp.id ? 'Marcando...' : 'Marcar Entregada'}
                                                                 </button>
@@ -1819,15 +1821,15 @@ const ProduccionPage: React.FC = () => {
                 TAB: NC / GARANTÍAS
             ══════════════════════════════════════════════ */}
             {mainTab === 'nc_garantias' && (
-                <div className="flex gap-4 items-start">
+                <div className="flex flex-col xl:flex-row gap-4 xl:items-start">
                     {/* Matriz NC */}
-                    <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                            <h2 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center gap-2">
+                    <div className="w-full xl:flex-1 min-w-0 bg-white rounded-2xl shadow-card border border-slate-200 overflow-hidden">
+                        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center gap-3">
+                            <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                                 <AlertTriangle className="w-4 h-4 text-rose-500" />
                                 No Conformidades y Garantías ({ncOdps.length})
                             </h2>
-                            <span className="text-[10px] text-slate-400 font-medium hidden md:block">
+                            <span className="text-xs text-slate-700 hidden md:block">
                                 Click en celda para marcar · Click en fila para ver detalle
                             </span>
                         </div>
@@ -1836,8 +1838,8 @@ const ProduccionPage: React.FC = () => {
 
                     {/* Panel Detalle */}
                     <div
-                        className={`w-[340px] flex-shrink-0 rounded-2xl border shadow-sm overflow-hidden transition-all sticky top-4
-                            ${panelOdp ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-200'}`}
+                        className={`w-full xl:w-[340px] flex-shrink-0 rounded-2xl border shadow-card overflow-hidden transition-all xl:sticky xl:top-4
+                            ${panelOdp ? 'bg-white border-slate-200' : 'bg-white/60 border-dashed border-slate-300'}`}
                         style={{ maxHeight: 'calc(100vh - 200px)' }}
                     >
                         {renderPanel()}
@@ -1849,15 +1851,15 @@ const ProduccionPage: React.FC = () => {
                 TAB: ODP PAUSADAS
             ══════════════════════════════════════════════ */}
             {mainTab === 'pausadas' && (
-                <div className="flex gap-4 items-start">
+                <div className="flex flex-col xl:flex-row gap-4 xl:items-start">
                     {/* Tabla de pausadas */}
-                    <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="px-4 py-3 bg-amber-50 border-b border-amber-100 flex justify-between items-center">
-                            <h2 className="text-xs font-black text-amber-800 uppercase tracking-widest flex items-center gap-2">
-                                <PauseCircle className="w-4 h-4 text-amber-500" />
+                    <div className="w-full xl:flex-1 min-w-0 bg-white rounded-2xl shadow-card border border-slate-200 overflow-hidden">
+                        <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 flex justify-between items-center gap-3">
+                            <h2 className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+                                <PauseCircle className="w-4 h-4 text-amber-600" />
                                 ODPs Pausadas por No Conformidad ({pausadasOdps.length})
                             </h2>
-                            <span className="text-[10px] text-slate-400 font-medium hidden md:block">
+                            <span className="text-xs text-slate-700 hidden md:block">
                                 Click en fila para ver detalle y bitácora
                             </span>
                         </div>
@@ -1865,19 +1867,19 @@ const ProduccionPage: React.FC = () => {
                             <table className="w-full border-collapse">
                                 <thead className="sticky top-0 z-10">
                                     <tr className="bg-slate-50 border-b border-slate-200">
-                                        <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[180px]">ODP Madre</th>
-                                        <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</th>
-                                        <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[120px]">Fecha creación</th>
-                                        <th className="text-left px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[180px]">ODP Hija (Reproceso)</th>
-                                        <th className="text-center px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest min-w-[100px]">Acción</th>
+                                        <th className="text-left px-4 py-3 text-[11px] font-semibold text-slate-900 uppercase tracking-wider min-w-[180px]">ODP Madre</th>
+                                        <th className="text-left px-4 py-3 text-[11px] font-semibold text-slate-900 uppercase tracking-wider">Cliente</th>
+                                        <th className="text-left px-4 py-3 text-[11px] font-semibold text-slate-900 uppercase tracking-wider min-w-[120px]">Fecha creación</th>
+                                        <th className="text-left px-4 py-3 text-[11px] font-semibold text-slate-900 uppercase tracking-wider min-w-[180px]">ODP Hija (Reproceso)</th>
+                                        <th className="text-center px-4 py-3 text-[11px] font-semibold text-slate-900 uppercase tracking-wider min-w-[100px]">Acción</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {pausadasOdps.length === 0 ? (
                                         <tr>
                                             <td colSpan={5} className="p-12 text-center">
-                                                <CheckCircle2 className="w-12 h-12 text-slate-100 mx-auto mb-3" />
-                                                <p className="text-slate-400 text-sm font-medium">No hay ODPs pausadas por No Conformidad.</p>
+                                                <CheckCircle2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                                                <p className="text-slate-700 text-sm">No hay ODPs pausadas por No Conformidad.</p>
                                             </td>
                                         </tr>
                                     ) : pausadasOdps.map(odp => {
@@ -1892,17 +1894,17 @@ const ProduccionPage: React.FC = () => {
                                                 {/* ODP Madre */}
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="font-black text-slate-800 text-sm">{odp.numero_odp}</span>
-                                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-100 text-amber-700 uppercase tracking-wider">Pausada</span>
+                                                        <span className="font-bold text-slate-900 text-sm">{odp.numero_odp}</span>
+                                                        <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 uppercase tracking-wide">Pausada</span>
                                                     </div>
                                                 </td>
                                                 {/* Cliente */}
                                                 <td className="px-4 py-3">
-                                                    <p className="text-sm font-semibold text-slate-700 truncate max-w-[220px]">{odp.cliente.nombre_razon_social}</p>
+                                                    <p className="text-sm font-semibold text-slate-900 truncate max-w-[220px]">{odp.cliente.nombre_razon_social}</p>
                                                 </td>
                                                 {/* Fecha creación */}
                                                 <td className="px-4 py-3">
-                                                    <p className="text-xs text-slate-500 font-medium">
+                                                    <p className="text-sm text-slate-800">
                                                         {odp.fecha_creacion ? new Date(odp.fecha_creacion).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                                                     </p>
                                                 </td>
@@ -1911,26 +1913,26 @@ const ProduccionPage: React.FC = () => {
                                                     {hija ? (
                                                         <button
                                                             onClick={e => { e.stopPropagation(); setFichaOdpId(hija.id); }}
-                                                            className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 font-black text-xs underline underline-offset-2 transition-colors"
+                                                            className="flex items-center gap-1.5 text-indigo-700 hover:text-indigo-900 font-bold text-[13px] underline underline-offset-2 transition-colors"
                                                         >
                                                             {hija.numero_odp}
-                                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black no-underline ${
+                                                            <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold no-underline ${
                                                                 hija.estado_produccion === 'LISTO_INSTALAR' ? 'bg-emerald-100 text-emerald-700'
                                                                 : hija.estado_produccion === 'ACCESORIOS_SEPARADOS' ? 'bg-blue-100 text-blue-700'
-                                                                : 'bg-slate-100 text-slate-600'
+                                                                : 'bg-slate-100 text-slate-700'
                                                             }`}>
                                                                 {hija.estado_produccion.replace(/_/g, ' ')}
                                                             </span>
                                                         </button>
                                                     ) : (
-                                                        <span className="text-xs text-slate-400 italic">Sin hija registrada</span>
+                                                        <span className="text-xs text-slate-600 italic">Sin hija registrada</span>
                                                     )}
                                                 </td>
                                                 {/* Acción */}
                                                 <td className="px-4 py-3 text-center">
                                                     <button
                                                         onClick={e => { e.stopPropagation(); setFichaOdpId(odp.id); }}
-                                                        className="px-3 py-1.5 bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors"
+                                                        className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-indigo-50 hover:border-indigo-200 text-slate-800 hover:text-indigo-700 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors"
                                                     >
                                                         Ver detalle
                                                     </button>
@@ -1945,8 +1947,8 @@ const ProduccionPage: React.FC = () => {
 
                     {/* Panel Detalle */}
                     <div
-                        className={`w-[340px] flex-shrink-0 rounded-2xl border shadow-sm overflow-hidden transition-all sticky top-4
-                            ${panelOdp ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-200'}`}
+                        className={`w-full xl:w-[340px] flex-shrink-0 rounded-2xl border shadow-card overflow-hidden transition-all xl:sticky xl:top-4
+                            ${panelOdp ? 'bg-white border-slate-200' : 'bg-white/60 border-dashed border-slate-300'}`}
                         style={{ maxHeight: 'calc(100vh - 200px)' }}
                     >
                         {renderPanel()}
@@ -1975,28 +1977,28 @@ const ProduccionPage: React.FC = () => {
                                 <div className="bg-white/20 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
                                     <QrCode className="w-8 h-8" />
                                 </div>
-                                <h3 className="font-black text-2xl tracking-tight">Etiqueta de ODP</h3>
+                                <h3 className="font-bold text-2xl tracking-tight">Etiqueta de ODP</h3>
                                 <p className="text-indigo-100 text-sm mt-1">Identificador de producción</p>
                             </div>
                             <div className="p-10 flex flex-col items-center justify-center">
                                 <div className="bg-white p-6 rounded-[40px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-slate-100">
                                     <QRCodeSVG
                                         value={`${process.env.REACT_APP_URL || window.location.origin}/odp-search?q=${selectedQR}`}
-                                        size={180} bgColor="#ffffff" fgColor="#1e293b" level="Q"
+                                        size={180} bgColor="#ffffff" fgColor="#1d232e" level="Q"
                                     />
                                 </div>
-                                <p className="mt-8 text-3xl font-black text-indigo-900 tracking-[0.2em] bg-indigo-50 px-8 py-3 rounded-2xl border border-indigo-100">
+                                <p className="mt-8 text-3xl font-extrabold text-indigo-900 tracking-[0.2em] bg-indigo-50 px-8 py-3 rounded-2xl border border-indigo-100">
                                     {selectedQR}
                                 </p>
                             </div>
                             <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
                                 <button
                                     onClick={() => setSelectedQR(null)}
-                                    className="flex-1 px-6 py-4 font-black text-slate-500 bg-white border border-slate-200 rounded-2xl hover:bg-slate-100 transition-colors uppercase text-xs tracking-widest"
+                                    className="flex-1 px-6 py-4 font-semibold text-slate-800 bg-white border border-slate-300 rounded-2xl hover:bg-slate-100 transition-colors uppercase text-xs tracking-wider"
                                 >
                                     Cerrar
                                 </button>
-                                <button className="flex-1 px-6 py-4 font-black text-white bg-indigo-600 rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 uppercase text-xs tracking-widest active:scale-95">
+                                <button className="flex-1 px-6 py-4 font-semibold text-white bg-indigo-600 rounded-2xl hover:bg-indigo-700 transition-all shadow-sm shadow-indigo-600/25 uppercase text-xs tracking-wider active:scale-95">
                                     Imprimir
                                 </button>
                             </div>
@@ -2011,19 +2013,19 @@ const ProduccionPage: React.FC = () => {
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0 print:hidden">
                             <div>
-                                <h3 className="text-base font-black text-slate-800">SAP — {printSap.sap.numero_sap}</h3>
-                                <p className="text-xs text-slate-500 font-medium">{printSap.odp.numero_odp} · {printSap.odp.cliente?.nombre_razon_social}</p>
+                                <h3 className="text-base font-bold text-slate-900">SAP — {printSap.sap.numero_sap}</h3>
+                                <p className="text-xs text-slate-700">{printSap.odp.numero_odp} · {printSap.odp.cliente?.nombre_razon_social}</p>
                             </div>
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => window.print()}
-                                    className="px-4 py-2 bg-indigo-600 text-white text-xs font-black rounded-xl hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-100 uppercase tracking-wider"
+                                    className="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm uppercase tracking-wider"
                                 >
                                     Imprimir
                                 </button>
                                 <button
                                     onClick={() => setPrintSap(null)}
-                                    className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
+                                    className="p-2 rounded-xl hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
                                 >
                                     <X className="w-4 h-4" />
                                 </button>
@@ -2077,27 +2079,27 @@ const ProduccionPage: React.FC = () => {
                     >
                         <div className="flex justify-between items-center mb-4">
                             <div>
-                                <h3 className="font-bold text-slate-800">Registrar llegada</h3>
-                                <p className="text-xs text-slate-500 mt-0.5">PV #{pvModalLlegada.numero_pedido} · {pvModalLlegada.proveedor}</p>
+                                <h3 className="text-lg font-bold text-slate-900">Registrar llegada</h3>
+                                <p className="text-xs text-slate-700 mt-0.5">PV #{pvModalLlegada.numero_pedido} · {pvModalLlegada.proveedor}</p>
                             </div>
-                            <button onClick={() => setPvModalLlegada(null)}><X className="w-5 h-5 text-slate-400" /></button>
+                            <button onClick={() => setPvModalLlegada(null)}><X className="w-5 h-5 text-slate-600 hover:text-slate-900" /></button>
                         </div>
-                        <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                            Fecha de llegada <span className="text-slate-400 font-normal">(opcional)</span>
+                        <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">
+                            Fecha de llegada <span className="text-slate-600 font-normal normal-case tracking-normal">(opcional)</span>
                         </label>
                         <input
                             type="date"
                             value={pvFechaLlegada}
                             onChange={e => setPvFechaLlegada(e.target.value)}
-                            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 mb-5"
+                            className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 mb-5"
                         />
                         <div className="flex gap-3">
                             <button onClick={() => setPvModalLlegada(null)}
-                                className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm">
+                                className="flex-1 py-2.5 font-semibold text-slate-800 border border-slate-300 rounded-xl hover:bg-slate-50 transition text-sm">
                                 Cancelar
                             </button>
                             <button onClick={handlePvRegistrarLlegada} disabled={pvLoadingAccion}
-                                className="flex-1 py-2.5 font-bold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition disabled:opacity-40 text-sm flex items-center justify-center gap-2">
+                                className="flex-1 py-2.5 font-semibold text-white bg-amber-600 rounded-xl hover:bg-amber-700 transition disabled:opacity-40 text-sm flex items-center justify-center gap-2">
                                 <PackageCheck className="w-4 h-4" />
                                 {pvLoadingAccion ? 'Guardando...' : 'Registrar'}
                             </button>
@@ -2118,14 +2120,14 @@ const ProduccionPage: React.FC = () => {
                     >
                         <div className="flex justify-between items-center mb-4">
                             <div>
-                                <h3 className="font-bold text-slate-800">
+                                <h3 className="text-lg font-bold text-slate-900">
                                     {pvModalAccion.tipo === 'verificar' ? 'Verificar pedido' : 'Reportar problema'}
                                 </h3>
-                                <p className="text-xs text-slate-500 mt-0.5">PV #{pvModalAccion.pv.numero_pedido} · {pvModalAccion.pv.proveedor}</p>
+                                <p className="text-xs text-slate-700 mt-0.5">PV #{pvModalAccion.pv.numero_pedido} · {pvModalAccion.pv.proveedor}</p>
                             </div>
-                            <button onClick={() => setPvModalAccion(null)}><X className="w-5 h-5 text-slate-400" /></button>
+                            <button onClick={() => setPvModalAccion(null)}><X className="w-5 h-5 text-slate-600 hover:text-slate-900" /></button>
                         </div>
-                        <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                        <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">
                             {pvModalAccion.tipo === 'verificar' ? 'Observación (opcional)' : 'Descripción del problema'}
                         </label>
                         <textarea
@@ -2133,16 +2135,16 @@ const ProduccionPage: React.FC = () => {
                             value={pvObsAccion}
                             onChange={e => setPvObsAccion(e.target.value)}
                             placeholder={pvModalAccion.tipo === 'verificar' ? 'Todo correcto...' : 'Describir el problema...'}
-                            className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-5 resize-none"
+                            className="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-5 resize-none"
                         />
                         <div className="flex gap-3">
                             <button onClick={() => setPvModalAccion(null)}
-                                className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm">
+                                className="flex-1 py-2.5 font-semibold text-slate-800 border border-slate-300 rounded-xl hover:bg-slate-50 transition text-sm">
                                 Cancelar
                             </button>
                             <button onClick={handlePvAccion} disabled={pvLoadingAccion}
-                                className={`flex-1 py-2.5 font-bold text-white rounded-xl transition disabled:opacity-40 text-sm flex items-center justify-center gap-2
-                                    ${pvModalAccion.tipo === 'verificar' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600'}`}>
+                                className={`flex-1 py-2.5 font-semibold text-white rounded-xl transition disabled:opacity-40 text-sm flex items-center justify-center gap-2
+                                    ${pvModalAccion.tipo === 'verificar' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
                                 {pvModalAccion.tipo === 'verificar' ? <ShieldCheck className="w-4 h-4" /> : <TriangleAlert className="w-4 h-4" />}
                                 {pvLoadingAccion ? 'Guardando...' : pvModalAccion.tipo === 'verificar' ? 'Verificado' : 'Confirmar problema'}
                             </button>
@@ -2160,7 +2162,7 @@ const ProduccionPage: React.FC = () => {
                     className="fixed z-[201] bg-white rounded-2xl shadow-2xl border border-slate-200 p-3"
                     style={{ top: colorPicker.top, left: colorPicker.left }}
                 >
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Resaltar ODP</p>
+                    <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider mb-2 px-1">Resaltar ODP</p>
                     <div className="flex gap-1.5 mb-2">
                         {TALLER_COLORS.map(c => (
                             <button
@@ -2174,7 +2176,7 @@ const ProduccionPage: React.FC = () => {
                     </div>
                     <button
                         onClick={() => handleSetColor(colorPicker.odpId, null)}
-                        className="w-full text-[10px] font-black text-slate-400 hover:text-rose-500 uppercase tracking-wider py-1 rounded-xl hover:bg-rose-50 transition-colors"
+                        className="w-full text-xs font-semibold text-slate-700 hover:text-rose-700 py-1.5 rounded-xl hover:bg-rose-50 transition-colors"
                     >
                         ✕ Quitar color
                     </button>

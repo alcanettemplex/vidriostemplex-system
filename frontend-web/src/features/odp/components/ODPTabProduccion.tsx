@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Wrench, FileText, Camera, ExternalLink, Plus, Ruler, MapPin, X, CheckCircle2,
   Package, Sparkles, Film, Box, Archive, Printer, ClipboardList, Images, Trash2
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import { Badge, getTmEstado, tmVisitaRealizada } from './ODPFichaModal.utils';
@@ -97,7 +97,7 @@ const DetalleSAPCard: React.FC<{ odpId: number; canUpload: boolean; onOpenLightb
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-900 flex items-center gap-2">
           <Images className="w-4 h-4 text-violet-600" /> Detalles Tec. SAP ({imagenes.length})
         </h3>
         {canUpload && (
@@ -109,9 +109,9 @@ const DetalleSAPCard: React.FC<{ odpId: number; canUpload: boolean; onOpenLightb
       </div>
 
       {imagenes.length === 0 ? (
-        <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center text-slate-400">
+        <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center text-slate-700">
           <Images className="w-10 h-10 mx-auto mb-2 text-slate-200" />
-          <p className="font-bold text-xs">Sin imágenes Det. SAP</p>
+          <p className="font-medium text-xs">Sin imágenes Det. SAP</p>
           {canUpload && <p className="text-[11px] mt-1">Sube imágenes o pégalas con Ctrl+V</p>}
         </div>
       ) : (
@@ -138,7 +138,7 @@ const DetalleSAPCard: React.FC<{ odpId: number; canUpload: boolean; onOpenLightb
           ))}
         </div>
       )}
-      {canUpload && <p className="text-[10px] text-slate-400 mt-3 italic text-center">Ctrl+V para pegar imagen desde el portapapeles</p>}
+      {canUpload && <p className="text-[11px] text-slate-700 mt-3 italic text-center">Ctrl+V para pegar imagen desde el portapapeles</p>}
     </div>
   );
 };
@@ -277,7 +277,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
 
       <div className="grid md:grid-cols-2 gap-6">
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
+          <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-900 mb-4 flex items-center gap-2">
             <Wrench className="w-4 h-4 text-amber-600" /> Estado de Componentes de Producción
           </h3>
           <div className="flex items-center gap-2 mb-4">
@@ -285,17 +285,17 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
               <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-700"
                 style={{ width: items.length > 0 ? `${(completados / items.length) * 100}%` : '0%' }} />
             </div>
-            <span className="text-sm font-black text-slate-700">{completados}/{items.length}</span>
+            <span className="text-sm font-bold text-slate-900">{completados}/{items.length}</span>
             <Badge className={completados === items.length && items.length > 0 ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200'}>
               {completados === items.length && items.length > 0 ? 'LISTO' : 'EN CURSO'}
             </Badge>
           </div>
           {items.length === 0 ? (
-            <p className="text-xs text-slate-400 text-center py-4">Esta ODP no requiere seguimiento de componentes.</p>
+            <p className="text-xs text-slate-700 text-center py-4">Esta ODP no requiere seguimiento de componentes.</p>
           ) : (
             <div className={`grid gap-3 ${items.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
               {items.map(chk => (
-                <div key={chk.key} className={`p-4 rounded-xl border-2 text-center transition-all ${odp[chk.key] ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                <div key={chk.key} className={`p-4 rounded-xl border-2 text-center transition-all ${odp[chk.key] ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
                   <div className="flex justify-center mb-2">{chk.icon}</div>
                   <p className="text-xs font-bold">{chk.label}</p>
                   <p className="text-xs mt-1">{odp[chk.key] ? '✓ Completado' : 'Pendiente'}</p>
@@ -306,7 +306,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-4 flex items-center gap-2">
+          <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-900 mb-4 flex items-center gap-2">
             <FileText className="w-4 h-4 text-indigo-600" /> Croquis / Plano Técnico
           </h3>
           <div
@@ -354,10 +354,10 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
               </>
             ) : (
               <div className="text-center">
-                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-700">
                   <Camera className="w-6 h-6" />
                 </div>
-                <p className="text-slate-500 text-xs font-bold mb-3 uppercase tracking-wider">Aún no hay un dibujo técnico</p>
+                <p className="text-slate-900 text-xs font-semibold mb-3 uppercase tracking-wider">Aún no hay un dibujo técnico</p>
                 <div className="flex flex-col items-center gap-2">
                   {!soloLectura && (<><label className="cursor-pointer bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-black text-xs shadow-lg shadow-indigo-600/20 flex items-center gap-2 hover:bg-indigo-700 transition">
                     {uploading ? 'SUBIENDO...' : 'SUBIR CROQUIS'}
@@ -367,7 +367,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
                     type="button"
                     onClick={handlePegarPortapapeles}
                     disabled={uploading}
-                    className="bg-slate-100 text-slate-700 px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-slate-200 transition border border-slate-200"
+                    className="bg-slate-100 text-slate-700 px-4 py-2 rounded-xl font-semibold text-xs flex items-center gap-2 hover:bg-slate-200 transition border border-slate-200"
                   >
                     <ClipboardList className="w-3.5 h-3.5" /> Pegar desde portapapeles
                   </button></>)}
@@ -375,14 +375,14 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
               </div>
             )}
           </div>
-          <p className="text-[10px] text-slate-400 mt-3 italic text-center uppercase tracking-tighter">Haz clic en el área y pega con Ctrl+V, o usa el botón para subir archivo · Aparece en el impreso</p>
+          <p className="text-[11px] text-slate-700 mt-3 italic text-center uppercase tracking-tighter">Haz clic en el área y pega con Ctrl+V, o usa el botón para subir archivo · Aparece en el impreso</p>
         </div>
       </div>
 
       <DetalleSAPCard odpId={odp.id} canUpload={canUploadSAP} onOpenLightbox={openLightbox} />
 
       <div>
-        <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
+        <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-900 mb-3 flex items-center gap-2">
           <Ruler className="w-4 h-4 text-amber-600" /> Tomas de Medida ({tms.length})
         </h3>
         {canSolicitarTM && (
@@ -407,9 +407,9 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
         )}
 
         {tms.length === 0 ? (
-          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center text-slate-400">
+          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center text-slate-700">
             <Ruler className="w-10 h-10 mx-auto mb-2 text-slate-200" />
-            <p className="font-bold">Sin tomas de medida registradas</p>
+            <p className="font-medium">Sin tomas de medida registradas</p>
           </div>
         ) : tms.map((tm: any) => {
           const fotos: string[] = Array.isArray(tm.medidas_json) && tm.medidas_json.every((f: any) => typeof f === 'string')
@@ -418,12 +418,12 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
             <div key={tm.id} className="bg-white border border-slate-200 rounded-2xl p-5 mb-3 shadow-sm">
               <div className="flex justify-between items-start mb-3">
                 <div>
-                  <span className="font-black text-amber-700 text-lg">{tm.numero_tm}</span>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <span className="font-bold text-amber-700 text-lg">{tm.numero_tm}</span>
+                  <p className="text-xs text-slate-700 mt-0.5">
                     {tm.realizador?.nombre_completo} · {tm.fecha_visita ? new Date(tm.fecha_visita + 'T00:00:00').toLocaleDateString('es-CO') : 'Sin fecha'}
                   </p>
                   {tm.direccion && (
-                    <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                    <p className="text-xs text-slate-700 flex items-center gap-1 mt-0.5">
                       <MapPin className="w-3 h-3" />{tm.direccion}
                     </p>
                   )}
@@ -443,7 +443,7 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
 
               {fotos.length > 0 ? (
                 <div>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                  <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1">
                     <Camera className="w-3.5 h-3.5" /> Fotos relevadas ({fotos.length})
                   </p>
                   <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
@@ -455,13 +455,13 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-slate-400 italic">
+                <p className="text-xs text-slate-700 italic">
                   {tmVisitaRealizada(tm.estado) ? 'Sin fotos registradas' : 'Pendiente de realizar la visita'}
                 </p>
               )}
 
               {tm.observaciones && (
-                <p className="text-xs text-slate-500 italic mt-3 pt-3 border-t border-slate-100">"{tm.observaciones}"</p>
+                <p className="text-xs text-slate-700 italic mt-3 pt-3 border-t border-slate-100">"{tm.observaciones}"</p>
               )}
             </div>
           );
@@ -474,27 +474,27 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
         <div className="fixed inset-0 z-[1410] flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+              <h3 className="font-bold text-slate-900 flex items-center gap-2">
                 <Ruler className="w-4 h-4 text-sky-600" /> Relacionar TM a {odp.numero_odp}
               </h3>
-              <button onClick={() => setRelacionarOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setRelacionarOpen(false)} className="text-slate-500 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="overflow-y-auto flex-1 p-4">
               {loadingTmsSinODP ? (
-                <p className="text-center text-slate-400 py-8">Cargando TMs disponibles...</p>
+                <p className="text-center text-slate-700 py-8">Cargando TMs disponibles...</p>
               ) : tmsSinODP.length === 0 ? (
-                <div className="text-center text-slate-400 py-8">
+                <div className="text-center text-slate-700 py-8">
                   <Ruler className="w-10 h-10 mx-auto mb-2 text-slate-200" />
-                  <p className="font-bold">No hay TMs sin ODP asignada</p>
+                  <p className="font-medium">No hay TMs sin ODP asignada</p>
                 </div>
               ) : tmsSinODP.map((tm: any) => (
                 <div key={tm.id} className="border border-slate-200 rounded-xl p-4 mb-3 hover:border-sky-300 transition">
                   <div className="flex justify-between items-start">
                     <div>
-                      <span className="font-black text-amber-700">{tm.numero_tm}</span>
-                      <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${getTmEstado(tm.estado).cls}`}>
+                      <span className="font-bold text-amber-700">{tm.numero_tm}</span>
+                      <span className={`ml-2 text-xs font-semibold px-2 py-0.5 rounded-full ${getTmEstado(tm.estado).cls}`}>
                         {getTmEstado(tm.estado).label}
                       </span>
                       {tm.prospecto && (
@@ -503,11 +503,11 @@ const TabProduccion: React.FC<{ odp: any; onUpdate?: () => void; currentUser?: a
                         </p>
                       )}
                       {tm.direccion && (
-                        <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                        <p className="text-xs text-slate-700 flex items-center gap-1 mt-0.5">
                           <MapPin className="w-3 h-3" />{tm.direccion}
                         </p>
                       )}
-                      {tm.realizador && <p className="text-xs text-slate-400 mt-0.5">{tm.realizador.nombre_completo}</p>}
+                      {tm.realizador && <p className="text-xs text-slate-700 mt-0.5">{tm.realizador.nombre_completo}</p>}
                     </div>
                     <button
                       onClick={() => handleVincularTM(tm.id, tm.numero_tm)}

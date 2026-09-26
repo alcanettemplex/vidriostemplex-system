@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { X, Plus, Printer, Ruler, MapPin, Camera, Upload, CheckCircle2, Phone, User, CalendarCheck, Image } from 'lucide-react';
+import { X, Plus, Printer, Ruler, MapPin, Camera, Upload, CheckCircle2, Phone, User, CalendarCheck, Image } from '../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import API from '../../../services/config';
 
@@ -155,7 +155,7 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
         <div className="bg-white rounded-2xl p-8 flex items-center gap-3 shadow-xl">
           <Ruler className="w-5 h-5 text-amber-500 animate-pulse" />
-          <span className="font-medium text-slate-600">Cargando TMs...</span>
+          <span className="font-medium text-slate-800">Cargando TMs...</span>
         </div>
       </div>
     );
@@ -171,24 +171,24 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
           <div className="flex items-center gap-3">
             <div className="p-2 bg-amber-50 rounded-xl"><Ruler className="w-5 h-5 text-amber-600" /></div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Toma de Medidas</h2>
-              <p className="text-xs text-slate-500">{odp.numero_odp} · {odp.cliente?.nombre_razon_social}</p>
+              <h2 className="text-lg font-bold text-slate-900">Toma de Medidas</h2>
+              <p className="text-xs text-slate-700">{odp.numero_odp} · {odp.cliente?.nombre_razon_social}</p>
             </div>
           </div>
           <div className="flex gap-2">
             {tms.length > 0 && mode !== 'view' && (
               <button onClick={() => { setSelected(tms[0]); setMode('view'); }}
-                className="px-3 py-2 text-xs font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+                className="px-3 py-2 text-xs font-bold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
                 Ver TM
               </button>
             )}
             {mode === 'view' && !tms[0]?.croquis_url && (
               <button onClick={() => { setSelected(tms[0]); setFotos([]); setMode('fotos'); }}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-amber-700 border border-amber-200 rounded-xl bg-amber-50 hover:bg-amber-100 transition">
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-amber-700 border border-amber-200 rounded-xl bg-amber-50 hover:bg-amber-100 transition">
                 <Camera className="w-3.5 h-3.5" /> Subir fotos
               </button>
             )}
-            <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
+            <button onClick={onClose} className="p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -207,7 +207,7 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
                 className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold border-b-2 transition-colors
                   ${step.done ? 'border-emerald-500 text-emerald-700 bg-emerald-50/40'
                     : isActive ? 'border-amber-500 text-amber-700'
-                    : 'border-transparent text-slate-400'}`}>
+                    : 'border-transparent text-slate-700'}`}>
                 {step.done
                   ? <CheckCircle2 className="w-3.5 h-3.5" />
                   : <Icon className="w-3.5 h-3.5" />}
@@ -224,7 +224,7 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
             <div className="p-6 space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase">
+                  <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase">
                     Fecha de Visita <span className="text-rose-500">*</span>
                   </label>
                   <input type="date" value={formProgramar.fecha_visita}
@@ -232,7 +232,7 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase flex items-center gap-1">
+                  <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase flex items-center gap-1">
                     <MapPin className="w-3 h-3" /> Dirección de Obra
                   </label>
                   <input value={formProgramar.direccion}
@@ -240,7 +240,7 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase flex items-center gap-1">
+                  <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase flex items-center gap-1">
                     <User className="w-3 h-3" /> Contacto en Obra
                   </label>
                   <input value={formProgramar.contacto_obra}
@@ -248,7 +248,7 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase flex items-center gap-1">
+                  <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase flex items-center gap-1">
                     <Phone className="w-3 h-3" /> Teléfono
                   </label>
                   <input value={formProgramar.telefono_obra}
@@ -257,7 +257,7 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase">Observaciones</label>
+                <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase">Observaciones</label>
                 <textarea value={formProgramar.observaciones}
                   onChange={e => setFormProgramar(p => ({ ...p, observaciones: e.target.value }))}
                   rows={2} placeholder="Acceso al sitio, indicaciones del asesor, etc..."
@@ -279,8 +279,8 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
               <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
                 <CalendarCheck className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm">
-                  <p className="font-bold text-slate-700">{selected.numero_tm} · Visita: {selected.fecha_visita ? new Date(selected.fecha_visita + 'T00:00:00').toLocaleDateString('es-CO') : '—'}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Sube una o varias fotos de la hoja de medidas. Al confirmar la ODP avanza a Medición.</p>
+                  <p className="font-bold text-slate-900">{selected.numero_tm} · Visita: {selected.fecha_visita ? new Date(selected.fecha_visita + 'T00:00:00').toLocaleDateString('es-CO') : '—'}</p>
+                  <p className="text-xs text-slate-700 mt-0.5">Sube una o varias fotos de la hoja de medidas. Al confirmar la ODP avanza a Medición.</p>
                 </div>
               </div>
 
@@ -315,13 +315,13 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
                   className="w-full border-2 border-dashed border-amber-300 rounded-xl py-12 flex flex-col items-center gap-2 text-amber-600 hover:bg-amber-50 transition">
                   <Image className="w-10 h-10" />
                   <span className="text-sm font-bold">Seleccionar foto(s) de medidas</span>
-                  <span className="text-xs text-slate-400">Puedes tomar la foto con la cámara directamente</span>
+                  <span className="text-xs text-slate-700">Puedes tomar la foto con la cámara directamente</span>
                 </button>
               )}
 
               <div className="flex gap-3 pt-2 border-t border-slate-100">
                 <button onClick={() => { setSelected(tms[0]); setMode('view'); }}
-                  className="px-5 py-3 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+                  className="px-5 py-3 font-bold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
                   Ver TM
                 </button>
                 <button onClick={handleSubirFotos} disabled={uploadingFoto || fotos.length === 0}
@@ -339,12 +339,12 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
               <div className="flex gap-3 p-4 border-b border-slate-100 print:hidden">
                 {!selected.croquis_url && (
                   <button onClick={() => { setFotos([]); setMode('fotos'); }}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-amber-700 border border-amber-200 rounded-xl bg-amber-50 hover:bg-amber-100 transition">
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-amber-700 border border-amber-200 rounded-xl bg-amber-50 hover:bg-amber-100 transition">
                     <Camera className="w-4 h-4" /> Subir fotos de medidas
                   </button>
                 )}
                 <button onClick={() => window.print()}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition ml-auto">
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition ml-auto">
                   <Printer className="w-4 h-4" /> Imprimir
                 </button>
               </div>
@@ -421,7 +421,7 @@ const TMModal: React.FC<Props> = ({ odp, onClose }) => {
                     </div>
                   ))}
                 </div>
-                <div className="border-t-2 border-black pt-3 mt-8 flex justify-between text-[10px] text-gray-500">
+                <div className="border-t-2 border-black pt-3 mt-8 flex justify-between text-[11px] text-gray-500">
                   <span>Vidrios Templex — Registro de Campo</span>
                   <span>{selected.numero_tm} · ODP {odp.numero_odp}</span>
                 </div>

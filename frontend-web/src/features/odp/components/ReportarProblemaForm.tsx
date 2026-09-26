@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { X, AlertTriangle, Send, CheckCircle, ChevronDown, Package } from 'lucide-react';
+import { X, AlertTriangle, Send, CheckCircle, ChevronDown, Package } from '../../../components/ui/icons';
 
 interface ReportarProblemaFormProps {
   odp: any;
@@ -111,15 +111,15 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
         <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
           <CheckCircle className="w-10 h-10" />
         </div>
-        <h3 className="text-xl font-black text-slate-800">¡Reporte Enviado!</h3>
-        <p className="text-slate-500 mt-2">La no conformidad ha sido registrada exitosamente.</p>
+        <h3 className="text-xl font-bold text-slate-900">¡Reporte Enviado!</h3>
+        <p className="text-slate-700 mt-2">La no conformidad ha sido registrada exitosamente.</p>
         {resultado && (
           <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4 text-left w-full max-w-md">
-            <p className="text-xs font-bold text-slate-500 mb-1">Consecutivo:</p>
-            <p className="text-lg font-black text-indigo-700">{resultado.no_conformidad?.numero_reporte}</p>
-            <p className="text-xs font-bold text-slate-500 mt-2 mb-1">Nueva ODP de Reproceso:</p>
-            <p className="text-lg font-black text-amber-600">{resultado.nueva_odp?.numero_odp}</p>
-            <p className="text-[10px] text-slate-400 mt-2">La ODP original ({odp.numero_odp}) ha sido pausada automáticamente.</p>
+            <p className="text-xs font-bold text-slate-900 mb-1">Consecutivo:</p>
+            <p className="text-lg font-bold text-indigo-700">{resultado.no_conformidad?.numero_reporte}</p>
+            <p className="text-xs font-bold text-slate-900 mt-2 mb-1">Nueva ODP de Reproceso:</p>
+            <p className="text-lg font-bold text-amber-700">{resultado.nueva_odp?.numero_odp}</p>
+            <p className="text-[11px] text-slate-700 mt-2">La ODP original ({odp.numero_odp}) ha sido pausada automáticamente.</p>
           </div>
         )}
       </div>
@@ -127,23 +127,23 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
   }
 
   const inputClass = "w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition";
-  const labelClass = "block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-wider";
+  const labelClass = "block text-[11px] font-semibold uppercase text-slate-900 mb-1 tracking-wider";
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-5">
-        <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+        <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
           <AlertTriangle className="w-5 h-5 text-amber-500" /> REPORTAR NO CONFORMIDAD
         </h2>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>1</span>
+          <div className="flex items-center gap-1 text-[11px] font-bold text-slate-900">
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'}`}>1</span>
             <span className="w-4 h-px bg-slate-300" />
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>2</span>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'}`}>2</span>
             <span className="w-4 h-px bg-slate-300" />
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>3</span>
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'}`}>3</span>
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400">
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-700">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -152,18 +152,18 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
       {/* Referencia visual de la ODP */}
       <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-5 flex justify-between items-center text-sm">
         <div>
-          <span className="font-black text-indigo-700">{odp.numero_odp}</span>
-          <span className="text-slate-400 mx-2">·</span>
-          <span className="text-slate-600">{odp.cliente?.nombre_razon_social}</span>
+          <span className="font-bold text-indigo-700">{odp.numero_odp}</span>
+          <span className="text-slate-700 mx-2">·</span>
+          <span className="text-slate-800">{odp.cliente?.nombre_razon_social}</span>
         </div>
-        <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">{odp.estado_produccion?.replace(/_/g, ' ')}</span>
+        <span className="text-[11px] font-semibold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">{odp.estado_produccion?.replace(/_/g, ' ')}</span>
       </div>
 
       {/* ─── PASO 1: Datos del Problema ─── */}
       {step === 1 && (
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-          <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-3">
-            <span className="w-5 h-5 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center text-[10px] font-black">1</span>
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-3">
+            <span className="w-5 h-5 bg-rose-100 text-rose-700 rounded-full flex items-center justify-center text-[11px] font-bold">1</span>
             Describe el problema
           </h3>
           <div className="grid md:grid-cols-2 gap-4">
@@ -217,13 +217,13 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
       {/* ─── PASO 2: Seleccionar Ítem Dañado ─── */}
       {step === 2 && (
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-          <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-1">
-            <span className="w-5 h-5 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-[10px] font-black">2</span>
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-1">
+            <span className="w-5 h-5 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center text-[11px] font-bold">2</span>
             Si aplica, selecciona el ítem afectado
           </h3>
-          <p className="text-[11px] text-slate-400 mb-3">Opcional — si el problema es de SAP o no hay ítem de vidrio involucrado, puedes omitir este paso.</p>
+          <p className="text-[11px] text-slate-700 mb-3">Opcional — si el problema es de SAP o no hay ítem de vidrio involucrado, puedes omitir este paso.</p>
           {items.length === 0 ? (
-            <div className="text-center py-8 text-slate-400">
+            <div className="text-center py-8 text-slate-700">
               <Package className="w-10 h-10 mx-auto mb-2 text-slate-200" />
               <p className="font-bold">Esta ODP no tiene ítems registrados.</p>
             </div>
@@ -236,26 +236,26 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
                     : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}>
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-sm font-bold text-slate-800">{item.tipo_vidrio || item.item || 'Ítem sin nombre'}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-sm font-bold text-slate-900">{item.tipo_vidrio || item.item || 'Ítem sin nombre'}</p>
+                      <p className="text-xs text-slate-700 mt-0.5">
                         {item.ancho_mm}mm × {item.alto_mm}mm
                         {item.espesor && ` · ${item.espesor}`}
                         {item.color && ` · ${item.color}`}
                       </p>
                     </div>
-                    <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{item.cantidad}x</span>
+                    <span className="text-xs font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded">{item.cantidad}x</span>
                   </div>
                 </button>
               ))}
             </div>
           )}
           <div className="flex justify-between pt-2">
-            <button type="button" onClick={() => setStep(1)} className="px-6 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition text-sm">
+            <button type="button" onClick={() => setStep(1)} className="px-6 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition text-sm">
               Atrás
             </button>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => handleSubmit(false)} disabled={loading}
-                className="px-4 py-2.5 bg-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-300 transition text-sm disabled:opacity-50">
+                className="px-4 py-2.5 bg-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-300 transition text-sm disabled:opacity-50">
                 {loading ? 'PROCESANDO...' : 'Enviar sin ítems'}
               </button>
               <button type="button" onClick={() => setStep(3)}
@@ -270,11 +270,11 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
       {/* ─── PASO 3: Definir Ítem de Solución (Repuesto) ─── */}
       {step === 3 && (
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-          <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-1">
-            <span className="w-5 h-5 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-[10px] font-black">3</span>
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-1">
+            <span className="w-5 h-5 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-[11px] font-bold">3</span>
             Define el ítem de solución / repuesto
           </h3>
-          <p className="text-[11px] text-slate-400 mb-3">Opcional — si el problema es de SAP, puedes omitir este ítem y generar el reporte sin ítems de solución.</p>
+          <p className="text-[11px] text-slate-700 mb-3">Opcional — si el problema es de SAP, puedes omitir este ítem y generar el reporte sin ítems de solución.</p>
 
           <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 space-y-3">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -333,7 +333,7 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
             </div>
             <div className="flex flex-wrap gap-4 pt-1">
               {(['pelicula', 'matizado', 'carton', 'huacal'] as const).map(field => (
-                <label key={field} className="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer">
+                <label key={field} className="flex items-center gap-1.5 text-[11px] text-slate-800 cursor-pointer">
                   <input type="checkbox" checked={(itemSolucion as any)[field]} onChange={e => setItemSolucion({ ...itemSolucion, [field]: e.target.checked })}
                     className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                   {field.charAt(0).toUpperCase() + field.slice(1)}
@@ -343,12 +343,12 @@ const ReportarProblemaForm: React.FC<ReportarProblemaFormProps> = ({ odp, onClos
           </div>
 
           <div className="flex justify-between pt-2">
-            <button type="button" onClick={() => setStep(2)} className="px-6 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition text-sm">
+            <button type="button" onClick={() => setStep(2)} className="px-6 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition text-sm">
               Atrás
             </button>
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => handleSubmit(false)} disabled={loading}
-                className="px-4 py-2.5 bg-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-300 transition text-sm disabled:opacity-50">
+                className="px-4 py-2.5 bg-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-300 transition text-sm disabled:opacity-50">
                 {loading ? 'PROCESANDO...' : 'Omitir y enviar'}
               </button>
               <button type="button" onClick={() => handleSubmit(true)} disabled={loading}

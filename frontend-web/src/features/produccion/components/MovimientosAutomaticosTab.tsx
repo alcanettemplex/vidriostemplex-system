@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { Bot, ArrowRight, RefreshCw, CheckCircle2, Undo2 } from 'lucide-react';
+import { Bot, ArrowRight, RefreshCw, CheckCircle2, Undo2 } from '../../../components/ui/icons';
 import socket from '../../../store/socket';
 import API from '../../../services/config';
 
@@ -107,31 +107,31 @@ const MovimientosAutomaticosTab: React.FC<Props> = ({ onOpenOdp }) => {
 
     if (loading) {
         return (
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-3">
+            <div className="bg-white rounded-2xl shadow-card border border-slate-200 p-6 space-y-3">
                 {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="h-16 bg-slate-50 rounded-xl animate-pulse" />
+                    <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse" />
                 ))}
             </div>
         );
     }
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="bg-white rounded-2xl shadow-card border border-slate-200 overflow-hidden">
+            <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                    <div className="p-2 bg-indigo-50 rounded-xl">
+                    <div className="p-2 bg-indigo-50 border border-indigo-100 rounded-xl">
                         <Bot className="w-4 h-4 text-indigo-600" />
                     </div>
                     <div>
-                        <h3 className="text-sm font-black text-slate-800">Movimientos automáticos</h3>
-                        <p className="text-[11px] text-slate-400 leading-tight">
+                        <h3 className="text-sm font-semibold text-slate-900">Movimientos automáticos</h3>
+                        <p className="text-xs text-slate-700 leading-snug">
                             Últimos {LIMITE} cambios que hizo el sistema solo — vidrio, herrajes y avances de estado
                         </p>
                     </div>
                 </div>
                 <button
                     onClick={() => fetchMovimientos()}
-                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    className="p-2 text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
                     title="Actualizar"
                 >
                     <RefreshCw className="w-4 h-4" />
@@ -140,23 +140,23 @@ const MovimientosAutomaticosTab: React.FC<Props> = ({ onOpenOdp }) => {
 
             {error ? (
                 <div className="p-10 text-center">
-                    <p className="text-sm text-slate-400">
+                    <p className="text-sm text-slate-800">
                         No se pudo cargar la bitácora. Revisa tu conexión y vuelve a intentarlo.
                     </p>
                     <button
                         onClick={() => fetchMovimientos()}
-                        className="mt-3 px-4 py-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+                        className="mt-3 px-4 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
                     >
                         Reintentar
                     </button>
                 </div>
             ) : movimientos.length === 0 ? (
                 <div className="p-12 text-center">
-                    <Bot className="w-9 h-9 text-slate-200 mx-auto mb-3" />
-                    <p className="text-sm font-medium text-slate-400">
+                    <Bot className="w-9 h-9 text-slate-300 mx-auto mb-3" />
+                    <p className="text-sm font-semibold text-slate-900">
                         Todavía no hay movimientos automáticos.
                     </p>
-                    <p className="text-xs text-slate-300 mt-1 max-w-md mx-auto leading-relaxed">
+                    <p className="text-xs text-slate-700 mt-1 max-w-md mx-auto leading-relaxed">
                         Aquí aparecerán las órdenes que avancen solas al verificarse un pedido de vidrio
                         o al quedar cubierta toda la SAP.
                     </p>
@@ -176,33 +176,33 @@ const MovimientosAutomaticosTab: React.FC<Props> = ({ onOpenOdp }) => {
                                 onClick={() => m.ODP && onOpenOdp(m.ODP.id)}
                             >
                                 <div className={`mt-0.5 p-1.5 rounded-lg shrink-0
-                                    ${esRetroceso ? 'bg-amber-100 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                    ${esRetroceso ? 'bg-amber-100 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
                                     {esRetroceso ? <Undo2 className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                                 </div>
 
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                                        <span className="text-[13px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
                                             {m.ODP?.numero_odp || `ODP #${m.odp_id}`}
                                         </span>
-                                        <span className="text-xs font-bold text-slate-700 truncate max-w-[240px]">
+                                        <span className="text-sm font-semibold text-slate-900 truncate max-w-[240px]">
                                             {m.ODP?.cliente?.nombre_razon_social || ''}
                                         </span>
-                                        <span className="text-[10px] text-slate-400 ml-auto shrink-0">
+                                        <span className="text-xs text-slate-700 ml-auto shrink-0">
                                             {fechaLegible(m.fecha)}
                                         </span>
                                     </div>
 
-                                    <div className="flex items-center gap-1.5 mt-1.5 text-[11px] font-semibold">
-                                        <span className="text-slate-400">{etiquetaEstado(m.estado_anterior)}</span>
-                                        <ArrowRight className="w-3 h-3 text-slate-300 shrink-0" />
+                                    <div className="flex items-center gap-1.5 mt-1.5 text-xs font-semibold">
+                                        <span className="text-slate-700">{etiquetaEstado(m.estado_anterior)}</span>
+                                        <ArrowRight className="w-3 h-3 text-slate-500 shrink-0" />
                                         <span className={esRetroceso ? 'text-amber-700' : 'text-emerald-700'}>
                                             {etiquetaEstado(m.estado_nuevo)}
                                         </span>
                                     </div>
 
                                     {m.observacion && (
-                                        <p className="text-[11px] text-slate-500 mt-1 leading-snug">{m.observacion}</p>
+                                        <p className="text-xs text-slate-800 mt-1 leading-snug">{m.observacion}</p>
                                     )}
                                 </div>
                             </li>
