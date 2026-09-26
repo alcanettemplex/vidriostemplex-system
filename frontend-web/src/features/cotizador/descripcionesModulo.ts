@@ -38,3 +38,20 @@ const DESCRIPCIONES_COMERCIALES: Record<string, string> = {
 export function descripcionComercial(modulo: Pick<ModuloMeta, 'id' | 'descripcion'>): string {
     return DESCRIPCIONES_COMERCIALES[modulo.id] ?? modulo.descripcion;
 }
+
+/** Subtítulo de una línea para el riel de productos de Cotizar (2026-09-26):
+ * la frase comercial completa no cabe en 190 px. Un módulo sin subtítulo no
+ * muestra ninguno. */
+const SUBTITULO_RIEL: Record<string, string> = {
+    ventanas: 'Aluminio · 4 sistemas',
+    proyectantes: 'Sistema 3831',
+    'cabinas-corredizas': 'Baño · corrediza',
+    'cabinas-batientes': 'Baño · batiente',
+    tablero: 'Templado 6 u 8 mm',
+    espejo: 'Espejo 4 mm',
+    'item-libre': 'Línea por línea',
+};
+
+export function subtituloRiel(moduloId: string): string | null {
+    return SUBTITULO_RIEL[moduloId] ?? null;
+}

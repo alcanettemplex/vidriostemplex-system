@@ -1,21 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, Layers, Calculator, PencilRuler, Pencil, X, Save, Lock } from '../../../components/ui/icons';
+import { PencilRuler, Lock } from '../../../components/ui/icons';
 import { toast } from 'react-toastify';
 
 import {
     ItemCarrito, LineaBOM, ModuloMeta, PersonalizacionItem, ResultadoCalculo as TResultadoCalculo, SegmentoCliente,
 } from '../types';
 import { apiCotizarItem } from '../services/cotizadorApi';
-import FormularioModulo from './FormularioModulo';
+import FormularioModulo, { EstadoCalculo } from './FormularioModulo';
 import ResultadoCalculo from './ResultadoCalculo';
 import ModalComponente, { AccionComponente } from './modals/ModalComponente';
 import DiagramaProducto from './DiagramaProducto';
-import FichaProducto from './FichaProducto';
 import SelectorProducto from './SelectorProducto';
-import { BotonPrimario, BotonSecundario, EstadoVacio, Tarjeta } from './ui';
+import { EsteProducto, EstadoPrecio } from './ResumenPropuesta';
 import { usePlanoPrevisualizacion } from '../hooks/usePlano';
 import { colorPropuesta, rotuloPropuesta } from '../propuestaColor';
 import { BorradorCotizar } from '../totalesPropuesta';
+import { detalleCorto, leerFicha } from '../fichaProducto';
+import { descripcionComercial } from '../descripcionesModulo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pestaña "Cotizar" — el configurador.
@@ -43,39 +44,20 @@ import { BorradorCotizar } from '../totalesPropuesta';
 // cambia el tipo de cliente con un ítem calculado sin agregar, ese ítem se
 // recalcula solo en vez de perderse.
 //
-// FLUJO GUIADO EN TRES PASOS (2026-09-26, Fase 5 del sistema visual): la
-// pestaña se lee de arriba abajo en el orden en que se trabaja —
-//   1 · Elige el producto   (selector a lo ancho, una fila de tarjetas)
-//   2 · Configura y calcula (formulario | resultado, la rejilla de siempre)
-//   3 · Cargos de obra      (a lo ancho, plegable)
-// Hasta hoy los cargos iban arriba, en la columna izquierda de 2/5, y en ese
-// ancho la tabla se rompía ("Mano de obra" en tres líneas, el icono montado
-// sobre "Und."). Siguen perteneciendo a la PROPUESTA y no al ítem: por eso son
-// un paso aparte y no parte del formulario.
+// MESA DE TRABAJO (2026-09-26, rediseño integral — arquitectura A, elegida
+// por el usuario sobre una maqueta): seleccionar → configurar → revisar →
+// guardar sin bajar la página.
+//   · Riel izquierdo: los productos (SelectorProducto).
+//   · Centro: el formulario agrupado y el plano, y debajo los avisos técnicos
+//     y el despiece PLEGADO (ResultadoCalculo). El precio se recalcula SOLO al
+//     cambiar un campo (FormularioModulo); el botón queda como "Calcular ahora".
+//   · Derecha, siempre visible: el resumen de la propuesta (ResumenPropuesta),
+//     que dibuja CotizadorPage con `renderResumen` — aquí solo se le pasa lo
+//     que este componente sabe: el producto en pantalla y su botón Agregar.
+// La franja "Estás cotizando para…", los pasos numerados y el panel de cargos a
+// lo ancho salieron: la barra de trabajo ya dice la propuesta y el tipo de
+// cliente, y los cargos viven en el resumen. Nada de la lógica cambió.
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** Encabezado de un paso del flujo: círculo numerado en azul de marca +
- * título en negro. `detalle` es una aclaración corta a la derecha. */
-const Paso: React.FC<{
-    numero: number;
-    titulo: string;
-    detalle?: React.ReactNode;
-    children: React.ReactNode;
-}> = ({ numero, titulo, detalle, children }) => (
-    <section className="space-y-2" aria-label={`Paso ${numero}: ${titulo}`}>
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-            <span
-                aria-hidden="true"
-                className="w-6 h-6 rounded-full bg-templex-600 text-white text-[12px] font-bold flex items-center justify-center shrink-0"
-            >
-                {numero}
-            </span>
-            <h2 className="text-[14px] font-bold text-slate-900">{titulo}</h2>
-            {detalle && <p className="text-[12px] text-slate-700">{detalle}</p>}
-        </div>
-        {children}
-    </section>
-);
 
 /** Deja fuera los arreglos vacíos; null si no queda nada (el ítem vuelve a ser
  * estándar y el input no carga una clave vacía). */
@@ -104,21 +86,19 @@ interface Props {
     /** Motivo por el que no se puede agregar ni editar (propuesta elegida de una
      * cotización aprobada). null = se puede. */
     bloqueo: string | null;
-    /** Panel de cargos de obra, inyectado por el padre: pertenece a la
-     * PROPUESTA, no al ítem que se está configurando, y por eso es un paso
-     * propio (el 3) y no parte de la columna de configuración. */
-    panelCargos?: React.ReactNode;
     /** Propuesta a la que se agregará lo que se calcule aquí. */
-    destino: { etiqueta: string; nombre: string | null; items: number; guardada: boolean };
+    destino: { etiqueta: string; nombre: string | null };
     /** Avisa al padre qué producto calculado hay en pantalla (o null), para el
-     * total en vivo del paso 3. Debe ser estable (un setState). */
+     * total en vivo del resumen. Debe ser estable (un setState). */
     onBorrador?: (b: BorradorCotizar | null) => void;
-    onVerPropuesta: () => void;
+    /** Columna derecha: el resumen de la propuesta, dibujado por CotizadorPage
+     * con lo que aquí se sabe del producto en pantalla. */
+    renderResumen: (este: EsteProducto) => React.ReactNode;
 }
 
 const TabCotizar: React.FC<Props> = ({
-    modulos, segmento, onAgregarItem, edicion, onGuardarEdicion, onCancelarEdicion, bloqueo, panelCargos, destino,
-    onVerPropuesta, onBorrador,
+    modulos, segmento, onAgregarItem, edicion, onGuardarEdicion, onCancelarEdicion, bloqueo, destino,
+    onBorrador, renderResumen,
 }) => {
     const [moduloId, setModuloId] = useState<string>(edicion?.item.moduloId ?? modulos[0]?.id ?? '');
     const [ultimoInput, setUltimoInput] = useState<Record<string, unknown> | null>(null);
@@ -127,6 +107,8 @@ const TabCotizar: React.FC<Props> = ({
     const [personalizacion, setPersonalizacion] = useState<PersonalizacionItem | null>(null);
     const [recalculando, setRecalculando] = useState(false);
     const [modalComponente, setModalComponente] = useState<{ modo: 'cambiar' | 'agregar'; linea?: LineaBOM } | null>(null);
+    /** Estado del cálculo automático del formulario (incompleto, calculando…). */
+    const [estadoCalculo, setEstadoCalculo] = useState<EstadoCalculo | null>(null);
 
     // La lista de módulos llega del padre de forma asíncrona: si al montar
     // todavía estaba vacía, se elige el primero en cuanto aparece.
@@ -141,6 +123,7 @@ const TabCotizar: React.FC<Props> = ({
         setModuloId(edicion.item.moduloId);
         setUltimoInput(null);
         setUltimoResultado(null);
+        setEstadoCalculo(null);
         setPersonalizacion(limpiarPersonalizacion(
             (edicion.item.input.personalizacion as PersonalizacionItem | undefined) ?? null
         ));
@@ -200,6 +183,7 @@ const TabCotizar: React.FC<Props> = ({
         setModuloId(id);
         setUltimoInput(null);
         setUltimoResultado(null);
+        setEstadoCalculo(null);
         setPersonalizacion(null);
     };
 
@@ -295,6 +279,7 @@ const TabCotizar: React.FC<Props> = ({
         setUltimoResultado(null);
         setUltimoInput(null);
         setPersonalizacion(null);
+        setEstadoCalculo(null);
     };
 
     const disenoId = typeof ultimoInput?.disenoId === 'string' ? ultimoInput.disenoId : undefined;
@@ -305,176 +290,112 @@ const TabCotizar: React.FC<Props> = ({
     const hayResultado = Boolean(ultimoResultado && ultimoInput);
     const color = colorPropuesta(destino.etiqueta);
     const rotulo = rotuloPropuesta({ etiqueta: destino.etiqueta, nombre: destino.nombre });
-    const textoBoton = edicion
-        ? `Guardar cambios en el ítem ${edicion.posicion}`
-        : `Agregar a la ${rotulo}`;
+
+    // ── Lo que el resumen de la derecha necesita saber de este producto ─────
+    const ficha = leerFicha(ultimoInput, ultimoResultado, moduloActivo);
+    const pendiente = estadoCalculo?.tipo === 'calculando' || estadoCalculo?.tipo === 'incompleto' || estadoCalculo?.tipo === 'error';
+    const hayErrores = Boolean(ultimoResultado?.hayErrores);
+    const motivoNoAgregar = bloqueo
+        ?? (!hayResultado ? null
+            : hayErrores ? 'Corrige las líneas en rojo del despiece para poder agregarlo.'
+            : pendiente || recalculando ? 'Espera a que termine el cálculo.'
+            : null);
+    const este: EsteProducto = {
+        nombre: moduloActivo
+            ? `${moduloActivo.nombre}${ficha.medidas ? ` · ${ficha.medidas}` : ''}`
+            : 'Elige un producto',
+        detalle: hayResultado ? detalleCorto(ficha) : '',
+        nivelCorte: hayResultado ? ficha.nivelCorte : null,
+        piezas: ficha.piezas,
+        subtotalConAiu: ultimoResultado ? Number(ultimoResultado.subtotalConAiu) || 0 : null,
+        iva: ultimoResultado ? Number(ultimoResultado.iva) || 0 : null,
+        total: ultimoResultado ? Number(ultimoResultado.total) || 0 : null,
+        // Sin estado y sin resultado: acaba de agregarse o de abrirse. Se dice
+        // qué hacer en vez de dejar el bloque en blanco.
+        estado: estadoCalculo,
+        recalculando,
+        hayErrores,
+        editando: edicion ? edicion.posicion : null,
+        textoBoton: edicion ? `Guardar cambios en el ítem ${edicion.posicion}` : `Agregar a la ${rotulo}`,
+        claseBoton: edicion ? undefined : color.boton,
+        puedeAgregar: hayResultado && !hayErrores && !bloqueo && !pendiente && !recalculando,
+        motivoNoAgregar,
+        onAgregar: confirmar,
+        onCancelarEdicion: edicion ? onCancelarEdicion : undefined,
+    };
 
     return (
         // El fondo `bg-slate-50` lo pone el cuerpo de la carpeta en
-        // CotizadorPage, para las dos pestañas a la vez. Aquí sería redundante.
-        <div className="p-4 space-y-5">
-            {/* Contexto: a qué propuesta entra lo que se calcule abajo (o qué
-                ítem se está editando). La franja lleva el color de la
-                propuesta, el mismo de su pestaña en la barra y del botón
-                "Agregar a" — colores de `propuestaColor.ts`: son significado,
-                no acento, y por eso no pasan a `templex`. */}
-            <div className="space-y-2">
-                {!edicion && (
-                    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border px-3.5 py-2.5 ${color.franja}`}>
-                        <Layers className={`w-4 h-4 shrink-0 ${color.texto}`} />
-                        <p className="flex-1 min-w-0 sm:min-w-[240px] text-[13px] leading-snug">
-                            Estás cotizando para la <span className="font-bold">{rotulo}</span>
-                            <span>
-                                {' '}· precios {segmento}
-                                {' '}· {destino.items === 0
-                                    ? 'todavía sin ítems'
-                                    : `${destino.items} ítem${destino.items === 1 ? '' : 's'}`}
-                                {!destino.guardada && ' · sin guardar'}
-                            </span>
-                        </p>
-                        {destino.items > 0 && (
-                            <button
-                                type="button"
-                                onClick={onVerPropuesta}
-                                className={`text-[12px] font-semibold underline underline-offset-2 ${color.texto}`}
-                            >
-                                Ver sus ítems
-                            </button>
-                        )}
-                    </div>
-                )}
-
-                {bloqueo && (
-                    <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12.5px] text-emerald-800">
-                        <Lock className="w-4 h-4 mt-0.5 shrink-0" />
-                        <p>{bloqueo}</p>
-                    </div>
-                )}
-
-                {edicion && (
-                    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-templex-200 bg-templex-50 px-3 py-2.5 text-[12.5px] text-templex-900">
-                        <Pencil className="w-4 h-4 shrink-0 text-templex-700" />
-                        <p className="flex-1 min-w-0 sm:min-w-[220px]">
-                            Editando el <span className="font-bold">ítem {edicion.posicion}</span> ({edicion.item.moduloNombre}).
-                            Cambia lo que necesites, pulsa Calcular y luego guarda: el ítem conserva su lugar en la lista.
-                        </p>
-                        <BotonSecundario compacto icono={X} onClick={onCancelarEdicion}>
-                            Cancelar edición
-                        </BotonSecundario>
-                    </div>
-                )}
-            </div>
-
-            {/* ── Paso 1 · producto, a lo ancho ───────────────────────────── */}
-            <Paso numero={1} titulo="Elige el producto">
+        // CotizadorPage. `pb-28` deja sitio a la barra fija de tablet/teléfono.
+        <div className="p-3 sm:p-4 pb-28 xl:pb-4">
+            <div className="grid gap-4 items-start lg:grid-cols-[190px_minmax(0,1fr)] xl:grid-cols-[190px_minmax(0,1fr)_340px]">
+                {/* ── Riel de productos ─────────────────────────────────── */}
                 <SelectorProducto modulos={modulos} moduloId={moduloId} onCambiar={cambiarModulo} />
-            </Paso>
 
-            {/* ── Paso 2 · configuración (2/5) | resultado (3/5) ──────────── */}
-            {moduloActivo && (
-                <Paso
-                    numero={2}
-                    titulo="Configura y calcula"
-                    detalle={edicion ? `Editando el ítem ${edicion.posicion}` : undefined}
-                >
-                    <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 items-start">
-                        {/* ── Configuración (2/5) ─────────────────────────────── */}
-                        {/* Sin tarjeta envolvente: cada grupo de campos trae la suya
-                            (ver FormularioModulo) y anidarlas daría blanco sobre
-                            blanco con doble borde. La `key` incluye el ítem en
-                            edición para que el formulario se remonte con su input. */}
-                        <div className="lg:col-span-2 min-w-0 space-y-3">
-                            <FormularioModulo
-                                key={`${moduloActivo.id}-${idEdicion ?? 'nuevo'}`}
-                                modulo={moduloActivo}
-                                segmento={segmento}
-                                inputInicial={edicion && edicion.item.moduloId === moduloActivo.id ? edicion.item.input : null}
-                                personalizacion={personalizacion}
-                                onResultado={handleResultado}
-                            />
+                {/* ── Centro: configurar y revisar ──────────────────────── */}
+                <section className="min-w-0 space-y-3" aria-label="Configurar el producto">
+                    {bloqueo && (
+                        <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12.5px] text-emerald-800">
+                            <Lock className="w-4 h-4 mt-0.5 shrink-0" />
+                            <p>{bloqueo}</p>
                         </div>
+                    )}
 
-                        {/* ── Resultado (3/5) ─────────────────────────────────── */}
-                        <div className="lg:col-span-3 min-w-0 space-y-3">
-                            {hayResultado ? (
-                                <>
-                                    {/* Sólo con resultado (2026-09-23): antes se pintaba
-                                        siempre y, sin nada calculado, quedaban dos avisos
-                                        vacíos seguidos diciendo lo mismo. El diagrama
-                                        resuelve solo "cargando" y "sin plano". */}
-                                    <Tarjeta titulo="Vista técnica" icono={PencilRuler}>
+                    {moduloActivo && (
+                        <div className="bg-white border border-slate-200 rounded-2xl shadow-card">
+                            <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5 px-4 pt-4">
+                                <div className="min-w-0 basis-72 grow">
+                                    <h2 className="text-[19px] font-bold text-slate-900 leading-tight">
+                                        {edicion ? `Editando el ítem ${edicion.posicion} · ${moduloActivo.nombre}` : moduloActivo.nombre}
+                                    </h2>
+                                    <p className="mt-0.5 text-[12.5px] text-slate-700 leading-snug">{descripcionComercial(moduloActivo)}</p>
+                                </div>
+                                <EstadoPrecio este={este} />
+                            </header>
+
+                            <div className="grid gap-5 p-4 2xl:grid-cols-[minmax(0,1fr)_320px]">
+                                {/* La `key` incluye el ítem en edición para que el formulario
+                                    se remonte con su input. */}
+                                <FormularioModulo
+                                    key={`${moduloActivo.id}-${idEdicion ?? 'nuevo'}`}
+                                    modulo={moduloActivo}
+                                    segmento={segmento}
+                                    inputInicial={edicion && edicion.item.moduloId === moduloActivo.id ? edicion.item.input : null}
+                                    personalizacion={personalizacion}
+                                    onResultado={handleResultado}
+                                    onEstado={setEstadoCalculo}
+                                />
+
+                                {/* Vista técnica: al lado del formulario en pantallas
+                                    anchas, debajo en el resto. */}
+                                <figure className="m-0 self-start rounded-xl bg-slate-50 border border-slate-200 p-3 2xl:sticky 2xl:top-3">
+                                    <figcaption className="flex items-center gap-1.5 mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                                        <PencilRuler className="w-3.5 h-3.5" /> Vista técnica
+                                    </figcaption>
+                                    {hayResultado ? (
                                         <DiagramaProducto plano={plano} cargando={cargandoPlano} />
-                                    </Tarjeta>
-
-                                    {/* Ficha y despiece traen su propia Tarjeta: envolverlos
-                                        otra vez daría doble borde. */}
-                                    <FichaProducto
-                                        input={ultimoInput as Record<string, unknown>}
-                                        resultado={ultimoResultado}
-                                        modulo={moduloActivo}
-                                    />
-
-                                    <ResultadoCalculo
-                                        resultado={ultimoResultado as TResultadoCalculo}
-                                        acciones={bloqueo ? undefined : acciones}
-                                    />
-
-                                    {/* Anclado al fondo de la ventana mientras se recorre
-                                        el despiece: con 15-20 líneas de materiales, el
-                                        botón quedaba fuera de pantalla justo cuando el
-                                        vendedor termina de revisarlas y quiere agregarlo.
-                                        Fondo SÓLIDO con borde y sombra hacia arriba
-                                        (2026-09-26): con el degradado transparente de
-                                        antes, las filas del despiece se leían a través
-                                        del botón. Como ocupa su propio sitio en el flujo,
-                                        al llegar al final la última fila queda por encima
-                                        de él, nunca debajo. */}
-                                    <div className="sticky bottom-0 z-10 rounded-xl border border-slate-200 bg-white p-2.5 shadow-[0_-8px_20px_-8px_rgba(15,23,42,0.22)]">
-                                        <BotonPrimario
-                                            ancho
-                                            icono={edicion ? Save : Plus}
-                                            cargando={recalculando}
-                                            onClick={confirmar}
-                                            disabled={Boolean(ultimoResultado?.hayErrores || bloqueo)}
-                                            title={bloqueo ?? undefined}
-                                            claseColor={edicion ? undefined : color.boton}
-                                            className="py-3"
-                                        >
-                                            {textoBoton}
-                                        </BotonPrimario>
-                                        {ultimoResultado?.hayErrores && !bloqueo && (
-                                            <p className="mt-1.5 text-center text-[11.5px] font-semibold text-rose-700">
-                                                Corrige las líneas en rojo del despiece para poder agregar el ítem.
-                                            </p>
-                                        )}
-                                    </div>
-                                </>
-                            ) : (
-                                <Tarjeta>
-                                    <EstadoVacio
-                                        icono={Calculator}
-                                        titulo={edicion ? 'Recalcula para guardar los cambios' : 'Todavía no hay nada calculado'}
-                                        detalle={edicion
-                                            ? 'El formulario ya trae los datos del ítem. Ajusta lo que necesites y pulsa Calcular.'
-                                            : 'Completa la configuración de la izquierda y pulsa Calcular. Aquí aparecerán la ficha del producto, el despiece de materiales y el total.'}
-                                    />
-                                </Tarjeta>
-                            )}
+                                    ) : (
+                                        <p className="py-10 text-center text-[12.5px] text-slate-700 leading-snug">
+                                            El plano aparece al completar las medidas.
+                                        </p>
+                                    )}
+                                </figure>
+                            </div>
                         </div>
-                    </div>
-                </Paso>
-            )}
+                    )}
 
-            {/* ── Paso 3 · cargos de obra, a lo ancho ─────────────────────── */}
-            {panelCargos && (
-                <Paso
-                    numero={3}
-                    titulo="Cargos de obra de la propuesta"
-                    detalle="La mano de obra sale sola de los productos; flete, andamio y demás se cobran una vez por propuesta."
-                >
-                    {panelCargos}
-                </Paso>
-            )}
+                    {/* Avisos técnicos y despiece plegado. */}
+                    {hayResultado && (
+                        <ResultadoCalculo
+                            resultado={ultimoResultado as TResultadoCalculo}
+                            acciones={bloqueo ? undefined : acciones}
+                        />
+                    )}
+                </section>
+
+                {/* ── Derecha: resumen de la propuesta, siempre visible ─── */}
+                <div className="min-w-0 lg:col-span-2 xl:col-span-1">{renderResumen(este)}</div>
+            </div>
 
             {modalComponente && (
                 <ModalComponente

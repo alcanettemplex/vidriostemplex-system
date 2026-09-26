@@ -5612,3 +5612,38 @@ pruebas. Procede.
 - Deuda en `TECH_DEBT.md` 2026-09-26 (2): restos del SMO; ítems viejos sin "Con instalación".
 - Reiniciar el backend de producción al desplegar.
 - Sin commit ni push: el usuario decide.
+
+---
+
+## 2026-09-26 (4) — Cotizador: rediseño integral de Cotizar, "mesa de trabajo"
+
+**Pedido del usuario:** rediseño integral de UX/UI del Cotizador a partir de una captura, sin tocar
+la lógica, con auditoría previa y tres arquitecturas comparadas. Eligió la **A (mesa de trabajo con
+resumen fijo)**, recálculo **automático**, pidió una **maqueta** (artifact privado, 2 versiones) y
+que los **cargos sean editables** cargando el predeterminado. Procede.
+
+### Hecho (solo frontend)
+- `TabCotizar`: riel | centro | resumen; sale el flujo por pasos. Recibe `renderResumen`.
+- `FormularioModulo`: cálculo automático (500 ms, secuencia contra respuestas viejas, `onEstado`),
+  "Calcular ahora" de respaldo, grupos planos.
+- `ResultadoCalculo`: avisos arriba, despiece plegable, resumen financiero movido al panel.
+- Nuevos: `ResumenPropuesta` (con cargos compactos editables y barra fija en tablet/teléfono),
+  `fichaProducto.ts` (`leerFicha`/`detalleCorto`). Retirados: `FichaProducto`,
+  `TotalPropuestaEnVivo`, modo plegable de `PanelCargosObra`.
+- `SelectorProducto` como riel; `subtituloRiel` en `descripcionesModulo.ts`; `BarraTrabajo` con
+  `cifras` opcional (solo Actual).
+- Arreglo de paso: los avisos con acción ("Ver propuesta") anidaban un `<button>` dentro del botón
+  del toast de Sileo; ahora `AccionAviso` (span operable con teclado).
+
+### Verificación
+- `tsc` y ESLint del módulo limpios; build de producción OK.
+- Playwright (Edge) contra frontend y backend locales, sin guardar: **18/18** — resumen visible, riel,
+  "Completa: …", cálculo automático, precio del producto, despiece plegado/abre, agregar, mano de obra,
+  andamio con predeterminado $90.000, editar mueve el total (329.966 → 448.966, +100.000 con IVA),
+  Restablecer, Actual con el mismo estado, barra fija y sin scroll horizontal a 390 px, sin errores
+  de consola. Capturas a 1440, 1024 y 390 px.
+- Backend sin cambios en esta tanda.
+
+### Pendientes
+- Revisión del usuario en pantalla.
+- Sin commit: el usuario decide.

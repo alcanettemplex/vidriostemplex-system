@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Calculator, Users, Ruler, Droplet, Percent } from '../../../components/ui/icons';
 import { toast } from 'react-toastify';
 
@@ -6,7 +6,7 @@ import { apiCotizarItem } from '../services/cotizadorApi';
 import { CampoMeta, GrupoCampo, ModuloMeta, OpcionCampo, PersonalizacionItem, ResultadoCalculo, SegmentoCliente } from '../types';
 import CampoDinamico from './CampoDinamico';
 import SelectorDiseno from './SelectorDiseno';
-import { BotonPrimario, Chip, Tarjeta } from './ui';
+import { BotonSecundario, Chip, Tarjeta } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Panel de configuración: formulario data-driven de UN módulo de producto
@@ -24,7 +24,29 @@ import { BotonPrimario, Chip, Tarjeta } from './ui';
 // NADA de esto está hardcodeado por producto: la única lista fija es el ORDEN
 // de los cuatro grupos. Cualquier campo nuevo que declare el backend aparece
 // solo, en su tarjeta, sin tocar este archivo.
+//
+// MESA DE TRABAJO (2026-09-26, rediseño integral, pedido del usuario):
+//   · CÁLCULO AUTOMÁTICO. Cada cambio de un campo vuelve a pedir el precio
+//     al motor tras una espera corta (ESPERA_CALCULO_MS). Solo se pide si ya
+//     están todos los obligatorios; si falta alguno no se molesta con toasts,
+//     se informa por `onEstado` y el padre lo muestra. Una respuesta vieja que
+//     llega tarde se descarta (`secuencia`). El botón queda como "Calcular
+//     ahora", para forzar un reintento. La validación y la llamada al motor
+//     son las de siempre (`calcular`).
+//   · Los grupos dejan de ser tarjetas sueltas: van dentro del panel central
+//     de TabCotizar, separados por un rótulo con línea.
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** Estado del cálculo automático, para el indicador del panel central. */
+export type EstadoCalculo =
+    | { tipo: 'incompleto'; faltante: string }
+    | { tipo: 'calculando' }
+    | { tipo: 'listo' }
+    | { tipo: 'error'; mensaje: string };
+
+/** Espera tras la última tecla antes de pedir el precio: evita una petición
+ * por tecla al escribir una medida de cuatro cifras. */
+const ESPERA_CALCULO_MS = 500;
 
 const GRUPOS_ORDEN: GrupoCampo[] = ['cliente', 'medidas', 'vidrio', 'comercial'];
 
@@ -32,10 +54,10 @@ const GRUPO_CONFIG: Record<GrupoCampo, {
     titulo: string;
     Icono: React.ComponentType<{ className?: string }>;
 }> = {
-    cliente: { titulo: 'Cliente y sistema', Icono: Users },
+    cliente: { titulo: 'Sistema', Icono: Users },
     medidas: { titulo: 'Medidas', Icono: Ruler },
     vidrio: { titulo: 'Vidrio y acabados', Icono: Droplet },
-    comercial: { titulo: 'Comercial', Icono: Percent },
+    comercial: { titulo: 'Obra y cantidad', Icono: Percent },
 };
 
 /** Lo que se pinta bajo el campo que bloqueó el cálculo. El toast dice cuál es
@@ -105,9 +127,11 @@ interface Props {
      * pierda. */
     personalizacion?: PersonalizacionItem | null;
     onResultado: (resultado: ResultadoCalculo, input: Record<string, unknown>) => void;
+    /** Avisa si el precio está al día, calculándose, incompleto o con error. */
+    onEstado?: (estado: EstadoCalculo) => void;
 }
 
-const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, personalizacion, onResultado }) => {
+const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, personalizacion, onResultado, onEstado }) => {
     const [input, setInput] = useState<Record<string, unknown>>(() => {
         const inicial: Record<string, unknown> = {};
         modulo.campos.forEach(campo => { inicial[campo.nombre] = valorInicial(campo); });
@@ -131,18 +155,31 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
         CAMPOS_DE_LA_COTIZACION.includes(nombre) || (hayDiseno && CAMPOS_DERIVADOS_DEL_DISENO.includes(nombre));
     const camposVisibles = (campos: CampoMeta[]) => campos.filter(c => !campoOculto(c.nombre));
 
-    const calcular = async () => {
-        const faltante = modulo.campos.find(
-            c => c.requerido && !campoOculto(c.nombre) && esVacio(input[c.nombre])
-        );
+    const buscarFaltante = () => modulo.campos.find(
+        c => c.requerido && !campoOculto(c.nombre) && esVacio(input[c.nombre])
+    );
+
+    /** Número del último pedido: una respuesta de un pedido anterior que llega
+     * tarde no pisa la del más reciente. */
+    const secuencia = useRef(0);
+
+    /** `silencioso` = lo lanzó el cálculo automático: sin toasts ni campo en
+     * rojo, el resultado viaja por `onEstado`. El botón usa el modo normal. */
+    const calcular = async ({ silencioso = false }: { silencioso?: boolean } = {}) => {
+        const faltante = buscarFaltante();
         if (faltante) {
-            setCampoConError(faltante.nombre);
-            toast.error(`Completa: ${faltante.etiqueta}`);
+            if (!silencioso) {
+                setCampoConError(faltante.nombre);
+                toast.error(`Completa: ${faltante.etiqueta}`);
+            }
+            onEstado?.({ tipo: 'incompleto', faltante: faltante.etiqueta });
             return;
         }
         setCampoConError(null);
 
+        const pedido = ++secuencia.current;
         setCargando(true);
+        onEstado?.({ tipo: 'calculando' });
         try {
             // El input del formulario puede traer una personalización vieja (la del
             // ítem al abrirlo en edición): manda la vigente, que es la de TabCotizar.
@@ -150,22 +187,50 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
             delete enviado.personalizacion;
             if (personalizacion) enviado.personalizacion = personalizacion;
             const { data } = await apiCotizarItem(modulo.id, enviado);
+            if (pedido !== secuencia.current) return;
             onResultado(data, enviado);
+            onEstado?.({ tipo: 'listo' });
         } catch (e: any) {
-            toast.error(e?.response?.data?.error || 'No se pudo calcular el ítem.');
+            if (pedido !== secuencia.current) return;
+            const mensaje = e?.response?.data?.error || 'No se pudo calcular el ítem.';
+            if (!silencioso) toast.error(mensaje);
+            onEstado?.({ tipo: 'error', mensaje });
         } finally {
-            setCargando(false);
+            if (pedido === secuencia.current) setCargando(false);
         }
     };
+
+    // Cálculo automático: cada cambio del formulario (y el montaje, que en modo
+    // edición trae el ítem completo) pide el precio tras una espera corta. El
+    // segmento y la personalización no están en las dependencias a propósito:
+    // esos recálculos los hace TabCotizar por su cuenta y aquí se duplicarían.
+    useEffect(() => {
+        const faltante = buscarFaltante();
+        if (faltante) {
+            // Invalida cualquier pedido en vuelo: su precio ya no corresponde.
+            secuencia.current++;
+            setCargando(false);
+            onEstado?.({ tipo: 'incompleto', faltante: faltante.etiqueta });
+            return;
+        }
+        onEstado?.({ tipo: 'calculando' });
+        const espera = window.setTimeout(() => { calcular({ silencioso: true }); }, ESPERA_CALCULO_MS);
+        return () => window.clearTimeout(espera);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [input]);
 
     const errorDe = (nombre: string) => (campoConError === nombre ? MENSAJE_REQUERIDO : null);
 
     const hayCampoSinGrupo = modulo.campos.some(c => !c.grupo);
 
+    // Respaldo del cálculo automático: fuerza un reintento y, si falta un
+    // dato, lo marca en rojo con su aviso.
     const botonCalcular = (
-        <BotonPrimario ancho icono={Calculator} cargando={cargando} onClick={calcular}>
-            Calcular
-        </BotonPrimario>
+        <div className="flex justify-end">
+            <BotonSecundario compacto icono={Calculator} cargando={cargando} onClick={() => calcular()}>
+                Calcular ahora
+            </BotonSecundario>
+        </div>
     );
 
     const selectorDiseno = (
@@ -228,7 +293,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
         : null;
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-5">
             {/* Por campos VISIBLES: un grupo cuyo único campo era el segmento
                 quedaría como tarjeta vacía ahora que el segmento no se pide aquí. */}
             {GRUPOS_ORDEN.filter(g => camposVisibles(camposPorGrupo.get(g) || []).length > 0).map(grupo => {
@@ -249,10 +314,16 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
                 ) : undefined;
 
                 return (
-                    <Tarjeta key={grupo} titulo={cfg.titulo} icono={cfg.Icono} accion={accion}>
-                        {grupo === 'medidas' && modulo.id === 'ventanas' && (
-                            <div className="mb-3">{selectorDiseno}</div>
-                        )}
+                    <section key={grupo} aria-label={cfg.titulo} className="space-y-2.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                                <cfg.Icono className="w-3.5 h-3.5" />
+                                {cfg.titulo}
+                            </h3>
+                            <span aria-hidden="true" className="flex-1 h-px bg-slate-200 min-w-[24px]" />
+                            {accion}
+                        </div>
+                        {grupo === 'medidas' && modulo.id === 'ventanas' && selectorDiseno}
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {camposVisibles(campos).map(campo => (
@@ -270,7 +341,7 @@ const FormularioModulo: React.FC<Props> = ({ modulo, segmento, inputInicial, per
                                 </div>
                             ))}
                         </div>
-                    </Tarjeta>
+                    </section>
                 );
             })}
 

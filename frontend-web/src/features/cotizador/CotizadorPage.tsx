@@ -20,9 +20,10 @@ import TabGuardadas from './components/TabGuardadas';
 import TabCalibracion from './components/TabCalibracion';
 import TabConfiguracion from './components/TabConfiguracion';
 import BarraTrabajo, { TipoNuevaPropuesta } from './components/BarraTrabajo';
-import PanelCargosObra, { EstadoCargos, cargosADTO, cargosDesdeApi, cargosIniciales } from './components/PanelCargosObra';
-import TotalPropuestaEnVivo from './components/TotalPropuestaEnVivo';
+import { EstadoCargos, cargosADTO, cargosDesdeApi, cargosIniciales } from './components/PanelCargosObra';
+import ResumenPropuesta, { EsteProducto } from './components/ResumenPropuesta';
 import { BorradorCotizar, calcularTotalesPrevistos, useManoObra } from './totalesPropuesta';
+import { detalleCorto, leerFicha } from './fichaProducto';
 import ModalClonarPropuesta from './components/modals/ModalClonarPropuesta';
 import ModalCambiosSinGuardar, { DecisionCambios } from './components/modals/ModalCambiosSinGuardar';
 
@@ -84,6 +85,22 @@ type TabKey = 'cotizar' | 'actual' | 'guardadas' | 'calibracion' | 'configuracio
  * sitios: la carpeta lo pone para que las esquinas redondeadas queden teñidas.
  */
 const CUERPO_TRABAJO = FOLDER_BODY.replace('bg-white', 'bg-slate-50');
+
+/** Acción dentro de un aviso (toast). No puede ser un `<button>`: Sileo pinta
+ * el aviso entero como botón y un botón dentro de otro es HTML inválido (React
+ * lo reporta en consola). El adaptador de avisos del ERP no expone el botón
+ * propio de Sileo, así que se usa un elemento operable con teclado. */
+const AccionAviso: React.FC<{ onClick: () => void; children: React.ReactNode }> = ({ onClick, children }) => (
+    <span
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+        className="inline-block mt-1.5 text-[12px] font-bold underline underline-offset-2 cursor-pointer"
+    >
+        {children}
+    </span>
+);
 
 /** Tope de propuestas por cotización. Réplica de `MAX_PROPUESTAS` del store: no
  * es un número técnico, es donde el comparador deja de caber en una pantalla
@@ -228,13 +245,7 @@ const CotizadorPage: React.FC = () => {
                     <span className="font-bold">{rotuloPropuesta(propuestaActiva)}</span> ({n} ítem{n === 1 ? '' : 's'}).
                 </p>
                 <p className="text-[12px] opacity-80 mt-0.5">Recuerda guardar (Ctrl+S).</p>
-                <button
-                    type="button"
-                    onClick={() => cambiarTab('actual')}
-                    className="mt-1.5 text-[12px] font-bold underline underline-offset-2"
-                >
-                    Ver propuesta
-                </button>
+                <AccionAviso onClick={() => cambiarTab('actual')}>Ver propuesta</AccionAviso>
             </div>
         );
     }, [carrito.length, propuestaActiva, cambiarTab]);
@@ -578,13 +589,7 @@ const CotizadorPage: React.FC = () => {
         toast.success(
             <div className="text-[13px] leading-snug">
                 <p><span className="font-bold">{rotuloPropuesta(nueva)}</span> creada con el vidrio nuevo.</p>
-                <button
-                    type="button"
-                    onClick={() => cambiarTab('cotizar')}
-                    className="mt-1.5 text-[12px] font-bold underline underline-offset-2"
-                >
-                    Agregarle más ítems en Cotizar
-                </button>
+                <AccionAviso onClick={() => cambiarTab('cotizar')}>Agregarle más ítems en Cotizar</AccionAviso>
             </div>,
             { autoClose: 8000 }
         );
@@ -741,6 +746,17 @@ const CotizadorPage: React.FC = () => {
     const { lineas: manoObraBorrador, cargando: cargandoManoObraBorrador } = useManoObra(itemsManoObraCotizar);
     const manoObraCotizar = borrador ? manoObraBorrador : manoObraCarrito;
 
+    const modulosPorId = useMemo(() => new Map(modulos.map(m => [m.id, m])), [modulos]);
+    const itemsResumen = useMemo(() => carrito.map(it => {
+        const ficha = leerFicha(it.input, it.resultado, modulosPorId.get(it.moduloId));
+        return {
+            idTemp: it.idTemp,
+            nombre: it.descripcionItem || `${it.moduloNombre}${ficha.medidas ? ` · ${ficha.medidas}` : ''}`,
+            detalle: [`${ficha.piezas} und`, detalleCorto(ficha)].filter(Boolean).join(' · '),
+            subtotal: Number(it.resultado.subtotalConAiu) || 0,
+        };
+    }), [carrito, modulosPorId]);
+
     // Cerrar la pestaña o recargar con cambios pendientes: el navegador pregunta.
     // No cubre los clics en el menú lateral del ERP — la app usa `BrowserRouter`,
     // y bloquear la navegación interna (`useBlocker`) exige un router de datos.
@@ -877,7 +893,7 @@ const CotizadorPage: React.FC = () => {
                         onCambiarSegmento={cambiarSegmento}
                         cambiandoSegmento={cambiandoSegmento}
                         motivoNoSegmento={motivoNoSegmento}
-                        cifras={{
+                        cifras={activeTab !== 'actual' ? undefined : {
                             items: carrito.length,
                             productos: totalesCarrito.productos,
                             manoObra: totalesCarrito.manoObra,
@@ -909,46 +925,39 @@ const CotizadorPage: React.FC = () => {
                             onGuardarEdicion={guardarEdicionItem}
                             onCancelarEdicion={() => setItemEditandoId(null)}
                             bloqueo={bloqueoEdicion}
-                            // El panel de cargos va SIEMPRE visible en Cotizar (lo pidió
-                            // el usuario): el mismo estado que se ve en Actual, para que
-                            // el vendedor no tenga que cambiar de pestaña para ajustar la
-                            // mano de obra mientras arma el producto.
                             onBorrador={setBorrador}
-                            panelCargos={
-                                <>
-                                    <PanelCargosObra
-                                        // Plegable sólo aquí, al pie del flujo de Cotizar (paso 3);
-                                        // en Actual se monta completo, como siempre.
-                                        plegable
-                                        valor={cargos}
-                                        onChange={cambiarCargos}
-                                        parametros={parametros}
-                                        cotizacionId={edicion?.id ?? null}
-                                        manoObra={legadoActiva ? [] : manoObraCotizar}
-                                        cargandoManoObra={borrador ? cargandoManoObraBorrador : cargandoManoObraCarrito}
-                                        notaManoObra={notaTotalCotizar}
-                                        cantidadItems={carrito.length}
-                                        etiquetaPropuesta={propuestaActiva?.etiqueta ?? null}
-                                        legado={propuestaActiva?.legadoCargosEnItems}
-                                        onDuplicarLegado={duplicarPropuesta}
-                                        aprobada={Boolean(bloqueoEdicion)}
-                                    />
-                                    {/* Total en vivo: se mueve al marcar un cargo o cambiar el
-                                        producto, sin ir a Actual ni guardar (pedido del usuario). */}
-                                    <TotalPropuestaEnVivo
-                                        totales={totalesCotizar}
-                                        descuentoPct={descuentoPct}
-                                        nota={notaTotalCotizar}
-                                    />
-                                </>
-                            }
                             destino={{
                                 etiqueta: propuestaActiva?.etiqueta ?? 'A',
                                 nombre: propuestaActiva?.nombre ?? null,
-                                items: carrito.length,
-                                guardada: Boolean(edicion),
                             }}
-                            onVerPropuesta={() => cambiarTab('actual')}
+                            // Columna derecha de la mesa de trabajo (2026-09-26): la
+                            // propuesta, la mano de obra, los cargos editables y el
+                            // total, siempre a la vista. Mismo estado que Actual.
+                            renderResumen={(este: EsteProducto) => (
+                                <ResumenPropuesta
+                                    este={este}
+                                    etiquetaPropuesta={propuestaActiva?.etiqueta ?? 'A'}
+                                    items={itemsResumen}
+                                    idEditando={itemEditandoId}
+                                    onEditarItem={editarItem}
+                                    onVerPropuesta={() => cambiarTab('actual')}
+                                    manoObra={legadoActiva ? [] : manoObraCotizar}
+                                    cargandoManoObra={borrador ? cargandoManoObraBorrador : cargandoManoObraCarrito}
+                                    cargos={cargos}
+                                    onCambiarCargos={cambiarCargos}
+                                    parametros={parametros}
+                                    bloqueoCargos={legadoActiva
+                                        ? 'Propuesta anterior al cambio de cargos: duplícala para editarlos.'
+                                        : bloqueoEdicion ? 'Cotización aprobada: los cargos no se pueden cambiar.' : null}
+                                    totales={totalesCotizar}
+                                    descuentoPct={descuentoPct}
+                                    notaTotal={notaTotalCotizar}
+                                    onGuardar={guardarCotizacion}
+                                    guardando={guardando}
+                                    motivoNoGuardar={carrito.length === 0 ? 'Agrega al menos un ítem a esta propuesta antes de guardar.' : null}
+                                    sucio={sucio || !edicion}
+                                />
+                            )}
                         />
                     )}
                     {activeTab === 'actual' && (

@@ -1059,9 +1059,10 @@ Reglas del usuario, 2026-09-26. **Reemplazan** la mano de obra "SMO por tipo de 
 - **Total en vivo** (pedido del usuario, opción A): `calcularTotalesPrevistos()` en
   `frontend-web/src/features/cotizador/totalesPropuesta.ts` es la réplica única del contrato de
   totales (antes copiada en `TabActual`). La usan la barra superior ("Total", con "sin guardar"
-  mientras hay cambios), la pestaña Actual y el bloque "Total de la propuesta con cargos de obra" del
-  paso 3 de Cotizar, que incluye el producto en pantalla aunque no se haya agregado (si se edita un
-  ítem, lo reemplaza en vez de sumarlo; uno con errores no cuenta).
+  mientras hay cambios, solo en Actual), la pestaña Actual y el **resumen fijo de la derecha** de
+  Cotizar (`ResumenPropuesta`, mesa de trabajo), que incluye el producto en pantalla aunque no se
+  haya agregado (si se edita un ítem, lo reemplaza en vez de sumarlo; uno con errores no cuenta).
+  Diseño de la pantalla: `design/sistema-visual/README.md` → "Cotizar: mesa de trabajo".
 - **PDF:** las líneas de mano de obra van ANTES del descuento (entran en su base); el resto de
   cargos, después.
 - **SMO legado:** el tipo `SMO` sigue siendo válido en BD. Una propuesta guardada con SMO lo muestra

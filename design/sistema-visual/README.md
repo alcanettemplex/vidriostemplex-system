@@ -206,9 +206,7 @@ sin cambios (huella SHA-1 de `PrintableHojaTrabajo`, `DiagramaProducto` y `usePl
   seminegrita, el primario deshabilitado pasa a `slate-200`/`slate-600` (antes blanco al 40 % sobre
   azul) y la cabecera de `Tarjeta` apila la acción debajo del texto en pantallas angostas.
 - **Colores A-E de propuesta (`propuestaColor.ts`) conservados:** son significado, no decoración.
-- **Cotizar en tres pasos:** 1 · producto (7 tarjetas compactas), 2 · formulario a la izquierda y
-  plano/ficha/despiece a la derecha, 3 · cargos de obra a lo ancho y **plegables** (`plegable` en
-  `PanelCargosObra`, preferencia en `localStorage` `cotizador.cargosObra.plegado`).
+- ~~**Cotizar en tres pasos**~~ — reemplazado el mismo día por la mesa de trabajo (abajo).
 - **Descripciones comerciales** en `features/cotizador/descripcionesModulo.ts`. La `descripcion`
   del backend (texto técnico, p. ej. "use sistema 8025 con alasCorredizas=3") queda como
   documentación interna y es el respaldo si un módulo nuevo no está en el mapa.
@@ -220,3 +218,41 @@ sin cambios (huella SHA-1 de `PrintableHojaTrabajo`, `DiagramaProducto` y `usePl
 - **Guardadas:** el "rojo" de la columna Ítems era el chip de estado desalineado bajo el encabezado;
   se alinearon encabezados y celdas.
 - Ejecutada por 3 agentes (Cotizar · Actual/Guardadas/barra/modales · Calibración/Configuración).
+
+---
+
+## Cotizar: mesa de trabajo (2026-09-26, rediseño integral)
+
+Pedido del usuario sobre una captura: la pantalla por pasos seguía obligando a bajar para saber
+cuánto costaba y dónde agregar. Se le mostraron **tres arquitecturas** (A · mesa de trabajo con
+resumen fijo, B · asistente por etapas, C · la propuesta como documento) y eligió la **A** sobre una
+maqueta interactiva, con recálculo automático y cargos editables.
+
+```
+┌ Riel ──────┬──── Centro ─────────────────────────┬── Resumen (fijo) ─────┐
+│ Ventanas   │ Encabezado + estado del precio       │ Este producto · Agregar│
+│ Proyectante│ Formulario agrupado │ Vista técnica  │ Propuesta: ítems       │
+│ Cabinas …  │ Avisos técnicos                      │ Mano de obra (auto)    │
+│            │ ▸ Despiece (plegado)                 │ Cargos editables       │
+│            │                                      │ Total · Guardar        │
+└────────────┴──────────────────────────────────────┴────────────────────────┘
+```
+
+- **Riel** (`SelectorProducto`): vertical desde `lg`, subtítulo corto (`subtituloRiel`); rejilla
+  compacta por debajo.
+- **Centro** (`TabCotizar`): el formulario (`FormularioModulo`) recalcula **solo** al cambiar un campo
+  (espera de 500 ms, respuestas viejas descartadas); "Calcular ahora" queda de respaldo. Los grupos
+  dejaron de ser tarjetas: rótulo con línea dentro de un solo panel. El plano va al lado desde `2xl` y
+  debajo en el resto. `ResultadoCalculo` pone los avisos arriba y el **despiece plegado** (se abre solo
+  si hay líneas en error).
+- **Resumen** (`ResumenPropuesta`, nuevo): siempre visible desde `xl` (sticky). Este producto con su
+  precio y su botón; ítems de la propuesta (clic = editar); mano de obra automática; **cargos
+  compactos editables** (cargan el predeterminado de Configuración, etiqueta
+  "Predeterminado"/"Editado" y "Restablecer"); desglose y Total con Guardar. Por debajo de `xl` baja
+  al final y aparece una **barra fija** con el total y "Agregar".
+- **Salieron:** la franja "Estás cotizando para…", los pasos numerados, `FichaProducto` (sus datos
+  pasan a `fichaProducto.ts → leerFicha`), `TotalPropuestaEnVivo` y el modo plegable de
+  `PanelCargosObra` (que queda como vista completa en Actual). La barra de trabajo ya no repite las
+  cifras en Cotizar.
+- **Sin cambios de lógica:** estado de `CotizadorPage`, validación y llamada al motor, totales,
+  backend y BD. Verificado con Playwright contra el backend local (18 comprobaciones, sin guardar).

@@ -64,7 +64,7 @@ interface Props {
 
     /** `total` es el guardado si no hay cambios pendientes, y el previsto (en
      * vivo) si los hay — `sinGuardar` lo avisa (2026-09-26). */
-    cifras: { items: number; productos: number; manoObra: number; cargos: number; total: number; sinGuardar: boolean };
+    cifras?: { items: number; productos: number; manoObra: number; cargos: number; total: number; sinGuardar: boolean };
 }
 
 /** Dato de la barra: rótulo pequeño arriba, cifra debajo. Se leen como una fila
@@ -391,6 +391,7 @@ const BarraTrabajo: React.FC<Props> = ({
                     )}
                 </div>
 
+                {cifras && (
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                     <DatoContexto etiqueta="Ítems" valor={cifras.items} />
                     <DatoContexto etiqueta="Productos" valor={fmtCOP(cifras.productos)} />
@@ -402,6 +403,7 @@ const BarraTrabajo: React.FC<Props> = ({
                         destacado
                     />
                 </div>
+                )}
             </div>
         </div>
     );

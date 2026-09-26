@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import {
-    AlertCircle, AlertTriangle, Lightbulb, ListTree, Receipt, Replace, Trash2, Plus, Undo2, Loader2, Sparkles,
+    AlertCircle, AlertTriangle, ChevronDown, Lightbulb, ListTree, Replace, Trash2, Plus, Undo2, Loader2, Sparkles,
 } from '../../../components/ui/icons';
 
 import { LineaBOM, ResultadoCalculo as TResultadoCalculo } from '../types';
-import { fmtCOP, fmtPct } from '../format';
-import { Chip, Tarjeta } from './ui';
+import { fmtCOP } from '../format';
+import { Chip } from './ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Resultado de calcular() para UN ítem: despiece de materiales y servicios +
@@ -25,6 +25,11 @@ import { Chip, Tarjeta } from './ui';
 // tiene un ancho mínimo y las de código/categoría/unidad no se parten, así que
 // "5020 CABEZAL 144 MATE" ya no cae en tres líneas; en pantallas estrechas la
 // tabla se desplaza en horizontal en vez de aplastarse.
+//
+// MESA DE TRABAJO (2026-09-26): el resumen financiero del ítem se mudó al panel
+// "Este producto" de la derecha (ResumenPropuesta), que siempre está a la vista.
+// Aquí quedan los avisos, arriba, y el despiece PLEGADO: se abre a pedido o solo
+// cuando hay líneas en error. La personalización sigue igual, dentro.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Acciones de personalización (2026-09-23). Sin ellas la tabla es de sólo
@@ -46,7 +51,6 @@ interface Props {
 
 const btnLinea = 'p-1 rounded-md text-slate-600 hover:text-templex-700 hover:bg-templex-50 transition disabled:opacity-30 disabled:cursor-not-allowed';
 
-const filaTotalClase = 'flex items-center justify-between gap-3';
 
 /** Color del punto de categoría en el BOM: error manda, luego una heurística
  * simple por categoría/unidad/descripción (vidrio vs. resto) — es un detalle
@@ -97,65 +101,84 @@ const DistintivosLinea: React.FC<{ item: LineaBOM }> = ({ item }) => {
 };
 
 const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
-    const {
-        items, hayErrores, advertencias,
-        subtotalPieza, cantidadPiezas, subtotal,
-        aiu, subtotalConAiu,
-        descuentoPct, descuento,
-        ivaPct, iva, total,
-    } = resultado;
+    const { items, hayErrores, advertencias, subtotalPieza } = resultado;
+    // Plegado por defecto: para el asesor el despiece es detalle. Se abre solo
+    // si hay líneas en error, que son justo las que hay que corregir.
+    const [abierto, setAbierto] = useState(Boolean(hayErrores));
+    useEffect(() => { if (hayErrores) setAbierto(true); }, [hayErrores]);
+    const idTabla = useId();
     const quitados = resultado.personalizacion?.quitados ?? [];
     const hayPersonalizacion = Boolean(
         resultado.personalizacion &&
         (resultado.personalizacion.cambios.length || quitados.length || resultado.personalizacion.extras.length)
     );
 
-    // `aiu` es el DIVISOR que usa motorCalculo.totalizar (subtotalConAiu =
-    // subtotal / aiu, default 0.96) — no una fracción que se suma directo. El
-    // % real que ese divisor representa sobre el subtotal es (1/aiu - 1), no
-    // (1 - aiu): con aiu=0.96 son 4.17% vs 4%, parecidos pero no la misma
-    // cuenta que hace el motor. Se muestra el % correcto junto al monto ya
-    // calculado (subtotalConAiu - subtotal) para no obligar al usuario a
-    // hacer la resta.
-    const montoAiu = subtotalConAiu - subtotal;
-    const pctAiu = aiu ? (1 / aiu) - 1 : 0;
 
     return (
         <div className="space-y-3">
             {hayErrores && (
                 <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-[12.5px] font-semibold">
                     <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                    <span>Hay líneas en error: corrígelas antes de agregar este ítem a la cotización.</span>
+                    <span>Hay líneas en error: corrígelas en el despiece antes de agregar este ítem a la cotización.</span>
                 </div>
             )}
 
-            {/* ── Despiece de materiales y servicios ─────────────────────── */}
-            <Tarjeta
-                titulo="Despiece de materiales y servicios"
-                icono={ListTree}
-                cuerpoClassName="pt-0"
-                accion={
-                    <span className="inline-flex items-center gap-2">
-                        {hayPersonalizacion && (
-                            <Chip tono="marca" title="Este ítem tiene componentes cambiados, quitados o agregados respecto del estándar.">
-                                <Sparkles className="w-3 h-3" /> Personalizado
-                            </Chip>
-                        )}
-                        {resultado.perfileriaPersonalizada && (
-                            <Chip tono="ambar" title="Se tocó la perfilería: el ítem no sale en orden de corte ni SAP automática.">
-                                Sin orden de corte
-                            </Chip>
-                        )}
-                        <span className="text-[11.5px] text-slate-700 tabular-nums whitespace-nowrap">
-                            {items.length} línea{items.length === 1 ? '' : 's'}
-                        </span>
+            {/* ── Recomendación técnica ──────────────────────────────────── */}
+            {/* TODAS las advertencias del motor, sin filtrar ni resumir: son avisos
+                de fabricación (vidrio no admitido para el sistema, piezas que no
+                sirven para cortar, color sustituido…). Esconder una tras un "ver
+                más" es esconder un error de taller. Van ANTES del despiece: el
+                despiece se pliega y ellas no. */}
+            {advertencias.length > 0 && (
+                <section className="rounded-xl border border-amber-200 bg-amber-50 p-3.5">
+                    <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800">
+                        <Lightbulb className="w-3.5 h-3.5 shrink-0" />
+                        Recomendación técnica
+                        <span className="tabular-nums">({advertencias.length})</span>
+                    </h3>
+                    <ul className="mt-2 space-y-1.5">
+                        {advertencias.map((a, i) => (
+                            <li key={i} className="flex items-start gap-2 text-[12px] text-amber-900 leading-snug">
+                                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                                <span>{a}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            )}
+
+            {/* ── Despiece de materiales y servicios, plegable ───────────── */}
+            <section className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                <button
+                    type="button"
+                    onClick={() => setAbierto(a => !a)}
+                    aria-expanded={abierto}
+                    aria-controls={idTabla}
+                    className="w-full flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-templex-400"
+                >
+                    <ChevronDown className={`w-4 h-4 text-slate-700 shrink-0 transition-transform ${abierto ? 'rotate-180' : ''}`} />
+                    <ListTree className="w-4 h-4 text-templex-600 shrink-0" />
+                    <span className="text-[13.5px] font-bold text-slate-900">Despiece de materiales</span>
+                    <span className="text-[12px] text-slate-700 tabular-nums">
+                        {items.length} línea{items.length === 1 ? '' : 's'} · {fmtCOP(subtotalPieza)} por pieza
                     </span>
-                }
-            >
-                {/* Sangría negativa: la tabla ocupa el ancho completo de la
-                    tarjeta, para que la banda gris del encabezado llegue a los
-                    dos bordes en vez de flotar dentro del padding. */}
-                <div className="overflow-x-auto -mx-4">
+                    {hayPersonalizacion && (
+                        <Chip tono="marca" title="Este ítem tiene componentes cambiados, quitados o agregados respecto del estándar.">
+                            <Sparkles className="w-3 h-3" /> Personalizado
+                        </Chip>
+                    )}
+                    {resultado.perfileriaPersonalizada && (
+                        <Chip tono="ambar" title="Se tocó la perfilería: el ítem no sale en orden de corte ni SAP automática.">
+                            Sin orden de corte
+                        </Chip>
+                    )}
+                    <span className="ml-auto text-[12px] font-semibold text-templex-700">
+                        {abierto ? 'Ocultar' : acciones ? 'Ver y editar componentes' : 'Ver'}
+                    </span>
+                </button>
+
+                <div id={idTabla} hidden={!abierto} className="border-t border-slate-200">
+                <div className="overflow-x-auto">
                     <table className="w-full min-w-[520px] text-[13px]">
                         <thead className="bg-slate-50 text-slate-900 border-y border-slate-200">
                             <tr>
@@ -253,7 +276,7 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                 </div>
 
                 {acciones && (
-                    <div className="-mx-4 -mb-4 mt-0 px-4 py-2.5 border-t border-slate-200 bg-slate-50/70 space-y-2">
+                    <div className="px-4 py-2.5 border-t border-slate-200 bg-slate-50/70 space-y-2">
                         {quitados.length > 0 && (
                             <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-slate-800">
                                 <span className="font-semibold text-slate-900">Quitados:</span>
@@ -284,86 +307,8 @@ const ResultadoCalculo: React.FC<Props> = ({ resultado, acciones }) => {
                         </button>
                     </div>
                 )}
-            </Tarjeta>
-
-            {/* ── Resumen financiero ─────────────────────────────────────── */}
-            <Tarjeta titulo="Resumen financiero" icono={Receipt}>
-                <div className="space-y-1.5 text-sm">
-                    <div className={filaTotalClase}>
-                        <span className="text-slate-800">Subtotal por pieza</span>
-                        <span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(subtotalPieza)}</span>
-                    </div>
-                    <div className={filaTotalClase}>
-                        <span className="text-slate-800">Cantidad de piezas</span>
-                        <span className="font-semibold text-slate-900 tabular-nums">{cantidadPiezas}</span>
-                    </div>
-                    <div className={filaTotalClase}>
-                        <span className="text-slate-800">Subtotal</span>
-                        <span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(subtotal)}</span>
-                    </div>
-                    <div className={filaTotalClase}>
-                        <span className="text-slate-800">AIU aplicado ({fmtPct(pctAiu)})</span>
-                        <span className="font-semibold text-slate-900 tabular-nums">+ {fmtCOP(montoAiu)}</span>
-                    </div>
-                    {/* El descuento por ítem salió del formulario el 2026-09-20: hay UN
-                        solo descuento y vive en la propuesta. La línea sigue aquí para
-                        las cotizaciones viejas que lo traen en su blob, pero no se pinta
-                        un "- $0" en las nuevas: sería un renglón que no significa nada. */}
-                    {descuento > 0 && (
-                        <div className={filaTotalClase}>
-                            <span className="text-slate-800">Descuento ({fmtPct(descuentoPct)})</span>
-                            <span className="font-semibold text-rose-700 tabular-nums">- {fmtCOP(descuento)}</span>
-                        </div>
-                    )}
-                    <div className={filaTotalClase}>
-                        <span className="text-slate-800">IVA ({fmtPct(ivaPct)})</span>
-                        <span className="font-semibold text-slate-900 tabular-nums">{fmtCOP(iva)}</span>
-                    </div>
                 </div>
-
-                {/* El TOTAL vive en su propio bloque: es el número que el vendedor
-                    busca de un vistazo y no puede pesar lo mismo que las líneas
-                    intermedias de la cadena. */}
-                <div className="mt-3 rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-3 flex items-baseline justify-between gap-3">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-900">
-                        Total del producto
-                    </span>
-                    <span className="text-3xl font-extrabold text-slate-900 tabular-nums leading-none">{fmtCOP(total)}</span>
-                </div>
-
-                {/* Este total es el del PRODUCTO, a precio lleno. Ni la mano de obra
-                    ni el flete están dentro desde el 2026-09-20 (se cobran una vez
-                    por propuesta, no una por pieza: cinco piezas cobraban cinco
-                    fletes), y el descuento de la propuesta se aplica después sobre
-                    la suma. Sin este rótulo el vendedor lo lee como el precio final. */}
-                <p className="text-[11.5px] text-slate-700 leading-snug pt-2">
-                    Precio del producto, sin mano de obra ni cargos de obra: se suman en el paso 3, donde ves el
-                    total de la propuesta. El descuento de la propuesta tampoco está aplicado aquí.
-                </p>
-            </Tarjeta>
-
-            {/* ── Recomendación técnica ──────────────────────────────────── */}
-            {/* TODAS las advertencias del motor, sin filtrar ni resumir: son avisos
-                de fabricación (vidrio no admitido para el sistema, piezas que no
-                sirven para cortar, color sustituido…). Esconder una tras un "ver
-                más" es esconder un error de taller. */}
-            {advertencias.length > 0 && (
-                <section className="rounded-xl border border-amber-200 bg-amber-50 p-3.5">
-                    <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-800">
-                        <Lightbulb className="w-3.5 h-3.5 shrink-0" />
-                        Recomendación técnica
-                        <span className="tabular-nums">({advertencias.length})</span>
-                    </h3>
-                    <ul className="mt-2 space-y-1.5">
-                        {advertencias.map((a, i) => (
-                            <li key={i} className="flex items-start gap-2 text-[12px] text-amber-900 leading-snug">
-                                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                                <span>{a}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </section>
-            )}
+            </section>
         </div>
     );
 };

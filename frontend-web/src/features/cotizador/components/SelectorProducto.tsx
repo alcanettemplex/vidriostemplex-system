@@ -4,7 +4,7 @@ import {
 } from '../../../components/ui/icons';
 
 import { ModuloMeta } from '../types';
-import { descripcionComercial } from '../descripcionesModulo';
+import { descripcionComercial, subtituloRiel } from '../descripcionesModulo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Selector de producto del cotizador: una tarjeta por módulo (seis productos más
@@ -14,17 +14,15 @@ import { descripcionComercial } from '../descripcionesModulo';
 // propuestas. Quién resetea el cálculo al cambiar de módulo sigue siendo el
 // padre (TabCotizar).
 //
-// FORMA (2026-09-26, Fase 5 del sistema visual): es el PASO 1 de la pestaña y
-// va a lo ancho, arriba de todo. Las siete tarjetas caben en UNA fila en
-// escritorio, con alto fijo de 64 px: hasta hoy compartían fila con Cargos de
-// obra y se estiraban hasta su alto, y quedaban de ~200 px casi vacías. En
-// tableta 4 + 3; en móvil una rejilla compacta de 2 columnas (sin scroll
-// horizontal: con siete opciones, esconder tres detrás de un deslizamiento
-// es esconderlas). La activa lleva el azul de marca (`templex`); antes era
-// índigo, el acento propio que tenía el módulo.
+// FORMA (2026-09-26, mesa de trabajo): es el RIEL izquierdo de Cotizar. Desde
+// `lg` es una columna vertical fija (sticky) con el nombre y una línea de qué
+// cotiza cada producto; por debajo, una rejilla compacta de 2 a 4 columnas, sin
+// scroll horizontal: con siete opciones, esconder tres detrás de un
+// deslizamiento es esconderlas. La activa lleva el azul de marca.
 //
-// DESCRIPCIÓN: la frase comercial de `descripcionesModulo.ts`, no el texto
-// técnico del backend (que sigue siendo el respaldo si falta la frase).
+// DESCRIPCIÓN: la frase comercial completa va en el encabezado del panel
+// central (TabCotizar); aquí solo un subtítulo corto (`subtituloRiel`) y la
+// frase entera como `title`.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Íconos por id de módulo (backend-api/src/cotizador/modules/registry.ts). No
@@ -48,15 +46,13 @@ interface Props {
 
 const SelectorProducto: React.FC<Props> = ({ modulos, moduloId, onCambiar }) => {
     if (modulos.length === 0) return null;
-    const activo = modulos.find(m => m.id === moduloId) ?? null;
 
     return (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-card p-3 space-y-2.5">
-            <div
-                role="group"
-                aria-label="Producto a cotizar"
-                className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2"
-            >
+        <nav aria-label="Producto a cotizar" className="lg:sticky lg:top-3">
+            <h2 className="hidden lg:block px-1 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                Producto
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-1 gap-1.5">
                 {modulos.map(m => {
                     const esActivo = moduloId === m.id;
                     const Icono = ICONOS_MODULO[m.id] || Package;
@@ -68,42 +64,36 @@ const SelectorProducto: React.FC<Props> = ({ modulos, moduloId, onCambiar }) => 
                             aria-pressed={esActivo}
                             title={descripcionComercial(m)}
                             className={
-                                'min-w-0 h-16 text-left rounded-xl border px-2.5 flex items-center gap-2.5 transition ' +
+                                'min-w-0 text-left rounded-xl border px-2.5 py-2 flex items-center gap-2.5 transition ' +
                                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-templex-400 ' +
                                 (esActivo
-                                    ? 'bg-templex-50 border-templex-500 ring-1 ring-templex-500'
-                                    : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-templex-300')
+                                    ? 'bg-white border-templex-300 shadow-card'
+                                    : 'bg-transparent border-transparent hover:bg-white hover:border-slate-200')
                             }
                         >
                             <span
                                 className={
                                     'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ' +
-                                    (esActivo ? 'bg-templex-600' : 'bg-slate-100')
+                                    (esActivo ? 'bg-templex-600' : 'bg-white ring-1 ring-slate-200')
                                 }
                             >
                                 <Icono className={`w-4 h-4 ${esActivo ? 'text-white' : 'text-slate-600'}`} />
                             </span>
-                            <span
-                                className={
-                                    'min-w-0 text-[13px] font-semibold leading-tight ' +
-                                    (esActivo ? 'text-templex-900' : 'text-slate-900')
-                                }
-                            >
-                                {m.nombre}
+                            <span className="min-w-0">
+                                <span className={`block text-[13px] font-semibold leading-tight ${esActivo ? 'text-templex-800' : 'text-slate-900'}`}>
+                                    {m.nombre}
+                                </span>
+                                {subtituloRiel(m.id) && (
+                                    <span className="hidden lg:block text-[11.5px] text-slate-600 leading-snug truncate">
+                                        {subtituloRiel(m.id)}
+                                    </span>
+                                )}
                             </span>
                         </button>
                     );
                 })}
             </div>
-
-            {/* Una línea para el asesor: qué cotiza el módulo elegido. */}
-            {activo && (
-                <p className="text-[12.5px] text-slate-800 leading-snug" title={descripcionComercial(activo)}>
-                    <span className="font-semibold text-slate-900">{activo.nombre}:</span>{' '}
-                    {descripcionComercial(activo)}
-                </p>
-            )}
-        </div>
+        </nav>
     );
 };
 

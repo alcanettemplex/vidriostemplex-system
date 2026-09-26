@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-    HardHat, Plus, Trash2, Truck, Package2, Layers, Wand2, AlertTriangle, Lock, ChevronDown, Loader2,
+    HardHat, Plus, Trash2, Truck, Package2, Layers, AlertTriangle, Lock, Loader2,
 } from '../../../components/ui/icons';
 
 import { CargoEntrada, CargoPropuesta, LineaManoObra, OrigenCargo, Parametros, TIPOS_MANO_OBRA } from '../types';
@@ -41,11 +41,10 @@ import { Chip, BotonSecundario } from './ui';
 // rótulo "Und." más el campo y el icono se montaba encima— y la rejilla se
 // activa desde `md` en vez de `sm`: por debajo, cada fila se apila.
 //
-// PLEGABLE (2026-09-26): en Cotizar el panel es el paso 3 del flujo, a lo
-// ancho, y se pinta plegable (`plegable`). Plegado muestra una línea resumen
-// —conceptos activos, subtotal, IVA— y señala si algún valor sigue siendo el
-// SUGERIDO por el sistema, para que no quede escondido. En Actual nadie pasa
-// `plegable` y el panel se ve completo, como siempre.
+// SOLO EN ACTUAL (2026-09-26, mesa de trabajo): en Cotizar los cargos se editan
+// en el resumen de la derecha (`ResumenPropuesta`, versión compacta con el
+// mismo estado). Este panel es la vista completa —con IVA por línea— y dejó de
+// tener modo plegable, que solo usaba el antiguo paso 3 de Cotizar.
 //
 // MANO DE OBRA POR PRODUCTO (2026-09-26): el selector "Mano de obra por tipo de
 // obra" (SMO) salió. Ensamble e instalación se calculan solos en el backend
@@ -231,8 +230,6 @@ interface Props {
     cargandoManoObra?: boolean;
     /** Aclaración bajo la mano de obra, p. ej. que incluye el producto en pantalla. */
     notaManoObra?: string | null;
-    /** Cuántos ítems tiene la propuesta: decide si el panel arranca abierto. */
-    cantidadItems?: number;
     etiquetaPropuesta?: string | null;
     /** Propuesta anterior al cambio: sus cargos están dentro de los ítems. */
     legado?: boolean;
@@ -240,9 +237,6 @@ interface Props {
     /** Propuesta elegida de una cotización APROBADA: el backend rechaza cambiar
      * sus cargos (puede haber material cortado), así que se pinta de lectura. */
     aprobada?: boolean;
-    /** Pintarlo plegable, con una línea resumen cuando está cerrado (paso 3 de
-     * Cotizar). Por defecto `false`: en Actual se ve completo, como siempre. */
-    plegable?: boolean;
 }
 
 const inputClass = 'w-full min-w-0 h-8 px-2 text-sm text-slate-900 border border-slate-300 rounded-lg bg-white placeholder:text-slate-400 hover:border-slate-400 focus:outline-none focus:border-templex-500 focus:ring-2 focus:ring-templex-200 disabled:bg-slate-50 disabled:text-slate-500';
@@ -253,28 +247,6 @@ const numClass = `${inputClass} text-right tabular-nums`;
  * de la tabla). Sin eso, "$ 180.000" y "$ 90.000" no caen alineados y la
  * columna deja de leerse de un vistazo. */
 const IMPORTE = 'tabular-nums';
-
-/** Preferencia del vendedor: panel plegado o abierto en Cotizar. Sólo una
- * comodidad por navegador — si el almacenamiento falla, manda el criterio por
- * defecto. */
-const CLAVE_PLEGADO = 'cotizador.cargosObra.plegado';
-
-const leerPreferenciaPlegado = (): boolean | null => {
-    try {
-        const v = window.localStorage.getItem(CLAVE_PLEGADO);
-        return v === '1' ? true : v === '0' ? false : null;
-    } catch {
-        return null;
-    }
-};
-
-const guardarPreferenciaPlegado = (plegado: boolean) => {
-    try {
-        window.localStorage.setItem(CLAVE_PLEGADO, plegado ? '1' : '0');
-    } catch {
-        /* sin almacenamiento: la preferencia dura lo que la pantalla */
-    }
-};
 
 /** Rejilla de la tabla: concepto · cantidad · valor unitario · IVA · total.
  *
@@ -431,55 +403,20 @@ const FilaCargo: React.FC<{
 );
 
 const PanelCargosObra: React.FC<Props> = ({
-    valor, onChange, parametros, cotizacionId, manoObra, cargandoManoObra, notaManoObra, cantidadItems = 0,
-    etiquetaPropuesta, legado, onDuplicarLegado, aprobada, plegable = false,
+    valor, onChange, parametros, cotizacionId, manoObra, cargandoManoObra, notaManoObra,
+    etiquetaPropuesta, legado, onDuplicarLegado, aprobada,
 }) => {
     const ivaPct = Number(parametros?.iva) || 0;
     const totalManoObra = manoObra.reduce((acc, l) => acc + Math.round(l.cantidad * l.valorUnitario * 100) / 100, 0);
     const bloqueado = Boolean(legado || aprobada);
     const resumen = resumenCargos(valor, ivaPct);
 
-    /** Cargos cuyo monto sigue siendo el que puso el sistema. No es un error
-     * —es un valor válido—, pero el vendedor debe verlo antes de enviar la
-     * cotización: por eso el resumen plegado lo señala. */
-    const sugeridos: string[] = [];
-    if (valor.flete.activo && valor.flete.origen === 'SUGERIDO') sugeridos.push('flete');
-
-    // Estado inicial del plegado: la preferencia que el vendedor dejó la última
-    // vez; si no hay, ABIERTO cuando la propuesta aún no tiene ítems o hay
-    // valores sugeridos por revisar, y plegado en el resto de casos. Sin
-    // `plegable` (Actual) está siempre abierto.
-    const [abierto, setAbierto] = React.useState<boolean>(() => {
-        if (!plegable) return true;
-        const plegadoGuardado = leerPreferenciaPlegado();
-        if (plegadoGuardado !== null) return !plegadoGuardado;
-        return cantidadItems === 0 || sugeridos.length > 0;
-    });
-    const mostrarCuerpo = !plegable || abierto;
-    const alternarPlegado = () => {
-        const nuevo = !abierto;
-        setAbierto(nuevo);
-        guardarPreferenciaPlegado(!nuevo);
-    };
-    const idCuerpo = React.useId();
 
     const set = (cambios: Partial<EstadoCargos>) => onChange({ ...valor, ...cambios });
 
     const totalAndamio = (Number(valor.andamio.dias) || 0) * (Number(valor.andamio.valorUnitario) || 0);
     const totalHuacal = (Number(valor.huacal.unidades) || 0) * (Number(valor.huacal.valorUnitario) || 0);
 
-    // Conceptos encendidos, para la línea resumen del panel plegado.
-    const otrosConValor = valor.otros.filter((o) => o.descripcion.trim() || o.valor).length;
-    const conceptosActivos: string[] = [
-        ...manoObra.map((l) => l.descripcion),
-        valor.andamio.activo ? 'Andamio' : null,
-        valor.huacal.activo ? 'Huacal' : null,
-        valor.flete.activo ? 'Flete' : null,
-        otrosConValor ? `${otrosConValor} servicio${otrosConValor === 1 ? '' : 's'} adicional${otrosConValor === 1 ? '' : 'es'}` : null,
-    ].filter((c): c is string => c !== null);
-    const textoSugeridos = sugeridos.length
-        ? `${sugeridos.join(' y ').replace(/^./, (l) => l.toUpperCase())} con valor sugerido por el sistema: ${sugeridos.length === 1 ? 'revísalo' : 'revísalos'}`
-        : null;
 
     const titulo = (
         <>
@@ -489,26 +426,10 @@ const PanelCargosObra: React.FC<Props> = ({
     );
 
     return (
-        <section className={`border border-slate-200 rounded-xl overflow-hidden bg-white shadow-card ${plegable ? '' : 'h-full max-w-4xl'}`}>
-            <header className={`bg-slate-50 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 ${mostrarCuerpo ? 'border-b border-slate-200' : ''}`}>
+        <section className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-card h-full max-w-4xl">
+            <header className="bg-slate-50 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-slate-200">
                 <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                    {plegable ? (
-                        // Patrón acordeón: el título ES el botón, dentro del h3.
-                        <h3>
-                            <button
-                                type="button"
-                                onClick={alternarPlegado}
-                                aria-expanded={abierto}
-                                aria-controls={idCuerpo}
-                                className="flex items-center gap-2 rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-templex-400"
-                            >
-                                <ChevronDown className={`w-4 h-4 text-slate-600 shrink-0 transition-transform ${abierto ? 'rotate-180' : ''}`} />
-                                {titulo}
-                            </button>
-                        </h3>
-                    ) : (
-                        <h3 className="flex items-center gap-2">{titulo}</h3>
-                    )}
+                    <h3 className="flex items-center gap-2">{titulo}</h3>
                     <Chip tono="marca">Se cobra una vez por propuesta</Chip>
                     {etiquetaPropuesta && (
                         <span className="text-[12px] text-slate-900 font-semibold whitespace-nowrap">
@@ -521,54 +442,10 @@ const PanelCargosObra: React.FC<Props> = ({
                         Mano de obra <span className={`${IMPORTE} font-bold text-slate-900`}>{fmtCOP(totalManoObra)}</span>
                         {' · '}Cargos <span className={`${IMPORTE} font-bold text-slate-900`}>{fmtCOP(resumen.base)}</span>
                     </span>
-                    {plegable && (
-                        <button
-                            type="button"
-                            onClick={alternarPlegado}
-                            aria-expanded={abierto}
-                            aria-controls={idCuerpo}
-                            className="text-[12px] font-semibold text-templex-700 hover:text-templex-800 hover:underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-templex-400 rounded"
-                        >
-                            {abierto ? 'Ocultar detalle' : 'Ver y editar'}
-                        </button>
-                    )}
                 </div>
             </header>
 
-            {/* Resumen del panel plegado: qué se está cobrando y, si algún monto
-                sigue siendo el sugerido, un aviso que no se puede pasar por
-                alto (ámbar, con icono y texto — el color no va solo). */}
-            {plegable && !abierto && (
-                <div className="px-3.5 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-slate-800">
-                    <span className="min-w-0">
-                        {conceptosActivos.length > 0 ? conceptosActivos.join(' · ') : 'Ningún cargo incluido todavía.'}
-                    </span>
-                    {textoSugeridos && !bloqueado && (
-                        <button
-                            type="button"
-                            onClick={alternarPlegado}
-                            className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-                            title="Abrir los cargos para revisarlos"
-                        >
-                            <Chip tono="ambar" className="whitespace-normal text-left">
-                                <Wand2 className="w-3 h-3 shrink-0" /> {textoSugeridos}
-                            </Chip>
-                        </button>
-                    )}
-                    {legado && (
-                        <Chip tono="ambar">
-                            <AlertTriangle className="w-3 h-3" /> Propuesta anterior al cambio de cargos
-                        </Chip>
-                    )}
-                    {aprobada && !legado && (
-                        <Chip tono="esmeralda">
-                            <Lock className="w-3 h-3" /> Sólo lectura: cotización aprobada
-                        </Chip>
-                    )}
-                </div>
-            )}
-
-            <div id={idCuerpo} hidden={!mostrarCuerpo}>
+            <div>
             {aprobada && !legado && (
                 <div className="m-3 flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12.5px] text-emerald-800">
                     <Lock className="w-4 h-4 mt-0.5 shrink-0" />

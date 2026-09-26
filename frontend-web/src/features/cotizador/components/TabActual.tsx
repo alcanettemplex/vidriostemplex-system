@@ -460,7 +460,6 @@ const TabActual: React.FC<Props> = ({
                         cotizacionId={propuestas.cotizacionId}
                         manoObra={manoObra}
                         cargandoManoObra={cargandoManoObra}
-                        cantidadItems={carrito.length}
                         etiquetaPropuesta={activa?.etiqueta ?? null}
                         legado={legado}
                         onDuplicarLegado={propuestas.onDuplicar}
