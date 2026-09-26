@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { X, AlertTriangle, Camera, Send, CheckCircle } from 'lucide-react';
+import { X, AlertTriangle, Camera, Send, CheckCircle } from '../../../components/ui/icons';
 
 import API from '../../../services/config';
 
@@ -66,7 +66,7 @@ const ReportarDanoModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, onR
   };
 
   const inputClass = 'w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-400 outline-none transition';
-  const labelClass = 'block text-[10px] font-black uppercase text-slate-400 mb-1 tracking-wider';
+  const labelClass = 'block text-[11px] font-semibold uppercase text-slate-900 mb-1 tracking-wider';
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -80,11 +80,11 @@ const ReportarDanoModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, onR
               <AlertTriangle className="w-5 h-5 text-orange-600" />
             </div>
             <div>
-              <p className="font-black text-slate-800 text-sm">REPORTAR DAÑO EN INSTALACIÓN</p>
+              <p className="font-bold text-slate-900 text-sm">REPORTAR DAÑO EN INSTALACIÓN</p>
               <p className="text-[11px] text-orange-600 font-bold">{numeroODP}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-orange-100 rounded-xl text-slate-400 transition">
+          <button onClick={onClose} className="p-2 hover:bg-orange-100 rounded-xl text-slate-500 transition">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -94,8 +94,8 @@ const ReportarDanoModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, onR
             <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mb-4">
               <CheckCircle className="w-9 h-9 text-orange-500" />
             </div>
-            <h3 className="text-lg font-black text-slate-800">Daño Registrado</h3>
-            <p className="text-sm text-slate-500 mt-1">El asesor será notificado para tomar acción.</p>
+            <h3 className="text-lg font-bold text-slate-900">Daño Registrado</h3>
+            <p className="text-sm text-slate-700 mt-1">El asesor será notificado para tomar acción.</p>
           </div>
         ) : (
           <div className="p-6 space-y-4">
@@ -142,7 +142,7 @@ const ReportarDanoModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, onR
               ) : (
                 <button
                   onClick={() => fileRef.current?.click()}
-                  className="w-full border-2 border-dashed border-slate-200 rounded-2xl p-6 flex flex-col items-center gap-2 text-slate-400 hover:border-orange-300 hover:text-orange-500 transition"
+                  className="w-full border-2 border-dashed border-slate-200 rounded-2xl p-6 flex flex-col items-center gap-2 text-slate-700 hover:border-orange-300 hover:text-orange-500 transition"
                 >
                   <Camera className="w-7 h-7" />
                   <span className="text-xs font-bold">Tomar foto del daño</span>
@@ -152,13 +152,13 @@ const ReportarDanoModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, onR
 
             {/* Botones */}
             <div className="flex gap-3 pt-2">
-              <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition text-sm">
+              <button onClick={onClose} className="flex-1 py-3 bg-slate-100 text-slate-900 font-bold rounded-2xl hover:bg-slate-200 transition text-sm">
                 Cancelar
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={enviando}
-                className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-2xl shadow-lg shadow-orange-100 transition flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl shadow-lg shadow-orange-100 transition flex items-center justify-center gap-2 text-sm disabled:opacity-50"
               >
                 {enviando ? 'Registrando...' : <><Send className="w-4 h-4" /> Registrar Daño</>}
               </button>

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, AlertTriangle, TrendingDown, TrendingUp, Minus,
   Package, RefreshCw, ChevronDown, ChevronUp, Filter, Sparkles, Loader2
-} from 'lucide-react';
+} from '../../../../components/ui/icons';
 import API from '../../../../services/config';
 import { useBusquedaModulo, MIN_CARACTERES, ProductoSugerido } from '../../hooks/useBusquedaModulo';
 import { RADIUS, FONT } from '../../styleTokens';
@@ -83,7 +83,7 @@ const formatFecha = (val: string | null): string => {
 const VariacionBadge: React.FC<{ pct: number | null; anomalo: boolean; umbral: number }> = ({ pct, anomalo, umbral }) => {
   if (pct === null) return <span style={{ color: 'var(--text-muted)', fontSize: FONT.sm }}>—</span>;
   const Icon = pct > 0 ? TrendingUp : pct < 0 ? TrendingDown : Minus;
-  const color = anomalo ? '#ef4444' : pct > 0 ? '#f59e0b' : '#22c55e';
+  const color = anomalo ? '#b91c1c' : pct > 0 ? '#b45309' : '#15803d';
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -224,7 +224,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
         display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap',
       }}>
         <div ref={buscadorRef} style={{ flex: 1, minWidth: 260, position: 'relative' }}>
-          <label style={{ display: 'block', fontSize: FONT.sm, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>
+          <label style={{ display: 'block', fontSize: FONT.sm, color: 'var(--text)', fontWeight: 600, marginBottom: 6 }}>
             CÓDIGO, NOMBRE, SINÓNIMO O CÓDIGO DEL PROVEEDOR
           </label>
           <div style={{ position: 'relative' }}>
@@ -242,7 +242,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
               }}
             />
             {cargandoSugerencias && (
-              <Loader2 size={14} className="animate-spin" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)' }} />
+              <Loader2 size={14} className="animate-spin" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--primary-strong, #4338ca)' }} />
             )}
           </div>
 
@@ -281,7 +281,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                     >
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: FONT.sm, color: 'var(--primary)' }}>
+                          <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: FONT.sm, color: 'var(--primary-strong, #4338ca)' }}>
                             {p.codigo}
                           </span>
                           <span style={{ fontSize: FONT.base, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -289,7 +289,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                           </span>
                         </div>
                         {(p.motivo?.tipo === 'ALIAS' || p.motivo?.tipo === 'CODIGO_PROVEEDOR') && (
-                          <div style={{ fontSize: FONT.tiny, color: '#7c3aed', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <div style={{ fontSize: FONT.tiny, color: '#6d28d9', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
                             <Sparkles size={10} />
                             {p.motivo.tipo === 'ALIAS' ? `sinónimo · «${p.motivo.detalle}»` : `código del proveedor · ${p.motivo.detalle}`}
                           </div>
@@ -298,7 +298,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
                         {p.total_proveedores > 0 ? (
                           <>
-                            <div style={{ fontSize: FONT.sm, fontWeight: 700, color: '#22c55e' }}>
+                            <div style={{ fontSize: FONT.sm, fontWeight: 700, color: '#15803d' }}>
                               desde {formatCOP(p.precio_min)}
                             </div>
                             <div style={{ fontSize: FONT.tiny, color: 'var(--text-muted)' }}>
@@ -319,7 +319,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
         </div>
 
         <div style={{ minWidth: 180 }}>
-          <label style={{ display: 'block', fontSize: FONT.sm, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>
+          <label style={{ display: 'block', fontSize: FONT.sm, color: 'var(--text)', fontWeight: 600, marginBottom: 6 }}>
             MODALIDAD
           </label>
           <div style={{ position: 'relative' }}>
@@ -381,7 +381,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
-              <span style={{ fontFamily: 'monospace', fontSize: FONT.sm, fontWeight: 700, color: 'var(--primary)' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: FONT.sm, fontWeight: 600, color: 'var(--primary-strong, #4338ca)' }}>
                 {c.codigo}
               </span>
               <span style={{ fontSize: FONT.base, color: 'var(--text)' }}>{c.nombre}</span>
@@ -408,7 +408,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
           initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
           style={{
             background: '#ef444410', border: '1px solid #ef4444', borderRadius: RADIUS.xl,
-            padding: '16px 20px', color: '#ef4444', display: 'flex', alignItems: 'center', gap: 10,
+            padding: '16px 20px', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: 10,
           }}
         >
           <AlertTriangle size={18} />
@@ -428,9 +428,9 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
               display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12,
             }}>
               <div>
-                <div style={{ fontSize: FONT.sm, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 2 }}>PRODUCTO</div>
+                <div style={{ fontSize: FONT.sm, color: 'var(--text)', fontWeight: 600, marginBottom: 2 }}>PRODUCTO</div>
                 <div style={{ fontSize: FONT.xxl, fontWeight: 700, color: 'var(--text)' }}>
-                  <span style={{ color: 'var(--primary)', marginRight: 10, fontSize: FONT.md, fontFamily: 'monospace' }}>
+                  <span style={{ color: 'var(--primary-strong, #4338ca)', marginRight: 10, fontSize: FONT.md, fontFamily: 'monospace' }}>
                     {resultado.producto.codigo}
                   </span>
                   {resultado.producto.nombre}
@@ -443,8 +443,8 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
               </div>
               <div style={{
                 background: resultado.precios.length > 0 ? '#22c55e18' : '#f5940018',
-                color: resultado.precios.length > 0 ? '#22c55e' : '#f59400',
-                borderRadius: RADIUS.md, padding: '6px 14px', fontWeight: 700, fontSize: FONT.md,
+                color: resultado.precios.length > 0 ? '#15803d' : '#b45309',
+                borderRadius: RADIUS.md, padding: '6px 14px', fontWeight: 600, fontSize: FONT.md,
               }}>
                 {resultado.total} proveedor{resultado.total !== 1 ? 'es' : ''}
               </div>
@@ -493,7 +493,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                   borderBottom: '1px solid var(--border)',
                 }}>
                   {['PROVEEDOR', 'MODALIDAD', 'SIN IVA', `+${resultado.producto.porcentaje_iva}% IVA`, 'VARIACIÓN', 'FECHA'].map(h => (
-                    <div key={h} style={{ fontSize: FONT.xs, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: .5 }}>{h}</div>
+                    <div key={h} style={{ fontSize: FONT.xs, fontWeight: 600, color: 'var(--text)', letterSpacing: .5 }}>{h}</div>
                   ))}
                 </div>
 
@@ -524,7 +524,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {idx === 0 && (
                           <span style={{
-                            background: '#22c55e', color: '#fff', fontSize: FONT.tiny, fontWeight: 700,
+                            background: '#15803d', color: '#fff', fontSize: FONT.tiny, fontWeight: 600,
                             borderRadius: RADIUS.xs, padding: '2px 5px', letterSpacing: .5,
                           }}>
                             MÁS BAJO
@@ -545,7 +545,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                                     .filter((c) => !c.principal)
                                     .map((c) => c.codigo_proveedor)
                                     .join(', ')}`}
-                                  style={{ color: 'var(--text-faint, #94a3b8)', marginLeft: 5 }}
+                                  style={{ color: 'var(--text-muted, #2f3746)', marginLeft: 5 }}
                                 >
                                   +{(p.codigos ?? []).filter((c) => !c.principal).length}
                                 </span>
@@ -599,7 +599,7 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                             {/* Descripción del proveedor */}
                             {p.descripcion_proveedor && (
                               <div>
-                                <div style={{ fontSize: FONT.xs, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 3 }}>DESCRIPCIÓN PROVEEDOR</div>
+                                <div style={{ fontSize: FONT.xs, color: 'var(--text)', fontWeight: 600, marginBottom: 3 }}>DESCRIPCIÓN PROVEEDOR</div>
                                 <div style={{ fontSize: FONT.base, color: 'var(--text)' }}>{p.descripcion_proveedor}</div>
                               </div>
                             )}
@@ -607,14 +607,14 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                             {/* Precio por metro derivado (perfilería) */}
                             {p.precio_metro_derivado && (
                               <div>
-                                <div style={{ fontSize: FONT.xs, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 3 }}>PRECIO POR METRO (DERIVADO)</div>
+                                <div style={{ fontSize: FONT.xs, color: 'var(--text)', fontWeight: 600, marginBottom: 3 }}>PRECIO POR METRO (DERIVADO)</div>
                                 <div style={{ fontSize: FONT.base, fontWeight: 600, color: 'var(--text)' }}>{formatCOP(p.precio_metro_derivado)} / m</div>
                               </div>
                             )}
 
                             {/* Historial de precios */}
                             <div>
-                              <div style={{ fontSize: FONT.xs, color: 'var(--text-muted)', fontWeight: 700, marginBottom: 6 }}>HISTORIAL DE PRECIOS</div>
+                              <div style={{ fontSize: FONT.xs, color: 'var(--text)', fontWeight: 600, marginBottom: 6 }}>HISTORIAL DE PRECIOS</div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 {p.precio_anterior_1 ? (
                                   <div style={{ fontSize: FONT.sm, color: 'var(--text-muted)' }}>
@@ -641,8 +641,8 @@ const ConsultarPreciosTab: React.FC<Props> = ({ productoInicial }) => {
                                 borderRadius: RADIUS.md, padding: '8px 14px',
                                 display: 'flex', alignItems: 'center', gap: 8,
                               }}>
-                                <AlertTriangle size={14} color="#ef4444" />
-                                <span style={{ fontSize: FONT.sm, color: '#ef4444', fontWeight: 600 }}>
+                                <AlertTriangle size={14} color="#b91c1c" />
+                                <span style={{ fontSize: FONT.sm, color: '#b91c1c', fontWeight: 600 }}>
                                   Variación anómala: {p.variacion_pct !== null ? `${p.variacion_pct > 0 ? '+' : ''}${p.variacion_pct.toFixed(1)}%` : ''}
                                   {' '}(umbral: ±{resultado.umbral_variacion_pct}%)
                                 </span>

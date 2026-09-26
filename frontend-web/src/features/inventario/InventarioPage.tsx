@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
-import { Search, MapPin, Ruler, Trash2, Edit2, Check, X, BarChart2, List, PackagePlus, Download, FileSpreadsheet } from 'lucide-react';
+import { Search, MapPin, Ruler, Trash2, Edit2, Check, X, BarChart2, List, PackagePlus, Download, FileSpreadsheet } from '../../components/ui/icons';
 import IngresarPerfilModal from './IngresarPerfilModal';
 import { getCatalogoCached } from '../../services/listasCache';
 
@@ -214,7 +214,7 @@ const InventarioPage: React.FC = () => {
     const rounded = Math.round(mm);
     if (rounded >= 6000) return <span className="font-semibold text-emerald-700">{rounded.toLocaleString()} mm (barra completa)</span>;
     if (rounded >= 3000) return <span className="text-blue-700">{rounded.toLocaleString()} mm</span>;
-    return <span className="text-slate-600">{rounded.toLocaleString()} mm</span>;
+    return <span className="text-slate-800">{rounded.toLocaleString()} mm</span>;
   };
 
   return (
@@ -223,8 +223,8 @@ const InventarioPage: React.FC = () => {
       {/* Encabezado */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Inventario Perfilería</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="text-2xl font-bold text-slate-900">Inventario Perfilería</h1>
+          <p className="text-sm text-slate-700 mt-0.5">
             {ultimaEntrada
               ? `Último ingreso: ${new Date(ultimaEntrada).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}`
               : 'Sin ingresos registrados'
@@ -246,13 +246,13 @@ const InventarioPage: React.FC = () => {
           </button>)}
           <button
             onClick={() => setViewMode('lista')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all ${viewMode === 'lista' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all ${viewMode === 'lista' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'}`}
           >
             <List className="w-4 h-4" /> Lista
           </button>
           <button
             onClick={() => setViewMode('resumen')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all ${viewMode === 'resumen' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all ${viewMode === 'resumen' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'}`}
           >
             <BarChart2 className="w-4 h-4" /> Por código
           </button>
@@ -271,7 +271,7 @@ const InventarioPage: React.FC = () => {
       {viewMode === 'lista' && (
         <div className="flex flex-wrap gap-3 mb-5">
           <div className="relative flex-1 min-w-[220px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               type="text"
               placeholder="Buscar #, código, descripción o ubicación..."
@@ -281,7 +281,7 @@ const InventarioPage: React.FC = () => {
             />
           </div>
           <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <select
               value={filterUbicacion}
               onChange={e => { setFilterUbicacion(e.target.value); setPage(1); }}
@@ -308,18 +308,18 @@ const InventarioPage: React.FC = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-4 py-3 text-left font-semibold text-slate-600 w-20">#</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-600">Código</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-600">Descripción</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-600">Longitud</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-600">Ubicación</th>
-                    <th className="px-4 py-3 text-center font-semibold text-slate-600 w-24">Acciones</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-900 w-20">#</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-900">Código</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-900">Descripción</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-900">Longitud</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-900">Ubicación</th>
+                    <th className="px-4 py-3 text-center font-semibold text-slate-900 w-24">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {items.map(item => (
                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-2.5 text-slate-400 font-mono text-xs">{item.consecutivo}</td>
+                      <td className="px-4 py-2.5 text-slate-700 font-mono text-xs">{item.consecutivo}</td>
                       <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">
                         {editingId === item.id ? (
                           <div>
@@ -332,9 +332,9 @@ const InventarioPage: React.FC = () => {
                             />
                             {editValues.codigo.trim() && (
                               catalogoMap[editValues.codigo.trim()] ? (
-                                <p className="text-[10px] font-sans font-medium text-emerald-600 mt-0.5">{catalogoMap[editValues.codigo.trim()]}</p>
+                                <p className="text-[11px] font-sans font-medium text-emerald-700 mt-0.5">{catalogoMap[editValues.codigo.trim()]}</p>
                               ) : (
-                                <p className="text-[10px] font-sans font-medium text-amber-600 mt-0.5">No está en catálogo</p>
+                                <p className="text-[11px] font-sans font-medium text-amber-600 mt-0.5">No está en catálogo</p>
                               )
                             )}
                           </div>
@@ -342,18 +342,18 @@ const InventarioPage: React.FC = () => {
                           item.codigo || '—'
                         )}
                       </td>
-                      <td className="px-4 py-2.5 text-slate-500 text-sm">{catalogoMap[item.codigo] || '—'}</td>
+                      <td className="px-4 py-2.5 text-slate-800 text-sm">{catalogoMap[item.codigo] || '—'}</td>
                       <td className="px-4 py-2.5">
                         {editingId === item.id ? (
                           <div className="flex items-center gap-1">
-                            <Ruler className="w-3.5 h-3.5 text-slate-400" />
+                            <Ruler className="w-3.5 h-3.5 text-slate-500" />
                             <input
                               type="number"
                               value={editValues.mm}
                               onChange={e => setEditValues(v => ({ ...v, mm: e.target.value }))}
                               className="w-24 border border-indigo-300 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
                             />
-                            <span className="text-slate-400 text-xs">mm</span>
+                            <span className="text-slate-600 text-xs">mm</span>
                           </div>
                         ) : (
                           formatMm(item.mm)
@@ -369,7 +369,7 @@ const InventarioPage: React.FC = () => {
                             className="w-28 border border-indigo-300 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
                           />
                         ) : (
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${item.ubicacion ? 'bg-slate-100 text-slate-700' : 'text-slate-400 italic'}`}>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${item.ubicacion ? 'bg-slate-100 text-slate-700' : 'text-slate-500 italic'}`}>
                             {item.ubicacion ? <><MapPin className="w-3 h-3" />{item.ubicacion}</> : 'Sin ubicación'}
                           </span>
                         )}
@@ -412,7 +412,7 @@ const InventarioPage: React.FC = () => {
               >
                 Anterior
               </button>
-              <span className="px-4 py-2 text-sm text-slate-600">
+              <span className="px-4 py-2 text-sm text-slate-800">
                 Pág. {page} de {Math.ceil(total / LIMIT)}
               </span>
               <button
@@ -430,7 +430,7 @@ const InventarioPage: React.FC = () => {
         <div>
           <div className="flex items-center justify-between mb-4">
             <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input
                 type="text"
                 placeholder="Filtrar por código o descripción..."
@@ -447,7 +447,7 @@ const InventarioPage: React.FC = () => {
             </button>
           </div>
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-            <div className="px-4 py-2.5 bg-violet-50 border-b border-violet-100 text-xs font-medium text-violet-700">
+            <div className="px-4 py-2.5 bg-violet-50 border-b border-violet-100 text-xs font-medium text-violet-800">
               Reporte de stock en MM por perfil — {statsReporteFiltrados.length} perfiles
               {reporteSearch && ` · filtro: "${reporteSearch}"`}
             </div>
@@ -455,20 +455,20 @@ const InventarioPage: React.FC = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-4 py-3 text-left font-semibold text-slate-600">Código</th>
-                    <th className="px-4 py-3 text-left font-semibold text-slate-600">Descripción</th>
-                    <th className="px-4 py-3 text-right font-semibold text-slate-600">Total Piezas</th>
-                    <th className="px-4 py-3 text-right font-semibold text-slate-600">Total MM</th>
-                    <th className="px-4 py-3 text-right font-semibold text-slate-600">Total Metros</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-900">Código</th>
+                    <th className="px-4 py-3 text-left font-semibold text-slate-900">Descripción</th>
+                    <th className="px-4 py-3 text-right font-semibold text-slate-900">Total Piezas</th>
+                    <th className="px-4 py-3 text-right font-semibold text-slate-900">Total MM</th>
+                    <th className="px-4 py-3 text-right font-semibold text-slate-900">Total Metros</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {statsReporteFiltrados.map(s => (
                     <tr key={s.codigo} className="hover:bg-slate-50">
                       <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">{s.codigo}</td>
-                      <td className="px-4 py-2.5 text-slate-500">{catalogoMap[s.codigo] || '—'}</td>
-                      <td className="px-4 py-2.5 text-right text-slate-700">{s.total_piezas.toLocaleString()}</td>
-                      <td className="px-4 py-2.5 text-right text-slate-700">{s.total_mm.toLocaleString()}</td>
+                      <td className="px-4 py-2.5 text-slate-800">{catalogoMap[s.codigo] || '—'}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-800">{s.total_piezas.toLocaleString()}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-800">{s.total_mm.toLocaleString()}</td>
                       <td className="px-4 py-2.5 text-right font-semibold text-violet-700">
                         {(s.total_mm / 1000).toFixed(2)} m
                       </td>
@@ -501,36 +501,36 @@ const InventarioPage: React.FC = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">Código</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">Descripción</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-600">Piezas</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-600">Total mm</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-600">Total metros</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">Ubicaciones</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-900">Código</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-900">Descripción</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-900">Piezas</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-900">Total mm</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-900">Total metros</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-900">Ubicaciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {stats.map(s => (
                   <tr key={s.codigo} className="hover:bg-slate-50">
                     <td className="px-4 py-2.5 font-mono font-semibold text-slate-800">{s.codigo}</td>
-                    <td className="px-4 py-2.5 text-slate-500 text-sm">{catalogoMap[s.codigo] || '—'}</td>
-                    <td className="px-4 py-2.5 text-right text-slate-700">{s.total_piezas}</td>
-                    <td className="px-4 py-2.5 text-right text-slate-700">{s.total_mm.toLocaleString()}</td>
+                    <td className="px-4 py-2.5 text-slate-800 text-sm">{catalogoMap[s.codigo] || '—'}</td>
+                    <td className="px-4 py-2.5 text-right text-slate-800">{s.total_piezas}</td>
+                    <td className="px-4 py-2.5 text-right text-slate-800">{s.total_mm.toLocaleString()}</td>
                     <td className="px-4 py-2.5 text-right font-semibold text-indigo-700">
                       {(s.total_mm / 1000).toFixed(2)} m
                     </td>
-                    <td className="px-4 py-2.5 text-slate-500 text-xs">{s.ubicaciones || '—'}</td>
+                    <td className="px-4 py-2.5 text-slate-700 text-xs">{s.ubicaciones || '—'}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="bg-slate-50 border-t-2 border-slate-200 font-semibold">
-                  <td className="px-4 py-3 text-slate-700">TOTAL</td>
+                  <td className="px-4 py-3 text-slate-900">TOTAL</td>
                   <td />
-                  <td className="px-4 py-3 text-right text-slate-700">
+                  <td className="px-4 py-3 text-right text-slate-900">
                     {stats.reduce((a, s) => a + s.total_piezas, 0).toLocaleString()}
                   </td>
-                  <td className="px-4 py-3 text-right text-slate-700">
+                  <td className="px-4 py-3 text-right text-slate-900">
                     {stats.reduce((a, s) => a + s.total_mm, 0).toLocaleString()}
                   </td>
                   <td className="px-4 py-3 text-right text-indigo-700">

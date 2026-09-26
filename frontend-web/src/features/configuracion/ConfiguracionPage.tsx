@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Save, DollarSign, Clock, AlertCircle, TrendingUp, Users, Target, Percent } from 'lucide-react';
+import { Settings, Save, DollarSign, Clock, AlertCircle, TrendingUp, Users, Target, Percent } from '../../components/ui/icons';
 import API from '../../services/config';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -155,8 +155,8 @@ export const ConfiguracionPage: React.FC = () => {
           <Settings className="w-8 h-8 text-indigo-600" />
         </div>
         <div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Configuración de Inteligencia y Metas</h1>
-          <p className="text-sm font-semibold text-slate-500">Ajusta los parámetros operativos y metas financieras por periodo temporal.</p>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Configuración de Inteligencia y Metas</h1>
+          <p className="text-sm text-slate-700 mt-0.5">Ajusta los parámetros operativos y metas financieras por periodo temporal.</p>
         </div>
       </motion.div>
 
@@ -167,7 +167,7 @@ export const ConfiguracionPage: React.FC = () => {
 
           {/* Cabecera con selector de periodo */}
           <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <DollarSign className="w-5 h-5 text-emerald-500" />
               Metas Financieras Variables
             </h2>
@@ -175,7 +175,7 @@ export const ConfiguracionPage: React.FC = () => {
               <select
                 value={selectedMonth}
                 onChange={e => setSelectedMonth(Number(e.target.value))}
-                className="bg-white border border-slate-200 text-sm rounded-lg px-3 py-1.5 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300 transition"
+                className="bg-white border border-slate-200 text-sm rounded-lg px-3 py-1.5 font-medium text-slate-900 outline-none focus:ring-2 focus:ring-indigo-300 transition"
               >
                 {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                   <option key={m} value={m}>{new Date(0, m - 1).toLocaleString('es', { month: 'long' }).toUpperCase()}</option>
@@ -184,7 +184,7 @@ export const ConfiguracionPage: React.FC = () => {
               <select
                 value={selectedYear}
                 onChange={e => setSelectedYear(Number(e.target.value))}
-                className="bg-white border border-slate-200 text-sm rounded-lg px-3 py-1.5 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300 transition"
+                className="bg-white border border-slate-200 text-sm rounded-lg px-3 py-1.5 font-medium text-slate-900 outline-none focus:ring-2 focus:ring-indigo-300 transition"
               >
                 {[2024, 2025, 2026, 2027].map(y => <option key={y}>{y}</option>)}
               </select>
@@ -193,7 +193,7 @@ export const ConfiguracionPage: React.FC = () => {
 
           {loading ? (
             <div className="h-40 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-3 text-indigo-500">
+              <div className="flex flex-col items-center gap-3 text-indigo-700">
                 <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
                 <span className="text-sm font-semibold">Cargando metas del periodo...</span>
               </div>
@@ -202,7 +202,7 @@ export const ConfiguracionPage: React.FC = () => {
             <>
               {/* ── Total global ──────────────────────────────────────────── */}
               <div className="px-6 pt-5 pb-4">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-2">
                   Meta Global de Facturación — {nombreMes} {selectedYear}
                 </p>
                 <motion.div
@@ -215,16 +215,16 @@ export const ConfiguracionPage: React.FC = () => {
                     <TrendingUp className="w-6 h-6 text-emerald-600" />
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Total suma de asesores</p>
-                    <p className="text-3xl font-black text-emerald-700 font-mono tracking-tight">
+                    <p className="text-[11px] font-semibold text-emerald-800 uppercase tracking-wider">Total suma de asesores</p>
+                    <p className="text-3xl font-extrabold text-emerald-700 font-mono tracking-tight">
                       ${totalGlobal > 0 ? formatCOP(totalGlobal) : '0'}
                     </p>
                   </div>
                   <div className="ml-auto text-right">
-                    <p className="text-[11px] text-slate-400 font-semibold">
+                    <p className="text-[11px] text-slate-900 font-semibold">
                       {metasUsuarios.filter(u => u.meta_facturacion > 0).length} / {metasUsuarios.length} usuarios
                     </p>
-                    <p className="text-[11px] text-slate-400">con meta asignada</p>
+                    <p className="text-[11px] text-slate-700">con meta asignada</p>
                   </div>
                 </motion.div>
               </div>
@@ -232,19 +232,19 @@ export const ConfiguracionPage: React.FC = () => {
               {/* ── Tabla de metas individuales ───────────────────────────── */}
               <div className="px-6 pb-2">
                 <div className="flex items-center gap-2 mb-3">
-                  <Users className="w-4 h-4 text-slate-400" />
-                  <p className="text-sm font-bold text-slate-600">Meta individual por usuario</p>
+                  <Users className="w-4 h-4 text-slate-500" />
+                  <p className="text-sm font-semibold text-slate-900">Meta individual por usuario</p>
                 </div>
 
                 {metasUsuarios.length === 0 ? (
-                  <div className="text-center py-8 text-slate-400 text-sm font-semibold">
+                  <div className="text-center py-8 text-slate-700 text-sm">
                     No hay usuarios activos con rol asesor, jefe de producción o gerencia.
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <AnimatePresence>
                       {metasUsuarios.map((u, idx) => {
-                        const rolCfg  = ROL_CONFIG[u.rol] ?? { label: u.rol, badge: 'bg-slate-100 text-slate-600 border-slate-200', dot: 'bg-slate-400' };
+                        const rolCfg  = ROL_CONFIG[u.rol] ?? { label: u.rol, badge: 'bg-slate-100 text-slate-700 border-slate-200', dot: 'bg-slate-400' };
                         const pct     = totalGlobal > 0 ? Math.round((u.meta_facturacion / totalGlobal) * 100) : 0;
 
                         return (
@@ -256,14 +256,14 @@ export const ConfiguracionPage: React.FC = () => {
                             className="group flex items-center gap-4 bg-slate-50 hover:bg-white border border-slate-100 hover:border-slate-200 hover:shadow-sm rounded-xl px-4 py-3 transition-all"
                           >
                             {/* Avatar */}
-                            <div className={`w-9 h-9 rounded-full ${avatarColor(u.rol)} flex items-center justify-center text-white text-xs font-black flex-shrink-0 shadow-sm`}>
+                            <div className={`w-9 h-9 rounded-full ${avatarColor(u.rol)} flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm`}>
                               {initials(u.nombre_completo)}
                             </div>
 
                             {/* Nombre y rol */}
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-slate-800 truncate leading-tight">{u.nombre_completo}</p>
-                              <span className={`inline-flex items-center gap-1 mt-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full border ${rolCfg.badge}`}>
+                              <p className="text-sm font-semibold text-slate-900 truncate leading-tight">{u.nombre_completo}</p>
+                              <span className={`inline-flex items-center gap-1 mt-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${rolCfg.badge}`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${rolCfg.dot}`} />
                                 {rolCfg.label}
                               </span>
@@ -272,14 +272,14 @@ export const ConfiguracionPage: React.FC = () => {
                             {/* Input meta */}
                             <div className="flex flex-col items-end gap-1 w-44 flex-shrink-0">
                               <div className="relative w-full">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold pointer-events-none">$</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-semibold pointer-events-none">$</span>
                                 <input
                                   type="text"
                                   inputMode="numeric"
                                   value={formatCOP(u.meta_facturacion)}
                                   onChange={e => handleMetaUsuario(u.usuario_id, e.target.value)}
                                   placeholder="0"
-                                  className="w-full bg-white border border-slate-200 group-hover:border-emerald-300 focus:border-emerald-400 rounded-lg pl-7 pr-3 py-2 text-sm font-mono font-bold text-slate-800 text-right outline-none focus:ring-2 focus:ring-emerald-100 transition"
+                                  className="w-full bg-white border border-slate-200 group-hover:border-emerald-300 focus:border-emerald-400 rounded-lg pl-7 pr-3 py-2 text-sm font-mono font-semibold text-slate-900 text-right outline-none focus:ring-2 focus:ring-emerald-100 transition"
                                 />
                               </div>
                               {/* Barra de porcentaje */}
@@ -292,7 +292,7 @@ export const ConfiguracionPage: React.FC = () => {
                                     transition={{ duration: 0.3 }}
                                   />
                                 </div>
-                                <span className="text-[10px] font-bold text-slate-400 w-7 text-right">{pct}%</span>
+                                <span className="text-[11px] font-semibold text-slate-700 w-8 text-right">{pct}%</span>
                               </div>
                             </div>
                           </motion.div>
@@ -309,27 +309,27 @@ export const ConfiguracionPage: React.FC = () => {
 
         {/* ── RENDIMIENTO Y TALLER ──────────────────────────────────────────── */}
         <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
             <Clock className="w-5 h-5 text-amber-500" /> Rendimiento y Taller (Global)
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Ciclo Promedio de Producción Meta (Días)</label>
+              <label className="block text-sm font-semibold text-slate-900 mb-1">Ciclo Promedio de Producción Meta (Días)</label>
               <input
                 type="text" inputMode="numeric" name="meta_ciclo_produccion_dias"
                 value={formatCOP(config?.meta_ciclo_produccion_dias ?? '')}
                 onChange={handleConfigChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 font-mono font-medium focus:ring-2 focus:ring-indigo-300 outline-none transition"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2 font-mono text-slate-900 focus:ring-2 focus:ring-indigo-300 outline-none transition"
               />
-              <p className="text-xs text-slate-400 mt-1">Límite para marcar el ciclo de taller como rápido o lento.</p>
+              <p className="text-xs text-slate-700 mt-1">Límite para marcar el ciclo de taller como rápido o lento.</p>
             </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Alerta: ODP Inactiva/Estancada (Días)</label>
+              <label className="block text-sm font-semibold text-slate-900 mb-1">Alerta: ODP Inactiva/Estancada (Días)</label>
               <input
                 type="text" inputMode="numeric" name="dias_alerta_odp_estancada"
                 value={formatCOP(config?.dias_alerta_odp_estancada ?? '')}
                 onChange={handleConfigChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 font-mono font-medium focus:ring-2 focus:ring-indigo-300 outline-none transition"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2 font-mono text-slate-900 focus:ring-2 focus:ring-indigo-300 outline-none transition"
               />
             </div>
           </div>
@@ -337,36 +337,36 @@ export const ConfiguracionPage: React.FC = () => {
 
         {/* ── METAS COMERCIALES ─────────────────────────────────────────────── */}
         <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
             <Target className="w-5 h-5 text-indigo-500" /> Metas Comerciales (Global)
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Meta de ODPs Cerradas por Asesor (mensual)</label>
+              <label className="block text-sm font-semibold text-slate-900 mb-1">Meta de ODPs Cerradas por Asesor (mensual)</label>
               <input
                 type="text" inputMode="numeric" name="meta_odps_cerradas_asesor"
                 value={formatCOP(config?.meta_odps_cerradas_asesor ?? '')}
                 onChange={handleConfigChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 font-mono font-medium focus:ring-2 focus:ring-indigo-300 outline-none transition"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2 font-mono text-slate-900 focus:ring-2 focus:ring-indigo-300 outline-none transition"
               />
-              <p className="text-xs text-slate-400 mt-1">Usada en el KPI "Meta ODPs cerradas" de Supervisión CRM.</p>
+              <p className="text-xs text-slate-700 mt-1">Usada en el KPI "Meta ODPs cerradas" de Supervisión CRM.</p>
             </div>
           </div>
         </section>
 
         {/* ── FLUJO DE CAJA ─────────────────────────────────────────────────── */}
         <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-rose-500" /> Flujo de Caja y Cartera (Global)
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Alerta: Cartera Vencida Crítica (Días atraso)</label>
+              <label className="block text-sm font-semibold text-slate-900 mb-1">Alerta: Cartera Vencida Crítica (Días atraso)</label>
               <input
                 type="text" inputMode="numeric" name="dias_alerta_cartera_vencida"
                 value={formatCOP(config?.dias_alerta_cartera_vencida ?? '')}
                 onChange={handleConfigChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 font-mono font-medium focus:ring-2 focus:ring-indigo-300 outline-none transition"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2 font-mono text-slate-900 focus:ring-2 focus:ring-indigo-300 outline-none transition"
               />
             </div>
           </div>
@@ -374,19 +374,19 @@ export const ConfiguracionPage: React.FC = () => {
 
         {/* ── MÓDULO DE PROVEEDORES ─────────────────────────────────────────── */}
         <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
             <Percent className="w-5 h-5 text-violet-500" /> Precios de Proveedores (Global)
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Alerta: Variación Anómala de Precio (%)</label>
+              <label className="block text-sm font-semibold text-slate-900 mb-1">Alerta: Variación Anómala de Precio (%)</label>
               <input
                 type="text" inputMode="numeric" name="umbral_variacion_precio_pct"
                 value={config?.umbral_variacion_precio_pct ?? ''}
                 onChange={handleConfigChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 font-mono font-medium focus:ring-2 focus:ring-indigo-300 outline-none transition"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-2 font-mono text-slate-900 focus:ring-2 focus:ring-indigo-300 outline-none transition"
               />
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-700 mt-1">
                 Si el precio de un proveedor sube o baja más de este porcentaje respecto al anterior,
                 se marca en rojo al comparar y al cargar facturas. Recomendado: 30%. Rango válido: 1 a 200.
               </p>
@@ -399,7 +399,7 @@ export const ConfiguracionPage: React.FC = () => {
           <button
             type="submit"
             disabled={saving || loading}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white px-8 py-3 rounded-xl font-extrabold shadow-sm transition-all focus:ring-4 focus:ring-indigo-100 disabled:opacity-50"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white px-8 py-3 rounded-xl font-semibold shadow-sm transition-all focus:ring-4 focus:ring-indigo-100 disabled:opacity-50"
           >
             {saving
               ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Guardando...</>
@@ -413,7 +413,7 @@ export const ConfiguracionPage: React.FC = () => {
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0 }}
-                className={`font-bold text-sm ${mensaje.tipo === 'exito' ? 'text-emerald-600' : 'text-rose-600'}`}
+                className={`font-semibold text-sm ${mensaje.tipo === 'exito' ? 'text-emerald-700' : 'text-rose-700'}`}
               >
                 {mensaje.tipo === 'exito' ? '✓ ' : '✕ '}{mensaje.texto}
               </motion.span>

@@ -8,7 +8,7 @@ import { getEstadoODP } from '../../utils/estadosODP';
 import FolderTabs from '../../components/FolderTabs';
 import {
   FileCheck, Warehouse, Plus, Pencil, Trash2, X, RefreshCw, Search, Package, AlertTriangle, Zap,
-} from 'lucide-react';
+} from '../../components/ui/icons';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -25,7 +25,7 @@ const fmtMoneda = (v: number | null | undefined) =>
 // Nombres y colores de estado: `utils/estadosODP` es la fuente única.
 const BadgeEstado = ({ estado }: { estado: string }) => {
   const e = getEstadoODP(estado);
-  return <span title={e.descripcion} className={`px-2 py-0.5 rounded-full text-xs font-bold border ${e.badge}`}>{e.label}</span>;
+  return <span title={e.descripcion} className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap ${e.badge}`}>{e.label}</span>;
 };
 
 /**
@@ -51,7 +51,7 @@ const esFacturaAnticipada = (estadoProduccion?: string | null) =>
 
 const BadgeAnticipada = () => (
   <span
-    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide bg-amber-100 text-amber-800 border border-amber-300"
+    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap bg-amber-100 text-amber-800 border border-amber-300"
     title="Facturada antes de estar lista para instalar"
   >
     <Zap className="w-3 h-3" /> Factura anticipada
@@ -62,10 +62,10 @@ type Tab = 'facturadas' | 'oa' | 'nc' | 'con_salida';
 type SubTabConSalida = 'odps' | 'oa';
 
 const TIPO_ERROR_NC: Record<string, { label: string; cls: string }> = {
-  ERROR_INTERNO: { label: 'Error interno',  cls: 'bg-red-50 text-red-700 border border-red-200' },
-  DANO_PLANTA:   { label: 'Daño en planta', cls: 'bg-orange-50 text-orange-700 border border-orange-200' },
-  REPROCESO:     { label: 'Reproceso',      cls: 'bg-amber-50 text-amber-700 border border-amber-200' },
-  QUEJA:         { label: 'Queja',          cls: 'bg-purple-50 text-purple-700 border border-purple-200' },
+  ERROR_INTERNO: { label: 'Error interno',  cls: 'bg-red-50 text-red-800 border border-red-200' },
+  DANO_PLANTA:   { label: 'Daño en planta', cls: 'bg-orange-50 text-orange-800 border border-orange-200' },
+  REPROCESO:     { label: 'Reproceso',      cls: 'bg-amber-50 text-amber-800 border border-amber-200' },
+  QUEJA:         { label: 'Queja',          cls: 'bg-purple-50 text-purple-800 border border-purple-200' },
 };
 
 interface ODPFacturada {
@@ -336,93 +336,93 @@ const FacturasSalidasPage: React.FC = () => {
   return (
     <div className="p-6 w-full space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-3">
             <Warehouse className="w-7 h-7 text-violet-600" />
             Facturas vs Salidas
           </h1>
-          <p className="text-slate-500 text-sm mt-1">Control de ODPs facturadas, OA y salidas de almacén</p>
+          <p className="text-slate-700 text-sm mt-1">Control de ODPs facturadas, OA y salidas de almacén</p>
         </div>
         <div className="flex items-center gap-2">
           <select value={filtroMes} onChange={e => setFiltroMes(Number(e.target.value))}
-            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
+            className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500">
             {MESES.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
           </select>
           <select value={filtroAnio} onChange={e => setFiltroAnio(Number(e.target.value))}
-            className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
+            className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-violet-500">
             {anios.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
-          <button onClick={cargar} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition">
-            <RefreshCw className="w-4 h-4 text-slate-500" />
+          <button onClick={cargar} className="p-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition">
+            <RefreshCw className="w-4 h-4 text-slate-600" />
           </button>
         </div>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
-          <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
-            <FileCheck className="w-5 h-5 text-blue-600" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-3 shadow-card">
+          <div className="flex items-center gap-2.5 min-h-9">
+            <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+              <FileCheck className="w-5 h-5 text-blue-600" />
+            </div>
+            <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider leading-tight">Pendientes SA</p>
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Pendientes SA</p>
-            <p className="text-2xl font-black text-blue-700">{facturadas.length}</p>
-          </div>
+          <p className="text-2xl font-extrabold leading-none text-blue-700">{facturadas.length}</p>
         </div>
         <button
           type="button"
           onClick={() => { setTab('facturadas'); setSoloAnticipadas(v => !v); }}
           title="Facturadas que aún no llegan a Listo Instalar — clic para filtrar"
-          className={`text-left rounded-xl p-4 flex items-center gap-3 shadow-sm border transition ${
+          className={`text-left rounded-2xl p-4 flex flex-col gap-3 shadow-card border transition ${
             soloAnticipadas
               ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-300'
               : 'bg-white border-slate-200 hover:border-amber-300'
           }`}
         >
-          <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
-            <Zap className="w-5 h-5 text-amber-600" />
+          <div className="flex items-center gap-2.5 min-h-9">
+            <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
+              <Zap className="w-5 h-5 text-amber-600" />
+            </div>
+            <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider leading-tight">Anticipadas</p>
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Anticipadas</p>
-            <p className="text-2xl font-black text-amber-700">{anticipadasDelPeriodo.length}</p>
-          </div>
+          <p className="text-2xl font-extrabold leading-none text-amber-700">{anticipadasDelPeriodo.length}</p>
         </button>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
-          <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
-            <Package className="w-5 h-5 text-indigo-600" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-3 shadow-card">
+          <div className="flex items-center gap-2.5 min-h-9">
+            <div className="w-9 h-9 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
+              <Package className="w-5 h-5 text-indigo-600" />
+            </div>
+            <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider leading-tight">OA sin SFV</p>
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">OA sin SFV</p>
-            <p className="text-2xl font-black text-indigo-700">{oaPendientes.length}</p>
-          </div>
+          <p className="text-2xl font-extrabold leading-none text-indigo-700">{oaPendientes.length}</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
-          <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center shrink-0">
-            <Warehouse className="w-5 h-5 text-emerald-600" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-3 shadow-card">
+          <div className="flex items-center gap-2.5 min-h-9">
+            <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center shrink-0">
+              <Warehouse className="w-5 h-5 text-emerald-600" />
+            </div>
+            <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider leading-tight">Con Salida</p>
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Con Salida</p>
-            <p className="text-2xl font-black text-emerald-700">{conSalida.length}</p>
-          </div>
+          <p className="text-2xl font-extrabold leading-none text-emerald-700">{conSalida.length}</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
-          <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center shrink-0">
-            <Warehouse className="w-5 h-5 text-violet-600" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-3 shadow-card">
+          <div className="flex items-center gap-2.5 min-h-9">
+            <div className="w-9 h-9 bg-violet-50 rounded-xl flex items-center justify-center shrink-0">
+              <Warehouse className="w-5 h-5 text-violet-600" />
+            </div>
+            <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider leading-tight">SA de OA</p>
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">SA de OA</p>
-            <p className="text-2xl font-black text-violet-700">{conSalidaOA.length}</p>
-          </div>
+          <p className="text-2xl font-extrabold leading-none text-violet-700">{conSalidaOA.length}</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
-          <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center shrink-0">
-            <AlertTriangle className="w-5 h-5 text-rose-600" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col gap-3 shadow-card">
+          <div className="flex items-center gap-2.5 min-h-9">
+            <div className="w-9 h-9 bg-rose-50 rounded-xl flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-5 h-5 text-rose-600" />
+            </div>
+            <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider leading-tight">NC sin SA</p>
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">NC sin SA</p>
-            <p className="text-2xl font-black text-rose-700">{odpsNc.length}</p>
-          </div>
+          <p className="text-2xl font-extrabold leading-none text-rose-700">{odpsNc.length}</p>
         </div>
       </div>
 
@@ -443,16 +443,16 @@ const FacturasSalidasPage: React.FC = () => {
         <>
           {/* ── TAB FACTURADAS ── */}
           {tab === 'facturadas' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-card overflow-hidden">
               <div className="p-4 border-b border-slate-100 flex flex-wrap gap-3 items-center bg-slate-50/50">
                 <div className="relative flex-1 min-w-48">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input value={busquedaFacturadas} onChange={e => setBusquedaFacturadas(e.target.value)}
                     placeholder="Buscar ODP, cliente, factura..."
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white" />
+                    className="w-full pl-9 pr-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white" />
                 </div>
                 <select value={filtroCajaFacturadas} onChange={e => setFiltroCajaFacturadas(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white">
+                  className="border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white">
                   <option value="">Estado caja: Todos</option>
                   <option value="PENDIENTE">Pendiente</option>
                   <option value="ABONADO">Abonado</option>
@@ -462,7 +462,7 @@ const FacturasSalidasPage: React.FC = () => {
                 <button
                   onClick={() => setSoloAnticipadas(v => !v)}
                   title="Mostrar solo ODPs facturadas que aún no llegan a Listo Instalar"
-                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg border transition ${
+                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition whitespace-nowrap ${
                     soloAnticipadas
                       ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
                       : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50'
@@ -470,7 +470,7 @@ const FacturasSalidasPage: React.FC = () => {
                 >
                   <Zap className="w-3.5 h-3.5" />
                   Solo anticipadas
-                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                  <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold ${
                     soloAnticipadas ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-800'
                   }`}>
                     {anticipadasDelPeriodo.length}
@@ -478,7 +478,7 @@ const FacturasSalidasPage: React.FC = () => {
                 </button>
                 {(busquedaFacturadas || filtroCajaFacturadas || soloAnticipadas) && (
                   <button onClick={() => { setBusquedaFacturadas(''); setFiltroCajaFacturadas(''); setSoloAnticipadas(false); }}
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-100 transition bg-white">
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-800 border border-slate-300 rounded-lg hover:bg-slate-100 transition bg-white">
                     <X className="w-3.5 h-3.5" /> Limpiar
                   </button>
                 )}
@@ -488,13 +488,13 @@ const FacturasSalidasPage: React.FC = () => {
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
                       {['ODP', 'Cliente', 'Estado Producción', 'Fecha Factura', 'N° Factura Electrónica', 'Valor Total', puedeEditar ? 'Acción' : ''].filter(Boolean).map(h => (
-                        <th key={h} className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
+                        <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {facturadasFiltradas.length === 0 ? (
-                      <tr><td colSpan={puedeEditar ? 7 : 6} className="px-5 py-12 text-center text-slate-400">
+                      <tr><td colSpan={puedeEditar ? 7 : 6} className="px-5 py-12 text-center text-slate-700">
                         <FileCheck className="w-10 h-10 mx-auto mb-2 opacity-30" />
                         <p>{soloAnticipadas
                           ? 'No hay facturas anticipadas en el período seleccionado'
@@ -507,32 +507,32 @@ const FacturasSalidasPage: React.FC = () => {
                         className={`transition-colors ${anticipada
                           ? 'bg-amber-50/40 hover:bg-amber-50 border-l-4 border-l-amber-400'
                           : 'hover:bg-slate-50'}`}>
-                        <td className="px-5 py-4 font-mono font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => setFichaOdpId(odp.id)}>{odp.numero_odp}</td>
-                        <td className="px-5 py-4 text-slate-700">{odp.cliente?.nombre_razon_social || '—'}</td>
+                        <td className="px-5 py-4 font-mono font-bold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => setFichaOdpId(odp.id)}>{odp.numero_odp}</td>
+                        <td className="px-5 py-4 font-semibold text-slate-900">{odp.cliente?.nombre_razon_social || '—'}</td>
                         <td className="px-5 py-4">
                           <div className="flex flex-col items-start gap-1">
                             <BadgeEstado estado={odp.estado_produccion} />
                             {anticipada && <BadgeAnticipada />}
                           </div>
                         </td>
-                        <td className="px-5 py-4 text-slate-600">{fmtFecha(odp.fecha_factura)}</td>
+                        <td className="px-5 py-4 text-slate-800 whitespace-nowrap">{fmtFecha(odp.fecha_factura)}</td>
                         <td className="px-5 py-4">
                           {odp.factura_electronica
                             ? (
                               <div className="flex flex-wrap items-center gap-1">
-                                <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-200">{odp.factura_electronica}</span>
+                                <span className="px-2.5 py-1 bg-blue-50 text-blue-800 rounded-full text-xs font-semibold whitespace-nowrap border border-blue-200">{odp.factura_electronica}</span>
                                 {odp.facturas_adicionales?.map((f: any) => (
-                                  <span key={f.id} className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold border border-indigo-200">{f.numero_fe}</span>
+                                  <span key={f.id} className="px-2.5 py-1 bg-indigo-50 text-indigo-800 rounded-full text-xs font-semibold whitespace-nowrap border border-indigo-200">{f.numero_fe}</span>
                                 ))}
                               </div>
                             )
-                            : <span className="text-slate-300">—</span>}
+                            : <span className="text-slate-500">—</span>}
                         </td>
-                        <td className="px-5 py-4 text-slate-600">{fmtMoneda(odp.valor_total)}</td>
+                        <td className="px-5 py-4 font-semibold text-slate-900 whitespace-nowrap">{fmtMoneda(odp.valor_total)}</td>
                         {puedeEditar && (
                           <td className="px-5 py-4">
                             <button onClick={() => abrirCrearODP(odp)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 text-white text-xs font-bold rounded-lg hover:bg-violet-700 transition shadow-sm">
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 text-white text-xs font-semibold whitespace-nowrap rounded-lg hover:bg-violet-700 transition shadow-sm">
                               <Plus className="w-3.5 h-3.5" /> Registrar SA
                             </button>
                           </td>
@@ -548,17 +548,17 @@ const FacturasSalidasPage: React.FC = () => {
 
           {/* ── TAB OA ── */}
           {tab === 'oa' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-card overflow-hidden">
               <div className="p-4 border-b border-slate-100 flex flex-wrap gap-3 items-center bg-slate-50/50">
                 <div className="relative flex-1 min-w-48">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input value={busquedaOA} onChange={e => setBusquedaOA(e.target.value)}
                     placeholder="Buscar OA, cliente..."
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white" />
+                    className="w-full pl-9 pr-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white" />
                 </div>
                 {busquedaOA && (
                   <button onClick={() => setBusquedaOA('')}
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-100 transition bg-white">
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-800 border border-slate-300 rounded-lg hover:bg-slate-100 transition bg-white">
                     <X className="w-3.5 h-3.5" /> Limpiar
                   </button>
                 )}
@@ -568,27 +568,27 @@ const FacturasSalidasPage: React.FC = () => {
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
                       {['OA', 'Cliente', 'Estado Producción', 'Fecha Creación', puedeEditar ? 'Acción' : ''].filter(Boolean).map(h => (
-                        <th key={h} className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
+                        <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {oaFiltradas.length === 0 ? (
-                      <tr><td colSpan={puedeEditar ? 5 : 4} className="px-5 py-12 text-center text-slate-400">
+                      <tr><td colSpan={puedeEditar ? 5 : 4} className="px-5 py-12 text-center text-slate-700">
                         <Package className="w-10 h-10 mx-auto mb-2 opacity-30" />
                         <p>No hay OA pendientes de salida para el período seleccionado</p>
                       </td></tr>
                     ) : oaFiltradas.map(oa => (
                       <motion.tr key={oa.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                         className="hover:bg-slate-50 transition-colors">
-                        <td className="px-5 py-4 font-mono font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => setFichaOdpId(oa.id)}>{oa.numero_odp}</td>
-                        <td className="px-5 py-4 text-slate-700">{oa.cliente?.nombre_razon_social || '—'}</td>
+                        <td className="px-5 py-4 font-mono font-bold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => setFichaOdpId(oa.id)}>{oa.numero_odp}</td>
+                        <td className="px-5 py-4 font-semibold text-slate-900">{oa.cliente?.nombre_razon_social || '—'}</td>
                         <td className="px-5 py-4"><BadgeEstado estado={oa.estado_produccion} /></td>
-                        <td className="px-5 py-4 text-slate-600">{fmtFecha(oa.fecha_creacion)}</td>
+                        <td className="px-5 py-4 text-slate-800 whitespace-nowrap">{fmtFecha(oa.fecha_creacion)}</td>
                         {puedeEditar && (
                           <td className="px-5 py-4">
                             <button onClick={() => abrirCrearOA(oa)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition shadow-sm">
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold whitespace-nowrap rounded-lg hover:bg-indigo-700 transition shadow-sm">
                               <Plus className="w-3.5 h-3.5" /> Registrar SFV
                             </button>
                           </td>
@@ -603,17 +603,17 @@ const FacturasSalidasPage: React.FC = () => {
 
           {/* ── TAB NC ── */}
           {tab === 'nc' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-card overflow-hidden">
               <div className="p-4 border-b border-slate-100 flex flex-wrap gap-3 items-center bg-slate-50/50">
                 <div className="relative flex-1 min-w-48">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input value={busquedaNc} onChange={e => setBusquedaNc(e.target.value)}
                     placeholder="Buscar ODP, ODP padre, cliente, tipo error..."
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 bg-white" />
+                    className="w-full pl-9 pr-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 bg-white" />
                 </div>
                 {busquedaNc && (
                   <button onClick={() => setBusquedaNc('')}
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-100 transition bg-white">
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-800 border border-slate-300 rounded-lg hover:bg-slate-100 transition bg-white">
                     <X className="w-3.5 h-3.5" /> Limpiar
                   </button>
                 )}
@@ -623,39 +623,39 @@ const FacturasSalidasPage: React.FC = () => {
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
                       {['ODP Reproceso', 'ODP Padre', 'Cliente', 'Estado', 'Tipo Error', puedeEditar ? 'Acción' : ''].filter(Boolean).map(h => (
-                        <th key={h} className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
+                        <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {ncFiltradas.length === 0 ? (
-                      <tr><td colSpan={puedeEditar ? 6 : 5} className="px-5 py-12 text-center text-slate-400">
+                      <tr><td colSpan={puedeEditar ? 6 : 5} className="px-5 py-12 text-center text-slate-700">
                         <AlertTriangle className="w-10 h-10 mx-auto mb-2 opacity-30" />
                         <p>No hay No Conformidades pendientes de salida para el período seleccionado</p>
                       </td></tr>
                     ) : ncFiltradas.map(nc => {
                       const tipoErr = nc.no_conformidad_origen?.tipo_error;
-                      const chip = tipoErr ? (TIPO_ERROR_NC[tipoErr] ?? { label: tipoErr, cls: 'bg-slate-100 text-slate-600 border border-slate-200' }) : null;
+                      const chip = tipoErr ? (TIPO_ERROR_NC[tipoErr] ?? { label: tipoErr, cls: 'bg-slate-100 text-slate-800 border border-slate-200' }) : null;
                       return (
                         <motion.tr key={nc.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                           className="hover:bg-slate-50 transition-colors">
-                          <td className="px-5 py-4 font-mono font-bold text-rose-700 cursor-pointer hover:underline" onClick={() => setFichaOdpId(nc.id)}>{nc.numero_odp}</td>
+                          <td className="px-5 py-4 font-mono font-bold text-rose-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => setFichaOdpId(nc.id)}>{nc.numero_odp}</td>
                           <td className="px-5 py-4">
                             {nc.odp_padre
-                              ? <span className="font-mono text-indigo-700 cursor-pointer hover:underline" onClick={() => setFichaOdpId(nc.odp_padre!.id)}>{nc.odp_padre.numero_odp}</span>
-                              : <span className="text-slate-300">—</span>}
+                              ? <span className="font-mono font-semibold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => setFichaOdpId(nc.odp_padre!.id)}>{nc.odp_padre.numero_odp}</span>
+                              : <span className="text-slate-500">—</span>}
                           </td>
-                          <td className="px-5 py-4 text-slate-700">{nc.cliente?.nombre_razon_social || '—'}</td>
+                          <td className="px-5 py-4 font-semibold text-slate-900">{nc.cliente?.nombre_razon_social || '—'}</td>
                           <td className="px-5 py-4"><BadgeEstado estado={nc.estado_produccion} /></td>
                           <td className="px-5 py-4">
                             {chip
-                              ? <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${chip.cls}`}>{chip.label}</span>
-                              : <span className="text-slate-300">—</span>}
+                              ? <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${chip.cls}`}>{chip.label}</span>
+                              : <span className="text-slate-500">—</span>}
                           </td>
                           {puedeEditar && (
                             <td className="px-5 py-4">
                               <button onClick={() => abrirCrearNc(nc)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 transition shadow-sm">
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 text-white text-xs font-semibold whitespace-nowrap rounded-lg hover:bg-rose-700 transition shadow-sm">
                                 <Plus className="w-3.5 h-3.5" /> Registrar SA
                               </button>
                             </td>
@@ -671,7 +671,7 @@ const FacturasSalidasPage: React.FC = () => {
 
           {/* ── TAB CON SALIDAS ── */}
           {tab === 'con_salida' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-card overflow-hidden">
               {/* Subtabs */}
               <div className="flex gap-1 px-4 pt-3 border-b border-slate-100 bg-slate-50/50">
                 {([
@@ -679,14 +679,14 @@ const FacturasSalidasPage: React.FC = () => {
                   { key: 'oa',   label: 'SA de OA', count: conSalidaOAFiltradas.length },
                 ] as { key: SubTabConSalida; label: string; count: number }[]).map(st => (
                   <button key={st.key} onClick={() => setSubTabConSalida(st.key)}
-                    className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition-all ${
+                    className={`flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-all ${
                       subTabConSalida === st.key
                         ? 'border-violet-600 text-violet-700 bg-white'
-                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                        : 'border-transparent text-slate-700 hover:text-slate-900'
                     }`}>
                     {st.label}
-                    <span className={`px-1.5 py-0.5 rounded-full font-bold text-[10px] ${
-                      subTabConSalida === st.key ? 'bg-violet-100 text-violet-700' : 'bg-slate-200 text-slate-500'
+                    <span className={`px-1.5 py-0.5 rounded-full font-bold text-[11px] ${
+                      subTabConSalida === st.key ? 'bg-violet-100 text-violet-800' : 'bg-slate-200 text-slate-800'
                     }`}>{st.count}</span>
                   </button>
                 ))}
@@ -697,14 +697,14 @@ const FacturasSalidasPage: React.FC = () => {
                 <>
                   <div className="p-4 border-b border-slate-100 flex flex-wrap gap-3 items-center">
                     <div className="relative flex-1 min-w-48">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                       <input value={busquedaConSalida} onChange={e => setBusquedaConSalida(e.target.value)}
                         placeholder="Buscar ODP, cliente, factura, SA, registrado por..."
-                        className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white" />
+                        className="w-full pl-9 pr-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white" />
                     </div>
                     {busquedaConSalida && (
                       <button onClick={() => setBusquedaConSalida('')}
-                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-100 transition bg-white">
+                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-800 border border-slate-300 rounded-lg hover:bg-slate-100 transition bg-white">
                         <X className="w-3.5 h-3.5" /> Limpiar
                       </button>
                     )}
@@ -714,49 +714,49 @@ const FacturasSalidasPage: React.FC = () => {
                       <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
                           {['ODP', 'Cliente', 'N° Factura Electrónica', 'Fecha Factura', 'Valor Total', 'N° Salida', 'Fecha SA', 'Registrado por', puedeEditar ? 'Acciones' : ''].filter(Boolean).map(h => (
-                            <th key={h} className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
+                            <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {conSalidaFiltradas.length === 0 ? (
-                          <tr><td colSpan={puedeEditar ? 9 : 8} className="px-5 py-12 text-center text-slate-400">
+                          <tr><td colSpan={puedeEditar ? 9 : 8} className="px-5 py-12 text-center text-slate-700">
                             <Warehouse className="w-10 h-10 mx-auto mb-2 opacity-30" />
                             <p>No hay salidas de almacén para el período seleccionado</p>
                           </td></tr>
                         ) : conSalidaFiltradas.map(s => (
                           <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                             className="hover:bg-slate-50 transition-colors">
-                            <td className="px-5 py-4 font-mono font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => s.odp?.id && setFichaOdpId(s.odp.id)}>{s.odp?.numero_odp}</td>
-                            <td className="px-5 py-4 text-slate-700">{s.odp?.cliente?.nombre_razon_social || '—'}</td>
+                            <td className="px-5 py-4 font-mono font-bold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => s.odp?.id && setFichaOdpId(s.odp.id)}>{s.odp?.numero_odp}</td>
+                            <td className="px-5 py-4 font-semibold text-slate-900">{s.odp?.cliente?.nombre_razon_social || '—'}</td>
                             <td className="px-5 py-4">
                               {s.odp?.factura_electronica
                                 ? (
                                   <div className="flex flex-wrap items-center gap-1">
-                                    <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-200">{s.odp.factura_electronica}</span>
+                                    <span className="px-2.5 py-1 bg-blue-50 text-blue-800 rounded-full text-xs font-semibold whitespace-nowrap border border-blue-200">{s.odp.factura_electronica}</span>
                                     {s.odp.facturas_adicionales?.map((f: any) => (
-                                      <span key={f.id} className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold border border-indigo-200">{f.numero_fe}</span>
+                                      <span key={f.id} className="px-2.5 py-1 bg-indigo-50 text-indigo-800 rounded-full text-xs font-semibold whitespace-nowrap border border-indigo-200">{f.numero_fe}</span>
                                     ))}
                                   </div>
                                 )
-                                : <span className="text-slate-300">—</span>}
+                                : <span className="text-slate-500">—</span>}
                             </td>
-                            <td className="px-5 py-4 text-slate-600">{fmtFecha(s.odp?.fecha_factura)}</td>
-                            <td className="px-5 py-4 text-slate-600">{fmtMoneda(s.odp?.valor_total)}</td>
+                            <td className="px-5 py-4 text-slate-800 whitespace-nowrap">{fmtFecha(s.odp?.fecha_factura)}</td>
+                            <td className="px-5 py-4 font-semibold text-slate-900 whitespace-nowrap">{fmtMoneda(s.odp?.valor_total)}</td>
                             <td className="px-5 py-4">
-                              <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-200">{s.numero_sa}</span>
+                              <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-full text-xs font-semibold whitespace-nowrap border border-emerald-200">{s.numero_sa}</span>
                             </td>
-                            <td className="px-5 py-4 text-slate-600">{fmtFecha(s.fecha_sa)}</td>
-                            <td className="px-5 py-4 text-slate-500 text-xs">{s.creador?.nombre_completo || '—'}</td>
+                            <td className="px-5 py-4 text-slate-800 whitespace-nowrap">{fmtFecha(s.fecha_sa)}</td>
+                            <td className="px-5 py-4 text-slate-800 text-xs whitespace-nowrap">{s.creador?.nombre_completo || '—'}</td>
                             {puedeEditar && (
                               <td className="px-5 py-4">
                                 <div className="flex gap-2">
                                   <button onClick={() => abrirEditar(s, false)}
-                                    className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition">
+                                    className="p-1.5 text-slate-500 hover:text-violet-700 hover:bg-violet-50 rounded-lg transition">
                                     <Pencil className="w-4 h-4" />
                                   </button>
                                   <button onClick={() => eliminarSA(s.id, false)}
-                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
+                                    className="p-1.5 text-slate-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition">
                                     <Trash2 className="w-4 h-4" />
                                   </button>
                                 </div>
@@ -775,14 +775,14 @@ const FacturasSalidasPage: React.FC = () => {
                 <>
                   <div className="p-4 border-b border-slate-100 flex flex-wrap gap-3 items-center">
                     <div className="relative flex-1 min-w-48">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                       <input value={busquedaConSalidaOA} onChange={e => setBusquedaConSalidaOA(e.target.value)}
                         placeholder="Buscar OA, cliente, SFV, registrado por..."
-                        className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white" />
+                        className="w-full pl-9 pr-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white" />
                     </div>
                     {busquedaConSalidaOA && (
                       <button onClick={() => setBusquedaConSalidaOA('')}
-                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-100 transition bg-white">
+                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-800 border border-slate-300 rounded-lg hover:bg-slate-100 transition bg-white">
                         <X className="w-3.5 h-3.5" /> Limpiar
                       </button>
                     )}
@@ -792,36 +792,36 @@ const FacturasSalidasPage: React.FC = () => {
                       <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
                           {['OA', 'Cliente', 'Estado Producción', 'N° SFV', 'Fecha SA', 'Registrado por', puedeEditar ? 'Acciones' : ''].filter(Boolean).map(h => (
-                            <th key={h} className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
+                            <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {conSalidaOAFiltradas.length === 0 ? (
-                          <tr><td colSpan={puedeEditar ? 7 : 6} className="px-5 py-12 text-center text-slate-400">
+                          <tr><td colSpan={puedeEditar ? 7 : 6} className="px-5 py-12 text-center text-slate-700">
                             <Package className="w-10 h-10 mx-auto mb-2 opacity-30" />
                             <p>No hay salidas SFV de OA para el período seleccionado</p>
                           </td></tr>
                         ) : conSalidaOAFiltradas.map(s => (
                           <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                             className="hover:bg-slate-50 transition-colors">
-                            <td className="px-5 py-4 font-mono font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => s.odp?.id && setFichaOdpId(s.odp.id)}>{s.odp?.numero_odp}</td>
-                            <td className="px-5 py-4 text-slate-700">{s.odp?.cliente?.nombre_razon_social || '—'}</td>
+                            <td className="px-5 py-4 font-mono font-bold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => s.odp?.id && setFichaOdpId(s.odp.id)}>{s.odp?.numero_odp}</td>
+                            <td className="px-5 py-4 font-semibold text-slate-900">{s.odp?.cliente?.nombre_razon_social || '—'}</td>
                             <td className="px-5 py-4">{s.odp?.estado_produccion ? <BadgeEstado estado={s.odp.estado_produccion} /> : '—'}</td>
                             <td className="px-5 py-4">
-                              <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold border border-indigo-200">{s.numero_sa}</span>
+                              <span className="px-2.5 py-1 bg-indigo-50 text-indigo-800 rounded-full text-xs font-semibold whitespace-nowrap border border-indigo-200">{s.numero_sa}</span>
                             </td>
-                            <td className="px-5 py-4 text-slate-600">{fmtFecha(s.fecha_sa)}</td>
-                            <td className="px-5 py-4 text-slate-500 text-xs">{s.creador?.nombre_completo || '—'}</td>
+                            <td className="px-5 py-4 text-slate-800 whitespace-nowrap">{fmtFecha(s.fecha_sa)}</td>
+                            <td className="px-5 py-4 text-slate-800 text-xs whitespace-nowrap">{s.creador?.nombre_completo || '—'}</td>
                             {puedeEditar && (
                               <td className="px-5 py-4">
                                 <div className="flex gap-2">
                                   <button onClick={() => abrirEditar(s, true)}
-                                    className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition">
+                                    className="p-1.5 text-slate-500 hover:text-violet-700 hover:bg-violet-50 rounded-lg transition">
                                     <Pencil className="w-4 h-4" />
                                   </button>
                                   <button onClick={() => eliminarSA(s.id, true)}
-                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
+                                    className="p-1.5 text-slate-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition">
                                     <Trash2 className="w-4 h-4" />
                                   </button>
                                 </div>
@@ -846,53 +846,53 @@ const FacturasSalidasPage: React.FC = () => {
             className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
             <div className="flex justify-between items-center px-6 py-5 border-b border-slate-100">
               <div>
-                <h2 className="text-lg font-bold text-slate-800">
+                <h2 className="text-lg font-bold text-slate-900">
                   {modalSA.salida
                     ? (modalSA.esOA ? 'Editar Salida SFV' : 'Editar Salida de Almacén')
                     : (modalSA.esOA ? 'Registrar Salida SFV' : 'Registrar Salida de Almacén')}
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-700 mt-0.5">
                   {modalSA.odp?.numero_odp || modalSA.salida?.odp?.numero_odp} ·{' '}
                   {(modalSA.odp as any)?.cliente?.nombre_razon_social || modalSA.salida?.odp?.cliente?.nombre_razon_social}
                 </p>
               </div>
-              <button onClick={() => setModalSA(null)} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition">
+              <button onClick={() => setModalSA(null)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">
+                <label className="block text-xs font-semibold text-slate-900 mb-1 uppercase">
                   Número de Salida *
                 </label>
-                <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-violet-500">
-                  <span className="px-3 py-2.5 bg-slate-100 text-slate-600 text-sm font-bold border-r border-slate-200 select-none">
+                <div className="flex items-center border border-slate-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-violet-500">
+                  <span className="px-3 py-2.5 bg-slate-100 text-slate-800 text-sm font-semibold border-r border-slate-300 select-none">
                     {prefijo}
                   </span>
                   <input
                     value={formSA.numero}
                     onChange={e => setFormSA(p => ({ ...p, numero: e.target.value }))}
                     placeholder="0001"
-                    className="flex-1 px-3 py-2.5 text-sm focus:outline-none"
+                    className="flex-1 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none"
                     autoFocus
                   />
                 </div>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-600 mt-1">
                   Se guardará como: {prefijo}{formSA.numero || 'XXXX'}
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Fecha de Salida *</label>
+                <label className="block text-xs font-semibold text-slate-900 mb-1 uppercase">Fecha de Salida *</label>
                 <input type="date" value={formSA.fecha} onChange={e => setFormSA(p => ({ ...p, fecha: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500" />
               </div>
             </div>
 
             <div className="flex gap-3 px-6 pb-6">
               <button onClick={() => setModalSA(null)}
-                className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm">
+                className="flex-1 py-2.5 font-semibold text-slate-800 border border-slate-300 rounded-xl hover:bg-slate-50 transition text-sm">
                 Cancelar
               </button>
               <button onClick={guardarSA} disabled={savingSA}

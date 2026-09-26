@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { X, Copy, Check, MessageSquare, Search, Phone, Lightbulb, Tag } from 'lucide-react';
+import { X, Copy, Check, MessageSquare, Search, Phone, Lightbulb, Tag } from '../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import { MENSAJES_COMERCIALES, MensajeComercial } from '../data/mensajesComerciales';
 
@@ -73,13 +73,13 @@ const GuiaMensajesModal: React.FC<Props> = ({ onClose }) => {
               <MessageSquare className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="font-black text-slate-800 text-base">Guía de Mensajes Comerciales</h2>
-              <p className="text-xs text-slate-500 font-medium">
+              <h2 className="font-bold text-slate-900 text-base">Guía de Mensajes Comerciales</h2>
+              <p className="text-xs text-slate-700">
                 20 situaciones · 100 mensajes redactados para cerrar la venta con profesionalismo
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-100 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-emerald-100 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -89,7 +89,7 @@ const GuiaMensajesModal: React.FC<Props> = ({ onClose }) => {
           <div className="w-72 border-r border-slate-100 flex flex-col flex-shrink-0">
             <div className="p-3 border-b border-slate-100">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   value={busqueda}
                   onChange={e => {
@@ -103,7 +103,7 @@ const GuiaMensajesModal: React.FC<Props> = ({ onClose }) => {
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
               {situacionesFiltradas.length === 0 && (
-                <p className="text-xs text-slate-400 text-center py-6">Sin resultados para "{busqueda}"</p>
+                <p className="text-xs text-slate-700 text-center py-6">Sin resultados para "{busqueda}"</p>
               )}
               {situacionesFiltradas.map(s => (
                 <button
@@ -115,13 +115,13 @@ const GuiaMensajesModal: React.FC<Props> = ({ onClose }) => {
                       : 'bg-white border-transparent hover:bg-slate-50'
                   }`}
                 >
-                  <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border mb-1 ${FASE_COLORS[s.fase] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                  <span className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide border mb-1 ${FASE_COLORS[s.fase] || 'bg-slate-100 text-slate-900 border-slate-200'}`}>
                     {s.fase}
                   </span>
-                  <p className={`text-xs font-bold leading-snug ${situacionId === s.id ? 'text-emerald-800' : 'text-slate-600'}`}>
+                  <p className={`text-xs font-bold leading-snug ${situacionId === s.id ? 'text-emerald-800' : 'text-slate-900'}`}>
                     {s.titulo}
                   </p>
-                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                  <p className="text-[11px] text-slate-700 mt-0.5">
                     {s.estadoCrm} · {s.mensajes.length} mensajes
                   </p>
                 </button>
@@ -135,16 +135,16 @@ const GuiaMensajesModal: React.FC<Props> = ({ onClose }) => {
               <>
                 <div className="px-6 py-4 border-b border-slate-100 flex-shrink-0">
                   <div className="flex flex-wrap items-center gap-2 mb-3">
-                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${FASE_COLORS[situacion.fase] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                    <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide border ${FASE_COLORS[situacion.fase] || 'bg-slate-100 text-slate-900 border-slate-200'}`}>
                       {situacion.fase}
                     </span>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-900">
                       <Tag className="w-3 h-3" /> {situacion.estadoCrm}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-medium">🕐 {situacion.momento}</span>
+                    <span className="text-[11px] text-slate-700">🕐 {situacion.momento}</span>
                   </div>
-                  <h3 className="font-black text-slate-800 text-lg">{situacion.titulo}</h3>
-                  <p className="text-xs text-slate-500 mt-1">{situacion.descripcion}</p>
+                  <h3 className="font-bold text-slate-900 text-lg">{situacion.titulo}</h3>
+                  <p className="text-xs text-slate-700 mt-1">{situacion.descripcion}</p>
 
                   {/* Selector de variante */}
                   <div className="flex flex-wrap gap-1.5 mt-4">
@@ -155,7 +155,7 @@ const GuiaMensajesModal: React.FC<Props> = ({ onClose }) => {
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
                           tipoIdx === idx
                             ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm'
-                            : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:text-emerald-700'
+                            : 'bg-white text-slate-800 border-slate-200 hover:border-emerald-300 hover:text-emerald-700'
                         }`}
                       >
                         {m.tipo}
@@ -169,9 +169,9 @@ const GuiaMensajesModal: React.FC<Props> = ({ onClose }) => {
                   <div className="max-w-2xl">
                     <div className="bg-[#DCF8C6] rounded-2xl rounded-tl-sm border border-emerald-100 shadow-sm p-4">
                       <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{mensajeActual.texto}</p>
-                      <p className="text-[10px] text-emerald-700/60 text-right mt-2 font-medium">Vidrios Templex · {mensajeActual.tipo}</p>
+                      <p className="text-[11px] text-emerald-700/60 text-right mt-2 font-medium">Vidrios Templex · {mensajeActual.tipo}</p>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                    <p className="text-[11px] text-slate-700 mt-1.5">
                       Edita los corchetes [así] antes de enviar — personalizar el mensaje es lo que cierra la venta.
                     </p>
                   </div>
@@ -179,10 +179,10 @@ const GuiaMensajesModal: React.FC<Props> = ({ onClose }) => {
                   {/* Tip de coaching */}
                   <div className="flex items-start gap-2.5 mt-5 bg-indigo-50 border border-indigo-100 rounded-xl p-3.5 max-w-2xl">
                     <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                      <Lightbulb className="w-3.5 h-3.5 text-indigo-600" />
+                      <Lightbulb className="w-3.5 h-3.5 text-indigo-700" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-500">Tip de coaching</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-700">Tip de coaching</p>
                       <p className="text-xs text-indigo-900 leading-relaxed mt-0.5">{situacion.tip}</p>
                     </div>
                   </div>
@@ -192,7 +192,7 @@ const GuiaMensajesModal: React.FC<Props> = ({ onClose }) => {
                 <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex-shrink-0">
                   <div className="flex flex-wrap items-center gap-2 max-w-2xl">
                     <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 flex-1 min-w-[220px]">
-                      <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <Phone className="w-4 h-4 text-slate-500 flex-shrink-0" />
                       <input
                         value={telefono}
                         onChange={e => setTelefono(e.target.value)}
@@ -218,7 +218,7 @@ const GuiaMensajesModal: React.FC<Props> = ({ onClose }) => {
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
+              <div className="flex-1 flex items-center justify-center text-slate-700 text-sm">
                 Selecciona una situación para ver sus mensajes.
               </div>
             )}

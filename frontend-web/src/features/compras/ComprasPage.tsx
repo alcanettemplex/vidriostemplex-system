@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, X, Layers, Plus, Printer, RotateCw, Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, Clock, Package, CheckCircle2, Truck, ListChecks, Eye, Edit3, X, Layers, Plus, Printer, RotateCw, Trash2, RotateCcw, AlertTriangle } from '../../components/ui/icons';
 import { toast } from 'react-toastify';
 import ODCModal, { SAPItemConContexto } from './components/ODCModal';
 import ODCVidriosModal, { ODPItemConContexto } from './components/ODCVidriosModal';
@@ -387,9 +387,9 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
         @page { size: letter portrait; margin: 8mm; }
         body { font-family: sans-serif; }
         .odc-table { width: 100%; border-collapse: collapse; }
-        .odc-table th, .odc-table td { border: 1px solid #cbd5e1; padding: 3px 6px; font-size: 10px; }
-        .odc-table th { background-color: #1e293b; color: white; font-weight: bold; text-align: left; text-transform: uppercase; letter-spacing: 0.05em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .odc-table tr:nth-child(even) { background-color: #f8fafc; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .odc-table th, .odc-table td { border: 1px solid #c7cdd7; padding: 3px 6px; font-size: 10px; }
+        .odc-table th { background-color: #1d232e; color: white; font-weight: bold; text-align: left; text-transform: uppercase; letter-spacing: 0.05em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .odc-table tr:nth-child(even) { background-color: #f6f7f9; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       `,
     });
   };
@@ -402,21 +402,21 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
         <div className="flex items-start justify-between px-5 py-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-1.5 flex-wrap">
-              <span className="font-black text-indigo-700 text-base">{odc.numero_odc}</span>
-              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${est.className}`}>{est.label}</span>
+              <span className="font-bold text-indigo-700 text-base whitespace-nowrap">{odc.numero_odc}</span>
+              <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${est.className}`}>{est.label}</span>
               {hayItemsParciales && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
                   Recepción parcial
                 </span>
               )}
               {isMultiODP && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200">
                   {odpsInfo.length} ODPs
                 </span>
               )}
               {!isMultiODP && estadoProd && (
                 <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getEstadoODP(estadoProd).badge}`}
+                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${getEstadoODP(estadoProd).badge}`}
                   title={getEstadoODP(estadoProd).descripcion}
                 >
                   {getEstadoODP(estadoProd).label}
@@ -424,29 +424,29 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
               )}
             </div>
             {isMultiODP ? (
-              <p className="text-sm font-semibold text-slate-700">
+              <p className="text-sm font-semibold text-slate-900">
                 {odpsInfo.map(o => o.cliente).filter((v, i, a) => a.indexOf(v) === i).slice(0, 3).join(', ')}
                 {odpsInfo.length > 3 && ` +${odpsInfo.length - 3} más`}
               </p>
             ) : (
-              <p className="text-sm font-semibold text-slate-700">{odpsInfo[0]?.cliente || odp?.cliente?.nombre_razon_social}</p>
+              <p className="text-sm font-semibold text-slate-900">{odpsInfo[0]?.cliente || odp?.cliente?.nombre_razon_social}</p>
             )}
-            <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
+            <div className="flex items-center gap-3 mt-1 text-xs text-slate-700 flex-wrap">
               {isMultiODP ? (
-                <span>ODPs: <span className="font-bold text-slate-700">{odpsInfo.map(o => o.numero_odp).join(', ')}</span></span>
+                <span>ODPs: <span className="font-semibold text-slate-900">{odpsInfo.map(o => o.numero_odp).join(', ')}</span></span>
               ) : (
                 <>
-                  <span>ODP: <span className="font-bold text-slate-700">{odpsInfo[0]?.numero_odp || odp?.numero_odp}</span></span>
-                  {sapsInfo.length > 0 && <span>SAP: <span className="font-bold text-slate-700">{sapsInfo.join(', ')}</span></span>}
+                  <span>ODP: <span className="font-semibold text-slate-900">{odpsInfo[0]?.numero_odp || odp?.numero_odp}</span></span>
+                  {sapsInfo.length > 0 && <span>SAP: <span className="font-semibold text-slate-900">{sapsInfo.join(', ')}</span></span>}
                 </>
               )}
-              <span>Proveedor: <span className="font-bold text-slate-700">{odc.proveedor}</span></span>
-              <span>Creada: <span className="font-bold text-slate-700">{new Date(odc.fecha_creacion).toLocaleDateString('es-CO')}</span></span>
+              <span>Proveedor: <span className="font-semibold text-slate-900">{odc.proveedor}</span></span>
+              <span>Creada: <span className="text-slate-900">{new Date(odc.fecha_creacion).toLocaleDateString('es-CO')}</span></span>
               {odc.fecha_recepcion && (
-                <span>Recibida: <span className="font-bold text-green-700">{new Date(odc.fecha_recepcion).toLocaleDateString('es-CO')}</span></span>
+                <span>Recibida: <span className="font-semibold text-green-700">{new Date(odc.fecha_recepcion).toLocaleDateString('es-CO')}</span></span>
               )}
             </div>
-            {odc.notas && <p className="text-xs text-slate-400 italic mt-1">"{odc.notas}"</p>}
+            {odc.notas && <p className="text-xs text-slate-700 italic mt-1">"{odc.notas}"</p>}
           </div>
 
           {/* Botones de acción */}
@@ -454,7 +454,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
             <button
               onClick={() => setVerDetalle(true)}
               title="Ver detalles"
-              className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition"
+              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 border border-slate-300 text-slate-800 rounded-lg hover:bg-slate-50 transition"
             >
               <Eye className="w-3.5 h-3.5" /> Ver
             </button>
@@ -474,7 +474,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                   setEditando(true);
                 }}
                 title="Editar ODC"
-                className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition"
+                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 border border-slate-300 text-slate-800 rounded-lg hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition"
               >
                 <Edit3 className="w-3.5 h-3.5" /> Editar
               </button>
@@ -483,7 +483,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
               <button
                 onClick={() => setConfirmDelete(true)}
                 title="Eliminar ODC"
-                className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 border border-slate-200 text-slate-400 rounded-lg hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition"
+                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 border border-slate-300 text-slate-800 rounded-lg hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition"
               >
                 <Trash2 className="w-3.5 h-3.5" /> Eliminar
               </button>
@@ -491,7 +491,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
             {!soloLectura && tieneRecibidos && (
               <span
                 title="No se puede eliminar: ya tiene material recibido"
-                className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 border border-slate-100 text-slate-300 rounded-lg cursor-not-allowed"
+                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 border border-slate-200 text-slate-400 rounded-lg cursor-not-allowed"
               >
                 <Trash2 className="w-3.5 h-3.5" /> Eliminar
               </span>
@@ -502,7 +502,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
         {/* Items de la ODC */}
         <div className="border-t border-slate-100 overflow-x-auto">
           <table className="w-full text-xs min-w-[600px]">
-            <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-900 [&_th]:font-semibold">
               <tr>
                 <th className="px-4 py-2 text-left w-28">CÓDIGO</th>
                 <th className="px-4 py-2 text-left">DESCRIPCIÓN</th>
@@ -513,7 +513,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                 <th className="px-4 py-2 text-left w-24">ODP</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-100">
               {odc.items.map((it, i) => {
                 const pendiente = !it.recibido && odc.estado === 'pendiente';
                 const esModificado = it.sap_item?.modificado === true;
@@ -524,30 +524,30 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                   : i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30';
                 return (
                   <tr key={i} className={rowClass} title={esModificado ? buildTooltipModificado(it) : undefined}>
-                    <td className="px-4 py-1.5 font-mono text-blue-700 font-bold">
+                    <td className="px-4 py-2 font-mono text-blue-700 font-semibold whitespace-nowrap">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span>{it.codigo || '—'}</span>
                         {esModificado && (
-                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-red-500 text-white align-middle">MOD</span>
+                          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-red-500 text-white align-middle">MOD</span>
                         )}
                         {esModificado && !soloLectura && (
                           <button
                             onClick={() => handleSincronizarItem(it.id)}
                             disabled={sincronizandoItem === it.id}
                             title="Actualizar la orden con la nueva cantidad del SAP"
-                            className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 transition disabled:opacity-50"
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-indigo-600 text-white hover:bg-indigo-700 transition disabled:opacity-50"
                           >
                             <RotateCw className="w-2.5 h-2.5" /> {sincronizandoItem === it.id ? '...' : 'Actualizar'}
                           </button>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-1.5 text-slate-700">{it.descripcion || '—'}</td>
-                    <td className="px-4 py-1.5 text-center font-bold text-slate-600">{Number(it.cantidad) % 1 === 0 ? Math.round(Number(it.cantidad)) : it.cantidad}</td>
-                    <td className="px-4 py-1.5 text-slate-500">{it.sap_item?.dimension || '—'}</td>
-                    <td className="px-4 py-1.5 text-slate-400 text-[10px] max-w-[140px] truncate" title={it.sap_item?.observacion || ''}>{it.sap_item?.observacion || '—'}</td>
-                    <td className="px-4 py-1.5 text-indigo-600 font-bold">{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
-                    <td className="px-4 py-1.5 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => { const id = it.sap_item?.SAP?.ODP?.id || (it as any).odp_item?.ODP?.id || it.odp_directo?.id || odc.sap?.ODP?.id || odc.odp?.id; if (id) onFichaOdp?.(id); }}>{it.sap_item?.SAP?.ODP?.numero_odp || (it as any).odp_item?.ODP?.numero_odp || it.odp_directo?.numero_odp || odc.sap?.ODP?.numero_odp || odc.odp?.numero_odp || '—'}</td>
+                    <td className="px-4 py-2 text-slate-800">{it.descripcion || '—'}</td>
+                    <td className="px-4 py-2 text-center font-semibold text-slate-900">{Number(it.cantidad) % 1 === 0 ? Math.round(Number(it.cantidad)) : it.cantidad}</td>
+                    <td className="px-4 py-2 text-slate-800 whitespace-nowrap">{it.sap_item?.dimension || '—'}</td>
+                    <td className="px-4 py-2 text-slate-700 text-[11px] max-w-[140px] truncate" title={it.sap_item?.observacion || ''}>{it.sap_item?.observacion || '—'}</td>
+                    <td className="px-4 py-2 text-indigo-700 font-semibold whitespace-nowrap">{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
+                    <td className="px-4 py-2 font-semibold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => { const id = it.sap_item?.SAP?.ODP?.id || (it as any).odp_item?.ODP?.id || it.odp_directo?.id || odc.sap?.ODP?.id || odc.odp?.id; if (id) onFichaOdp?.(id); }}>{it.sap_item?.SAP?.ODP?.numero_odp || (it as any).odp_item?.ODP?.numero_odp || it.odp_directo?.numero_odp || odc.sap?.ODP?.numero_odp || odc.odp?.numero_odp || '—'}</td>
                   </tr>
                 );
               })}
@@ -569,19 +569,19 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
               <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0">
                 <div>
                   <div className="flex items-center gap-3">
-                    <h3 className="text-base font-black text-slate-800">{odc.numero_odc}</h3>
-                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${est.className}`}>{est.label}</span>
+                    <h3 className="text-base font-bold text-slate-900">{odc.numero_odc}</h3>
+                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${est.className}`}>{est.label}</span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">Detalle completo de la orden de compra</p>
+                  <p className="text-xs text-slate-700 mt-0.5">Detalle completo de la orden de compra</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleImprimir}
-                    className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 border border-blue-200 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 border border-blue-200 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
                   >
                     <Printer className="w-3.5 h-3.5" /> Imprimir
                   </button>
-                  <button onClick={() => setVerDetalle(false)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
+                  <button onClick={() => setVerDetalle(false)} className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
@@ -591,68 +591,68 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                 {/* Info general */}
                 <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
                   <div>
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">Número ODC</span>
-                    <p className="font-black text-indigo-700 text-sm mt-0.5">{odc.numero_odc}</p>
+                    <span className="text-slate-900 font-semibold uppercase tracking-wider">Número ODC</span>
+                    <p className="font-bold text-indigo-700 text-sm mt-0.5">{odc.numero_odc}</p>
                   </div>
                   <div>
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">Estado</span>
+                    <span className="text-slate-900 font-semibold uppercase tracking-wider">Estado</span>
                     <p className="mt-0.5">
-                      <span className={`inline-block font-bold px-2.5 py-0.5 rounded-full border text-xs ${est.className}`}>{est.label}</span>
+                      <span className={`inline-block font-semibold px-2.5 py-0.5 rounded-full border text-xs ${est.className}`}>{est.label}</span>
                     </p>
                   </div>
                   <div>
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">Proveedor</span>
-                    <p className="font-semibold text-slate-700 mt-0.5">{odc.proveedor}</p>
+                    <span className="text-slate-900 font-semibold uppercase tracking-wider">Proveedor</span>
+                    <p className="text-sm text-slate-800 mt-0.5">{odc.proveedor}</p>
                   </div>
                   <div>
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">Creador</span>
-                    <p className="font-semibold text-slate-700 mt-0.5">{odc.creador?.nombre_completo}</p>
+                    <span className="text-slate-900 font-semibold uppercase tracking-wider">Creador</span>
+                    <p className="text-sm text-slate-800 mt-0.5">{odc.creador?.nombre_completo}</p>
                   </div>
                   {isMultiODP ? (
                     <div className="col-span-2">
-                      <span className="text-slate-400 font-bold uppercase tracking-wider">ODPs involucradas</span>
-                      <p className="font-semibold text-slate-700 mt-0.5">{odpsInfo.map(o => `${o.numero_odp} (${o.cliente})`).join(' · ')}</p>
+                      <span className="text-slate-900 font-semibold uppercase tracking-wider">ODPs involucradas</span>
+                      <p className="text-sm text-slate-800 mt-0.5">{odpsInfo.map(o => `${o.numero_odp} (${o.cliente})`).join(' · ')}</p>
                     </div>
                   ) : (
                     <>
                       <div>
-                        <span className="text-slate-400 font-bold uppercase tracking-wider">SAP</span>
-                        <p className="font-semibold text-slate-700 mt-0.5">{sapsInfo.join(', ') || '—'}</p>
+                        <span className="text-slate-900 font-semibold uppercase tracking-wider">SAP</span>
+                        <p className="text-sm text-slate-800 mt-0.5">{sapsInfo.join(', ') || '—'}</p>
                       </div>
                       <div>
-                        <span className="text-slate-400 font-bold uppercase tracking-wider">ODP</span>
-                        <p className="font-semibold text-slate-700 mt-0.5">{odpsInfo[0]?.numero_odp || odp?.numero_odp || '—'}</p>
+                        <span className="text-slate-900 font-semibold uppercase tracking-wider">ODP</span>
+                        <p className="text-sm text-slate-800 mt-0.5">{odpsInfo[0]?.numero_odp || odp?.numero_odp || '—'}</p>
                       </div>
                       <div>
-                        <span className="text-slate-400 font-bold uppercase tracking-wider">Cliente</span>
-                        <p className="font-semibold text-slate-700 mt-0.5">{odpsInfo[0]?.cliente || odp?.cliente?.nombre_razon_social || '—'}</p>
+                        <span className="text-slate-900 font-semibold uppercase tracking-wider">Cliente</span>
+                        <p className="text-sm text-slate-800 mt-0.5">{odpsInfo[0]?.cliente || odp?.cliente?.nombre_razon_social || '—'}</p>
                       </div>
                     </>
                   )}
                   <div>
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">Fecha creación</span>
-                    <p className="font-semibold text-slate-700 mt-0.5">{new Date(odc.fecha_creacion).toLocaleDateString('es-CO')}</p>
+                    <span className="text-slate-900 font-semibold uppercase tracking-wider">Fecha creación</span>
+                    <p className="text-sm text-slate-800 mt-0.5">{new Date(odc.fecha_creacion).toLocaleDateString('es-CO')}</p>
                   </div>
                   {odc.fecha_recepcion && (
                     <div>
-                      <span className="text-slate-400 font-bold uppercase tracking-wider">Fecha recepción</span>
-                      <p className="font-semibold text-green-700 mt-0.5">{new Date(odc.fecha_recepcion).toLocaleDateString('es-CO')}</p>
+                      <span className="text-slate-900 font-semibold uppercase tracking-wider">Fecha recepción</span>
+                      <p className="text-sm font-semibold text-green-700 mt-0.5">{new Date(odc.fecha_recepcion).toLocaleDateString('es-CO')}</p>
                     </div>
                   )}
                   {odc.notas && (
                     <div className="col-span-2">
-                      <span className="text-slate-400 font-bold uppercase tracking-wider">Notas</span>
-                      <p className="text-slate-600 italic mt-0.5">"{odc.notas}"</p>
+                      <span className="text-slate-900 font-semibold uppercase tracking-wider">Notas</span>
+                      <p className="text-slate-800 italic mt-0.5">"{odc.notas}"</p>
                     </div>
                   )}
                 </div>
 
                 {/* Tabla de ítems */}
                 <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Items</p>
+                  <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-2">Items</p>
                   <div className="border border-slate-200 rounded-xl overflow-hidden overflow-x-auto">
                     <table className="w-full text-xs min-w-[600px]">
-                      <thead className="bg-slate-700 text-white text-[10px] uppercase tracking-wider">
+                      <thead className="bg-slate-700 text-white text-[11px] uppercase tracking-wider [&_th]:font-semibold">
                         <tr>
                           <th className="px-3 py-2 text-left w-28">CÓDIGO</th>
                           <th className="px-3 py-2 text-left">DESCRIPCIÓN</th>
@@ -674,18 +674,18 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                             : i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50';
                           return (
                             <tr key={i} className={rowClass} title={esModificado ? buildTooltipModificado(it) : undefined}>
-                              <td className="px-3 py-2 font-mono text-blue-700 font-bold">
+                              <td className="px-3 py-2 font-mono text-blue-700 font-semibold whitespace-nowrap">
                                 {it.codigo || '—'}
                                 {esModificado && (
-                                  <span className="ml-1.5 text-[9px] font-black px-1.5 py-0.5 rounded bg-red-500 text-white align-middle">MOD</span>
+                                  <span className="ml-1.5 text-[11px] font-bold px-1.5 py-0.5 rounded bg-red-500 text-white align-middle">MOD</span>
                                 )}
                               </td>
-                              <td className="px-3 py-2 text-slate-700">{it.descripcion || '—'}</td>
-                              <td className="px-3 py-2 text-center font-bold text-slate-600">{Number(it.cantidad) % 1 === 0 ? Math.round(Number(it.cantidad)) : it.cantidad}</td>
-                              <td className="px-3 py-2 text-slate-500">{it.sap_item?.dimension || '—'}</td>
-                              <td className="px-3 py-2 text-slate-400 text-[10px] max-w-[140px] truncate" title={it.sap_item?.observacion || ''}>{it.sap_item?.observacion || '—'}</td>
-                              <td className="px-3 py-2 text-indigo-600 font-bold">{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
-                              <td className="px-3 py-2 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => { const id = it.sap_item?.SAP?.ODP?.id || (it as any).odp_item?.ODP?.id || odc.sap?.ODP?.id; if (id) onFichaOdp?.(id); }}>{it.sap_item?.SAP?.ODP?.numero_odp || (it as any).odp_item?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
+                              <td className="px-3 py-2 text-slate-800">{it.descripcion || '—'}</td>
+                              <td className="px-3 py-2 text-center font-semibold text-slate-900">{Number(it.cantidad) % 1 === 0 ? Math.round(Number(it.cantidad)) : it.cantidad}</td>
+                              <td className="px-3 py-2 text-slate-800 whitespace-nowrap">{it.sap_item?.dimension || '—'}</td>
+                              <td className="px-3 py-2 text-slate-700 text-[11px] max-w-[140px] truncate" title={it.sap_item?.observacion || ''}>{it.sap_item?.observacion || '—'}</td>
+                              <td className="px-3 py-2 text-indigo-700 font-semibold whitespace-nowrap">{it.sap_item?.SAP?.numero_sap || odc.sap?.numero_sap || '—'}</td>
+                              <td className="px-3 py-2 font-semibold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => { const id = it.sap_item?.SAP?.ODP?.id || (it as any).odp_item?.ODP?.id || odc.sap?.ODP?.id; if (id) onFichaOdp?.(id); }}>{it.sap_item?.SAP?.ODP?.numero_odp || (it as any).odp_item?.ODP?.numero_odp || odc.sap?.ODP?.numero_odp || '—'}</td>
                             </tr>
                           );
                         })}
@@ -693,7 +693,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                     </table>
                   </div>
                   {hayItemsParciales && (
-                    <p className="text-[10px] text-amber-600 mt-2 flex items-center gap-1">
+                    <p className="text-[11px] text-amber-700 mt-2 flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
                       Amarillo = pendiente de recibir · Verde = ya recibido
                     </p>
@@ -704,7 +704,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
               <div className="px-6 py-4 border-t border-slate-100 shrink-0">
                 <button
                   onClick={() => setVerDetalle(false)}
-                  className="w-full py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+                  className="w-full py-2.5 font-semibold text-slate-800 border border-slate-300 rounded-xl hover:bg-slate-50 transition"
                 >
                   Cerrar
                 </button>
@@ -733,18 +733,18 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
             >
               <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0">
                 <div>
-                  <h3 className="text-base font-black text-slate-800">Editar ODC — {odc.numero_odc}</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Modifica proveedor, notas{odc.tipo !== 'vidrio' ? ', ítems' : ''} o estado</p>
+                  <h3 className="text-base font-bold text-slate-900">Editar ODC — {odc.numero_odc}</h3>
+                  <p className="text-xs text-slate-700 mt-0.5">Modifica proveedor, notas{odc.tipo !== 'vidrio' ? ', ítems' : ''} o estado</p>
                 </div>
-                <button onClick={() => setEditando(false)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
+                <button onClick={() => setEditando(false)} className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="p-6 space-y-4 overflow-y-auto flex-1">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                    Proveedor <span className="text-red-400">*</span>
+                  <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">
+                    Proveedor <span className="text-red-600">*</span>
                   </label>
                   <input
                     value={editProveedor}
@@ -754,7 +754,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Notas (opcional)</label>
+                  <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">Notas (opcional)</label>
                   <input
                     value={editNotas}
                     onChange={e => setEditNotas(e.target.value)}
@@ -766,11 +766,11 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                 {odc.tipo !== 'vidrio' && (
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Ítems</label>
+                      <label className="text-xs font-semibold text-slate-900 uppercase tracking-wider">Ítems</label>
                       {puedeEditarItems && (
                         <button
                           onClick={() => { if (odc.tipo === 'perfileria') { abrirSelectorPanel(); } else { setEditItems(prev => [...prev, { codigo: '', descripcion: '', cantidad: 1 }]); } }}
-                          className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-50 transition"
+                          className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-50 transition"
                         >
                           <Plus className="w-3.5 h-3.5" /> Agregar ítem
                         </button>
@@ -784,7 +784,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                     ) : (
                       <div className="border border-slate-200 rounded-xl overflow-hidden">
                         <table className="w-full text-xs">
-                          <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                          <thead className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-900 [&_th]:font-semibold">
                             <tr>
                               <th className="px-3 py-2 text-left w-24">Código</th>
                               <th className="px-3 py-2 text-left">Descripción</th>
@@ -794,10 +794,10 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                           </thead>
                           <tbody className="divide-y divide-slate-100">
                             {editItems.length === 0 ? (
-                              <tr><td colSpan={4} className="px-3 py-3 text-center text-slate-400">Sin ítems. Agrega al menos uno.</td></tr>
+                              <tr><td colSpan={4} className="px-3 py-3 text-center text-slate-700">Sin ítems. Agrega al menos uno.</td></tr>
                             ) : editItems.map((linea, idx) => (
                               <tr key={linea.id ?? `nuevo-${idx}`} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}>
-                                <td className="px-3 py-1.5 font-mono text-blue-700 font-bold">
+                                <td className="px-3 py-1.5 font-mono text-blue-700 font-semibold whitespace-nowrap">
                                   {odc.tipo === 'consumible' ? (
                                     <input
                                       value={linea.codigo}
@@ -807,7 +807,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                                     />
                                   ) : (linea.codigo || '—')}
                                 </td>
-                                <td className="px-3 py-1.5 text-slate-700">
+                                <td className="px-3 py-1.5 text-slate-800">
                                   {odc.tipo === 'consumible' ? (
                                     <input
                                       value={linea.descripcion}
@@ -822,14 +822,14 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                                     type="number" min={0} step={1}
                                     value={linea.cantidad}
                                     onChange={e => setEditItems(prev => prev.map((l, i) => i === idx ? { ...l, cantidad: parseFloat(e.target.value) || 0 } : l))}
-                                    className="w-16 text-center font-bold text-slate-700 border border-slate-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                                    className="w-16 text-center font-semibold text-slate-900 border border-slate-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
                                   />
                                 </td>
                                 <td className="px-3 py-1.5 text-center">
                                   <button
                                     onClick={() => setEditItems(prev => prev.filter((_, i) => i !== idx))}
                                     title="Quitar ítem"
-                                    className="p-1 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                                    className="p-1 rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 transition"
                                   >
                                     <X className="w-3.5 h-3.5" />
                                   </button>
@@ -844,7 +844,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                 )}
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Estado</label>
+                  <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">Estado</label>
                   <select
                     value={editEstado}
                     onChange={e => setEditEstado(e.target.value)}
@@ -854,7 +854,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                     <option value="recibido">Recibido</option>
                   </select>
                   {editEstado === 'recibido' && odc.estado !== 'recibido' && (
-                    <p className="text-[11px] text-amber-600 mt-1.5 flex items-center gap-1">
+                    <p className="text-[11px] text-amber-700 mt-1.5 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
                       Al guardar se abrirá la selección de ítems recibidos
                     </p>
@@ -865,7 +865,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
               <div className="flex gap-3 px-6 py-4 border-t border-slate-100 shrink-0">
                 <button
                   onClick={() => setEditando(false)}
-                  className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+                  className="flex-1 py-2.5 font-semibold text-slate-800 border border-slate-300 rounded-xl hover:bg-slate-50 transition"
                 >
                   Cancelar
                 </button>
@@ -877,7 +877,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                     <button
                       onClick={usarPutItems ? handleGuardarItems : handleGuardarEdicion}
                       disabled={(usarPutItems ? guardandoItems : loading) || !editProveedor.trim()}
-                      className="flex-1 py-2.5 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
+                      className="flex-1 py-2.5 font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
                     >
                       {(usarPutItems ? guardandoItems : loading)
                         ? 'Guardando...'
@@ -903,17 +903,17 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
             >
               <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0">
                 <div>
-                  <h3 className="text-base font-black text-slate-800">Recepción de Materiales</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">{odc.numero_odc} · Selecciona los ítems que llegaron físicamente</p>
+                  <h3 className="text-base font-bold text-slate-900">Recepción de Materiales</h3>
+                  <p className="text-xs text-slate-700 mt-0.5">{odc.numero_odc} · Selecciona los ítems que llegaron físicamente</p>
                 </div>
-                <button onClick={() => setShowRecibirModal(false)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
+                <button onClick={() => setShowRecibirModal(false)} className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="flex-1 overflow-y-auto p-4">
                 <div className="flex items-center justify-between mb-3 px-1">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm font-bold text-slate-700">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-slate-900">
                     <input
                       type="checkbox"
                       className="w-4 h-4 rounded accent-indigo-600"
@@ -929,7 +929,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                     />
                     Seleccionar todos
                   </label>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-slate-700">
                     {itemsSeleccionados.size} de {odc.items.filter(it => !it.recibido).length} ítems pendientes
                   </span>
                 </div>
@@ -962,13 +962,13 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono font-black text-blue-700 text-xs">{it.codigo || '—'}</span>
-                          <span className="text-slate-700 text-xs">{it.descripcion || '—'}</span>
-                          {it.recibido && <span className="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full border border-green-200">Ya recibido</span>}
+                          <span className="font-mono font-semibold text-blue-700 text-xs">{it.codigo || '—'}</span>
+                          <span className="text-slate-800 text-xs">{it.descripcion || '—'}</span>
+                          {it.recibido && <span className="text-[11px] font-semibold text-green-800 bg-green-100 px-2 py-0.5 rounded-full border border-green-200">Ya recibido</span>}
                         </div>
-                        <div className="flex items-center gap-3 mt-0.5 text-[10px] text-slate-400">
-                          <span>Cant: <strong className="text-slate-600">{it.cantidad}</strong></span>
-                          {it.sap_item?.dimension && <span>Dim: <strong className="text-slate-600">{it.sap_item.dimension}</strong></span>}
+                        <div className="flex items-center gap-3 mt-0.5 text-[11px] text-slate-700">
+                          <span>Cant: <strong className="font-semibold text-slate-900">{it.cantidad}</strong></span>
+                          {it.sap_item?.dimension && <span>Dim: <strong className="font-semibold text-slate-900">{it.sap_item.dimension}</strong></span>}
                         </div>
                       </div>
                     </label>
@@ -997,14 +997,14 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
               <div className="flex gap-3 px-6 py-4 border-t border-slate-100 shrink-0">
                 <button
                   onClick={() => setShowRecibirModal(false)}
-                  className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+                  className="flex-1 py-2.5 font-semibold text-slate-800 border border-slate-300 rounded-xl hover:bg-slate-50 transition"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleConfirmarRecepcion}
                   disabled={recibiendoItems || (itemsSeleccionados.size === 0 && !sinPendientesPorMarcar)}
-                  className="flex-1 py-2.5 font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 transition disabled:opacity-40"
+                  className="flex-1 py-2.5 font-semibold text-white bg-green-600 rounded-xl hover:bg-green-700 transition disabled:opacity-40"
                 >
                   {recibiendoItems
                     ? 'Procesando...'
@@ -1029,22 +1029,22 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
               className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200"
             >
               <Trash2 className="w-12 h-12 text-red-500 mx-auto mb-3" />
-              <h3 className="font-bold text-slate-800 mb-2 text-center">¿Eliminar {odc.numero_odc}?</h3>
-              <p className="text-sm text-slate-500 mb-4 text-center">
+              <h3 className="font-bold text-slate-900 mb-2 text-center">¿Eliminar {odc.numero_odc}?</h3>
+              <p className="text-sm text-slate-700 mb-4 text-center">
                 La orden se borrará <strong>permanentemente</strong> y no se podrá recuperar. El material que no esté en otra orden activa vuelve a <strong>Pendientes</strong>.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmDelete(false)}
                   disabled={eliminando}
-                  className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+                  className="flex-1 py-2.5 font-semibold text-slate-800 border border-slate-300 rounded-xl hover:bg-slate-50 transition"
                 >
                   Volver
                 </button>
                 <button
                   onClick={handleEliminar}
                   disabled={eliminando}
-                  className="flex-1 py-2.5 font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition disabled:opacity-50"
+                  className="flex-1 py-2.5 font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 transition disabled:opacity-50"
                 >
                   {eliminando ? 'Eliminando...' : 'Sí, eliminar'}
                 </button>
@@ -1062,10 +1062,10 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
               className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200"
             >
               <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-              <h3 className="font-bold text-slate-800 mb-2 text-center">
+              <h3 className="font-bold text-slate-900 mb-2 text-center">
                 ¿Revertir la recepción de {odc.numero_odc}?
               </h3>
-              <p className="text-sm text-slate-500 mb-4 text-center">
+              <p className="text-sm text-slate-700 mb-4 text-center">
                 Los <strong>{odc.items.length} ítems</strong> volverán a <strong>en ODC</strong> y
                 dejarán de contar como material en existencia
                 {odpsInfo.length > 0 && (
@@ -1078,14 +1078,14 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                 <button
                   onClick={() => setConfirmDesrecepcion(false)}
                   disabled={loading}
-                  className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+                  className="flex-1 py-2.5 font-semibold text-slate-800 border border-slate-300 rounded-xl hover:bg-slate-50 transition"
                 >
                   Volver
                 </button>
                 <button
                   onClick={guardarEdicion}
                   disabled={loading}
-                  className="flex-1 py-2.5 font-bold text-white bg-amber-600 rounded-xl hover:bg-amber-700 transition disabled:opacity-50"
+                  className="flex-1 py-2.5 font-semibold text-white bg-amber-600 rounded-xl hover:bg-amber-700 transition disabled:opacity-50"
                 >
                   {loading ? 'Revirtiendo...' : 'Sí, revertir'}
                 </button>
@@ -1107,10 +1107,10 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
             >
               <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 shrink-0">
                 <div>
-                  <h3 className="text-base font-black text-slate-800">Agregar ítem desde Pendientes</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Selecciona uno o varios ítems de perfilería pendientes</p>
+                  <h3 className="text-base font-bold text-slate-900">Agregar ítem desde Pendientes</h3>
+                  <p className="text-xs text-slate-700 mt-0.5">Selecciona uno o varios ítems de perfilería pendientes</p>
                 </div>
-                <button onClick={() => setMostrarSelectorPanel(false)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
+                <button onClick={() => setMostrarSelectorPanel(false)} className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -1120,7 +1120,7 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                     <div className="w-7 h-7 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : panelItems.length === 0 ? (
-                  <p className="text-center text-sm text-slate-400 py-12">No hay ítems pendientes.</p>
+                  <p className="text-center text-sm text-slate-700 py-12">No hay ítems pendientes.</p>
                 ) : (
                   <div className="space-y-2">
                     {panelItems.map(it => {
@@ -1151,15 +1151,15 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-mono font-black text-blue-700 text-xs">{it.codigo || '—'}</span>
-                              <span className="text-slate-700 text-xs">{it.descripcion || '—'}</span>
-                              {yaEnODC && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">Ya en la ODC</span>}
+                              <span className="font-mono font-semibold text-blue-700 text-xs">{it.codigo || '—'}</span>
+                              <span className="text-slate-800 text-xs">{it.descripcion || '—'}</span>
+                              {yaEnODC && <span className="text-[11px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">Ya en la ODC</span>}
                             </div>
-                            <div className="flex items-center gap-3 mt-0.5 text-[10px] text-slate-400 flex-wrap">
-                              <span>Dim: <strong className="text-slate-600">{it.dimension || '—'}</strong></span>
-                              <span>Cant: <strong className="text-slate-600">{it.cantidad}</strong></span>
-                              <span>SAP: <strong className="text-indigo-600">{it.SAP?.numero_sap || '—'}</strong></span>
-                              <span>ODP: <strong className="text-indigo-700">{it.SAP?.ODP?.numero_odp || '—'}</strong></span>
+                            <div className="flex items-center gap-3 mt-0.5 text-[11px] text-slate-700 flex-wrap">
+                              <span>Dim: <strong className="font-semibold text-slate-900">{it.dimension || '—'}</strong></span>
+                              <span>Cant: <strong className="font-semibold text-slate-900">{it.cantidad}</strong></span>
+                              <span>SAP: <strong className="font-semibold text-indigo-700">{it.SAP?.numero_sap || '—'}</strong></span>
+                              <span>ODP: <strong className="font-semibold text-indigo-700 whitespace-nowrap">{it.SAP?.ODP?.numero_odp || '—'}</strong></span>
                             </div>
                           </div>
                         </label>
@@ -1171,14 +1171,14 @@ const ODCCard: React.FC<{ odc: ODC; onActualizar: () => void; onEstadoCambiado?:
               <div className="flex gap-3 px-6 py-4 border-t border-slate-100 shrink-0">
                 <button
                   onClick={() => setMostrarSelectorPanel(false)}
-                  className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+                  className="flex-1 py-2.5 font-semibold text-slate-800 border border-slate-300 rounded-xl hover:bg-slate-50 transition"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={confirmarSelectorPanel}
                   disabled={panelSeleccion.size === 0}
-                  className="flex-1 py-2.5 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
+                  className="flex-1 py-2.5 font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
                 >
                   Agregar ({panelSeleccion.size})
                 </button>
@@ -1574,12 +1574,12 @@ const ComprasPage: React.FC = () => {
             <ShoppingCart className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-slate-800">Módulo de Compras</h1>
-            <p className="text-sm text-slate-500">Gestión de Órdenes de Compra vinculadas a SAP</p>
+            <h1 className="text-xl font-extrabold text-slate-900">Módulo de Compras</h1>
+            <p className="text-sm text-slate-700">Gestión de Órdenes de Compra vinculadas a SAP</p>
           </div>
         </div>
         <button onClick={refresh}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-white transition shadow-sm">
+          className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-800 border border-slate-300 rounded-xl hover:bg-white transition shadow-sm">
           <RefreshCw className="w-4 h-4" /> Actualizar
         </button>
       </div>
@@ -1600,7 +1600,7 @@ const ComprasPage: React.FC = () => {
 
       {/* Buscador */}
       <div className="relative mb-5">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
         <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
           placeholder={tab === 'pendientes' ? 'Buscar código, SAP, ODP o cliente...' : 'Buscar ODC, proveedor, ODP o cliente...'}
           className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
@@ -1643,14 +1643,14 @@ const ComprasPage: React.FC = () => {
                         checked={listaFiltrada.length > 0 && listaFiltrada.every(i => seleccionados.has(i.id))}
                         onChange={() => toggleTodos(listaFiltrada)}
                       />
-                      <span className="text-sm text-slate-600">
+                      <span className="text-sm text-slate-800">
                         {seleccionados.size > 0
-                          ? <><span className="font-black text-indigo-700">{seleccionados.size}</span> item(s) seleccionado(s)</>
-                          : <span className="text-slate-400">Seleccionar todos</span>
+                          ? <><span className="font-bold text-indigo-700">{seleccionados.size}</span> item(s) seleccionado(s)</>
+                          : <span className="text-slate-800">Seleccionar todos</span>
                         }
                       </span>
                       {seleccionados.size > 0 && (
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-slate-700">
                           · {new Set(seleccionadosEnLista.map(i => i.SAP?.id)).size} SAP(s) · {new Set(seleccionadosEnLista.map(i => i.SAP?.ODP?.id)).size} ODP(s)
                         </span>
                       )}
@@ -1659,14 +1659,14 @@ const ComprasPage: React.FC = () => {
                       {!soloLectura && (<>
                       <button
                         onClick={() => setMostrarModalSinSAP(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition shadow-sm"
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white text-sm font-semibold rounded-xl hover:bg-slate-700 transition shadow-sm"
                       >
                         <Plus className="w-4 h-4" /> Nueva ODC sin SAP
                       </button>
                       <button
                         onClick={() => setMostrarModal(true)}
                         disabled={seleccionados.size === 0}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition shadow-sm disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none disabled:cursor-not-allowed"
                       >
                         <Plus className="w-4 h-4" /> Crear ODC ({seleccionados.size})
                       </button>
@@ -1678,7 +1678,7 @@ const ComprasPage: React.FC = () => {
                   {listaFiltrada.length === 0 ? (
                     <div className="text-center py-20">
                       <CheckCircle2 className="w-16 h-16 text-green-300 mx-auto mb-3" />
-                      <p className="text-lg font-bold text-slate-500">
+                      <p className="text-lg font-semibold text-slate-800">
                         {busqueda ? 'Sin resultados' : 'No hay items pendientes de gestionar'}
                       </p>
                     </div>
@@ -1709,37 +1709,39 @@ const ComprasPage: React.FC = () => {
                               onChange={() => {}}
                               onClick={e => e.stopPropagation()}
                             />
-                            <span className="font-mono font-black text-indigo-700">{codigo}</span>
-                            <span className="text-slate-400 text-xs">—</span>
-                            <span className="text-sm text-slate-700 font-medium flex-1 truncate">{grupo[0].descripcion || '—'}</span>
+                            <span className="font-mono font-bold text-indigo-700">{codigo}</span>
+                            <span className="text-slate-500 text-xs">—</span>
+                            <span className="text-sm text-slate-900 font-medium flex-1 truncate">{grupo[0].descripcion || '—'}</span>
                             <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-xs font-bold text-indigo-600">
+                              <span className="text-xs font-semibold text-indigo-700">
                                 Total: {totalCant}
                               </span>
                               {grupo.length > 1 && (
-                                <span className="text-[10px] font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full border border-indigo-200">
+                                <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full border border-indigo-200">
                                   {grupo.length} SAPs
                                 </span>
                               )}
                             </div>
                           </div>
-                          {/* Filas de items del grupo */}
-                          <table className="w-full text-xs">
-                            <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+                          {/* Filas de items del grupo — cada grupo es una tabla aparte: layout fijo
+                              con los mismos anchos para que las columnas queden alineadas entre grupos */}
+                          <div className="overflow-x-auto">
+                          <table className="w-full text-xs table-fixed min-w-[1040px]">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-900 [&_th]:font-semibold">
                               <tr>
-                                <th className="px-4 py-1.5 w-10" />
-                                <th className="px-3 py-1.5 text-left w-24">Dimensión</th>
-                                <th className="px-3 py-1.5 text-center w-16">Cant.</th>
-                                <th className="px-3 py-1.5 text-left w-36">Observ.</th>
-                                <th className="px-3 py-1.5 text-left w-28">SAP</th>
-                                <th className="px-3 py-1.5 text-left w-28">ODP</th>
-                                <th className="px-3 py-1.5 text-left">Cliente</th>
-                                <th className="px-3 py-1.5 text-center w-20">Exis. Perf.</th>
-                                <th className="px-3 py-1.5 text-left w-40">Asesor</th>
-                                <th className="px-3 py-1.5 text-center w-16">Exist.</th>
+                                <th className="px-4 py-2 w-12" />
+                                <th className="px-3 py-2 text-left w-32 whitespace-nowrap">Dimensión</th>
+                                <th className="px-3 py-2 text-center w-16">Cant.</th>
+                                <th className="px-3 py-2 text-left w-36">Observ.</th>
+                                <th className="px-3 py-2 text-left w-28">SAP</th>
+                                <th className="px-3 py-2 text-left w-28">ODP</th>
+                                <th className="px-3 py-2 text-left">Cliente</th>
+                                <th className="px-3 py-2 text-center w-28 whitespace-nowrap">Exis. Perf.</th>
+                                <th className="px-3 py-2 text-left w-40">Asesor</th>
+                                <th className="px-3 py-2 text-center w-16">Exist.</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50">
+                            <tbody className="divide-y divide-slate-100">
                               {grupo.map((item, i) => {
                                 const esModificado = item.modificado === true;
                                 return (
@@ -1753,7 +1755,7 @@ const ComprasPage: React.FC = () => {
                                       : i % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/30 hover:bg-slate-100'
                                   }`}
                                 >
-                                  <td className="px-4 py-2 w-10" onClick={e => e.stopPropagation()}>
+                                  <td className="px-4 py-2" onClick={e => e.stopPropagation()}>
                                     <input
                                       type="checkbox"
                                       className="w-4 h-4 rounded accent-indigo-600"
@@ -1761,37 +1763,37 @@ const ComprasPage: React.FC = () => {
                                       onChange={() => toggleSeleccion(item.id)}
                                     />
                                   </td>
-                                  <td className="px-3 py-2 w-24 text-slate-500">
+                                  <td className="px-3 py-2 text-slate-800 whitespace-nowrap">
                                     {esModificado && (
-                                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-white mr-1 align-middle">MOD</span>
+                                      <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-amber-500 text-white mr-1 align-middle">MOD</span>
                                     )}
                                     {item.dimension || '—'}
                                   </td>
-                                  <td className="px-3 py-2 w-16 text-center font-bold text-slate-700">{Number(item.cantidad) % 1 === 0 ? Math.round(Number(item.cantidad)) : item.cantidad}</td>
-                                  <td className="px-3 py-2 text-slate-400 text-xs max-w-[140px] truncate" title={(item as any).observacion || ''}>{(item as any).observacion || '—'}</td>
+                                  <td className="px-3 py-2 w-16 text-center font-semibold text-slate-900">{Number(item.cantidad) % 1 === 0 ? Math.round(Number(item.cantidad)) : item.cantidad}</td>
+                                  <td className="px-3 py-2 text-slate-700 text-xs truncate" title={(item as any).observacion || ''}>{(item as any).observacion || '—'}</td>
                                   <td className="px-3 py-2 w-28">
-                                    <span className="font-bold text-indigo-600">{item.SAP?.numero_sap || '—'}</span>
+                                    <span className="font-semibold text-indigo-700 whitespace-nowrap">{item.SAP?.numero_sap || '—'}</span>
                                   </td>
                                   <td className="px-3 py-2 w-28" onClick={e => { e.stopPropagation(); if (item.SAP?.ODP?.id) setFichaOdpId(item.SAP.ODP.id); }}>
-                                    <span className="font-bold text-indigo-700 cursor-pointer hover:underline">{item.SAP?.ODP?.numero_odp || '—'}</span>
+                                    <span className="font-semibold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline">{item.SAP?.ODP?.numero_odp || '—'}</span>
                                   </td>
-                                  <td className="px-3 py-2 text-slate-500 truncate max-w-[200px]">
+                                  <td className="px-3 py-2 text-slate-800 truncate">
                                     {item.SAP?.ODP?.cliente?.nombre_razon_social || '—'}
                                   </td>
-                                  <td className="px-3 py-2 w-20" onClick={e => e.stopPropagation()}>
+                                  <td className="px-3 py-2 text-center" onClick={e => e.stopPropagation()}>
                                     {item.codigo && codigosConStock.has(item.codigo) ? (
                                       <button
                                         onClick={() => abrirGestionExistencia(item)}
                                         title="Gestionar existencia (asignar / falta material)"
-                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition"
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition"
                                       >
                                         <Package className="w-3 h-3" /> Gestionar
                                       </button>
                                     ) : (
-                                      <span className="text-slate-300 text-[10px]">—</span>
+                                      <span className="text-slate-400 text-[11px]">—</span>
                                     )}
                                   </td>
-                                  <td className="px-3 py-2 text-slate-400 text-[10px] truncate max-w-[160px]">
+                                  <td className="px-3 py-2 text-slate-700 text-[11px] truncate">
                                     {item.SAP?.ODP?.asesor?.nombre_completo || '—'}
                                   </td>
                                   <td className="px-3 py-2 text-center w-16" onClick={e => e.stopPropagation()}>
@@ -1820,6 +1822,7 @@ const ComprasPage: React.FC = () => {
                               })}
                             </tbody>
                           </table>
+                          </div>
                         </div>
                       );
                     })}
@@ -1831,11 +1834,11 @@ const ComprasPage: React.FC = () => {
                   {pendientesLoadingMore && (
                     <div className="text-center py-4">
                       <div className="w-6 h-6 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin inline-block" />
-                      <p className="text-sm text-slate-400 mt-2">Cargando más...</p>
+                      <p className="text-sm text-slate-700 mt-2">Cargando más...</p>
                     </div>
                   )}
                   {pendientesPage >= pendientesTotalPages && itemsPendientes.length > 0 && (
-                    <p className="text-center text-sm text-slate-400 py-4">Todos los items cargados</p>
+                    <p className="text-center text-sm text-slate-700 py-4">Todos los items cargados</p>
                   )}
 
                 </div>
@@ -1848,7 +1851,7 @@ const ComprasPage: React.FC = () => {
               return lista.length === 0 ? (
                 <div className="text-center py-20">
                   <ListChecks className="w-16 h-16 text-slate-200 mx-auto mb-3" />
-                  <p className="text-lg font-bold text-slate-500">{busqueda ? 'Sin resultados' : 'No hay ODCs en seguimiento'}</p>
+                  <p className="text-lg font-semibold text-slate-800">{busqueda ? 'Sin resultados' : 'No hay ODCs en seguimiento'}</p>
                 </div>
               ) : (
                 <div className="grid gap-4">
@@ -1862,7 +1865,7 @@ const ComprasPage: React.FC = () => {
               return odcsRecibidas.length === 0 ? (
                 <div className="text-center py-20">
                   <CheckCircle2 className="w-16 h-16 text-slate-200 mx-auto mb-3" />
-                  <p className="text-lg font-bold text-slate-500">{busqueda ? 'Sin resultados' : 'Escribe en el buscador para encontrar ODCs recibidas'}</p>
+                  <p className="text-lg font-semibold text-slate-800">{busqueda ? 'Sin resultados' : 'Escribe en el buscador para encontrar ODCs recibidas'}</p>
                 </div>
               ) : (
                 <div className="grid gap-4">
@@ -1916,7 +1919,7 @@ const ComprasPage: React.FC = () => {
               return listaFiltrada.length === 0 ? (
                 <div className="text-center py-20">
                   <Layers className="w-16 h-16 text-slate-200 mx-auto mb-3" />
-                  <p className="text-lg font-bold text-slate-500">
+                  <p className="text-lg font-semibold text-slate-800">
                     {busqueda ? 'Sin resultados' : 'No hay vidrios pendientes de gestionar'}
                   </p>
                 </div>
@@ -1931,14 +1934,14 @@ const ComprasPage: React.FC = () => {
                         checked={listaFiltrada.length > 0 && listaFiltrada.every(i => seleccionadosVidrios.has(i.id))}
                         onChange={toggleTodosVidrios}
                       />
-                      <span className="text-sm text-slate-600">
+                      <span className="text-sm text-slate-800">
                         {seleccionadosVidrios.size > 0
-                          ? <><span className="font-black text-cyan-700">{seleccionadosVidrios.size}</span> ítem(s) seleccionado(s)</>
-                          : <span className="text-slate-400">Seleccionar todos</span>
+                          ? <><span className="font-bold text-cyan-700">{seleccionadosVidrios.size}</span> ítem(s) seleccionado(s)</>
+                          : <span className="text-slate-800">Seleccionar todos</span>
                         }
                       </span>
                       {seleccionadosVidrios.size > 0 && (
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-slate-700">
                           · {new Set(seleccionadosEnLista.map(i => i.ODP?.id)).size} ODP(s)
                         </span>
                       )}
@@ -1946,7 +1949,7 @@ const ComprasPage: React.FC = () => {
                     {!soloLectura && (<button
                       onClick={() => setMostrarModalVidrios(true)}
                       disabled={seleccionadosVidrios.size === 0}
-                      className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white text-sm font-bold rounded-xl hover:bg-cyan-700 transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white text-sm font-semibold rounded-xl hover:bg-cyan-700 transition shadow-sm disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none disabled:cursor-not-allowed"
                     >
                       <Plus className="w-4 h-4" /> Crear ODC ({seleccionadosVidrios.size})
                     </button>)}
@@ -1981,41 +1984,42 @@ const ComprasPage: React.FC = () => {
                             />
                             <span className="font-bold text-cyan-800">{tipo}</span>
                             <div className="flex items-center gap-2 ml-auto shrink-0">
-                              <span className="text-xs font-bold text-cyan-700">
+                              <span className="text-xs font-semibold text-cyan-800">
                                 Total: {totalCant} und
                               </span>
                               {grupo.length > 1 && (
-                                <span className="text-[10px] font-bold text-cyan-600 bg-cyan-100 px-2 py-0.5 rounded-full border border-cyan-200">
+                                <span className="text-[11px] font-semibold text-cyan-800 bg-cyan-100 px-2 py-0.5 rounded-full border border-cyan-200">
                                   {grupo.length} ítems
                                 </span>
                               )}
                             </div>
                           </div>
 
-                          {/* Filas de items del grupo */}
-                          <table className="w-full text-xs">
-                            <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+                          {/* Filas de items del grupo — layout fijo: mismos anchos en todos los grupos */}
+                          <div className="overflow-x-auto">
+                          <table className="w-full text-xs table-fixed min-w-[1040px]">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-900 [&_th]:font-semibold">
                               <tr>
-                                <th className="px-4 py-1.5 w-10" />
-                                <th className="px-3 py-1.5 text-left">Color</th>
-                                <th className="px-3 py-1.5 text-left w-16">Esp.</th>
-                                <th className="px-3 py-1.5 text-left">Medidas (mm)</th>
-                                <th className="px-3 py-1.5 text-left w-32">Otros</th>
-                                <th className="px-3 py-1.5 text-center w-14">Cant.</th>
-                                <th className="px-3 py-1.5 text-left w-28">ODP</th>
-                                <th className="px-3 py-1.5 text-left">Cliente</th>
-                                <th className="px-3 py-1.5 text-left w-40">Asesor</th>
-                                <th className="px-3 py-1.5 text-center w-20">Exist.</th>
+                                <th className="px-4 py-2 w-12" />
+                                <th className="px-3 py-2 text-left w-32">Color</th>
+                                <th className="px-3 py-2 text-left w-16">Esp.</th>
+                                <th className="px-3 py-2 text-left w-32 whitespace-nowrap">Medidas (mm)</th>
+                                <th className="px-3 py-2 text-left w-32">Otros</th>
+                                <th className="px-3 py-2 text-center w-16">Cant.</th>
+                                <th className="px-3 py-2 text-left w-28">ODP</th>
+                                <th className="px-3 py-2 text-left">Cliente</th>
+                                <th className="px-3 py-2 text-left w-40">Asesor</th>
+                                <th className="px-3 py-2 text-center w-16">Exist.</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50">
+                            <tbody className="divide-y divide-slate-100">
                               {grupo.map((item, i) => (
                                 <tr
                                   key={item.id}
                                   onClick={() => toggleSeleccionVidrio(item.id)}
                                   className={`cursor-pointer transition ${seleccionadosVidrios.has(item.id) ? 'bg-cyan-50' : i % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/30 hover:bg-slate-100'}`}
                                 >
-                                  <td className="px-4 py-2 w-10" onClick={e => e.stopPropagation()}>
+                                  <td className="px-4 py-2" onClick={e => e.stopPropagation()}>
                                     <input
                                       type="checkbox"
                                       className="w-4 h-4 rounded accent-cyan-600"
@@ -2023,26 +2027,26 @@ const ComprasPage: React.FC = () => {
                                       onChange={() => toggleSeleccionVidrio(item.id)}
                                     />
                                   </td>
-                                  <td className="px-3 py-2 text-slate-600">{item.color || '—'}</td>
-                                  <td className="px-3 py-2 text-slate-600">{item.espesor || '—'}</td>
-                                  <td className="px-3 py-2 font-mono text-slate-700">
+                                  <td className="px-3 py-2 text-slate-800 truncate">{item.color || '—'}</td>
+                                  <td className="px-3 py-2 text-slate-800">{item.espesor || '—'}</td>
+                                  <td className="px-3 py-2 font-mono text-slate-800 whitespace-nowrap">
                                     {item.ancho_mm && item.alto_mm ? `${item.ancho_mm}×${item.alto_mm}` : '—'}
                                   </td>
                                   <td
-                                    className="px-3 py-2 text-slate-400 text-[10px] truncate max-w-[120px]"
+                                    className="px-3 py-2 text-slate-700 text-[11px] truncate"
                                     title={item.otros || ''}
                                   >
                                     {item.otros || '—'}
                                   </td>
-                                  <td className="px-3 py-2 text-center font-bold text-slate-700">{Number(item.cantidad) % 1 === 0 ? Math.round(Number(item.cantidad)) : item.cantidad}</td>
-                                  <td className="px-3 py-2 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={e => { e.stopPropagation(); if (item.ODP?.id) setFichaOdpId(item.ODP.id); }}>{item.ODP?.numero_odp || '—'}</td>
-                                  <td className="px-3 py-2 text-slate-500 truncate max-w-[200px]">
+                                  <td className="px-3 py-2 text-center font-semibold text-slate-900">{Number(item.cantidad) % 1 === 0 ? Math.round(Number(item.cantidad)) : item.cantidad}</td>
+                                  <td className="px-3 py-2 font-semibold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={e => { e.stopPropagation(); if (item.ODP?.id) setFichaOdpId(item.ODP.id); }}>{item.ODP?.numero_odp || '—'}</td>
+                                  <td className="px-3 py-2 text-slate-800 truncate">
                                     {item.ODP?.cliente?.nombre_razon_social || '—'}
                                   </td>
-                                  <td className="px-3 py-2 text-slate-400 text-[10px] truncate max-w-[160px]">
+                                  <td className="px-3 py-2 text-slate-700 text-[11px] truncate">
                                     {item.ODP?.asesor?.nombre_completo || '—'}
                                   </td>
-                                  <td className="px-3 py-2 text-center w-20" onClick={e => e.stopPropagation()}>
+                                  <td className="px-3 py-2 text-center" onClick={e => e.stopPropagation()}>
                                     <button
                                       title="Marcar como en existencia"
                                       onClick={async (e) => {
@@ -2058,6 +2062,7 @@ const ComprasPage: React.FC = () => {
                               ))}
                             </tbody>
                           </table>
+                          </div>
                         </div>
                       );
                     })}
@@ -2103,7 +2108,7 @@ const ComprasPage: React.FC = () => {
                 return (
                   <div className="text-center py-20">
                     <Package className="w-16 h-16 text-slate-200 mx-auto mb-3" />
-                    <p className="text-lg font-bold text-slate-500">
+                    <p className="text-lg font-semibold text-slate-800">
                       {busqueda ? 'Sin resultados' : 'No hay ítems seleccionados por existencia'}
                     </p>
                   </div>
@@ -2121,35 +2126,35 @@ const ComprasPage: React.FC = () => {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <Layers className="w-4 h-4 text-emerald-600" />
-                        <h3 className="text-sm font-black text-slate-700 uppercase tracking-wider">Perfilería</h3>
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">{listaPerf.length}</span>
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Perfilería</h3>
+                        <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">{listaPerf.length}</span>
                       </div>
                       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden overflow-x-auto">
                         <table className="w-full text-xs min-w-[700px]">
-                          <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+                          <thead className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-900 [&_th]:font-semibold">
                             <tr>
-                              <th className="px-3 py-1.5 text-left w-24">Código</th>
-                              <th className="px-3 py-1.5 text-left">Descripción</th>
-                              <th className="px-3 py-1.5 text-left w-24">Dimensión</th>
-                              <th className="px-3 py-1.5 text-center w-14">Cant.</th>
-                              <th className="px-3 py-1.5 text-left w-44">Exist.</th>
-                              <th className="px-3 py-1.5 text-left w-24">SAP</th>
-                              <th className="px-3 py-1.5 text-left w-24">ODP</th>
-                              <th className="px-3 py-1.5 text-left">Cliente</th>
-                              <th className="px-3 py-1.5 text-center w-24">Revertir</th>
+                              <th className="px-3 py-2 text-left w-24">Código</th>
+                              <th className="px-3 py-2 text-left">Descripción</th>
+                              <th className="px-3 py-2 text-left w-28">Dimensión</th>
+                              <th className="px-3 py-2 text-center w-14">Cant.</th>
+                              <th className="px-3 py-2 text-left w-44">Exist.</th>
+                              <th className="px-3 py-2 text-left w-24">SAP</th>
+                              <th className="px-3 py-2 text-left w-28">ODP</th>
+                              <th className="px-3 py-2 text-left">Cliente</th>
+                              <th className="px-3 py-2 text-center w-24">Revertir</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-50">
+                          <tbody className="divide-y divide-slate-100">
                             {listaPerf.map((item, i) => (
-                              <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
-                                <td className="px-3 py-2 font-mono font-bold text-blue-700">{item.codigo || '—'}</td>
-                                <td className="px-3 py-2 text-slate-700">{item.descripcion || '—'}</td>
-                                <td className="px-3 py-2 text-slate-500">{item.dimension || '—'}</td>
-                                <td className="px-3 py-2 text-center font-bold text-slate-700">{Number(item.cantidad) % 1 === 0 ? Math.round(Number(item.cantidad)) : item.cantidad}</td>
-                                <td className="px-3 py-2 text-emerald-700 text-[10px] truncate max-w-[180px]" title={item.exist_perf || ''}>{item.exist_perf || '—'}</td>
-                                <td className="px-3 py-2 font-bold text-indigo-600">{item.SAP?.numero_sap || '—'}</td>
-                                <td className="px-3 py-2 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => item.SAP?.ODP?.id && setFichaOdpId(item.SAP.ODP.id)}>{item.SAP?.ODP?.numero_odp || '—'}</td>
-                                <td className="px-3 py-2 text-slate-500 truncate max-w-[200px]">{item.SAP?.ODP?.cliente?.nombre_razon_social || '—'}</td>
+                              <tr key={item.id} className={i % 2 === 0 ? 'bg-white hover:bg-slate-50 transition-colors' : 'bg-slate-50/30 hover:bg-slate-50 transition-colors'}>
+                                <td className="px-3 py-2 font-mono font-semibold text-blue-700 whitespace-nowrap">{item.codigo || '—'}</td>
+                                <td className="px-3 py-2 text-slate-800">{item.descripcion || '—'}</td>
+                                <td className="px-3 py-2 text-slate-800 whitespace-nowrap">{item.dimension || '—'}</td>
+                                <td className="px-3 py-2 text-center font-semibold text-slate-900">{Number(item.cantidad) % 1 === 0 ? Math.round(Number(item.cantidad)) : item.cantidad}</td>
+                                <td className="px-3 py-2 text-emerald-700 text-[11px] truncate max-w-[180px]" title={item.exist_perf || ''}>{item.exist_perf || '—'}</td>
+                                <td className="px-3 py-2 font-semibold text-indigo-700 whitespace-nowrap">{item.SAP?.numero_sap || '—'}</td>
+                                <td className="px-3 py-2 font-semibold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => item.SAP?.ODP?.id && setFichaOdpId(item.SAP.ODP.id)}>{item.SAP?.ODP?.numero_odp || '—'}</td>
+                                <td className="px-3 py-2 text-slate-800 truncate max-w-[200px]">{item.SAP?.ODP?.cliente?.nombre_razon_social || '—'}</td>
                                 <td className="px-3 py-2 text-center">
                                   {!soloLectura && (<button
                                     onClick={() => revertirPerfileriaExistencia(item.id)}
@@ -2173,45 +2178,46 @@ const ComprasPage: React.FC = () => {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <Package className="w-4 h-4 text-emerald-600" />
-                        <h3 className="text-sm font-black text-slate-700 uppercase tracking-wider">Vidrios</h3>
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">{listaVidrios.length}</span>
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Vidrios</h3>
+                        <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">{listaVidrios.length}</span>
                       </div>
                       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                         {Array.from(gruposVidrios.entries()).map(([tipo, grupo], gi) => (
                           <div key={tipo} className={gi > 0 ? 'border-t border-slate-200' : ''}>
                             <div className="flex items-center gap-3 px-4 py-2.5 bg-emerald-50 border-b border-emerald-100">
                               <span className="font-bold text-emerald-800">{tipo}</span>
-                              <span className="ml-auto text-xs font-bold text-emerald-700">
+                              <span className="ml-auto text-xs font-semibold text-emerald-800">
                                 {grupo.reduce((s, i) => s + Number(i.cantidad), 0)} und
                               </span>
                             </div>
-                            <table className="w-full text-xs">
-                              <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+                            <div className="overflow-x-auto">
+                            <table className="w-full text-xs table-fixed min-w-[900px]">
+                              <thead className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-900 [&_th]:font-semibold">
                                 <tr>
-                                  <th className="px-3 py-1.5 text-left">Color</th>
-                                  <th className="px-3 py-1.5 text-left w-16">Esp.</th>
-                                  <th className="px-3 py-1.5 text-left">Medidas</th>
-                                  <th className="px-3 py-1.5 text-left w-32">Otros</th>
-                                  <th className="px-3 py-1.5 text-center w-14">Cant.</th>
-                                  <th className="px-3 py-1.5 text-left w-28">ODP</th>
-                                  <th className="px-3 py-1.5 text-left">Cliente</th>
-                                  <th className="px-3 py-1.5 text-center w-24">Desmarcar</th>
+                                  <th className="px-3 py-2 text-left w-32">Color</th>
+                                  <th className="px-3 py-2 text-left w-16">Esp.</th>
+                                  <th className="px-3 py-2 text-left w-32">Medidas</th>
+                                  <th className="px-3 py-2 text-left w-32">Otros</th>
+                                  <th className="px-3 py-2 text-center w-16">Cant.</th>
+                                  <th className="px-3 py-2 text-left w-28">ODP</th>
+                                  <th className="px-3 py-2 text-left">Cliente</th>
+                                  <th className="px-3 py-2 text-center w-24">Desmarcar</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-slate-50">
+                              <tbody className="divide-y divide-slate-100">
                                 {grupo.map((item, i) => (
-                                  <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
-                                    <td className="px-3 py-2 text-slate-600">{item.color || '—'}</td>
-                                    <td className="px-3 py-2 text-slate-600">{item.espesor || '—'}</td>
-                                    <td className="px-3 py-2 font-mono text-slate-700">
+                                  <tr key={item.id} className={i % 2 === 0 ? 'bg-white hover:bg-slate-50 transition-colors' : 'bg-slate-50/30 hover:bg-slate-50 transition-colors'}>
+                                    <td className="px-3 py-2 text-slate-800 truncate">{item.color || '—'}</td>
+                                    <td className="px-3 py-2 text-slate-800">{item.espesor || '—'}</td>
+                                    <td className="px-3 py-2 font-mono text-slate-800 whitespace-nowrap">
                                       {item.ancho_mm && item.alto_mm ? `${item.ancho_mm}×${item.alto_mm}` : '—'}
                                     </td>
-                                    <td className="px-3 py-2 text-slate-400 text-[10px] truncate max-w-[120px]" title={item.otros || ''}>
+                                    <td className="px-3 py-2 text-slate-700 text-[11px] truncate" title={item.otros || ''}>
                                       {item.otros || '—'}
                                     </td>
-                                    <td className="px-3 py-2 text-center font-bold text-slate-700">{Number(item.cantidad) % 1 === 0 ? Math.round(Number(item.cantidad)) : item.cantidad}</td>
-                                    <td className="px-3 py-2 font-bold text-indigo-700 cursor-pointer hover:underline" onClick={() => item.ODP?.id && setFichaOdpId(item.ODP.id)}>{item.ODP?.numero_odp || '—'}</td>
-                                    <td className="px-3 py-2 text-slate-500 truncate max-w-[200px]">
+                                    <td className="px-3 py-2 text-center font-semibold text-slate-900">{Number(item.cantidad) % 1 === 0 ? Math.round(Number(item.cantidad)) : item.cantidad}</td>
+                                    <td className="px-3 py-2 font-semibold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => item.ODP?.id && setFichaOdpId(item.ODP.id)}>{item.ODP?.numero_odp || '—'}</td>
+                                    <td className="px-3 py-2 text-slate-800 truncate">
                                       {item.ODP?.cliente?.nombre_razon_social || '—'}
                                     </td>
                                     <td className="px-3 py-2 text-center">
@@ -2227,6 +2233,7 @@ const ComprasPage: React.FC = () => {
                                 ))}
                               </tbody>
                             </table>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -2282,14 +2289,14 @@ const ComprasPage: React.FC = () => {
               >
                 <div className="flex justify-between items-start px-6 py-4 border-b border-slate-100 shrink-0">
                   <div>
-                    <h3 className="text-base font-black text-slate-800">Gestionar existencia — {gestionItem.codigo}</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <h3 className="text-base font-bold text-slate-900">Gestionar existencia — {gestionItem.codigo}</h3>
+                    <p className="text-xs text-slate-700 mt-0.5">
                       {gestionVista === 'piezas'
                         ? 'Selecciona las piezas de inventario a usar'
                         : 'Indica el material que falta comprar'}
                     </p>
                   </div>
-                  <button onClick={cerrarGestion} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
+                  <button onClick={cerrarGestion} className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
@@ -2298,12 +2305,12 @@ const ComprasPage: React.FC = () => {
                 <div className="px-6 pt-4 shrink-0">
                   <div className="text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center gap-4 flex-wrap">
                     <span>
-                      <span className="text-slate-400 font-bold uppercase tracking-wider">Dimensión solicitada:</span>{' '}
-                      <span className="text-slate-700 font-semibold">{gestionItem.dimension || '—'}</span>
+                      <span className="text-slate-900 font-semibold uppercase tracking-wider">Dimensión solicitada:</span>{' '}
+                      <span className="text-slate-800">{gestionItem.dimension || '—'}</span>
                     </span>
                     <span>
-                      <span className="text-slate-400 font-bold uppercase tracking-wider">Cantidad:</span>{' '}
-                      <span className="text-slate-700 font-semibold">{gestionItem.cantidad}</span>
+                      <span className="text-slate-900 font-semibold uppercase tracking-wider">Cantidad:</span>{' '}
+                      <span className="text-slate-800">{gestionItem.cantidad}</span>
                     </span>
                   </div>
                 </div>
@@ -2316,10 +2323,10 @@ const ComprasPage: React.FC = () => {
                           <div className="w-7 h-7 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
                         </div>
                       ) : piezas.length === 0 ? (
-                        <p className="text-center text-sm text-slate-400 py-10">No hay piezas disponibles en inventario para este código.</p>
+                        <p className="text-center text-sm text-slate-700 py-10">No hay piezas disponibles en inventario para este código.</p>
                       ) : (
                         <>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                          <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider mb-2">
                             {piezas.length} pieza(s) disponible(s) · {seleccionadas.length} seleccionada(s)
                           </p>
                           <div className="space-y-1.5">
@@ -2344,11 +2351,11 @@ const ComprasPage: React.FC = () => {
                                       });
                                     }}
                                   />
-                                  <span className="text-xs font-bold text-emerald-700 flex-1">
+                                  <span className="text-xs font-semibold text-emerald-800 flex-1">
                                     {p.mm != null ? `${Math.round(p.mm)} mm` : 'sin mm'}
                                   </span>
-                                  <span className="text-xs text-slate-500">#{p.consecutivo}</span>
-                                  {p.ubicacion && <span className="text-[10px] text-slate-400">({p.ubicacion})</span>}
+                                  <span className="text-xs text-slate-700">#{p.consecutivo}</span>
+                                  {p.ubicacion && <span className="text-[11px] text-slate-700">({p.ubicacion})</span>}
                                 </label>
                               );
                             })}
@@ -2360,14 +2367,14 @@ const ComprasPage: React.FC = () => {
                       <button
                         onClick={handleAsignarExistencia}
                         disabled={gestionGuardando || gestionSel.size === 0}
-                        className="w-full py-2.5 font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition disabled:opacity-40"
+                        className="w-full py-2.5 font-semibold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition disabled:opacity-40"
                       >
                         {gestionGuardando ? 'Guardando...' : 'Asignar existencia (cubre todo)'}
                       </button>
                       <button
                         onClick={() => setGestionVista('faltante')}
                         disabled={gestionSel.size === 0}
-                        className="w-full py-2.5 font-bold text-amber-700 border border-amber-200 bg-amber-50 rounded-xl hover:bg-amber-100 transition disabled:opacity-40"
+                        className="w-full py-2.5 font-semibold text-amber-800 border border-amber-200 bg-amber-50 rounded-xl hover:bg-amber-100 transition disabled:opacity-40"
                       >
                         Falta material →
                       </button>
@@ -2377,12 +2384,12 @@ const ComprasPage: React.FC = () => {
                   <>
                     <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
                       <div className="text-xs bg-green-50 border border-green-200 rounded-xl p-3">
-                        <span className="text-slate-400 font-bold uppercase tracking-wider">De existencia ({seleccionadas.length}):</span>{' '}
+                        <span className="text-slate-900 font-semibold uppercase tracking-wider">De existencia ({seleccionadas.length}):</span>{' '}
                         <span className="text-green-700 font-semibold">{formatExistPerf(seleccionadas) || '—'}</span>
                       </div>
                       <div className="grid grid-cols-3 gap-3">
                         <div>
-                          <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Cant.</label>
+                          <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">Cant.</label>
                           <input
                             type="number" min={0} value={faltanteCant}
                             onChange={e => setFaltanteCant(e.target.value)}
@@ -2391,8 +2398,8 @@ const ComprasPage: React.FC = () => {
                           />
                         </div>
                         <div className="col-span-2">
-                          <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                            Dimensión faltante <span className="text-red-400">*</span>
+                          <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">
+                            Dimensión faltante <span className="text-red-600">*</span>
                           </label>
                           <input
                             type="text" value={faltanteDim}
@@ -2402,7 +2409,7 @@ const ComprasPage: React.FC = () => {
                           />
                         </div>
                       </div>
-                      <p className="text-[11px] text-amber-600 flex items-center gap-1">
+                      <p className="text-[11px] text-amber-700 flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
                         Se creará un ítem pendiente con este faltante y el ítem actual saldrá de Pendientes (cubierto por existencia).
                       </p>
@@ -2411,14 +2418,14 @@ const ComprasPage: React.FC = () => {
                       <button
                         onClick={() => setGestionVista('piezas')}
                         disabled={gestionGuardando}
-                        className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+                        className="flex-1 py-2.5 font-semibold text-slate-800 border border-slate-300 rounded-xl hover:bg-slate-50 transition"
                       >
                         ← Volver
                       </button>
                       <button
                         onClick={handleDividirExistencia}
                         disabled={gestionGuardando || !faltanteDim.trim()}
-                        className="flex-1 py-2.5 font-bold text-white bg-amber-600 rounded-xl hover:bg-amber-700 transition disabled:opacity-40"
+                        className="flex-1 py-2.5 font-semibold text-white bg-amber-600 rounded-xl hover:bg-amber-700 transition disabled:opacity-40"
                       >
                         {gestionGuardando ? 'Guardando...' : 'Guardar faltante'}
                       </button>

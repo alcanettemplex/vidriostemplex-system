@@ -7,7 +7,7 @@ import {
   AlertTriangle, Zap, User, Phone, Clock, UserCheck, TrendingUp,
   Inbox, MessageCircle, FileText, MapPin, Snowflake,
   CheckCircle, XCircle
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 import { fetchLeadsStart, fetchLeadsSuccess, fetchLeadsFailure, updateLead } from '../crmSlice';
 import { apiGetLeads, apiUpdateLeadStatus, apiAssignLeadToMe } from '../crmService';
 import MotivoPerdidaModal from './MotivoPerdidaModal';
@@ -21,21 +21,21 @@ const PIPELINE_STAGES = [
   {
     id: 'NUEVO',          label: 'Bolsa Común',
     icon: Inbox,
-    iconBg: 'bg-slate-100',   iconColor: 'text-slate-600',
+    iconBg: 'bg-slate-100',   iconColor: 'text-slate-800',
     activeBg: 'bg-slate-600', badgeBg: 'bg-slate-200 text-slate-800',
     color: 'bg-slate-50 border-slate-200', dot: 'bg-slate-400', headerBg: 'bg-slate-50',
   },
   {
     id: 'ASIGNADO',       label: 'Asignados',
     icon: UserCheck,
-    iconBg: 'bg-blue-100',    iconColor: 'text-blue-600',
+    iconBg: 'bg-blue-100',    iconColor: 'text-blue-700',
     activeBg: 'bg-blue-600',  badgeBg: 'bg-blue-100 text-blue-800',
     color: 'bg-blue-50 border-blue-200', dot: 'bg-blue-500', headerBg: 'bg-blue-50',
   },
   {
     id: 'EN_CONTACTO',    label: 'En Contacto',
     icon: MessageCircle,
-    iconBg: 'bg-purple-100',  iconColor: 'text-purple-600',
+    iconBg: 'bg-purple-100',  iconColor: 'text-purple-700',
     activeBg: 'bg-purple-600',badgeBg: 'bg-purple-100 text-purple-800',
     color: 'bg-purple-50 border-purple-200', dot: 'bg-purple-500', headerBg: 'bg-purple-50',
   },
@@ -49,35 +49,35 @@ const PIPELINE_STAGES = [
   {
     id: 'SEGUIMIENTO',    label: 'Seguimiento',
     icon: Clock,
-    iconBg: 'bg-teal-100',    iconColor: 'text-teal-600',
+    iconBg: 'bg-teal-100',    iconColor: 'text-teal-700',
     activeBg: 'bg-teal-600',  badgeBg: 'bg-teal-100 text-teal-800',
     color: 'bg-teal-50 border-teal-200', dot: 'bg-teal-500', headerBg: 'bg-teal-50',
   },
   {
     id: 'VISITA_TECNICA', label: 'V. Técnica',
     icon: MapPin,
-    iconBg: 'bg-indigo-100',  iconColor: 'text-indigo-600',
+    iconBg: 'bg-indigo-100',  iconColor: 'text-indigo-700',
     activeBg: 'bg-indigo-600',badgeBg: 'bg-indigo-100 text-indigo-800',
     color: 'bg-indigo-50 border-indigo-200', dot: 'bg-indigo-500', headerBg: 'bg-indigo-50',
   },
   {
     id: 'FRIO',           label: 'Enfriados',
     icon: Snowflake,
-    iconBg: 'bg-sky-100',     iconColor: 'text-sky-500',
+    iconBg: 'bg-sky-100',     iconColor: 'text-sky-700',
     activeBg: 'bg-sky-500',   badgeBg: 'bg-sky-100 text-sky-800',
     color: 'bg-gray-100 border-gray-300', dot: 'bg-gray-400', headerBg: 'bg-sky-50',
   },
   {
     id: 'APROBADO',       label: 'Aprobados',
     icon: CheckCircle,
-    iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600',
+    iconBg: 'bg-emerald-100', iconColor: 'text-emerald-700',
     activeBg: 'bg-emerald-600',badgeBg: 'bg-emerald-100 text-emerald-800',
     color: 'bg-emerald-50 border-emerald-200', dot: 'bg-emerald-500', headerBg: 'bg-emerald-50',
   },
   {
     id: 'PERDIDO',        label: 'Perdidos',
     icon: XCircle,
-    iconBg: 'bg-rose-100',    iconColor: 'text-rose-500',
+    iconBg: 'bg-rose-100',    iconColor: 'text-rose-700',
     activeBg: 'bg-rose-600',  badgeBg: 'bg-rose-100 text-rose-700',
     color: 'bg-rose-50 border-rose-200', dot: 'bg-rose-400', headerBg: 'bg-rose-50',
   },
@@ -141,7 +141,7 @@ function sortByPriority(leads: any[]): any[] {
 // ─── Badge de prioridad ───────────────────────────────────────────────────────
 const PrioridadBadge: React.FC<{ prioridad: Prioridad }> = ({ prioridad }) => {
   if (prioridad === 'urgente') return (
-    <span className="inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-600 animate-pulse border border-rose-200">
+    <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 animate-pulse border border-rose-200">
       <AlertTriangle className="w-2.5 h-2.5" /> URGENTE
     </span>
   );
@@ -182,13 +182,13 @@ const TablaFila: React.FC<{
             prioridad === 'urgente' ? 'bg-rose-400' : 'bg-indigo-400'
           }`} />
           <div>
-            <p className="text-sm font-bold text-slate-800 leading-tight">{lead.nombre || '—'}</p>
-            <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+            <p className="text-sm font-bold text-slate-900 leading-tight">{lead.nombre || '—'}</p>
+            <p className="text-[11px] text-slate-700 flex items-center gap-1 mt-0.5">
               <Phone className="w-2.5 h-2.5" /> {lead.telefono || '—'}
             </p>
-            <p className="text-[10px] text-slate-500 mt-0.5">{lead.producto_interes || '—'}</p>
+            <p className="text-xs text-slate-800 mt-0.5">{lead.producto_interes || '—'}</p>
             {lead.descripcion_contexto && (
-              <p className="text-[20px] leading-snug text-slate-500 italic whitespace-pre-wrap break-words max-w-[200px]">{lead.descripcion_contexto}</p>
+              <p className="text-xs leading-snug text-slate-800 whitespace-pre-wrap break-words max-w-[240px] mt-0.5">{lead.descripcion_contexto}</p>
             )}
           </div>
         </div>
@@ -197,23 +197,23 @@ const TablaFila: React.FC<{
         {stage ? (() => {
           const Icon = stage.icon;
           return (
-            <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-1 rounded-lg ${stage.badgeBg}`}>
+            <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-lg ${stage.badgeBg}`}>
               <Icon className={`w-3 h-3 ${stage.iconColor}`} />
               {stage.label}
             </span>
           );
         })() : (
-          <span className="text-xs text-slate-500">{lead.estado_crm}</span>
+          <span className="text-xs text-slate-800">{lead.estado_crm}</span>
         )}
       </td>
       <td className="px-4 py-3">
-        <span className="text-xs text-slate-500">{lead.asesor?.nombre_completo || (
-          <span className="italic text-slate-400">Sin asignar</span>
+        <span className="text-xs text-slate-800">{lead.asesor?.nombre_completo || (
+          <span className="italic text-slate-700">Sin asignar</span>
         )}</span>
       </td>
       <td className="px-4 py-3">
         {lead.segmento ? (
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${SEGMENTO_COLOR[lead.segmento] || 'bg-slate-100 text-slate-600'}`}>
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${SEGMENTO_COLOR[lead.segmento] || 'bg-slate-100 text-slate-900'}`}>
             {lead.segmento}
           </span>
         ) : '—'}
@@ -223,21 +223,21 @@ const TablaFila: React.FC<{
       </td>
       <td className="px-4 py-3">
         <PrioridadBadge prioridad={prioridad} />
-        {prioridad === 'normal' && <span className="text-[10px] text-slate-400">{fecha}</span>}
-        <p className="text-[10px] text-slate-400 mt-0.5">🕐 Últ. mov: {formatearUltimoMovimiento(diasSinActividad(lead))}</p>
+        {prioridad === 'normal' && <span className="text-[11px] text-slate-700">{fecha}</span>}
+        <p className="text-[11px] text-slate-700 mt-0.5">🕐 Últ. mov: {formatearUltimoMovimiento(diasSinActividad(lead))}</p>
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => onVerDetalle(lead)}
-            className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors"
+            className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-slate-800 text-white hover:bg-slate-700 transition-colors"
           >
             Ver
           </button>
           {lead.estado_crm === 'NUEVO' && rol === 'asesor_comercial' && (
             <button
               onClick={() => onTomar(lead.id)}
-              className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center gap-1"
+              className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center gap-1"
             >
               <Zap className="w-2.5 h-2.5" /> Tomar
             </button>
@@ -435,7 +435,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
               {['Prospecto', 'Estado', 'Asesor', 'Segmento', 'Monto', 'Prioridad', 'Acciones'].map(h => (
-                <th key={h} className="px-4 py-3 text-[11px] font-black text-slate-500 uppercase tracking-wider">
+                <th key={h} className="px-4 py-3 text-[11px] font-semibold text-slate-900 uppercase tracking-wider">
                   <div className="flex items-center gap-1">{h}</div>
                 </th>
               ))}
@@ -444,7 +444,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
           <tbody>
             {leadsTabla.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-slate-400 text-sm italic">
+                <td colSpan={7} className="py-12 text-center text-slate-700 text-sm italic">
                   No hay leads que coincidan con los filtros activos.
                 </td>
               </tr>
@@ -461,7 +461,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
             )}
           </tbody>
         </table>
-        <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 text-[11px] text-slate-400 font-medium">
+        <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 text-[11px] text-slate-700">
           {leadsTabla.length} lead(s) encontrados de {leads.length} total
         </div>
       </div>
@@ -498,33 +498,33 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
               <button
                 key={stage.id}
                 onClick={() => setColumnaActiva(stage.id)}
-                className={`relative flex-1 min-w-[110px] flex items-center gap-2 py-2 px-3 rounded-xl transition-all duration-150 ${
+                className={`relative flex-1 min-w-[112px] flex items-center gap-1.5 py-2 px-2 rounded-xl transition-all duration-150 ${
                   activo
                     ? `${stage.activeBg} text-white shadow-md`
                     : `${stage.iconBg} hover:brightness-95`
                 }`}
               >
                 {/* Ícono */}
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${
                   activo ? 'bg-white/20' : 'bg-white/70'
                 }`}>
                   <Icon className={`w-3.5 h-3.5 ${activo ? 'text-white' : stage.iconColor}`} />
                 </div>
 
                 <div className="flex flex-col items-start min-w-0 flex-1">
-                  <span className={`text-[10px] font-black uppercase tracking-tight truncate w-full leading-none mb-1 ${
+                  <span className={`text-[11px] font-semibold leading-tight tracking-tight text-left w-full mb-1 ${
                     activo ? 'text-white' : stage.iconColor
                   }`}>
                     {stage.label}
                   </span>
                   <div className="flex items-center gap-1.5">
-                    <span className={`text-[11px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none ${
+                    <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-none ${
                       activo ? 'bg-white/25 text-white' : stage.badgeBg
                     }`}>
                       {stats.count}
                     </span>
                     {stats.urgentes > 0 && (
-                      <span className="flex items-center gap-0.5 text-[8px] font-black animate-pulse text-rose-500">
+                      <span className={`flex items-center gap-0.5 text-[11px] font-bold animate-pulse ${activo ? 'text-white' : 'text-rose-700'}`}>
                         <AlertTriangle className="w-2 h-2" /> {stats.urgentes}
                       </span>
                     )}
@@ -532,17 +532,17 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                 </div>
 
                 {!esUltimo && (
-                  <ChevronRight className={`w-3 h-3 flex-shrink-0 opacity-30 ${activo ? 'text-white' : 'text-slate-400'}`} />
+                  <ChevronRight className={`hidden 2xl:block w-3 h-3 flex-shrink-0 opacity-40 ${activo ? 'text-white' : 'text-slate-500'}`} />
                 )}
               </button>
             );
           })}
         </div>
 
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
 
         {/* Panel central: lista de leads */}
-        <div className="flex-1 flex flex-col bg-slate-50 overflow-hidden border-r border-slate-200">
+        <div className="flex-1 min-h-[320px] lg:min-h-0 flex flex-col bg-slate-50 overflow-hidden lg:border-r border-slate-200">
           {/* Header de la etapa activa */}
           {stageActual && (() => {
             const Icon = stageActual.icon;
@@ -552,13 +552,13 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${stageActual.iconBg}`}>
                     <Icon className={`w-4 h-4 ${stageActual.iconColor}`} />
                   </div>
-                  <h3 className="font-black text-sm text-slate-800">{stageActual.label}</h3>
-                  <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${stageActual.badgeBg}`}>
+                  <h3 className="font-bold text-sm text-slate-900">{stageActual.label}</h3>
+                  <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${stageActual.badgeBg}`}>
                     {colLeads.length}
                   </span>
                 </div>
                 {colLeads.some(l => calcularPrioridad(l) === 'urgente') && (
-                  <span className="text-xs text-rose-600 font-bold flex items-center gap-1 animate-pulse">
+                  <span className="text-xs text-rose-700 font-semibold flex items-center gap-1 animate-pulse">
                     <AlertTriangle className="w-3.5 h-3.5" />
                     {colLeads.filter(l => calcularPrioridad(l) === 'urgente').length} urgente(s)
                   </span>
@@ -569,10 +569,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                     type="button"
                     onClick={() => setSoloSinOdp(v => !v)}
                     title={soloSinOdp ? 'Quitar filtro' : 'Ver solo leads sin ODP vinculada'}
-                    className={`text-xs font-black flex items-center gap-1 px-2.5 py-1 rounded-full border transition ${
+                    className={`text-xs font-semibold flex items-center gap-1 px-2.5 py-1 rounded-full border transition ${
                       soloSinOdp
                         ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-                        : 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100'
+                        : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
                     }`}
                   >
                     <AlertTriangle className="w-3.5 h-3.5" />
@@ -587,7 +587,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
           {/* Lista */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {colLeads.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-slate-400 text-sm italic border-2 border-dashed border-slate-200 rounded-xl">
+              <div className="flex items-center justify-center h-32 text-slate-700 text-sm italic border-2 border-dashed border-slate-200 rounded-xl">
                 — Sin leads en esta etapa —
               </div>
             ) : (
@@ -611,13 +611,13 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                       stageActual            ? stageActual.dot : 'bg-indigo-300'
                     }`} />
                     {/* Avatar inicial */}
-                    <div className="w-9 h-9 rounded-full bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center text-sm font-black text-indigo-700 flex-shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center text-sm font-bold text-indigo-700 flex-shrink-0">
                       {(lead.nombre || '?')[0].toUpperCase()}
                     </div>
                     {/* Info — clickeable para abrir detalle */}
                     <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setLeadSeleccionado(lead)}>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-bold text-slate-800 truncate">{lead.nombre || 'Sin nombre'}</p>
+                      <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-2 gap-y-1">
+                        <p className="text-sm font-bold text-slate-900 truncate min-w-0">{lead.nombre || 'Sin nombre'}</p>
                         <PrioridadBadge prioridad={prioridad} />
                       </div>
                       {/* ODP vinculada — solo etapa APROBADO */}
@@ -628,7 +628,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setOdpFichaId(lead.odp.id); }}
                               title="Ver ODP vinculada"
-                              className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 hover:bg-emerald-100 transition"
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 hover:bg-emerald-100 transition"
                             >
                               <CheckCircle className="w-3 h-3" /> {lead.odp.numero_odp}
                             </button>
@@ -637,7 +637,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setCrearOdpLead(lead); }}
                               title="Crear y vincular ODP a este lead"
-                              className="inline-flex items-center gap-1 text-[10px] font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-300 hover:bg-rose-100 transition animate-pulse"
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-300 hover:bg-rose-100 transition animate-pulse"
                             >
                               <AlertTriangle className="w-3 h-3" /> SIN ODP VINCULADA
                             </button>
@@ -645,22 +645,22 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                         </div>
                       )}
                       {/* Teléfono — prominente */}
-                      <p className="text-sm font-black text-slate-700 font-mono tracking-wide mt-0.5">
+                      <p className="text-sm font-semibold text-slate-900 font-mono tracking-wide mt-0.5">
                         {lead.telefono || '—'}
                       </p>
-                      <p className="text-[11px] text-slate-500 truncate mt-0.5">{lead.producto_interes || '—'}</p>
+                      <p className="text-xs text-slate-800 truncate mt-0.5">{lead.producto_interes || '—'}</p>
                       {lead.descripcion_contexto && (
-                        <p className="text-[20px] leading-snug text-slate-500 italic whitespace-pre-wrap break-words">{lead.descripcion_contexto}</p>
+                        <p className="text-xs leading-snug text-slate-800 whitespace-pre-wrap break-words mt-1">{lead.descripcion_contexto}</p>
                       )}
                       {/* Asesor asignado */}
                       <div className="flex items-center gap-1 mt-1">
                         {lead.asesor ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
                             <User className="w-2.5 h-2.5" />
                             {lead.asesor.nombre_completo}
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
                             <User className="w-2.5 h-2.5" />
                             Sin asignar
                           </span>
@@ -668,18 +668,18 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                       </div>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {lead.segmento && (
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${SEGMENTO_COLOR[lead.segmento] || 'bg-slate-100 text-slate-600'}`}>
+                          <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${SEGMENTO_COLOR[lead.segmento] || 'bg-slate-100 text-slate-900'}`}>
                             {lead.segmento}
                           </span>
                         )}
                         {monto && (
-                          <span className="text-[9px] font-bold text-emerald-700">💰 {monto}</span>
+                          <span className="text-[11px] font-bold text-emerald-700">💰 {monto}</span>
                         )}
-                        <span className="text-[9px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-full border border-slate-200">
+                        <span className="text-[11px] font-medium text-slate-800 bg-slate-50 px-1.5 py-0.5 rounded-full border border-slate-200">
                           🕐 Últ. mov: {formatearUltimoMovimiento(diasSinActividad(lead))}
                         </span>
                         {!['APROBADO','PERDIDO','FRIO'].includes(lead.estado_crm) && diasSinActividad(lead) >= 3 && (
-                          <span className="text-[9px] font-black text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full border border-orange-200">
+                          <span className="text-[11px] font-semibold text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded-full border border-orange-200">
                             ⏱ {diasSinActividad(lead)}d sin actividad
                           </span>
                         )}
@@ -691,7 +691,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                       {columnaActiva === 'NUEVO' && rol === 'asesor_comercial' ? (
                         <button
                           onClick={e => { e.stopPropagation(); handleTakeFromPool(lead.id); }}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 text-white text-[10px] font-black rounded-lg hover:bg-indigo-700 active:scale-95 transition-all shadow-sm"
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 text-white text-[11px] font-bold rounded-lg hover:bg-indigo-700 active:scale-95 transition-all shadow-sm"
                           title="Tomar este lead"
                         >
                           <Zap className="w-3 h-3" /> Tomar
@@ -710,8 +710,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
 
                             const colorEtapa = (id: string) => {
                               if (id === 'APROBADO') return 'text-emerald-700 hover:bg-emerald-50';
-                              if (id === 'PERDIDO')  return 'text-rose-600 hover:bg-rose-50';
-                              if (id === 'FRIO')     return 'text-slate-500 hover:bg-slate-100';
+                              if (id === 'PERDIDO')  return 'text-rose-700 hover:bg-rose-50';
+                              if (id === 'FRIO')     return 'text-slate-800 hover:bg-slate-100';
                               return 'text-indigo-700 hover:bg-indigo-50';
                             };
 
@@ -731,7 +731,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                                     e.stopPropagation();
                                     setDropdownOpenId(isOpen ? null : lead.id);
                                   }}
-                                  className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors flex items-center gap-0.5"
+                                  className="p-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors flex items-center gap-0.5"
                                   title="Mover a etapa..."
                                 >
                                   <ChevronRight className="w-3.5 h-3.5" />
@@ -740,7 +740,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
 
                                 {isOpen && (
                                   <div className="absolute right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl min-w-[170px] py-1 animate-in fade-in slide-in-from-top-2 duration-150">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase px-3 py-1.5 tracking-widest border-b border-slate-100">
+                                    <p className="text-[11px] font-semibold text-slate-900 uppercase px-3 py-1.5 tracking-widest border-b border-slate-100">
                                       Mover a...
                                     </p>
                                     {etapasDestino.map(etapa => (
@@ -761,7 +761,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                                         }}
                                         className={`w-full text-left px-3 py-2 text-[11px] font-bold flex items-center gap-2 transition-colors ${colorEtapa(etapa.id)}`}
                                       >
-                                        <span className="text-[10px]">{iconEtapa(etapa.id)}</span>
+                                        <span className="text-[11px]">{iconEtapa(etapa.id)}</span>
                                         {etapa.label}
                                       </button>
                                     ))}
@@ -774,7 +774,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                       )}
                       <button 
                          onClick={() => setLeadSeleccionado(lead)}
-                         className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"
+                         className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                       >
                         <UserCheck className="w-4 h-4" />
                       </button>
@@ -788,7 +788,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
             {hayMas && (
               <button
                 onClick={() => cargarMas(columnaActiva)}
-                className="w-full py-2 text-xs font-bold text-slate-500 hover:text-slate-700 border border-dashed border-slate-300 rounded-xl hover:bg-slate-100 transition-all"
+                className="w-full py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 border border-dashed border-slate-300 rounded-xl hover:bg-slate-100 transition-all"
               >
                 Ver {colLeads.length - pageSize} más →
               </button>
@@ -798,8 +798,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
 
         {/* Panel derecho: detalle permanente */}
         {leadSeleccionado ? (
-          <div className="w-[600px] flex-shrink-0 bg-white border-l border-slate-200 overflow-y-auto">
-            <React.Suspense fallback={<div className="p-4 text-slate-400 text-sm">Cargando...</div>}>
+          <div className="w-full lg:w-[600px] flex-shrink-0 bg-white border-t lg:border-t-0 lg:border-l border-slate-200 lg:overflow-y-auto">
+            <React.Suspense fallback={<div className="p-4 text-slate-700 text-sm">Cargando...</div>}>
               <LeadDetalleModal
                 lead={leadSeleccionado}
                 rol={rol}
@@ -810,12 +810,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
             </React.Suspense>
           </div>
         ) : (
-          <div className="w-[600px] flex-shrink-0 bg-slate-50 border-l border-slate-200 flex flex-col items-center justify-center text-center p-6">
+          <div className="hidden lg:flex w-[600px] flex-shrink-0 bg-slate-50 border-l border-slate-200 flex-col items-center justify-center text-center p-6">
             <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
-              <User className="w-8 h-8 text-slate-300" />
+              <User className="w-8 h-8 text-slate-500" />
             </div>
-            <p className="text-sm font-bold text-slate-400">Selecciona un lead</p>
-            <p className="text-xs text-slate-300 mt-1">El detalle aparecerá aquí sin abrir ningún popup</p>
+            <p className="text-sm font-semibold text-slate-900">Selecciona un lead</p>
+            <p className="text-xs text-slate-700 mt-1">El detalle aparecerá aquí sin abrir ningún popup</p>
           </div>
         )}
         </div>
@@ -842,9 +842,9 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
       {/* Banner de alertas de abandono */}
       {bannerVisible && leadsAbandonados.length > 0 && (
         <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-50 border-b border-amber-200">
-          <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-          <p className="text-xs font-bold text-amber-800 flex-1">
-            <span className="font-black">{leadsAbandonados.length} lead{leadsAbandonados.length > 1 ? 's' : ''}</span>
+          <AlertTriangle className="w-4 h-4 text-amber-700 flex-shrink-0" />
+          <p className="text-xs text-amber-900 flex-1">
+            <span className="font-bold">{leadsAbandonados.length} lead{leadsAbandonados.length > 1 ? 's' : ''}</span>
             {' '}sin actividad en +3 días:{' '}
             {leadsAbandonados.slice(0, 3).map((l: any, i: number) => (
               <span key={l.id}>
@@ -852,12 +852,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
                 <span className="underline cursor-pointer hover:text-amber-600" onClick={() => setLeadSeleccionado(l)}>
                   {l.nombre || `#${l.id}`}
                 </span>
-                <span className="text-amber-600 ml-0.5">({diasSinActividad(l)}d)</span>
+                <span className="text-amber-700 ml-0.5">({diasSinActividad(l)}d)</span>
               </span>
             ))}
-            {leadsAbandonados.length > 3 && <span className="text-amber-600"> y {leadsAbandonados.length - 3} más</span>}
+            {leadsAbandonados.length > 3 && <span className="text-amber-700"> y {leadsAbandonados.length - 3} más</span>}
           </p>
-          <button onClick={() => setBannerVisible(false)} className="text-amber-400 hover:text-amber-600 flex-shrink-0">
+          <button onClick={() => setBannerVisible(false)} className="text-amber-700 hover:text-amber-600 flex-shrink-0">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -868,7 +868,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
         {/* Buscador: solo visible cuando NO viene controlado desde CRMPage */}
         {busquedaExterna === undefined && (
           <div className="relative flex-1 min-w-[200px] max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               type="text"
               placeholder="Buscar por nombre, teléfono, producto..."
@@ -877,7 +877,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
               className="w-full pl-9 pr-8 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 bg-slate-50"
             />
             {busqueda && (
-              <button onClick={() => setBusqueda('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              <button onClick={() => setBusqueda('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800">
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
@@ -888,7 +888,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
         <select
           value={filtroSegmento}
           onChange={e => setFiltroSegmento(e.target.value)}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600"
+          className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-800"
         >
           <option value="">Todos los segmentos</option>
           {SEGMENTOS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -899,7 +899,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
           <select
             value={filtroEstado}
             onChange={e => setFiltroEstado(e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-600"
+            className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-800"
           >
             <option value="">Todos los estados</option>
             {PIPELINE_STAGES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
@@ -910,15 +910,15 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
         {(busqueda || filtroSegmento || filtroEstado) && (
           <button
             onClick={() => { setBusqueda(''); setFiltroSegmento(''); setFiltroEstado(''); }}
-            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-600 font-semibold transition-colors"
+            className="flex items-center gap-1.5 text-xs text-slate-700 hover:text-rose-600 transition-colors"
           >
             <X className="w-3.5 h-3.5" /> Limpiar
           </button>
         )}
 
         {/* Contador */}
-        <span className="text-xs text-slate-500">
-          <span className="font-bold text-slate-700">{totalLeadsFiltrados}</span> lead(s)
+        <span className="text-xs text-slate-700">
+          <span className="font-bold text-slate-900">{totalLeadsFiltrados}</span> lead(s)
         </span>
 
         {/* Guía de mensajes comerciales */}
@@ -935,17 +935,17 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ fecha_desde, fecha_hasta, bus
           <button
             onClick={() => setViewMode('kanban')}
             title="Vista Pipeline Horizontal"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-              viewMode === 'kanban' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              viewMode === 'kanban' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-700 hover:text-slate-900'
             }`}
           >
-            <TrendingUp className="w-3.5 h-3.5 text-indigo-500" /> Pipeline
+            <TrendingUp className="w-3.5 h-3.5 text-indigo-700" /> Pipeline
           </button>
           <button
             onClick={() => setViewMode('tabla')}
             title="Vista Tabla"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-              viewMode === 'tabla' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              viewMode === 'tabla' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-700 hover:text-slate-900'
             }`}
           >
             <LayoutList className="w-3.5 h-3.5" /> Tabla

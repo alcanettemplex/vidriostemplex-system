@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { AlertCircle, RefreshCw, ChevronDown } from 'lucide-react';
+import { AlertCircle, RefreshCw, ChevronDown } from '../../../components/ui/icons';
 import { apiGetReporteAsesor } from '../crmService';
 import { useAsesoresCRM } from '../hooks/useAsesoresCRM';
 import { IconDollar, IconTarget, IconLeads, IconCheck, IconBarChart, IconActivity } from './CRMIcons';
@@ -24,7 +24,7 @@ const InfoTooltip: React.FC<{ text: string }> = ({ text }) => (
   <div className="relative group inline-flex ml-1.5 flex-shrink-0">
     <button
       type="button"
-      className="w-4 h-4 rounded-full bg-slate-200 text-slate-500 text-[9px] font-black flex items-center justify-center hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
+      className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[11px] font-bold flex items-center justify-center hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
     >?</button>
     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-slate-800 text-white text-[11px] rounded-xl p-3 shadow-xl z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none leading-snug">
       {text}
@@ -42,13 +42,13 @@ const KPI: React.FC<KPIProps> = ({ label, value, sub, icon, border, bg, tooltip 
   <div className={`bg-white rounded-2xl p-5 border border-slate-100 shadow-sm border-l-4 ${border} flex flex-col gap-1.5`}>
     <div className="flex items-center justify-between">
       <div className="flex items-center">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
+        <span className="text-[11px] font-semibold text-slate-900 uppercase tracking-widest">{label}</span>
         {tooltip && <InfoTooltip text={tooltip} />}
       </div>
       <div className={`w-8 h-8 rounded-xl ${bg} flex items-center justify-center`}>{icon}</div>
     </div>
-    <p className="text-2xl font-black text-slate-800 leading-none">{value}</p>
-    {sub && <p className="text-[11px] text-slate-400 font-medium">{sub}</p>}
+    <p className="text-2xl font-extrabold text-slate-900 leading-none">{value}</p>
+    {sub && <p className="text-[11px] text-slate-700">{sub}</p>}
   </div>
 );
 
@@ -92,7 +92,7 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
   if (error || !reporte) return (
     <div className="flex flex-col items-center justify-center py-24 gap-4">
       <AlertCircle className="w-12 h-12 text-rose-300" />
-      <p className="text-slate-600 text-sm font-semibold">{error || 'Sin datos'}</p>
+      <p className="text-slate-900 text-sm font-semibold">{error || 'Sin datos'}</p>
       <button onClick={cargar} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold">Reintentar</button>
     </div>
   );
@@ -128,13 +128,13 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
     {
       label: 'Perdidos', val: leads_perdidos,
       desc: 'Leads cerrados sin conversión en el período',
-      color: 'bg-rose-50 border-rose-100', txt: 'text-rose-600',
+      color: 'bg-rose-50 border-rose-100', txt: 'text-rose-700',
       tooltip: 'Leads cerrados como PERDIDO con motivo registrado. Ver la sección "Razones de Pérdida" para entender qué está fallando en el proceso.',
     },
     {
       label: 'Frío', val: (leads_por_etapa as any)['FRIO'] || 0,
       desc: 'Leads pausados por baja probabilidad de cierre',
-      color: 'bg-sky-50 border-sky-100', txt: 'text-sky-600',
+      color: 'bg-sky-50 border-sky-100', txt: 'text-sky-700',
       tooltip: 'Leads marcados como FRÍO: el cliente dejó de responder tras múltiples intentos. No están descartados definitivamente, pueden reactivarse si el cliente vuelve a tomar contacto.',
     },
     {
@@ -142,7 +142,7 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
       val: `${tiempo_prom_primera_respuesta_h}h`,
       desc: 'Horas promedio hasta el primer contacto con el lead',
       color: tiempo_prom_primera_respuesta_h > 4 ? 'bg-rose-50 border-rose-100' : 'bg-amber-50 border-amber-100',
-      txt: tiempo_prom_primera_respuesta_h > 4 ? 'text-rose-600' : 'text-amber-600',
+      txt: tiempo_prom_primera_respuesta_h > 4 ? 'text-rose-700' : 'text-amber-700',
       tooltip: 'Horas promedio entre que se asigna el lead al asesor y su primer intento de contacto registrado. Más de 4 horas (rojo) indica demora en atender nuevas oportunidades. Lo ideal es contactar en menos de 2 horas.',
     },
   ];
@@ -172,8 +172,8 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-lg font-black text-slate-800">Reporte de Actividad</h2>
-          <p className="text-xs text-slate-400 font-semibold mt-0.5">
+          <h2 className="text-lg font-bold text-slate-900">Reporte de Actividad</h2>
+          <p className="text-xs text-slate-700 mt-0.5">
             {asesor} — {periodoLabel}
           </p>
         </div>
@@ -182,7 +182,7 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen(o => !o)}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 shadow-sm min-w-[160px] justify-between"
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 hover:bg-slate-50 shadow-sm min-w-[160px] justify-between"
               >
                 <span className="truncate">
                   {asesorSeleccionado
@@ -195,7 +195,7 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
                 <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-[200px]">
                   <button
                     onClick={() => { setAsesorSeleccionado(undefined); setDropdownOpen(false); }}
-                    className="w-full text-left px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                    className="w-full text-left px-3 py-2 text-xs text-slate-800 hover:bg-slate-50"
                   >
                     Vista Global (todos)
                   </button>
@@ -203,7 +203,7 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
                     <button
                       key={a.id}
                       onClick={() => { setAsesorSeleccionado(a.id); setDropdownOpen(false); }}
-                      className="w-full text-left px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 truncate"
+                      className="w-full text-left px-3 py-2 text-xs text-slate-800 hover:bg-slate-50 truncate"
                     >
                       {a.nombre_completo}
                     </button>
@@ -214,7 +214,7 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
           )}
           <button
             onClick={cargar}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-sm"
           >
             <RefreshCw className="w-3.5 h-3.5" /> Actualizar
           </button>
@@ -225,25 +225,25 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KPI
           label="Leads Asignados" value={String(leads_asignados)} sub={`${leads_activos} activos`}
-          icon={<IconLeads size={16} className="text-violet-600" />}
+          icon={<IconLeads size={18} className="text-violet-700" />}
           border="border-l-violet-500" bg="bg-violet-50"
           tooltip="Total de leads que el asesor tiene o tuvo asignados en el período. Incluye todos los estados: activos, aprobados, perdidos y fríos. Es el volumen total de trabajo gestionado."
         />
         <KPI
           label="Contactos" value={String(contactos_realizados)} sub={`${seguimientos} seguimientos`}
-          icon={<IconActivity size={16} className="text-blue-600" />}
+          icon={<IconActivity size={18} className="text-blue-700" />}
           border="border-l-blue-500" bg="bg-blue-50"
           tooltip="Número de intentos de contacto registrados por el asesor. Los seguimientos son interacciones adicionales después del primer contacto (recordatorios, actualizaciones, re-consultas)."
         />
         <KPI
           label="Tasa de Conversión" value={`${tasa_conversion}%`} sub={`${leads_aprobados} aprobados`}
-          icon={<IconTarget size={16} className="text-emerald-600" />}
+          icon={<IconTarget size={18} className="text-emerald-700" />}
           border="border-l-emerald-500" bg="bg-emerald-50"
           tooltip="Porcentaje de los leads del asesor que cerraron como APROBADO. Verde ≥30%, amarillo ≥15%, rojo <15%. Comparar con el promedio del equipo para evaluar rendimiento relativo."
         />
         <KPI
           label="Monto Gestionado" value={fmtCOP(monto_gestionado)} sub={`${cambios_estado} movimientos`}
-          icon={<IconDollar size={16} className="text-indigo-600" />}
+          icon={<IconDollar size={18} className="text-indigo-700" />}
           border="border-l-indigo-500" bg="bg-indigo-50"
           tooltip="Suma de las cotizaciones proyectadas de todos los leads asignados al asesor. Refleja el valor total del pipeline que está gestionando, sin importar si ya cerraron o no."
         />
@@ -255,11 +255,11 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
           <div key={k.label} className={`${k.color} border rounded-xl p-4 flex items-center gap-3`}>
             <div>
               <div className="flex items-center">
-                <p className="text-[10px] font-black text-slate-400 uppercase">{k.label}</p>
+                <p className="text-[11px] font-semibold text-slate-900 uppercase">{k.label}</p>
                 <InfoTooltip text={k.tooltip} />
               </div>
-              <p className={`text-xl font-black ${k.txt}`}>{k.val}</p>
-              <p className="text-[10px] text-slate-400 font-medium mt-0.5 leading-snug">{k.desc}</p>
+              <p className={`text-xl font-bold ${k.txt}`}>{k.val}</p>
+              <p className="text-[11px] text-slate-700 mt-0.5 leading-snug">{k.desc}</p>
             </div>
           </div>
         ))}
@@ -272,23 +272,23 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center">
-              <IconBarChart size={16} className="text-amber-600" />
+              <IconBarChart size={18} className="text-amber-700" />
             </div>
             <div className="flex items-center flex-1">
               <div>
-                <h3 className="font-black text-slate-800 text-sm">Embudo Personal</h3>
-                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Leads activos por etapa</p>
+                <h3 className="font-bold text-slate-900 text-sm">Embudo Personal</h3>
+                <p className="text-[11px] text-slate-700 mt-0.5">Leads activos por etapa</p>
               </div>
               <InfoTooltip text="Distribución de los leads activos del asesor entre las etapas del pipeline. El cuello de botella (⚠) es la etapa con mayor acumulación relativa, indicando dónde se están estancando los leads." />
             </div>
             {etapa_cuello && (
-              <span className="ml-auto text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-100 flex-shrink-0">
+              <span className="ml-auto text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-full border border-amber-100 flex-shrink-0">
                 ⚠ Cuello: {ETAPA_CONFIG[etapa_cuello]?.label || etapa_cuello}
               </span>
             )}
           </div>
           {etapasActivas.length === 0 ? (
-            <p className="text-center text-slate-300 text-sm py-6">Sin leads activos</p>
+            <p className="text-center text-slate-700 text-sm py-6">Sin leads activos</p>
           ) : (
             <div className="space-y-3">
               {etapasActivas.map(([etapa, count]) => {
@@ -298,8 +298,8 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
                 return (
                   <div key={etapa} className={`rounded-xl p-3 border ${esCuello ? 'border-amber-200 bg-amber-50/50' : 'border-slate-100 ' + cfg.bg}`}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-bold text-slate-700">{cfg.label}</span>
-                      <span className={`text-xs font-black ${esCuello ? 'text-amber-600' : 'text-slate-600'}`}>{count} leads</span>
+                      <span className="text-xs text-slate-700">{cfg.label}</span>
+                      <span className={`text-xs font-bold ${esCuello ? 'text-amber-700' : 'text-slate-900'}`}>{count} leads</span>
                     </div>
                     <div className="h-2 bg-white rounded-full overflow-hidden border border-slate-100">
                       <div
@@ -317,7 +317,7 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
           {etapasResultado.length > 0 && (
             <div className="mt-4 pt-4 border-t border-slate-50">
               <div className="flex items-center mb-2">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Resultados del período</p>
+                <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-widest">Resultados del período</p>
                 <InfoTooltip text="Leads cerrados en el período distribuidos por resultado: Aprobado (ganados), Perdido (descartados con motivo), Frío (sin respuesta del cliente)." />
               </div>
               <div className="grid grid-cols-3 gap-3 text-center">
@@ -325,8 +325,8 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
                   const cfg = ETAPA_CONFIG[etapa];
                   return (
                     <div key={etapa}>
-                      <p className="text-lg font-black text-slate-800">{count}</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase">{cfg?.label || etapa}</p>
+                      <p className="text-lg font-bold text-slate-900">{count}</p>
+                      <p className="text-[11px] text-slate-900 font-semibold uppercase">{cfg?.label || etapa}</p>
                     </div>
                   );
                 })}
@@ -341,12 +341,12 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center">
-                <IconTarget size={16} className="text-rose-500" />
+                <IconTarget size={18} className="text-rose-700" />
               </div>
               <div className="flex items-center">
                 <div>
-                  <h3 className="font-black text-slate-800 text-sm">Razones de Pérdida</h3>
-                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">Motivos registrados al cerrar un lead como PERDIDO</p>
+                  <h3 className="font-bold text-slate-900 text-sm">Razones de Pérdida</h3>
+                  <p className="text-[11px] text-slate-700 mt-0.5">Motivos registrados al cerrar un lead como PERDIDO</p>
                 </div>
                 <InfoTooltip text="Motivos que el asesor registró al cerrar leads como PERDIDO en el período. Cada barra es proporcional al total de pérdidas. Identificar los motivos más frecuentes permite ajustar la estrategia de ventas." />
               </div>
@@ -354,7 +354,7 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
             {motivosList.length === 0 ? (
               <div className="text-center py-4">
                 <p className="text-2xl mb-1">🎯</p>
-                <p className="text-sm font-bold text-slate-400">Sin pérdidas en este período</p>
+                <p className="text-sm text-slate-700">Sin pérdidas en este período</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -365,8 +365,8 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
                   return (
                     <div key={m.motivo}>
                       <div className="flex justify-between mb-1">
-                        <span className="text-xs font-bold text-slate-600 flex-1 mr-2 truncate">{m.motivo}</span>
-                        <span className="text-[10px] font-black text-slate-500 whitespace-nowrap">{m.count} ({pct}%)</span>
+                        <span className="text-xs text-slate-900 flex-1 mr-2 truncate">{m.motivo}</span>
+                        <span className="text-[11px] text-slate-700 whitespace-nowrap">{m.count} ({pct}%)</span>
                       </div>
                       <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                         <div className={`h-full rounded-full ${colors[i % colors.length]} transition-all duration-700`} style={{ width: `${pct}%` }} />
@@ -382,12 +382,12 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center">
-                <IconCheck size={16} className="text-blue-600" />
+                <IconCheck size={18} className="text-blue-700" />
               </div>
               <div className="flex items-center">
                 <div>
-                  <h3 className="font-black text-slate-800 text-sm">Actividad Total</h3>
-                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">Todas las interacciones registradas en el período</p>
+                  <h3 className="font-bold text-slate-900 text-sm">Actividad Total</h3>
+                  <p className="text-[11px] text-slate-700 mt-0.5">Todas las interacciones registradas en el período</p>
                 </div>
                 <InfoTooltip text="Resumen cuantitativo de toda la actividad del asesor: contactos intentados, seguimientos realizados, cambios de etapa y velocidad de respuesta. Refleja el nivel de intensidad de trabajo, independientemente de los resultados." />
               </div>
@@ -396,9 +396,9 @@ const ReporteAsesor: React.FC<Props> = ({ esVistaGlobal, fecha_desde, fecha_hast
               {ACTIVIDAD_ITEMS.map(item => (
                 <div key={item.label} className="bg-slate-50 rounded-xl p-3 border border-slate-100 text-center">
                   <span className="text-lg">{item.icon}</span>
-                  <p className="text-lg font-black text-slate-800 mt-0.5">{item.val}</p>
+                  <p className="text-lg font-bold text-slate-900 mt-0.5">{item.val}</p>
                   <div className="flex items-center justify-center">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-wide">{item.label}</p>
+                    <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wide">{item.label}</p>
                     <InfoTooltip text={item.tooltip} />
                   </div>
                 </div>

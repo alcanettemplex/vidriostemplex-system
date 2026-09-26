@@ -11,9 +11,10 @@ import {
   Menu, FormControlLabel, Switch, TablePagination, InputAdornment, TableSortLabel,
 } from '@mui/material';
 import {
-  Add, Refresh, MoreVert, Search, CheckCircleOutline, LocalShipping,
-  HourglassEmpty, Cancel, TableChart, Tune, Print, DeleteOutline, WarningAmber,
-} from '@mui/icons-material';
+  Plus as Add, RefreshCw as Refresh, MoreVertical as MoreVert, Search, CheckCircle as CheckCircleOutline,
+  Truck as LocalShipping, Hourglass as HourglassEmpty, XCircle as Cancel, TableGrid as TableChart,
+  SlidersHorizontal as Tune, Printer as Print, Trash2 as DeleteOutline, AlertTriangle as WarningAmber,
+} from '../../components/ui/icons';
 import PrintablePedidoVitelsa from './components/PrintablePedidoVitelsa';
 import PrintablePedidoTemplacol from './components/PrintablePedidoTemplacol';
 import { abrirVentanaImpresion } from '../../utils/printWindow';
@@ -87,13 +88,13 @@ const ESTADO_CONFIG: Record<string, {
   icon: React.ReactNode;
   barColor: string;
 }> = {
-  PENDIENTE:            { label: 'Pendiente',   color: 'default',  icon: <HourglassEmpty sx={{ fontSize: 13 }} />, barColor: '#9e9e9e' },
-  ENVIADO:              { label: 'Solicitado',   color: 'primary',  icon: <LocalShipping sx={{ fontSize: 13 }} />,  barColor: '#1976d2' },
-  CONFIRMADO_PROVEEDOR: { label: 'Confirmado',   color: 'info',     icon: <CheckCircleOutline sx={{ fontSize: 13 }} />, barColor: '#0288d1' },
-  LLEGADO:              { label: 'Recibido',     color: 'warning',  icon: <LocalShipping sx={{ fontSize: 13 }} />,  barColor: '#f57c00' },
-  VERIFICADO:           { label: 'Verificado',   color: 'success',  icon: <CheckCircleOutline sx={{ fontSize: 13 }} />, barColor: '#2e7d32' },
-  ENTREGADO:            { label: 'Entregado',    color: 'success',  icon: <CheckCircleOutline sx={{ fontSize: 13 }} />, barColor: '#1b5e20' },
-  PROBLEMA:             { label: 'Problema',     color: 'error',    icon: <Cancel sx={{ fontSize: 13 }} />,         barColor: '#c62828' },
+  PENDIENTE:            { label: 'Pendiente',   color: 'default',  icon: <HourglassEmpty size={13} />, barColor: '#9e9e9e' },
+  ENVIADO:              { label: 'Solicitado',   color: 'primary',  icon: <LocalShipping size={13} />,  barColor: '#1f5ad6' },
+  CONFIRMADO_PROVEEDOR: { label: 'Confirmado',   color: 'info',     icon: <CheckCircleOutline size={13} />, barColor: '#0288d1' },
+  LLEGADO:              { label: 'Recibido',     color: 'warning',  icon: <LocalShipping size={13} />,  barColor: '#f57c00' },
+  VERIFICADO:           { label: 'Verificado',   color: 'success',  icon: <CheckCircleOutline size={13} />, barColor: '#2e7d32' },
+  ENTREGADO:            { label: 'Entregado',    color: 'success',  icon: <CheckCircleOutline size={13} />, barColor: '#1b5e20' },
+  PROBLEMA:             { label: 'Problema',     color: 'error',    icon: <Cancel size={13} />,         barColor: '#c62828' },
 };
 
 const getBarColor = (p: PedidoPV): string => {
@@ -180,16 +181,19 @@ const KPICard: React.FC<{
     ...(onClick ? { '&:hover': { borderColor: color, boxShadow: 1 } } : {}),
   }}>
     <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-        <Box>
-          <Typography variant="caption" color="text.secondary" fontWeight={600}
-            textTransform="uppercase" letterSpacing={0.5} display="block">
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
+        <Box sx={{ minWidth: 0 }}>
+          {/* Rótulo con alto fijo de dos renglones: así la cifra queda alineada entre
+              tarjetas aunque el rótulo ocupe uno ("EN TRÁNSITO") o dos ("VENCIDOS SIN LLEGAR") */}
+          <Typography variant="caption" color="text.primary" fontWeight={600}
+            textTransform="uppercase" letterSpacing={0.5} display="block"
+            sx={{ fontSize: 11.5, lineHeight: 1.35, minHeight: '2.7em' }}>
             {label}
           </Typography>
-          <Typography variant="h4" fontWeight={800} sx={{ color, lineHeight: 1.2, mt: 0.5 }}>
+          <Typography variant="h4" fontWeight={800} sx={{ color, lineHeight: 1.15, mt: 0.5 }}>
             {value}
           </Typography>
-          <Typography variant="caption" color="text.secondary">{sub}</Typography>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ lineHeight: 1.4, mt: 0.5 }}>{sub}</Typography>
         </Box>
         <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: bgColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color, flexShrink: 0 }}>
           {icon}
@@ -243,14 +247,14 @@ const AccionesMenu: React.FC<{
     items.push({ label: '✓ Pedido entregado', action: () => {}, color: '#1b5e20' });
   items.push({ label: 'Ver detalle', action: onDetalle });
   if (pedido.odp_id) {
-    items.push({ label: printLoading ? 'Cargando...' : 'Imprimir pedido', action: onImprimir, icon: <Print sx={{ fontSize: 16 }} /> });
-    items.push({ label: excelLoading ? 'Generando...' : 'Descargar Excel', action: onDescargarExcel, icon: <TableChart sx={{ fontSize: 16 }} /> });
+    items.push({ label: printLoading ? 'Cargando...' : 'Imprimir pedido', action: onImprimir, icon: <Print size={16} /> });
+    items.push({ label: excelLoading ? 'Generando...' : 'Descargar Excel', action: onDescargarExcel, icon: <TableChart size={16} /> });
   }
 
   return (
     <>
       <IconButton size="small" onClick={(e) => setAnchor(e.currentTarget)}>
-        <MoreVert fontSize="small" />
+        <MoreVert size={20} />
       </IconButton>
       <Menu anchorEl={anchor} open={open} onClose={() => setAnchor(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
@@ -945,9 +949,9 @@ const PedidosPVPage: React.FC = () => {
           </Typography>
         </Box>
         <Stack direction="row" gap={1}>
-          <IconButton onClick={cargarDatos} size="small"><Refresh /></IconButton>
+          <IconButton onClick={cargarDatos} size="small"><Refresh size={20} /></IconButton>
           {puedeCrear && !soloLectura && (
-            <Button variant="contained" startIcon={<Add />} onClick={abrirModalCrear} sx={{ borderRadius: 2 }}>
+            <Button variant="contained" startIcon={<Add size={18} weight="bold" />} onClick={abrirModalCrear} sx={{ borderRadius: 2 }}>
               Nuevo pedido
             </Button>
           )}
@@ -960,11 +964,11 @@ const PedidosPVPage: React.FC = () => {
       {/* Tabs */}
       <Tabs value={tab} onChange={(_, v) => setTab(v)}
         sx={{ mb: 2.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Tab icon={<Tune fontSize="small" />} iconPosition="start" label="Gestión PV" />
-        <Tab icon={<TableChart fontSize="small" />} iconPosition="start" label="Vista Excel" />
+        <Tab icon={<Tune size={20} />} iconPosition="start" label="Gestión PV" />
+        <Tab icon={<TableChart size={20} />} iconPosition="start" label="Vista Excel" />
         {puedeCrear && (
           <Tab
-            icon={<HourglassEmpty fontSize="small" />}
+            icon={<HourglassEmpty size={20} />}
             iconPosition="start"
             label={pedidosPorGestionar.length > 0 ? `Por Gestionar (${pedidosPorGestionar.length})` : 'Por Gestionar'}
             sx={pedidosPorGestionar.length > 0 ? { color: 'warning.main', fontWeight: 700 } : {}}
@@ -983,13 +987,13 @@ const PedidosPVPage: React.FC = () => {
               {/* KPIs */}
               <Stack direction="row" gap={2} mb={3} flexWrap="wrap">
                 <KPICard label="Total Pedidos" value={kpis.total} sub="Clic: desglose por proveedor"
-                  icon={<TableChart />} color="#1565c0" bgColor="#e3f2fd" onClick={abrirModalProveedores} />
+                  icon={<TableChart size={22} weight="duotone" />} color="#1f5ad6" bgColor="#eef5ff" onClick={abrirModalProveedores} />
                 <KPICard label="Con Daño Sin Reponer" value={kpis.conDanoSinReponer} sub={pct(kpis.conDanoSinReponer)}
-                  icon={<WarningAmber />} color="#e65100" bgColor="#fff3e0" onClick={abrirModalDanados} />
+                  icon={<WarningAmber size={22} weight="duotone" />} color="#e65100" bgColor="#fff3e0" onClick={abrirModalDanados} />
                 <KPICard label="En Tránsito" value={kpis.enTransito} sub={pct(kpis.enTransito)}
-                  icon={<LocalShipping />} color="#0288d1" bgColor="#e1f5fe" />
+                  icon={<LocalShipping size={22} weight="duotone" />} color="#0288d1" bgColor="#e1f5fe" />
                 <KPICard label="Vencidos sin Llegar" value={kpis.vencidosSinLlegar} sub={pct(kpis.vencidosSinLlegar)}
-                  icon={<Cancel />} color="#c62828" bgColor="#ffebee" onClick={abrirModalVencidos} />
+                  icon={<Cancel size={22} weight="duotone" />} color="#c62828" bgColor="#ffebee" onClick={abrirModalVencidos} />
                 <KPICard label="m² Vendidos" value={kpis.metraje.toFixed(2)} sub="Clic: desglose por proveedor"
                   icon={<Typography fontWeight={800} fontSize={14}>m²</Typography>} color="#00695c" bgColor="#e0f2f1" onClick={abrirModalProveedores} />
               </Stack>
@@ -1001,7 +1005,7 @@ const PedidosPVPage: React.FC = () => {
                 <TextField size="small" placeholder="Buscar pedido, cliente o referencia..."
                   value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
                   sx={{ minWidth: 340 }}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18, color: 'text.secondary' }} /></InputAdornment> }} />
+                  InputProps={{ startAdornment: <InputAdornment position="start"><Search size={18} color="#555f71" /></InputAdornment> }} />
                 <FormControlLabel control={<Switch checked={soloRetrasos} onChange={(e) => { setSoloRetrasos(e.target.checked); setPagina(1); }} size="small" />}
                   label={<Typography variant="body2">Mostrar solo retrasos</Typography>} />
               </Stack>
@@ -1046,7 +1050,7 @@ const PedidosPVPage: React.FC = () => {
                 <TableContainer>
                   <Table size="small">
                     <TableHead>
-                      <TableRow sx={{ '& th': { bgcolor: 'grey.50', fontWeight: 700, fontSize: 13, borderBottom: '2px solid', borderColor: 'divider' } }}>
+                      <TableRow sx={{ '& th': { bgcolor: 'grey.50', fontWeight: 600, fontSize: 13, color: 'text.primary', whiteSpace: 'nowrap', borderBottom: '2px solid', borderColor: 'divider' } }}>
                         <TableCell sx={{ width: 4, p: 0 }} />
                         <TableCell>Color</TableCell>
                         <TableCell sortDirection={sortField === 'numero_base' ? sortDir : false}>
@@ -1137,7 +1141,7 @@ const PedidosPVPage: React.FC = () => {
                             <TableCell>
                               <Typography fontWeight={700} fontSize={13}>{p.numero_pedido}</Typography>
                               {p.estado === 'LLEGADO' && p.estado_reposicion === 'REPUESTO' && (
-                                <Chip label="Reposición · pendiente verificar" size="small" sx={{ fontSize: 10, height: 16, bgcolor: '#fff8e1', color: '#f57f17', mt: 0.3 }} />
+                                <Chip label="Reposición · pendiente verificar" size="small" sx={{ fontSize: 11, height: 18, bgcolor: '#fff8e1', color: '#f57f17', mt: 0.3 }} />
                               )}
                               {p.tuvo_problema && p.estado !== 'PROBLEMA' && p.estado_reposicion !== 'REPUESTO' && (
                                 <Typography variant="caption" color="error.main">Con problema previo</Typography>
@@ -1145,19 +1149,19 @@ const PedidosPVPage: React.FC = () => {
                               {p.estado === 'PROBLEMA' && (
                                 <Stack direction="row" gap={0.5} mt={0.3} flexWrap="wrap">
                                   {p.tipo_problema && (
-                                    <Chip label={p.tipo_problema} size="small" color="error" sx={{ fontSize: 10, height: 16 }} />
+                                    <Chip label={p.tipo_problema} size="small" color="error" sx={{ fontSize: 11, height: 18 }} />
                                   )}
                                   {!p.estado_reposicion && (
-                                    <Chip label="Sin gestión" size="small" sx={{ fontSize: 10, height: 16, bgcolor: '#ffebee', color: '#c62828' }} />
+                                    <Chip label="Sin gestión" size="small" sx={{ fontSize: 11, height: 18, bgcolor: '#ffebee', color: '#c62828' }} />
                                   )}
                                   {p.estado_reposicion === 'EN_GESTION' && (
-                                    <Chip label="En gestión" size="small" sx={{ fontSize: 10, height: 16, bgcolor: '#fff3e0', color: '#e65100' }} />
+                                    <Chip label="En gestión" size="small" sx={{ fontSize: 11, height: 18, bgcolor: '#fff3e0', color: '#e65100' }} />
                                   )}
                                   {p.estado_reposicion === 'REPUESTO' && (
-                                    <Chip label="Repuesto âœ“" size="small" sx={{ fontSize: 10, height: 16, bgcolor: '#e8f5e9', color: '#2e7d32' }} />
+                                    <Chip label="Repuesto ✓" size="small" sx={{ fontSize: 11, height: 18, bgcolor: '#e8f5e9', color: '#2e7d32' }} />
                                   )}
                                   {p.fecha_reposicion_prometida && p.estado_reposicion === 'EN_GESTION' && (
-                                    <Typography variant="caption" color="text.secondary" fontSize={10}>
+                                    <Typography variant="caption" color="text.secondary" fontSize={11}>
                                       Reposición: {fmtFecha(p.fecha_reposicion_prometida)}
                                     </Typography>
                                   )}
@@ -1165,7 +1169,7 @@ const PedidosPVPage: React.FC = () => {
                               )}
                             </TableCell>
                             {/* ODP */}
-                            <TableCell sx={{ fontSize: 13, fontWeight: 600, color: 'primary.main', cursor: p.odp_id ? 'pointer' : 'default', textDecoration: p.odp_id ? 'underline' : 'none' }}
+                            <TableCell sx={{ fontSize: 13, fontWeight: 600, color: 'primary.main', whiteSpace: 'nowrap', cursor: p.odp_id ? 'pointer' : 'default', textDecoration: p.odp_id ? 'underline' : 'none' }}
                               onClick={() => p.odp_id && setFichaOdpId(p.odp_id)}>
                               {p.odp?.numero_odp || '—'}
                             </TableCell>
@@ -1180,7 +1184,7 @@ const PedidosPVPage: React.FC = () => {
                               </Tooltip>
                             </TableCell>
                             {/* Asesor */}
-                            <TableCell sx={{ fontSize: 12, color: 'text.secondary' }}>
+                            <TableCell sx={{ fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>
                               {p.odp?.asesor?.nombre_completo || '—'}
                             </TableCell>
                             {/* Proveedor */}
@@ -1190,21 +1194,21 @@ const PedidosPVPage: React.FC = () => {
                               <Chip
                                 label={retrasado ? 'Retrasado' : cfg.label}
                                 color={retrasado ? 'error' : cfg.color}
-                                icon={retrasado ? <Cancel sx={{ fontSize: 13 }} /> : cfg.icon as any}
+                                icon={retrasado ? <Cancel size={13} /> : cfg.icon as any}
                                 size="small"
                                 sx={{ fontWeight: 600, fontSize: 11 }}
                               />
                             </TableCell>
                             {/* Envío */}
-                            <TableCell sx={{ fontSize: 12 }}>{fmtFecha(p.fecha_envio)}</TableCell>
+                            <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmtFecha(p.fecha_envio)}</TableCell>
                             {/* Entrega prometida */}
-                            <TableCell sx={{ fontSize: 12 }}>{fmtFecha(p.fecha_entrega_prometida)}</TableCell>
+                            <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmtFecha(p.fecha_entrega_prometida)}</TableCell>
                             {/* Llegada */}
-                            <TableCell sx={{ fontSize: 12 }}>{fmtFecha(p.fecha_llegada_real)}</TableCell>
+                            <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap' }}>{fmtFecha(p.fecha_llegada_real)}</TableCell>
                             {/* Días tránsito (llegada - envío) */}
                             <TableCell align="center">
                               {diasTransito !== null ? (
-                                <Typography fontWeight={700} fontSize={13} color="text.primary">
+                                <Typography fontWeight={600} fontSize={13} color="text.primary">
                                   {diasTransito}
                                 </Typography>
                               ) : '—'}
@@ -1224,7 +1228,7 @@ const PedidosPVPage: React.FC = () => {
                               {isEditingObs ? (
                                 <input
                                   autoFocus
-                                  style={{ fontSize: 12, padding: '2px 4px', borderRadius: 4, border: '1px solid #1976d2', width: '100%', outline: 'none' }}
+                                  style={{ fontSize: 12, padding: '2px 4px', borderRadius: 4, border: '1px solid #1f5ad6', width: '100%', outline: 'none' }}
                                   value={editingObs.value}
                                   onChange={(e) => setEditingObs({ id: p.id, value: e.target.value })}
                                   onBlur={() => {
@@ -1297,7 +1301,7 @@ const PedidosPVPage: React.FC = () => {
             <Box>
               {pedidosPorGestionar.length === 0 ? (
                 <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 6, textAlign: 'center' }}>
-                  <CheckCircleOutline sx={{ fontSize: 48, color: 'success.light', mb: 1 }} />
+                  <CheckCircleOutline size={48} weight="duotone" color="#10b981" style={{ marginBottom: 8 }} />
                   <Typography variant="h6" color="text.secondary">Todo gestionado</Typography>
                   <Typography variant="body2" color="text.disabled">No hay pedidos PV pendientes de asignación de ítems.</Typography>
                 </Paper>
@@ -1316,7 +1320,7 @@ const PedidosPVPage: React.FC = () => {
                                 onClick={() => pv.odp_id && setFichaOdpId(pv.odp_id)}>
                                 {odp?.numero_odp || '—'}
                               </Typography>
-                              <Chip label={`PV ${pv.numero_pedido}`} size="small" color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
+                              <Chip label={`PV ${pv.numero_pedido}`} size="small" color="primary" variant="outlined" sx={{ fontWeight: 600 }} />
                               <Chip label={pv.proveedor} size="small" variant="outlined" />
                             </Stack>
                             <Typography variant="body2" color="text.secondary">
@@ -1348,7 +1352,7 @@ const PedidosPVPage: React.FC = () => {
                                   color="error"
                                   onClick={() => setModalEliminar(pv)}
                                 >
-                                  <DeleteOutline fontSize="small" />
+                                  <DeleteOutline size={20} />
                                 </IconButton>
                               </Tooltip>
                             </Stack>
@@ -1371,7 +1375,7 @@ const PedidosPVPage: React.FC = () => {
                   value={busquedaExcel}
                   onChange={(e) => { setBusquedaExcel(e.target.value); setPageExcel(0); }}
                   sx={{ minWidth: 380 }}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18, color: 'text.secondary' }} /></InputAdornment> }} />
+                  InputProps={{ startAdornment: <InputAdornment position="start"><Search size={18} color="#555f71" /></InputAdornment> }} />
                 <Typography variant="caption" color="text.secondary">
                   {pedidosExcelFiltrados.length} de {pedidosExcel.length} registros — datos históricos del Excel
                 </Typography>
@@ -1485,7 +1489,7 @@ const PedidosPVPage: React.FC = () => {
                     : `${odps.length} ODPs en curso — escribe para buscar en el histórico`
                 }
                 InputProps={{
-                  startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 16, color: 'text.secondary' }} /></InputAdornment>,
+                  startAdornment: <InputAdornment position="start"><Search size={16} color="#555f71" /></InputAdornment>,
                   endAdornment: buscandoOdp ? <InputAdornment position="end"><CircularProgress size={14} /></InputAdornment> : undefined,
                 }}
               />
@@ -1507,7 +1511,7 @@ const PedidosPVPage: React.FC = () => {
                             <Typography fontSize={13} fontWeight={700}>{o.numero_odp}</Typography>
                             {['ENTREGADA', 'INSTALANDO', 'INSTALADA'].includes(o.estado_produccion) && (
                               <Chip label={getEstadoODP(o.estado_produccion).label}
-                                size="small" sx={{ height: 16, fontSize: 9, fontWeight: 700 }} />
+                                size="small" sx={{ height: 18, fontSize: 11, fontWeight: 600 }} />
                             )}
                           </Stack>
                           <Typography fontSize={11} color="text.secondary">{o.cliente?.nombre_razon_social ?? ''}</Typography>
@@ -1536,7 +1540,7 @@ const PedidosPVPage: React.FC = () => {
                 </Typography>
                 <Button size="small" variant="contained" color="inherit"
                   sx={{ bgcolor: 'grey.900', color: 'white', '&:hover': { bgcolor: 'grey.800' }, fontSize: 12 }}
-                  startIcon={<Add sx={{ fontSize: 14 }} />}
+                  startIcon={<Add size={14} />}
                   onClick={() => setItemsNuevos(prev => [...prev, itemVacio()])}>
                   Agregar Cristal
                 </Button>
@@ -1554,11 +1558,11 @@ const PedidosPVPage: React.FC = () => {
                   const mts = (parseFloat(it.ancho_mm) > 0 && parseFloat(it.alto_mm) > 0)
                     ? ((parseFloat(it.ancho_mm) / 1000) * (parseFloat(it.alto_mm) / 1000)).toFixed(3) : '';
                   return (
-                    <Paper key={idx} variant="outlined" sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
+                    <Paper key={idx} variant="outlined" sx={{ p: 2, bgcolor: '#f6f7f9', borderRadius: 2 }}>
                       <Stack direction="row" flexWrap="wrap" gap={1.5} alignItems="flex-start">
                         {/* COLOR */}
                         <Box sx={{ minWidth: 120 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>Color</Typography>
+                          <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', color: 'text.primary', fontSize: 11, letterSpacing: 0.5 }}>Color</Typography>
                           <Select size="small" fullWidth value={it.color} onChange={(e) => upd('color', e.target.value)} sx={{ mt: 0.5, fontSize: 13 }}>
                             {COLORES_VIDRIO.map(c => <MenuItem key={c} value={c} sx={{ fontSize: 13 }}>{c}</MenuItem>)}
                           </Select>
@@ -1568,12 +1572,12 @@ const PedidosPVPage: React.FC = () => {
                         </Box>
                         {/* ESP */}
                         <Box sx={{ width: 70 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>Esp. (mm)</Typography>
+                          <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', color: 'text.primary', fontSize: 11, letterSpacing: 0.5 }}>Esp. (mm)</Typography>
                           <TextField size="small" fullWidth value={it.espesor} onChange={(e) => upd('espesor', e.target.value)} sx={{ mt: 0.5 }} inputProps={{ style: { fontSize: 13 } }} />
                         </Box>
                         {/* MEDIDAS */}
                         <Box sx={{ minWidth: 140, borderLeft: '1px solid', borderColor: 'divider', pl: 1.5 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>Medidas (mm)</Typography>
+                          <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', color: 'text.primary', fontSize: 11, letterSpacing: 0.5 }}>Medidas (mm)</Typography>
                           <Stack direction="row" gap={0.5} alignItems="center" mt={0.5}>
                             <TextField size="small" type="number" placeholder="Ancho" value={it.ancho_mm}
                               onChange={(e) => upd('ancho_mm', e.target.value === '' ? undefined : parseInt(e.target.value))}
@@ -1586,7 +1590,7 @@ const PedidosPVPage: React.FC = () => {
                         </Box>
                         {/* CANT */}
                         <Box sx={{ width: 60, borderLeft: '1px solid', borderColor: 'divider', pl: 1.5 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>Cant.</Typography>
+                          <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', color: 'text.primary', fontSize: 11, letterSpacing: 0.5 }}>Cant.</Typography>
                           <TextField size="small" type="number" fullWidth value={it.cantidad}
                             onChange={(e) => upd('cantidad', Math.max(1, parseInt(e.target.value) || 1))}
                             sx={{ mt: 0.5 }} inputProps={{ style: { fontSize: 13 }, min: 1 }} />
@@ -1610,7 +1614,7 @@ const PedidosPVPage: React.FC = () => {
                               { label: 'Otros**', field: 'otros', type: 'text' },
                             ] as { label: string; field: string; type: string; guardaTexto?: boolean }[]).map(({ label, field, type, guardaTexto }) => (
                               <Box key={field}>
-                                <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>{label}</Typography>
+                                <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', color: 'text.primary', fontSize: 11, letterSpacing: 0.5 }}>{label}</Typography>
                                 <TextField size="small" fullWidth type={type} value={(it as any)[field]}
                                   onChange={(e) => upd(field, (type === 'number' && !guardaTexto) ? (parseInt(e.target.value) || 0) : e.target.value)}
                                   sx={{ mt: 0.5 }} inputProps={{ style: { fontSize: 12, textAlign: type === 'number' ? 'center' : 'left' }, min: 0 }} />
@@ -1618,13 +1622,13 @@ const PedidosPVPage: React.FC = () => {
                             ))}
                             {/* MTS PT */}
                             <Box>
-                              <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>MTS PT</Typography>
+                              <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', color: 'text.primary', fontSize: 11, letterSpacing: 0.5 }}>MTS PT</Typography>
                               <TextField size="small" fullWidth value={mts} placeholder="m²" disabled
-                                sx={{ mt: 0.5, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#94a3b8', textAlign: 'center', fontSize: 12 } }} />
+                                sx={{ mt: 0.5, '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: '#6f7a8c', textAlign: 'center', fontSize: 12 } }} />
                             </Box>
                             {/* PROD */}
                             <Box>
-                              <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', fontSize: 10, letterSpacing: 0.5 }}>PROD</Typography>
+                              <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', color: 'text.primary', fontSize: 11, letterSpacing: 0.5 }}>PROD</Typography>
                               <Select size="small" fullWidth value={it.prod} onChange={(e) => upd('prod', e.target.value)} sx={{ mt: 0.5, fontSize: 12 }}>
                                 {PROD_OPCIONES.map(p => <MenuItem key={p} value={p} sx={{ fontSize: 12 }}>{p || '—'}</MenuItem>)}
                               </Select>
@@ -1635,7 +1639,7 @@ const PedidosPVPage: React.FC = () => {
                         <Box sx={{ pt: 2.5 }}>
                           <IconButton size="small" onClick={() => setItemsNuevos(prev => prev.filter((_, i) => i !== idx))}
                             sx={{ color: 'error.light', '&:hover': { color: 'error.main', bgcolor: 'error.50' } }}>
-                            <Cancel />
+                            <Cancel size={20} />
                           </IconButton>
                         </Box>
                       </Stack>
@@ -1861,15 +1865,15 @@ const PedidosPVPage: React.FC = () => {
                               onChange={(e) => setItemsSeleccionados(e.target.checked ? itemsLibres.map((it: any) => it.id) : [])}
                             />
                           </TableCell>
-                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>#</TableCell>
-                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Tipo</TableCell>
-                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Color</TableCell>
-                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Esp.</TableCell>
-                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>An x Al</TableCell>
-                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Cant.</TableCell>
-                          <TableCell sx={{ fontWeight: 700, fontSize: 12, minWidth: 60 }}>DT</TableCell>
-                          <TableCell sx={{ fontWeight: 700, fontSize: 12, minWidth: 160 }}>Observación PV</TableCell>
-                          <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Obs. Orig.</TableCell>
+                          <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>#</TableCell>
+                          <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Tipo</TableCell>
+                          <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Color</TableCell>
+                          <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Esp.</TableCell>
+                          <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>An x Al</TableCell>
+                          <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Cant.</TableCell>
+                          <TableCell sx={{ fontWeight: 600, fontSize: 12, minWidth: 60 }}>DT</TableCell>
+                          <TableCell sx={{ fontWeight: 600, fontSize: 12, minWidth: 160 }}>Observación PV</TableCell>
+                          <TableCell sx={{ fontWeight: 600, fontSize: 12 }}>Obs. Orig.</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -1901,7 +1905,7 @@ const PedidosPVPage: React.FC = () => {
                                 <Stack direction="row" gap={0.5} alignItems="center">
                                   <span>{it.prod || '—'}</span>
                                   {enOtroPV && (
-                                    <Chip label="En otro PV" size="small" sx={{ fontSize: 9, height: 16, bgcolor: '#eeeeee', color: '#757575' }} />
+                                    <Chip label="En otro PV" size="small" sx={{ fontSize: 11, height: 18, bgcolor: '#eeeeee', color: '#757575' }} />
                                   )}
                                 </Stack>
                               </TableCell>
@@ -1980,7 +1984,7 @@ const PedidosPVPage: React.FC = () => {
       {/* ─── Confirmación de eliminación ──────────────────────────────────────── */}
       <Dialog open={!!modalEliminar} onClose={() => setModalEliminar(null)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <WarningAmber color="error" /> Eliminar pedido PV
+          <WarningAmber color="#dc2626" /> Eliminar pedido PV
         </DialogTitle>
         <DialogContent>
           {modalEliminar && (
@@ -2091,14 +2095,14 @@ const PedidosPVPage: React.FC = () => {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 700 }}>Pedido</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>ODP</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Cliente</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Proveedor</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Asesor</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Entrega prometida</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }} align="right">Días vencido</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>Pedido</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>ODP</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>Cliente</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>Proveedor</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>Asesor</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>Estado</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>Entrega prometida</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }} align="right">Días vencido</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -2107,7 +2111,7 @@ const PedidosPVPage: React.FC = () => {
                     .map((p) => (
                       <TableRow key={p.id} hover>
                         <TableCell sx={{ fontSize: 13 }}>{p.numero_pedido}</TableCell>
-                        <TableCell sx={{ fontSize: 13, fontWeight: 600, color: 'primary.main', cursor: p.odp_id ? 'pointer' : 'default', textDecoration: p.odp_id ? 'underline' : 'none' }}
+                        <TableCell sx={{ fontSize: 13, fontWeight: 600, color: 'primary.main', whiteSpace: 'nowrap', cursor: p.odp_id ? 'pointer' : 'default', textDecoration: p.odp_id ? 'underline' : 'none' }}
                           onClick={() => p.odp_id && setFichaOdpId(p.odp_id)}>
                           {p.odp?.numero_odp || p.odp_numero_excel || '—'}
                         </TableCell>
@@ -2153,20 +2157,20 @@ const PedidosPVPage: React.FC = () => {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 700 }}>Pedido</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>ODP</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Cliente</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Proveedor</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Tipo de problema</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Reposición</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Fecha repos. prometida</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>Pedido</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>ODP</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>Cliente</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>Proveedor</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>Tipo de problema</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>Reposición</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>Fecha repos. prometida</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {pedidosDanados.map((p) => (
                     <TableRow key={p.id} hover>
                       <TableCell sx={{ fontSize: 13 }}>{p.numero_pedido}</TableCell>
-                      <TableCell sx={{ fontSize: 13, fontWeight: 600, color: 'primary.main', cursor: p.odp_id ? 'pointer' : 'default', textDecoration: p.odp_id ? 'underline' : 'none' }}
+                      <TableCell sx={{ fontSize: 13, fontWeight: 600, color: 'primary.main', whiteSpace: 'nowrap', cursor: p.odp_id ? 'pointer' : 'default', textDecoration: p.odp_id ? 'underline' : 'none' }}
                         onClick={() => p.odp_id && setFichaOdpId(p.odp_id)}>
                         {p.odp?.numero_odp || p.odp_numero_excel || '—'}
                       </TableCell>
@@ -2226,9 +2230,9 @@ const PedidosPVPage: React.FC = () => {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 700 }}>Proveedor</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }} align="right">Pedidos</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }} align="right">m² Vendidos</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>Proveedor</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }} align="right">Pedidos</TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }} align="right">m² Vendidos</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>

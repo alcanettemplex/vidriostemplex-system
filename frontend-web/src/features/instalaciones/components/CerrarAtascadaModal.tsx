@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PackageCheck, AlertTriangle } from 'lucide-react';
+import { PackageCheck, AlertTriangle } from '../../../components/ui/icons';
 
 /**
  * Confirmación del cierre administrativo de una instalación que quedó sin cerrar.
@@ -27,8 +27,8 @@ const CerrarAtascadaModal: React.FC<{
             <PackageCheck className="w-5 h-5 text-emerald-600" />
           </div>
           <div className="min-w-0">
-            <p className="font-bold text-slate-800 text-sm">Marcar como entregada</p>
-            <p className="text-xs text-slate-400 truncate">{numeroOdp}{cliente ? ` — ${cliente}` : ''}</p>
+            <p className="font-bold text-slate-900 text-sm">Marcar como entregada</p>
+            <p className="text-xs text-slate-700 truncate">{numeroOdp}{cliente ? ` — ${cliente}` : ''}</p>
           </div>
         </div>
 
@@ -41,7 +41,7 @@ const CerrarAtascadaModal: React.FC<{
         </div>
 
         <div>
-          <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+          <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-900 mb-1">
             Motivo del cierre *
           </label>
           <textarea
@@ -52,7 +52,7 @@ const CerrarAtascadaModal: React.FC<{
             placeholder="Ej. Instalada el 12/06, el instalador no cerró en la app. Confirmado con el cliente."
             className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 resize-none"
           />
-          <p className="text-[10px] text-slate-400 mt-1">
+          <p className="text-[11px] text-slate-700 mt-1">
             Queda registrado en el historial de la ODP con tu usuario.
           </p>
         </div>
@@ -61,7 +61,7 @@ const CerrarAtascadaModal: React.FC<{
           <button
             onClick={onCancelar}
             disabled={guardando}
-            className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-semibold text-sm rounded-xl hover:bg-slate-200 transition disabled:opacity-50"
+            className="flex-1 py-2.5 bg-slate-100 text-slate-900 font-semibold text-sm rounded-xl hover:bg-slate-200 transition disabled:opacity-50"
           >
             Cancelar
           </button>

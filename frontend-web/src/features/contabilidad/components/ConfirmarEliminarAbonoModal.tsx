@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
-import { Trash2 } from 'lucide-react';
+import { Trash2 } from '../../../components/ui/icons';
 import API from '../../../services/config';
 import { headers, fmt } from './contabilidad.utils';
 
@@ -47,18 +47,18 @@ const ConfirmarEliminarAbonoModal: React.FC<Props> = ({ pago, onClose, onDeleted
           </div>
           <div>
             <h3 className="font-extrabold text-slate-900 text-lg">¿Eliminar este pago?</h3>
-            <p className="text-sm text-slate-500 mt-1 leading-relaxed">
-              Pago de <span className="font-bold text-slate-800">{fmt(Number(pago.monto))}</span> en{' '}
+            <p className="text-sm text-slate-800 mt-1 leading-relaxed">
+              Pago de <span className="font-bold text-slate-900">{fmt(Number(pago.monto))}</span> en{' '}
               <span className="font-bold text-indigo-700">{etiquetaOdp}</span>.
             </p>
           </div>
         </div>
-        <p className="text-xs text-slate-400 mb-6 bg-slate-50 p-3 rounded-lg border border-slate-100 italic">
+        <p className="text-xs text-slate-700 mb-6 bg-slate-50 p-3 rounded-lg border border-slate-100 italic">
           Esta acción es irreversible y el saldo pendiente de la ODP será recalculado automáticamente.
         </p>
         <div className="flex gap-4">
           <button onClick={onClose}
-            className="flex-1 py-3 font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+            className="flex-1 py-3 font-semibold text-slate-800 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition">
             No, cancelar
           </button>
           <button onClick={handleDelete} disabled={submitting}

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Link2, Search, Loader2, CheckCircle2, Check,
   Package, PlusCircle, Building2, TrendingUp, Sparkles, Ruler, AlertTriangle,
-} from 'lucide-react';
+} from '../../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
 import { RADIUS, FONT } from '../../styleTokens';
@@ -244,12 +244,12 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
 
   const inputChico: React.CSSProperties = {
     width: '100%', padding: '8px 10px', borderRadius: RADIUS.md,
-    border: '1px solid var(--border-strong, #cbd5e1)', fontSize: FONT.sm,
-    background: 'var(--surface, #fff)', color: 'var(--text, #0f172a)',
+    border: '1px solid var(--border-strong, #c7cdd7)', fontSize: FONT.sm,
+    background: 'var(--surface, #fff)', color: 'var(--text, #111620)',
   };
 
   const etiquetaChica: React.CSSProperties = {
-    fontSize: FONT.sm, fontWeight: 600, color: 'var(--text-muted, #64748b)',
+    fontSize: FONT.sm, fontWeight: 600, color: 'var(--text, #111620)',
     display: 'block', marginBottom: 4,
   };
 
@@ -267,36 +267,36 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 12 }}
           style={{
-            background: 'var(--surface, #ffffff)', color: 'var(--text, #1e293b)',
+            background: 'var(--surface, #ffffff)', color: 'var(--text, #111620)',
             borderRadius: RADIUS['4xl'], width: '100%', maxWidth: 820, maxHeight: '90vh',
             display: 'flex', flexDirection: 'column',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-            border: '1px solid var(--border, #e2e8f0)', overflow: 'hidden',
+            border: '1px solid var(--border, #e1e5eb)', overflow: 'hidden',
           }}
         >
           {/* Header */}
           <div
             style={{
-              padding: '20px 24px', borderBottom: '1px solid var(--border, #e2e8f0)',
+              padding: '20px 24px', borderBottom: '1px solid var(--border, #e1e5eb)',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: 'var(--surface-subtle, #f8fafc)',
+              background: 'var(--surface-subtle, #f6f7f9)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div
                 style={{
                   width: 40, height: 40, borderRadius: RADIUS.xl,
-                  background: 'rgba(99, 102, 241, 0.12)', color: 'var(--primary)',
+                  background: 'rgba(99, 102, 241, 0.12)', color: 'var(--primary-strong, #4338ca)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
               >
                 <Link2 size={20} />
               </div>
               <div>
-                <h2 style={{ fontSize: FONT.xxl, fontWeight: 700, margin: 0, color: 'var(--text, #0f172a)' }}>
+                <h2 style={{ fontSize: FONT.xxl, fontWeight: 700, margin: 0, color: 'var(--text, #111620)' }}>
                   Vincular Código de Proveedor
                 </h2>
-                <p style={{ fontSize: FONT.base, color: 'var(--text-muted, #64748b)', margin: '2px 0 0' }}>
+                <p style={{ fontSize: FONT.base, color: 'var(--text-muted, #2f3746)', margin: '2px 0 0' }}>
                   Asocia este código del proveedor a un producto interno para aprender su equivalencia
                 </p>
               </div>
@@ -305,7 +305,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
               onClick={onClose}
               style={{
                 background: 'transparent', border: 'none', cursor: 'pointer',
-                color: 'var(--text-subtle, #94a3b8)', padding: 6, borderRadius: RADIUS.md,
+                color: 'var(--text-muted, #2f3746)', padding: 6, borderRadius: RADIUS.md,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
@@ -320,26 +320,26 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
               {/* Columna Izquierda: lo que dice el proveedor */}
               <div
                 style={{
-                  background: 'var(--surface-subtle, #f8fafc)',
-                  border: '1px solid var(--border, #e2e8f0)',
+                  background: 'var(--surface-subtle, #f6f7f9)',
+                  border: '1px solid var(--border, #e1e5eb)',
                   borderRadius: RADIUS['2xl'], padding: 18,
                   display: 'flex', flexDirection: 'column', gap: 14,
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--primary)', fontSize: FONT.sm, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--primary-strong, #4338ca)', fontSize: FONT.sm, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   <Building2 size={14} />
                   El Proveedor Dice
                 </div>
 
                 <div>
-                  <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)', marginBottom: 2 }}>Proveedor</div>
-                  <div style={{ fontSize: FONT.md, fontWeight: 600, color: 'var(--text, #0f172a)' }}>{nombreProveedor}</div>
+                  <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #2f3746)', marginBottom: 2 }}>Proveedor</div>
+                  <div style={{ fontSize: FONT.md, fontWeight: 600, color: 'var(--text, #111620)' }}>{nombreProveedor}</div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
-                    <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)', marginBottom: 2 }}>Código Proveedor</div>
-                    <div style={{ fontFamily: 'monospace', fontSize: FONT.base, fontWeight: 700, color: '#0f172a', background: 'rgba(99, 102, 241, 0.08)', padding: '3px 8px', borderRadius: RADIUS.sm, display: 'inline-block' }}>
+                    <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #2f3746)', marginBottom: 2 }}>Código Proveedor</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: FONT.base, fontWeight: 600, color: '#111620', background: 'rgba(99, 102, 241, 0.08)', padding: '3px 8px', borderRadius: RADIUS.sm, display: 'inline-block' }}>
                       {pendiente.codigo_proveedor}
                     </div>
                     {pendiente.codigo_derivado && (
@@ -349,22 +349,22 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                     )}
                   </div>
                   <div>
-                    <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)', marginBottom: 2 }}>Frecuencia</div>
-                    <div style={{ fontSize: FONT.sm, fontWeight: 600, color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '3px 8px', borderRadius: RADIUS.sm, display: 'inline-block' }}>
+                    <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #2f3746)', marginBottom: 2 }}>Frecuencia</div>
+                    <div style={{ fontSize: FONT.sm, fontWeight: 600, color: '#b45309', background: 'rgba(245, 158, 11, 0.1)', padding: '3px 8px', borderRadius: RADIUS.sm, display: 'inline-block' }}>
                       Visto {pendiente.veces_visto} vez/veces
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)', marginBottom: 2 }}>Descripción en Factura</div>
-                  <div style={{ fontSize: FONT.base, color: 'var(--text, #1e293b)', lineHeight: 1.4, background: 'var(--surface, #fff)', padding: 10, borderRadius: RADIUS.md, border: '1px solid var(--border, #e2e8f0)' }}>
+                  <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #2f3746)', marginBottom: 2 }}>Descripción en Factura</div>
+                  <div style={{ fontSize: FONT.base, color: 'var(--text, #111620)', lineHeight: 1.4, background: 'var(--surface, #fff)', padding: 10, borderRadius: RADIUS.md, border: '1px solid var(--border, #e1e5eb)' }}>
                     {pendiente.descripcion_proveedor || 'Sin descripción'}
                   </div>
                 </div>
 
                 <div>
-                  <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)', marginBottom: 2 }}>
+                  <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #2f3746)', marginBottom: 2 }}>
                     {hayDescuento ? 'Precio en la Factura' : 'Precio Detectado en XML'}
                   </div>
 
@@ -372,23 +372,23 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                       hay descuento; un "0%" en pantalla se lee como dato real. */}
                   {hayDescuento && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 6 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FONT.sm, color: 'var(--text-muted, #64748b)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FONT.sm, color: 'var(--text-muted, #2f3746)' }}>
                         <span>Lista (bruto)</span>
                         <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCOP(precioBruto)}</span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FONT.sm, color: 'var(--warning, #b45309)', fontWeight: 600 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FONT.sm, color: '#b45309', fontWeight: 600 }}>
                         <span>Descuento</span>
                         <span style={{ fontVariantNumeric: 'tabular-nums' }}>
                           −{descuentoPct}%{descuentoValor ? ` (−${formatCOP(descuentoValor)})` : ''}
                         </span>
                       </div>
-                      <div style={{ borderTop: '1px solid var(--border-subtle, #e2e8f0)', marginTop: 1 }} />
+                      <div style={{ borderTop: '1px solid var(--border-subtle, #e1e5eb)', marginTop: 1 }} />
                     </div>
                   )}
 
-                  <div style={{ fontSize: FONT.xxl, fontWeight: 800, color: '#059669' }}>
+                  <div style={{ fontSize: FONT.xxl, fontWeight: 800, color: '#047857' }}>
                     {formatCOP(pendiente.precio_detectado)}{' '}
-                    <span style={{ fontSize: FONT.sm, fontWeight: 500, color: 'var(--text-muted, #64748b)' }}>
+                    <span style={{ fontSize: FONT.sm, fontWeight: 400, color: 'var(--text-muted, #2f3746)' }}>
                       {hayDescuento ? '(neto, sin IVA)' : '(sin IVA)'}
                     </span>
                   </div>
@@ -411,7 +411,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                     </div>
                   )}
 
-                  <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #64748b)', marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #2f3746)', marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {pendiente.unidad_detectada && (
                       <span style={{ color: '#4338ca', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Ruler size={11} /> Facturado por {MODALIDADES.find(m => m.value === pendiente.unidad_detectada)?.label ?? pendiente.unidad_detectada}
@@ -426,7 +426,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                       </span>
                     )}
                     {pendiente.documento_ref && (
-                      <span style={{ color: 'var(--text-subtle, #94a3b8)' }}>Doc ref: {pendiente.documento_ref}</span>
+                      <span style={{ color: 'var(--text-muted, #2f3746)' }}>Doc ref: {pendiente.documento_ref}</span>
                     )}
                   </div>
                 </div>
@@ -445,7 +445,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                     style={{ marginTop: 2 }}
                   />
                   <div style={{ fontSize: FONT.xs, color: '#4338ca', lineHeight: 1.35 }}>
-                    <span style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Sparkles size={12} /> Recordar como sinónimo/alias
                     </span>
                     Guardar esta descripción para auto-sugerir en futuras facturas.
@@ -456,7 +456,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
               {/* Columna Derecha: producto interno */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#059669', fontSize: FONT.sm, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#047857', fontSize: FONT.sm, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     <Package size={14} />
                     ¿A cuál de mis productos?
                   </div>
@@ -464,7 +464,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                     type="button"
                     onClick={() => setCreandoProducto(v => !v)}
                     style={{
-                      background: 'none', border: 'none', color: 'var(--primary)',
+                      background: 'none', border: 'none', color: 'var(--primary-strong, #4338ca)',
                       fontSize: FONT.sm, fontWeight: 600, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', gap: 4,
                     }}
@@ -540,8 +540,8 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                       onClick={handleCrearProducto}
                       disabled={guardandoProducto}
                       style={{
-                        alignSelf: 'flex-start', background: '#059669', color: '#fff', border: 'none',
-                        padding: '7px 16px', borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 700,
+                        alignSelf: 'flex-start', background: '#047857', color: '#fff', border: 'none',
+                        padding: '7px 16px', borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 600,
                         cursor: guardandoProducto ? 'wait' : 'pointer',
                         display: 'flex', alignItems: 'center', gap: 6,
                       }}
@@ -554,7 +554,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                   <>
                     {/* Buscador */}
                     <div style={{ position: 'relative' }}>
-                      <Search size={16} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-subtle, #94a3b8)' }} />
+                      <Search size={16} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-subtle, #555f71)' }} />
                       <input
                         type="text"
                         value={busqueda}
@@ -562,9 +562,9 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                         placeholder="Buscar por código (ej. TUB0103), nombre o sinónimo…"
                         style={{
                           width: '100%', padding: '10px 36px 10px 38px',
-                          borderRadius: RADIUS.lg, border: '1px solid var(--border-strong, #cbd5e1)',
+                          borderRadius: RADIUS.lg, border: '1px solid var(--border-strong, #c7cdd7)',
                           fontSize: FONT.base, outline: 'none', background: 'var(--surface, #fff)',
-                          color: 'var(--text, #0f172a)',
+                          color: 'var(--text, #111620)',
                         }}
                       />
                       {busqueda && !loadingBusqueda && (
@@ -574,7 +574,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                           style={{
                             position: 'absolute', right: 10, top: 10,
                             background: 'none', border: 'none', cursor: 'pointer',
-                            color: 'var(--text-subtle, #94a3b8)', padding: 2,
+                            color: 'var(--text-muted, #2f3746)', padding: 2,
                           }}
                           title="Limpiar búsqueda"
                         >
@@ -582,19 +582,19 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                         </button>
                       )}
                       {loadingBusqueda && (
-                        <Loader2 size={16} className="animate-spin" style={{ position: 'absolute', right: 12, top: 12, color: 'var(--primary)' }} />
+                        <Loader2 size={16} className="animate-spin" style={{ position: 'absolute', right: 12, top: 12, color: 'var(--primary-strong, #4338ca)' }} />
                       )}
                     </div>
 
                     {/* Sugerencias */}
                     <div
                       style={{
-                        maxHeight: 230, overflowY: 'auto', border: '1px solid var(--border, #e2e8f0)',
-                        borderRadius: RADIUS.lg, background: 'var(--surface-subtle, #f8fafc)', padding: 6,
+                        maxHeight: 230, overflowY: 'auto', border: '1px solid var(--border, #e1e5eb)',
+                        borderRadius: RADIUS.lg, background: 'var(--surface-subtle, #f6f7f9)', padding: 6,
                       }}
                     >
                       {productos.length === 0 ? (
-                        <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: FONT.sm, color: 'var(--text-subtle, #94a3b8)' }}>
+                        <div style={{ padding: '18px 12px', textAlign: 'center', fontSize: FONT.sm, color: 'var(--text-muted, #2f3746)' }}>
                           {loadingBusqueda
                             ? 'Buscando coincidencias en tu catálogo…'
                             : busqueda.trim().length >= 2
@@ -612,8 +612,8 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                                 padding: '9px 12px', borderRadius: RADIUS.md, cursor: 'pointer',
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                 background: isSelected ? 'var(--primary)' : 'var(--surface, #fff)',
-                                color: isSelected ? '#fff' : 'var(--text, #1e293b)',
-                                border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-subtle, #f1f5f9)',
+                                color: isSelected ? '#fff' : 'var(--text, #111620)',
+                                border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-subtle, #eef0f4)',
                                 marginBottom: 5, transition: 'all 0.15s',
                                 boxShadow: isSelected ? '0 2px 8px rgba(99, 102, 241, 0.2)' : 'none',
                               }}
@@ -623,7 +623,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                                   {p.codigo ? (
                                     <span
                                       style={{
-                                        fontFamily: 'monospace', fontWeight: 800, fontSize: FONT.sm,
+                                        fontFamily: 'monospace', fontWeight: 600, fontSize: FONT.sm,
                                         padding: '2px 7px', borderRadius: RADIUS.xs,
                                         background: isSelected ? 'rgba(255,255,255,0.25)' : 'rgba(99, 102, 241, 0.1)',
                                         color: isSelected ? '#fff' : '#4338ca',
@@ -632,27 +632,27 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                                       {p.codigo}
                                     </span>
                                   ) : (
-                                    <span style={{ fontSize: FONT.xs, color: isSelected ? '#e0e7ff' : '#94a3b8' }}>(Sin código)</span>
+                                    <span style={{ fontSize: FONT.xs, color: isSelected ? '#e0e7ff' : '#2f3746' }}>(Sin código)</span>
                                   )}
                                   {p.es_aluminio && (
                                     <span
                                       style={{
                                         fontSize: FONT.tiny, padding: '1px 5px', borderRadius: RADIUS.xs,
                                         background: isSelected ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.06)',
-                                        color: isSelected ? '#fff' : '#475569', fontWeight: 600,
+                                        color: isSelected ? '#fff' : '#2f3746', fontWeight: 600,
                                       }}
                                     >
                                       Aluminio
                                     </span>
                                   )}
                                 </div>
-                                <div style={{ fontSize: FONT.sm, fontWeight: 500, marginTop: 3 }}>{p.nombre}</div>
+                                <div style={{ fontSize: FONT.sm, fontWeight: 400, marginTop: 3 }}>{p.nombre}</div>
                                 {p.coincide_por_alias && (
                                   <div
                                     title="Este producto no coincide por código ni por nombre: lo reconoce un sinónimo aprendido en un mapeo anterior"
                                     style={{
                                       fontSize: FONT.tiny, marginTop: 3, display: 'flex', alignItems: 'center', gap: 4,
-                                      color: isSelected ? '#e0e7ff' : '#7c3aed', fontWeight: 600,
+                                      color: isSelected ? '#e0e7ff' : '#6d28d9', fontWeight: 600,
                                     }}
                                   >
                                     <Sparkles size={10} /> alias «{p.coincide_por_alias}»
@@ -679,7 +679,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                       borderRadius: RADIUS.xl, padding: 12,
                     }}
                   >
-                    <div style={{ fontSize: FONT.sm, fontWeight: 700, color: '#4338ca', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{ fontSize: FONT.sm, fontWeight: 600, color: '#4338ca', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
                       <TrendingUp size={13} />
                       Comparador instantáneo para {productoSeleccionado.codigo}
                     </div>
@@ -697,11 +697,11 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                             style={{
                               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                               fontSize: FONT.sm, background: 'var(--surface, #fff)', padding: '4px 8px',
-                              borderRadius: RADIUS.sm, border: '1px solid var(--border, #e2e8f0)',
+                              borderRadius: RADIUS.sm, border: '1px solid var(--border, #e1e5eb)',
                             }}
                           >
                             <span style={{ fontWeight: 600 }}>{pc.proveedor?.nombre_comercial}</span>
-                            <span style={{ fontWeight: 700, color: '#059669' }}>
+                            <span style={{ fontWeight: 700, color: '#047857' }}>
                               {formatCOP(pc.precio_sin_iva)} ({pc.unidad_compra})
                             </span>
                           </div>
@@ -731,7 +731,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                     }}
                   >
                     <AlertTriangle size={15} style={{ color: '#b45309', flexShrink: 0, marginTop: 1 }} />
-                    <div style={{ fontSize: FONT.sm, color: 'var(--text, #0f172a)', lineHeight: 1.45 }}>
+                    <div style={{ fontSize: FONT.sm, color: 'var(--text, #111620)', lineHeight: 1.45 }}>
                       <strong>{productoSeleccionado?.codigo}</strong> ya está vinculado a este proveedor
                       {codigosExistentes.length > 0 && (
                         <> como <strong>{codigosExistentes.join(', ')}</strong></>
@@ -774,7 +774,7 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
                       style={{ ...inputChico, fontWeight: 700, fontSize: FONT.base }}
                     />
                     {hayDescuento && (
-                      <div style={{ fontSize: FONT.tiny, color: 'var(--text-subtle, #94a3b8)', marginTop: 4 }}>
+                      <div style={{ fontSize: FONT.tiny, color: 'var(--text-muted, #2f3746)', marginTop: 4 }}>
                         Es el precio ya descontado: lo que realmente se pagó.
                       </div>
                     )}
@@ -788,9 +788,9 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
           {/* Footer */}
           <div
             style={{
-              padding: '16px 24px', borderTop: '1px solid var(--border, #e2e8f0)',
+              padding: '16px 24px', borderTop: '1px solid var(--border, #e1e5eb)',
               display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-              gap: 12, background: 'var(--surface-subtle, #f8fafc)',
+              gap: 12, background: 'var(--surface-subtle, #f6f7f9)',
             }}
           >
             <button
@@ -798,8 +798,8 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
               onClick={onClose}
               disabled={guardando}
               style={{
-                padding: '9px 18px', borderRadius: RADIUS.lg, border: '1px solid var(--border-strong, #cbd5e1)',
-                background: 'transparent', color: 'var(--text, #475569)', fontSize: FONT.base,
+                padding: '9px 18px', borderRadius: RADIUS.lg, border: '1px solid var(--border-strong, #c7cdd7)',
+                background: 'transparent', color: 'var(--text, #111620)', fontSize: FONT.base,
                 fontWeight: 600, cursor: 'pointer',
               }}
             >
@@ -811,8 +811,8 @@ const VincularCodigoModal: React.FC<Props> = ({ pendiente, onClose, onVinculado 
               disabled={guardando || !productoSeleccionado}
               style={{
                 padding: '9px 20px', borderRadius: RADIUS.lg, border: 'none',
-                background: productoSeleccionado ? 'var(--primary)' : '#94a3b8',
-                color: '#fff', fontSize: FONT.base, fontWeight: 700,
+                background: productoSeleccionado ? 'var(--primary)' : '#6f7a8c',
+                color: '#fff', fontSize: FONT.base, fontWeight: 600,
                 cursor: productoSeleccionado ? 'pointer' : 'not-allowed',
                 display: 'flex', alignItems: 'center', gap: 8,
                 boxShadow: productoSeleccionado ? '0 4px 12px rgba(99, 102, 241, 0.35)' : 'none',

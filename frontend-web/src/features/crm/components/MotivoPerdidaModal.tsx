@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, X } from '../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import { apiUpdateLeadStatus } from '../crmService';
 
@@ -50,26 +50,26 @@ const MotivoPerdidaModal: React.FC<Props> = ({ leadId, leadNombre, onClose, onCo
         <div className="flex items-center justify-between px-6 py-4 bg-rose-50 border-b border-rose-100">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-rose-100 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-rose-600" />
+              <AlertTriangle className="w-5 h-5 text-rose-700" />
             </div>
             <div>
-              <h2 className="font-black text-slate-800 text-base">Motivo de Pérdida</h2>
-              <p className="text-xs text-slate-500">Requerido para auditoría interna</p>
+              <h2 className="font-bold text-slate-900 text-base">Motivo de Pérdida</h2>
+              <p className="text-xs text-slate-700">Requerido para auditoría interna</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-100 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-100 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="p-6 space-y-4">
           <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-            <p className="text-xs text-slate-500 font-medium">Lead</p>
-            <p className="font-bold text-slate-800">{leadNombre}</p>
+            <p className="text-xs text-slate-700">Lead</p>
+            <p className="font-bold text-slate-900">{leadNombre}</p>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">Motivo Oficial *</label>
+            <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest">Motivo Oficial *</label>
             <select
               value={motivo}
               onChange={e => setMotivo(e.target.value)}
@@ -85,7 +85,7 @@ const MotivoPerdidaModal: React.FC<Props> = ({ leadId, leadNombre, onClose, onCo
           <div className="flex gap-3 pt-2">
             <button
               onClick={onClose}
-              className="flex-1 py-2.5 text-sm font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+              className="flex-1 py-2.5 text-sm font-semibold text-slate-800 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
             >
               Cancelar
             </button>

@@ -10,7 +10,7 @@ import {
   CreditCard, Plus, X, Receipt, Clock, Banknote, TrendingDown,
   Pencil, Trash2, Calendar, ChevronUp, ChevronDown, ChevronsUpDown,
   CheckCircle2, Search,
-} from 'lucide-react';
+} from '../../components/ui/icons';
 import { useDataChangedSocket, useODPSocketPatch } from '../../store/useSocketNotifications';
 
 import API from '../../services/config';
@@ -318,7 +318,7 @@ const ContabilidadPage: React.FC = () => {
             <Calculator className="w-8 h-8 text-indigo-600" />
             Contabilidad y Finanzas
           </h1>
-          <p className="text-slate-500 font-medium mt-1">Control de facturación, caja, pagos y cuentas por cobrar</p>
+          <p className="text-slate-700 mt-1">Control de facturación, caja, pagos y cuentas por cobrar</p>
         </div>
         {(!isReadOnly || canPayOA) && (
         <button
@@ -340,18 +340,20 @@ const ContabilidadPage: React.FC = () => {
           { label: 'Sin Factura',   value: pendFactura,     icon: <AlertCircle className="w-6 h-6" />,  color: 'text-amber-700 bg-amber-50 border-amber-200' },
         ].map((kpi, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
-            className={`border rounded-2xl p-5 flex items-center gap-4 ${kpi.color}`}>
-            <div className="p-2 bg-white/60 rounded-xl">{kpi.icon}</div>
-            <div>
-              <p className="text-2xl font-extrabold leading-none">{kpi.value}</p>
-              <p className="text-xs font-bold mt-1 opacity-75">{kpi.label}</p>
+            className={`border rounded-2xl p-4 xl:p-5 flex flex-col gap-3 min-w-0 ${kpi.color}`}>
+            {/* El monto va en su propia fila, a todo el ancho de la tarjeta: al lado del
+                icono, "$ 41.535.000" no cabía en las 5 columnas de 1440px y perdía dígitos. */}
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 bg-white/60 rounded-lg shrink-0 [&>svg]:w-5 [&>svg]:h-5">{kpi.icon}</div>
+              <p className="text-xs font-semibold text-slate-900 truncate">{kpi.label}</p>
             </div>
+            <p className="text-[clamp(1.125rem,1.55vw,1.5rem)] font-extrabold leading-none tracking-tight whitespace-nowrap [font-variant-numeric:normal]" title={String(kpi.value)}>{kpi.value}</p>
           </motion.div>
         ))}
       </div>}
 
       {/* TABS */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-card overflow-hidden">
         <FolderTabs
           tabs={TABS.map(t => ({ key: t.key, label: t.label, icon: t.icon, badge: t.badge, badgeClassName: (t as any).badgeColor }))}
           activeKey={tab}
@@ -363,13 +365,13 @@ const ContabilidadPage: React.FC = () => {
         {tab === 'estado_caja' && (
           <div>
             <div className="flex gap-2 flex-wrap items-center px-5 py-3 border-b border-slate-100 bg-slate-50/50">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">Filtrar:</span>
+              <span className="text-xs font-semibold text-slate-900 uppercase tracking-wider mr-1">Filtrar:</span>
               {['todos', 'PENDIENTE', 'ABONADO', 'CANCELADO', 'CREDITO_APROBADO'].map(f => (
                 <button key={f} onClick={() => setFilterEstadoCaja(f)}
-                  className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                  className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
                     filterEstadoCaja === f
                       ? 'bg-indigo-600 text-white border-indigo-600'
-                      : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'
+                      : 'bg-white text-slate-800 border-slate-300 hover:border-indigo-300'
                   }`}>
                   {f === 'todos' ? 'Todos' : f.replace('_', ' ')}
                 </button>
@@ -380,7 +382,7 @@ const ContabilidadPage: React.FC = () => {
                   value={filterBusqueda}
                   onChange={e => setFilterBusqueda(e.target.value)}
                   placeholder="Buscar ODP, cliente o asesor..."
-                  className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 w-56 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                  className="text-xs text-slate-800 placeholder:text-slate-500 border border-slate-300 rounded-lg px-3 py-1.5 w-56 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
                 />
               </div>
             </div>
@@ -405,7 +407,7 @@ const ContabilidadPage: React.FC = () => {
                       <th
                         key={col.label || 'action'}
                         onClick={() => handleSort(col.key)}
-                        className={`text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap select-none ${col.key ? 'cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition-colors' : ''}`}
+                        className={`text-left px-4 py-3 text-xs font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap select-none ${col.key ? 'cursor-pointer hover:bg-slate-100 transition-colors' : ''}`}
                       >
                         <div className="flex items-center gap-1">
                           {col.label}
@@ -414,7 +416,7 @@ const ContabilidadPage: React.FC = () => {
                               ? sortDir === 'asc'
                                 ? <ChevronUp className="w-3 h-3 text-indigo-500" />
                                 : <ChevronDown className="w-3 h-3 text-indigo-500" />
-                              : <ChevronsUpDown className="w-3 h-3 text-slate-300" />
+                              : <ChevronsUpDown className="w-3 h-3 text-slate-500" />
                           )}
                         </div>
                       </th>
@@ -427,25 +429,25 @@ const ContabilidadPage: React.FC = () => {
                       <tr key={i}><td colSpan={12} className="px-5 py-4"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td></tr>
                     ))
                   ) : sortedFiltradas.length === 0 ? (
-                    <tr><td colSpan={12} className="text-center py-12 text-slate-400 font-bold">No hay registros que mostrar.</td></tr>
+                    <tr><td colSpan={12} className="text-center py-12 text-slate-700">No hay registros que mostrar.</td></tr>
                   ) : sortedFiltradas.map(odp => (
                     <tr key={odp.id} className={`hover:bg-slate-50 transition-colors ${rowColorCredito(odp)}`}>
                       <td className="px-4 py-4 font-bold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => setFichaOdpId(odp.id)}>{odp.numero_odp}</td>
-                      <td className="px-4 py-4 text-slate-500 text-xs whitespace-nowrap">
+                      <td className="px-4 py-4 text-slate-800 text-xs whitespace-nowrap">
                         <div className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3 text-slate-400" />
+                          <Calendar className="w-3 h-3 text-slate-500" />
                           {fmtFecha(odp.fecha_creacion)}
                         </div>
                       </td>
-                      <td className="px-4 py-4 font-semibold text-slate-800 max-w-[320px] truncate" title={odp.cliente?.nombre_razon_social}>
+                      <td className="px-4 py-4 font-semibold text-slate-900 max-w-[320px] truncate" title={odp.cliente?.nombre_razon_social}>
                         {odp.cliente?.nombre_razon_social || '—'}
                       </td>
                       {/* Asesor */}
-                      <td className="px-4 py-4 text-slate-600 text-xs whitespace-nowrap">{odp.asesor?.nombre_completo || '—'}</td>
+                      <td className="px-4 py-4 text-slate-800 text-xs whitespace-nowrap">{odp.asesor?.nombre_completo || '—'}</td>
                       {/* Estado Taller */}
                       <td className="px-4 py-4">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${getEstadoODP(odp.estado_produccion).badge}`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap ${getEstadoODP(odp.estado_produccion).badge}`}
                           title={getEstadoODP(odp.estado_produccion).descripcion}
                         >
                           {getEstadoODP(odp.estado_produccion).label}
@@ -456,37 +458,37 @@ const ContabilidadPage: React.FC = () => {
                           {odp.factura_electronica ? (
                             <div>
                               <div className="flex items-center gap-1">
-                                <span className="font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 text-xs">
+                                <span className="font-mono text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-xs whitespace-nowrap">
                                   FE-{odp.factura_electronica}
                                 </span>
                                 {odp.facturas_adicionales?.length > 0 && (
                                   <span title={`${odp.facturas_adicionales.length} factura(s) adicional(es)`}
-                                    className="font-bold text-[10px] text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                                    className="font-semibold text-[11px] text-indigo-800 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 whitespace-nowrap">
                                     +{odp.facturas_adicionales.length}
                                   </span>
                                 )}
                               </div>
                               {odp.fecha_factura && (
-                                <p className="text-xs text-slate-400 mt-0.5">{fmtFecha(odp.fecha_factura)}</p>
+                                <p className="text-xs text-slate-700 mt-0.5 whitespace-nowrap">{fmtFecha(odp.fecha_factura)}</p>
                               )}
                             </div>
                           ) : (
-                            <span className="text-slate-400 text-xs italic">Sin factura</span>
+                            <span className="text-slate-500 text-xs italic whitespace-nowrap">Sin factura</span>
                           )}
                           <button
                             onClick={() => abrirFeModal(odp)}
                             title="Editar factura"
-                            className="ml-1 p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+                            className="ml-1 p-1 rounded text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 transition"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
-                      <td className="px-4 py-4 font-bold text-slate-700 whitespace-nowrap">
+                      <td className="px-4 py-4 font-bold text-slate-900 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
-                          {Number(odp.valor_total) > 0 ? fmt(Number(odp.valor_total)) : <span className="text-slate-400 text-xs italic">—</span>}
+                          {Number(odp.valor_total) > 0 ? fmt(Number(odp.valor_total)) : <span className="text-slate-500 text-xs italic">—</span>}
                           <button onClick={() => abrirEditTotal(odp)} title="Editar monto total"
-                            className="p-1 rounded text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 transition">
+                            className="p-1 rounded text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 transition">
                             <Pencil className="w-3" />
                           </button>
                         </div>
@@ -495,7 +497,7 @@ const ContabilidadPage: React.FC = () => {
                       <td className="px-4 py-4 whitespace-nowrap">
                         {(() => {
                           const pend = calcPendiente(odp);
-                          return <span className={`font-bold text-sm ${pend > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{fmt(pend)}</span>;
+                          return <span className={`font-bold text-sm ${pend > 0 ? 'text-rose-700' : 'text-slate-500'}`}>{fmt(pend)}</span>;
                         })()}
                       </td>
                       <td className="px-4 py-4">
@@ -511,7 +513,7 @@ const ContabilidadPage: React.FC = () => {
                               <select
                                 value={odp.estado_caja}
                                 onChange={e => updateCaja(odp.id, 'estado_caja', e.target.value)}
-                                className={`text-xs font-bold px-2 py-1 rounded-lg border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+                                className={`text-xs font-semibold px-2 py-1 rounded-lg border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
                                   odp.estado_caja === 'CANCELADO'        ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
                                   odp.estado_caja === 'ABONADO'          ? 'bg-blue-100 text-blue-800 border-blue-300' :
                                   odp.estado_caja === 'CREDITO_APROBADO' ? badgeCredito :
@@ -525,8 +527,8 @@ const ContabilidadPage: React.FC = () => {
                               </select>
                               {odp.estado_caja === 'CREDITO_APROBADO' && odp.fecha_vencimiento_credito && (
                                 <span className={`text-xs font-semibold ${
-                                  dias !== null && dias <= 2 ? 'text-rose-600' :
-                                  dias !== null && dias <= 7 ? 'text-orange-600' : 'text-slate-500'
+                                  dias !== null && dias <= 2 ? 'text-rose-700' :
+                                  dias !== null && dias <= 7 ? 'text-orange-700' : 'text-slate-700'
                                 }`}>
                                   Vence: {fmtFecha(odp.fecha_vencimiento_credito)}
                                   {dias !== null && dias >= 0 && ` (${dias}d)`}
@@ -539,7 +541,7 @@ const ContabilidadPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-4">
                         <select value={odp.estado_facturacion} onChange={e => handleFacturacionChange(odp, e.target.value)}
-                          className={`text-xs font-bold px-2 py-1 rounded-lg border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+                          className={`text-xs font-semibold px-2 py-1 rounded-lg border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
                             odp.estado_facturacion === 'FACTURADA' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-slate-100 text-slate-700 border-slate-300'
                           }`}>
                           <option value="PENDIENTE">Pendiente</option>
@@ -550,7 +552,7 @@ const ContabilidadPage: React.FC = () => {
                         {!isReadOnly && odp.estado_caja !== 'CANCELADO' && (
                           <button
                             onClick={() => abrirAbonoDeODP(odp)}
-                            className="text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-all flex items-center gap-1 whitespace-nowrap"
+                            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-all flex items-center gap-1 whitespace-nowrap"
                           >
                             <Banknote className="w-3.5 h-3.5" /> Registrar Abono
                           </button>
@@ -572,9 +574,9 @@ const ContabilidadPage: React.FC = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
               </div>
             ) : pagos.length === 0 ? (
-              <div className="py-16 text-center text-slate-400">
+              <div className="py-16 text-center text-slate-700">
                 <Receipt className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="font-bold">No hay pagos registrados</p>
+                <p className="font-semibold text-slate-900">No hay pagos registrados</p>
               </div>
             ) : (
               <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 390px)', minHeight: '300px' }}>
@@ -582,52 +584,52 @@ const ContabilidadPage: React.FC = () => {
                   <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                     <tr>
                        {['Fecha', 'ODP', 'Fecha Creación ODP', 'Cliente', 'Asesor', 'Monto', 'Banco / Método', 'Recibo No.', 'Observaciones', 'Registrado por', ''].map(h => (
-                        <th key={h} className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                        <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {pagos.map((pago: any) => (
                       <tr key={pago.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                        <td className="px-4 py-3 text-slate-800 whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            <Clock className="w-3.5 h-3.5 text-slate-500" />
                             {fmtFecha(pago.fecha)}
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-xs border border-indigo-100">
+                          <span className="font-semibold text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded text-xs border border-indigo-200 whitespace-nowrap">
                             {pago.odp?.numero_odp || `ODP-${pago.odp_id}`}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+                        <td className="px-4 py-3 text-slate-800 text-xs whitespace-nowrap">
                           <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3 text-slate-400" />
+                            <Calendar className="w-3 h-3 text-slate-500" />
                             {fmtFecha(pago.odp?.fecha_creacion)}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-slate-600 text-xs max-w-[180px] truncate" title={pago.odp?.cliente?.nombre_razon_social}>{pago.odp?.cliente?.nombre_razon_social || '—'}</td>
+                        <td className="px-4 py-3 text-slate-900 font-semibold text-xs max-w-[220px] truncate" title={pago.odp?.cliente?.nombre_razon_social}>{pago.odp?.cliente?.nombre_razon_social || '—'}</td>
                         {/* Asesor */}
-                        <td className="px-4 py-3 text-slate-600 text-xs whitespace-nowrap">{pago.odp?.asesor?.nombre_completo || '—'}</td>
+                        <td className="px-4 py-3 text-slate-800 text-xs whitespace-nowrap">{pago.odp?.asesor?.nombre_completo || '—'}</td>
                         <td className="px-4 py-3 font-bold text-emerald-700 whitespace-nowrap">{fmt(Number(pago.monto))}</td>
-                        <td className="px-4 py-3 text-slate-700 capitalize text-xs">{pago.metodo_pago}</td>
-                        <td className="px-4 py-3 text-slate-500 font-mono text-xs">{pago.referencia_pago || '—'}</td>
-                        <td className="px-4 py-3 text-slate-500 text-xs max-w-[180px] truncate">{pago.observaciones || '—'}</td>
-                        <td className="px-4 py-3 text-slate-600 text-xs whitespace-nowrap">{pago.registrador?.nombre_completo || '—'}</td>
+                        <td className="px-4 py-3 text-slate-800 capitalize text-xs whitespace-nowrap">{pago.metodo_pago}</td>
+                        <td className="px-4 py-3 text-slate-800 font-mono text-xs whitespace-nowrap">{pago.referencia_pago || '—'}</td>
+                        <td className="px-4 py-3 text-slate-700 text-xs max-w-[180px] truncate">{pago.observaciones || '—'}</td>
+                        <td className="px-4 py-3 text-slate-800 text-xs whitespace-nowrap">{pago.registrador?.nombre_completo || '—'}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
                             {!isReadOnly && (<>
                             <button
                               onClick={() => setPagoEnEdicion(pago)}
                               title="Editar pago"
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 transition"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => setPagoAEliminar(pago)}
                               title="Eliminar pago"
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -642,18 +644,18 @@ const ContabilidadPage: React.FC = () => {
             )}
             {totalPaginasPagos > 1 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/50">
-                <span className="text-xs text-slate-500">{totalPagos} pagos en total</span>
+                <span className="text-xs text-slate-700">{totalPagos} pagos en total</span>
                 <div className="flex items-center gap-2">
                   <button
                     disabled={paginaPagos <= 1}
                     onClick={() => setPaginaPagos(p => p - 1)}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
                   >‹ Anterior</button>
-                  <span className="text-xs text-slate-600 font-medium">Página {paginaPagos} de {totalPaginasPagos}</span>
+                  <span className="text-xs text-slate-800 font-medium">Página {paginaPagos} de {totalPaginasPagos}</span>
                   <button
                     disabled={paginaPagos >= totalPaginasPagos}
                     onClick={() => setPaginaPagos(p => p + 1)}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
                   >Siguiente ›</button>
                 </div>
               </div>
@@ -665,7 +667,7 @@ const ContabilidadPage: React.FC = () => {
         {tab === 'completado' && (
           <div>
             <div className="flex gap-2 flex-wrap items-center px-5 py-3 border-b border-slate-100 bg-slate-50/50">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">
+              <span className="text-xs font-semibold text-slate-900 uppercase tracking-wider mr-1">
                 <CheckCircle2 className="w-3.5 h-3.5 inline mr-1 text-emerald-600" />
                 ODPs con factura electrónica y caja cancelada
               </span>
@@ -675,7 +677,7 @@ const ContabilidadPage: React.FC = () => {
                   value={filterBusquedaCompletado}
                   onChange={e => setFilterBusquedaCompletado(e.target.value)}
                   placeholder="Buscar ODP, cliente o asesor..."
-                  className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 w-56 focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white"
+                  className="text-xs text-slate-800 placeholder:text-slate-500 border border-slate-300 rounded-lg px-3 py-1.5 w-56 focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white"
                 />
               </div>
             </div>
@@ -700,7 +702,7 @@ const ContabilidadPage: React.FC = () => {
                       <th
                         key={col.label || 'action'}
                         onClick={() => handleSortComp(col.key)}
-                        className={`text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap select-none ${col.key ? 'cursor-pointer hover:bg-slate-100 hover:text-slate-700 transition-colors' : ''}`}
+                        className={`text-left px-4 py-3 text-xs font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap select-none ${col.key ? 'cursor-pointer hover:bg-slate-100 transition-colors' : ''}`}
                       >
                         <div className="flex items-center gap-1">
                           {col.label}
@@ -709,7 +711,7 @@ const ContabilidadPage: React.FC = () => {
                               ? sortDirComp === 'asc'
                                 ? <ChevronUp className="w-3 h-3 text-emerald-500" />
                                 : <ChevronDown className="w-3 h-3 text-emerald-500" />
-                              : <ChevronsUpDown className="w-3 h-3 text-slate-300" />
+                              : <ChevronsUpDown className="w-3 h-3 text-slate-500" />
                           )}
                         </div>
                       </th>
@@ -723,27 +725,27 @@ const ContabilidadPage: React.FC = () => {
                     ))
                   ) : sortedOdpsCompletadas.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="text-center py-12 text-slate-400 font-bold">
-                        <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-slate-200" />
+                      <td colSpan={12} className="text-center py-12 text-slate-700">
+                        <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-slate-300" />
                         {filterBusquedaCompletado ? 'Sin resultados para la búsqueda.' : 'No hay procesos completados aún.'}
                       </td>
                     </tr>
                   ) : sortedOdpsCompletadas.map(odp => (
                     <tr key={odp.id} className="hover:bg-emerald-50/40 transition-colors">
                       <td className="px-4 py-4 font-bold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => setFichaOdpId(odp.id)}>{odp.numero_odp}</td>
-                      <td className="px-4 py-4 text-slate-500 text-xs whitespace-nowrap">
+                      <td className="px-4 py-4 text-slate-800 text-xs whitespace-nowrap">
                         <div className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3 text-slate-400" />
+                          <Calendar className="w-3 h-3 text-slate-500" />
                           {fmtFecha(odp.fecha_creacion)}
                         </div>
                       </td>
-                      <td className="px-4 py-4 font-semibold text-slate-800 max-w-[320px] truncate" title={odp.cliente?.nombre_razon_social}>
+                      <td className="px-4 py-4 font-semibold text-slate-900 max-w-[320px] truncate" title={odp.cliente?.nombre_razon_social}>
                         {odp.cliente?.nombre_razon_social || '—'}
                       </td>
-                      <td className="px-4 py-4 text-slate-600 text-xs whitespace-nowrap">{odp.asesor?.nombre_completo || '—'}</td>
+                      <td className="px-4 py-4 text-slate-800 text-xs whitespace-nowrap">{odp.asesor?.nombre_completo || '—'}</td>
                       <td className="px-4 py-4">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${getEstadoODP(odp.estado_produccion).badge}`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap ${getEstadoODP(odp.estado_produccion).badge}`}
                           title={getEstadoODP(odp.estado_produccion).descripcion}
                         >
                           {getEstadoODP(odp.estado_produccion).label}
@@ -752,24 +754,24 @@ const ContabilidadPage: React.FC = () => {
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-1.5">
                           <div>
-                            <span className="font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 text-xs">
+                            <span className="font-mono text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-xs whitespace-nowrap">
                               FE-{odp.factura_electronica}
                             </span>
                             {odp.fecha_factura && (
-                              <p className="text-xs text-slate-400 mt-0.5">{fmtFecha(odp.fecha_factura)}</p>
+                              <p className="text-xs text-slate-700 mt-0.5 whitespace-nowrap">{fmtFecha(odp.fecha_factura)}</p>
                             )}
                           </div>
                           <button onClick={() => abrirFeModal(odp)} title="Editar factura"
-                            className="ml-1 p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition">
+                            className="ml-1 p-1 rounded text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 transition">
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
-                      <td className="px-4 py-4 font-bold text-slate-700 whitespace-nowrap">
+                      <td className="px-4 py-4 font-bold text-slate-900 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
-                          {Number(odp.valor_total) > 0 ? fmt(Number(odp.valor_total)) : <span className="text-slate-400 text-xs italic">—</span>}
+                          {Number(odp.valor_total) > 0 ? fmt(Number(odp.valor_total)) : <span className="text-slate-500 text-xs italic">—</span>}
                           <button onClick={() => abrirEditTotal(odp)} title="Editar monto total"
-                            className="p-1 rounded text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 transition">
+                            className="p-1 rounded text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 transition">
                             <Pencil className="w-3" />
                           </button>
                         </div>
@@ -778,22 +780,22 @@ const ContabilidadPage: React.FC = () => {
                       <td className="px-4 py-4 whitespace-nowrap">
                         {(() => {
                           const pend = calcPendiente(odp);
-                          return <span className={`font-bold text-sm ${pend > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{fmt(pend)}</span>;
+                          return <span className={`font-bold text-sm ${pend > 0 ? 'text-rose-700' : 'text-slate-500'}`}>{fmt(pend)}</span>;
                         })()}
                       </td>
                       <td className="px-4 py-4">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap bg-emerald-100 text-emerald-800 border border-emerald-300">
                           <CheckCircle2 className="w-3 h-3" /> Cancelado
                         </span>
                       </td>
                       <td className="px-4 py-4">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap bg-emerald-100 text-emerald-800 border border-emerald-300">
                           <FileCheck className="w-3 h-3" /> Facturada
                         </span>
                       </td>
                       <td className="px-4 py-4">
                         <button onClick={() => setFichaOdpId(odp.id)} title="Ver ficha"
-                          className="p-1.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition">
+                          className="p-1.5 rounded text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 transition">
                           <FileCheck className="w-4 h-4" />
                         </button>
                       </td>
@@ -813,16 +815,16 @@ const ContabilidadPage: React.FC = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
               </div>
             ) : carteraDetalle.length === 0 ? (
-              <div className="py-16 text-center text-slate-400">
+              <div className="py-16 text-center text-slate-700">
                 <TrendingDown className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="font-bold text-emerald-600">Sin cartera vencida</p>
+                <p className="font-semibold text-emerald-700">Sin cartera vencida</p>
                 <p className="text-sm mt-1">Todas las cuentas están al día</p>
               </div>
             ) : (
               <>
                 <div className="flex items-center justify-between mb-4">
-                  <p className="text-sm text-slate-500">{carteraDetalle.length} ODP{carteraDetalle.length !== 1 ? 's' : ''} con saldo vencido</p>
-                  <span className="text-base font-extrabold text-rose-600">{carteraVencida}</span>
+                  <p className="text-sm text-slate-700">{carteraDetalle.length} ODP{carteraDetalle.length !== 1 ? 's' : ''} con saldo vencido</p>
+                  <span className="text-base font-extrabold text-rose-700">{carteraVencida}</span>
                 </div>
                 <div className="space-y-3">
                   {carteraDetalle.map((item: any, i: number) => (
@@ -830,24 +832,24 @@ const ContabilidadPage: React.FC = () => {
                       <div className="flex items-center gap-3">
                         <div className="w-2 h-10 bg-rose-400 rounded-full flex-shrink-0" />
                         <div>
-                          <p className="text-sm font-bold text-slate-800">{item.odp}</p>
-                          <p className="text-xs text-slate-600 font-medium">{item.cliente}</p>
+                          <p className="text-sm font-bold text-slate-900">{item.odp}</p>
+                          <p className="text-xs text-slate-800">{item.cliente}</p>
                           {item.asesor && (
-                            <p className="text-xs text-indigo-600 font-semibold">
+                            <p className="text-xs text-indigo-700">
                               Asesor: {item.asesor}
                             </p>
                           )}
                           {item.fecha_creacion && (
-                            <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                            <p className="text-xs text-slate-700 flex items-center gap-1 mt-0.5">
                               <Calendar className="w-3 h-3" /> Creada: {fmtFecha(item.fecha_creacion)}
                             </p>
                           )}
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-extrabold text-rose-600">{item.pendiente}</p>
-                        <p className="text-xs text-rose-400 font-semibold">Vencido hace {item.dias_vencido} días</p>
-                        <p className="text-xs text-slate-400 capitalize">{item.tipo_vencimiento === 'credito' ? 'Por crédito vencido' : 'Por fecha entrega'}</p>
+                        <p className="text-sm font-extrabold text-rose-700">{item.pendiente}</p>
+                        <p className="text-xs text-rose-700">Vencido hace {item.dias_vencido} días</p>
+                        <p className="text-xs text-slate-700 capitalize">{item.tipo_vencimiento === 'credito' ? 'Por crédito vencido' : 'Por fecha entrega'}</p>
                       </div>
                     </div>
                   ))}
@@ -861,17 +863,17 @@ const ContabilidadPage: React.FC = () => {
         {tab === 'oa' && canSeeOA && (
           <div>
             <div className="flex gap-3 flex-wrap items-center px-5 py-3 border-b border-slate-100 bg-slate-50/50">
-              <span className="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-blue-800 uppercase tracking-wider flex items-center gap-1.5">
                 <FileCheck className="w-3.5 h-3.5" /> Órdenes Azules (OA) — sin facturación
               </span>
               <div className="relative ml-auto">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Buscar ODP, cliente, asesor..."
                   value={busquedaOA}
                   onChange={e => setBusquedaOA(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 w-64"
+                  className="pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-500 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 w-64"
                 />
               </div>
             </div>
@@ -880,7 +882,7 @@ const ContabilidadPage: React.FC = () => {
                 <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                   <tr>
                     {['ODP', 'Fecha Creación', 'Cliente', 'Asesor', 'Est. Taller', 'Facturación', 'Monto Total', 'Abonado', 'Pendiente', 'Estado Caja', ''].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -899,7 +901,7 @@ const ContabilidadPage: React.FC = () => {
                         )
                       : odpsOA;
                     if (lista.length === 0) return (
-                      <tr><td colSpan={11} className="text-center py-12 text-slate-400 font-bold">
+                      <tr><td colSpan={11} className="text-center py-12 text-slate-700">
                         {q ? 'Sin resultados.' : 'No hay Órdenes Azules registradas.'}
                       </td></tr>
                     );
@@ -908,41 +910,41 @@ const ContabilidadPage: React.FC = () => {
                       <td className="px-4 py-4 font-bold text-indigo-700 whitespace-nowrap cursor-pointer hover:underline" onClick={() => setFichaOdpId(odp.id)}>
                         {odp.numero_odp}
                       </td>
-                      <td className="px-4 py-4 text-slate-500 text-xs whitespace-nowrap">
+                      <td className="px-4 py-4 text-slate-800 text-xs whitespace-nowrap">
                         <div className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3 text-slate-400" />
+                          <Calendar className="w-3 h-3 text-slate-500" />
                           {fmtFecha(odp.fecha_creacion)}
                         </div>
                       </td>
-                      <td className="px-4 py-4 font-semibold text-slate-800 max-w-[280px] truncate" title={odp.cliente?.nombre_razon_social}>
+                      <td className="px-4 py-4 font-semibold text-slate-900 max-w-[280px] truncate" title={odp.cliente?.nombre_razon_social}>
                         {odp.cliente?.nombre_razon_social || '—'}
                       </td>
-                      <td className="px-4 py-4 text-slate-600 text-xs whitespace-nowrap">{odp.asesor?.nombre_completo || '—'}</td>
+                      <td className="px-4 py-4 text-slate-800 text-xs whitespace-nowrap">{odp.asesor?.nombre_completo || '—'}</td>
                       <td className="px-4 py-4">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${getEstadoODP(odp.estado_produccion).badge}`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap ${getEstadoODP(odp.estado_produccion).badge}`}
                           title={getEstadoODP(odp.estado_produccion).descripcion}
                         >
                           {getEstadoODP(odp.estado_produccion).label}
                         </span>
                       </td>
                       <td className="px-4 py-4">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap bg-blue-100 text-blue-800 border border-blue-200">
                           <FileCheck className="w-3 h-3" /> NO APLICA
                         </span>
                       </td>
-                      <td className="px-4 py-4 font-bold text-slate-700 whitespace-nowrap">
-                        {Number(odp.valor_total) > 0 ? fmt(Number(odp.valor_total)) : <span className="text-slate-400 text-xs italic">—</span>}
+                      <td className="px-4 py-4 font-bold text-slate-900 whitespace-nowrap">
+                        {Number(odp.valor_total) > 0 ? fmt(Number(odp.valor_total)) : <span className="text-slate-500 text-xs italic">—</span>}
                       </td>
                       <td className="px-4 py-4 font-bold text-emerald-700 whitespace-nowrap">{fmt(Number(odp.abono) || 0)}</td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         {(() => {
                           const pend = calcPendiente(odp);
-                          return <span className={`font-bold text-sm ${pend > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{fmt(pend)}</span>;
+                          return <span className={`font-bold text-sm ${pend > 0 ? 'text-rose-700' : 'text-slate-500'}`}>{fmt(pend)}</span>;
                         })()}
                       </td>
                       <td className="px-4 py-4">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-bold border ${
+                        <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-semibold border whitespace-nowrap ${
                           odp.estado_caja === 'CANCELADO'        ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
                           odp.estado_caja === 'ABONADO'          ? 'bg-blue-100 text-blue-800 border-blue-300' :
                           odp.estado_caja === 'CREDITO_APROBADO' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
@@ -957,7 +959,7 @@ const ContabilidadPage: React.FC = () => {
                         {canPayOA && odp.estado_caja !== 'CANCELADO' && (
                           <button
                             onClick={() => abrirAbonoDeODP(odp)}
-                            className="text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-all flex items-center gap-1 whitespace-nowrap"
+                            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-all flex items-center gap-1 whitespace-nowrap"
                           >
                             <Banknote className="w-3.5 h-3.5" /> Registrar Abono
                           </button>
@@ -1007,30 +1009,30 @@ const ContabilidadPage: React.FC = () => {
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
             className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
             <div className="flex justify-between items-center px-6 py-5 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3">
                 <div className="p-2 bg-indigo-50 rounded-lg">
                   <Calculator className="w-5 h-5 text-indigo-600" />
                 </div>
                 Modificar Monto ODP
               </h2>
-              <button onClick={() => setShowEditTotalModal(false)} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 transition">
+              <button onClick={() => setShowEditTotalModal(false)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleEditTotalSubmit} className="p-6 space-y-5">
               <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">ODP Seleccionada</p>
-                <p className="text-sm font-bold text-slate-800">{editTotalTarget.numero_odp} — {editTotalTarget.cliente?.nombre_razon_social}</p>
+                <p className="text-xs font-semibold text-slate-900 uppercase tracking-widest mb-1">ODP Seleccionada</p>
+                <p className="text-sm text-slate-800">{editTotalTarget.numero_odp} — {editTotalTarget.cliente?.nombre_razon_social}</p>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Nuevo Valor Total (COP) *</label>
+                <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">Nuevo Valor Total (COP) *</label>
                 <input type="text" inputMode="numeric" value={newTotal} onChange={e => setNewTotal(formatMiles(e.target.value))} required
                   className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm" />
-                <p className="text-[10px] text-slate-400 mt-2 italic px-1">Este cambio afectará el cálculo del saldo pendiente de la orden.</p>
+                <p className="text-[11px] text-slate-600 mt-2 italic px-1">Este cambio afectará el cálculo del saldo pendiente de la orden.</p>
               </div>
               <div className="flex gap-4 pt-4">
                 <button type="button" onClick={() => setShowEditTotalModal(false)}
-                  className="flex-1 py-3.5 font-bold text-slate-600 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition shadow-sm">Cancelar</button>
+                  className="flex-1 py-3.5 font-semibold text-slate-800 bg-white border border-slate-300 rounded-2xl hover:bg-slate-50 transition shadow-sm">Cancelar</button>
                 <button type="submit" disabled={submittingTotal}
                   className="flex-1 py-3.5 font-bold text-white bg-indigo-600 rounded-2xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 disabled:opacity-50">
                   {submittingTotal ? 'Guardando...' : 'Actualizar Monto'}

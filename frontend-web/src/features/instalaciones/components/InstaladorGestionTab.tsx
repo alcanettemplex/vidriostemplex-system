@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import {
   MapPin, Calendar, Truck, Users, PauseCircle, AlertTriangle,
   Plus, Pencil, Trash2, RefreshCw, UserCheck,
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 import ProgramarRutaModal from './ProgramarRutaModal';
 import ODPFichaModal from '../../odp/components/ODPFichaModal';
 
@@ -20,7 +20,7 @@ const ESTADO_ODP_LABEL: Record<string, string> = {
 };
 
 const ESTADO_ODP_CLS: Record<string, string> = {
-  pendiente:  'bg-slate-100 text-slate-600',
+  pendiente:  'bg-slate-100 text-slate-800',
   en_curso:   'bg-amber-100 text-amber-700',
   pausada:    'bg-violet-100 text-violet-700',
   con_dano:   'bg-orange-100 text-orange-700',
@@ -52,15 +52,15 @@ const ODPCard: React.FC<{
       {/* Fila superior: ODP + estado + ruta */}
       <div className="flex items-center gap-2 flex-wrap">
         <span
-          className="font-bold text-slate-800 text-sm hover:text-indigo-600 cursor-pointer hover:underline underline-offset-2"
+          className="font-bold text-slate-900 text-sm hover:text-indigo-600 cursor-pointer hover:underline underline-offset-2"
           onClick={() => odp?.id && onVerODP?.(odp.id)}
         >
           {odp?.numero_odp}
         </span>
-        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${ESTADO_ODP_CLS[ro.estado] ?? 'bg-slate-100 text-slate-500'}`}>
+        <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase ${ESTADO_ODP_CLS[ro.estado] ?? 'bg-slate-100 text-slate-700'}`}>
           {ESTADO_ODP_LABEL[ro.estado] ?? ro.estado}
         </span>
-        <span className="text-[10px] text-slate-400 ml-auto">
+        <span className="text-[11px] text-slate-700 ml-auto">
           Ruta #{ruta?.id} · {ruta?.estado === 'programada' ? 'Programada' : ruta?.estado === 'en_curso' ? 'En curso' : ruta?.estado}
         </span>
       </div>
@@ -69,7 +69,7 @@ const ODPCard: React.FC<{
       <div>
         <p className="text-sm text-slate-700 font-medium">{odp?.cliente?.nombre_razon_social}</p>
         {odp?.direccion_instalacion && (
-          <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+          <p className="text-xs text-slate-700 flex items-center gap-1 mt-0.5">
             <MapPin className="w-3 h-3 flex-shrink-0" />
             {odp.direccion_instalacion}
           </p>
@@ -77,7 +77,7 @@ const ODPCard: React.FC<{
       </div>
 
       {/* Metadata: fecha + vehículo */}
-      <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+      <div className="flex flex-wrap gap-3 text-xs text-slate-700">
         {ro.fecha_programada && (
           <span className="flex items-center gap-1">
             <Calendar className="w-3 h-3" />
@@ -116,7 +116,7 @@ const ODPCard: React.FC<{
 
       {/* Paradas totales en la ruta */}
       {ruta?.ruta_odps && (
-        <p className="text-[10px] text-slate-400">
+        <p className="text-[11px] text-slate-700">
           Ruta #{ruta.id} tiene {ruta.ruta_odps?.length ?? 1} parada(s) — editar afecta a todas
         </p>
       )}
@@ -166,10 +166,10 @@ const Seccion: React.FC<{
   <div className="space-y-3">
     <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-widest ${color}`}>
       <span>{titulo}</span>
-      <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-bold">{items.length}</span>
+      <span className="px-2 py-0.5 bg-slate-100 text-slate-900 rounded-full font-bold">{items.length}</span>
     </div>
     {items.length === 0
-      ? <p className="text-xs text-slate-400 py-3 text-center">{emptyMsg}</p>
+      ? <p className="text-xs text-slate-700 py-3 text-center">{emptyMsg}</p>
       : <div className="space-y-3">{items.map(ro => children(ro))}</div>
     }
   </div>
@@ -290,7 +290,7 @@ const InstaladorGestionTab: React.FC = () => {
 
   if (instaladores.length === 0) {
     return (
-      <div className="py-16 text-center text-slate-400 text-sm">
+      <div className="py-16 text-center text-slate-700 text-sm">
         No hay instaladores registrados en el sistema.
       </div>
     );
@@ -309,7 +309,7 @@ const InstaladorGestionTab: React.FC = () => {
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition-all ${
                 activo
                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                  : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                  : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
               }`}
             >
               <UserCheck className="w-3.5 h-3.5" />
@@ -327,7 +327,7 @@ const InstaladorGestionTab: React.FC = () => {
       {/* Acciones del instalador seleccionado */}
       {instaladorId && (
         <div className="flex items-center justify-between">
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-700">
             {instaladores.find(i => i.id === instaladorId)?.nombre_completo} — vista de carga actual
           </p>
           <div className="flex gap-2">
@@ -373,7 +373,7 @@ const InstaladorGestionTab: React.FC = () => {
           </Seccion>
 
           {asignacion.length === 0 && (
-            <div className="py-10 text-center text-slate-400 text-sm">
+            <div className="py-10 text-center text-slate-700 text-sm">
               Este instalador no tiene ODPs activas asignadas.
             </div>
           )}
@@ -413,12 +413,12 @@ const InstaladorGestionTab: React.FC = () => {
                 <PauseCircle className="w-5 h-5 text-violet-600" />
               </div>
               <div>
-                <p className="font-bold text-slate-800 text-sm">Pausar instalación</p>
-                <p className="text-xs text-slate-400">{pauseModal.numeroOdp} — La ODP volverá a "Listo para instalar"</p>
+                <p className="font-bold text-slate-900 text-sm">Pausar instalación</p>
+                <p className="text-xs text-slate-700">{pauseModal.numeroOdp} — La ODP volverá a "Listo para instalar"</p>
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Motivo *</label>
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-900 mb-1">Motivo *</label>
               <textarea
                 rows={3}
                 value={pauseMotivo}
@@ -428,7 +428,7 @@ const InstaladorGestionTab: React.FC = () => {
               />
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setPauseModal(null)} className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-semibold text-sm rounded-xl hover:bg-slate-200 transition">
+              <button onClick={() => setPauseModal(null)} className="flex-1 py-2.5 bg-slate-100 text-slate-900 font-semibold text-sm rounded-xl hover:bg-slate-200 transition">
                 Cancelar
               </button>
               <button onClick={handleConfirmarPausa} className="flex-1 py-2.5 bg-violet-600 text-white font-semibold text-sm rounded-xl hover:bg-violet-700 transition shadow-sm">

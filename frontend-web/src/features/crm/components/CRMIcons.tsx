@@ -10,8 +10,8 @@ interface IconProps { size?: number; className?: string; }
 // ── Estilos de animación globales (inyectados una sola vez) ───────────────────
 const ANIM_STYLE = `
 @keyframes crm-pulse-ring {
-  0%, 100% { transform: scale(1); opacity: 0.6; }
-  50% { transform: scale(1.15); opacity: 0.15; }
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.08); opacity: 0.45; }
 }
 @keyframes crm-spin-slow {
   from { transform: rotate(0deg); }
@@ -22,9 +22,9 @@ const ANIM_STYLE = `
   50% { transform: translateY(-3px); }
 }
 @keyframes crm-wave {
-  0% { transform: scaleY(0.4); }
+  0% { transform: scaleY(0.7); }
   50% { transform: scaleY(1); }
-  100% { transform: scaleY(0.4); }
+  100% { transform: scaleY(0.7); }
 }
 @keyframes crm-dash {
   from { stroke-dashoffset: 40; }
@@ -40,8 +40,8 @@ const ANIM_STYLE = `
 }
 @keyframes crm-coin-flip {
   0%, 100% { transform: scaleX(1); }
-  45%, 55% { transform: scaleX(0.1); }
-  50% { transform: scaleX(0.1) scaleY(0.9); }
+  45%, 55% { transform: scaleX(0.35); }
+  50% { transform: scaleX(0.35) scaleY(0.95); }
 }
 @keyframes crm-check-draw {
   from { stroke-dashoffset: 20; opacity: 0; }
@@ -126,10 +126,10 @@ export const IconDollar: React.FC<IconProps> = ({ size = 24, className = '' }) =
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
       <g style={{ animation: 'crm-coin-flip 3s ease-in-out infinite 1s', transformOrigin: '12px 12px' }}>
-        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.3"/>
-        <circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15"/>
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.75" fill="none" opacity="0.75"/>
+        <circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.18"/>
       </g>
-      <text x="12" y="16" textAnchor="middle" fontSize="11" fontWeight="bold" fill="currentColor">$</text>
+      <text x="12" y="16" textAnchor="middle" fontSize="13" fontWeight="bold" fill="currentColor">$</text>
       {/* Destellos */}
       <circle cx="16" cy="8" r="1" fill="currentColor" opacity="0.4"
         style={{ animation: 'crm-pulse-ring 2s ease-in-out infinite 0.5s' }}/>
@@ -166,8 +166,8 @@ export const IconTarget: React.FC<IconProps> = ({ size = 24, className = '' }) =
   useAnimStyles();
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.3"/>
-      <circle cx="12" cy="12" r="6" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.5"/>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.75" fill="none" opacity="0.55"/>
+      <circle cx="12" cy="12" r="6" stroke="currentColor" strokeWidth="1.75" fill="none" opacity="0.8"/>
       <circle cx="12" cy="12" r="3" fill="currentColor" opacity="0.9"
         style={{ animation: 'crm-pulse-ring 1.8s ease-in-out infinite' }}/>
       {/* Línea de radar */}
@@ -206,12 +206,12 @@ export const IconGlobe: React.FC<IconProps> = ({ size = 24, className = '' }) =>
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.8"/>
       {/* Líneas de longitud animadas */}
-      <ellipse cx="12" cy="12" rx="4" ry="9" stroke="currentColor" strokeWidth="1" fill="none" opacity="0.5"
+      <ellipse cx="12" cy="12" rx="4" ry="9" stroke="currentColor" strokeWidth="1.25" fill="none" opacity="0.8"
         strokeDasharray="30"
         style={{ animation: 'crm-globe-spin 4s linear infinite', transformOrigin: '12px 12px' }}/>
-      <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" strokeWidth="1" opacity="0.4"/>
-      <line x1="4.5" y1="7" x2="19.5" y2="7" stroke="currentColor" strokeWidth="1" opacity="0.3"/>
-      <line x1="4.5" y1="17" x2="19.5" y2="17" stroke="currentColor" strokeWidth="1" opacity="0.3"/>
+      <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" strokeWidth="1.25" opacity="0.65"/>
+      <line x1="4.5" y1="7" x2="19.5" y2="7" stroke="currentColor" strokeWidth="1.25" opacity="0.5"/>
+      <line x1="4.5" y1="17" x2="19.5" y2="17" stroke="currentColor" strokeWidth="1.25" opacity="0.5"/>
     </svg>
   );
 };

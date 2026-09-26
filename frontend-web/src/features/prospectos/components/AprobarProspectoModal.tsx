@@ -7,7 +7,7 @@ import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import {
   X, CheckCircle2, Plus, Briefcase, DollarSign, Package, Building2, UserCheck, Search, Loader2,
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 import { motion } from 'framer-motion';
 import { getClientesCached, getCatalogoCached } from '../../../services/listasCache';
 
@@ -228,13 +228,13 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
         {/* Header */}
         <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-100 flex justify-between items-center flex-shrink-0 rounded-t-2xl">
           <div>
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-green-600" />
               Aprobar Prospecto — Generar ODP
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">{prospecto.numero_prospecto} · {contacto}</p>
+            <p className="text-xs text-slate-700 mt-0.5">{prospecto.numero_prospecto} · {contacto}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -259,7 +259,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                     type="button"
                     onClick={() => setTipoCliente('existente')}
                     className={`py-2.5 text-sm font-bold rounded-xl border transition flex items-center justify-center gap-2 ${
-                      tipoCliente === 'existente' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      tipoCliente === 'existente' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50'
                     }`}
                   >
                     <UserCheck className="w-4 h-4" /> Cliente existente
@@ -268,7 +268,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                     type="button"
                     onClick={() => { setTipoCliente('nuevo'); setClienteId(''); setClienteSeleccionadoObj(null); setClienteBusqueda(''); }}
                     className={`py-2.5 text-sm font-bold rounded-xl border transition flex items-center justify-center gap-2 ${
-                      tipoCliente === 'nuevo' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      tipoCliente === 'nuevo' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50'
                     }`}
                   >
                     <Building2 className="w-4 h-4" /> Crear cliente nuevo
@@ -279,7 +279,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                 {tipoCliente === 'existente' && (
                   <div className="space-y-2">
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                       <input
                         type="text"
                         value={dropdownClienteAbierto ? clienteBusqueda : (clienteSeleccionado?.nombre_razon_social || clienteBusqueda)}
@@ -288,7 +288,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                         placeholder="Buscar cliente..."
                         className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
                       />
-                      {clientesBuscando && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin" />}
+                      {clientesBuscando && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700 animate-spin" />}
                       {dropdownClienteAbierto && (
                         <>
                           <div className="fixed inset-0 z-10" onClick={() => setDropdownClienteAbierto(false)} />
@@ -306,10 +306,10 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-amber-50 hover:text-amber-700 transition-colors"
                               >
                                 <span className="block font-medium">{c.nombre_razon_social}</span>
-                                {c.numero_documento && <span className="block text-xs text-slate-400">{c.numero_documento}</span>}
+                                {c.numero_documento && <span className="block text-xs text-slate-700">{c.numero_documento}</span>}
                               </button>
                             )) : (
-                              <p className="px-4 py-3 text-sm text-slate-400 text-center">
+                              <p className="px-4 py-3 text-sm text-slate-700 text-center">
                                 {clienteBusqueda.trim().length >= 2 ? 'Sin resultados' : 'Escribe al menos 2 caracteres'}
                               </p>
                             )}
@@ -318,7 +318,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                       )}
                     </div>
                     {clienteSeleccionado && (
-                      <div className="p-2.5 bg-white border border-amber-100 rounded-lg text-xs text-slate-600 space-y-0.5">
+                      <div className="p-2.5 bg-white border border-amber-100 rounded-lg text-xs text-slate-800 space-y-0.5">
                         {(clienteSeleccionado.telefono || clienteSeleccionado.celular) && (
                           <p>📞 {clienteSeleccionado.telefono || clienteSeleccionado.celular}</p>
                         )}
@@ -348,7 +348,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                 {tipoCliente === 'nuevo' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">
+                      <label className="block text-xs font-semibold text-slate-900 mb-1 uppercase tracking-wider">
                         Razón social / Nombre <span className="text-red-400">*</span>
                       </label>
                       <input
@@ -359,7 +359,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Tipo doc.</label>
+                      <label className="block text-xs font-semibold text-slate-900 mb-1 uppercase tracking-wider">Tipo doc.</label>
                       <select
                         value={nuevoCliente.tipo_documento}
                         onChange={e => setNC('tipo_documento', e.target.value)}
@@ -372,7 +372,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">
+                      <label className="block text-xs font-semibold text-slate-900 mb-1 uppercase tracking-wider">
                         Número doc. <span className="text-red-400">*</span>
                       </label>
                       <input
@@ -383,7 +383,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Teléfono</label>
+                      <label className="block text-xs font-semibold text-slate-900 mb-1 uppercase tracking-wider">Teléfono</label>
                       <input
                         value={nuevoCliente.telefono}
                         onChange={e => setNC('telefono', e.target.value)}
@@ -392,7 +392,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Email</label>
+                      <label className="block text-xs font-semibold text-slate-900 mb-1 uppercase tracking-wider">Email</label>
                       <input
                         value={nuevoCliente.email}
                         onChange={e => setNC('email', e.target.value)}
@@ -401,7 +401,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">
+                      <label className="block text-xs font-semibold text-slate-900 mb-1 uppercase tracking-wider">
                         ¿Cómo nos contactó? <span className="text-red-400">*</span>
                       </label>
                       <select
@@ -414,7 +414,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                       </select>
                     </div>
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Dirección fiscal</label>
+                      <label className="block text-xs font-semibold text-slate-900 mb-1 uppercase tracking-wider">Dirección fiscal</label>
                       <input
                         value={nuevoCliente.direccion}
                         onChange={e => setNC('direccion', e.target.value)}
@@ -450,19 +450,19 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
             {!esContactoNuevo && (
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                 <div className="flex items-start gap-3">
-                  <Building2 className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                  <Building2 className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-xs font-bold text-slate-600">Cliente: {prospecto.cliente?.nombre_razon_social}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs font-bold text-slate-900">Cliente: {prospecto.cliente?.nombre_razon_social}</p>
+                    <p className="text-xs text-slate-700 mt-0.5">
                       Contacto instalación: {tm?.contacto_obra || prospecto.nombre_contacto || '—'} · {tm?.telefono_obra || prospecto.telefono_contacto || '—'}
                     </p>
                     {(tm?.direccion || prospecto.direccion) && (
-                      <p className="text-xs text-slate-400 mt-0.5">📍 {tm?.direccion || prospecto.direccion}</p>
+                      <p className="text-xs text-slate-700 mt-0.5">📍 {tm?.direccion || prospecto.direccion}</p>
                     )}
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Cargo del contacto</label>
+                  <label className="block text-xs font-semibold text-slate-900 mb-1 uppercase tracking-wider">Cargo del contacto</label>
                   <input
                     value={cargoRecibe}
                     onChange={e => setCargoRecibe(e.target.value)}
@@ -518,7 +518,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                 <label className="block text-sm font-medium text-slate-700 mb-1">{esOA ? 'Valor Total de la Obra (sin IVA)' : 'Valor Total de la Obra (con IVA)'}</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <DollarSign className="w-4 h-4 text-slate-400" />
+                    <DollarSign className="w-4 h-4 text-slate-500" />
                   </div>
                   <input
                     type="number"
@@ -530,10 +530,10 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                 </div>
                 {!esOA && Number(valorTotalRaw) > 0 && (
                   <div className="mt-2 p-2.5 bg-blue-50 border border-blue-100 rounded-lg text-xs space-y-0.5">
-                    <div className="flex justify-between text-slate-600">
+                    <div className="flex justify-between text-slate-800">
                       <span>Subtotal (sin IVA):</span><span className="font-semibold">{fmtCOP(subtotal)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-600">
+                    <div className="flex justify-between text-slate-800">
                       <span>IVA 19%:</span><span className="font-semibold">{fmtCOP(ivaValor)}</span>
                     </div>
                     <div className="flex justify-between text-blue-800 font-bold border-t border-blue-200 pt-1 mt-1">
@@ -541,7 +541,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                     </div>
                   </div>
                 )}
-                {esOA && <p className="text-xs text-slate-400 mt-1">Esta orden no aplica IVA.</p>}
+                {esOA && <p className="text-xs text-slate-700 mt-1">Esta orden no aplica IVA.</p>}
               </div>
             </div>
 
@@ -570,12 +570,12 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                     </button>
                   )}
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Cant. *</label>
+                    <label className="block text-xs font-semibold text-slate-900 mb-1">Cant. *</label>
                     <input type="number" {...register(`servicios_detalle.${index}.cantidad`)} min="1"
                       className={`w-full p-2.5 bg-slate-50 border ${errors.servicios_detalle?.[index]?.cantidad ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:bg-white`} />
                   </div>
                   <div className="md:col-span-4">
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Servicio/Gestión *</label>
+                    <label className="block text-xs font-semibold text-slate-900 mb-1">Servicio/Gestión *</label>
                     <select {...register(`servicios_detalle.${index}.tipo_servicio`)}
                       className={`w-full p-2.5 bg-slate-50 border ${errors.servicios_detalle?.[index]?.tipo_servicio ? 'border-red-400' : 'border-slate-200'} rounded-lg focus:bg-white`}>
                       <option value="Suministro e Instalación">Suministro e Instalación</option>
@@ -587,7 +587,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                     </select>
                   </div>
                   <div className="md:col-span-6 space-y-2">
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Descripción del Producto/Obra *</label>
+                    <label className="block text-xs font-semibold text-slate-900 mb-1">Descripción del Producto/Obra *</label>
                     {catalogo.length > 0 && (
                       <div className="flex gap-2">
                         <select value={catSeleccionada[index] || ''} onChange={e => setCatSeleccionada(prev => ({ ...prev, [index]: e.target.value }))}
@@ -620,7 +620,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
             {/* Requerimientos adicionales + Pedido externo */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
-                <h3 className="font-bold text-slate-800 text-sm uppercase">Requerimientos Adicionales</h3>
+                <h3 className="font-bold text-slate-900 text-sm uppercase">Requerimientos Adicionales</h3>
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { key: 'matizado', label: 'Matizado' },
@@ -646,12 +646,12 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
               </div>
 
               <div className="bg-orange-50/50 p-5 rounded-xl border border-orange-200/50 space-y-4">
-                <h3 className="font-bold text-slate-800 text-sm uppercase flex items-center gap-2">
+                <h3 className="font-bold text-slate-900 text-sm uppercase flex items-center gap-2">
                   <Package className="w-4 h-4 text-orange-500" /> Pedido Externo (Vidrio)
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Proveedor</label>
+                    <label className="block text-xs font-semibold text-slate-900 mb-1">Proveedor</label>
                     <select {...register('proveedor_vidrio')} className="w-full text-sm p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500">
                       <option value="">Seleccionar...</option>
                       <option value="Vitelsa">Vitelsa</option>
@@ -662,11 +662,11 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
                   </div>
                   {proveedorVidrio && (
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Núm. Pedido PV (auto)</label>
+                      <label className="block text-xs font-semibold text-slate-900 mb-1">Núm. Pedido PV (auto)</label>
                       <div className="w-full text-sm p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-slate-700 font-mono font-bold">
                         {siguienteNumeroPV ?? '...'}
                       </div>
-                      <p className="text-xs text-slate-400 mt-1">Se asigna automáticamente al crear la ODP</p>
+                      <p className="text-xs text-slate-700 mt-1">Se asigna automáticamente al crear la ODP</p>
                     </div>
                   )}
                 </div>
@@ -696,7 +696,7 @@ const AprobarProspectoModal: React.FC<Props> = ({ prospecto, onClose, onAprobado
           {/* Footer */}
           <div className="sticky bottom-0 bg-white border-t border-slate-100 px-6 py-4 flex gap-3 flex-shrink-0 rounded-b-2xl">
             <button type="button" onClick={onClose}
-              className="flex-1 py-3 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm">
+              className="flex-1 py-3 font-bold text-slate-900 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm">
               Cancelar
             </button>
             <button type="submit" disabled={isSubmitting}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { X, Building2, User, Ruler, Loader2 } from 'lucide-react';
+import { X, Building2, User, Ruler, Loader2 } from '../../../components/ui/icons';
 import { getClientesCached } from '../../../services/listasCache';
 
 import API from '../../../services/config';
@@ -130,12 +130,12 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200">
         <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100">
           <div>
-            <h2 className="text-lg font-bold text-slate-800">{prospecto ? 'Editar Prospecto' : modoTM ? 'Nueva Solicitud de Toma de Medidas' : 'Nuevo Prospecto'}</h2>
+            <h2 className="text-lg font-bold text-slate-900">{prospecto ? 'Editar Prospecto' : modoTM ? 'Nueva Solicitud de Toma de Medidas' : 'Nuevo Prospecto'}</h2>
             {modoTM && !prospecto && (
               <p className="text-xs text-amber-600 mt-0.5">Se creará el prospecto y se generará la TM automáticamente</p>
             )}
           </div>
-          <button onClick={onClose}><X className="w-5 h-5 text-slate-400" /></button>
+          <button onClick={onClose}><X className="w-5 h-5 text-slate-500" /></button>
         </div>
 
         <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
@@ -153,13 +153,13 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
 
           {/* Tipo de contacto */}
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tipo de contacto</p>
+            <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-2">Tipo de contacto</p>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => { setTipo('nuevo'); setContactoDiferente(false); }}
                 className={`py-2.5 text-sm font-bold rounded-xl border transition flex items-center justify-center gap-2 ${
-                  tipo === 'nuevo' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  tipo === 'nuevo' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <User className="w-4 h-4" /> Contacto nuevo
@@ -168,7 +168,7 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
                 type="button"
                 onClick={() => setTipo('existente')}
                 className={`py-2.5 text-sm font-bold rounded-xl border transition flex items-center justify-center gap-2 ${
-                  tipo === 'existente' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  tipo === 'existente' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50'
                 }`}
               >
                 <Building2 className="w-4 h-4" /> Cliente existente
@@ -179,11 +179,11 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
           {/* ── CONTACTO NUEVO ── */}
           {tipo === 'nuevo' && (
             <div className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
-              <p className="text-xs text-slate-500 italic">
+              <p className="text-xs text-slate-700 italic">
                 El cliente se definirá al momento de aprobar el prospecto.
               </p>
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">
                   Nombre contacto <span className="text-red-400">*</span>
                 </label>
                 <input
@@ -195,7 +195,7 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Teléfono</label>
+                  <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">Teléfono</label>
                   <input
                     value={form.telefono_contacto}
                     onChange={e => set('telefono_contacto', e.target.value)}
@@ -204,7 +204,7 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Email</label>
+                  <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">Email</label>
                   <input
                     value={form.email_contacto}
                     onChange={e => set('email_contacto', e.target.value)}
@@ -220,7 +220,7 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
           {tipo === 'existente' && (
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">
                   Cliente <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
@@ -237,7 +237,7 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
                       <div className="fixed inset-0 z-10" onClick={() => setDropdownAbierto(false)} />
                       <div className="absolute top-full mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg z-20 max-h-52 overflow-y-auto">
                         {clientesBuscando ? (
-                          <p className="px-4 py-3 text-sm text-slate-400 text-center flex items-center justify-center gap-2">
+                          <p className="px-4 py-3 text-sm text-slate-700 text-center flex items-center justify-center gap-2">
                             <Loader2 className="w-4 h-4 animate-spin" /> Buscando...
                           </p>
                         ) : clientes.length > 0 ? clientes.map(c => (
@@ -248,10 +248,10 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
                               className="w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
                             >
                               <span className="block font-medium">{c.nombre_razon_social}</span>
-                              {c.numero_documento && <span className="block text-xs text-slate-400">{c.numero_documento}</span>}
+                              {c.numero_documento && <span className="block text-xs text-slate-700">{c.numero_documento}</span>}
                             </button>
                         )) : (
-                          <p className="px-4 py-3 text-sm text-slate-400 text-center">
+                          <p className="px-4 py-3 text-sm text-slate-700 text-center">
                             {clienteBusqueda.trim().length >= 2 ? 'Sin resultados' : 'Escribe al menos 2 caracteres'}
                           </p>
                         )}
@@ -306,7 +306,7 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
               {contactoDiferente && (
                 <div className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">
                       Nombre contacto en obra <span className="text-red-400">*</span>
                     </label>
                     <input
@@ -318,7 +318,7 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Teléfono</label>
+                      <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">Teléfono</label>
                       <input
                         value={form.telefono_contacto}
                         onChange={e => set('telefono_contacto', e.target.value)}
@@ -327,7 +327,7 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Email</label>
+                      <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">Email</label>
                       <input
                         value={form.email_contacto}
                         onChange={e => set('email_contacto', e.target.value)}
@@ -343,7 +343,7 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
 
           {/* Dirección del proyecto — siempre */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Dirección del proyecto</label>
+            <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">Dirección del proyecto</label>
             <input
               value={form.direccion}
               onChange={e => set('direccion', e.target.value)}
@@ -354,7 +354,7 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
 
           {/* Descripción — siempre */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+            <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">
               Descripción del proyecto <span className="text-red-400">*</span>
             </label>
             <textarea
@@ -368,7 +368,7 @@ const ProspectoModal: React.FC<Props> = ({ prospecto, onClose, onSaved, modoTM }
         </div>
 
         <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
-          <button onClick={onClose} className="flex-1 py-3 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm">
+          <button onClick={onClose} className="flex-1 py-3 font-bold text-slate-900 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm">
             Cancelar
           </button>
           <button onClick={handleSubmit} disabled={loading}

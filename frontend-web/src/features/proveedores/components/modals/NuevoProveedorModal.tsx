@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Building2, Loader2 } from 'lucide-react';
+import { X, Building2, Loader2 } from '../../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
 import { RADIUS, FONT } from '../../styleTokens';
@@ -57,8 +57,8 @@ const NuevoProveedorModal: React.FC<Props> = ({ onClose, onCreado }) => {
     borderRadius: RADIUS.lg, color: 'var(--text)', fontSize: FONT.md, outline: 'none',
   };
   const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: FONT.sm, color: 'var(--text-muted)',
-    fontWeight: 700, marginBottom: 5, letterSpacing: .4,
+    display: 'block', fontSize: FONT.sm, color: 'var(--text)',
+    fontWeight: 600, marginBottom: 5, letterSpacing: .4,
   };
 
   return (
@@ -85,7 +85,7 @@ const NuevoProveedorModal: React.FC<Props> = ({ onClose, onCreado }) => {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Building2 size={20} color="var(--primary)" />
-              <span style={{ fontWeight: 700, fontSize: FONT.xl }}>Nuevo Proveedor</span>
+              <span style={{ fontWeight: 700, fontSize: FONT.xl, color: 'var(--text)' }}>Nuevo Proveedor</span>
             </div>
             <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
               <X size={20} />
@@ -120,7 +120,7 @@ const NuevoProveedorModal: React.FC<Props> = ({ onClose, onCreado }) => {
                   placeholder="Ej: 830036921"
                   style={{ ...inputStyle, fontFamily: 'monospace' }} />
                 {!form.nit.trim() && (
-                  <div style={{ fontSize: FONT.xs, color: '#f59e0b', marginTop: 4 }}>
+                  <div style={{ fontSize: FONT.xs, color: '#b45309', marginTop: 4 }}>
                     ⚠ Sin NIT no habrá match automático con el XML DIAN
                   </div>
                 )}

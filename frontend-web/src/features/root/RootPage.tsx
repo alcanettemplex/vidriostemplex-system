@@ -6,7 +6,7 @@ import {
   Upload, RotateCcw, Trash2, ChevronRight, Cpu,
   Wifi, WifiOff, Clock, BarChart2, Lock, X, ExternalLink,
   TrendingUp, Package, FileText
-} from 'lucide-react';
+} from '../../components/ui/icons';
 import { invalidarCatalogo } from '../../services/listasCache';
 
 import API from '../../services/config';
@@ -22,13 +22,13 @@ const GaugeBar: React.FC<{ pct: number; label: string; detail?: string }> = ({ p
   return (
     <div>
       <div className="flex justify-between mb-1">
-        <span className="text-xs font-semibold text-slate-600">{label}</span>
+        <span className="text-xs font-semibold text-slate-900">{label}</span>
         <span className="text-xs font-bold text-slate-800">{pct}%</span>
       </div>
       <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${Math.min(pct, 100)}%` }} />
       </div>
-      {detail && <p className="text-[11px] text-slate-400 mt-0.5">{detail}</p>}
+      {detail && <p className="text-[11px] text-slate-700 mt-0.5">{detail}</p>}
     </div>
   );
 };
@@ -41,7 +41,7 @@ const StatusBadge: React.FC<{ status: 'online' | 'offline' | 'slow' }> = ({ stat
   };
   const s = map[status];
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-extrabold ${s.bg}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-semibold whitespace-nowrap ${s.bg}`}>
       {s.icon} {s.label}
     </span>
   );
@@ -89,8 +89,8 @@ const RootPage: React.FC = () => {
           <Shield className="w-7 h-7 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Panel ROOT</h1>
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Control total del sistema</p>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Panel ROOT</h1>
+          <p className="text-xs font-semibold text-slate-700 uppercase tracking-widest">Control total del sistema</p>
         </div>
       </div>
 
@@ -104,13 +104,13 @@ const RootPage: React.FC = () => {
             null;
           return (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`relative flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg transition ${
-                tab === t.id ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'
+              className={`relative flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition ${
+                tab === t.id ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-700 hover:text-slate-900'
               }`}
             >
               <Icon className="w-3.5 h-3.5" /> {t.label}
               {badge !== null && (
-                <span className={`absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center text-[9px] font-extrabold rounded-full text-white ${
+                <span className={`absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center text-[11px] font-extrabold rounded-full text-white ${
                   t.id === 'diagnostico' ? 'bg-red-500' : 'bg-amber-500'
                 }`}>{badge > 9 ? '9+' : badge}</span>
               )}
@@ -140,7 +140,7 @@ const RootPage: React.FC = () => {
 };
 
 // ─── Tab Monitoreo ────────────────────────────────────────────────────────────
-const CRON_COLORS = { ok: 'text-emerald-700 bg-emerald-50 border-emerald-200', error: 'text-red-700 bg-red-50 border-red-200', sin_ejecutar: 'text-slate-600 bg-slate-50 border-slate-200' } as const;
+const CRON_COLORS = { ok: 'text-emerald-700 bg-emerald-50 border-emerald-200', error: 'text-red-700 bg-red-50 border-red-200', sin_ejecutar: 'text-slate-800 bg-slate-50 border-slate-200' } as const;
 const CRON_LABELS = { ok: 'OK', error: 'ERROR', sin_ejecutar: 'Sin ejecutar' } as const;
 
 const MonBadge: React.FC<{ n: number; warn?: number; crit?: number }> = ({ n, warn = 1, crit = 5 }) => {
@@ -151,7 +151,7 @@ const MonBadge: React.FC<{ n: number; warn?: number; crit?: number }> = ({ n, wa
 const SectionHeader: React.FC<{ icon: React.ReactNode; title: string }> = ({ icon, title }) => (
   <div className="flex items-center gap-2 mb-3">
     <span className="text-slate-500">{icon}</span>
-    <h3 className="text-sm font-bold text-slate-700">{title}</h3>
+    <h3 className="text-sm font-bold text-slate-900">{title}</h3>
   </div>
 );
 
@@ -174,7 +174,7 @@ const TabMonitoreo: React.FC = () => {
   const ExpandBtn = ({ k, total, n = 6 }: { k: string; total: number; n?: number }) => {
     if (!total || total <= n) return null;
     return (
-      <button onClick={() => toggle(k)} className="mt-2 flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+      <button onClick={() => toggle(k)} className="mt-2 flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:text-indigo-800">
         {exp[k]
           ? <><ChevronRight className="w-3 h-3 rotate-90 transition-transform" /> Colapsar</>
           : <><ChevronRight className="w-3 h-3 transition-transform" /> Ver todos ({total})</>}
@@ -193,8 +193,8 @@ const TabMonitoreo: React.FC = () => {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  if (loading) return <div className="text-center py-16 text-slate-400 animate-pulse font-semibold">Cargando monitoreo...</div>;
-  if (error || !data) return <div className="text-red-500 p-4">{error || 'Sin datos'}</div>;
+  if (loading) return <div className="text-center py-16 text-slate-600 animate-pulse">Cargando monitoreo...</div>;
+  if (error || !data) return <div className="text-red-700 p-4">{error || 'Sin datos'}</div>;
 
   const fmt = (iso: string | null) => iso ? new Date(iso).toLocaleString('es-CO', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
   const fmtCur = (v: any) => v != null ? `$${Number(v).toLocaleString('es-CO', { minimumFractionDigits: 0 })}` : '—';
@@ -203,42 +203,42 @@ const TabMonitoreo: React.FC = () => {
     <div className="space-y-6">
       {/* Botón refrescar */}
       <div className="flex justify-end">
-        <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:underline">
+        <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:underline">
           <RefreshCw className="w-3.5 h-3.5" /> Actualizar · {fmt(data.generado_en)}
         </button>
       </div>
 
       {/* ── SISTEMA EN TIEMPO REAL ─────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5">
         <SectionHeader icon={<Cpu className="w-4 h-4" />} title="Sistema en tiempo real" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className={`rounded-lg border p-4 ${CRON_COLORS[data.cron_pv?.resultado as keyof typeof CRON_COLORS]}`}>
             <p className="text-xs font-bold mb-1 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Cron PV (8am diario)</p>
-            <p className="text-xl font-black">{CRON_LABELS[data.cron_pv?.resultado as keyof typeof CRON_LABELS]}</p>
+            <p className="text-xl font-extrabold">{CRON_LABELS[data.cron_pv?.resultado as keyof typeof CRON_LABELS]}</p>
             <p className="text-[11px] mt-1">Última: {fmt(data.cron_pv?.ultima_ejecucion)}</p>
             {data.cron_pv?.resultado === 'ok' && <p className="text-[11px]">{data.cron_pv?.alertas_enviadas} alerta(s) enviadas</p>}
             {data.cron_pv?.error_mensaje && <p className="text-[11px] font-semibold mt-1">{data.cron_pv.error_mensaje}</p>}
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-bold text-slate-600 mb-1 flex items-center gap-1.5"><Wifi className="w-3.5 h-3.5" /> Clientes WebSocket</p>
-            <p className="text-3xl font-black text-slate-800">{data.ws_activos ?? '—'}</p>
-            <p className="text-[11px] text-slate-400 mt-1">conexiones activas ahora</p>
+            <p className="text-xs font-semibold text-slate-900 mb-1 flex items-center gap-1.5"><Wifi className="w-3.5 h-3.5" /> Clientes WebSocket</p>
+            <p className="text-3xl font-extrabold text-slate-900">{data.ws_activos ?? '—'}</p>
+            <p className="text-[11px] text-slate-700 mt-1">conexiones activas ahora</p>
           </div>
           <div className={`rounded-lg border p-4 ${data.rate_limit?.total_24h > 0 ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
-            <p className="text-xs font-bold text-slate-600 mb-1 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Rate limit hits (24h)</p>
-            <p className={`text-3xl font-black ${data.rate_limit?.total_24h > 0 ? 'text-amber-700' : 'text-slate-800'}`}>{data.rate_limit?.total_24h ?? 0}</p>
-            <p className="text-[11px] text-slate-500 mt-1">login: {data.rate_limit?.auth_hits ?? 0} · IPs bloqueadas: {data.rate_limit?.top_ips?.length ?? 0}</p>
+            <p className="text-xs font-semibold text-slate-900 mb-1 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Rate limit hits (24h)</p>
+            <p className={`text-3xl font-extrabold ${data.rate_limit?.total_24h > 0 ? 'text-amber-700' : 'text-slate-800'}`}>{data.rate_limit?.total_24h ?? 0}</p>
+            <p className="text-[11px] text-slate-700 mt-1">login: {data.rate_limit?.auth_hits ?? 0} · IPs bloqueadas: {data.rate_limit?.top_ips?.length ?? 0}</p>
           </div>
         </div>
       </div>
 
       {/* ── BASE DE DATOS ──────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5">
         <SectionHeader icon={<Database className="w-4 h-4" />} title="Base de datos" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {data.auditoria_stats && (
             <div>
-              <p className="text-xs font-bold text-slate-600 mb-2">Auditoría — crecimiento</p>
+              <p className="text-xs font-semibold text-slate-900 mb-2">Auditoría — crecimiento</p>
               <div className="grid grid-cols-3 gap-2 mb-3">
                 {[
                   { label: 'Total', val: Number(data.auditoria_stats.total).toLocaleString() },
@@ -246,8 +246,8 @@ const TabMonitoreo: React.FC = () => {
                   { label: 'Últimos 7d', val: data.auditoria_stats.ultimos_7d },
                 ].map(({ label, val }) => (
                   <div key={label} className="bg-slate-50 rounded-lg p-2 text-center">
-                    <p className="text-base font-black text-slate-800">{val}</p>
-                    <p className="text-[10px] text-slate-400">{label}</p>
+                    <p className="text-base font-extrabold text-slate-900">{val}</p>
+                    <p className="text-[11px] text-slate-700">{label}</p>
                   </div>
                 ))}
               </div>
@@ -258,22 +258,22 @@ const TabMonitoreo: React.FC = () => {
                   { label: 'DELETE', val: data.auditoria_stats.deletes, color: 'text-red-700' },
                 ].map(({ label, val, color }) => (
                   <div key={label} className="bg-slate-50 rounded-lg p-2 text-center">
-                    <p className={`text-base font-black ${color}`}>{val}</p>
-                    <p className="text-[10px] text-slate-400">{label}</p>
+                    <p className={`text-base font-extrabold ${color}`}>{val}</p>
+                    <p className="text-[11px] text-slate-700">{label}</p>
                   </div>
                 ))}
               </div>
             </div>
           )}
           <div>
-            <p className="text-xs font-bold text-slate-600 mb-2">Tablas más pesadas</p>
+            <p className="text-xs font-semibold text-slate-900 mb-2">Tablas más pesadas</p>
             <div className="space-y-1">
               {data.tablas_grandes?.map((t: any) => (
                 <div key={t.tablename} className="flex items-center justify-between text-xs">
-                  <span className="text-slate-700 font-medium truncate max-w-[140px]">{t.tablename}</span>
-                  <div className="flex items-center gap-2 text-slate-400">
+                  <span className="text-slate-900 font-medium truncate max-w-[140px]">{t.tablename}</span>
+                  <div className="flex items-center gap-2 text-slate-700">
                     <span>{Number(t.filas_estimadas).toLocaleString()} filas</span>
-                    <span className="font-semibold text-slate-600">{t.size_pretty}</span>
+                    <span className="font-semibold text-slate-800">{t.size_pretty}</span>
                   </div>
                 </div>
               ))}
@@ -283,22 +283,22 @@ const TabMonitoreo: React.FC = () => {
       </div>
 
       {/* ── OPERATIVO ─────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5">
         <SectionHeader icon={<Activity className="w-4 h-4" />} title="Operativo" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
           {/* ODPs atascadas */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs font-bold text-slate-600">ODPs atascadas (&gt;7 días sin cambio)</p>
+              <p className="text-xs font-semibold text-slate-900">ODPs atascadas (&gt;7 días sin cambio)</p>
               <MonBadge n={data.odps_atascadas?.count ?? 0} warn={1} crit={5} />
             </div>
             {data.odps_atascadas?.count === 0 ? <EmptyState msg="Ninguna ODP atascada" /> : (<>
               <div className="space-y-1">
                 {vis(data.odps_atascadas?.registros, 'odps_atascadas').map((o: any) => (
                   <div key={o.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
-                    <span className="font-semibold text-slate-700 w-24 shrink-0">{o.numero_odp}</span>
-                    <span className="text-slate-500 truncate flex-1 mx-1">{o.estado_produccion}</span>
+                    <span className="font-semibold text-slate-900 w-24 shrink-0">{o.numero_odp}</span>
+                    <span className="text-slate-700 truncate flex-1 mx-1">{o.estado_produccion}</span>
                     <span className="text-amber-700 font-bold shrink-0">{o.dias_sin_cambio}d</span>
                   </div>
                 ))}
@@ -310,15 +310,15 @@ const TabMonitoreo: React.FC = () => {
           {/* SAPs sin ODC */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs font-bold text-slate-600">SAPs sin ODC generada</p>
+              <p className="text-xs font-semibold text-slate-900">SAPs sin ODC generada</p>
               <MonBadge n={data.saps_sin_odc?.count ?? 0} warn={1} crit={3} />
             </div>
             {data.saps_sin_odc?.count === 0 ? <EmptyState msg="Todos los SAPs tienen ODC" /> : (<>
               <div className="space-y-1">
                 {vis(data.saps_sin_odc?.registros, 'saps_sin_odc').map((s: any) => (
                   <div key={s.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
-                    <span className="font-semibold text-slate-700 w-24 shrink-0">{s.numero_sap}</span>
-                    <span className="text-slate-500 truncate flex-1 mx-1">{s.cliente}</span>
+                    <span className="font-semibold text-slate-900 w-24 shrink-0">{s.numero_sap}</span>
+                    <span className="text-slate-700 truncate flex-1 mx-1">{s.cliente}</span>
                     <span className="text-amber-700 font-bold shrink-0">{s.dias_sin_odc}d</span>
                   </div>
                 ))}
@@ -329,14 +329,14 @@ const TabMonitoreo: React.FC = () => {
 
           {/* PedidoPV por estado */}
           <div>
-            <p className="text-xs font-bold text-slate-600 mb-2">PedidoPV activos por estado</p>
+            <p className="text-xs font-semibold text-slate-900 mb-2">PedidoPV activos por estado</p>
             {!data.pedido_pv_estados?.length ? <EmptyState msg="Sin pedidos PV activos" /> : (
               <div className="flex flex-wrap gap-2">
                 {data.pedido_pv_estados.map((pv: any) => (
                   <div key={pv.estado} className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-center">
-                    <p className="text-base font-black text-indigo-700">{pv.total}</p>
-                    <p className="text-[10px] text-slate-500 font-semibold">{pv.estado}</p>
-                    <p className="text-[10px] text-slate-400">más antiguo: {pv.dias_mas_antiguo}d</p>
+                    <p className="text-base font-extrabold text-indigo-700">{pv.total}</p>
+                    <p className="text-[11px] text-slate-700 font-semibold">{pv.estado}</p>
+                    <p className="text-[11px] text-slate-700">más antiguo: {pv.dias_mas_antiguo}d</p>
                   </div>
                 ))}
               </div>
@@ -346,16 +346,16 @@ const TabMonitoreo: React.FC = () => {
           {/* ODPs sin evidencias */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs font-bold text-slate-600">ODPs sin evidencias fotográficas</p>
+              <p className="text-xs font-semibold text-slate-900">ODPs sin evidencias fotográficas</p>
               <MonBadge n={data.odps_sin_evidencias?.count ?? 0} warn={1} crit={5} />
             </div>
             {data.odps_sin_evidencias?.count === 0 ? <EmptyState msg="Todas las ODPs tienen evidencias" /> : (<>
               <div className="space-y-1">
                 {vis(data.odps_sin_evidencias?.registros, 'odps_sin_evidencias').map((o: any) => (
                   <div key={o.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
-                    <span className="font-semibold text-slate-700 w-24 shrink-0">{o.numero_odp}</span>
-                    <span className="text-slate-500 truncate flex-1 mx-1">{o.cliente}</span>
-                    <span className={`font-bold shrink-0 ${o.estado_produccion === 'ENTREGADA' ? 'text-red-600' : 'text-amber-600'}`}>{o.estado_produccion}</span>
+                    <span className="font-semibold text-slate-900 w-24 shrink-0">{o.numero_odp}</span>
+                    <span className="text-slate-700 truncate flex-1 mx-1">{o.cliente}</span>
+                    <span className={`font-bold shrink-0 ${o.estado_produccion === 'ENTREGADA' ? 'text-red-700' : 'text-amber-700'}`}>{o.estado_produccion}</span>
                   </div>
                 ))}
               </div>
@@ -366,14 +366,14 @@ const TabMonitoreo: React.FC = () => {
       </div>
 
       {/* ── COMERCIAL ─────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5">
         <SectionHeader icon={<FileText className="w-4 h-4" />} title="Comercial" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
           {/* Cotizaciones pendientes */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs font-bold text-slate-600">Cotizaciones sin respuesta (&gt;30d)</p>
+              <p className="text-xs font-semibold text-slate-900">Cotizaciones sin respuesta (&gt;30d)</p>
               <MonBadge n={data.cotizaciones_pendientes?.count ?? 0} warn={1} crit={5} />
             </div>
             {data.cotizaciones_pendientes?.count === 0 ? <EmptyState msg="Sin cotizaciones pendientes" /> : (<>
@@ -381,10 +381,10 @@ const TabMonitoreo: React.FC = () => {
                 {vis(data.cotizaciones_pendientes?.registros, 'cotizaciones', 5).map((c: any) => (
                   <div key={c.id} className="text-xs bg-slate-50 rounded px-2 py-1">
                     <div className="flex justify-between">
-                      <span className="font-semibold text-slate-700">{c.numero_cot}</span>
+                      <span className="font-semibold text-slate-900">{c.numero_cot}</span>
                       <span className="text-amber-700 font-bold">{c.dias_pendiente}d</span>
                     </div>
-                    <p className="text-slate-400 truncate">{c.cliente} · {fmtCur(c.valor_total)}</p>
+                    <p className="text-slate-700 truncate">{c.cliente} · {fmtCur(c.valor_total)}</p>
                   </div>
                 ))}
               </div>
@@ -395,7 +395,7 @@ const TabMonitoreo: React.FC = () => {
           {/* Prospectos sin gestión */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs font-bold text-slate-600">Prospectos sin gestión (&gt;15d)</p>
+              <p className="text-xs font-semibold text-slate-900">Prospectos sin gestión (&gt;15d)</p>
               <MonBadge n={data.prospectos_sin_gestion?.count ?? 0} warn={1} crit={5} />
             </div>
             {data.prospectos_sin_gestion?.count === 0 ? <EmptyState msg="Todos los prospectos activos" /> : (<>
@@ -403,10 +403,10 @@ const TabMonitoreo: React.FC = () => {
                 {vis(data.prospectos_sin_gestion?.registros, 'prospectos', 5).map((p: any) => (
                   <div key={p.id} className="text-xs bg-slate-50 rounded px-2 py-1">
                     <div className="flex justify-between">
-                      <span className="font-semibold text-slate-700 truncate max-w-[120px]">{p.nombre_contacto || p.numero_prospecto}</span>
+                      <span className="font-semibold text-slate-900 truncate max-w-[120px]">{p.nombre_contacto || p.numero_prospecto}</span>
                       <span className="text-amber-700 font-bold">{p.dias_sin_actividad}d</span>
                     </div>
-                    <p className="text-slate-400">{p.asesor}</p>
+                    <p className="text-slate-700">{p.asesor}</p>
                   </div>
                 ))}
               </div>
@@ -417,7 +417,7 @@ const TabMonitoreo: React.FC = () => {
           {/* Cartera vencida */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs font-bold text-slate-600">Cartera vencida ENTREGADA (&gt;30d)</p>
+              <p className="text-xs font-semibold text-slate-900">Cartera vencida ENTREGADA (&gt;30d)</p>
               <MonBadge n={data.cartera_vencida?.count ?? 0} warn={1} crit={3} />
             </div>
             {data.cartera_vencida?.count === 0 ? <EmptyState msg="Sin cartera vencida" /> : (<>
@@ -425,10 +425,10 @@ const TabMonitoreo: React.FC = () => {
                 {vis(data.cartera_vencida?.registros, 'cartera', 5).map((o: any) => (
                   <div key={o.id} className="text-xs bg-slate-50 rounded px-2 py-1">
                     <div className="flex justify-between">
-                      <span className="font-semibold text-slate-700">{o.numero_odp}</span>
+                      <span className="font-semibold text-slate-900">{o.numero_odp}</span>
                       <span className="text-red-700 font-bold">{o.dias_sin_cobrar}d</span>
                     </div>
-                    <p className="text-slate-400 truncate">{o.cliente} · {fmtCur(o.pendiente ?? o.valor_total)}</p>
+                    <p className="text-slate-700 truncate">{o.cliente} · {fmtCur(o.pendiente ?? o.valor_total)}</p>
                   </div>
                 ))}
               </div>
@@ -439,14 +439,14 @@ const TabMonitoreo: React.FC = () => {
       </div>
 
       {/* ── INVENTARIO PERFILERÍA ─────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5">
         <SectionHeader icon={<Package className="w-4 h-4" />} title="Inventario perfilería — códigos con pocas piezas (&lt;5)" />
         {!data.inventario_bajo?.count ? <EmptyState msg="Todos los códigos tienen 5 o más piezas" /> : (<>
           <div className="flex flex-wrap gap-2">
             {vis(data.inventario_bajo?.registros, 'inventario', 16).map((inv: any) => (
               <div key={inv.codigo} className={`rounded-lg border px-3 py-2 text-center ${Number(inv.piezas) === 0 ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-                <p className={`text-base font-black ${Number(inv.piezas) === 0 ? 'text-red-700' : 'text-amber-700'}`}>{inv.piezas}</p>
-                <p className="text-[10px] text-slate-600 font-semibold">{inv.codigo}</p>
+                <p className={`text-base font-extrabold ${Number(inv.piezas) === 0 ? 'text-red-700' : 'text-amber-700'}`}>{inv.piezas}</p>
+                <p className="text-[11px] text-slate-900 font-semibold">{inv.codigo}</p>
               </div>
             ))}
           </div>
@@ -455,22 +455,22 @@ const TabMonitoreo: React.FC = () => {
       </div>
 
       {/* ── SEGURIDAD ─────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5">
         <SectionHeader icon={<Lock className="w-4 h-4" />} title="Seguridad" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
           {/* Login fallidos */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <p className="text-xs font-bold text-slate-600">Login fallidos (últimas 24h)</p>
+              <p className="text-xs font-semibold text-slate-900">Login fallidos (últimas 24h)</p>
               <MonBadge n={data.login_fallidos_24h?.count ?? 0} warn={1} crit={10} />
             </div>
             {data.login_fallidos_24h?.count === 0 ? <EmptyState msg="Sin intentos fallidos en 24h" /> : (<>
               <div className="space-y-1">
                 {vis(data.login_fallidos_24h?.registros, 'login_fallidos', 5).map((f: any, i: number) => (
                   <div key={i} className="flex items-center justify-between text-xs bg-red-50 rounded px-2 py-1">
-                    <span className="font-semibold text-slate-700 w-28 shrink-0">{f.ip}</span>
-                    <span className="text-slate-500 truncate flex-1 mx-1">{f.username_intentado || '—'}</span>
+                    <span className="font-semibold text-slate-900 w-28 shrink-0">{f.ip}</span>
+                    <span className="text-slate-700 truncate flex-1 mx-1">{f.username_intentado || '—'}</span>
                     <span className="text-red-700 font-bold shrink-0">{f.intentos}x</span>
                   </div>
                 ))}
@@ -481,17 +481,17 @@ const TabMonitoreo: React.FC = () => {
 
           {/* Actividad usuarios 24h */}
           <div>
-            <p className="text-xs font-bold text-slate-600 mb-2">
-              Actividad usuarios (24h) <span className="font-normal text-slate-400">— {data.actividad_24h?.length ?? 0} usuarios</span>
+            <p className="text-xs font-semibold text-slate-900 mb-2">
+              Actividad usuarios (24h) <span className="font-normal text-slate-700">— {data.actividad_24h?.length ?? 0} usuarios</span>
             </p>
             {!data.actividad_24h?.length ? (
-              <div className="text-xs text-slate-400 italic">Sin actividad en las últimas 24h</div>
+              <div className="text-xs text-slate-600 italic">Sin actividad en las últimas 24h</div>
             ) : (<>
               <div className="space-y-1">
                 {vis(data.actividad_24h, 'actividad', 5).map((u: any) => (
                   <div key={u.usuario_id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
-                    <span className="font-semibold text-slate-700 truncate max-w-[130px]">{u.nombre_completo}</span>
-                    <span className="text-slate-400">{u.rol}</span>
+                    <span className="font-semibold text-slate-900 truncate max-w-[130px]">{u.nombre_completo}</span>
+                    <span className="text-slate-700">{u.rol}</span>
                     <span className="text-indigo-700 font-bold">{u.operaciones} ops</span>
                   </div>
                 ))}
@@ -524,7 +524,7 @@ const TabResumen: React.FC<{ setTab: (t: string) => void; alertCounts: { diagnos
     }).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="text-center py-16 text-slate-400 font-semibold animate-pulse">Cargando resumen del sistema...</div>;
+  if (loading) return <div className="text-center py-16 text-slate-600 animate-pulse">Cargando resumen del sistema...</div>;
 
   const serviciosOffline = svData?.servicios?.filter((s: any) => s.status !== 'online') || [];
   const totalAlertas = alertCounts.diagnostico_criticos + alertCounts.operativo_issues;
@@ -536,38 +536,38 @@ const TabResumen: React.FC<{ setTab: (t: string) => void; alertCounts: { diagnos
         <div className="bg-red-50 border border-red-200 rounded-xl p-4">
           <p className="text-sm font-bold text-red-700 mb-2 flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> {serviciosOffline.length} servicio(s) con problemas</p>
           {serviciosOffline.map((s: any) => (
-            <p key={s.name} className="text-xs text-red-600">• {s.name} — {s.status.toUpperCase()} ({s.responseMs}ms)</p>
+            <p key={s.name} className="text-xs text-red-700">• {s.name} — {s.status.toUpperCase()} ({s.responseMs}ms)</p>
           ))}
         </div>
       )}
 
       {/* Cards de KPI */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 cursor-pointer hover:shadow-md transition" onClick={() => setTab('supabase')}>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-4 cursor-pointer hover:shadow-card-hover transition" onClick={() => setTab('supabase')}>
           <Database className="w-5 h-5 text-indigo-500 mb-2" />
-          <p className="text-2xl font-black text-slate-800">{sbData?.db_pct ?? '—'}%</p>
-          <p className="text-xs text-slate-500 font-semibold">BD usada · {sbData?.db_size ?? '—'}</p>
+          <p className="text-2xl font-extrabold text-slate-900">{sbData?.db_pct ?? '—'}%</p>
+          <p className="text-xs text-slate-700 font-semibold">BD usada · {sbData?.db_size ?? '—'}</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 cursor-pointer hover:shadow-md transition" onClick={() => setTab('cloudinary')}>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-4 cursor-pointer hover:shadow-card-hover transition" onClick={() => setTab('cloudinary')}>
           <Cloud className="w-5 h-5 text-sky-500 mb-2" />
-          <p className="text-2xl font-black text-slate-800">{cdData?.storage?.pct ?? '—'}%</p>
-          <p className="text-xs text-slate-500 font-semibold">Storage · {cdData?.storage?.usado_gb ?? '—'} GB</p>
+          <p className="text-2xl font-extrabold text-slate-900">{cdData?.storage?.pct ?? '—'}%</p>
+          <p className="text-xs text-slate-700 font-semibold">Storage · {cdData?.storage?.usado_gb ?? '—'} GB</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 cursor-pointer hover:shadow-md transition" onClick={() => setTab('servicios')}>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-4 cursor-pointer hover:shadow-card-hover transition" onClick={() => setTab('servicios')}>
           <Activity className="w-5 h-5 text-emerald-500 mb-2" />
-          <p className="text-2xl font-black text-slate-800">{svData?.servicios?.filter((s: any) => s.status === 'online').length ?? '—'}/{svData?.servicios?.length ?? '—'}</p>
-          <p className="text-xs text-slate-500 font-semibold">Servicios online</p>
+          <p className="text-2xl font-extrabold text-slate-900">{svData?.servicios?.filter((s: any) => s.status === 'online').length ?? '—'}/{svData?.servicios?.length ?? '—'}</p>
+          <p className="text-xs text-slate-700 font-semibold">Servicios online</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 cursor-pointer hover:shadow-md transition" onClick={() => setTab('supabase')}>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-4 cursor-pointer hover:shadow-card-hover transition" onClick={() => setTab('supabase')}>
           <Cpu className="w-5 h-5 text-violet-500 mb-2" />
-          <p className="text-2xl font-black text-slate-800">{sbData?.conexiones?.total ?? '—'}</p>
-          <p className="text-xs text-slate-500 font-semibold">Conexiones BD activas</p>
+          <p className="text-2xl font-extrabold text-slate-900">{sbData?.conexiones?.total ?? '—'}</p>
+          <p className="text-xs text-slate-700 font-semibold">Conexiones BD activas</p>
         </div>
       </div>
 
       {/* Mini gauges */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
-        <h3 className="text-sm font-bold text-slate-700">Capacidad del sistema</h3>
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5 space-y-4">
+        <h3 className="text-sm font-bold text-slate-900">Capacidad del sistema</h3>
         {sbData && <GaugeBar pct={sbData.db_pct} label="Base de datos (Supabase)" detail={`${sbData.db_mb} MB / ${sbData.limites?.db_mb} MB`} />}
         {cdData && <GaugeBar pct={cdData.storage?.pct} label="Almacenamiento (Cloudinary)" detail={`${cdData.storage?.usado_gb} GB / ${cdData.storage?.limite_gb} GB`} />}
         {cdData && <GaugeBar pct={cdData.bandwidth?.pct} label="Ancho de banda (Cloudinary)" detail={`${cdData.bandwidth?.usado_gb} GB / ${cdData.bandwidth?.limite_gb} GB`} />}
@@ -575,8 +575,8 @@ const TabResumen: React.FC<{ setTab: (t: string) => void; alertCounts: { diagnos
       </div>
 
       {/* Alertas del Sistema (operativo) */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <h3 className="text-sm font-bold text-slate-700 mb-3">Alertas del Sistema</h3>
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5">
+        <h3 className="text-sm font-bold text-slate-900 mb-3">Alertas del Sistema</h3>
         {totalAlertas === 0 ? (
           <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
             <CheckCircle className="w-4 h-4 text-emerald-600" />
@@ -589,24 +589,24 @@ const TabResumen: React.FC<{ setTab: (t: string) => void; alertCounts: { diagnos
               className={`cursor-pointer rounded-xl border p-4 transition hover:shadow-md ${alertCounts.diagnostico_criticos > 0 ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'}`}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" /> Diagnóstico ODP</span>
+                <span className="text-xs font-semibold text-slate-900 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" /> Diagnóstico ODP</span>
                 {alertCounts.diagnostico_criticos > 0 && (
                   <span className="text-xs font-extrabold text-red-700 bg-red-100 px-2 py-0.5 rounded-full">{alertCounts.diagnostico_criticos} críticos</span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500">ODPs en LISTO_INSTALAR con inconsistencias de flujo</p>
+              <p className="text-[11px] text-slate-700">ODPs en LISTO_INSTALAR con inconsistencias de flujo</p>
             </div>
             <div
               onClick={() => setTab('operativo')}
               className={`cursor-pointer rounded-xl border p-4 transition hover:shadow-md ${alertCounts.operativo_issues > 0 ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5"><BarChart2 className="w-3.5 h-3.5" /> Resumen Operativo</span>
+                <span className="text-xs font-semibold text-slate-900 flex items-center gap-1.5"><BarChart2 className="w-3.5 h-3.5" /> Resumen Operativo</span>
                 {alertCounts.operativo_issues > 0 && (
                   <span className="text-xs font-extrabold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">{alertCounts.operativo_issues} issues</span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500">NC abiertas, PV en problema, créditos vencidos, rutas</p>
+              <p className="text-[11px] text-slate-700">NC abiertas, PV en problema, créditos vencidos, rutas</p>
             </div>
           </div>
         )}
@@ -615,16 +615,16 @@ const TabResumen: React.FC<{ setTab: (t: string) => void; alertCounts: { diagnos
       {/* Egress Supabase — Referencia Manual */}
       <div className="bg-white rounded-xl border border-amber-200 p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
             <Upload className="w-4 h-4 text-amber-500" />
             Egress Supabase
-            <span className="text-[10px] font-normal text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">referencia manual</span>
+            <span className="text-[11px] font-normal text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">referencia manual</span>
           </h3>
           <a
             href="https://supabase.com/dashboard"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-indigo-600 hover:underline flex items-center gap-1 font-semibold"
+            className="text-xs text-indigo-700 hover:underline flex items-center gap-1 font-semibold"
           >
             Ver en Supabase <ExternalLink className="w-3 h-3" />
           </a>
@@ -632,16 +632,16 @@ const TabResumen: React.FC<{ setTab: (t: string) => void; alertCounts: { diagnos
 
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-center">
-            <p className="text-xl font-black text-red-600">7.45 GB</p>
-            <p className="text-[11px] text-slate-500 font-medium">Registrado 23/05</p>
+            <p className="text-xl font-extrabold text-red-700">7.45 GB</p>
+            <p className="text-[11px] text-slate-700 font-medium">Registrado 23/05</p>
           </div>
           <div className="bg-slate-50 rounded-lg p-3 text-center">
-            <p className="text-xl font-black text-slate-700">5 GB</p>
-            <p className="text-[11px] text-slate-500 font-medium">Límite mensual</p>
+            <p className="text-xl font-extrabold text-slate-900">5 GB</p>
+            <p className="text-[11px] text-slate-700 font-medium">Límite mensual</p>
           </div>
           <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 text-center">
-            <p className="text-xl font-black text-emerald-700">~4.5 GB</p>
-            <p className="text-[11px] text-slate-500 font-medium">Proyectado Niv. 1+2</p>
+            <p className="text-xl font-extrabold text-emerald-700">~4.5 GB</p>
+            <p className="text-[11px] text-slate-700 font-medium">Proyectado Niv. 1+2</p>
           </div>
         </div>
 
@@ -650,8 +650,8 @@ const TabResumen: React.FC<{ setTab: (t: string) => void; alertCounts: { diagnos
             <Clock className="w-3.5 h-3.5" />
             Ciclo: 06 May – 06 Jun 2026 &nbsp;·&nbsp; Período de gracia hasta 20 Jun 2026
           </p>
-          <p className="text-[11px] text-slate-600">✅ Optimizaciones Nivel 1+2 aplicadas el 23/05/2026 — ~150 MB/día estimado</p>
-          <p className="text-[11px] text-slate-500">⚪ Nivel 3 pendiente: excluir ODPs ENTREGADA del GET /odp (~100 MB/día adicional)</p>
+          <p className="text-[11px] text-slate-800">✅ Optimizaciones Nivel 1+2 aplicadas el 23/05/2026 — ~150 MB/día estimado</p>
+          <p className="text-[11px] text-slate-700">⚪ Nivel 3 pendiente: excluir ODPs ENTREGADA del GET /odp (~100 MB/día adicional)</p>
         </div>
       </div>
     </div>
@@ -668,8 +668,8 @@ const TabSupabase: React.FC = () => {
       .then(r => r.json()).then(setData).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="text-center py-16 text-slate-400 animate-pulse">Cargando métricas...</div>;
-  if (!data || data.error) return <div className="text-red-500 p-4">{data?.error || 'Error al cargar'}</div>;
+  if (loading) return <div className="text-center py-16 text-slate-600 animate-pulse">Cargando métricas...</div>;
+  if (!data || data.error) return <div className="text-red-700 p-4">{data?.error || 'Error al cargar'}</div>;
 
   return (
     <div className="space-y-6">
@@ -680,30 +680,30 @@ const TabSupabase: React.FC = () => {
           { label: 'Tablas', val: data.tabla_count, sub: 'En esquema public' },
           { label: 'Conexiones activas', val: data.conexiones?.total, sub: `Límite: ${data.conexiones?.limite}` },
         ].map(c => (
-          <div key={c.label} className="bg-white rounded-xl border border-slate-200 p-4">
-            <p className="text-2xl font-black text-slate-800">{c.val}</p>
-            <p className="text-xs font-bold text-slate-500 mt-0.5">{c.label}</p>
-            <p className="text-[11px] text-slate-400">{c.sub}</p>
+          <div key={c.label} className="bg-white rounded-2xl border border-slate-200 shadow-card p-4">
+            <p className="text-2xl font-extrabold text-slate-900">{c.val}</p>
+            <p className="text-xs font-semibold text-slate-900 mt-0.5">{c.label}</p>
+            <p className="text-[11px] text-slate-700">{c.sub}</p>
           </div>
         ))}
       </div>
-      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5 space-y-3">
         <GaugeBar pct={data.db_pct} label="Almacenamiento BD" detail={`${data.db_mb} MB / ${data.limites?.db_mb} MB`} />
         <GaugeBar pct={data.conexiones?.pct} label="Conexiones" detail={`${data.conexiones?.total} activas / ${data.conexiones?.limite} máx`} />
       </div>
       {/* Detalle de conexiones */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100">
-          <h3 className="text-sm font-bold text-slate-700">
+          <h3 className="text-sm font-bold text-slate-900">
             Conexiones activas
-            <span className="ml-2 text-xs font-normal text-slate-400">
+            <span className="ml-2 text-xs font-normal text-slate-700">
               {data.conexiones?.activas} activas · {data.conexiones?.inactivas} idle
             </span>
           </h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-slate-50 text-slate-500">
+            <thead className="bg-slate-50 text-slate-900">
               <tr>
                 <th className="text-left px-4 py-2 font-semibold">PID</th>
                 <th className="text-left px-4 py-2 font-semibold">Aplicación</th>
@@ -716,27 +716,27 @@ const TabSupabase: React.FC = () => {
             </thead>
             <tbody>
               {data.conexiones?.detalle?.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-4 text-center text-slate-400">Sin conexiones</td></tr>
+                <tr><td colSpan={7} className="px-4 py-4 text-center text-slate-600">Sin conexiones</td></tr>
               )}
               {data.conexiones?.detalle?.map((c: any) => (
                 <tr key={c.pid} className="border-t border-slate-50 hover:bg-slate-50">
-                  <td className="px-4 py-1.5 font-mono text-slate-500">{c.pid}</td>
-                  <td className="px-4 py-1.5 text-slate-700 font-medium">{c.application_name}</td>
-                  <td className="px-4 py-1.5 text-slate-500">{c.usename}</td>
-                  <td className="px-4 py-1.5 font-mono text-slate-500">{c.client_addr}</td>
+                  <td className="px-4 py-1.5 font-mono text-slate-800">{c.pid}</td>
+                  <td className="px-4 py-1.5 text-slate-900 font-medium">{c.application_name}</td>
+                  <td className="px-4 py-1.5 text-slate-800">{c.usename}</td>
+                  <td className="px-4 py-1.5 font-mono text-slate-800">{c.client_addr}</td>
                   <td className="px-4 py-1.5 text-center">
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold ${
                       c.state === 'active'
                         ? 'bg-green-100 text-green-700'
                         : c.state === 'idle'
-                        ? 'bg-slate-100 text-slate-500'
+                        ? 'bg-slate-100 text-slate-700'
                         : 'bg-yellow-100 text-yellow-700'
                     }`}>
                       {c.state}
                     </span>
                   </td>
-                  <td className="px-4 py-1.5 font-mono text-slate-400">{c.query_start}</td>
-                  <td className="px-4 py-1.5 text-slate-400 max-w-[260px] truncate" title={c.ultima_query}>{c.ultima_query}</td>
+                  <td className="px-4 py-1.5 font-mono text-slate-700">{c.query_start}</td>
+                  <td className="px-4 py-1.5 text-slate-700 max-w-[260px] truncate" title={c.ultima_query}>{c.ultima_query}</td>
                 </tr>
               ))}
             </tbody>
@@ -747,11 +747,11 @@ const TabSupabase: React.FC = () => {
       {/* Tamaño por tabla */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-slate-700">Tamaño por tabla</h3>
+          <h3 className="text-sm font-bold text-slate-900">Tamaño por tabla</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-slate-50 text-slate-500">
+            <thead className="bg-slate-50 text-slate-900">
               <tr>
                 <th className="text-left px-4 py-2 font-semibold">Tabla</th>
                 <th className="text-right px-4 py-2 font-semibold">Tamaño</th>
@@ -762,8 +762,8 @@ const TabSupabase: React.FC = () => {
               {data.tablas?.map((t: any) => (
                 <tr key={t.tablename} className="border-t border-slate-50 hover:bg-slate-50">
                   <td className="px-4 py-2 font-medium text-slate-700">{t.tablename}</td>
-                  <td className="px-4 py-2 text-right text-slate-600">{t.size_pretty}</td>
-                  <td className="px-4 py-2 text-right text-slate-500">{t.column_count}</td>
+                  <td className="px-4 py-2 text-right text-slate-800">{t.size_pretty}</td>
+                  <td className="px-4 py-2 text-right text-slate-800">{t.column_count}</td>
                 </tr>
               ))}
             </tbody>
@@ -784,8 +784,8 @@ const TabCloudinary: React.FC = () => {
       .then(r => r.json()).then(setData).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="text-center py-16 text-slate-400 animate-pulse">Cargando métricas...</div>;
-  if (!data || data.error) return <div className="text-red-500 p-4">{data?.error || 'Error al cargar'}</div>;
+  if (loading) return <div className="text-center py-16 text-slate-600 animate-pulse">Cargando métricas...</div>;
+  if (!data || data.error) return <div className="text-red-700 p-4">{data?.error || 'Error al cargar'}</div>;
 
   return (
     <div className="space-y-6">
@@ -797,14 +797,14 @@ const TabCloudinary: React.FC = () => {
           { label: 'Transformaciones', val: data.transformaciones?.usadas, sub: `Límite: ${data.transformaciones?.limite}` },
           { label: 'Plan', val: data.plan || 'Free', sub: 'Cloudinary' },
         ].map(c => (
-          <div key={c.label} className="bg-white rounded-xl border border-slate-200 p-4">
-            <p className="text-2xl font-black text-slate-800">{c.val}</p>
-            <p className="text-xs font-bold text-slate-500 mt-0.5">{c.label}</p>
-            <p className="text-[11px] text-slate-400">{c.sub}</p>
+          <div key={c.label} className="bg-white rounded-2xl border border-slate-200 shadow-card p-4">
+            <p className="text-2xl font-extrabold text-slate-900">{c.val}</p>
+            <p className="text-xs font-semibold text-slate-900 mt-0.5">{c.label}</p>
+            <p className="text-[11px] text-slate-700">{c.sub}</p>
           </div>
         ))}
       </div>
-      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5 space-y-3">
         <GaugeBar pct={data.storage?.pct} label="Storage" detail={`${data.storage?.usado_gb} GB / ${data.storage?.limite_gb} GB`} />
         <GaugeBar pct={data.bandwidth?.pct} label="Ancho de banda" detail={`${data.bandwidth?.usado_gb} GB / ${data.bandwidth?.limite_gb} GB`} />
         <GaugeBar pct={data.transformaciones?.pct} label="Transformaciones" detail={`${data.transformaciones?.usadas} / ${data.transformaciones?.limite}`} />
@@ -829,34 +829,34 @@ const TabServicios: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-bold text-slate-600">Estado de servicios externos</h2>
-        <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition">
+        <h2 className="text-sm font-bold text-slate-900">Estado de servicios externos</h2>
+        <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-indigo-800 transition">
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Actualizar
         </button>
       </div>
       {loading ? (
-        <div className="text-center py-16 text-slate-400 animate-pulse">Verificando servicios...</div>
+        <div className="text-center py-16 text-slate-600 animate-pulse">Verificando servicios...</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {data?.servicios?.map((s: any) => (
-            <div key={s.name} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between">
+            <div key={s.name} className="bg-white rounded-2xl border border-slate-200 shadow-card p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {s.status === 'online' ? <Wifi className="w-4 h-4 text-emerald-500" /> : <WifiOff className="w-4 h-4 text-red-400" />}
                 <div>
-                  <p className="text-sm font-bold text-slate-700">{s.name}</p>
-                  <p className="text-[11px] text-slate-400 truncate max-w-[200px]">{s.url}</p>
+                  <p className="text-sm font-bold text-slate-900">{s.name}</p>
+                  <p className="text-[11px] text-slate-700 truncate max-w-[200px]">{s.url}</p>
                 </div>
               </div>
               <div className="text-right">
                 <StatusBadge status={s.status} />
-                <p className="text-[11px] text-slate-400 mt-1">{s.responseMs}ms</p>
+                <p className="text-[11px] text-slate-700 mt-1">{s.responseMs}ms</p>
               </div>
             </div>
           ))}
         </div>
       )}
       {data?.timestamp && (
-        <p className="text-[11px] text-slate-400 text-right flex items-center justify-end gap-1">
+        <p className="text-[11px] text-slate-700 text-right flex items-center justify-end gap-1">
           <Clock className="w-3 h-3" /> Última verificación: {new Date(data.timestamp).toLocaleString('es-CO')}
         </p>
       )}
@@ -899,7 +899,7 @@ const TabAuditoria: React.FC = () => {
     INSERT: 'bg-emerald-50 text-emerald-700',
     UPDATE: 'bg-amber-50 text-amber-700',
     DELETE: 'bg-red-50 text-red-700',
-  }[op] || 'bg-slate-100 text-slate-600');
+  }[op] || 'bg-slate-100 text-slate-800');
 
   return (
     <div className="space-y-4">
@@ -921,18 +921,18 @@ const TabAuditoria: React.FC = () => {
           <option value="UPDATE">UPDATE</option>
           <option value="DELETE">DELETE</option>
         </select>
-        <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+        <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-indigo-800">
           <RefreshCw className="w-3.5 h-3.5" /> Actualizar
         </button>
-        {data && <span className="text-xs text-slate-400 self-center">{data.total} registros</span>}
+        {data && <span className="text-xs text-slate-700 self-center">{data.total} registros</span>}
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-slate-400 animate-pulse">Cargando auditoría...</div>
+        <div className="text-center py-12 text-slate-600 animate-pulse">Cargando auditoría...</div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <table className="w-full text-xs">
-            <thead className="bg-slate-50 text-slate-500">
+            <thead className="bg-slate-50 text-slate-900">
               <tr>
                 <th className="text-left px-4 py-2.5 font-semibold">Fecha</th>
                 <th className="text-left px-4 py-2.5 font-semibold">Op</th>
@@ -947,14 +947,14 @@ const TabAuditoria: React.FC = () => {
               {data?.registros?.map((r: any) => (
                 <React.Fragment key={r.id}>
                   <tr className="border-t border-slate-50 hover:bg-slate-50 cursor-pointer" onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}>
-                    <td className="px-4 py-2 text-slate-500">{new Date(r.fecha).toLocaleString('es-CO')}</td>
+                    <td className="px-4 py-2 text-slate-800">{new Date(r.fecha).toLocaleString('es-CO')}</td>
                     <td className="px-4 py-2">
                       <span className={`px-1.5 py-0.5 rounded font-bold ${opColor(r.operacion)}`}>{r.operacion}</span>
                     </td>
-                    <td className="px-4 py-2 font-mono text-slate-600">{r.tabla}</td>
-                    <td className="px-4 py-2 text-slate-500">{r.registro_id}</td>
-                    <td className="px-4 py-2 text-slate-600">{r.usuario_nombre || r.usuario_id || '—'}</td>
-                    <td className="px-4 py-2 text-slate-400">{r.ip_address || '—'}</td>
+                    <td className="px-4 py-2 font-mono text-slate-800">{r.tabla}</td>
+                    <td className="px-4 py-2 text-slate-800">{r.registro_id}</td>
+                    <td className="px-4 py-2 text-slate-800">{r.usuario_nombre || r.usuario_id || '—'}</td>
+                    <td className="px-4 py-2 text-slate-700">{r.ip_address || '—'}</td>
                     <td className="px-4 py-2 flex items-center gap-2">
                       <button
                         onClick={e => { e.stopPropagation(); revertir(r.id); }}
@@ -964,7 +964,7 @@ const TabAuditoria: React.FC = () => {
                       >
                         <RotateCcw className="w-3 h-3" /> {reverting === r.id ? '...' : 'Revertir'}
                       </button>
-                      <ChevronRight className={`w-3.5 h-3.5 text-slate-300 transition ${expandedId === r.id ? 'rotate-90' : ''}`} />
+                      <ChevronRight className={`w-3.5 h-3.5 text-slate-500 transition ${expandedId === r.id ? 'rotate-90' : ''}`} />
                     </td>
                   </tr>
                   {expandedId === r.id && (
@@ -972,14 +972,14 @@ const TabAuditoria: React.FC = () => {
                       <td colSpan={7} className="px-4 py-3">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <p className="text-[11px] font-bold text-slate-500 mb-1">Datos anteriores</p>
-                            <pre className="text-[10px] bg-white border border-slate-200 rounded-lg p-2 overflow-auto max-h-40 text-slate-600">
+                            <p className="text-[11px] font-semibold text-slate-900 mb-1">Datos anteriores</p>
+                            <pre className="text-[11px] bg-white border border-slate-200 rounded-lg p-2 overflow-auto max-h-40 text-slate-800">
                               {r.datos_anteriores ? JSON.stringify(r.datos_anteriores, null, 2) : 'null'}
                             </pre>
                           </div>
                           <div>
-                            <p className="text-[11px] font-bold text-slate-500 mb-1">Datos nuevos</p>
-                            <pre className="text-[10px] bg-white border border-slate-200 rounded-lg p-2 overflow-auto max-h-40 text-slate-600">
+                            <p className="text-[11px] font-semibold text-slate-900 mb-1">Datos nuevos</p>
+                            <pre className="text-[11px] bg-white border border-slate-200 rounded-lg p-2 overflow-auto max-h-40 text-slate-800">
                               {r.datos_nuevos ? JSON.stringify(r.datos_nuevos, null, 2) : 'null'}
                             </pre>
                           </div>
@@ -990,7 +990,7 @@ const TabAuditoria: React.FC = () => {
                 </React.Fragment>
               ))}
               {data?.registros?.length === 0 && (
-                <tr><td colSpan={7} className="text-center py-8 text-slate-400">Sin registros</td></tr>
+                <tr><td colSpan={7} className="text-center py-8 text-slate-600">Sin registros</td></tr>
               )}
             </tbody>
           </table>
@@ -998,7 +998,7 @@ const TabAuditoria: React.FC = () => {
           {data && data.pages > 1 && (
             <div className="flex items-center justify-center gap-2 p-3 border-t border-slate-100">
               <button disabled={filtros.page <= 1} onClick={() => setFiltros(f => ({ ...f, page: f.page - 1 }))} className="text-xs px-3 py-1 rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50">Anterior</button>
-              <span className="text-xs text-slate-500">Pág {filtros.page} / {data.pages}</span>
+              <span className="text-xs text-slate-700">Pág {filtros.page} / {data.pages}</span>
               <button disabled={filtros.page >= data.pages} onClick={() => setFiltros(f => ({ ...f, page: f.page + 1 }))} className="text-xs px-3 py-1 rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50">Siguiente</button>
             </div>
           )}
@@ -1051,12 +1051,12 @@ const TabBackup: React.FC = () => {
   return (
     <div className="max-w-2xl space-y-6">
       {/* Descargar */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-6">
         <div className="flex items-start gap-3 mb-4">
           <Download className="w-5 h-5 text-indigo-500 mt-0.5" />
           <div>
-            <h3 className="font-bold text-slate-800">Descargar Backup</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Genera un archivo <code className="bg-slate-100 px-1 rounded">.sql</code> con todos los datos de todas las tablas. Guárdalo en tu equipo local.</p>
+            <h3 className="font-bold text-slate-900">Descargar Backup</h3>
+            <p className="text-xs text-slate-700 mt-0.5">Genera un archivo <code className="bg-slate-100 px-1 rounded">.sql</code> con todos los datos de todas las tablas. Guárdalo en tu equipo local.</p>
           </div>
         </div>
         <button
@@ -1069,12 +1069,12 @@ const TabBackup: React.FC = () => {
       </div>
 
       {/* Restaurar */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-6">
         <div className="flex items-start gap-3 mb-4">
           <Upload className="w-5 h-5 text-amber-500 mt-0.5" />
           <div>
-            <h3 className="font-bold text-slate-800">Restaurar Backup</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Sube un archivo <code className="bg-slate-100 px-1 rounded">.sql</code> previamente descargado. Se ejecuta en una transacción — si algo falla, se hace rollback automático.</p>
+            <h3 className="font-bold text-slate-900">Restaurar Backup</h3>
+            <p className="text-xs text-slate-700 mt-0.5">Sube un archivo <code className="bg-slate-100 px-1 rounded">.sql</code> previamente descargado. Se ejecuta en una transacción — si algo falla, se hace rollback automático.</p>
           </div>
         </div>
         <input
@@ -1083,11 +1083,11 @@ const TabBackup: React.FC = () => {
           accept=".sql"
           onChange={restaurar}
           disabled={restoring}
-          className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer"
+          className="block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer"
         />
-        {restoring && <p className="text-xs text-amber-600 mt-2 font-semibold animate-pulse">Restaurando... esto puede tardar un momento.</p>}
+        {restoring && <p className="text-xs text-amber-700 mt-2 font-semibold animate-pulse">Restaurando... esto puede tardar un momento.</p>}
         {restoreMsg && (
-          <p className={`text-xs mt-2 font-semibold ${restoreMsg.type === 'ok' ? 'text-emerald-600' : 'text-red-600'}`}>
+          <p className={`text-xs mt-2 font-semibold ${restoreMsg.type === 'ok' ? 'text-emerald-700' : 'text-red-700'}`}>
             {restoreMsg.type === 'ok' ? <CheckCircle className="w-3.5 h-3.5 inline mr-1" /> : <XCircle className="w-3.5 h-3.5 inline mr-1" />}
             {restoreMsg.text}
           </p>
@@ -1130,16 +1130,16 @@ const TabMantenimiento: React.FC = () => {
       {TAREAS.map(tarea => {
         const resultado = resultados[tarea.id];
         return (
-          <div key={tarea.id} className="bg-white rounded-xl border border-slate-200 p-4">
+          <div key={tarea.id} className="bg-white rounded-2xl border border-slate-200 shadow-card p-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
                 <p className="text-sm font-bold text-slate-800">{tarea.label}</p>
-                <p className="text-xs text-slate-500">{tarea.desc}</p>
+                <p className="text-xs text-slate-700">{tarea.desc}</p>
               </div>
               <button
                 onClick={() => ejecutar(tarea)}
                 disabled={running === tarea.id}
-                className={`shrink-0 flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition ${tarea.destructive ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100'} disabled:opacity-40`}
+                className={`shrink-0 flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl transition ${tarea.destructive ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100'} disabled:opacity-40`}
               >
                 {running === tarea.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ChevronRight className="w-3.5 h-3.5" />}
                 {running === tarea.id ? 'Ejecutando...' : 'Ejecutar'}
@@ -1158,7 +1158,7 @@ const TabMantenimiento: React.FC = () => {
                     </div>
                     <div className="overflow-auto max-h-64 rounded-lg border border-slate-200">
                       <table className="w-full text-[11px]">
-                        <thead className="bg-slate-100 text-slate-600 uppercase tracking-wide">
+                        <thead className="bg-slate-50 text-slate-900 font-semibold uppercase tracking-wide">
                           <tr>
                             <th className="text-left px-3 py-2">ODC</th>
                             <th className="text-left px-3 py-2">Tipo</th>
@@ -1175,8 +1175,8 @@ const TabMantenimiento: React.FC = () => {
                               <td className="px-3 py-1.5">{r.tipo}</td>
                               <td className="px-3 py-1.5 font-medium text-slate-700">{r.proveedor || '—'}</td>
                               <td className="px-3 py-1.5">{r.estado}</td>
-                              <td className="px-3 py-1.5 text-slate-500">{r.creado_por || '—'}</td>
-                              <td className="px-3 py-1.5 text-slate-400">{r.fecha_creacion ? new Date(r.fecha_creacion).toLocaleDateString('es-CO') : '—'}</td>
+                              <td className="px-3 py-1.5 text-slate-800">{r.creado_por || '—'}</td>
+                              <td className="px-3 py-1.5 text-slate-700">{r.fecha_creacion ? new Date(r.fecha_creacion).toLocaleDateString('es-CO') : '—'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1198,7 +1198,7 @@ const TabMantenimiento: React.FC = () => {
                     </div>
                     <div className="overflow-auto max-h-64 rounded-lg border border-slate-200">
                       <table className="w-full text-[11px]">
-                        <thead className="bg-slate-100 text-slate-600 uppercase tracking-wide">
+                        <thead className="bg-slate-50 text-slate-900 font-semibold uppercase tracking-wide">
                           <tr>
                             <th className="text-left px-3 py-2">TM</th>
                             <th className="text-left px-3 py-2">Estado TM</th>
@@ -1217,10 +1217,10 @@ const TabMantenimiento: React.FC = () => {
                               <td className="px-3 py-1.5 font-medium text-slate-700">{r.numero_odp || '—'}</td>
                               <td className="px-3 py-1.5 font-bold text-sky-700">{r.numero_prospecto}</td>
                               <td className="px-3 py-1.5">{r.pr_estado}</td>
-                              <td className={`px-3 py-1.5 font-bold ${r.pr_odp_id ? 'text-slate-500' : 'text-red-600'}`}>
+                              <td className={`px-3 py-1.5 font-bold ${r.pr_odp_id ? 'text-slate-800' : 'text-red-700'}`}>
                                 {r.pr_odp_id ? `ODP-${r.pr_odp_id}` : 'SIN ODP'}
                               </td>
-                              <td className="px-3 py-1.5 text-slate-500">{r.cliente || '—'}</td>
+                              <td className="px-3 py-1.5 text-slate-800">{r.cliente || '—'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1247,7 +1247,7 @@ const TabMantenimiento: React.FC = () => {
                   const s = resultado.odc_items_sin_odp_item_id;
                   return (
                     <div className={`rounded-lg border p-3 ${s.cantidad > 0 ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-slate-50'}`}>
-                      <p className={`text-xs font-bold mb-1 ${s.cantidad > 0 ? 'text-amber-700' : 'text-slate-500'}`}>
+                      <p className={`text-xs font-bold mb-1 ${s.cantidad > 0 ? 'text-amber-700' : 'text-slate-700'}`}>
                         {s.cantidad > 0 ? `⚠ ${s.cantidad}` : '✓ 0'} ODCItem(s) de vidrio sin odp_item_id (legacy roto)
                       </p>
                       {s.cantidad > 0 && (
@@ -1268,8 +1268,8 @@ const TabMantenimiento: React.FC = () => {
                                 <tr key={r.id} className="border-t border-amber-100">
                                   <td className="px-2 py-1 font-mono text-amber-700">{r.id}</td>
                                   <td className="px-2 py-1 font-bold">{r.numero_odc}</td>
-                                  <td className="px-2 py-1 text-slate-600">{r.descripcion}</td>
-                                  <td className="px-2 py-1 font-mono text-slate-500">{r.odp_id}</td>
+                                  <td className="px-2 py-1 text-slate-800">{r.descripcion}</td>
+                                  <td className="px-2 py-1 font-mono text-slate-800">{r.odp_id}</td>
                                   <td className="px-2 py-1 text-center">{r.recibido ? '✓' : '—'}</td>
                                   <td className="px-2 py-1">{r.odc_estado}</td>
                                 </tr>
@@ -1287,7 +1287,7 @@ const TabMantenimiento: React.FC = () => {
                   const s = resultado.odp_items_pendiente_con_odc;
                   return (
                     <div className={`rounded-lg border p-3 ${s.cantidad > 0 ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-slate-50'}`}>
-                      <p className={`text-xs font-bold mb-1 ${s.cantidad > 0 ? 'text-red-700' : 'text-slate-500'}`}>
+                      <p className={`text-xs font-bold mb-1 ${s.cantidad > 0 ? 'text-red-700' : 'text-slate-700'}`}>
                         {s.cantidad > 0 ? `✗ ${s.cantidad}` : '✓ 0'} ODPItem(s) en "pendiente" con ODCItem activo (estado desincronizado)
                       </p>
                       {s.cantidad > 0 && (
@@ -1323,7 +1323,7 @@ const TabMantenimiento: React.FC = () => {
                   const s = resultado.odp_items_en_odc_sin_odc;
                   return (
                     <div className={`rounded-lg border p-3 ${s.cantidad > 0 ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-slate-50'}`}>
-                      <p className={`text-xs font-bold mb-1 ${s.cantidad > 0 ? 'text-amber-700' : 'text-slate-500'}`}>
+                      <p className={`text-xs font-bold mb-1 ${s.cantidad > 0 ? 'text-amber-700' : 'text-slate-700'}`}>
                         {s.cantidad > 0 ? `⚠ ${s.cantidad}` : '✓ 0'} ODPItem(s) en "en_odc" sin ODCItem asociado (huérfanos)
                       </p>
                       {s.cantidad > 0 && (
@@ -1345,7 +1345,7 @@ const TabMantenimiento: React.FC = () => {
                                   <td className="px-2 py-1">{r.color}</td>
                                   <td className="px-2 py-1 font-mono">{r.ancho_mm}×{r.alto_mm}</td>
                                   <td className="px-2 py-1 font-bold text-indigo-700">{r.numero_odp}</td>
-                                  <td className="px-2 py-1 text-slate-500 text-[10px]">{r.estado_produccion}</td>
+                                  <td className="px-2 py-1 text-slate-800 text-[11px]">{r.estado_produccion}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -1393,16 +1393,16 @@ const TabAlertas: React.FC = () => {
     setAlertas(a => a.map(x => x.id === id ? { ...x, ...changes } : x));
   };
 
-  if (loading) return <div className="text-center py-16 text-slate-400 animate-pulse">Cargando umbrales...</div>;
-  if (alertas.length === 0) return <div className="text-slate-400 p-4">No hay umbrales configurados. Ejecuta el SQL de inicialización en Supabase.</div>;
+  if (loading) return <div className="text-center py-16 text-slate-600 animate-pulse">Cargando umbrales...</div>;
+  if (alertas.length === 0) return <div className="text-slate-700 p-4">No hay umbrales configurados. Ejecuta el SQL de inicialización en Supabase.</div>;
 
   return (
     <div className="space-y-3 max-w-2xl">
       {alertas.map(a => (
-        <div key={a.id} className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-4">
+        <div key={a.id} className="bg-white rounded-2xl border border-slate-200 shadow-card p-4 flex items-center gap-4">
           <div className="flex-1">
             <p className="text-sm font-bold text-slate-800">{a.nombre}</p>
-            <p className="text-xs text-slate-500">{a.descripcion}</p>
+            <p className="text-xs text-slate-700">{a.descripcion}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
@@ -1412,7 +1412,7 @@ const TabAlertas: React.FC = () => {
                 onChange={e => update(a.id, { valor: parseFloat(e.target.value) })}
                 className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-sm font-mono text-center focus:ring-2 focus:ring-indigo-400 outline-none"
               />
-              <span className="text-xs text-slate-400 font-semibold">{a.unidad}</span>
+              <span className="text-xs text-slate-700 font-semibold">{a.unidad}</span>
             </div>
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input
@@ -1421,7 +1421,7 @@ const TabAlertas: React.FC = () => {
                 onChange={e => update(a.id, { activo: e.target.checked })}
                 className="w-4 h-4 accent-indigo-600"
               />
-              <span className="text-xs text-slate-500">Activo</span>
+              <span className="text-xs text-slate-700">Activo</span>
             </label>
             <button
               onClick={() => guardar(a)}
@@ -1485,7 +1485,7 @@ const TabCatalogo: React.FC = () => {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-base font-bold text-slate-800">Catálogo de Productos</h2>
-          <p className="text-xs text-slate-500">Productos y servicios disponibles en el formulario ODP</p>
+          <p className="text-xs text-slate-700">Productos y servicios disponibles en el formulario ODP</p>
         </div>
         <button
           onClick={() => { setCatForm({ categoria: catTab || catCategorias[0] || '', nombre: '', descripcion: '', activo: true }); setCatEditing(null); }}
@@ -1497,7 +1497,7 @@ const TabCatalogo: React.FC = () => {
       <div className="flex flex-wrap gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200 mb-4">
         {catCategorias.map(cat => (
           <button key={cat} onClick={() => setCatTab(cat)}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${catTab === cat ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${catTab === cat ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-700 hover:text-slate-900'}`}>
             {cat}
           </button>
         ))}
@@ -1507,7 +1507,7 @@ const TabCatalogo: React.FC = () => {
           <div key={item.id} className={`flex items-start gap-3 p-3 bg-white border rounded-xl ${!item.activo ? 'opacity-50' : ''}`}>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-sm text-slate-800">{item.nombre}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{item.descripcion}</p>
+              <p className="text-xs text-slate-700 mt-0.5">{item.descripcion}</p>
             </div>
             <div className="flex gap-1 shrink-0">
               <button onClick={() => { setCatForm(item); setCatEditing(item.id); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition">✏️</button>
@@ -1520,23 +1520,23 @@ const TabCatalogo: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-slate-800">{catEditing ? 'Editar Producto' : 'Nuevo Producto'}</h3>
-              <button onClick={() => { setCatForm(null); setCatEditing(null); }} className="text-slate-400 hover:text-slate-600">✕</button>
+              <h3 className="font-bold text-slate-900">{catEditing ? 'Editar Producto' : 'Nuevo Producto'}</h3>
+              <button onClick={() => { setCatForm(null); setCatEditing(null); }} className="text-slate-500 hover:text-slate-800">✕</button>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Categoría *</label>
+                <label className="block text-xs font-semibold text-slate-900 mb-1">Categoría *</label>
                 <input list="cat-list-root" value={catForm.categoria || ''} onChange={e => setCatForm(f => ({ ...f, categoria: e.target.value }))}
                   className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-400 outline-none" />
                 <datalist id="cat-list-root">{catCategorias.map(c => <option key={c} value={c} />)}</datalist>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Nombre *</label>
+                <label className="block text-xs font-semibold text-slate-900 mb-1">Nombre *</label>
                 <input value={catForm.nombre || ''} onChange={e => setCatForm(f => ({ ...f, nombre: e.target.value }))}
                   className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-400 outline-none" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Descripción</label>
+                <label className="block text-xs font-semibold text-slate-900 mb-1">Descripción</label>
                 <textarea value={catForm.descripcion || ''} onChange={e => setCatForm(f => ({ ...f, descripcion: e.target.value }))}
                   rows={3} className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-400 resize-none outline-none" />
               </div>
@@ -1546,7 +1546,7 @@ const TabCatalogo: React.FC = () => {
               </label>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => { setCatForm(null); setCatEditing(null); }} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50">Cancelar</button>
+              <button onClick={() => { setCatForm(null); setCatEditing(null); }} className="px-4 py-2 text-sm border border-slate-200 rounded-xl text-slate-800 hover:bg-slate-50">Cancelar</button>
               <button onClick={saveCatItem} disabled={catSaving} className="px-4 py-2 text-sm bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700">
                 {catSaving ? 'Guardando...' : 'Guardar'}
               </button>
@@ -1588,7 +1588,7 @@ const DiagSeccion: React.FC<{
       {abierto && (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-slate-50 text-slate-500">
+            <thead className="bg-slate-50 text-slate-900">
               <tr>
                 {columnas.map(col => (
                   <th key={col.key} className="text-left px-3 py-2 font-semibold">{col.label}</th>
@@ -1633,17 +1633,17 @@ const TabDiagnostico: React.FC<{ onAlertas: (n: number) => void }> = ({ onAlerta
   const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString('es-CO') : '—';
   const bool = (v: any) => v ? 'Sí' : 'No';
 
-  if (loading) return <div className="text-center py-16 text-slate-400 animate-pulse">Analizando ODPs...</div>;
-  if (!data) return <div className="text-red-500 p-4">Error al cargar diagnóstico</div>;
+  if (loading) return <div className="text-center py-16 text-slate-600 animate-pulse">Analizando ODPs...</div>;
+  if (!data) return <div className="text-red-700 p-4">Error al cargar diagnóstico</div>;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-bold text-slate-700">Diagnóstico de Flujo ODP</h2>
-          <p className="text-xs text-slate-400">Inconsistencias en el pipeline de producción</p>
+          <h2 className="text-sm font-bold text-slate-900">Diagnóstico de Flujo ODP</h2>
+          <p className="text-xs text-slate-700">Inconsistencias en el pipeline de producción</p>
         </div>
-        <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+        <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-indigo-800">
           <RefreshCw className="w-3.5 h-3.5" /> Actualizar
         </button>
       </div>
@@ -1656,16 +1656,16 @@ const TabDiagnostico: React.FC<{ onAlertas: (n: number) => void }> = ({ onAlerta
       ) : (
         <div className="grid grid-cols-3 gap-3 mb-2">
           <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
-            <p className="text-2xl font-black text-red-700">{data.resumen?.criticos}</p>
-            <p className="text-[11px] font-bold text-red-500">Críticos</p>
+            <p className="text-2xl font-extrabold text-red-700">{data.resumen?.criticos}</p>
+            <p className="text-[11px] font-semibold text-red-800">Críticos</p>
           </div>
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
-            <p className="text-2xl font-black text-amber-700">{data.resumen?.advertencias}</p>
-            <p className="text-[11px] font-bold text-amber-500">Advertencias</p>
+            <p className="text-2xl font-extrabold text-amber-700">{data.resumen?.advertencias}</p>
+            <p className="text-[11px] font-semibold text-amber-800">Advertencias</p>
           </div>
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
-            <p className="text-2xl font-black text-blue-700">{data.resumen?.info}</p>
-            <p className="text-[11px] font-bold text-blue-500">Info</p>
+            <p className="text-2xl font-extrabold text-blue-700">{data.resumen?.info}</p>
+            <p className="text-[11px] font-semibold text-blue-800">Info</p>
           </div>
         </div>
       )}
@@ -1761,38 +1761,38 @@ const TabOperativo: React.FC<{ onAlertas: (n: number) => void }> = ({ onAlertas 
   const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString('es-CO') : '—';
   const cop = (v: any) => v != null ? Number(v).toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }) : '—';
 
-  if (loading) return <div className="text-center py-16 text-slate-400 animate-pulse">Cargando KPIs operativos...</div>;
-  if (!data) return <div className="text-red-500 p-4">Error al cargar resumen operativo</div>;
+  if (loading) return <div className="text-center py-16 text-slate-600 animate-pulse">Cargando KPIs operativos...</div>;
+  if (!data) return <div className="text-red-700 p-4">Error al cargar resumen operativo</div>;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-bold text-slate-700">Resumen Operativo</h2>
-          <p className="text-xs text-slate-400">KPIs de negocio críticos en tiempo real</p>
+          <h2 className="text-sm font-bold text-slate-900">Resumen Operativo</h2>
+          <p className="text-xs text-slate-700">KPIs de negocio críticos en tiempo real</p>
         </div>
-        <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+        <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-indigo-800">
           <RefreshCw className="w-3.5 h-3.5" /> Actualizar
         </button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
-          <p className="text-2xl font-black text-red-700">{data.resumen?.criticos}</p>
-          <p className="text-[11px] font-bold text-red-500">Críticos</p>
+          <p className="text-2xl font-extrabold text-red-700">{data.resumen?.criticos}</p>
+          <p className="text-[11px] font-semibold text-red-800">Críticos</p>
         </div>
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
-          <p className="text-2xl font-black text-amber-700">{data.resumen?.advertencias}</p>
-          <p className="text-[11px] font-bold text-amber-500">Advertencias</p>
+          <p className="text-2xl font-extrabold text-amber-700">{data.resumen?.advertencias}</p>
+          <p className="text-[11px] font-semibold text-amber-800">Advertencias</p>
         </div>
         <div className={`rounded-xl p-3 text-center border ${data.resumen?.total_issues === 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
-          <p className={`text-2xl font-black ${data.resumen?.total_issues === 0 ? 'text-emerald-700' : 'text-slate-800'}`}>{data.resumen?.total_issues}</p>
-          <p className="text-[11px] font-bold text-slate-500">Total issues</p>
+          <p className={`text-2xl font-extrabold ${data.resumen?.total_issues === 0 ? 'text-emerald-700' : 'text-slate-800'}`}>{data.resumen?.total_issues}</p>
+          <p className="text-[11px] font-semibold text-slate-900">Total issues</p>
         </div>
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center flex items-center justify-center">
           {data.resumen?.total_issues === 0
-            ? <span className="text-xs font-bold text-emerald-600 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Todo OK</span>
-            : <span className="text-xs font-bold text-amber-600 flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Revisar</span>
+            ? <span className="text-xs font-bold text-emerald-700 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Todo OK</span>
+            : <span className="text-xs font-bold text-amber-700 flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Revisar</span>
           }
         </div>
       </div>
@@ -1945,8 +1945,8 @@ const TabSeguridad: React.FC = () => {
 
   const abrirDrawer = (u: any) => { setDrawerFiltro('all'); setDrawerPage(1); setDrawerUsuario(u); };
 
-  if (loading) return <div className="text-center py-16 text-slate-400 animate-pulse">Cargando actividad de seguridad...</div>;
-  if (!data) return <div className="text-red-500 p-4">Error al cargar datos de seguridad</div>;
+  if (loading) return <div className="text-center py-16 text-slate-600 animate-pulse">Cargando actividad de seguridad...</div>;
+  if (!data) return <div className="text-red-700 p-4">Error al cargar datos de seguridad</div>;
 
   return (
     <>
@@ -1959,11 +1959,11 @@ const TabSeguridad: React.FC = () => {
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div>
                 <h2 className="text-sm font-bold text-slate-800">{drawerUsuario.usuario_nombre}</h2>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-700">
                   {drawerUsuario.rol} · #{drawerUsuario.usuario_id} · {drawerTotal} operaciones en 7 días
                 </p>
               </div>
-              <button onClick={() => setDrawerUsuario(null)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700">
+              <button onClick={() => setDrawerUsuario(null)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1975,7 +1975,7 @@ const TabSeguridad: React.FC = () => {
                   key={f}
                   onClick={() => { setDrawerFiltro(f); setDrawerPage(1); }}
                   className={`text-[11px] font-semibold px-3 py-1 rounded-full transition border ${
-                    drawerFiltro === f ? FILTRO_ACTIVO[f] + ' border-current' : 'bg-slate-50 text-slate-500 border-transparent hover:bg-slate-100'
+                    drawerFiltro === f ? FILTRO_ACTIVO[f] + ' border-current' : 'bg-slate-50 text-slate-700 border-transparent hover:bg-slate-100'
                   }`}
                 >
                   {FILTRO_LABEL[f]}
@@ -1986,12 +1986,12 @@ const TabSeguridad: React.FC = () => {
             {/* Tabla de operaciones */}
             <div className="flex-1 overflow-y-auto">
               {drawerLoading ? (
-                <div className="text-center py-12 text-slate-400 animate-pulse text-xs">Cargando operaciones...</div>
+                <div className="text-center py-12 text-slate-600 animate-pulse text-xs">Cargando operaciones...</div>
               ) : drawerOps.length === 0 ? (
-                <div className="text-center py-12 text-slate-400 text-xs">Sin operaciones con este filtro</div>
+                <div className="text-center py-12 text-slate-600 text-xs">Sin operaciones con este filtro</div>
               ) : (
                 <table className="w-full text-xs">
-                  <thead className="bg-slate-50 text-slate-500 sticky top-0">
+                  <thead className="bg-slate-50 text-slate-900 sticky top-0">
                     <tr>
                       <th className="text-left px-4 py-2 font-semibold whitespace-nowrap">Fecha</th>
                       <th className="text-left px-4 py-2 font-semibold">Tabla</th>
@@ -2005,34 +2005,34 @@ const TabSeguridad: React.FC = () => {
                       const diffs = calcDiff(op.datos_anteriores, op.datos_nuevos, op.operacion);
                       return (
                         <tr key={op.id ?? i} className="border-t border-slate-50 hover:bg-slate-50 align-top">
-                          <td className="px-4 py-2.5 text-slate-400 whitespace-nowrap">
+                          <td className="px-4 py-2.5 text-slate-700 whitespace-nowrap">
                             {op.fecha ? new Date(op.fecha).toLocaleString('es-CO') : '—'}
                           </td>
-                          <td className="px-4 py-2.5 font-mono text-slate-600">{op.tabla}</td>
+                          <td className="px-4 py-2.5 font-mono text-slate-800">{op.tabla}</td>
                           <td className="px-4 py-2.5">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${OP_CHIP[op.operacion] ?? 'bg-slate-100 text-slate-500'}`}>
+                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${OP_CHIP[op.operacion] ?? 'bg-slate-100 text-slate-700'}`}>
                               {op.operacion}
                             </span>
                           </td>
-                          <td className="px-4 py-2.5 text-slate-400">{op.registro_id ?? '—'}</td>
+                          <td className="px-4 py-2.5 text-slate-700">{op.registro_id ?? '—'}</td>
                           <td className="px-4 py-2.5 max-w-xs">
                             {diffs.length === 0 ? (
-                              <span className="text-slate-300 italic">sin datos</span>
+                              <span className="text-slate-500 italic">sin datos</span>
                             ) : (
                               <div className="space-y-0.5">
                                 {diffs.map((d, di) => (
                                   <div key={di} className="flex flex-wrap items-center gap-1">
-                                    <span className="font-mono text-slate-500">{d.campo}:</span>
+                                    <span className="font-mono text-slate-800">{d.campo}:</span>
                                     {op.operacion === 'UPDATE' ? (
                                       <>
                                         <span className="text-red-400 line-through">{fmtVal(d.ant)}</span>
-                                        <span className="text-slate-300">→</span>
-                                        <span className="text-emerald-600 font-semibold">{fmtVal(d.nuevo)}</span>
+                                        <span className="text-slate-500">→</span>
+                                        <span className="text-emerald-700 font-semibold">{fmtVal(d.nuevo)}</span>
                                       </>
                                     ) : op.operacion === 'INSERT' ? (
-                                      <span className="text-emerald-600">{fmtVal(d.nuevo)}</span>
+                                      <span className="text-emerald-700">{fmtVal(d.nuevo)}</span>
                                     ) : (
-                                      <span className="text-red-500">{fmtVal(d.ant)}</span>
+                                      <span className="text-red-700">{fmtVal(d.ant)}</span>
                                     )}
                                   </div>
                                 ))}
@@ -2050,7 +2050,7 @@ const TabSeguridad: React.FC = () => {
             {/* Paginación */}
             {drawerPages > 1 && (
               <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between text-xs shrink-0">
-                <span className="text-slate-400">Página {drawerPage} de {drawerPages} · {drawerTotal} total</span>
+                <span className="text-slate-700">Página {drawerPage} de {drawerPages} · {drawerTotal} total</span>
                 <div className="flex gap-2">
                   <button disabled={drawerPage <= 1} onClick={() => setDrawerPage(p => p - 1)}
                     className="px-3 py-1 rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 font-semibold">
@@ -2071,14 +2071,14 @@ const TabSeguridad: React.FC = () => {
       <div className="space-y-5">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-bold text-slate-700">Monitoreo de Seguridad</h2>
-            <p className="text-xs text-slate-400">Actividad del sistema — últimos 7 días</p>
+            <h2 className="text-sm font-bold text-slate-900">Monitoreo de Seguridad</h2>
+            <p className="text-xs text-slate-700">Actividad del sistema — últimos 7 días</p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-[11px] text-slate-400">
+            <span className="text-[11px] text-slate-700">
               {data.generado_en ? new Date(data.generado_en).toLocaleString('es-CO') : ''}
             </span>
-            <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+            <button onClick={cargar} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-indigo-800">
               <RefreshCw className="w-3.5 h-3.5" /> Actualizar
             </button>
           </div>
@@ -2088,11 +2088,11 @@ const TabSeguridad: React.FC = () => {
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-xs font-bold text-slate-700">Actividad de usuarios — últimos 7 días</h3>
-            <span className="text-[11px] text-slate-400">{data.actividad_usuarios_7d?.length ?? 0} usuarios activos</span>
+            <span className="text-[11px] text-slate-700">{data.actividad_usuarios_7d?.length ?? 0} usuarios activos</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead className="bg-slate-50 text-slate-500">
+              <thead className="bg-slate-50 text-slate-900">
                 <tr>
                   <th className="text-left px-3 py-2 font-semibold">Usuario</th>
                   <th className="text-left px-3 py-2 font-semibold">Rol</th>
@@ -2106,41 +2106,41 @@ const TabSeguridad: React.FC = () => {
               </thead>
               <tbody>
                 {data.actividad_usuarios_7d?.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-6 text-slate-400">Sin actividad en los últimos 7 días</td></tr>
+                  <tr><td colSpan={8} className="text-center py-6 text-slate-600">Sin actividad en los últimos 7 días</td></tr>
                 )}
                 {data.actividad_usuarios_7d?.map((u: any, i: number) => (
                   <tr key={i} className="border-t border-slate-50 hover:bg-slate-50">
                     <td className="px-3 py-2 font-semibold text-slate-700">
                       {u.usuario_nombre}
-                      <span className="ml-1 text-[10px] text-slate-400 font-normal">#{u.usuario_id}</span>
+                      <span className="ml-1 text-[11px] text-slate-700 font-normal">#{u.usuario_id}</span>
                     </td>
-                    <td className="px-3 py-2 text-slate-500">{u.rol}</td>
+                    <td className="px-3 py-2 text-slate-800">{u.rol}</td>
                     <td className="px-3 py-2 text-right font-bold text-indigo-700">{u.cant_operaciones}</td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-1">
-                        <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">{u.inserts} ins</span>
-                        <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">{u.updates} upd</span>
+                        <span className="text-[11px] font-semibold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">{u.inserts} ins</span>
+                        <span className="text-[11px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">{u.updates} upd</span>
                         {Number(u.deletes) > 0
-                          ? <span className="text-[10px] font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded">{u.deletes} del</span>
-                          : <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded">0 del</span>
+                          ? <span className="text-[11px] font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded">{u.deletes} del</span>
+                          : <span className="text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">0 del</span>
                         }
                       </div>
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-1">
                         {Array.isArray(u.tablas_tocadas) && u.tablas_tocadas.filter(Boolean).slice(0, 4).map((t: string) => (
-                          <span key={t} className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">{t}</span>
+                          <span key={t} className="text-[11px] bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-mono">{t}</span>
                         ))}
                         {Array.isArray(u.tablas_tocadas) && u.tablas_tocadas.filter(Boolean).length > 4 && (
-                          <span className="text-[10px] text-slate-400">+{u.tablas_tocadas.filter(Boolean).length - 4}</span>
+                          <span className="text-[11px] text-slate-700">+{u.tablas_tocadas.filter(Boolean).length - 4}</span>
                         )}
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-slate-400 text-[11px]">{Array.isArray(u.ips) ? u.ips.filter(Boolean).join(', ') : '—'}</td>
-                    <td className="px-3 py-2 text-slate-400">{u.ultima_actividad ? new Date(u.ultima_actividad).toLocaleString('es-CO') : '—'}</td>
+                    <td className="px-3 py-2 text-slate-700 text-[11px]">{Array.isArray(u.ips) ? u.ips.filter(Boolean).join(', ') : '—'}</td>
+                    <td className="px-3 py-2 text-slate-700">{u.ultima_actividad ? new Date(u.ultima_actividad).toLocaleString('es-CO') : '—'}</td>
                     <td className="px-3 py-2">
                       <button onClick={() => abrirDrawer(u)}
-                        className="flex items-center gap-0.5 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 whitespace-nowrap">
+                        className="flex items-center gap-0.5 text-[11px] font-semibold text-indigo-700 hover:text-indigo-800 whitespace-nowrap">
                         Ver detalle <ChevronRight className="w-3 h-3" />
                       </button>
                     </td>
@@ -2158,7 +2158,7 @@ const TabSeguridad: React.FC = () => {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead className="bg-slate-50 text-slate-500">
+              <thead className="bg-slate-50 text-slate-900">
                 <tr>
                   <th className="text-left px-3 py-2 font-semibold">IP</th>
                   <th className="text-right px-3 py-2 font-semibold">Requests</th>
@@ -2169,15 +2169,15 @@ const TabSeguridad: React.FC = () => {
               </thead>
               <tbody>
                 {data.ips_unicas_7d?.length === 0 && (
-                  <tr><td colSpan={5} className="text-center py-6 text-slate-400">Sin IPs registradas</td></tr>
+                  <tr><td colSpan={5} className="text-center py-6 text-slate-600">Sin IPs registradas</td></tr>
                 )}
                 {data.ips_unicas_7d?.map((ip: any, i: number) => (
                   <tr key={i} className="border-t border-slate-50 hover:bg-slate-50">
                     <td className="px-3 py-2 font-mono text-slate-700">{ip.ip_address || '—'}</td>
                     <td className="px-3 py-2 text-right font-bold text-indigo-700">{ip.cant_requests}</td>
-                    <td className="px-3 py-2 text-right text-slate-500">{ip.cant_usuarios}</td>
-                    <td className="px-3 py-2 text-slate-600 text-[11px]">{Array.isArray(ip.usuarios) ? ip.usuarios.filter(Boolean).join(', ') : '—'}</td>
-                    <td className="px-3 py-2 text-slate-400">{ip.ultima_actividad ? new Date(ip.ultima_actividad).toLocaleString('es-CO') : '—'}</td>
+                    <td className="px-3 py-2 text-right text-slate-800">{ip.cant_usuarios}</td>
+                    <td className="px-3 py-2 text-slate-800 text-[11px]">{Array.isArray(ip.usuarios) ? ip.usuarios.filter(Boolean).join(', ') : '—'}</td>
+                    <td className="px-3 py-2 text-slate-700">{ip.ultima_actividad ? new Date(ip.ultima_actividad).toLocaleString('es-CO') : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -2189,16 +2189,16 @@ const TabSeguridad: React.FC = () => {
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-xs font-bold text-slate-700">DELETEs — últimos 7 días</h3>
-            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${data.deletes_recientes_7d?.length > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}>
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${data.deletes_recientes_7d?.length > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>
               {data.deletes_recientes_7d?.length ?? 0}
             </span>
           </div>
           {data.deletes_recientes_7d?.length === 0 ? (
-            <div className="px-4 py-6 text-center text-slate-400 text-xs">Sin DELETEs en los últimos 7 días</div>
+            <div className="px-4 py-6 text-center text-slate-600 text-xs">Sin DELETEs en los últimos 7 días</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
-                <thead className="bg-slate-50 text-slate-500">
+                <thead className="bg-slate-50 text-slate-900">
                   <tr>
                     <th className="text-left px-3 py-2 font-semibold">Tabla</th>
                     <th className="text-left px-3 py-2 font-semibold">ID reg.</th>
@@ -2214,23 +2214,23 @@ const TabSeguridad: React.FC = () => {
                       <tr className="border-t border-slate-50 hover:bg-red-50 cursor-pointer"
                         onClick={() => setExpandedDelete(expandedDelete === d.id ? null : d.id)}>
                         <td className="px-3 py-2 font-mono text-red-700">{d.tabla}</td>
-                        <td className="px-3 py-2 text-slate-500">{d.registro_id}</td>
+                        <td className="px-3 py-2 text-slate-800">{d.registro_id}</td>
                         <td className="px-3 py-2">
-                          <span className="font-semibold text-slate-700">{d.usuario_nombre}</span>
-                          <span className="ml-1 text-[10px] text-slate-400">#{d.usuario_id}</span>
-                          {d.usuario_rol && <span className="ml-1 text-[10px] text-slate-400">· {d.usuario_rol}</span>}
+                          <span className="font-semibold text-slate-900">{d.usuario_nombre}</span>
+                          <span className="ml-1 text-[11px] text-slate-700">#{d.usuario_id}</span>
+                          {d.usuario_rol && <span className="ml-1 text-[11px] text-slate-700">· {d.usuario_rol}</span>}
                         </td>
-                        <td className="px-3 py-2 text-slate-400 font-mono">{d.ip_address || '—'}</td>
-                        <td className="px-3 py-2 text-slate-400">{d.fecha ? new Date(d.fecha).toLocaleString('es-CO') : '—'}</td>
+                        <td className="px-3 py-2 text-slate-700 font-mono">{d.ip_address || '—'}</td>
+                        <td className="px-3 py-2 text-slate-700">{d.fecha ? new Date(d.fecha).toLocaleString('es-CO') : '—'}</td>
                         <td className="px-3 py-2">
-                          <ChevronRight className={`w-3.5 h-3.5 text-slate-300 transition ${expandedDelete === d.id ? 'rotate-90' : ''}`} />
+                          <ChevronRight className={`w-3.5 h-3.5 text-slate-500 transition ${expandedDelete === d.id ? 'rotate-90' : ''}`} />
                         </td>
                       </tr>
                       {expandedDelete === d.id && d.datos_anteriores && (
                         <tr className="bg-red-50">
                           <td colSpan={6} className="px-4 py-3">
-                            <p className="text-[11px] font-bold text-slate-500 mb-1">Datos eliminados</p>
-                            <pre className="text-[10px] bg-white border border-red-200 rounded-lg p-2 overflow-auto max-h-40 text-slate-600">
+                            <p className="text-[11px] font-semibold text-slate-900 mb-1">Datos eliminados</p>
+                            <pre className="text-[11px] bg-white border border-red-200 rounded-lg p-2 overflow-auto max-h-40 text-slate-800">
                               {JSON.stringify(d.datos_anteriores, null, 2)}
                             </pre>
                           </td>
@@ -2248,16 +2248,16 @@ const TabSeguridad: React.FC = () => {
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-xs font-bold text-slate-700">Usuarios activos sin actividad {'>'} 90 días</h3>
-            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${data.usuarios_inactivos_90d?.length > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${data.usuarios_inactivos_90d?.length > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
               {data.usuarios_inactivos_90d?.length ?? 0}
             </span>
           </div>
           {data.usuarios_inactivos_90d?.length === 0 ? (
-            <div className="px-4 py-6 text-center text-slate-400 text-xs">Todos los usuarios tienen actividad reciente</div>
+            <div className="px-4 py-6 text-center text-slate-600 text-xs">Todos los usuarios tienen actividad reciente</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
-                <thead className="bg-slate-50 text-slate-500">
+                <thead className="bg-slate-50 text-slate-900">
                   <tr>
                     <th className="text-left px-3 py-2 font-semibold">Nombre</th>
                     <th className="text-left px-3 py-2 font-semibold">Username</th>
@@ -2269,9 +2269,9 @@ const TabSeguridad: React.FC = () => {
                   {data.usuarios_inactivos_90d?.map((u: any, i: number) => (
                     <tr key={u.id ?? i} className="border-t border-slate-50 hover:bg-amber-50">
                       <td className="px-3 py-2 font-semibold text-slate-700">{u.nombre_completo}</td>
-                      <td className="px-3 py-2 text-slate-500">{u.username}</td>
-                      <td className="px-3 py-2 text-slate-400">{u.rol}</td>
-                      <td className="px-3 py-2 text-slate-400">{u.creado_en ? new Date(u.creado_en).toLocaleDateString('es-CO') : '—'}</td>
+                      <td className="px-3 py-2 text-slate-800">{u.username}</td>
+                      <td className="px-3 py-2 text-slate-700">{u.rol}</td>
+                      <td className="px-3 py-2 text-slate-700">{u.creado_en ? new Date(u.creado_en).toLocaleDateString('es-CO') : '—'}</td>
                     </tr>
                   ))}
                 </tbody>

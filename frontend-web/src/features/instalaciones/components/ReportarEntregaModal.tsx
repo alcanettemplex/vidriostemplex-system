@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { X, Camera, MapPin, AlertTriangle, Check, RotateCcw, ChevronRight } from 'lucide-react';
+import { X, Camera, MapPin, AlertTriangle, Check, RotateCcw, ChevronRight } from '../../../components/ui/icons';
 
 import API from '../../../services/config';
 
@@ -51,7 +51,7 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
     if (!ctx) return;
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
-    ctx.strokeStyle = '#1e293b';
+    ctx.strokeStyle = '#1d232e';
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }, [step]);
@@ -169,7 +169,7 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
           <div>
-            <h2 className="font-bold text-slate-800">Reportar Entrega</h2>
+            <h2 className="font-bold text-slate-900">Reportar Entrega</h2>
             <p className="text-xs text-indigo-600 font-semibold">{numeroODP}</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100"><X className="w-5 h-5" /></button>
@@ -187,13 +187,13 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
             <>
               {/* GPS */}
               <div className={`flex items-center gap-3 p-3 rounded-xl border ${gpsStatus === 'ok' ? 'bg-emerald-50 border-emerald-200' : gpsStatus === 'error' ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'}`}>
-                <MapPin className={`w-4 h-4 flex-shrink-0 ${gpsStatus === 'ok' ? 'text-emerald-600' : gpsStatus === 'error' ? 'text-red-500' : 'text-slate-400'}`} />
+                <MapPin className={`w-4 h-4 flex-shrink-0 ${gpsStatus === 'ok' ? 'text-emerald-600' : gpsStatus === 'error' ? 'text-red-500' : 'text-slate-500'}`} />
                 <div>
-                  <p className={`text-xs font-semibold ${gpsStatus === 'ok' ? 'text-emerald-700' : gpsStatus === 'error' ? 'text-red-600' : 'text-slate-500'}`}>
+                  <p className={`text-xs font-semibold ${gpsStatus === 'ok' ? 'text-emerald-700' : gpsStatus === 'error' ? 'text-red-600' : 'text-slate-700'}`}>
                     {gpsStatus === 'cargando' ? 'Obteniendo ubicación...' : gpsStatus === 'ok' ? `GPS: ${gps}` : 'GPS desactivado — Continúa sin coordenadas'}
                   </p>
                   {gpsStatus === 'error' && (
-                    <p className="text-[10px] text-red-400 mt-0.5 flex items-center gap-1"><AlertTriangle className="w-3 h-3" />Activa el GPS para mayor precisión</p>
+                    <p className="text-[11px] text-red-400 mt-0.5 flex items-center gap-1"><AlertTriangle className="w-3 h-3" />Activa el GPS para mayor precisión</p>
                   )}
                 </div>
               </div>
@@ -201,8 +201,8 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
               {/* Fotos */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Evidencia Fotográfica *</p>
-                  <span className="text-[10px] text-slate-400 font-medium">{fotos.length}/10</span>
+                  <p className="text-xs font-semibold text-slate-900 uppercase tracking-wide">Evidencia Fotográfica *</p>
+                  <span className="text-[11px] text-slate-700 font-medium">{fotos.length}/10</span>
                 </div>
                 <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFotos} />
                 {fotosPreview.length > 0 && (
@@ -220,7 +220,7 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
                 )}
                 {fotos.length < 10 && (
                   <button onClick={() => fileRef.current?.click()}
-                    className="w-full h-24 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-1 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all">
+                    className="w-full h-24 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-1 text-slate-700 hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all">
                     <Camera className="w-6 h-6" />
                     <span className="text-xs font-medium">Agregar foto{fotos.length > 0 ? ' más' : ''}</span>
                   </button>
@@ -232,8 +232,8 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
               {/* Firma digital */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Firma del Cliente *</p>
-                  <button onClick={limpiarFirma} className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600">
+                  <p className="text-xs font-semibold text-slate-900 uppercase tracking-wide">Firma del Cliente *</p>
+                  <button onClick={limpiarFirma} className="flex items-center gap-1 text-xs text-slate-700 hover:text-slate-900">
                     <RotateCcw className="w-3 h-3" /> Limpiar
                   </button>
                 </div>
@@ -243,16 +243,16 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
                     onTouchStart={handleCanvasStart} onTouchMove={handleCanvasMove} onTouchEnd={handleCanvasEnd}
                   />
                 </div>
-                {!firmaTrazada && <p className="text-xs text-slate-400 text-center mt-1">Dibuja la firma aquí</p>}
+                {!firmaTrazada && <p className="text-xs text-slate-700 text-center mt-1">Dibuja la firma aquí</p>}
               </div>
 
               {/* Datos de recepción */}
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Datos de Recepción *</label>
+                <label className="block text-xs font-semibold text-slate-900 uppercase tracking-wide mb-1.5">Datos de Recepción *</label>
                 <input type="text" value={datosReceptor} onChange={e => setDatosReceptor(e.target.value)}
                   placeholder="Ej. Juan Pérez — 45689012"
                   className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-                <p className="text-[10px] text-slate-400 mt-1">Nombre completo e identificación de quien recibe</p>
+                <p className="text-[11px] text-slate-700 mt-1">Nombre completo e identificación de quien recibe</p>
               </div>
             </>
           )}
@@ -268,7 +268,7 @@ const ReportarEntregaModal: React.FC<Props> = ({ rutaODPId, numeroODP, onClose, 
             </button>
           ) : (
             <div className="flex gap-3">
-              <button onClick={() => setStep('foto_gps')} className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-600">
+              <button onClick={() => setStep('foto_gps')} className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-900">
                 Atrás
               </button>
               <button onClick={handleSubmit} disabled={subiendo || !firmaTrazada || !datosReceptor.trim()}

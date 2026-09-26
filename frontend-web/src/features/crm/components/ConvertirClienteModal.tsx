@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserCheck, X, FileText, CreditCard, MapPin, Mail, Phone, AlertCircle, Tag } from 'lucide-react';
+import { UserCheck, X, FileText, CreditCard, MapPin, Mail, Phone, AlertCircle, Tag } from '../../../components/ui/icons';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useDispatch } from 'react-redux';
@@ -87,7 +87,7 @@ const ConvertirClienteModal: React.FC<Props> = ({ lead, onClose, onSuccess }) =>
 
   const field = (label: string, icon: React.ReactNode, content: React.ReactNode, required = false) => (
     <div className="space-y-1.5">
-      <label className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
+      <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest flex items-center gap-1.5">
         {icon} {label}{required && ' *'}
       </label>
       {content}
@@ -105,14 +105,14 @@ const ConvertirClienteModal: React.FC<Props> = ({ lead, onClose, onSuccess }) =>
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <UserCheck className="w-5 h-5 text-emerald-600" />
+              <UserCheck className="w-5 h-5 text-emerald-700" />
             </div>
             <div>
-              <h2 className="font-black text-slate-800">Convertir Lead → Cliente</h2>
-              <p className="text-xs text-slate-500">El lead quedará vinculado al nuevo cliente</p>
+              <h2 className="font-bold text-slate-900">Convertir Lead → Cliente</h2>
+              <p className="text-xs text-slate-700">El lead quedará vinculado al nuevo cliente</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors">
+          <button onClick={onClose} className="p-2 rounded-xl text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -120,7 +120,7 @@ const ConvertirClienteModal: React.FC<Props> = ({ lead, onClose, onSuccess }) =>
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
           {/* Info lead origen */}
           <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 flex items-center gap-3">
-            <AlertCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+            <AlertCircle className="w-4 h-4 text-emerald-700 shrink-0" />
             <p className="text-xs text-emerald-800">
               <span className="font-bold">Lead origen: </span>{lead.nombre} · {lead.telefono}
               {lead.producto_interes && <> · <span className="italic">{lead.producto_interes}</span></>}
@@ -135,13 +135,13 @@ const ConvertirClienteModal: React.FC<Props> = ({ lead, onClose, onSuccess }) =>
           {/* Tipo doc + Número doc */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">Tipo Doc.</label>
+              <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest">Tipo Doc.</label>
               <select name="tipo_documento" value={form.tipo_documento} onChange={handleChange} className={selectCls}>
                 {TIPOS_DOCUMENTO.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1">
+              <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest flex items-center gap-1">
                 <CreditCard className="w-3.5 h-3.5" /> Número Doc. *
               </label>
               <input name="numero_documento" value={form.numero_documento} onChange={handleChange}
@@ -152,14 +152,14 @@ const ConvertirClienteModal: React.FC<Props> = ({ lead, onClose, onSuccess }) =>
           {/* Teléfono + Celular */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1">
+              <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest flex items-center gap-1">
                 <Phone className="w-3.5 h-3.5" /> Teléfono Fijo
               </label>
               <input name="telefono" value={form.telefono} onChange={handleChange}
                 placeholder="Fijo..." className={inputCls} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1">
+              <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest flex items-center gap-1">
                 <Phone className="w-3.5 h-3.5" /> Celular
               </label>
               <input name="celular" value={form.celular} onChange={handleChange}
@@ -193,7 +193,7 @@ const ConvertirClienteModal: React.FC<Props> = ({ lead, onClose, onSuccess }) =>
 
           {/* Condición de pago */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">Condición de Pago</label>
+            <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest">Condición de Pago</label>
             <select name="condicion_pago" value={form.condicion_pago} onChange={handleChange} className={selectCls}>
               {CONDICIONES_PAGO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
@@ -202,7 +202,7 @@ const ConvertirClienteModal: React.FC<Props> = ({ lead, onClose, onSuccess }) =>
           {/* Botones */}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
-              className="flex-1 py-2.5 text-sm font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
+              className="flex-1 py-2.5 text-sm font-semibold text-slate-800 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
               Cancelar
             </button>
             <button type="submit" disabled={loading}

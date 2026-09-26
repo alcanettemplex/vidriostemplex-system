@@ -14,7 +14,7 @@ export const RADIUS = {
 } as const;
 
 export const FONT = {
-  tiny: 10.5,
+  tiny: 11,
   xs: 11.5,
   sm: 12,
   base: 13,

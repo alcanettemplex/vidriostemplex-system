@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
-import { FileCheck, X, Plus, Trash2 } from 'lucide-react';
+import { FileCheck, X, Plus, Trash2 } from '../../../components/ui/icons';
 import API from '../../../services/config';
 import { headers, fmt, fmtFecha, formatMiles, parseMiles } from './contabilidad.utils';
 
@@ -112,36 +112,36 @@ const FacturaElectronicaModal: React.FC<Props> = ({ odp, onClose, onSaved, onAdi
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
         className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
         <div className="flex justify-between items-center px-6 py-5 border-b border-slate-100">
-          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
             <FileCheck className="w-5 h-5 text-emerald-600" /> Factura Electrónica
           </h2>
-          <button onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
+          <button onClick={onClose} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition">
             <X className="w-5 h-5" />
           </button>
         </div>
         <form onSubmit={handleFeSubmit} className="p-6 space-y-4">
-          <p className="text-sm text-slate-600">ODP: <span className="font-bold text-indigo-700">{odp.numero_odp}</span></p>
+          <p className="text-sm text-slate-800">ODP: <span className="font-bold text-indigo-700">{odp.numero_odp}</span></p>
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">FE No. *</label>
+            <label className="block text-xs font-semibold text-slate-900 mb-1 uppercase">FE No. *</label>
             <input value={feForm.numero_fe} onChange={e => setFeForm(p => ({ ...p, numero_fe: e.target.value }))}
               placeholder="Ej: 2024-001" required
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Fecha Factura *</label>
+            <label className="block text-xs font-semibold text-slate-900 mb-1 uppercase">Fecha Factura *</label>
             <input type="date" value={feForm.fecha_fe} onChange={e => setFeForm(p => ({ ...p, fecha_fe: e.target.value }))}
-              required className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              required className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Monto facturado *</label>
+            <label className="block text-xs font-semibold text-slate-900 mb-1 uppercase">Monto facturado *</label>
             <input type="text" inputMode="numeric" value={feForm.monto}
               onChange={e => setFeForm(p => ({ ...p, monto: formatMiles(e.target.value) }))} required
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-            <p className="text-[11px] text-slate-500 mt-1">Valor total de la ODP: <span className="font-semibold">{fmt(valorTotal)}</span></p>
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <p className="text-[11px] text-slate-700 mt-1">Valor total de la ODP: <span className="font-semibold text-slate-900">{fmt(valorTotal)}</span></p>
           </div>
 
           {/* Contador de saldo restante por facturar (valor_total − principal − adicionales) */}
-          <div className={`rounded-lg px-3 py-2 text-sm flex items-center justify-between border ${saldoRestante < -0.01 ? 'bg-rose-50 border-rose-200 text-rose-700' : saldoRestante > 0.01 ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}>
+          <div className={`rounded-lg px-3 py-2 text-sm flex items-center justify-between border ${saldoRestante < -0.01 ? 'bg-rose-50 border-rose-200 text-rose-800' : saldoRestante > 0.01 ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
             <span className="font-semibold uppercase text-[11px] tracking-wide">Saldo por facturar</span>
             <span className="font-bold">{fmt(saldoRestante)}</span>
           </div>
@@ -150,8 +150,8 @@ const FacturaElectronicaModal: React.FC<Props> = ({ odp, onClose, onSaved, onAdi
           {yaFacturada && (
             <div className="pt-3 border-t border-slate-100">
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-bold text-slate-600 uppercase">Facturas adicionales</label>
-                <span className="text-[10px] text-slate-400">{feAdicionales.length}/2 · máx. 3 FE por ODP</span>
+                <label className="block text-xs font-semibold text-slate-900 uppercase">Facturas adicionales</label>
+                <span className="text-[11px] text-slate-600">{feAdicionales.length}/2 · máx. 3 FE por ODP</span>
               </div>
 
               {feAdicionales.length > 0 && (
@@ -159,13 +159,13 @@ const FacturaElectronicaModal: React.FC<Props> = ({ odp, onClose, onSaved, onAdi
                   {feAdicionales.map((f: any) => (
                     <div key={f.id} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-mono text-xs font-bold text-emerald-700">FE-{f.numero_fe}</span>
-                        {f.fecha_factura && <span className="text-[11px] text-slate-400">{fmtFecha(f.fecha_factura)}</span>}
-                        <span className="text-[11px] font-semibold text-slate-600">{fmt(Number(f.monto) || 0)}</span>
+                        <span className="font-mono text-xs font-semibold text-emerald-800 whitespace-nowrap">FE-{f.numero_fe}</span>
+                        {f.fecha_factura && <span className="text-[11px] text-slate-700 whitespace-nowrap">{fmtFecha(f.fecha_factura)}</span>}
+                        <span className="text-[11px] font-semibold text-slate-900">{fmt(Number(f.monto) || 0)}</span>
                       </div>
                       <button type="button" onClick={() => handleDeleteAdicional(f.id)}
                         title="Eliminar factura adicional"
-                        className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">
+                        className="p-1 rounded text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -176,21 +176,21 @@ const FacturaElectronicaModal: React.FC<Props> = ({ odp, onClose, onSaved, onAdi
               {feAdicionales.length < 2 ? (
                 <div className="flex flex-wrap items-end gap-2">
                   <div className="flex-1 min-w-[110px]">
-                    <label className="block text-[10px] font-semibold text-slate-500 mb-0.5 uppercase">FE No.</label>
+                    <label className="block text-[11px] font-semibold text-slate-900 mb-0.5 uppercase">FE No.</label>
                     <input value={nuevaAdic.numero_fe} onChange={e => setNuevaAdic(p => ({ ...p, numero_fe: e.target.value }))}
                       placeholder="Ej: 2024-002"
-                      className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                      className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                   </div>
                   <div className="w-28">
-                    <label className="block text-[10px] font-semibold text-slate-500 mb-0.5 uppercase">Fecha</label>
+                    <label className="block text-[11px] font-semibold text-slate-900 mb-0.5 uppercase">Fecha</label>
                     <input type="date" value={nuevaAdic.fecha_fe} onChange={e => setNuevaAdic(p => ({ ...p, fecha_fe: e.target.value }))}
-                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                      className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                   </div>
                   <div className="w-24">
-                    <label className="block text-[10px] font-semibold text-slate-500 mb-0.5 uppercase">Monto</label>
+                    <label className="block text-[11px] font-semibold text-slate-900 mb-0.5 uppercase">Monto</label>
                     <input type="text" inputMode="numeric" value={nuevaAdic.monto}
                       onChange={e => setNuevaAdic(p => ({ ...p, monto: formatMiles(e.target.value) }))} placeholder="0"
-                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                      className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                   </div>
                   <button type="button" onClick={handleAddAdicional} disabled={addingAdic}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition disabled:opacity-50">
@@ -198,14 +198,14 @@ const FacturaElectronicaModal: React.FC<Props> = ({ odp, onClose, onSaved, onAdi
                   </button>
                 </div>
               ) : (
-                <p className="text-[11px] text-slate-400 italic">Límite alcanzado (3 facturas en total).</p>
+                <p className="text-[11px] text-slate-600 italic">Límite alcanzado (3 facturas en total).</p>
               )}
             </div>
           )}
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
-              className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition">Cancelar</button>
+              className="flex-1 py-2.5 font-semibold text-slate-800 border border-slate-300 rounded-xl hover:bg-slate-50 transition">Cancelar</button>
             <button type="submit" disabled={submittingFe}
               className="flex-1 py-2.5 font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition shadow-md shadow-emerald-200 disabled:opacity-50">
               {submittingFe ? 'Guardando...' : 'Guardar Factura'}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { X, Plus, Trash2, ArrowUp, ArrowDown, Truck, Users, Calendar } from 'lucide-react';
+import { X, Plus, Trash2, ArrowUp, ArrowDown, Truck, Users, Calendar } from '../../../components/ui/icons';
 
 import API from '../../../services/config';
 
@@ -129,8 +129,8 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-200">
           <div>
-            <h2 className="text-lg font-bold text-slate-800">{rutaExistente ? 'Editar Ruta' : 'Programar Ruta de Instalación'}</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Asigna vehículo, personal y ODPs en orden</p>
+            <h2 className="text-lg font-bold text-slate-900">{rutaExistente ? 'Editar Ruta' : 'Programar Ruta de Instalación'}</h2>
+            <p className="text-xs text-slate-700 mt-0.5">Asigna vehículo, personal y ODPs en orden</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-5 h-5" /></button>
         </div>
@@ -139,7 +139,7 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
           {/* Vehículo, conductor y oficial */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide flex items-center gap-1.5">
+              <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wide flex items-center gap-1.5">
                 <Truck className="w-3.5 h-3.5" /> Vehículo
               </label>
               <select value={vehiculoId} onChange={e => setVehiculoId(Number(e.target.value) || '')}
@@ -149,7 +149,7 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Conductor</label>
+              <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wide">Conductor</label>
               <select value={conductorId} onChange={e => setConductorId(Number(e.target.value) || '')}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
                 <option value="">Sin conductor asignado</option>
@@ -157,7 +157,7 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide" title="Quien puede marcar la ruta como completada">
+              <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wide" title="Quien puede marcar la ruta como completada">
                 Oficial de ruta
               </label>
               <select value={oficialId} onChange={e => setOficialId(Number(e.target.value) || '')}
@@ -170,7 +170,7 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
 
           {/* Instaladores */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+            <label className="block text-xs font-semibold text-slate-900 mb-2 uppercase tracking-wide flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5" /> Instaladores asignados
             </label>
             <div className="flex flex-wrap gap-2">
@@ -178,12 +178,12 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
                 const sel = instaladoresSeleccionados.includes(ins.id);
                 return (
                   <button key={ins.id} onClick={() => toggleInstalador(ins.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${sel ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}>
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${sel ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-300'}`}>
                     {ins.nombre_completo}
                   </button>
                 );
               })}
-              {instaladores.length === 0 && <p className="text-xs text-slate-400">No hay instaladores registrados</p>}
+              {instaladores.length === 0 && <p className="text-xs text-slate-700">No hay instaladores registrados</p>}
             </div>
           </div>
 
@@ -200,7 +200,7 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
           {/* ODPs disponibles para agregar */}
           {odpsNoAgregadas.length > 0 && (
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+              <label className="block text-xs font-semibold text-slate-900 mb-2 uppercase tracking-wide flex items-center gap-1.5">
                 <Plus className="w-3.5 h-3.5" /> ODPs disponibles (clic para agregar)
               </label>
               <div className="max-h-36 overflow-y-auto space-y-1 rounded-lg border border-slate-200 p-2">
@@ -208,8 +208,8 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
                   <button key={odp.id} onClick={() => agregarODP(odp)}
                     className="w-full text-left px-3 py-2 rounded-lg hover:bg-indigo-50 border border-transparent hover:border-indigo-200 transition-all flex justify-between items-center group">
                     <div>
-                      <span className="text-sm font-semibold text-slate-800">{odp.numero_odp}</span>
-                      <span className="text-xs text-slate-500 ml-2">{odp.cliente?.nombre_razon_social}</span>
+                      <span className="text-sm font-semibold text-slate-900">{odp.numero_odp}</span>
+                      <span className="text-xs text-slate-700 ml-2">{odp.cliente?.nombre_razon_social}</span>
                     </div>
                     <Plus className="w-4 h-4 text-indigo-400 opacity-0 group-hover:opacity-100" />
                   </button>
@@ -220,11 +220,11 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
 
           {/* ODPs en la ruta (con orden) */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+            <label className="block text-xs font-semibold text-slate-900 mb-2 uppercase tracking-wide flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5" /> Orden de instalación ({entries.length} ODP{entries.length !== 1 ? 's' : ''})
             </label>
             {entries.length === 0 ? (
-              <div className="border-2 border-dashed border-slate-200 rounded-lg py-8 text-center text-sm text-slate-400">
+              <div className="border-2 border-dashed border-slate-200 rounded-lg py-8 text-center text-sm text-slate-700">
                 Agrega ODPs desde la lista de arriba
               </div>
             ) : (
@@ -235,8 +235,8 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
                       {entry.orden}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{entry.odp.numero_odp}</p>
-                      <p className="text-xs text-slate-500 truncate">{entry.odp.cliente?.nombre_razon_social}</p>
+                      <p className="text-sm font-semibold text-slate-900 truncate">{entry.odp.numero_odp}</p>
+                      <p className="text-xs text-slate-700 truncate">{entry.odp.cliente?.nombre_razon_social}</p>
                     </div>
                     <input type="date" value={entry.fecha_programada}
                       onChange={e => setEntries(prev => prev.map((en, i) => i === idx ? { ...en, fecha_programada: e.target.value } : en))}
@@ -260,7 +260,7 @@ const ProgramarRutaModal: React.FC<Props> = ({ odpsDisponibles, rutaExistente, i
 
           {/* Observaciones */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Observaciones</label>
+            <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wide">Observaciones</label>
             <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={2}
               placeholder="Indicaciones para el equipo..."
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none" />

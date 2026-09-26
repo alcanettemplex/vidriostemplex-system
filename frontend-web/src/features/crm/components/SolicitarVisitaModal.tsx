@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, MapPin, Loader2, CalendarCheck, Phone, User, CheckCircle2 } from 'lucide-react';
+import { X, MapPin, Loader2, CalendarCheck, Phone, User, CheckCircle2 } from '../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import { apiSolicitarVisitaTecnica } from '../crmService';
 
@@ -56,11 +56,11 @@ const SolicitarVisitaModal: React.FC<Props> = ({ lead, onClose, onSuccess }) => 
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
           <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
-            <MapPin className="w-4.5 h-4.5 text-indigo-600" />
+            <MapPin className="w-4.5 h-4.5 text-indigo-700" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-sm font-black text-slate-800">Solicitar Visita Técnica</h2>
-            <p className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">Lead: {lead.nombre || `#${lead.id}`}</p>
+            <h2 className="text-sm font-bold text-slate-900">Solicitar Visita Técnica</h2>
+            <p className="text-[11px] text-slate-700 mt-0.5 truncate">Lead: {lead.nombre || `#${lead.id}`}</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors">
             <X className="w-4 h-4 text-slate-500" />
@@ -71,8 +71,8 @@ const SolicitarVisitaModal: React.FC<Props> = ({ lead, onClose, onSuccess }) => 
         <div className="px-5 py-4 space-y-3">
 
           <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1">
-              <MapPin className="w-3 h-3" /> Dirección de visita <span className="text-rose-500">*</span>
+            <label className="block text-[11px] font-semibold text-slate-900 uppercase tracking-wide mb-1.5 flex items-center gap-1">
+              <MapPin className="w-3 h-3" /> Dirección de visita <span className="text-rose-700">*</span>
             </label>
             <input
               type="text"
@@ -86,7 +86,7 @@ const SolicitarVisitaModal: React.FC<Props> = ({ lead, onClose, onSuccess }) => 
           </div>
 
           <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1">
+            <label className="block text-[11px] font-semibold text-slate-900 uppercase tracking-wide mb-1.5 flex items-center gap-1">
               <CalendarCheck className="w-3 h-3" /> Fecha tentativa de visita
             </label>
             <input
@@ -96,12 +96,12 @@ const SolicitarVisitaModal: React.FC<Props> = ({ lead, onClose, onSuccess }) => 
               onChange={handleChange}
               className="w-full px-3 py-2.5 text-xs border border-slate-200 rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition-all"
             />
-            <p className="text-[9px] text-slate-400 mt-1">Si no se define fecha, la visita queda en estado "Solicitada"</p>
+            <p className="text-[11px] text-slate-700 mt-1">Si no se define fecha, la visita queda en estado "Solicitada"</p>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1">
+              <label className="block text-[11px] font-semibold text-slate-900 uppercase tracking-wide mb-1.5 flex items-center gap-1">
                 <User className="w-3 h-3" /> Contacto
               </label>
               <input
@@ -114,7 +114,7 @@ const SolicitarVisitaModal: React.FC<Props> = ({ lead, onClose, onSuccess }) => 
               />
             </div>
             <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1">
+              <label className="block text-[11px] font-semibold text-slate-900 uppercase tracking-wide mb-1.5 flex items-center gap-1">
                 <Phone className="w-3 h-3" /> Teléfono
               </label>
               <input
@@ -129,7 +129,7 @@ const SolicitarVisitaModal: React.FC<Props> = ({ lead, onClose, onSuccess }) => 
           </div>
 
           <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wide mb-1.5">
+            <label className="block text-[11px] font-semibold text-slate-900 uppercase tracking-wide mb-1.5">
               Observaciones
             </label>
             <textarea
@@ -145,7 +145,7 @@ const SolicitarVisitaModal: React.FC<Props> = ({ lead, onClose, onSuccess }) => 
 
         {/* Info */}
         <div className="mx-5 mb-4 px-3 py-2.5 bg-indigo-50 border border-indigo-200 rounded-xl">
-          <p className="text-[10px] text-indigo-700 font-bold">
+          <p className="text-[11px] text-indigo-800">
             Se creará un <span className="text-indigo-900">Prospecto</span> y una <span className="text-indigo-900">Toma de Medidas</span> vinculados a este lead. Podrás gestionarlos desde el módulo Prospectos.
           </p>
         </div>
@@ -154,14 +154,14 @@ const SolicitarVisitaModal: React.FC<Props> = ({ lead, onClose, onSuccess }) => 
         <div className="px-5 pb-5 flex items-center gap-3">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+            className="flex-1 py-2.5 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
           >
             Cancelar
           </button>
           <button
             onClick={handleEnviar}
             disabled={enviando || !form.direccion.trim()}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-black bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 rounded-xl transition-all active:scale-95 shadow-sm"
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 rounded-xl transition-all active:scale-95 shadow-sm"
           >
             {enviando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
             Solicitar Visita

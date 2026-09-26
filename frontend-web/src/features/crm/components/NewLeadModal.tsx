@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, UserPlus, Phone, AlignLeft, Info, User, ChevronDown, Camera, Trash2, ImageOff } from 'lucide-react';
+import { X, UserPlus, Phone, AlignLeft, Info, User, ChevronDown, Camera, Trash2, ImageOff } from '../../../components/ui/icons';
 import { useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import { addLead } from '../crmSlice';
@@ -147,15 +147,15 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-purple-50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-800">Capturar Nuevo Lead</h2>
-              <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider">Módulo Asistente Administrativo</p>
+              <h2 className="text-lg font-bold text-slate-900">Capturar Nuevo Lead</h2>
+              <p className="text-[11px] text-slate-900 font-semibold uppercase tracking-wider">Módulo Asistente Administrativo</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors">
+          <button onClick={onClose} className="p-2 text-slate-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -165,12 +165,12 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
           {/* Banner informativo — cambia según respondio */}
           {formData.respondio === 'No responde' ? (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-3 text-sm text-amber-800">
-              <Info className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+              <Info className="w-4 h-4 shrink-0 text-amber-700 mt-0.5" />
               <p>Este lead se registrará en el tab <strong>Sin Respuesta</strong>. No entrará al pipeline hasta que responda. Igual quedará guardado el mensaje y la fuente para métricas.</p>
             </div>
           ) : (
             <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 flex gap-3 text-sm text-indigo-800">
-              <Info className="w-4 h-4 shrink-0 text-indigo-500 mt-0.5" />
+              <Info className="w-4 h-4 shrink-0 text-indigo-700 mt-0.5" />
               <p>El lead irá a la <strong>Bolsa Común</strong> automáticamente, salvo que asignes un asesor al final.</p>
             </div>
           )}
@@ -178,7 +178,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
           {/* Fila 1: Nombre + Teléfono */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5" /> Nombre del Contacto *
               </label>
               <input
@@ -188,7 +188,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest flex items-center gap-1.5">
                 <Phone className="w-3.5 h-3.5" /> Teléfono *
               </label>
               <input
@@ -201,7 +201,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
 
           {/* Mensaje de entrada */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
+            <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest flex items-center gap-1.5">
               <AlignLeft className="w-3.5 h-3.5" /> Mensaje de Entrada (pega el mensaje exacto)
             </label>
             <textarea
@@ -214,14 +214,14 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
           {/* Fila 2: Fuente + Segmento */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">Fuente del Lead *</label>
+              <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest">Fuente del Lead *</label>
               <select required name="fuente_lead" value={formData.fuente_lead} onChange={handleChange}
                 className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:border-indigo-500 transition-all">
                 {FUENTES.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">Segmento *</label>
+              <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest">Segmento *</label>
               <select required name="segmento" value={formData.segmento} onChange={handleChange}
                 className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:border-indigo-500 transition-all">
                 <option value="Arquitecto">Arquitecto</option>
@@ -236,7 +236,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
           {/* Fila 3: Producto + Respondió */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">Producto *</label>
+              <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest">Producto *</label>
               <select required name="producto_interes" value={formData.producto_interes} onChange={handleChange}
                 className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:border-indigo-500 transition-all">
                 <option value="">Seleccionar producto...</option>
@@ -244,7 +244,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">Respondió</label>
+              <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest">Respondió</label>
               <select name="respondio" value={formData.respondio} onChange={handleChange}
                 className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:border-indigo-500 transition-all">
                 <option value="Espera de información">Espera de información</option>
@@ -256,7 +256,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
 
           {formData.producto_interes === 'Otros' && (
             <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
-              <label className="text-xs font-bold text-indigo-600 uppercase tracking-widest">Especifique el producto</label>
+              <label className="text-xs font-semibold text-indigo-700 uppercase tracking-widest">Especifique el producto</label>
               <input
                 required name="producto_otro" value={formData.producto_otro} onChange={handleChange}
                 className="w-full px-3 py-2.5 bg-indigo-50/50 border border-indigo-100 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm font-medium text-slate-800 transition-all"
@@ -267,7 +267,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
 
           {/* Contexto adicional */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-widest">Descripción / Contexto Adicional</label>
+            <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest">Descripción / Contexto Adicional</label>
             <textarea
               name="descripcion_contexto" value={formData.descripcion_contexto} onChange={handleChange}
               rows={2} placeholder="Notas adicionales para el asesor que tome el lead..."
@@ -278,10 +278,10 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
           {/* Sección de imágenes adjuntas */}
           <div className="space-y-2 pt-2 border-t border-dashed border-slate-200">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
-                <Camera className="w-3.5 h-3.5 text-indigo-400" />
+              <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5 text-indigo-700" />
                 Imágenes Adjuntas
-                <span className="px-1.5 py-0.5 text-[10px] font-black bg-slate-100 text-slate-500 rounded-full">
+                <span className="px-1.5 py-0.5 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded-full">
                   {imagenesLocales.length}/{MAX_IMAGENES_LEAD}
                 </span>
               </label>
@@ -289,7 +289,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 underline underline-offset-2 transition"
+                  className="text-[11px] font-bold text-indigo-700 hover:text-indigo-800 underline underline-offset-2 transition"
                 >
                   + Agregar imagen
                 </button>
@@ -298,8 +298,8 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
             <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} />
 
             {imagenesLocales.length === 0 ? (
-              <div className="border border-dashed border-slate-200 rounded-xl p-4 text-center text-slate-400">
-                <ImageOff className="w-6 h-6 mx-auto mb-1 text-slate-200" />
+              <div className="border border-dashed border-slate-200 rounded-xl p-4 text-center text-slate-700">
+                <ImageOff className="w-6 h-6 mx-auto mb-1 text-slate-500" />
                 <p className="text-[11px]">Sin imágenes · Selecciona archivos o pega con Ctrl+V</p>
               </div>
             ) : (
@@ -322,7 +322,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
                         value={img.nota}
                         onChange={e => actualizarNota(idx, e.target.value)}
                         placeholder="Nota opcional..."
-                        className="w-full border border-slate-200 rounded-lg px-2 py-1 text-[10px] focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-slate-50"
+                        className="w-full border border-slate-200 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-slate-50"
                       />
                     </div>
                   </div>
@@ -334,7 +334,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
           {/* Asignación directa (oculta si no responde) */}
           {asesores.length > 0 && formData.respondio !== 'No responde' && (
             <div className="space-y-1.5 pt-2 border-t border-dashed border-slate-200">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-slate-900 uppercase tracking-widest flex items-center gap-1.5">
                 <ChevronDown className="w-3.5 h-3.5" /> Asignar Directamente a (opcional)
               </label>
               <select name="asesor_id" value={formData.asesor_id} onChange={handleChange}
@@ -351,7 +351,7 @@ const NewLeadModal: React.FC<NewLeadModalProps> = ({ onClose }) => {
         {/* Footer */}
         <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3">
           <button type="button" onClick={onClose}
-            className="px-5 py-2.5 text-sm font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors">
+            className="px-5 py-2.5 text-sm font-semibold text-slate-800 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors">
             Cancelar
           </button>
           <button onClick={handleSubmit} disabled={loading}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Building2, Search, UploadCloud, Clock, GitCompare } from 'lucide-react';
+import { Building2, Search, UploadCloud, Clock, GitCompare } from '../../components/ui/icons';
 import FolderTabs, { FolderTabItem } from '../../components/FolderTabs';
 import ConsultarPreciosTab from './components/tabs/ConsultarPreciosTab';
 import ProveedoresTab from './components/tabs/ProveedoresTab';
@@ -118,7 +118,7 @@ const ProveedoresPage: React.FC = () => {
       label: 'Por Mapear',
       icon: <Clock size={14} />,
       badge: pendientesCount > 0 ? pendientesCount : undefined,
-      badgeClassName: 'bg-amber-100 text-amber-800 font-bold',
+      badgeClassName: 'bg-amber-100 text-amber-800 font-semibold',
     },
     {
       key: 'maestro',

@@ -7,7 +7,7 @@ import {
   RefreshCw, LogIn, Printer, FileText, LayoutDashboard,
   History, Calendar, TrendingUp, Star, Award,
   Target, Zap, Flag, Search
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 import PrintableProduccion from '../../odp/components/PrintableProduccion';
 import PrintableOA from '../../odp/components/PrintableOA';
 import PrintableDetalleTecnico from '../../odp/components/PrintableDetalleTecnico';
@@ -18,9 +18,9 @@ import { useDataChangedSocket } from '../../../store/useSocketNotifications';
 import API from '../../../services/config';
 
 const ESTADO_STYLES: Record<string, string> = {
-  programada: 'bg-indigo-100 text-indigo-700',
-  en_curso:   'bg-amber-100 text-amber-700',
-  completada: 'bg-emerald-100 text-emerald-700',
+  programada: 'bg-indigo-100 text-indigo-800',
+  en_curso:   'bg-amber-100 text-amber-800',
+  completada: 'bg-emerald-100 text-emerald-800',
 };
 
 const ConductorView: React.FC = () => {
@@ -139,13 +139,13 @@ const ConductorView: React.FC = () => {
 
   // ––– Componentes Dinámicos –––
   const MetricCard = ({ icon: Icon, label, value, color }: any) => (
-    <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
-      <div className={`p-3 rounded-2xl ${color}`}>
+    <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-card flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-4">
+      <div className={`p-2.5 sm:p-3 rounded-xl ${color}`}>
         <Icon className="w-5 h-5" />
       </div>
-      <div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-        <p className="text-xl font-black text-slate-800 tracking-tight">{value}</p>
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-900">{label}</p>
+        <p className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight leading-tight">{value}</p>
       </div>
     </div>
   );
@@ -153,7 +153,7 @@ const ConductorView: React.FC = () => {
   if (loading) return (
     <div className="flex flex-col justify-center items-center h-[50vh] space-y-4">
       <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent shadow-xl" />
-      <p className="text-slate-400 font-bold animate-pulse">Optimizando tu logística...</p>
+      <p className="text-slate-800 font-medium animate-pulse">Optimizando tu logística...</p>
     </div>
   );
 
@@ -163,19 +163,19 @@ const ConductorView: React.FC = () => {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="space-y-1">
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
             <Truck className="w-8 h-8 text-indigo-600" />
             Centro de Despacho
           </h1>
-          <p className="text-slate-500 font-medium">Gestión de rutas y seguimiento de entregas</p>
+          <p className="text-slate-800">Gestión de rutas y seguimiento de entregas</p>
         </div>
-        <button onClick={cargar} className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl font-black text-xs text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm">
+        <button onClick={cargar} className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-300 rounded-xl font-semibold text-sm text-slate-900 hover:bg-slate-50 transition-all shadow-card">
            <RefreshCw className="w-4 h-4" /> Actualizar
         </button>
       </div>
 
       {/* MÉTRICAS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <MetricCard icon={Target} label="Finalizadas" value={`${metrics.rutasTerminadas}/${metrics.totalRutas}`} color="bg-indigo-50 text-indigo-600" />
         <MetricCard icon={TrendingUp} label="Efectividad" value={`${metrics.efectividad}%`} color="bg-emerald-50 text-emerald-600" />
         <MetricCard icon={Zap} label="Rutas Mes" value={metrics.rutasMes} color="bg-amber-50 text-amber-600" />
@@ -185,19 +185,19 @@ const ConductorView: React.FC = () => {
       {/* Buscador (visible en tabs de trabajo) */}
       {activeTab !== 'metricas' && (
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
           <input
             type="text"
             placeholder="Buscar por N° ODP o nombre de cliente..."
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 text-sm border border-slate-200 rounded-2xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder-slate-400 shadow-sm"
+            className="w-full pl-11 pr-4 py-3 text-base sm:text-sm text-slate-900 border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder-slate-500 shadow-card"
           />
         </div>
       )}
 
       {/* TABS */}
-      <div className="flex bg-white p-1.5 rounded-3xl border border-slate-200 shadow-sm w-full md:w-fit overflow-hidden">
+      <div className="flex gap-1 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-card w-full md:w-fit">
         {[
           { id: 'hoy', label: 'Asignación Activa', icon: Zap },
           { id: 'historial', label: 'Rutas Realizadas', icon: History },
@@ -206,10 +206,10 @@ const ConductorView: React.FC = () => {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all
-              ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:text-slate-700'}`}
+            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-2 sm:px-5 py-3 rounded-xl text-xs sm:text-sm font-semibold text-center leading-tight transition-all
+              ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-800 hover:text-slate-900 hover:bg-slate-50'}`}
           >
-            <tab.icon className="w-4 h-4" />
+            <tab.icon className="w-4 h-4 flex-shrink-0 hidden sm:block" />
             {tab.label}
           </button>
         ))}
@@ -260,9 +260,9 @@ const ConductorView: React.FC = () => {
           {activeTab === 'historial' && (
             <div className="grid grid-cols-1 gap-8">
               {cargandoHistorial || historial === null ? (
-                <div className="flex items-center justify-center gap-3 py-16 text-slate-400">
+                <div className="flex items-center justify-center gap-3 py-16 text-slate-800">
                   <RefreshCw className="w-5 h-5 animate-spin" />
-                  <span className="text-xs font-black uppercase tracking-widest">Cargando historial…</span>
+                  <span className="text-sm font-medium">Cargando historial…</span>
                 </div>
               ) : (() => {
                 const q = busqueda.toLowerCase().trim();
@@ -285,21 +285,21 @@ const ConductorView: React.FC = () => {
           )}
 
           {activeTab === 'metricas' && (
-            <div className="bg-white p-12 rounded-[40px] border border-slate-100 shadow-xl flex flex-col items-center text-center">
+            <div className="bg-white p-6 sm:p-12 rounded-3xl border border-slate-200 shadow-card flex flex-col items-center text-center">
               <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mb-6">
-                 <Star className="w-10 h-10 text-indigo-600" />
+                 <Star weight="duotone" className="w-10 h-10 text-indigo-700" />
               </div>
-              <h3 className="text-2xl font-black text-slate-800 tracking-tight">Análisis Operativo</h3>
-              <p className="text-slate-500 font-medium max-w-sm mx-auto mt-2">Mantenemos un registro de tu precisión en entregas y tiempos de ruta.</p>
+              <h3 className="text-2xl font-bold text-slate-900 tracking-tight">Análisis Operativo</h3>
+              <p className="text-slate-800 max-w-sm mx-auto mt-2">Mantenemos un registro de tu precisión en entregas y tiempos de ruta.</p>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mt-10">
-                 <div className="p-8 bg-slate-50 rounded-[32px] border border-slate-100">
-                    <p className="text-4xl font-black text-indigo-600 mb-1">{metrics.totalParadas}</p>
-                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Paradas Visitadas</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 w-full mt-8 sm:mt-10">
+                 <div className="p-6 sm:p-8 bg-slate-50 rounded-2xl border border-slate-200">
+                    <p className="text-4xl font-extrabold text-indigo-700 mb-1">{metrics.totalParadas}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-900">Paradas Visitadas</p>
                  </div>
-                 <div className="p-8 bg-slate-50 rounded-[32px] border border-slate-100">
-                    <p className="text-4xl font-black text-emerald-600 mb-1">{metrics.efectividad}%</p>
-                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Precisión de Llegada</p>
+                 <div className="p-6 sm:p-8 bg-slate-50 rounded-2xl border border-slate-200">
+                    <p className="text-4xl font-extrabold text-emerald-700 mb-1">{metrics.efectividad}%</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-900">Precisión de Llegada</p>
                  </div>
               </div>
             </div>
@@ -319,28 +319,28 @@ const RutaCard = ({ ruta, onIniciar, onTerminar, registrarLlegada, abrirDocument
   const todasParadasRegistradas = stops.length > 0 && stops.every((s: any) => !!s.llegada_conductor);
 
   return (
-    <div className={`bg-white rounded-[40px] border-2 shadow-sm overflow-hidden transition-all duration-300
-      ${enCurso ? 'border-amber-200' : completada ? 'border-emerald-100' : 'border-slate-100 hover:border-indigo-100'}`}>
+    <div className={`bg-white rounded-3xl border-2 shadow-card overflow-hidden transition-all duration-300
+      ${enCurso ? 'border-amber-300' : completada ? 'border-emerald-200' : 'border-slate-200 hover:border-indigo-200'}`}>
       
-      <div className={`p-6 border-b border-slate-100 flex flex-col md:flex-row gap-6 md:items-center justify-between
-        ${enCurso ? 'bg-amber-50/20' : completada ? 'bg-emerald-50/10' : 'bg-slate-50/30'}`}>
+      <div className={`p-4 sm:p-6 border-b border-slate-200 flex flex-col md:flex-row gap-4 sm:gap-6 md:items-center justify-between
+        ${enCurso ? 'bg-amber-50/60' : completada ? 'bg-emerald-50/50' : 'bg-slate-50'}`}>
         
-        <div className="flex items-center gap-5">
-           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg
-             ${enCurso ? 'bg-amber-500 text-white' : completada ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white'}`}>
+        <div className="flex items-center gap-4 sm:gap-5 min-w-0">
+           <div className={`w-14 h-14 flex-shrink-0 rounded-2xl flex items-center justify-center shadow-lg
+             ${enCurso ? 'bg-amber-500 text-white' : completada ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white'}`}>
               <Truck className="w-7 h-7" />
            </div>
            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-black text-slate-900 text-xl tracking-tight">Ruta #{ruta.id}</span>
-                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${ESTADO_STYLES[ruta.estado] || 'bg-slate-100 text-slate-600'}`}>
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <span className="font-bold text-slate-900 text-xl tracking-tight">Ruta #{ruta.id}</span>
+                <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wide ${ESTADO_STYLES[ruta.estado] || 'bg-slate-200 text-slate-800'}`}>
                   {ruta.estado}
                 </span>
               </div>
-              <div className="flex flex-wrap items-center gap-3 text-[11px] font-black uppercase tracking-widest text-slate-400">
-                <span className="flex items-center gap-1 font-bold"><Users className="w-3.5 h-3.5" /> {ruta.instaladores?.length || 0} Pers.</span>
-                <span className="flex items-center gap-1 font-bold"><Clock className="w-3.5 h-3.5" /> {stops.length} Paradas</span>
-                {ruta.vehiculo && <span className="flex items-center gap-1 font-bold"><Flag className="w-3.5 h-3.5" /> {ruta.vehiculo.placa}</span>}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs uppercase tracking-wide text-slate-800">
+                <span className="flex items-center gap-1"><Users className="w-4 h-4 text-slate-600" /> {ruta.instaladores?.length || 0} Pers.</span>
+                <span className="flex items-center gap-1"><Clock className="w-4 h-4 text-slate-600" /> {stops.length} Paradas</span>
+                {ruta.vehiculo && <span className="flex items-center gap-1 font-semibold text-slate-900"><Flag className="w-4 h-4 text-slate-600" /> {ruta.vehiculo.placa}</span>}
               </div>
            </div>
         </div>
@@ -348,24 +348,24 @@ const RutaCard = ({ ruta, onIniciar, onTerminar, registrarLlegada, abrirDocument
         {!isHistory && !completada && (
           enCurso ? (
             <button onClick={() => onTerminar(ruta.id)} disabled={!todasParadasRegistradas || loadingStatus?.finalizando === ruta.id}
-              className={`px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.1em] transition-all flex items-center gap-2
+              className={`w-full md:w-auto justify-center px-8 py-4 rounded-2xl font-bold text-sm uppercase tracking-wide transition-all flex items-center gap-2
                 ${todasParadasRegistradas 
                   ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xl shadow-emerald-100' 
-                  : 'bg-slate-100 text-slate-300 border border-slate-200 cursor-not-allowed'}`}>
+                  : 'bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed'}`}>
               {loadingStatus?.finalizando === ruta.id ? 'Cerrando...' : <><MapPin className="w-4 h-4" /> Finalizar Ruta</>}
             </button>
           ) : (
             <button onClick={() => onIniciar(ruta.id)} disabled={loadingStatus?.iniciando === ruta.id}
-              className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 disabled:opacity-60 text-xs uppercase tracking-widest shadow-xl shadow-indigo-100 active:scale-95 transition-all">
+              className="w-full md:w-auto px-8 py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 disabled:opacity-60 text-sm uppercase tracking-wide shadow-xl shadow-indigo-100 active:scale-95 transition-all">
               {loadingStatus?.iniciando === ruta.id ? 'Iniciando...' : 'Comenzar Recorrido'}
             </button>
           )
         )}
       </div>
 
-      <div className="p-6 md:p-8 space-y-6">
+      <div className="p-3 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
         {stops.length === 0 ? (
-          <p className="text-center text-slate-400 py-4 font-bold text-sm italic">Esta ruta no tiene paradas asignadas todavía.</p>
+          <p className="text-center text-slate-700 py-4 text-sm">Esta ruta no tiene paradas asignadas todavía.</p>
         ) : (
           stops.map((stop: any, idx: number) => (
             <StopItem 
@@ -391,32 +391,32 @@ const StopItem = ({ stop, idx, registrarLlegada, abrirDocumento, abrirMapa, enCu
   const sap = odp?.saps?.[0];
 
   return (
-    <div className={`p-6 rounded-[32px] border transition-all duration-300 flex flex-col md:flex-row gap-6
-      ${isDone ? 'bg-emerald-50/10 border-emerald-100' : 'bg-slate-50/30 border-slate-100'}`}>
+    <div className={`p-4 sm:p-6 rounded-2xl border transition-all duration-300 flex flex-col md:flex-row gap-4 sm:gap-6
+      ${isDone ? 'bg-emerald-50/40 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
       
-      <div className="md:w-64 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black shadow-sm
-            ${isDone ? 'bg-emerald-500 text-white' : 'bg-white border-2 border-slate-200 text-slate-400'}`}>
+      <div className="md:w-64 space-y-3 sm:space-y-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center text-sm font-bold shadow-sm
+            ${isDone ? 'bg-emerald-600 text-white' : 'bg-white border-2 border-slate-300 text-slate-900'}`}>
             {isDone ? <CheckCircle2 className="w-5 h-5" /> : idx + 1}
           </div>
-          <div>
-             <p className="text-base font-black text-slate-800 tracking-tight">{odp?.numero_odp}</p>
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate max-w-[150px]">{odp?.cliente?.nombre_razon_social}</p>
+          <div className="min-w-0">
+             <p className="text-lg font-bold text-slate-900 tracking-tight">{odp?.numero_odp}</p>
+             <p className="text-sm font-semibold text-slate-900 truncate">{odp?.cliente?.nombre_razon_social}</p>
           </div>
         </div>
 
         {odp?.direccion_instalacion && (
-          <div onClick={() => abrirMapa(odp.direccion_instalacion)} className="bg-white p-3 rounded-2xl border border-slate-100 cursor-pointer hover:border-indigo-200 transition-colors">
-            <p className="text-[10px] text-slate-400 font-black flex items-center gap-1 mb-1 uppercase"><MapPin className="w-3 h-3 text-rose-500" /> Dirección</p>
-            <p className="text-xs font-bold text-slate-700 line-clamp-2">{odp.direccion_instalacion}</p>
+          <div onClick={() => abrirMapa(odp.direccion_instalacion)} className="bg-white p-3 rounded-2xl border border-slate-200 cursor-pointer hover:border-indigo-300 transition-colors">
+            <p className="text-[11px] text-slate-900 font-semibold flex items-center gap-1 mb-1 uppercase tracking-wider"><MapPin className="w-3.5 h-3.5 text-rose-600" /> Dirección</p>
+            <p className="text-sm text-slate-900 line-clamp-2">{odp.direccion_instalacion}</p>
           </div>
         )}
       </div>
 
       <div className="flex-1 flex flex-col justify-between space-y-4">
         <div className="space-y-4">
-           <p className="text-xs text-slate-500 font-medium italic border-l-4 border-indigo-200 pl-4 py-1 leading-relaxed">
+           <p className="text-sm text-slate-800 border-l-4 border-indigo-300 pl-4 py-1 leading-relaxed">
              {odp?.descripcion_pedido || "Proceder con despacho estándar según requerimientos técnicos."}
            </p>
            {abrirDocumento && (
@@ -430,17 +430,17 @@ const StopItem = ({ stop, idx, registrarLlegada, abrirDocumento, abrirMapa, enCu
 
         {enCurso && !isDone && (
           <button onClick={() => registrarLlegada(stop.id)} disabled={loading}
-            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-lg shadow-emerald-50 transition-all flex items-center justify-center gap-2">
-            {loading ? 'Confirmando...' : <><LogIn className="w-4 h-4" /> Registrar Llegada</>}
+            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm uppercase tracking-wide rounded-2xl shadow-lg shadow-emerald-50 transition-all flex items-center justify-center gap-2">
+            {loading ? 'Confirmando...' : <><LogIn className="w-5 h-5" /> Registrar Llegada</>}
           </button>
         )}
 
         {isDone && (
-          <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-2xl border border-emerald-100">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+          <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-2xl border border-emerald-200">
+            <CheckCircle2 className="w-5 h-5 text-emerald-700" />
             <div>
-               <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">En Sitio Registrado</p>
-               <p className="text-xs font-bold text-emerald-700">Llegada: {new Date(stop.llegada_conductor).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+               <p className="text-[11px] font-semibold text-emerald-800 uppercase tracking-wider">En Sitio Registrado</p>
+               <p className="text-sm text-emerald-900">Llegada: {new Date(stop.llegada_conductor).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
             </div>
           </div>
         )}
@@ -463,19 +463,19 @@ const StopItem = ({ stop, idx, registrarLlegada, abrirDocumento, abrirMapa, enCu
 };
 
 const DocBtn = ({ icon: Icon, label, onClick, color = 'slate' }: any) => (
-  <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all
-    ${color === 'indigo' ? 'border-indigo-100 text-indigo-600 bg-indigo-50 hover:bg-indigo-100' : 'border-slate-200 text-slate-500 bg-white hover:bg-slate-50' }`}>
-    <Icon className="w-3.5 h-3.5" /> {label}
+  <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-semibold uppercase tracking-wide transition-all
+    ${color === 'indigo' ? 'border-indigo-200 text-indigo-800 bg-indigo-50 hover:bg-indigo-100' : 'border-slate-300 text-slate-900 bg-white hover:bg-slate-50' }`}>
+    <Icon className="w-4 h-4" /> {label}
   </button>
 );
 
 const EmptyState = ({ icon: Icon, title, desc }: any) => (
-  <div className="bg-white rounded-[40px] border border-slate-200 p-20 text-center">
-    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-      <Icon className="w-10 h-10 text-slate-300" />
+  <div className="bg-white rounded-3xl border border-slate-200 shadow-card p-10 sm:p-20 text-center">
+    <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
+      <Icon weight="duotone" className="w-10 h-10 text-slate-500" />
     </div>
-    <h3 className="text-xl font-black text-slate-700 tracking-tight">{title}</h3>
-    <p className="text-sm text-slate-400 font-medium max-w-xs mx-auto mt-2">{desc}</p>
+    <h3 className="text-xl font-bold text-slate-900 tracking-tight">{title}</h3>
+    <p className="text-sm text-slate-800 max-w-xs mx-auto mt-2">{desc}</p>
   </div>
 );
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Banknote, X, Plus, Pencil, Trash2, Clock } from 'lucide-react';
+import { Banknote, X, Plus, Pencil, Trash2, Clock } from '../../../components/ui/icons';
 import AbonoFormModal from './AbonoFormModal';
 import ConfirmarEliminarAbonoModal from './ConfirmarEliminarAbonoModal';
 import { fmt, fmtFecha, calcPendiente } from './contabilidad.utils';
@@ -37,7 +37,7 @@ const AbonosODPModal: React.FC<Props> = ({ odp, onClose, onChanged, puedeRegistr
           className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl border border-slate-200 max-h-[90vh] flex flex-col">
 
           <div className="flex justify-between items-center px-6 py-5 border-b border-slate-100 flex-shrink-0">
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-3">
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-3">
               <div className="p-2 bg-emerald-50 rounded-lg">
                 <Banknote className="w-5 h-5 text-emerald-600" />
               </div>
@@ -50,7 +50,7 @@ const AbonosODPModal: React.FC<Props> = ({ odp, onClose, onChanged, puedeRegistr
                   <Plus className="w-3.5 h-3.5" /> Registrar Abono
                 </button>
               )}
-              <button onClick={onClose} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
+              <button onClick={onClose} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -58,41 +58,41 @@ const AbonosODPModal: React.FC<Props> = ({ odp, onClose, onChanged, puedeRegistr
 
           <div className="flex-1 overflow-y-auto">
             {pagos.length === 0 ? (
-              <div className="py-16 text-center text-slate-400">
+              <div className="py-16 text-center text-slate-700">
                 <Banknote className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="font-bold">Esta ODP no tiene abonos registrados</p>
+                <p className="font-semibold text-slate-900">Esta ODP no tiene abonos registrados</p>
               </div>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                   <tr>
                     {['Fecha', 'Monto', 'Banco / Método', 'Recibo No.', 'Observaciones', 'Registrado por', ''].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-900 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {pagos.map((pago: any) => (
                     <tr key={pago.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                      <td className="px-4 py-3 text-slate-800 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                          <Clock className="w-3.5 h-3.5 text-slate-500" />
                           {fmtFecha(pago.fecha)}
                         </div>
                       </td>
                       <td className="px-4 py-3 font-bold text-emerald-700 whitespace-nowrap">{fmt(Number(pago.monto) || 0)}</td>
-                      <td className="px-4 py-3 text-slate-700 capitalize text-xs">{pago.metodo_pago}</td>
-                      <td className="px-4 py-3 text-slate-500 font-mono text-xs">{pago.referencia_pago || '—'}</td>
-                      <td className="px-4 py-3 text-slate-500 text-xs max-w-[180px] truncate" title={pago.observaciones || ''}>{pago.observaciones || '—'}</td>
-                      <td className="px-4 py-3 text-slate-600 text-xs whitespace-nowrap">{pago.registrador?.nombre_completo || '—'}</td>
+                      <td className="px-4 py-3 text-slate-800 capitalize text-xs whitespace-nowrap">{pago.metodo_pago}</td>
+                      <td className="px-4 py-3 text-slate-800 font-mono text-xs whitespace-nowrap">{pago.referencia_pago || '—'}</td>
+                      <td className="px-4 py-3 text-slate-700 text-xs max-w-[180px] truncate" title={pago.observaciones || ''}>{pago.observaciones || '—'}</td>
+                      <td className="px-4 py-3 text-slate-800 text-xs whitespace-nowrap">{pago.registrador?.nombre_completo || '—'}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button onClick={() => setPagoEnEdicion(pago)} title="Editar pago"
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition">
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 transition">
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button onClick={() => setPagoAEliminar(pago)} title="Eliminar pago"
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -106,16 +106,16 @@ const AbonosODPModal: React.FC<Props> = ({ odp, onClose, onChanged, puedeRegistr
 
           <div className="flex flex-wrap items-center justify-end gap-6 px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex-shrink-0">
             <div className="text-right">
-              <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Valor Total</p>
-              <p className="text-sm font-black text-slate-700">{fmt(Number(odp?.valor_total) || 0)}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-900">Valor Total</p>
+              <p className="text-sm font-extrabold text-slate-900">{fmt(Number(odp?.valor_total) || 0)}</p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Abonado</p>
-              <p className="text-sm font-black text-emerald-700">{fmt(abonado)}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-900">Abonado</p>
+              <p className="text-sm font-extrabold text-emerald-700">{fmt(abonado)}</p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Pendiente</p>
-              <p className={`text-sm font-black ${pendiente > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{fmt(pendiente)}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-900">Pendiente</p>
+              <p className={`text-sm font-extrabold ${pendiente > 0 ? 'text-rose-700' : 'text-slate-500'}`}>{fmt(pendiente)}</p>
             </div>
           </div>
         </motion.div>

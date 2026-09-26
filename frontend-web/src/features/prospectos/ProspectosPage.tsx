@@ -7,7 +7,7 @@ import {
   UserPlus, Search, RefreshCw, CheckCircle2, XCircle, Clock,
   Phone, MapPin, Plus, Ruler, X, Calendar, Image,
   Mail, ChevronRight, User
-} from 'lucide-react';
+} from '../../components/ui/icons';
 import ProspectoModal from './components/ProspectoModal';
 import AprobarProspectoModal from './components/AprobarProspectoModal';
 import FolderTabs from '../../components/FolderTabs';
@@ -45,9 +45,9 @@ interface Prospecto {
 }
 
 const ESTADO_STYLE: Record<string, { label: string; className: string; dot: string; icon: React.ReactNode }> = {
-  en_gestion: { label: 'En Gestión',  className: 'bg-amber-100 text-amber-700 border-amber-200',  dot: 'bg-amber-400', icon: <Clock className="w-3 h-3" /> },
-  aprobado:   { label: 'Aprobado',    className: 'bg-green-100 text-green-700 border-green-200',   dot: 'bg-green-500', icon: <CheckCircle2 className="w-3 h-3" /> },
-  no_aprobado:{ label: 'No aprobado', className: 'bg-red-100 text-red-700 border-red-200',          dot: 'bg-red-400',   icon: <XCircle className="w-3 h-3" /> },
+  en_gestion: { label: 'En Gestión',  className: 'bg-amber-100 text-amber-800 border-amber-200',  dot: 'bg-amber-400', icon: <Clock className="w-3 h-3" /> },
+  aprobado:   { label: 'Aprobado',    className: 'bg-green-100 text-green-800 border-green-200',   dot: 'bg-green-500', icon: <CheckCircle2 className="w-3 h-3" /> },
+  no_aprobado:{ label: 'No aprobado', className: 'bg-red-100 text-red-800 border-red-200',          dot: 'bg-red-400',   icon: <XCircle className="w-3 h-3" /> },
 };
 
 const TABS = [
@@ -84,25 +84,25 @@ const DetalleModal: React.FC<{
             <div className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0 ${est.dot}`} />
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
+                <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
                   {p.numero_prospecto}
                 </span>
-                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${est.className}`}>
+                <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${est.className}`}>
                   {est.icon}{est.label}
                 </span>
                 {p.odp && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-violet-100 text-violet-700 border-violet-200">
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border bg-violet-100 text-violet-800 border-violet-200">
                     ODP: {p.odp.numero_odp}
                   </span>
                 )}
               </div>
-              <h2 className="text-lg font-black text-slate-800 mt-1">{contacto}</h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <h2 className="text-lg font-bold text-slate-900 mt-1">{contacto}</h2>
+              <p className="text-xs text-slate-700 mt-0.5">
                 <User className="w-3 h-3 inline mr-1" />{p.asesor?.nombre_completo} · {new Date(p.fecha_creacion).toLocaleDateString('es-CO')}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition flex-shrink-0">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 transition flex-shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -114,38 +114,38 @@ const DetalleModal: React.FC<{
             {/* Descripción */}
             {p.descripcion && (
               <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Proyecto</p>
+                <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-2">Proyecto</p>
                 <p className="text-sm text-slate-700">{p.descripcion}</p>
               </div>
             )}
 
             {/* Datos de contacto */}
             <div>
-              <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3">Datos de Contacto</p>
+              <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-3">Datos de Contacto</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {p.telefono_contacto && (
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <Phone className="w-4 h-4 text-slate-500 flex-shrink-0" />
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Teléfono</p>
+                      <p className="text-[11px] font-semibold text-slate-900 uppercase">Teléfono</p>
                       <p className="text-sm font-bold text-slate-700">{p.telefono_contacto}</p>
                     </div>
                   </div>
                 )}
                 {p.email_contacto && (
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <Mail className="w-4 h-4 text-slate-500 flex-shrink-0" />
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Email</p>
+                      <p className="text-[11px] font-semibold text-slate-900 uppercase">Email</p>
                       <p className="text-sm font-bold text-slate-700 truncate">{p.email_contacto}</p>
                     </div>
                   </div>
                 )}
                 {p.direccion && (
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                    <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 sm:col-span-2">
+                    <MapPin className="w-4 h-4 text-slate-500 flex-shrink-0" />
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Dirección</p>
+                      <p className="text-[11px] font-semibold text-slate-900 uppercase">Dirección</p>
                       <p className="text-sm font-bold text-slate-700">{p.direccion}</p>
                     </div>
                   </div>
@@ -156,7 +156,7 @@ const DetalleModal: React.FC<{
             {/* Motivo no aprobado */}
             {p.motivo_no_aprobado && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                <p className="text-xs font-black text-red-600 uppercase tracking-wider mb-1">Motivo no aprobado</p>
+                <p className="text-xs font-semibold text-red-700 uppercase tracking-wider mb-1">Motivo no aprobado</p>
                 <p className="text-sm text-red-700">{p.motivo_no_aprobado}</p>
               </div>
             )}
@@ -164,7 +164,7 @@ const DetalleModal: React.FC<{
             {/* Tomas de medidas */}
             {p.tomas_medidas.length > 0 && (
               <div>
-                <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <Ruler className="w-3.5 h-3.5" /> Tomas de Medidas
                 </p>
                 <div className="space-y-3">
@@ -172,37 +172,37 @@ const DetalleModal: React.FC<{
                     <div key={tm.id} className={`rounded-xl border p-4 space-y-3 ${getTmEstadoConfig(tm.estado).cardCls}`}>
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
-                          <span className="font-black text-sm text-slate-700">{tm.numero_tm}</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getTmEstadoConfig(tm.estado).badgeCls}`}>
+                          <span className="font-bold text-sm text-slate-900">{tm.numero_tm}</span>
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${getTmEstadoConfig(tm.estado).badgeCls}`}>
                             {getTmEstadoConfig(tm.estado).label}
                           </span>
                         </div>
                         {tm.fecha_visita && (
-                          <span className="text-xs text-slate-500 flex items-center gap-1">
+                          <span className="text-xs text-slate-700 flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             {new Date(tm.fecha_visita + 'T00:00:00').toLocaleDateString('es-CO')}
                           </span>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                      <div className="grid grid-cols-2 gap-2 text-xs text-slate-800">
                         {tm.direccion && (
                           <p className="flex items-center gap-1 col-span-2">
-                            <MapPin className="w-3 h-3 text-slate-400" />{tm.direccion}
+                            <MapPin className="w-3 h-3 text-slate-500" />{tm.direccion}
                           </p>
                         )}
                         {tm.nombre_contacto && (
                           <p className="flex items-center gap-1">
-                            <User className="w-3 h-3 text-slate-400" />{tm.nombre_contacto}
+                            <User className="w-3 h-3 text-slate-500" />{tm.nombre_contacto}
                           </p>
                         )}
                         {tm.telefono_contacto && (
                           <p className="flex items-center gap-1">
-                            <Phone className="w-3 h-3 text-slate-400" />{tm.telefono_contacto}
+                            <Phone className="w-3 h-3 text-slate-500" />{tm.telefono_contacto}
                           </p>
                         )}
                         {tm.observaciones && (
-                          <p className="text-slate-500 italic col-span-2">{tm.observaciones}</p>
+                          <p className="text-slate-700 italic col-span-2">{tm.observaciones}</p>
                         )}
                       </div>
 
@@ -222,7 +222,7 @@ const DetalleModal: React.FC<{
                           </div>
                         </div>
                       ) : getTmEstadoConfig(tm.estado).mensajeSinFotos ? (
-                        <p className={`text-xs italic ${tmVisitaRealizada(tm.estado) ? 'text-emerald-600' : tm.estado === 'programada' ? 'text-blue-600' : 'text-amber-600'}`}>
+                        <p className={`text-xs italic ${tmVisitaRealizada(tm.estado) ? 'text-emerald-700' : tm.estado === 'programada' ? 'text-blue-700' : 'text-amber-700'}`}>
                           {getTmEstadoConfig(tm.estado).mensajeSinFotos}
                         </p>
                       ) : null}
@@ -242,15 +242,15 @@ const DetalleModal: React.FC<{
         {/* Footer con acciones */}
         {p.estado === 'en_gestion' && !isReadOnly && (
           <div className="border-t border-slate-100 px-6 py-4 flex-shrink-0 space-y-2">
-            <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3">Acciones</p>
+            <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-3">Acciones</p>
             <div className="grid grid-cols-2 gap-2">
               <button onClick={onEditar}
-                className="py-2.5 text-sm font-bold border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition">
+                className="py-2.5 text-sm font-bold border border-slate-200 text-slate-900 rounded-xl hover:bg-slate-50 transition">
                 Editar
               </button>
               {p.tomas_medidas.some(tm => ['solicitada', 'programada'].includes(tm.estado)) ? (
                 <button disabled title="Ya hay una toma de medidas pendiente"
-                  className="py-2.5 text-sm font-bold bg-slate-100 text-slate-400 rounded-xl border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5">
+                  className="py-2.5 text-sm font-bold bg-slate-100 text-slate-500 rounded-xl border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5">
                   <Ruler className="w-3.5 h-3.5" /> TM en curso
                 </button>
               ) : (
@@ -266,7 +266,7 @@ const DetalleModal: React.FC<{
               <CheckCircle2 className="w-4 h-4" /> Aprobar — Generar ODP
             </button>
             <button onClick={onNoAprobar}
-              className="w-full py-2.5 text-sm font-bold bg-red-50 text-red-600 border border-red-200 rounded-xl hover:bg-red-100 transition flex items-center justify-center gap-2">
+              className="w-full py-2.5 text-sm font-bold bg-red-50 text-red-700 border border-red-200 rounded-xl hover:bg-red-100 transition flex items-center justify-center gap-2">
               <XCircle className="w-4 h-4" /> No aprobado — Archivar
             </button>
           </div>
@@ -368,12 +368,12 @@ const ProspectosPage: React.FC = () => {
             <UserPlus className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-slate-800">Prospectos</h1>
-            <p className="text-xs text-slate-500">Gestión de contactos y oportunidades de venta</p>
+            <h1 className="text-xl font-bold text-slate-900">Prospectos</h1>
+            <p className="text-xs text-slate-700">Gestión de contactos y oportunidades de venta</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={fetchProspectos} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition">
+          <button onClick={fetchProspectos} className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition">
             <RefreshCw className="w-4 h-4" />
           </button>
           {!isReadOnly && (
@@ -399,7 +399,7 @@ const ProspectosPage: React.FC = () => {
 
       {/* Búsqueda */}
       <div className="relative mb-4">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Buscar por nombre, número, descripción..."
           className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -408,9 +408,9 @@ const ProspectosPage: React.FC = () => {
 
       {/* Lista */}
       {loading ? (
-        <div className="text-center py-16 text-slate-400">Cargando...</div>
+        <div className="text-center py-16 text-slate-700">Cargando...</div>
       ) : filtrados.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">
+        <div className="text-center py-16 text-slate-700">
           <UserPlus className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p className="font-bold">No hay prospectos en este estado</p>
         </div>
@@ -428,7 +428,7 @@ const ProspectosPage: React.FC = () => {
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 onClick={() => setDetalle(p)}
-                className="w-full text-left bg-white rounded-xl border border-slate-200 px-4 py-3.5 hover:border-indigo-300 hover:shadow-sm transition-all flex items-center gap-4 group"
+                className="w-full text-left bg-white rounded-2xl border border-slate-200 shadow-card px-4 py-3.5 hover:border-indigo-300 hover:shadow-card-hover transition-all flex items-center gap-4 group"
               >
                 {/* Dot estado */}
                 <div className={`w-2 h-2 rounded-full flex-shrink-0 ${est.dot}`} />
@@ -436,14 +436,14 @@ const ProspectosPage: React.FC = () => {
                 {/* Info principal */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                    <span className="text-xs font-black text-indigo-600">{p.numero_prospecto}</span>
-                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${est.className}`}>
+                    <span className="text-xs font-bold text-indigo-700">{p.numero_prospecto}</span>
+                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${est.className}`}>
                       {est.icon}{est.label}
                     </span>
                     {tm && (
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
                         tieneFotos || tmVisitaRealizada(tm.estado)
-                          ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
                           : getTmEstadoConfig(tm.estado).badgeCls
                       }`}>
                         <Ruler className="w-3 h-3" />
@@ -453,23 +453,23 @@ const ProspectosPage: React.FC = () => {
                       </span>
                     )}
                     {p.odp && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-violet-100 text-violet-700 border-violet-200">
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full border bg-violet-100 text-violet-800 border-violet-200">
                         {p.odp.numero_odp}
                       </span>
                     )}
                   </div>
-                  <p className="text-sm font-bold text-slate-800 truncate">{contacto}</p>
+                  <p className="text-sm font-bold text-slate-900 truncate">{contacto}</p>
                   {p.descripcion && (
-                    <p className="text-xs text-slate-400 truncate mt-0.5">{p.descripcion}</p>
+                    <p className="text-xs text-slate-700 truncate mt-0.5">{p.descripcion}</p>
                   )}
                 </div>
 
                 {/* Meta derecha */}
-                <div className="hidden md:flex flex-col items-end gap-1 flex-shrink-0 text-xs text-slate-400">
+                <div className="hidden md:flex flex-col items-end gap-1 flex-shrink-0 text-xs text-slate-700">
                   <span className="font-medium">{p.asesor?.nombre_completo}</span>
                   <span>{new Date(p.fecha_creacion).toLocaleDateString('es-CO')}</span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-400 transition flex-shrink-0" />
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-400 transition flex-shrink-0" />
               </motion.button>
             );
           })}
@@ -483,7 +483,7 @@ const ProspectosPage: React.FC = () => {
             className="px-3 py-1.5 text-sm font-bold border border-slate-200 rounded-xl disabled:opacity-40 hover:bg-slate-50 transition">
             ←
           </button>
-          <span className="text-sm font-semibold text-slate-600">
+          <span className="text-sm font-semibold text-slate-900">
             Página {pagina} de {totalPaginas}
           </span>
           <button onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))} disabled={pagina >= totalPaginas}
@@ -568,17 +568,17 @@ const ProspectosPage: React.FC = () => {
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-slate-800">Archivar prospecto</h3>
-                <button onClick={() => setArchivandoId(null)}><X className="w-5 h-5 text-slate-400" /></button>
+                <h3 className="font-bold text-slate-900">Archivar prospecto</h3>
+                <button onClick={() => setArchivandoId(null)}><X className="w-5 h-5 text-slate-500" /></button>
               </div>
-              <p className="text-sm text-slate-500 mb-3">Ingresa el motivo por el que no se aprobó (opcional):</p>
+              <p className="text-sm text-slate-700 mb-3">Ingresa el motivo por el que no se aprobó (opcional):</p>
               <textarea value={motivoArchivo} onChange={e => setMotivoArchivo(e.target.value)}
                 placeholder="Precio muy alto, no interesado, etc..." rows={3}
                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 mb-4"
               />
               <div className="flex gap-2">
                 <button onClick={() => setArchivandoId(null)}
-                  className="flex-1 py-2.5 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm">
+                  className="flex-1 py-2.5 font-bold text-slate-900 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm">
                   Cancelar
                 </button>
                 <button onClick={handleNoAprobar}

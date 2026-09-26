@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X } from '../../../components/ui/icons';
 import { toast } from 'react-toastify';
 
 import API from '../../../services/config';
@@ -119,12 +119,12 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh, onSAPsCompletada
         {/* Header */}
         <div className="flex justify-between items-start px-6 py-4 border-b border-slate-100 shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-slate-800">Nueva ODC Consolidada</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <h2 className="text-lg font-bold text-slate-900">Nueva ODC Consolidada</h2>
+            <p className="text-xs text-slate-700 mt-0.5">
               {localItems.length} item(s) de {new Set(localItems.map(i => i.SAP?.id)).size} SAP(s) seleccionados
             </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
+          <button onClick={onClose} className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -133,7 +133,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh, onSAPsCompletada
 
           {/* Resumen de items agrupados por código */}
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+            <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-3">
               Items seleccionados — agrupados por código
             </p>
             <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -141,21 +141,21 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh, onSAPsCompletada
                 <div key={codigo} className={gi > 0 ? 'border-t border-slate-200' : ''}>
                   {/* Encabezado del grupo */}
                   <div className="flex items-center gap-3 px-4 py-2 bg-indigo-50 border-b border-indigo-100">
-                    <span className="font-mono font-black text-indigo-700 text-sm">{codigo}</span>
-                    <span className="text-xs text-slate-500">—</span>
-                    <span className="text-xs text-slate-600 font-medium flex-1 truncate">{grupo[0].descripcion || '—'}</span>
-                    <span className="text-xs font-black text-indigo-700 shrink-0">
+                    <span className="font-mono font-bold text-indigo-700 text-sm">{codigo}</span>
+                    <span className="text-xs text-slate-700">—</span>
+                    <span className="text-xs text-slate-900 font-medium flex-1 truncate">{grupo[0].descripcion || '—'}</span>
+                    <span className="text-xs font-semibold text-indigo-700 shrink-0">
                       Total: {totalPorCodigo(grupo)} {grupo[0].und || ''}
                     </span>
                     {grupo.length > 1 && (
-                      <span className="text-[10px] font-bold text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full">
+                      <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">
                         {grupo.length} SAPs
                       </span>
                     )}
                   </div>
                   {/* Filas de detalle por SAP de origen */}
                   <table className="w-full text-xs">
-                    <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-900 [&_th]:font-semibold">
                       <tr>
                         <th className="px-4 py-1.5 text-left w-28">DIMENSIÓN</th>
                         <th className="px-4 py-1.5 text-center w-16">CANT.</th>
@@ -167,10 +167,10 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh, onSAPsCompletada
                         <th className="px-4 py-1.5 text-left w-40">ASESOR</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50">
+                    <tbody className="divide-y divide-slate-100">
                       {grupo.map((item, i) => (
                         <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
-                          <td className="px-4 py-1.5 text-slate-600">{item.dimension || '—'}</td>
+                          <td className="px-4 py-1.5 text-slate-800">{item.dimension || '—'}</td>
                           <td className="px-2 py-1">
                             <input
                               type="number"
@@ -178,7 +178,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh, onSAPsCompletada
                               step={1}
                               value={item.cantidad}
                               onChange={e => updateLocalItem(item.id, 'cantidad', e.target.value)}
-                              className="w-16 text-center font-bold text-slate-700 border border-slate-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                              className="w-16 text-center font-semibold text-slate-900 border border-slate-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
                             />
                           </td>
                           <td className="px-2 py-1">
@@ -188,14 +188,14 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh, onSAPsCompletada
                               onChange={e => updateLocalItem(item.id, 'und', e.target.value)}
                               placeholder="UND"
                               maxLength={10}
-                              className="w-16 text-slate-600 border border-slate-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 uppercase"
+                              className="w-16 text-slate-800 border border-slate-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 uppercase"
                             />
                           </td>
-                          <td className="px-4 py-1.5 text-slate-400 text-[10px] truncate max-w-[140px]" title={item.observacion || ''}>{item.observacion || '—'}</td>
-                          <td className="px-4 py-1.5 font-bold text-indigo-600">{item.SAP?.numero_sap || '—'}</td>
-                          <td className="px-4 py-1.5 font-bold text-slate-700">{item.SAP?.ODP?.numero_odp || '—'}</td>
-                          <td className="px-4 py-1.5 text-slate-600 truncate max-w-[180px]">{item.SAP?.ODP?.cliente?.nombre_razon_social || '—'}</td>
-                          <td className="px-4 py-1.5 text-slate-400 text-[10px] truncate max-w-[160px]" title={item.SAP?.ODP?.asesor?.nombre_completo || ''}>
+                          <td className="px-4 py-1.5 text-slate-700 text-[11px] truncate max-w-[140px]" title={item.observacion || ''}>{item.observacion || '—'}</td>
+                          <td className="px-4 py-1.5 font-semibold text-indigo-700 whitespace-nowrap">{item.SAP?.numero_sap || '—'}</td>
+                          <td className="px-4 py-1.5 font-semibold text-slate-900 whitespace-nowrap">{item.SAP?.ODP?.numero_odp || '—'}</td>
+                          <td className="px-4 py-1.5 text-slate-800 truncate max-w-[180px]">{item.SAP?.ODP?.cliente?.nombre_razon_social || '—'}</td>
+                          <td className="px-4 py-1.5 text-slate-700 text-[11px] truncate max-w-[160px]" title={item.SAP?.ODP?.asesor?.nombre_completo || ''}>
                             {item.SAP?.ODP?.asesor?.nombre_completo || '—'}
                           </td>
                         </tr>
@@ -210,8 +210,8 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh, onSAPsCompletada
           {/* Campos de la ODC */}
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                N° ODC <span className="text-red-400">*</span>
+              <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">
+                N° ODC <span className="text-red-600">*</span>
               </label>
               <input
                 value={numeroOdc}
@@ -222,8 +222,8 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh, onSAPsCompletada
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                Proveedor <span className="text-red-400">*</span>
+              <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">
+                Proveedor <span className="text-red-600">*</span>
               </label>
               <input
                 value={proveedor}
@@ -233,7 +233,7 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh, onSAPsCompletada
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+              <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">
                 Notas (opcional)
               </label>
               <input
@@ -251,14 +251,14 @@ const ODCModal: React.FC<Props> = ({ items, onClose, onRefresh, onSAPsCompletada
         <div className="flex gap-3 px-6 py-4 border-t border-slate-100 shrink-0">
           <button
             onClick={onClose}
-            className="flex-1 py-3 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+            className="flex-1 py-3 font-semibold text-slate-800 border border-slate-300 rounded-xl hover:bg-slate-50 transition"
           >
             Cancelar
           </button>
           <button
             onClick={handleCrearODC}
             disabled={loading || !proveedor.trim() || !numeroOdc.trim() || localItems.length === 0}
-            className="flex-1 py-3 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
+            className="flex-1 py-3 font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition disabled:opacity-40"
           >
             {loading ? 'Creando...' : `Crear ODC con ${localItems.length} item(s)`}
           </button>

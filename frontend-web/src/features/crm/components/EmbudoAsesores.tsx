@@ -4,7 +4,7 @@ import {
   RefreshCw, ChevronDown, ChevronUp, User, TrendingUp,
   TrendingDown, Minus, AlertTriangle, Snowflake, Activity,
   ArrowRight,
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 import { apiGetEmbudoAsesores } from '../crmService';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -56,9 +56,9 @@ const getPctColor = (pct: number) => {
 };
 
 const getTasaFinalColor = (pct: number) => {
-  if (pct >= 25) return 'text-emerald-600';
-  if (pct >= 12) return 'text-amber-600';
-  return 'text-red-600';
+  if (pct >= 25) return 'text-emerald-700';
+  if (pct >= 12) return 'text-amber-700';
+  return 'text-red-700';
 };
 
 // ─── Fila de un tramo ─────────────────────────────────────────────────────────
@@ -71,11 +71,11 @@ const FilaTramo: React.FC<{ tramo: Tramo }> = ({ tramo }) => {
       <div className="flex items-center gap-2">
         {/* Etiqueta tramo */}
         <div className="flex items-center gap-1 shrink-0 w-48">
-          <span className="text-[10px] font-bold text-slate-500 truncate">
+          <span className="text-[11px] text-slate-700 truncate">
             {ETAPA_LABEL[tramo.desde]}
           </span>
-          <ArrowRight className="w-2.5 h-2.5 text-slate-300 shrink-0" />
-          <span className="text-[10px] font-bold text-slate-700 truncate">
+          <ArrowRight className="w-2.5 h-2.5 text-slate-500 shrink-0" />
+          <span className="text-[11px] text-slate-700 truncate">
             {ETAPA_LABEL[tramo.hasta]}
           </span>
         </div>
@@ -89,10 +89,10 @@ const FilaTramo: React.FC<{ tramo: Tramo }> = ({ tramo }) => {
             />
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className={`text-xs font-black ${cfg.text}`}>
+            <span className={`text-xs font-bold ${cfg.text}`}>
               {tramo.pct_conversion}%
             </span>
-            <span className="text-[10px] text-slate-400 font-medium">
+            <span className="text-[11px] text-slate-700">
               {tramo.leads_hasta}/{tramo.leads_desde}
             </span>
           </div>
@@ -103,13 +103,13 @@ const FilaTramo: React.FC<{ tramo: Tramo }> = ({ tramo }) => {
       {tieneCaidas && (
         <div className="ml-48 flex items-center gap-3 pl-2 border-l-2 border-slate-100">
           {tramo.perdidos_en_etapa > 0 && (
-            <span className="flex items-center gap-1 text-[10px] font-bold text-red-500">
+            <span className="flex items-center gap-1 text-[11px] font-bold text-red-700">
               <AlertTriangle className="w-2.5 h-2.5" />
               {tramo.perdidos_en_etapa} perdido{tramo.perdidos_en_etapa !== 1 ? 's' : ''} aquí
             </span>
           )}
           {tramo.frios_en_etapa > 0 && (
-            <span className="flex items-center gap-1 text-[10px] font-bold text-sky-500">
+            <span className="flex items-center gap-1 text-[11px] font-bold text-sky-700">
               <Snowflake className="w-2.5 h-2.5" />
               {tramo.frios_en_etapa} frio{tramo.frios_en_etapa !== 1 ? 's' : ''} aquí
             </span>
@@ -132,10 +132,10 @@ const CardAsesor: React.FC<{ asesor: AsesorEmbudo; promedioEquipo: number }> = (
       : <Minus className="w-3 h-3" />;
 
   const vsColor = asesor.vs_equipo > 0
-    ? 'text-emerald-600 bg-emerald-50 border-emerald-100'
+    ? 'text-emerald-700 bg-emerald-50 border-emerald-100'
     : asesor.vs_equipo < 0
-      ? 'text-red-500 bg-red-50 border-red-100'
-      : 'text-slate-500 bg-slate-50 border-slate-100';
+      ? 'text-red-700 bg-red-50 border-red-100'
+      : 'text-slate-700 bg-slate-50 border-slate-100';
 
   // Barra resumen colapsada: ancho = tasa_final relativa al máximo posible
   const barResumen = Math.min(100, asesor.tasa_final * 2.5); // escala visual ~40% = buen resultado
@@ -148,13 +148,13 @@ const CardAsesor: React.FC<{ asesor: AsesorEmbudo; promedioEquipo: number }> = (
         onClick={() => setExpandido(e => !e)}
       >
         <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
-          <User className="w-4 h-4 text-indigo-600" />
+          <User className="w-4 h-4 text-indigo-700" />
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-black text-slate-800 truncate">{asesor.asesor_nombre}</p>
-            <span className="text-[10px] font-bold text-slate-400">{asesor.total_leads} leads</span>
+            <p className="text-sm font-bold text-slate-900 truncate">{asesor.asesor_nombre}</p>
+            <span className="text-[11px] text-slate-700">{asesor.total_leads} leads</span>
           </div>
 
           {/* Mini barra resumen (visible solo colapsado) */}
@@ -173,18 +173,18 @@ const CardAsesor: React.FC<{ asesor: AsesorEmbudo; promedioEquipo: number }> = (
         {/* Tasa final + vs equipo */}
         <div className="flex items-center gap-2 shrink-0">
           <div className="text-right">
-            <p className={`text-xl font-black leading-none ${tasaColor}`}>
+            <p className={`text-xl font-bold leading-none ${tasaColor}`}>
               {asesor.tasa_final}%
             </p>
-            <p className="text-[9px] text-slate-400 font-bold mt-0.5">tasa final</p>
+            <p className="text-[11px] text-slate-700 mt-0.5">tasa final</p>
           </div>
-          <div className={`flex items-center gap-0.5 px-2 py-1 rounded-lg border text-[10px] font-black ${vsColor}`}>
+          <div className={`flex items-center gap-0.5 px-2 py-1 rounded-lg border text-[11px] font-semibold ${vsColor}`}>
             {VsIcon}
             {asesor.vs_equipo > 0 ? '+' : ''}{asesor.vs_equipo}%
           </div>
           {expandido
-            ? <ChevronUp className="w-4 h-4 text-slate-400" />
-            : <ChevronDown className="w-4 h-4 text-slate-400" />
+            ? <ChevronUp className="w-4 h-4 text-slate-500" />
+            : <ChevronDown className="w-4 h-4 text-slate-500" />
           }
         </div>
       </div>
@@ -202,24 +202,24 @@ const CardAsesor: React.FC<{ asesor: AsesorEmbudo; promedioEquipo: number }> = (
           {/* Resumen de resultados */}
           <div className="grid grid-cols-3 gap-3 pt-3 border-t border-slate-50">
             <div className="text-center bg-emerald-50 border border-emerald-100 rounded-xl p-3">
-              <p className="text-lg font-black text-emerald-700">{asesor.total_aprobados}</p>
-              <p className="text-[9px] font-black text-emerald-500 uppercase tracking-wider mt-0.5">Aprobados</p>
+              <p className="text-lg font-bold text-emerald-700">{asesor.total_aprobados}</p>
+              <p className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider mt-0.5">Aprobados</p>
             </div>
             <div className="text-center bg-slate-50 border border-slate-100 rounded-xl p-3">
-              <p className="text-lg font-black text-slate-700">{asesor.total_leads}</p>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-0.5">Total leads</p>
+              <p className="text-lg text-slate-700">{asesor.total_leads}</p>
+              <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider mt-0.5">Total leads</p>
             </div>
             <div className={`text-center border rounded-xl p-3 ${getPctColor(asesor.tasa_final * 2.5).light}`}>
-              <p className={`text-lg font-black ${tasaColor}`}>{asesor.tasa_final}%</p>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-0.5">Conversión</p>
+              <p className={`text-lg font-bold ${tasaColor}`}>{asesor.tasa_final}%</p>
+              <p className="text-[11px] font-semibold text-slate-900 uppercase tracking-wider mt-0.5">Conversión</p>
             </div>
           </div>
 
           {/* Comparativa con equipo */}
-          <div className="flex items-center gap-2 text-[11px] text-slate-500 bg-slate-50 rounded-xl px-3 py-2">
+          <div className="flex items-center gap-2 text-[11px] text-slate-700 bg-slate-50 rounded-xl px-3 py-2">
             <Activity className="w-3.5 h-3.5 shrink-0" />
             <span>Promedio del equipo: <strong className="text-slate-700">{promedioEquipo}%</strong></span>
-            <span className={`ml-auto font-black ${vsColor.split(' ')[0]}`}>
+            <span className={`ml-auto font-bold ${vsColor.split(' ')[0]}`}>
               {asesor.vs_equipo > 0 ? '+' : ''}{asesor.vs_equipo}% vs equipo
             </span>
           </div>
@@ -260,10 +260,10 @@ const EmbudoAsesores: React.FC<Props> = ({ fecha_desde, fecha_hasta, asesor_id }
 
   if (!datos || datos.asesores.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
-        <Activity className="w-10 h-10 text-slate-200" />
+      <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-700">
+        <Activity className="w-10 h-10 text-slate-500" />
         <p className="text-sm font-bold">Sin datos de conversión en este período</p>
-        <button onClick={cargar} className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
+        <button onClick={cargar} className="text-xs font-bold text-indigo-700 hover:underline flex items-center gap-1">
           <RefreshCw className="w-3.5 h-3.5" /> Actualizar
         </button>
       </div>
@@ -276,23 +276,23 @@ const EmbudoAsesores: React.FC<Props> = ({ fecha_desde, fecha_hasta, asesor_id }
     <div className="space-y-4">
       {/* Header con leyenda y promedio */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-wider">
-          <span className="flex items-center gap-1.5 text-emerald-600">
+        <div className="flex items-center gap-4 text-[11px] font-semibold uppercase tracking-wider">
+          <span className="flex items-center gap-1.5 text-emerald-700">
             <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" /> ≥70%
           </span>
-          <span className="flex items-center gap-1.5 text-amber-600">
+          <span className="flex items-center gap-1.5 text-amber-700">
             <span className="w-3 h-3 rounded-full bg-amber-500 inline-block" /> 40–69%
           </span>
-          <span className="flex items-center gap-1.5 text-red-600">
+          <span className="flex items-center gap-1.5 text-red-700">
             <span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> &lt;40%
           </span>
-          <span className="text-slate-400 ml-2">
+          <span className="text-slate-700 ml-2">
             Promedio equipo: <strong className="text-slate-700">{promedio_equipo}%</strong>
           </span>
         </div>
         <button
           onClick={cargar}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-sm transition"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-sm transition"
         >
           <RefreshCw className="w-3.5 h-3.5" /> Actualizar
         </button>

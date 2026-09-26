@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import {
   GitCompare, Search, RefreshCw, Trash2, Building2,
   Package, Edit3, Loader2, History, X, Save, AlertTriangle,
-} from 'lucide-react';
+} from '../../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
 import { ProveedorCompacto } from '../../ProveedoresPage';
@@ -259,12 +259,12 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
   };
 
   const inputStyle: React.CSSProperties = {
-    padding: '8px 12px', borderRadius: RADIUS.md, border: '1px solid var(--border-strong, #cbd5e1)',
-    fontSize: FONT.base, background: 'var(--surface, #fff)', color: 'var(--text, #0f172a)',
+    padding: '8px 12px', borderRadius: RADIUS.md, border: '1px solid var(--border-strong, #c7cdd7)',
+    fontSize: FONT.base, background: 'var(--surface, #fff)', color: 'var(--text, #111620)',
   };
 
   const botonIcono: React.CSSProperties = {
-    background: 'transparent', border: '1px solid var(--border-strong, #cbd5e1)',
+    background: 'transparent', border: '1px solid var(--border-strong, #c7cdd7)',
     padding: '6px 9px', borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 600,
     cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4,
   };
@@ -276,25 +276,25 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
       <div
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          flexWrap: 'wrap', gap: 16, background: 'var(--surface-subtle, #f8fafc)',
-          padding: '16px 20px', borderRadius: RADIUS['2xl'], border: '1px solid var(--border, #e2e8f0)',
+          flexWrap: 'wrap', gap: 16, background: 'var(--surface-subtle, #f6f7f9)',
+          padding: '16px 20px', borderRadius: RADIUS['2xl'], border: '1px solid var(--border, #e1e5eb)',
         }}
       >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <h2 style={{ fontSize: FONT.xl, fontWeight: 800, margin: 0, color: 'var(--text, #0f172a)' }}>
+            <h2 style={{ fontSize: FONT.xl, fontWeight: 700, margin: 0, color: 'var(--text, #111620)' }}>
               Equivalencias de Catálogo
             </h2>
             <span
               style={{
-                fontSize: FONT.sm, fontWeight: 700, color: 'var(--primary)',
+                fontSize: FONT.sm, fontWeight: 600, color: 'var(--primary-strong, #4338ca)',
                 background: 'rgba(99, 102, 241, 0.12)', padding: '2px 8px', borderRadius: RADIUS.pill,
               }}
             >
               {total} mapeos activos
             </span>
           </div>
-          <p style={{ fontSize: FONT.base, color: 'var(--text-muted, #64748b)', margin: '4px 0 0' }}>
+          <p style={{ fontSize: FONT.base, color: 'var(--text-muted, #2f3746)', margin: '4px 0 0' }}>
             Audita, corrige el precio o desvincula las relaciones aprendidas entre los códigos del proveedor y tus productos
           </p>
         </div>
@@ -304,9 +304,9 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
           disabled={loading}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
-            background: 'var(--surface, #fff)', border: '1px solid var(--border-strong, #cbd5e1)',
+            background: 'var(--surface, #fff)', border: '1px solid var(--border-strong, #c7cdd7)',
             padding: '7px 14px', borderRadius: RADIUS.md, fontSize: FONT.sm, fontWeight: 600,
-            color: 'var(--text, #334155)', cursor: 'pointer',
+            color: 'var(--text, #111620)', cursor: 'pointer',
           }}
         >
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refrescar
@@ -316,7 +316,7 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
       {/* ── Filtros ── */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
-          <Search size={15} style={{ position: 'absolute', left: 12, top: 10, color: 'var(--text-subtle, #94a3b8)' }} />
+          <Search size={15} style={{ position: 'absolute', left: 12, top: 10, color: 'var(--text-subtle, #555f71)' }} />
           <input
             type="text"
             value={q}
@@ -343,13 +343,13 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
       {/* ── Tabla ── */}
       {loading ? (
         <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: 'var(--primary)' }} />
+          <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: 'var(--primary-strong, #4338ca)' }} />
           Cargando equivalencias…
         </div>
       ) : equivalencias.length === 0 ? (
         <div
           style={{
-            background: 'var(--surface, #ffffff)', border: '1px solid var(--border, #e2e8f0)',
+            background: 'var(--surface, #ffffff)', border: '1px solid var(--border, #e1e5eb)',
             borderRadius: RADIUS['3xl'], padding: '48px 24px', textAlign: 'center',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
           }}
@@ -357,43 +357,43 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
           <div
             style={{
               width: 50, height: 50, borderRadius: RADIUS.pill, background: 'rgba(99, 102, 241, 0.1)',
-              color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--primary-strong, #4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
             <GitCompare size={24} />
           </div>
-          <div style={{ fontSize: FONT.xl, fontWeight: 700, color: 'var(--text, #0f172a)' }}>
+          <div style={{ fontSize: FONT.xl, fontWeight: 700, color: 'var(--text, #111620)' }}>
             No se encontraron equivalencias
           </div>
-          <p style={{ fontSize: FONT.base, color: 'var(--text-muted, #64748b)', maxWidth: 460, margin: 0 }}>
+          <p style={{ fontSize: FONT.base, color: 'var(--text-muted, #2f3746)', maxWidth: 460, margin: 0 }}>
             Las equivalencias se construyen conforme cargas facturas o agregas precios manualmente.
           </p>
         </div>
       ) : (
         <div
           style={{
-            background: 'var(--surface, #ffffff)', border: '1px solid var(--border, #e2e8f0)',
+            background: 'var(--surface, #ffffff)', border: '1px solid var(--border, #e1e5eb)',
             borderRadius: RADIUS['3xl'], overflowX: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
           }}
         >
           <table style={{ width: '100%', minWidth: 980, borderCollapse: 'collapse', fontSize: FONT.base, textAlign: 'left' }}>
             <thead>
-              <tr style={{ background: 'var(--surface-subtle, #f8fafc)', borderBottom: '1px solid var(--border, #e2e8f0)' }}>
-                <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Proveedor</th>
-                <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Código Proveedor</th>
-                <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Producto Catálogo Interno</th>
-                <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Modalidad</th>
-                <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Precio Vigente</th>
-                <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Historial Reciente</th>
-                <th style={{ padding: '12px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)', textAlign: 'right' }}>Acciones</th>
+              <tr style={{ background: 'var(--surface-subtle, #f6f7f9)', borderBottom: '1px solid var(--border, #e1e5eb)' }}>
+                <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text, #111620)' }}>Proveedor</th>
+                <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text, #111620)' }}>Código Proveedor</th>
+                <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text, #111620)' }}>Producto Catálogo Interno</th>
+                <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text, #111620)' }}>Modalidad</th>
+                <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text, #111620)' }}>Precio Vigente</th>
+                <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text, #111620)' }}>Historial Reciente</th>
+                <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text, #111620)', textAlign: 'right' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {equivalencias.map((item) => (
-                <tr key={item.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
-                  <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text, #1e293b)' }}>
+                <tr key={item.id} style={{ borderBottom: '1px solid var(--border-subtle, #eef0f4)' }}>
+                  <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text, #111620)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Building2 size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                      <Building2 size={14} style={{ color: 'var(--primary-strong, #4338ca)', flexShrink: 0 }} />
                       {item.proveedor?.nombre_comercial}
                     </div>
                   </td>
@@ -401,7 +401,7 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
                   <td style={{ padding: '12px 16px' }}>
                     <div
                       style={{
-                        fontFamily: 'monospace', fontWeight: 700, fontSize: FONT.sm, color: '#4338ca',
+                        fontFamily: 'monospace', fontWeight: 600, fontSize: FONT.sm, color: '#4338ca',
                         background: 'rgba(99, 102, 241, 0.08)', padding: '2px 7px',
                         borderRadius: RADIUS.xs, display: 'inline-block',
                       }}
@@ -420,8 +420,8 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
                             title="Código adicional: también actualiza este precio"
                             style={{
                               fontFamily: 'monospace', fontSize: FONT.tiny, fontWeight: 600,
-                              color: 'var(--text-muted, #64748b)', background: 'var(--surface-sunken, #f1f5f9)',
-                              border: '1px solid var(--border-subtle, #e2e8f0)',
+                              color: 'var(--text-muted, #2f3746)', background: 'var(--surface-sunken, #eef0f4)',
+                              border: '1px solid var(--border-subtle, #e1e5eb)',
                               padding: '1px 6px', borderRadius: RADIUS.xs,
                               display: 'inline-flex', alignItems: 'center', gap: 4,
                             }}
@@ -432,7 +432,7 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
                               title={`Quitar ${c.codigo_proveedor} de esta equivalencia`}
                               style={{
                                 border: 'none', background: 'transparent', cursor: 'pointer',
-                                padding: 0, display: 'flex', color: 'var(--text-faint, #94a3b8)',
+                                padding: 0, display: 'flex', color: 'var(--text-subtle, #555f71)',
                               }}
                             >
                               <X size={10} />
@@ -443,8 +443,8 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
                         onClick={() => handleAgregarCodigo(item)}
                         title="Agregar otro código con el que este proveedor factura el mismo producto"
                         style={{
-                          fontSize: FONT.tiny, fontWeight: 600, color: 'var(--primary, #4338ca)',
-                          background: 'transparent', border: '1px dashed var(--border-strong, #cbd5e1)',
+                          fontSize: FONT.tiny, fontWeight: 600, color: 'var(--primary-strong, #4338ca)',
+                          background: 'transparent', border: '1px dashed var(--border-strong, #c7cdd7)',
                           borderRadius: RADIUS.xs, padding: '1px 6px', cursor: 'pointer',
                         }}
                       >
@@ -453,7 +453,7 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
                     </div>
 
                     {item.descripcion_proveedor && (
-                      <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #64748b)', marginTop: 2 }}>
+                      <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #2f3746)', marginTop: 2 }}>
                         {item.descripcion_proveedor}
                       </div>
                     )}
@@ -461,12 +461,12 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
 
                   <td style={{ padding: '12px 16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Package size={14} style={{ color: '#059669', flexShrink: 0 }} />
-                      <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--text, #0f172a)' }}>
+                      <Package size={14} style={{ color: '#047857', flexShrink: 0 }} />
+                      <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text, #111620)' }}>
                         {item.catalogo_producto?.codigo}
                       </span>
                     </div>
-                    <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)' }}>
+                    <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #2f3746)' }}>
                       {item.catalogo_producto?.nombre}
                     </div>
                   </td>
@@ -475,7 +475,7 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
                     <span
                       style={{
                         fontSize: FONT.xs, fontWeight: 600, padding: '3px 8px', borderRadius: RADIUS.sm,
-                        background: 'var(--surface-sunken, #f1f5f9)', color: 'var(--text, #334155)',
+                        background: 'var(--surface-sunken, #eef0f4)', color: 'var(--text, #111620)',
                       }}
                     >
                       {item.unidad_compra}
@@ -483,26 +483,26 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
                   </td>
 
                   <td style={{ padding: '12px 16px' }}>
-                    <div style={{ fontWeight: 800, color: '#059669', fontSize: FONT.base }}>
+                    <div style={{ fontWeight: 700, color: '#047857', fontSize: FONT.base }}>
                       {formatCOP(item.precio_actual)}
                     </div>
-                    <div style={{ fontSize: FONT.xs, color: 'var(--text-subtle, #94a3b8)' }}>
+                    <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #2f3746)' }}>
                       Desde: {formatFecha(item.fecha_precio_actual)}
                     </div>
                   </td>
 
                   <td style={{ padding: '12px 16px' }}>
                     {item.precio_anterior_1 ? (
-                      <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #64748b)' }}>
+                      <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #2f3746)' }}>
                         <div>1° ant: {formatCOP(item.precio_anterior_1)} ({formatFecha(item.fecha_anterior_1)})</div>
                         {item.precio_anterior_2 && (
-                          <div style={{ color: '#94a3b8' }}>
+                          <div style={{ color: '#2f3746' }}>
                             2° ant: {formatCOP(item.precio_anterior_2)} ({formatFecha(item.fecha_anterior_2)})
                           </div>
                         )}
                       </div>
                     ) : (
-                      <span style={{ fontSize: FONT.sm, color: 'var(--text-faint, #cbd5e1)' }}>—</span>
+                      <span style={{ fontSize: FONT.sm, color: 'var(--text-faint, #c7cdd7)' }}>—</span>
                     )}
                   </td>
 
@@ -518,7 +518,7 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
                       <button
                         onClick={() => abrirHistorico(item)}
                         title="Ver histórico completo de precios"
-                        style={{ ...botonIcono, color: 'var(--text-muted, #64748b)' }}
+                        style={{ ...botonIcono, color: 'var(--text-muted, #2f3746)' }}
                       >
                         <History size={13} />
                       </button>
@@ -526,7 +526,7 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
                         onClick={() => handleDesvincular(item)}
                         disabled={desvinculandoId === item.id}
                         title="Desvincular equivalencia (conserva el histórico)"
-                        style={{ ...botonIcono, color: '#ef4444' }}
+                        style={{ ...botonIcono, color: '#b91c1c' }}
                       >
                         {desvinculandoId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                       </button>
@@ -538,7 +538,7 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
           </table>
 
           {total > equivalencias.length && (
-            <div style={{ padding: '10px 16px', fontSize: FONT.sm, color: 'var(--text-muted, #64748b)', borderTop: '1px solid var(--border-subtle, #f1f5f9)' }}>
+            <div style={{ padding: '10px 16px', fontSize: FONT.sm, color: 'var(--text-muted, #2f3746)', borderTop: '1px solid var(--border-subtle, #eef0f4)' }}>
               Mostrando {equivalencias.length} de {total}. Acota con el buscador o los filtros.
             </div>
           )}
@@ -559,13 +559,13 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
             animate={{ opacity: 1, scale: 1 }}
             style={{
               background: 'var(--surface, #fff)', borderRadius: RADIUS['3xl'], width: '100%', maxWidth: 460,
-              border: '1px solid var(--border, #e2e8f0)', overflow: 'hidden',
+              border: '1px solid var(--border, #e1e5eb)', overflow: 'hidden',
             }}
           >
-            <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border, #e2e8f0)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border, #e1e5eb)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: FONT.lg, fontWeight: 700, color: 'var(--text, #0f172a)' }}>Corregir precio</div>
-                <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)', marginTop: 2 }}>
+                <div style={{ fontSize: FONT.lg, fontWeight: 700, color: 'var(--text, #111620)' }}>Corregir precio</div>
+                <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #2f3746)', marginTop: 2 }}>
                   {editando.proveedor?.nombre_comercial} · {editando.catalogo_producto?.codigo}
                 </div>
               </div>
@@ -577,7 +577,7 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
             <div style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label style={{ fontSize: FONT.sm, fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: 5 }}>
+                  <label style={{ fontSize: FONT.sm, fontWeight: 600, color: 'var(--text, #111620)', display: 'block', marginBottom: 5 }}>
                     Precio sin IVA
                   </label>
                   <input
@@ -588,7 +588,7 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: FONT.sm, fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: 5 }}>
+                  <label style={{ fontSize: FONT.sm, fontWeight: 600, color: 'var(--text, #111620)', display: 'block', marginBottom: 5 }}>
                     Vigente desde
                   </label>
                   <input
@@ -601,7 +601,7 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
               </div>
 
               <div>
-                <label style={{ fontSize: FONT.sm, fontWeight: 600, color: 'var(--text-muted, #64748b)', display: 'block', marginBottom: 5 }}>
+                <label style={{ fontSize: FONT.sm, fontWeight: 600, color: 'var(--text, #111620)', display: 'block', marginBottom: 5 }}>
                   Modalidad de compra
                 </label>
                 <select
@@ -615,7 +615,7 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
                 </select>
               </div>
 
-              <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #64748b)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+              <div style={{ fontSize: FONT.xs, color: 'var(--text-muted, #2f3746)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                 <AlertTriangle size={13} style={{ color: '#b45309', flexShrink: 0, marginTop: 1 }} />
                 Si la fecha es anterior al precio vigente, el valor se archiva en el histórico sin reemplazar el actual.
               </div>
@@ -624,8 +624,8 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
                 <button
                   onClick={() => setEditando(null)}
                   style={{
-                    padding: '9px 16px', borderRadius: RADIUS.md, border: '1px solid var(--border-strong, #cbd5e1)',
-                    background: 'transparent', color: 'var(--text, #475569)', fontSize: FONT.base, fontWeight: 600, cursor: 'pointer',
+                    padding: '9px 16px', borderRadius: RADIUS.md, border: '1px solid var(--border-strong, #c7cdd7)',
+                    background: 'transparent', color: 'var(--text, #111620)', fontSize: FONT.base, fontWeight: 600, cursor: 'pointer',
                   }}
                 >
                   Cancelar
@@ -635,7 +635,7 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
                   disabled={guardandoEdicion}
                   style={{
                     padding: '9px 18px', borderRadius: RADIUS.md, border: 'none', background: 'var(--primary)',
-                    color: '#fff', fontSize: FONT.base, fontWeight: 700, cursor: guardandoEdicion ? 'wait' : 'pointer',
+                    color: '#fff', fontSize: FONT.base, fontWeight: 600, cursor: guardandoEdicion ? 'wait' : 'pointer',
                     display: 'flex', alignItems: 'center', gap: 7,
                   }}
                 >
@@ -662,14 +662,14 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
             animate={{ opacity: 1, scale: 1 }}
             style={{
               background: 'var(--surface, #fff)', borderRadius: RADIUS['3xl'], width: '100%', maxWidth: 680,
-              maxHeight: '85vh', border: '1px solid var(--border, #e2e8f0)',
+              maxHeight: '85vh', border: '1px solid var(--border, #e1e5eb)',
               overflow: 'hidden', display: 'flex', flexDirection: 'column',
             }}
           >
-            <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border, #e2e8f0)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border, #e1e5eb)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: FONT.lg, fontWeight: 700, color: 'var(--text, #0f172a)' }}>Histórico de precios</div>
-                <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #64748b)', marginTop: 2 }}>
+                <div style={{ fontSize: FONT.lg, fontWeight: 700, color: 'var(--text, #111620)' }}>Histórico de precios</div>
+                <div style={{ fontSize: FONT.sm, color: 'var(--text-muted, #2f3746)', marginTop: 2 }}>
                   {historicoDe.proveedor?.nombre_comercial} · {historicoDe.catalogo_producto?.codigo} · {historicoDe.unidad_compra}
                 </div>
               </div>
@@ -681,56 +681,56 @@ const EquivalenciasTab: React.FC<Props> = ({ proveedores, busquedaInicial, onAct
             <div style={{ overflowY: 'auto', padding: historico.length ? 0 : 22 }}>
               {loadingHistorico ? (
                 <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-                  <Loader2 size={20} className="animate-spin" style={{ margin: '0 auto 8px', color: 'var(--primary)' }} />
+                  <Loader2 size={20} className="animate-spin" style={{ margin: '0 auto 8px', color: 'var(--primary-strong, #4338ca)' }} />
                   Cargando histórico…
                 </div>
               ) : historico.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--text-muted, #64748b)', fontSize: FONT.base, padding: '24px 0' }}>
+                <div style={{ textAlign: 'center', color: 'var(--text-muted, #2f3746)', fontSize: FONT.base, padding: '24px 0' }}>
                   Sin registros de precio para esta equivalencia.
                 </div>
               ) : (
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FONT.sm, textAlign: 'left' }}>
                   <thead>
-                    <tr style={{ background: 'var(--surface-subtle, #f8fafc)', position: 'sticky', top: 0 }}>
-                      <th style={{ padding: '10px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Vigencia</th>
-                      <th style={{ padding: '10px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Precio</th>
-                      <th style={{ padding: '10px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Variación</th>
-                      <th style={{ padding: '10px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Origen</th>
-                      <th style={{ padding: '10px 16px', fontWeight: 700, color: 'var(--text-muted, #64748b)' }}>Documento</th>
+                    <tr style={{ background: 'var(--surface-subtle, #f6f7f9)', position: 'sticky', top: 0 }}>
+                      <th style={{ padding: '10px 16px', fontWeight: 600, color: 'var(--text, #111620)' }}>Vigencia</th>
+                      <th style={{ padding: '10px 16px', fontWeight: 600, color: 'var(--text, #111620)' }}>Precio</th>
+                      <th style={{ padding: '10px 16px', fontWeight: 600, color: 'var(--text, #111620)' }}>Variación</th>
+                      <th style={{ padding: '10px 16px', fontWeight: 600, color: 'var(--text, #111620)' }}>Origen</th>
+                      <th style={{ padding: '10px 16px', fontWeight: 600, color: 'var(--text, #111620)' }}>Documento</th>
                     </tr>
                   </thead>
                   <tbody>
                     {historico.map((h) => (
-                      <tr key={h.id} style={{ borderTop: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                      <tr key={h.id} style={{ borderTop: '1px solid var(--border-subtle, #eef0f4)' }}>
                         <td style={{ padding: '9px 16px' }}>
                           {formatFecha(h.fecha_vigencia)}
                           {h.retroactivo && (
                             <div style={{ fontSize: FONT.tiny, color: '#b45309', fontWeight: 600 }}>retroactivo</div>
                           )}
                         </td>
-                        <td style={{ padding: '9px 16px', fontWeight: 700, color: '#059669' }}>
+                        <td style={{ padding: '9px 16px', fontWeight: 700, color: '#047857' }}>
                           {formatCOP(h.precio)}
                           {h.lineas_en_factura > 1 && (
-                            <div style={{ fontSize: FONT.tiny, color: 'var(--text-subtle, #94a3b8)', fontWeight: 500 }}>
+                            <div style={{ fontSize: FONT.tiny, color: 'var(--text-muted, #2f3746)', fontWeight: 400 }}>
                               {h.lineas_en_factura} líneas · se tomó la mayor
                             </div>
                           )}
                         </td>
                         <td style={{ padding: '9px 16px' }}>
                           {h.variacion_pct !== null ? (
-                            <span style={{ color: h.precio_anomalo ? '#ef4444' : Number(h.variacion_pct) > 0 ? '#f59e0b' : '#22c55e', fontWeight: 700 }}>
+                            <span style={{ color: h.precio_anomalo ? '#b91c1c' : Number(h.variacion_pct) > 0 ? '#b45309' : '#15803d', fontWeight: 600 }}>
                               {Number(h.variacion_pct) > 0 ? '+' : ''}{Number(h.variacion_pct).toFixed(1)}%
                               {h.precio_anomalo && ' ⚠'}
                             </span>
                           ) : '—'}
                         </td>
-                        <td style={{ padding: '9px 16px', color: 'var(--text-muted, #64748b)' }}>
+                        <td style={{ padding: '9px 16px', color: 'var(--text-muted, #2f3746)' }}>
                           {h.origen}
                           {h.porcentaje_iva !== null && (
                             <div style={{ fontSize: FONT.tiny }}>IVA {Number(h.porcentaje_iva)}%</div>
                           )}
                         </td>
-                        <td style={{ padding: '9px 16px', color: 'var(--text-subtle, #94a3b8)', fontSize: FONT.xs }}>
+                        <td style={{ padding: '9px 16px', color: 'var(--text-muted, #2f3746)', fontSize: FONT.xs }}>
                           {h.documento_ref || '—'}
                         </td>
                       </tr>

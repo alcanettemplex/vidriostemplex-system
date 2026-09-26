@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'react-toastify';
-import { Plus, Search, User, Mail, Phone, MapPin, Building, AlertCircle, Edit2, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Search, User, Mail, Phone, MapPin, Building, AlertCircle, Edit2, Trash2, Loader2 } from '../../components/ui/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { invalidarClientes } from '../../services/listasCache';
 
@@ -132,7 +132,7 @@ const ClientesListPage: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Directorio de Clientes</h1>
-          <p className="text-slate-500 text-sm mt-1">Administra la base de datos de personas y empresas</p>
+          <p className="text-slate-700 text-sm mt-1">Administra la base de datos de personas y empresas</p>
         </div>
         {!isReadOnly && (
         <button
@@ -160,16 +160,16 @@ const ClientesListPage: React.FC = () => {
         )}
       </div>
 
-      <div className="glass-panel overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white/50">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-card overflow-hidden">
+        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/60">
           <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               type="text"
               placeholder="Buscar por nombre o documento..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             />
           </div>
         </div>
@@ -177,32 +177,32 @@ const ClientesListPage: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50/50 text-slate-500 text-xs uppercase tracking-wider">
-                <th className="px-6 py-4 font-medium">Nombre / Razón Social</th>
-                <th className="px-6 py-4 font-medium">Documento</th>
-                <th className="px-6 py-4 font-medium">Contacto</th>
-                <th className="px-6 py-4 font-medium text-right">Acciones</th>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-900 text-xs uppercase tracking-wider">
+                <th className="px-6 py-3 font-semibold whitespace-nowrap">Nombre / Razón Social</th>
+                <th className="px-6 py-3 font-semibold whitespace-nowrap">Documento</th>
+                <th className="px-6 py-3 font-semibold whitespace-nowrap">Contacto</th>
+                <th className="px-6 py-3 font-semibold whitespace-nowrap text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 bg-white/30">
+            <tbody className="divide-y divide-slate-100 bg-white">
               {noSearchYet ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-16 text-center text-slate-400">
-                    <Search className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-                    <p className="text-base font-medium">Escribe al menos 2 caracteres para buscar</p>
+                  <td colSpan={4} className="px-6 py-16 text-center text-slate-700">
+                    <Search className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-base font-semibold text-slate-900">Escribe al menos 2 caracteres para buscar</p>
                     <p className="text-sm mt-1">Busca por nombre, teléfono o documento</p>
                   </td>
                 </tr>
               ) : loading ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-slate-400">
+                  <td colSpan={4} className="px-6 py-8 text-center text-slate-700">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                     <p className="text-sm">Buscando...</p>
                   </td>
                 </tr>
               ) : clientes.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={4} className="px-6 py-12 text-center text-slate-700">
                     <User className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     No se encontraron clientes para "{searchTerm}".
                   </td>
@@ -213,7 +213,7 @@ const ClientesListPage: React.FC = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     key={cliente.id}
-                    className="hover:bg-slate-50/80 transition group"
+                    className="hover:bg-slate-50 transition-colors group"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -221,33 +221,33 @@ const ClientesListPage: React.FC = () => {
                           {cliente.tipo_documento === 'RUC' ? <Building className="w-5 h-5" /> : <User className="w-5 h-5" />}
                         </div>
                         <div>
-                          <p className="font-bold text-slate-800">{cliente.nombre_razon_social}</p>
-                          {cliente.direccion && <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3" /> {cliente.direccion}</p>}
+                          <p className="font-semibold text-slate-900">{cliente.nombre_razon_social}</p>
+                          {cliente.direccion && <p className="text-xs text-slate-700 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3 text-slate-500 shrink-0" /> {cliente.direccion}</p>}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-1 rounded inline-block mb-1">{cliente.tipo_documento}</span>
-                      <p className="text-slate-700 font-medium font-mono">{cliente.numero_documento}</p>
+                      <span className="text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200 px-2 py-0.5 rounded inline-block mb-1">{cliente.tipo_documento}</span>
+                      <p className="text-slate-800 font-mono whitespace-nowrap">{cliente.numero_documento}</p>
                     </td>
                     <td className="px-6 py-4">
-                      {cliente.email && <p className="text-sm text-slate-600 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> {cliente.email}</p>}
-                      {cliente.correo_comercial && <p className="text-sm text-indigo-600 flex items-center gap-1.5 mt-0.5" title="Correo Comercial"><Mail className="w-3.5 h-3.5" /> <span className="text-xs">{cliente.correo_comercial}</span></p>}
-                      {cliente.telefono && <p className="text-sm text-slate-600 flex items-center gap-1.5 mt-1"><Phone className="w-3.5 h-3.5" /> {cliente.telefono}</p>}
+                      {cliente.email && <p className="text-sm text-slate-800 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" /> {cliente.email}</p>}
+                      {cliente.correo_comercial && <p className="text-sm text-indigo-700 flex items-center gap-1.5 mt-0.5" title="Correo Comercial"><Mail className="w-3.5 h-3.5" /> <span className="text-xs">{cliente.correo_comercial}</span></p>}
+                      {cliente.telefono && <p className="text-sm text-slate-800 flex items-center gap-1.5 mt-1"><Phone className="w-3.5 h-3.5 text-slate-500 shrink-0" /> {cliente.telefono}</p>}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
                         {!isReadOnly && (<>
                         <button
                           onClick={() => handleEdit(cliente)}
-                          className="text-slate-400 hover:text-blue-600 transition p-1.5 hover:bg-blue-50 rounded"
+                          className="text-slate-500 hover:text-blue-700 transition p-1.5 hover:bg-blue-50 rounded"
                           title="Editar Cliente"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setDeletingCliente(cliente)}
-                          className="text-slate-400 hover:text-red-500 transition p-1.5 hover:bg-red-50 rounded"
+                          className="text-slate-500 hover:text-red-700 transition p-1.5 hover:bg-red-50 rounded"
                           title="Eliminar Cliente"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -272,27 +272,27 @@ const ClientesListPage: React.FC = () => {
               exit={{ opacity: 0, scale: 0.95 }}
               className="glass-panel w-full max-w-lg p-6"
             >
-              <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+              <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
                 <User className="w-5 h-5 text-blue-600" />
                 {editingClienteId ? 'Editar Cliente' : 'Registrar Nuevo Cliente'}
               </h2>
 
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nombre / Razón Social *</label>
+                  <label className="block text-sm font-semibold text-slate-900 mb-1">Nombre / Razón Social *</label>
                   <input
                     {...register('nombre_razon_social')}
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
-                  {errors.nombre_razon_social && <p className="text-red-500 text-xs mt-1">{errors.nombre_razon_social.message}</p>}
+                  {errors.nombre_razon_social && <p className="text-red-700 text-xs mt-1">{errors.nombre_razon_social.message}</p>}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Tipo Doc.</label>
+                    <label className="block text-sm font-semibold text-slate-900 mb-1">Tipo Doc.</label>
                     <select
                       {...register('tipo_documento')}
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="NIT">NIT</option>
                       <option value="C.C">C.C</option>
@@ -302,60 +302,60 @@ const ClientesListPage: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Número Doc. *</label>
+                    <label className="block text-sm font-semibold text-slate-900 mb-1">Número Doc. *</label>
                     <input
                       {...register('numero_documento')}
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
+                      className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
                     />
-                    {errors.numero_documento && <p className="text-red-500 text-xs mt-1">{errors.numero_documento.message}</p>}
+                    {errors.numero_documento && <p className="text-red-700 text-xs mt-1">{errors.numero_documento.message}</p>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Teléfono Fijo</label>
+                    <label className="block text-sm font-semibold text-slate-900 mb-1">Teléfono Fijo</label>
                     <input
                       {...register('telefono')}
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Célular *</label>
+                    <label className="block text-sm font-semibold text-slate-900 mb-1">Célular *</label>
                     <input
                       {...register('celular')}
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Correo Factura Electrónica</label>
+                    <label className="block text-sm font-semibold text-slate-900 mb-1">Correo Factura Electrónica</label>
                     <input
                       type="email"
                       {...register('email')}
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
-                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+                    {errors.email && <p className="text-red-700 text-xs mt-1">{errors.email.message}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Correo Comercial</label>
+                    <label className="block text-sm font-semibold text-slate-900 mb-1">Correo Comercial</label>
                     <input
                       type="email"
                       {...register('correo_comercial')}
                       placeholder="contacto@empresa.com"
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
-                    {errors.correo_comercial && <p className="text-red-500 text-xs mt-1">{errors.correo_comercial.message}</p>}
+                    {errors.correo_comercial && <p className="text-red-700 text-xs mt-1">{errors.correo_comercial.message}</p>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Segmento</label>
+                    <label className="block text-sm font-semibold text-slate-900 mb-1">Segmento</label>
                     <select
                       {...register('segmento')}
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Seleccione Segmento...</option>
                       <option value="CLIENTE FINAL">Cliente Final</option>
@@ -366,23 +366,23 @@ const ClientesListPage: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">¿Cómo nos contactó? *</label>
+                    <label className="block text-sm font-semibold text-slate-900 mb-1">¿Cómo nos contactó? *</label>
                     <select
                       {...register('fuente')}
-                      className={`w-full p-2.5 bg-white border rounded-lg focus:ring-2 focus:ring-blue-500 ${errors.fuente ? 'border-red-400' : 'border-slate-200'}`}
+                      className={`w-full p-2.5 bg-white border text-slate-900 rounded-lg focus:ring-2 focus:ring-blue-500 ${errors.fuente ? 'border-red-400' : 'border-slate-300'}`}
                     >
                       <option value="">Seleccione Fuente...</option>
                       {FUENTES.map(f => <option key={f} value={f}>{f}</option>)}
                     </select>
-                    {errors.fuente && <p className="text-red-500 text-xs mt-1">{errors.fuente.message}</p>}
+                    {errors.fuente && <p className="text-red-700 text-xs mt-1">{errors.fuente.message}</p>}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Dirección Recomendada</label>
+                  <label className="block text-sm font-semibold text-slate-900 mb-1">Dirección Recomendada</label>
                   <input
                     {...register('direccion')}
-                    className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-2.5 bg-white border border-slate-300 text-slate-900 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
@@ -390,7 +390,7 @@ const ClientesListPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsFormOpen(false)}
-                    className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                    className="px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100 rounded-lg transition"
                   >
                     Cancelar
                   </button>
@@ -425,14 +425,14 @@ const ClientesListPage: React.FC = () => {
               <h2 className="text-xl font-bold text-center text-slate-900 mb-2">
                 ¿Eliminar Cliente?
               </h2>
-              <p className="text-slate-500 text-center mb-6">
-                Estás a punto de eliminar a <span className="font-bold text-slate-800">{deletingCliente.nombre_razon_social}</span>. Esta acción no se puede deshacer y podría afectar las órdenes de producción asociadas.
+              <p className="text-slate-800 text-center mb-6">
+                Estás a punto de eliminar a <span className="font-bold text-slate-900">{deletingCliente.nombre_razon_social}</span>. Esta acción no se puede deshacer y podría afectar las órdenes de producción asociadas.
               </p>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button
                   onClick={() => setDeletingCliente(null)}
-                  className="px-4 py-2 font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                  className="px-4 py-2 font-medium text-slate-800 hover:bg-slate-100 rounded-lg transition"
                 >
                   Cancelar
                 </button>

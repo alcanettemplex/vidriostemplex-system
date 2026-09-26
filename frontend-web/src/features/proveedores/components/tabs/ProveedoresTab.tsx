@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Building2, Plus, Search, RefreshCw, CheckCircle2,
   XCircle, AlertTriangle, FileSpreadsheet, HelpCircle,
-} from 'lucide-react';
+} from '../../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
 import NuevoProveedorModal from '../modals/NuevoProveedorModal';
@@ -70,17 +70,17 @@ const PAGINA = 200;
 const ETIQUETA: Record<EstadoSeguimiento, { texto: string; color: string; ayuda: string }> = {
   SIGUIENDO: {
     texto: 'Siguiendo',
-    color: '#22c55e',
+    color: '#15803d',
     ayuda: 'Sus facturas actualizan precios y sus códigos nuevos entran a Por Mapear.',
   },
   IGNORADO: {
     texto: 'Ignorado',
-    color: '#ef4444',
+    color: '#b91c1c',
     ayuda: 'Sus facturas quedan registradas en la bitácora, pero no mueven precios ni llenan la bandeja.',
   },
   SIN_DECIDIR: {
     texto: 'Sin decidir',
-    color: '#f59e0b',
+    color: '#b45309',
     ayuda: 'La ingesta lo descubrió en una factura y nadie ha decidido si interesa. Mientras tanto se ignora.',
   },
 };
@@ -285,7 +285,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '10px 18px', border: 'none', background: 'none',
-                cursor: 'pointer', fontSize: FONT.md, fontWeight: activa ? 700 : 500,
+                cursor: 'pointer', fontSize: FONT.md, fontWeight: activa ? 600 : 500,
                 color: activa ? meta.color : 'var(--text-muted)',
                 borderBottom: `2px solid ${activa ? meta.color : 'transparent'}`,
                 marginBottom: -1, transition: 'all .2s',
@@ -294,7 +294,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
               {texto}
               <span
                 style={{
-                  fontSize: FONT.xs, fontWeight: 700, padding: '2px 7px', borderRadius: RADIUS.pill,
+                  fontSize: FONT.xs, fontWeight: 600, padding: '2px 7px', borderRadius: RADIUS.pill,
                   background: activa ? `${meta.color}18` : 'var(--surface)',
                   color: activa ? meta.color : 'var(--text-muted)',
                 }}
@@ -381,14 +381,14 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
               display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center',
             }}
           >
-            <CheckCircle2 size={20} color="#22c55e" />
+            <CheckCircle2 size={20} color="#15803d" />
             <div style={{ fontSize: FONT.base }}>
               <strong>{resultadoImport.creados}</strong> creados ·{' '}
               <strong>{resultadoImport.actualizados}</strong> actualizados ·{' '}
               <strong>{resultadoImport.omitidos}</strong> omitidos
             </div>
             {resultadoImport.errores.length > 0 && (
-              <div style={{ fontSize: FONT.sm, color: '#f59e0b' }}>
+              <div style={{ fontSize: FONT.sm, color: '#b45309' }}>
                 <AlertTriangle size={12} style={{ display: 'inline', marginRight: 4 }} />
                 {resultadoImport.errores.length} errores menores
               </div>
@@ -415,7 +415,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
               disabled={aplicandoLote}
               style={{
                 padding: '7px 14px', borderRadius: RADIUS.md, border: '1px solid #22c55e60',
-                background: '#22c55e14', color: '#22c55e', fontSize: FONT.base, fontWeight: 600,
+                background: '#22c55e14', color: '#15803d', fontSize: FONT.base, fontWeight: 600,
                 cursor: aplicandoLote ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 6,
               }}
             >
@@ -426,7 +426,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
               disabled={aplicandoLote}
               style={{
                 padding: '7px 14px', borderRadius: RADIUS.md, border: '1px solid #ef444460',
-                background: '#ef444414', color: '#ef4444', fontSize: FONT.base, fontWeight: 600,
+                background: '#ef444414', color: '#b91c1c', fontSize: FONT.base, fontWeight: 600,
                 cursor: aplicandoLote ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 6,
               }}
             >
@@ -491,7 +491,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
               style={{ cursor: 'pointer' }}
             />
             {['NOMBRE COMERCIAL', 'NIT / ID', 'TELÉFONO', 'EMAIL', 'SEGUIMIENTO'].map(h => (
-              <div key={h} style={{ fontSize: FONT.xs, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: .5 }}>{h}</div>
+              <div key={h} style={{ fontSize: FONT.xs, fontWeight: 600, color: 'var(--text)', letterSpacing: .5 }}>{h}</div>
             ))}
           </div>
 
@@ -527,7 +527,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
                     title="Se creó automáticamente al procesar una factura. Verifica sus datos."
                     style={{
                       display: 'inline-block', marginTop: 3, fontSize: FONT.tiny,
-                      fontWeight: 700, padding: '1px 6px', borderRadius: RADIUS.xs,
+                      fontWeight: 600, padding: '1px 6px', borderRadius: RADIUS.xs,
                       background: '#f59e0b18', color: '#b45309',
                     }}
                   >
@@ -539,7 +539,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
               {/* NIT */}
               <div style={{ fontSize: FONT.base, fontFamily: 'monospace', color: 'var(--text-muted)' }}>
                 {p.nit ?? `${p.tipo_identificacion} ${p.numero_identificacion ?? '—'}`}
-                {p.nit === null && <div style={{ fontSize: FONT.tiny, color: '#f59e0b' }}>Sin NIT</div>}
+                {p.nit === null && <div style={{ fontSize: FONT.tiny, color: '#b45309' }}>Sin NIT</div>}
               </div>
 
               {/* Teléfono */}
@@ -558,7 +558,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
                     <span
                       title={meta.ayuda}
                       style={{
-                        fontSize: FONT.xs, fontWeight: 700, padding: '3px 9px', borderRadius: RADIUS.sm,
+                        fontSize: FONT.xs, fontWeight: 600, padding: '3px 9px', borderRadius: RADIUS.sm,
                         background: `${meta.color}18`, color: meta.color,
                         display: 'flex', alignItems: 'center', gap: 4,
                       }}
@@ -575,7 +575,7 @@ const ProveedoresTab: React.FC<Props> = ({ onCambio, busquedaInicial }) => {
                         onClick={() => (p.activo ? handleDecidir(p, true) : handleToggleActivo(p))}
                         style={{
                           background: 'none', border: '1px solid var(--border)', borderRadius: RADIUS.sm,
-                          padding: '4px 8px', cursor: 'pointer', color: '#22c55e',
+                          padding: '4px 8px', cursor: 'pointer', color: '#15803d',
                           fontSize: FONT.xs, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4,
                         }}
                       >

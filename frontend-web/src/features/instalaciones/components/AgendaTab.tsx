@@ -5,7 +5,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import {
   Calendar, ChevronLeft, ChevronRight, Plus, X as XIcon, GripVertical,
   MapPin, Route, Inbox, Search, StickyNote, Check,
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 
 import API from '../../../services/config';
 
@@ -50,22 +50,22 @@ const COND_META: Record<Condicion, { label: string; corto: string; chip: string;
   listo: {
     label: 'Listo para instalar', corto: 'Listo',
     chip: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    chipOff: 'bg-white text-slate-400 border-slate-200',
-    badge: 'bg-emerald-100 text-emerald-700',
+    chipOff: 'bg-white text-slate-500 border-slate-200',
+    badge: 'bg-emerald-100 text-emerald-800',
     punto: 'bg-emerald-500',
   },
   pago: {
     label: 'Espera de pago', corto: 'Pago',
     chip: 'bg-amber-100 text-amber-700 border-amber-200',
-    chipOff: 'bg-white text-slate-400 border-slate-200',
-    badge: 'bg-amber-100 text-amber-700',
+    chipOff: 'bg-white text-slate-500 border-slate-200',
+    badge: 'bg-amber-100 text-amber-800',
     punto: 'bg-amber-500',
   },
   factura: {
     label: 'Espera de factura', corto: 'Factura',
     chip: 'bg-orange-100 text-orange-700 border-orange-200',
-    chipOff: 'bg-white text-slate-400 border-slate-200',
-    badge: 'bg-orange-100 text-orange-700',
+    chipOff: 'bg-white text-slate-500 border-slate-200',
+    badge: 'bg-orange-100 text-orange-800',
     punto: 'bg-orange-500',
   },
 };
@@ -312,39 +312,39 @@ const AgendaTab: React.FC<Props> = ({
     const editandoNota = notaEdit?.id === e.id;
     const cond = odp?.id ? condicionPorOdp.get(odp.id) : undefined;
     return (
-      <Draggable draggableId={`entry:${e.id}`} index={index} isDragDisabled={readOnly}>
+      <Draggable key={e.id} draggableId={`entry:${e.id}`} index={index} isDragDisabled={readOnly}>
         {(prov, snap) => (
           <div
             ref={prov.innerRef}
             {...prov.draggableProps}
-            className={`group rounded-lg border bg-white transition-shadow ${
-              snap.isDragging ? 'shadow-lg ring-2 ring-indigo-200' : 'border-slate-200 shadow-sm'
+            className={`group rounded-xl border bg-white transition-shadow ${
+              snap.isDragging ? 'shadow-lg ring-2 ring-indigo-200' : 'border-slate-200 shadow-card hover:shadow-card-hover'
             }`}
           >
-            <div className="flex items-center gap-2 px-2 py-1.5">
+            <div className="flex items-center gap-2 px-2.5 py-2">
               {!readOnly && (
-                <span {...prov.dragHandleProps} className="text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing flex-shrink-0">
+                <span {...prov.dragHandleProps} className="text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing flex-shrink-0">
                   <GripVertical className="w-3.5 h-3.5" />
                 </span>
               )}
-              <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-[10px] flex items-center justify-center font-bold flex-shrink-0">
+              <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-800 text-[11px] flex items-center justify-center font-semibold flex-shrink-0">
                 {e.orden}
               </span>
               <button
                 onClick={() => odp?.id && onVerODP(odp.id)}
-                className="text-xs font-bold text-slate-800 hover:text-indigo-600 hover:underline underline-offset-2 flex-shrink-0"
+                className="text-sm font-bold text-slate-900 hover:text-indigo-700 hover:underline underline-offset-2 flex-shrink-0"
               >
                 {odp?.numero_odp}
               </button>
-              <span className="text-xs text-slate-600 truncate">{odp?.cliente?.nombre_razon_social}</span>
+              <span className="text-sm font-semibold text-slate-900 truncate">{odp?.cliente?.nombre_razon_social}</span>
               {cond && (
-                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide flex-shrink-0 ${COND_META[cond].badge}`} title={COND_META[cond].label}>
+                <span className={`px-1.5 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wide flex-shrink-0 ${COND_META[cond].badge}`} title={COND_META[cond].label}>
                   {COND_META[cond].corto}
                 </span>
               )}
               {odp?.direccion_instalacion && (
-                <span className="text-[11px] text-slate-400 truncate hidden md:flex items-center gap-0.5 flex-shrink min-w-0">
-                  <MapPin className="w-2.5 h-2.5 flex-shrink-0" /> {odp.direccion_instalacion}
+                <span className="text-xs text-slate-800 truncate hidden md:flex items-center gap-1 flex-shrink min-w-0">
+                  <MapPin className="w-3 h-3 flex-shrink-0 text-rose-500" /> {odp.direccion_instalacion}
                 </span>
               )}
               {!readOnly && (
@@ -374,7 +374,7 @@ const AgendaTab: React.FC<Props> = ({
                 </button>
               </div>
             ) : e.nota ? (
-              <p className="text-[11px] text-amber-700 bg-amber-50 rounded px-2 py-0.5 mx-2 mb-1.5 truncate flex items-center gap-1">
+              <p className="text-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-md px-2 py-1 mx-2.5 mb-2 truncate flex items-center gap-1">
                 <StickyNote className="w-2.5 h-2.5 flex-shrink-0" /> {e.nota}
               </p>
             ) : null}
@@ -395,20 +395,20 @@ const AgendaTab: React.FC<Props> = ({
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-1">
           <button onClick={irAtras} disabled={esBloqueHoy} className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed" title="7 días anteriores">
-            <ChevronLeft className="w-4 h-4 text-slate-500" />
+            <ChevronLeft className="w-4 h-4 text-slate-700" />
           </button>
-          <button onClick={irHoy} disabled={esBloqueHoy} className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-600 disabled:opacity-40" title="Volver a hoy">
+          <button onClick={irHoy} disabled={esBloqueHoy} className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-medium text-slate-800 disabled:opacity-40" title="Volver a hoy">
             Hoy
           </button>
           <button onClick={irAdelante} className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50" title="7 días siguientes">
-            <ChevronRight className="w-4 h-4 text-slate-500" />
+            <ChevronRight className="w-4 h-4 text-slate-700" />
           </button>
         </div>
-        <span className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+        <span className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
           <Calendar className="w-4 h-4 text-indigo-500" /> {formatRango(inicio)}
         </span>
         <div className="relative ml-auto w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
           <input
             type="text"
             placeholder="Buscar ODP o cliente..."
@@ -423,12 +423,12 @@ const AgendaTab: React.FC<Props> = ({
         <div className="flex gap-4 items-start">
           {/* Bandeja: ODPs listas sin agendar */}
           <div className="w-60 flex-shrink-0 sticky top-2">
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col max-h-[78vh]">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-card flex flex-col max-h-[78vh]">
               <div className="px-3 py-2.5 border-b border-slate-100">
                 <div className="flex items-center gap-2">
-                  <Inbox className="w-4 h-4 text-slate-400" />
-                  <span className="text-xs font-bold uppercase tracking-wide text-slate-600">Sin agendar</span>
-                  <span className="ml-auto px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs font-bold">{odpsSinAgendar.length}</span>
+                  <Inbox className="w-4 h-4 text-slate-600" />
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-900">Sin agendar</span>
+                  <span className="ml-auto px-1.5 py-0.5 bg-slate-100 text-slate-900 rounded-full text-xs font-semibold">{odpsSinAgendar.length}</span>
                 </div>
                 {/* Chips: filtran la bandeja e identifican la condición de cada ODP */}
                 <div className="flex flex-wrap gap-1 mt-2">
@@ -439,7 +439,7 @@ const AgendaTab: React.FC<Props> = ({
                       <button
                         key={c}
                         onClick={() => setFiltros(prev => ({ ...prev, [c]: !prev[c] }))}
-                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-bold transition-all ${activo ? meta.chip : meta.chipOff}`}
+                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[11px] font-semibold transition-all ${activo ? meta.chip : meta.chipOff}`}
                         title={activo ? `Ocultar "${meta.label}"` : `Mostrar "${meta.label}"`}
                       >
                         <span className={`w-1.5 h-1.5 rounded-full ${activo ? meta.punto : 'bg-slate-300'}`} />
@@ -458,7 +458,7 @@ const AgendaTab: React.FC<Props> = ({
                     className={`flex-1 overflow-y-auto p-2 space-y-1.5 min-h-[120px] transition-colors ${snap.isDraggingOver ? 'bg-indigo-50/40' : ''}`}
                   >
                     {odpsSinAgendar.length === 0 ? (
-                      <p className="text-[11px] text-slate-400 text-center py-8">
+                      <p className="text-xs text-slate-700 text-center py-8">
                         {q ? 'Sin resultados'
                           : ORDEN_COND.some(c => !filtros[c]) ? 'Sin ODPs con los filtros activos'
                           : 'Todo lo listo ya está agendado 🎉'}
@@ -471,19 +471,19 @@ const AgendaTab: React.FC<Props> = ({
                               ref={p.innerRef}
                               {...p.draggableProps}
                               {...p.dragHandleProps}
-                              className={`rounded-lg border px-2 py-1.5 bg-white cursor-grab active:cursor-grabbing transition-shadow ${
-                                s.isDragging ? 'shadow-lg ring-2 ring-indigo-200' : 'border-slate-200 shadow-sm hover:border-indigo-200'
+                              className={`rounded-xl border px-2.5 py-2 bg-white cursor-grab active:cursor-grabbing transition-shadow ${
+                                s.isDragging ? 'shadow-lg ring-2 ring-indigo-200' : 'border-slate-200 shadow-card hover:border-indigo-200'
                               }`}
                             >
                               <div className="flex items-center gap-1.5">
-                                <button onClick={() => onVerODP(o.id)} className="text-xs font-bold text-slate-800 hover:text-indigo-600 hover:underline underline-offset-2">
+                                <button onClick={() => onVerODP(o.id)} className="text-sm font-bold text-slate-900 hover:text-indigo-700 hover:underline underline-offset-2">
                                   {o.numero_odp}
                                 </button>
-                                <span className={`ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide flex-shrink-0 ${COND_META[condicion].badge}`} title={COND_META[condicion].label}>
+                                <span className={`ml-auto px-1.5 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wide flex-shrink-0 ${COND_META[condicion].badge}`} title={COND_META[condicion].label}>
                                   {COND_META[condicion].corto}
                                 </span>
                               </div>
-                              <p className="text-[10px] text-slate-500 truncate">{o.cliente?.nombre_razon_social}</p>
+                              <p className="text-xs text-slate-800 truncate mt-0.5">{o.cliente?.nombre_razon_social}</p>
                             </div>
                           )}
                         </Draggable>
@@ -494,7 +494,7 @@ const AgendaTab: React.FC<Props> = ({
                 )}
               </Droppable>
               {!readOnly && (
-                <p className="px-3 py-2 text-[10px] text-slate-400 border-t border-slate-100">Arrastra una ODP a un día, o usa “+ ODP” en cada día.</p>
+                <p className="px-3 py-2 text-[11px] text-slate-700 border-t border-slate-100">Arrastra una ODP a un día, o usa “+ ODP” en cada día.</p>
               )}
             </div>
           </div>
@@ -508,14 +508,14 @@ const AgendaTab: React.FC<Props> = ({
               const nombreDia = fechaObj.toLocaleDateString('es-CO', { weekday: 'long' });
               const fechaCorta = fechaObj.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
               return (
-                <div key={fecha} className={`rounded-xl border ${esHoy ? 'border-indigo-300 bg-indigo-50/20' : 'border-slate-200 bg-white'}`}>
+                <div key={fecha} className={`rounded-2xl border shadow-card ${esHoy ? 'border-indigo-300 bg-indigo-50/30' : 'border-slate-200 bg-white'}`}>
                   {/* Header del día */}
-                  <div className={`flex items-center gap-2 px-3 py-2 border-b ${esHoy ? 'border-indigo-200' : 'border-slate-100'}`}>
-                    {esHoy && <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-indigo-600 text-white uppercase tracking-wide">Hoy</span>}
-                    <span className={`text-sm font-bold capitalize ${esHoy ? 'text-indigo-700' : 'text-slate-700'}`}>{nombreDia}</span>
-                    <span className="text-xs text-slate-400">{fechaCorta}</span>
+                  <div className={`flex items-center gap-2 px-3.5 py-2.5 border-b ${esHoy ? 'border-indigo-200' : 'border-slate-100'}`}>
+                    {esHoy && <span className="px-1.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-600 text-white uppercase tracking-wide">Hoy</span>}
+                    <span className={`text-sm font-bold capitalize ${esHoy ? 'text-indigo-800' : 'text-slate-900'}`}>{nombreDia}</span>
+                    <span className="text-xs text-slate-700">{fechaCorta}</span>
                     {items.length > 0 && (
-                      <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-full text-[10px] font-bold">{items.length} ODP{items.length !== 1 ? 's' : ''}</span>
+                      <span className="px-1.5 py-0.5 bg-slate-100 text-slate-900 rounded-full text-[11px] font-semibold">{items.length} ODP{items.length !== 1 ? 's' : ''}</span>
                     )}
                     {!readOnly && (
                       <div className="ml-auto flex items-center gap-2">
@@ -524,7 +524,7 @@ const AgendaTab: React.FC<Props> = ({
                           <button
                             onClick={() => setPickerDia(pickerDia === fecha ? null : fecha)}
                             disabled={!odpsSinAgendar.length}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-dashed border-slate-300 text-[11px] font-semibold text-slate-500 hover:bg-slate-50 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-40 transition-all"
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-dashed border-slate-300 text-[11px] font-medium text-slate-800 hover:bg-slate-50 hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-40 transition-all"
                           >
                             <Plus className="w-3 h-3" /> ODP
                           </button>
@@ -537,12 +537,12 @@ const AgendaTab: React.FC<Props> = ({
                                   className="w-full text-left px-2.5 py-1.5 hover:bg-indigo-50 transition-colors"
                                 >
                                   <span className="flex items-center gap-1.5">
-                                    <span className="text-xs font-bold text-slate-800">{o.numero_odp}</span>
-                                    <span className={`ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${COND_META[condicion].badge}`}>
+                                    <span className="text-xs font-bold text-slate-900">{o.numero_odp}</span>
+                                    <span className={`ml-auto px-1.5 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wide ${COND_META[condicion].badge}`}>
                                       {COND_META[condicion].corto}
                                     </span>
                                   </span>
-                                  <span className="block text-[10px] text-slate-500 truncate">{o.cliente?.nombre_razon_social}</span>
+                                  <span className="block text-[11px] text-slate-800 truncate">{o.cliente?.nombre_razon_social}</span>
                                 </button>
                               ))}
                             </div>
@@ -552,7 +552,7 @@ const AgendaTab: React.FC<Props> = ({
                         {items.length > 0 && (
                           <button
                             onClick={() => crearRutaDelDia(items, fecha)}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[11px] font-bold hover:bg-indigo-700 transition-all"
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[11px] font-semibold hover:bg-indigo-700 transition-all"
                           >
                             <Route className="w-3 h-3" /> Crear ruta
                           </button>
@@ -570,7 +570,7 @@ const AgendaTab: React.FC<Props> = ({
                         className={`p-2 space-y-1.5 min-h-[56px] transition-colors ${snap.isDraggingOver ? 'bg-indigo-50/60' : ''}`}
                       >
                         {items.length === 0 && !snap.isDraggingOver && (
-                          <p className="text-[11px] text-slate-300 text-center py-3">Sin ODPs — arrastra aquí o usa “+ ODP”</p>
+                          <p className="text-xs text-slate-700 text-center py-3">Sin ODPs — arrastra aquí o usa “+ ODP”</p>
                         )}
                         {items.map((e: any, idx: number) => FilaAgenda(e, idx))}
                         {prov.placeholder}

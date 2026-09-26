@@ -6,7 +6,7 @@ import {
   Pencil, Trash2, Plus, RefreshCw, PackageCheck, PauseCircle, Search,
   Route, History, ChevronDown, ChevronUp, HardHat, Upload, X as XIcon, Receipt,
   AlertOctagon, Info,
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 import ProgramarRutaModal from './ProgramarRutaModal';
 import InstaladorGestionTab from './InstaladorGestionTab';
 import CerrarAtascadaModal from './CerrarAtascadaModal';
@@ -51,10 +51,10 @@ const formatDuracion = (msOrInicio: string | null, fin?: string | null): string 
 // ─── Helpers de estado / badges ───────────────────────────────────────────────
 
 const ESTADO_RUTA_STYLES: Record<string, string> = {
-  programada: 'bg-blue-100 text-blue-700',
-  en_curso:   'bg-amber-100 text-amber-700',
-  completada: 'bg-emerald-100 text-emerald-700',
-  cancelada:  'bg-slate-100 text-slate-500',
+  programada: 'bg-blue-100 text-blue-800',
+  en_curso:   'bg-amber-100 text-amber-800',
+  completada: 'bg-emerald-100 text-emerald-800',
+  cancelada:  'bg-slate-100 text-slate-800',
 };
 
 const ESTADO_RUTA_LABEL: Record<string, string> = {
@@ -65,37 +65,37 @@ const ESTADO_RUTA_LABEL: Record<string, string> = {
 };
 
 const ESTADO_ODP_RUTA_STYLES: Record<string, string> = {
-  pendiente:  'bg-slate-100 text-slate-600',
-  en_curso:   'bg-amber-100 text-amber-700',
-  pausada:    'bg-violet-100 text-violet-700',
-  completada: 'bg-emerald-100 text-emerald-700',
-  con_dano:   'bg-orange-100 text-orange-700',
+  pendiente:  'bg-slate-100 text-slate-800',
+  en_curso:   'bg-amber-100 text-amber-800',
+  pausada:    'bg-violet-100 text-violet-800',
+  completada: 'bg-emerald-100 text-emerald-800',
+  con_dano:   'bg-orange-100 text-orange-800',
 };
 
 // Por qué una instalación quedó sin cerrar. Los códigos los calcula getODPsAtascadas
 // en el backend; aquí solo se traducen a lenguaje del jefe de producción.
 const MOTIVO_ATASCADA: Record<string, { label: string; cls: string; detalle: string }> = {
-  INICIADA_SIN_FINALIZAR:    { label: 'Instalando sin finalizar', cls: 'bg-orange-100 text-orange-700', detalle: 'El instalador entró a la obra pero nunca finalizó en la app. La orden sigue abierta.' },
-  RUTA_CERRADA_SIN_INSTALAR: { label: 'Ruta cerrada sin instalar', cls: 'bg-rose-100 text-rose-700',    detalle: 'El conductor cerró la ruta y esta parada nunca se atendió.' },
-  DANO_SIN_RESOLVER:         { label: 'Daño sin resolver',        cls: 'bg-red-100 text-red-700',       detalle: 'Se reportó un daño en la instalación y sigue sin resolverse.' },
-  PAUSADA_SIN_RETOMAR:       { label: 'Pausada sin retomar',      cls: 'bg-violet-100 text-violet-700', detalle: 'La instalación se pausó y nunca se retomó.' },
-  PARADA_VENCIDA:            { label: 'Parada vencida',           cls: 'bg-amber-100 text-amber-700',   detalle: 'La fecha programada ya pasó y la parada sigue pendiente.' },
-  SIN_RUTA:                  { label: 'Sin ruta asociada',        cls: 'bg-slate-200 text-slate-700',   detalle: 'No tiene ninguna parada de ruta que pueda cerrarla.' },
+  INICIADA_SIN_FINALIZAR:    { label: 'Instalando sin finalizar', cls: 'bg-orange-100 text-orange-800', detalle: 'El instalador entró a la obra pero nunca finalizó en la app. La orden sigue abierta.' },
+  RUTA_CERRADA_SIN_INSTALAR: { label: 'Ruta cerrada sin instalar', cls: 'bg-rose-100 text-rose-800',    detalle: 'El conductor cerró la ruta y esta parada nunca se atendió.' },
+  DANO_SIN_RESOLVER:         { label: 'Daño sin resolver',        cls: 'bg-red-100 text-red-800',       detalle: 'Se reportó un daño en la instalación y sigue sin resolverse.' },
+  PAUSADA_SIN_RETOMAR:       { label: 'Pausada sin retomar',      cls: 'bg-violet-100 text-violet-800', detalle: 'La instalación se pausó y nunca se retomó.' },
+  PARADA_VENCIDA:            { label: 'Parada vencida',           cls: 'bg-amber-100 text-amber-800',   detalle: 'La fecha programada ya pasó y la parada sigue pendiente.' },
+  SIN_RUTA:                  { label: 'Sin ruta asociada',        cls: 'bg-slate-200 text-slate-800',   detalle: 'No tiene ninguna parada de ruta que pueda cerrarla.' },
 };
 
 const getTipoServicio = (odp: any) => {
-  if (odp?.instalacion && odp?.acarreo) return { label: 'Instalación + Acarreo', cls: 'bg-indigo-100 text-indigo-700', icon: '🔧' };
-  if (odp?.instalacion) return { label: 'Instalación', cls: 'bg-indigo-100 text-indigo-700', icon: '🔧' };
-  if (odp?.acarreo)     return { label: 'Acarreo', cls: 'bg-sky-100 text-sky-700', icon: '🚚' };
-  return { label: 'Entrega taller', cls: 'bg-slate-100 text-slate-600', icon: '📦' };
+  if (odp?.instalacion && odp?.acarreo) return { label: 'Instalación + Acarreo', cls: 'bg-indigo-100 text-indigo-800', icon: '🔧' };
+  if (odp?.instalacion) return { label: 'Instalación', cls: 'bg-indigo-100 text-indigo-800', icon: '🔧' };
+  if (odp?.acarreo)     return { label: 'Acarreo', cls: 'bg-sky-100 text-sky-800', icon: '🚚' };
+  return { label: 'Entrega taller', cls: 'bg-slate-100 text-slate-800', icon: '📦' };
 };
 
 const getPagoBadge = (odp: any) => {
-  if (odp?.es_garantia)                          return { label: 'Garantía', cls: 'bg-blue-100 text-blue-700' };
-  if (odp?.estado_caja === 'CANCELADO')           return { label: '✓ Pagado', cls: 'bg-emerald-100 text-emerald-700' };
-  if (odp?.estado_caja === 'CREDITO_APROBADO')    return { label: 'Crédito', cls: 'bg-blue-100 text-blue-700' };
-  if (odp?.autorizacion_especial_despacho)        return { label: 'Autorización', cls: 'bg-purple-100 text-purple-700' };
-  return { label: 'Pago pendiente', cls: 'bg-amber-100 text-amber-700' };
+  if (odp?.es_garantia)                          return { label: 'Garantía', cls: 'bg-blue-100 text-blue-800' };
+  if (odp?.estado_caja === 'CANCELADO')           return { label: '✓ Pagado', cls: 'bg-emerald-100 text-emerald-800' };
+  if (odp?.estado_caja === 'CREDITO_APROBADO')    return { label: 'Crédito', cls: 'bg-blue-100 text-blue-800' };
+  if (odp?.autorizacion_especial_despacho)        return { label: 'Autorización', cls: 'bg-purple-100 text-purple-800' };
+  return { label: 'Pago pendiente', cls: 'bg-amber-100 text-amber-800' };
 };
 
 // ─── Tarjeta de ruta ──────────────────────────────────────────────────────────
@@ -126,24 +126,24 @@ const RutaCard: React.FC<{
   const puedeCancelar  = puedeEditar;
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-card overflow-hidden">
       {/* Header */}
       <div className="p-4 space-y-2.5">
         {/* Fila 1: estado + vehículo + conductor + fecha + acciones */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase ${ESTADO_RUTA_STYLES[ruta.estado] ?? 'bg-slate-100 text-slate-600'}`}>
+          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold uppercase ${ESTADO_RUTA_STYLES[ruta.estado] ?? 'bg-slate-100 text-slate-800'}`}>
             {ESTADO_RUTA_LABEL[ruta.estado] ?? ruta.estado}
           </span>
           {ruta.vehiculo && (
-            <span className="flex items-center gap-1 text-xs text-slate-500">
-              <Truck className="w-3 h-3" />{ruta.vehiculo.tipo} — {ruta.vehiculo.placa}
+            <span className="flex items-center gap-1 text-xs text-slate-800">
+              <Truck className="w-3.5 h-3.5 text-slate-600" />{ruta.vehiculo.tipo} — {ruta.vehiculo.placa}
             </span>
           )}
           {ruta.conductor && (
-            <span className="text-xs text-slate-500">🧑‍✈️ {ruta.conductor.nombre_completo}</span>
+            <span className="text-xs text-slate-800">🧑‍✈️ {ruta.conductor.nombre_completo}</span>
           )}
-          <span className="text-xs text-slate-400 ml-auto flex items-center gap-1">
-            <Calendar className="w-3 h-3" />{formatFecha(ruta.creado_en)}
+          <span className="text-xs text-slate-700 ml-auto flex items-center gap-1">
+            <Calendar className="w-3.5 h-3.5 text-slate-600" />{formatFecha(ruta.creado_en)}
           </span>
           {puedeEditar && (
             <button onClick={() => onEditar?.(ruta)} className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-400" title="Editar ruta">
@@ -155,7 +155,7 @@ const RutaCard: React.FC<{
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
-          <button onClick={() => setExpandida(v => !v)} className="p-1.5 rounded-lg hover:bg-slate-50 text-slate-400">
+          <button onClick={() => setExpandida(v => !v)} className="p-1.5 rounded-lg hover:bg-slate-50 text-slate-500">
             {expandida ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
         </div>
@@ -164,13 +164,13 @@ const RutaCard: React.FC<{
         {(ruta.oficial || ruta.instaladores?.length > 0) && (
           <div className="flex flex-wrap gap-3 text-xs">
             {ruta.oficial && (
-              <span className="flex items-center gap-1 text-indigo-600 font-semibold">
+              <span className="flex items-center gap-1 text-indigo-800 font-semibold">
                 ⭐ Oficial: {ruta.oficial.nombre_completo}
               </span>
             )}
             {ruta.instaladores?.length > 0 && (
-              <span className="flex items-center gap-1 text-slate-500">
-                <Users className="w-3 h-3" />
+              <span className="flex items-center gap-1 text-slate-800">
+                <Users className="w-3.5 h-3.5 text-slate-600" />
                 {ruta.instaladores.map((i: any) => i.nombre_completo).join(', ')}
               </span>
             )}
@@ -180,9 +180,9 @@ const RutaCard: React.FC<{
         {/* Fila 3: progreso + duración */}
         <div className="flex items-center gap-4">
           <div className="flex-1">
-            <div className="flex justify-between text-[10px] mb-1">
-              <span className="text-slate-500">{completadasOdp}/{totalOdps} ODPs completadas</span>
-              <span className="font-bold text-slate-600">{pct}%</span>
+            <div className="flex justify-between text-[11px] mb-1">
+              <span className="text-slate-700">{completadasOdp}/{totalOdps} ODPs completadas</span>
+              <span className="font-bold text-slate-900">{pct}%</span>
             </div>
             <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div
@@ -192,14 +192,14 @@ const RutaCard: React.FC<{
             </div>
           </div>
           {duracion && (
-            <span className="text-xs font-semibold text-slate-500 whitespace-nowrap flex items-center gap-1">
+            <span className="text-xs font-semibold text-slate-700 whitespace-nowrap flex items-center gap-1">
               ⏱ {ruta.estado === 'en_curso' ? `En ruta: ${duracion}` : `Duración: ${duracion}`}
             </span>
           )}
         </div>
 
         {/* Fila 4: contexto — por qué sigue acá */}
-        <p className="text-xs text-slate-500 flex items-center gap-1.5">
+        <p className="text-xs text-slate-700 flex items-center gap-1.5">
           <Info className="w-3.5 h-3.5 shrink-0" />
           {ruta.estado === 'en_curso'
             ? `En ruta · Conductor: ${ruta.conductor?.nombre_completo || 'Sin conductor asignado'} · Faltan ${totalOdps - completadasOdp} de ${totalOdps} parada${totalOdps === 1 ? '' : 's'}`
@@ -215,43 +215,43 @@ const RutaCard: React.FC<{
             const pago = getPagoBadge(ro.odp);
             return (
               <div key={ro.id} className="flex items-start gap-3 px-4 py-3">
-                <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs flex items-center justify-center font-bold flex-shrink-0 mt-0.5">
+                <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-900 text-xs flex items-center justify-center font-bold flex-shrink-0 mt-0.5">
                   {ro.orden}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
-                      className="text-sm font-semibold text-slate-800 hover:text-indigo-600 cursor-pointer hover:underline underline-offset-2"
+                      className="text-sm font-bold text-slate-900 hover:text-indigo-700 cursor-pointer hover:underline underline-offset-2"
                       onClick={() => ro.odp?.id && onVerODP?.(ro.odp.id)}
                     >
                       {ro.odp?.numero_odp}
                     </span>
-                    <span className="text-xs text-slate-500 truncate">{ro.odp?.cliente?.nombre_razon_social}</span>
+                    <span className="text-sm font-medium text-slate-900 truncate">{ro.odp?.cliente?.nombre_razon_social}</span>
                   </div>
                   {ro.odp?.direccion_instalacion && (
-                    <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                      <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
+                    <p className="text-xs text-slate-700 flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3 h-3 flex-shrink-0 text-rose-500" />
                       {ro.odp.direccion_instalacion}
                     </p>
                   )}
                   <div className="flex flex-wrap gap-1 mt-1.5">
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${tipo.cls}`}>
+                    <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${tipo.cls}`}>
                       {tipo.icon} {tipo.label}
                     </span>
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${pago.cls}`}>
+                    <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${pago.cls}`}>
                       {pago.label}
                     </span>
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${ESTADO_ODP_RUTA_STYLES[ro.estado] ?? ''}`}>
+                    <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold uppercase ${ESTADO_ODP_RUTA_STYLES[ro.estado] ?? ''}`}>
                       {ro.estado?.replace('_', ' ')}
                     </span>
                     {ro.fecha_programada && (
-                      <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
+                      <span className="text-[11px] text-slate-700 flex items-center gap-0.5">
                         <Calendar className="w-2.5 h-2.5" />{ro.fecha_programada}
                       </span>
                     )}
                   </div>
                   {ro.estado === 'pausada' && ro.motivo_pausa && (
-                    <p className="text-xs text-violet-600 mt-1 flex items-start gap-1">
+                    <p className="text-xs text-violet-800 mt-1 flex items-start gap-1">
                       <PauseCircle className="w-3 h-3 flex-shrink-0 mt-0.5" />
                       {ro.motivo_pausa}
                     </p>
@@ -478,7 +478,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
     { key: 'produccion',    label: 'Espera de producción',  count: odps.espera_produccion.length,   icon: AlertTriangle, color: 'text-red-500',     soloEscritura: false },
     { key: 'programados',   label: 'Programados',           count: rutas.length,                    icon: Route,         color: 'text-indigo-600',  soloEscritura: false },
     { key: 'atascadas',     label: 'Pendientes de cierre',  count: atascadas.length,                icon: AlertOctagon,  color: 'text-rose-600',    soloEscritura: false },
-    { key: 'completados',   label: 'Completados',           count: null,                            icon: History,       color: 'text-slate-500',   soloEscritura: false },
+    { key: 'completados',   label: 'Completados',           count: null,                            icon: History,       color: 'text-slate-700',   soloEscritura: false },
     { key: 'instaladores',  label: 'Instaladores',          count: null,                            icon: HardHat,       color: 'text-teal-600',    soloEscritura: true  },
   ] as const;
 
@@ -506,12 +506,12 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Gestión de Instalaciones</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Programa rutas y monitorea el avance de instalaciones</p>
+          <h1 className="text-2xl font-bold text-slate-900">Gestión de Instalaciones</h1>
+          <p className="text-sm text-slate-800 mt-0.5">Programa rutas y monitorea el avance de instalaciones</p>
         </div>
         <div className="flex gap-2">
           <button onClick={cargar} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50" title="Recargar">
-            <RefreshCw className="w-4 h-4 text-slate-500" />
+            <RefreshCw className="w-4 h-4 text-slate-700" />
           </button>
           {!readOnly && (
             <button
@@ -527,13 +527,13 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
 
       {/* Buscador */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
         <input
           type="text"
           placeholder="Buscar por N° ODP o nombre de cliente..."
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder-slate-400"
+          className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-300 rounded-xl bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder-slate-500"
         />
       </div>
 
@@ -571,7 +571,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
           loading ? (
             <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" /></div>
           ) : odpsMostradas.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-sm">No hay ODPs en esta categoría</div>
+            <div className="py-12 text-center text-slate-700 text-sm">No hay ODPs en esta categoría</div>
           ) : (
             <div className="divide-y divide-slate-50">
               {odpsMostradas.map((odp: any) => (
@@ -579,35 +579,35 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span
-                        className="font-bold text-slate-800 text-sm hover:text-indigo-600 cursor-pointer hover:underline underline-offset-2"
+                        className="font-bold text-slate-900 text-sm hover:text-indigo-700 cursor-pointer hover:underline underline-offset-2"
                         onClick={() => setSelectedOdpId(odp.id)}
                       >
                         {odp.numero_odp}
                       </span>
-                      {odp.es_garantia && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">🛡 Garantía</span>}
+                      {odp.es_garantia && <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-800">🛡 Garantía</span>}
                       {!odp.es_garantia && (
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${odp.estado_caja === 'CANCELADO' ? 'bg-emerald-100 text-emerald-700' : odp.estado_caja === 'CREDITO_APROBADO' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase ${odp.estado_caja === 'CANCELADO' ? 'bg-emerald-100 text-emerald-800' : odp.estado_caja === 'CREDITO_APROBADO' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>
                           {odp.estado_caja === 'CANCELADO' ? 'Pagado' : odp.estado_caja === 'CREDITO_APROBADO' ? 'Crédito' : odp.estado_caja}
                         </span>
                       )}
-                      {odp.autorizacion_especial_despacho && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">Autorización especial</span>}
+                      {odp.autorizacion_especial_despacho && <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-800">Autorización especial</span>}
                       {odp.agenda && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 flex items-center gap-1">
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-800 flex items-center gap-1">
                           <Calendar className="w-2.5 h-2.5" />
                           Agendada {new Date(`${odp.agenda.fecha_tentativa}T00:00:00`).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
                         </span>
                       )}
-                      {mainTab === 'factura' && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">Sin factura</span>}
+                      {mainTab === 'factura' && <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-100 text-orange-800">Sin factura</span>}
                     </div>
-                    <p className="text-sm text-slate-600 font-medium">{odp.cliente?.nombre_razon_social}</p>
+                    <p className="text-sm text-slate-900 font-semibold">{odp.cliente?.nombre_razon_social}</p>
                     {odp.direccion_instalacion && (
-                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3" />{odp.direccion_instalacion}</p>
+                      <p className="text-xs text-slate-800 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3 text-rose-500" />{odp.direccion_instalacion}</p>
                     )}
                   </div>
                   {odp.fecha_entrega && (
                     <div className="text-right flex-shrink-0">
-                      <p className="text-xs text-slate-400">Entrega</p>
-                      <p className="text-xs font-semibold text-slate-600">
+                      <p className="text-xs text-slate-700">Entrega</p>
+                      <p className="text-sm font-semibold text-slate-900">
                         {new Date(odp.fecha_entrega).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
                       </p>
                     </div>
@@ -615,7 +615,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                   {mainTab === 'listos' && !readOnly && (
                     <button
                       onClick={() => { setPreseleccionRuta(null); setOdpsParaModal(odps.listos); setRutaEditar(null); setShowModal(true); }}
-                      className="flex-shrink-0 px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg text-xs font-semibold hover:bg-indigo-100"
+                      className="flex-shrink-0 px-3 py-1.5 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-lg text-xs font-semibold hover:bg-indigo-100"
                     >
                       + Agregar a ruta
                     </button>
@@ -638,10 +638,10 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                 <button
                   key={st.key}
                   onClick={() => setSubTabProg(st.key)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${subTabProg === st.key ? st.cls + ' shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${subTabProg === st.key ? st.cls + ' shadow-sm' : 'text-slate-700 hover:text-slate-900'}`}
                 >
                   {st.label}
-                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${subTabProg === st.key ? 'bg-slate-100' : 'bg-slate-200 text-slate-500'}`}>
+                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-semibold ${subTabProg === st.key ? 'bg-slate-100' : 'bg-slate-200 text-slate-700'}`}>
                     {st.count}
                   </span>
                 </button>
@@ -651,7 +651,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
             {loading ? (
               <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-7 w-7 border-b-2 border-indigo-600" /></div>
             ) : rutasProg.length === 0 ? (
-              <div className="py-10 text-center text-slate-400 text-sm">
+              <div className="py-10 text-center text-slate-700 text-sm">
                 {q ? 'Sin resultados para la búsqueda.' : `No hay rutas ${subTabProg === 'programada' ? 'programadas' : 'en curso'}.`}
               </div>
             ) : (
@@ -682,53 +682,53 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
             {loading ? (
               <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-7 w-7 border-b-2 border-rose-600" /></div>
             ) : atascadasMostradas.length === 0 ? (
-              <div className="py-10 text-center text-slate-400 text-sm">
+              <div className="py-10 text-center text-slate-700 text-sm">
                 {q ? 'Sin resultados para la búsqueda.' : 'No hay instalaciones pendientes de cierre. 🎉'}
               </div>
             ) : (
               <div className="space-y-2.5">
                 {atascadasMostradas.map((a: any) => {
-                  const m = MOTIVO_ATASCADA[a.motivo] ?? { label: 'Sin cerrar', cls: 'bg-slate-100 text-slate-600' };
+                  const m = MOTIVO_ATASCADA[a.motivo] ?? { label: 'Sin cerrar', cls: 'bg-slate-100 text-slate-800' };
                   return (
-                  <div key={a.odp_id} className="border border-slate-200 rounded-xl p-3.5 bg-white hover:shadow-sm transition-shadow">
+                  <div key={a.odp_id} className="border border-slate-200 rounded-2xl p-4 bg-white shadow-card hover:shadow-card-hover transition-shadow">
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <button onClick={() => setSelectedOdpId(a.odp_id)} className="font-bold text-sm text-indigo-700 hover:underline">
                             {a.numero_odp}
                           </button>
-                          {a.es_no_conformidad && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">REPROCESO</span>}
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${m.cls}`}>{m.label}</span>
+                          {a.es_no_conformidad && <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800">REPROCESO</span>}
+                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${m.cls}`}>{m.label}</span>
                           {a.dias_vencida != null && a.dias_vencida > 0 && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-900">
                               {a.dias_vencida} {a.dias_vencida === 1 ? 'día' : 'días'}
                             </span>
                           )}
                           {a.ruta_id && (
-                            <span className="text-[10px] text-slate-400">Ruta #{a.ruta_id}</span>
+                            <span className="text-[11px] text-slate-700">Ruta #{a.ruta_id}</span>
                           )}
                         </div>
-                        <p className="text-sm text-slate-700 font-medium mt-1 truncate">{a.cliente || 'Sin cliente'}</p>
+                        <p className="text-sm text-slate-900 font-semibold mt-1 truncate">{a.cliente || 'Sin cliente'}</p>
                         {a.direccion_instalacion && (
-                          <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1 truncate">
-                            <MapPin className="w-3 h-3 shrink-0" /> {a.direccion_instalacion}
+                          <p className="text-xs text-slate-700 mt-0.5 flex items-center gap-1 truncate">
+                            <MapPin className="w-3 h-3 shrink-0 text-rose-500" /> {a.direccion_instalacion}
                           </p>
                         )}
                         {m.detalle && (
-                          <p className="text-[11px] text-slate-500 mt-1">{m.detalle}</p>
+                          <p className="text-[11px] text-slate-700 mt-1">{m.detalle}</p>
                         )}
                         <div className="flex items-center gap-2 flex-wrap mt-1">
-                          <p className="text-[11px] text-slate-400">Asesor: {a.asesor || '—'}</p>
+                          <p className="text-[11px] text-slate-700">Asesor: {a.asesor || '—'}</p>
                           {/* Facturada y pagada = señal fuerte de que la instalación sí ocurrió */}
                           {a.estado_facturacion === 'FACTURADA' && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700">Facturada</span>
+                            <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-800">Facturada</span>
                           )}
                           {a.estado_caja === 'CANCELADO' && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">Pagada</span>
+                            <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800">Pagada</span>
                           )}
                         </div>
                         {(a.motivo_pausa || a.descripcion_dano) && (
-                          <p className="text-[11px] text-slate-500 italic mt-1 truncate">
+                          <p className="text-[11px] text-slate-700 italic mt-1 truncate">
                             "{a.motivo_pausa || a.descripcion_dano}"
                           </p>
                         )}
@@ -763,7 +763,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
           <div className="p-4 space-y-4">
             {/* Filtro por fechas */}
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Período</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-900">Período</span>
               <div className="flex items-center gap-2">
                 <input
                   type="date"
@@ -771,7 +771,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                   onChange={e => setFechaDesde(e.target.value)}
                   className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300"
                 />
-                <span className="text-slate-400 text-xs">—</span>
+                <span className="text-slate-500 text-xs">—</span>
                 <input
                   type="date"
                   value={fechaHasta}
@@ -788,7 +788,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                   <button
                     key={atajo.label}
                     onClick={() => { setFechaDesde(atajo.desde); setFechaHasta(atajo.hasta); }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${fechaDesde === atajo.desde && fechaHasta === atajo.hasta ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${fechaDesde === atajo.desde && fechaHasta === atajo.hasta ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
                   >
                     {atajo.label}
                   </button>
@@ -800,15 +800,15 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
             <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
               {([
                 { key: 'completadas', label: 'Completadas', count: rutasCompletadas.length, cls: 'text-emerald-700 bg-white' },
-                { key: 'canceladas',  label: 'Canceladas',  count: rutasCanceladas.length,  cls: 'text-slate-600 bg-white' },
+                { key: 'canceladas',  label: 'Canceladas',  count: rutasCanceladas.length,  cls: 'text-slate-800 bg-white' },
               ] as const).map(st => (
                 <button
                   key={st.key}
                   onClick={() => setSubTabComp(st.key)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${subTabComp === st.key ? st.cls + ' shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${subTabComp === st.key ? st.cls + ' shadow-sm' : 'text-slate-700 hover:text-slate-900'}`}
                 >
                   {st.label}
-                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${subTabComp === st.key ? 'bg-slate-100' : 'bg-slate-200 text-slate-500'}`}>
+                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-semibold ${subTabComp === st.key ? 'bg-slate-100' : 'bg-slate-200 text-slate-700'}`}>
                     {st.count}
                   </span>
                 </button>
@@ -818,7 +818,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
             {loadingHistorial ? (
               <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-7 w-7 border-b-2 border-indigo-600" /></div>
             ) : rutasComp.length === 0 ? (
-              <div className="py-10 text-center text-slate-400 text-sm">
+              <div className="py-10 text-center text-slate-700 text-sm">
                 {q ? 'Sin resultados para la búsqueda.' : `No hay rutas ${subTabComp} en el período seleccionado.`}
               </div>
             ) : (
@@ -859,12 +859,12 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                   <PackageCheck className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div>
-                  <p className="font-bold text-slate-800 text-sm">Registrar entrega</p>
-                  <p className="text-xs text-slate-400">{finalizarModal.numeroOdp}</p>
+                  <p className="font-bold text-slate-900 text-sm">Registrar entrega</p>
+                  <p className="text-xs text-slate-700">{finalizarModal.numeroOdp}</p>
                 </div>
               </div>
               <button onClick={() => setFinalizarModal(null)} className="p-2 rounded-lg hover:bg-slate-100">
-                <XIcon className="w-4 h-4 text-slate-400" />
+                <XIcon className="w-4 h-4 text-slate-500" />
               </button>
             </div>
 
@@ -872,10 +872,10 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
               {/* Fotos evidencia */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-900">
                     Fotos de evidencia *
                   </label>
-                  <span className="text-[10px] text-slate-400 font-medium">{fotosFinalizar.length}/10</span>
+                  <span className="text-[11px] text-slate-700 font-medium">{fotosFinalizar.length}/10</span>
                 </div>
                 {fotosFinalizar.length > 0 && (
                   <div className="grid grid-cols-4 gap-2 mb-3">
@@ -900,15 +900,15 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                         setFotosFinalizar(prev => [...prev, ...files]);
                       }}
                     />
-                    <Upload className="w-5 h-5 text-slate-400" />
-                    <span className="text-[10px] text-slate-400 font-medium">Agregar foto{fotosFinalizar.length > 0 ? ' más' : ''}</span>
+                    <Upload className="w-5 h-5 text-slate-500" />
+                    <span className="text-[11px] text-slate-700 font-medium">Agregar foto{fotosFinalizar.length > 0 ? ' más' : ''}</span>
                   </label>
                 )}
               </div>
 
               {/* Datos receptor */}
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-900 mb-1">
                   Nombre de quien recibe <span className="normal-case font-normal">(opcional)</span>
                 </label>
                 <input
@@ -925,7 +925,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
             <div className="p-5 pt-0 flex gap-3">
               <button
                 onClick={() => setFinalizarModal(null)}
-                className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-semibold text-sm rounded-xl hover:bg-slate-200 transition"
+                className="flex-1 py-2.5 bg-slate-100 text-slate-900 font-semibold text-sm rounded-xl hover:bg-slate-200 transition"
               >
                 Cancelar
               </button>
@@ -969,12 +969,12 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
                 <PauseCircle className="w-5 h-5 text-violet-600" />
               </div>
               <div>
-                <p className="font-bold text-slate-800 text-sm">Pausar instalación</p>
-                <p className="text-xs text-slate-400">{pauseModal.numeroOdp} — La ODP volverá a "Listo para instalar"</p>
+                <p className="font-bold text-slate-900 text-sm">Pausar instalación</p>
+                <p className="text-xs text-slate-700">{pauseModal.numeroOdp} — La ODP volverá a "Listo para instalar"</p>
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Motivo *</label>
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-900 mb-1">Motivo *</label>
               <textarea
                 rows={3}
                 value={pauseMotivo}
@@ -984,7 +984,7 @@ const JefeView: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
               />
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setPauseModal(null)} className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-semibold text-sm rounded-xl hover:bg-slate-200 transition">
+              <button onClick={() => setPauseModal(null)} className="flex-1 py-2.5 bg-slate-100 text-slate-900 font-semibold text-sm rounded-xl hover:bg-slate-200 transition">
                 Cancelar
               </button>
               <button onClick={handleConfirmarPausa} className="flex-1 py-2.5 bg-violet-600 text-white font-semibold text-sm rounded-xl hover:bg-violet-700 transition shadow-sm">

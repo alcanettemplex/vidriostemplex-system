@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, DollarSign, Search, Loader2 } from 'lucide-react';
+import { X, DollarSign, Search, Loader2 } from '../../../../components/ui/icons';
 import { toast } from 'react-toastify';
 import API from '../../../../services/config';
 import { RADIUS, FONT } from '../../styleTokens';
@@ -92,8 +92,8 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
     borderRadius: RADIUS.lg, color: 'var(--text)', fontSize: FONT.md, outline: 'none',
   };
   const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: FONT.sm, color: 'var(--text-muted)',
-    fontWeight: 700, marginBottom: 5, letterSpacing: .4,
+    display: 'block', fontSize: FONT.sm, color: 'var(--text)',
+    fontWeight: 600, marginBottom: 5, letterSpacing: .4,
   };
 
   const precioNum = parseFloat(form.precio) || 0;
@@ -125,7 +125,7 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                 <DollarSign size={18} color="var(--primary)" />
-                <span style={{ fontWeight: 700, fontSize: FONT.xl }}>Agregar precio</span>
+                <span style={{ fontWeight: 700, fontSize: FONT.xl, color: 'var(--text)' }}>Agregar precio</span>
               </div>
               <div style={{ fontSize: FONT.base, color: 'var(--text-muted)', marginTop: 2 }}>
                 Proveedor: <strong>{proveedor.nombre_comercial}</strong>
@@ -149,7 +149,7 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
                   borderRadius: RADIUS.lg, padding: '10px 14px',
                 }}>
                   <div>
-                    <span style={{ fontFamily: 'monospace', fontSize: FONT.sm, color: 'var(--primary)' }}>{productoSeleccionado.codigo}</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: FONT.sm, color: 'var(--primary-strong, #4338ca)' }}>{productoSeleccionado.codigo}</span>
                     <span style={{ marginLeft: 8, fontSize: FONT.md, fontWeight: 600 }}>{productoSeleccionado.nombre}</span>
                     <span style={{ marginLeft: 8, fontSize: FONT.xs, color: 'var(--text-muted)' }}>IVA {productoSeleccionado.porcentaje_iva}%</span>
                   </div>
@@ -190,9 +190,9 @@ const AgregarPrecioModal: React.FC<Props> = ({ proveedor, onClose, onGuardado })
                           onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg)')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <span style={{ fontFamily: 'monospace', fontSize: FONT.sm, color: 'var(--primary)' }}>{p.codigo}</span>
+                          <span style={{ fontFamily: 'monospace', fontSize: FONT.sm, color: 'var(--primary-strong, #4338ca)' }}>{p.codigo}</span>
                           <span style={{ fontSize: FONT.base }}>{p.nombre}</span>
-                          {p.es_aluminio && <span style={{ fontSize: FONT.tiny, background: '#3b82f618', color: '#3b82f6', borderRadius: RADIUS.xs, padding: '1px 5px' }}>ALUMINIO</span>}
+                          {p.es_aluminio && <span style={{ fontSize: FONT.tiny, fontWeight: 600, background: '#3b82f618', color: '#1d4ed8', borderRadius: RADIUS.xs, padding: '1px 5px' }}>ALUMINIO</span>}
                         </div>
                       ))}
                     </div>

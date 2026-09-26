@@ -12,7 +12,7 @@ import EmbudoAsesores from './components/EmbudoAsesores';
 import DateRangeSelector from '../../components/common/DateRangeSelector';
 import FolderTabs from '../../components/FolderTabs';
 import { useAsesoresCRM } from './hooks/useAsesoresCRM';
-import { Plus, BarChart3, Kanban, TrendingUp, PhoneMissed, Search, X, ClipboardList, Users, ScanEye, Filter, UserCircle } from 'lucide-react';
+import { Plus, BarChart3, Kanban, TrendingUp, PhoneMissed, Search, X, ClipboardList, Users, ScanEye, Filter, UserCircle } from '../../components/ui/icons';
 
 type Tab = 'pipeline' | 'metricas' | 'gerencial' | 'sin_respuesta' | 'reportes' | 'prospectos' | 'monitor' | 'embudo';
 
@@ -89,8 +89,8 @@ const CRMPage: React.FC = () => {
       {/* Encabezado */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">CRM & Leads</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">CRM & Leads</h1>
+          <p className="text-sm text-slate-700 mt-1">
             Gestión de prospectos, embudo de ventas y seguimiento inteligente.
           </p>
         </div>
@@ -99,11 +99,11 @@ const CRMPage: React.FC = () => {
 
           {puedeFiltrarPorAsesor && (
             <div className="relative flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg bg-white shadow-sm">
-              <UserCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              <UserCircle className="w-4 h-4 text-slate-500 flex-shrink-0" />
               <select
                 value={asesorFiltroId ?? ''}
                 onChange={e => setAsesorFiltroId(e.target.value ? parseInt(e.target.value) : undefined)}
-                className="text-sm font-semibold text-slate-600 outline-none bg-transparent cursor-pointer max-w-[160px]"
+                className="text-sm font-medium text-slate-900 outline-none bg-transparent cursor-pointer max-w-[160px]"
               >
                 <option value="">Todos los asesores</option>
                 {asesoresFiltro.map(a => (
@@ -117,7 +117,7 @@ const CRMPage: React.FC = () => {
             <>
               {/* Buscador global — aplica a pipeline Y sin_respuesta */}
               <div className="relative min-w-[220px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   type="text"
                   placeholder="Buscar nombre o teléfono..."
@@ -126,7 +126,7 @@ const CRMPage: React.FC = () => {
                   className="w-full pl-9 pr-8 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white shadow-sm"
                 />
                 {busqueda && (
-                  <button onClick={() => setBusqueda('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  <button onClick={() => setBusqueda('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
@@ -135,7 +135,7 @@ const CRMPage: React.FC = () => {
               {(esVistaGlobal || rol === 'asesor_comercial') && rol !== 'marketing' && (
                 <button
                   onClick={() => setIsModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold text-sm shadow-sm hover:shadow-md transition-all"
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold text-sm shadow-sm hover:shadow-md transition-all"
                 >
                   <Plus className="w-4 h-4" />
                   Nuevo Lead
@@ -208,11 +208,11 @@ const CRMPage: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
-              <ScanEye className="w-5 h-5 text-indigo-600" />
+              <ScanEye className="w-5 h-5 text-indigo-700" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Monitor de Pipeline</h2>
-              <p className="text-[11px] text-slate-400 font-medium mt-0.5">Leads activos por asesor · tiempo en etapa actual</p>
+              <h2 className="text-lg font-bold text-slate-900">Monitor de Pipeline</h2>
+              <p className="text-xs text-slate-700 mt-0.5">Leads activos por asesor · tiempo en etapa actual</p>
             </div>
           </div>
           <MonitorAsesores rol={rol} userId={asesorId} asesor_id={asesorFiltroId} />
@@ -223,11 +223,11 @@ const CRMPage: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center">
-              <Filter className="w-5 h-5 text-violet-600" />
+              <Filter className="w-5 h-5 text-violet-700" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Embudo de Conversión</h2>
-              <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+              <h2 className="text-lg font-bold text-slate-900">Embudo de Conversión</h2>
+              <p className="text-xs text-slate-700 mt-0.5">
                 Tasa de conversión etapa→etapa por asesor · período seleccionado
               </p>
             </div>

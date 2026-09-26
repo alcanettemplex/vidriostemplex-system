@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import {
   RefreshCw, AlertTriangle, ChevronDown, ChevronRight,
   Activity, User, Clock, Circle, Loader2,
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 import { apiGetMonitorAsesores, apiGetLeadById } from '../crmService';
 import LeadDetalleModal from './LeadDetalleModal';
 
@@ -49,16 +49,16 @@ const ETAPA_CFG: Record<string, { label: string; color: string; bg: string; bord
 
 // ─── Semáforo ─────────────────────────────────────────────────────────────────
 const getSemaforo = (dias: number): { color: string; bg: string; label: string } => {
-  if (dias > 5)  return { color: 'text-red-600',   bg: 'bg-red-100',   label: `${dias}d` };
-  if (dias >= 3) return { color: 'text-amber-600', bg: 'bg-amber-100', label: `${dias}d` };
-  return              { color: 'text-emerald-600', bg: 'bg-emerald-100', label: `${dias}d` };
+  if (dias > 5)  return { color: 'text-red-700',   bg: 'bg-red-100',   label: `${dias}d` };
+  if (dias >= 3) return { color: 'text-amber-700', bg: 'bg-amber-100', label: `${dias}d` };
+  return              { color: 'text-emerald-700', bg: 'bg-emerald-100', label: `${dias}d` };
 };
 
 const SemaforoCircle: React.FC<{ dias: number; size?: 'sm' | 'md' }> = ({ dias, size = 'sm' }) => {
   const s = getSemaforo(dias);
   const sz = size === 'md' ? 'w-2.5 h-2.5' : 'w-2 h-2';
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black ${s.bg} ${s.color}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${s.bg} ${s.color}`}>
       <Circle className={`${sz} fill-current`} />
       {s.label}
     </span>
@@ -73,19 +73,19 @@ const LeadFila: React.FC<{ lead: LeadResumen; onClick: (id: number) => void }> =
   >
     <SemaforoCircle dias={lead.dias_en_etapa} size="md" />
     <div className="flex-1 min-w-0">
-      <p className="text-xs font-bold text-slate-800 truncate group-hover:text-indigo-700 transition-colors">
+      <p className="text-xs font-bold text-slate-900 truncate group-hover:text-indigo-700 transition-colors">
         {lead.nombre}
       </p>
-      <p className="text-[10px] text-slate-400 truncate">
+      <p className="text-[11px] text-slate-700 truncate">
         {lead.producto_interes || 'Sin producto'}{lead.segmento ? ` · ${lead.segmento}` : ''}
       </p>
     </div>
     {lead.intentos_seguimiento > 0 && (
-      <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full shrink-0">
+      <span className="text-[11px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded-full shrink-0">
         {lead.intentos_seguimiento} seg.
       </span>
     )}
-    <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-400 transition-colors shrink-0" />
+    <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-400 transition-colors shrink-0" />
   </button>
 );
 
@@ -110,19 +110,19 @@ const SeccionEtapa: React.FC<{
         className={`w-full flex items-center gap-2.5 px-4 py-2.5 ${cfg.bg} hover:opacity-90 transition-opacity`}
       >
         <span className={`w-2 h-2 rounded-full ${cfg.dot} shrink-0`} />
-        <span className={`text-[11px] font-black uppercase tracking-wider ${cfg.color} flex-1 text-left`}>
+        <span className={`text-[11px] font-semibold uppercase tracking-wider ${cfg.color} flex-1 text-left`}>
           {cfg.label}
         </span>
-        <span className={`text-[10px] font-black ${cfg.color} opacity-60`}>
+        <span className={`text-[11px] font-medium ${cfg.color}`}>
           {leads.length} lead{leads.length !== 1 ? 's' : ''}
         </span>
         {enRojo > 0 && (
-          <span className="text-[9px] font-black text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">
+          <span className="text-[11px] font-semibold text-red-700 bg-red-100 px-1.5 py-0.5 rounded-full">
             {enRojo} rojo{enRojo !== 1 ? 's' : ''}
           </span>
         )}
         {enAmbar > 0 && (
-          <span className="text-[9px] font-black text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">
+          <span className="text-[11px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
             {enAmbar} ámbar
           </span>
         )}
@@ -154,27 +154,27 @@ const PanelAsesor: React.FC<{
       {/* Resumen del asesor */}
       <div className="flex items-center gap-4 bg-white border border-slate-100 rounded-xl px-5 py-3 shadow-sm">
         <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
-          <User className="w-4 h-4 text-indigo-600" />
+          <User className="w-4 h-4 text-indigo-700" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-black text-slate-800 truncate">{asesor.asesor_nombre}</p>
-          <p className="text-[10px] text-slate-400 font-medium">{asesor.total_activos} lead{asesor.total_activos !== 1 ? 's' : ''} activos</p>
+          <p className="text-sm font-bold text-slate-900 truncate">{asesor.asesor_nombre}</p>
+          <p className="text-[11px] text-slate-700">{asesor.total_activos} lead{asesor.total_activos !== 1 ? 's' : ''} activos</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {asesor.total_en_rojo > 0 && (
-            <span className="flex items-center gap-1 text-[10px] font-black text-red-600 bg-red-50 border border-red-100 px-2 py-1 rounded-full">
+            <span className="flex items-center gap-1 text-[11px] font-semibold text-red-700 bg-red-50 border border-red-100 px-2 py-1 rounded-full">
               <AlertTriangle className="w-2.5 h-2.5" />
               {asesor.total_en_rojo} &gt;5d
             </span>
           )}
           {asesor.total_en_ambar > 0 && (
-            <span className="flex items-center gap-1 text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-100 px-2 py-1 rounded-full">
+            <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-100 px-2 py-1 rounded-full">
               <Clock className="w-2.5 h-2.5" />
               {asesor.total_en_ambar} 3–5d
             </span>
           )}
           {asesor.total_en_rojo === 0 && asesor.total_en_ambar === 0 && asesor.total_activos > 0 && (
-            <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-full">
+            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-full">
               Al día ✓
             </span>
           )}
@@ -183,7 +183,7 @@ const PanelAsesor: React.FC<{
 
       {/* Secciones por etapa */}
       {sinLeads ? (
-        <div className="text-center py-10 text-slate-300">
+        <div className="text-center py-10 text-slate-800">
           <Activity className="w-8 h-8 mx-auto mb-2" />
           <p className="text-sm font-bold">Sin leads activos en el pipeline</p>
         </div>
@@ -258,10 +258,10 @@ const MonitorAsesores: React.FC<Props> = ({ rol, userId, asesor_id }) => {
 
   if (asesores.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
-        <Activity className="w-10 h-10 text-slate-200" />
+      <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-700">
+        <Activity className="w-10 h-10 text-slate-500" />
         <p className="text-sm font-bold">No hay leads activos en el pipeline</p>
-        <button onClick={cargar} className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
+        <button onClick={cargar} className="text-xs font-bold text-indigo-700 hover:underline flex items-center gap-1">
           <RefreshCw className="w-3.5 h-3.5" /> Actualizar
         </button>
       </div>
@@ -272,20 +272,20 @@ const MonitorAsesores: React.FC<Props> = ({ rol, userId, asesor_id }) => {
     <>
       {/* Header con leyenda y botón actualizar */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-wider">
-          <span className="flex items-center gap-1.5 text-emerald-600">
+        <div className="flex items-center gap-4 text-[11px] font-semibold uppercase tracking-wider">
+          <span className="flex items-center gap-1.5 text-emerald-700">
             <Circle className="w-2 h-2 fill-emerald-500" /> ≤2 días
           </span>
-          <span className="flex items-center gap-1.5 text-amber-600">
+          <span className="flex items-center gap-1.5 text-amber-700">
             <Circle className="w-2 h-2 fill-amber-500" /> 3–5 días
           </span>
-          <span className="flex items-center gap-1.5 text-red-600">
+          <span className="flex items-center gap-1.5 text-red-700">
             <Circle className="w-2 h-2 fill-red-500" /> &gt;5 días
           </span>
         </div>
         <button
           onClick={cargar}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-sm transition"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 shadow-sm transition"
         >
           <RefreshCw className="w-3.5 h-3.5" /> Actualizar
         </button>
@@ -299,24 +299,24 @@ const MonitorAsesores: React.FC<Props> = ({ rol, userId, asesor_id }) => {
             <button
               key={a.asesor_id}
               onClick={() => setTabActivo(a.asesor_id)}
-              className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+              className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all border ${
                 activo
                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
-                  : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                  : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
               }`}
             >
               <User className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate max-w-[120px]">{a.asesor_nombre}</span>
               {/* Badge total activos */}
-              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
-                activo ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+              <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${
+                activo ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-800'
               }`}>
                 {a.total_activos}
               </span>
               {/* Indicador rojo si tiene leads vencidos */}
               {a.total_en_rojo > 0 && (
-                <span className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-black ${
-                  activo ? 'bg-white text-red-600' : 'bg-red-500 text-white'
+                <span className={`absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                  activo ? 'bg-white text-red-700' : 'bg-red-500 text-white'
                 }`}>
                   {a.total_en_rojo}
                 </span>
@@ -338,8 +338,8 @@ const MonitorAsesores: React.FC<Props> = ({ rol, userId, asesor_id }) => {
       {cargandoDetalle && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 flex items-center gap-3 shadow-xl">
-            <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />
-            <span className="text-sm font-bold text-slate-700">Cargando detalle...</span>
+            <Loader2 className="w-5 h-5 animate-spin text-indigo-700" />
+            <span className="text-sm text-slate-700">Cargando detalle...</span>
           </div>
         </div>
       )}

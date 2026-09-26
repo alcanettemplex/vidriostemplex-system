@@ -16,7 +16,7 @@ import {
   BookOpen,
   ChevronRight,
   FileText,
-} from 'lucide-react';
+} from '../../../components/ui/icons';
 import axios from 'axios';
 import { TocEntry } from '../data/toc';
 import API from '../../../services/config';
@@ -121,7 +121,7 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
       open={open}
       onClose={onClose}
       fullScreen
-      PaperProps={{ sx: { bgcolor: '#0f172a', display: 'flex', flexDirection: 'column' } }}
+      PaperProps={{ sx: { bgcolor: '#111620', display: 'flex', flexDirection: 'column' } }}
     >
       {/* HEADER */}
       <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-700 flex-shrink-0">
@@ -131,7 +131,7 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
           </div>
           <div>
             <p className="text-white font-semibold text-sm leading-tight">{titulo}</p>
-            <p className="text-slate-400 text-xs">
+            <p className="text-slate-300 text-xs">
               {tipo === 'usuario'
                 ? '47 páginas · Manual de Uso'
                 : '20 páginas · Documentación Técnica'}
@@ -145,7 +145,7 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
               disabled={downloading}
               size="small"
               sx={{
-                color: 'rgb(148 163 184)',
+                color: 'rgb(203 213 225)',
                 '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.08)' },
               }}
             >
@@ -161,7 +161,7 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
               onClick={onClose}
               size="small"
               sx={{
-                color: 'rgb(148 163 184)',
+                color: 'rgb(203 213 225)',
                 '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.08)' },
               }}
             >
@@ -186,7 +186,7 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Search className="w-3.5 h-3.5 text-slate-400" />
+                    <Search className="w-3.5 h-3.5 text-slate-300" />
                   </InputAdornment>
                 ),
                 sx: {
@@ -196,12 +196,12 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
                   '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' },
                   '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
                   '&.Mui-focused fieldset': { borderColor: '#6366f1' },
-                  '& input::placeholder': { color: 'rgb(100 116 139)', opacity: 1 },
+                  '& input::placeholder': { color: 'rgb(148 163 184)', opacity: 1 },
                 },
               }}
             />
             {search && (
-              <p className="text-slate-500 text-[10px] mt-1.5 px-1">
+              <p className="text-slate-300 text-[11px] mt-1.5 px-1">
                 {filteredToc.length} resultado{filteredToc.length !== 1 ? 's' : ''}
               </p>
             )}
@@ -209,7 +209,7 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
 
           <nav className="flex-1 overflow-y-auto py-2 space-y-0.5 px-2">
             {filteredToc.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-slate-500">
+              <div className="flex flex-col items-center justify-center py-10 text-slate-300">
                 <FileText className="w-8 h-8 mb-2 opacity-40" />
                 <p className="text-xs text-center">
                   Sin resultados para
@@ -228,20 +228,20 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
                       w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg transition-all group
                       ${
                         isActive
-                          ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                          ? 'bg-indigo-600/25 text-indigo-100 font-semibold border border-indigo-500/40'
+                          : 'text-slate-200 hover:text-white hover:bg-white/5'
                       }
                       ${entry.level === 2 ? 'pl-6' : ''}
                     `}
                   >
                     <ChevronRight
                       className={`w-3 h-3 flex-shrink-0 transition-transform
-                        ${isActive ? 'rotate-90 text-indigo-400' : 'text-slate-600 group-hover:text-slate-400'}`}
+                        ${isActive ? 'rotate-90 text-indigo-300' : 'text-slate-500 group-hover:text-slate-300'}`}
                     />
                     <span className="flex-1 text-xs leading-snug">{entry.title}</span>
                     <span
-                      className={`text-[10px] flex-shrink-0 font-mono
-                        ${isActive ? 'text-indigo-400' : 'text-slate-600 group-hover:text-slate-500'}`}
+                      className={`text-[11px] flex-shrink-0 font-mono
+                        ${isActive ? 'text-indigo-300' : 'text-slate-400 group-hover:text-slate-300'}`}
                     >
                       p{entry.page}
                     </span>
@@ -252,7 +252,7 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
           </nav>
 
           <div className="px-3 py-2 border-t border-slate-700">
-            <p className="text-[10px] text-slate-600 text-center">
+            <p className="text-[11px] text-slate-400 text-center">
               Haz clic en una sección para navegar
             </p>
           </div>
@@ -261,13 +261,13 @@ const ManualVisor: React.FC<ManualVisorProps> = ({ open, onClose, tipo, titulo, 
         {/* PDF VIEWER */}
         <div className="flex-1 bg-slate-800 flex items-center justify-center relative">
           {loading && (
-            <div className="flex flex-col items-center gap-3 text-slate-400">
+            <div className="flex flex-col items-center gap-3 text-slate-300">
               <CircularProgress size={36} sx={{ color: '#6366f1' }} />
               <p className="text-sm">Cargando manual...</p>
             </div>
           )}
           {error && !loading && (
-            <div className="flex flex-col items-center gap-3 text-slate-400 max-w-xs text-center">
+            <div className="flex flex-col items-center gap-3 text-slate-300 max-w-xs text-center">
               <FileText className="w-12 h-12 opacity-40" />
               <p className="text-sm">{error}</p>
               <button

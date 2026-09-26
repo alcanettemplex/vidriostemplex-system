@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { X, Plus, Trash2 } from '../../../components/ui/icons';
 import { toast } from 'react-toastify';
 
 import API from '../../../services/config';
@@ -79,10 +79,10 @@ const ODCSinSAPModal: React.FC<Props> = ({ onClose, onRefresh }) => {
         {/* Header */}
         <div className="flex justify-between items-start px-6 py-4 border-b border-slate-100 shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-slate-800">Nueva ODC sin SAP</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Consumibles: tornillos, silicona, cintas, etc.</p>
+            <h2 className="text-lg font-bold text-slate-900">Nueva ODC sin SAP</h2>
+            <p className="text-xs text-slate-700 mt-0.5">Consumibles: tornillos, silicona, cintas, etc.</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
+          <button onClick={onClose} className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -91,7 +91,7 @@ const ODCSinSAPModal: React.FC<Props> = ({ onClose, onRefresh }) => {
           {/* Datos generales */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">N° ODC <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-semibold text-slate-900 mb-1">N° ODC <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 placeholder="Solo dígitos"
@@ -101,7 +101,7 @@ const ODCSinSAPModal: React.FC<Props> = ({ onClose, onRefresh }) => {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1">Proveedor <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-semibold text-slate-900 mb-1">Proveedor <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 placeholder="Nombre del proveedor"
@@ -112,7 +112,7 @@ const ODCSinSAPModal: React.FC<Props> = ({ onClose, onRefresh }) => {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1">Notas</label>
+            <label className="block text-xs font-semibold text-slate-900 mb-1">Notas</label>
             <textarea
               rows={2}
               placeholder="Observaciones opcionales..."
@@ -125,17 +125,17 @@ const ODCSinSAPModal: React.FC<Props> = ({ onClose, onRefresh }) => {
           {/* Ítems */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ítems</p>
+              <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider">Ítems</p>
               <button
                 onClick={agregarItem}
-                className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-200 transition"
+                className="flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-200 transition"
               >
                 <Plus className="w-3.5 h-3.5" /> Agregar ítem
               </button>
             </div>
             <div className="border border-slate-200 rounded-xl overflow-hidden">
               <table className="w-full text-xs">
-                <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                <thead className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-900 [&_th]:font-semibold">
                   <tr>
                     <th className="px-3 py-2 text-left">Descripción *</th>
                     <th className="px-3 py-2 text-left w-28">Código</th>
@@ -171,7 +171,7 @@ const ODCSinSAPModal: React.FC<Props> = ({ onClose, onRefresh }) => {
                           min={1}
                           value={item.cantidad}
                           onChange={e => updateItem(idx, 'cantidad', parseFloat(e.target.value) || 1)}
-                          className="w-full border border-slate-200 rounded px-2 py-1 text-xs text-center font-bold focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                          className="w-full border border-slate-200 rounded px-2 py-1 text-xs text-center font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-300"
                         />
                       </td>
                       <td className="px-2 py-1.5">
@@ -205,14 +205,14 @@ const ODCSinSAPModal: React.FC<Props> = ({ onClose, onRefresh }) => {
         <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 shrink-0 bg-slate-50/50">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+            className="px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-100 rounded-xl transition"
           >
             Cancelar
           </button>
           <button
             onClick={handleCrear}
             disabled={loading}
-            className="px-5 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition shadow-sm disabled:opacity-50"
+            className="px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition shadow-sm disabled:opacity-50"
           >
             {loading ? 'Creando…' : 'Crear ODC sin SAP'}
           </button>

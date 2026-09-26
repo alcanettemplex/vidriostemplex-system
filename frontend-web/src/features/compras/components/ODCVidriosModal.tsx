@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X } from '../../../components/ui/icons';
 import { toast } from 'react-toastify';
 
 import API from '../../../services/config';
@@ -95,12 +95,12 @@ const ODCVidriosModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
         {/* Header */}
         <div className="flex justify-between items-start px-6 py-4 border-b border-slate-100 shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-slate-800">Nueva ODC de Vidrios</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <h2 className="text-lg font-bold text-slate-900">Nueva ODC de Vidrios</h2>
+            <p className="text-xs text-slate-700 mt-0.5">
               {items.length} ítem(s) · {odpsInvolucradas} ODP(s) · Cantidad total: {totalCantidad}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition">
+          <button onClick={onClose} className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -110,7 +110,7 @@ const ODCVidriosModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
 
           {/* Resumen agrupado por tipo_vidrio */}
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+            <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-3">
               Ítems seleccionados — agrupados por tipo de vidrio
             </p>
             <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -120,11 +120,11 @@ const ODCVidriosModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
                   <div className="flex items-center gap-3 px-4 py-2 bg-cyan-50 border-b border-cyan-100">
                     <span className="font-bold text-cyan-800 text-sm">{tipo}</span>
                     <span className="flex-1" />
-                    <span className="text-xs font-black text-cyan-700 shrink-0">
+                    <span className="text-xs font-semibold text-cyan-800 shrink-0">
                       Total: {grupo.reduce((s, i) => s + Number(i.cantidad), 0)} und
                     </span>
                     {grupo.length > 1 && (
-                      <span className="text-[10px] font-bold text-cyan-600 bg-cyan-100 px-2 py-0.5 rounded-full border border-cyan-200">
+                      <span className="text-[11px] font-semibold text-cyan-800 bg-cyan-100 px-2 py-0.5 rounded-full border border-cyan-200">
                         {grupo.length} ítems
                       </span>
                     )}
@@ -132,7 +132,7 @@ const ODCVidriosModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
 
                   {/* Filas del grupo */}
                   <table className="w-full text-xs">
-                    <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-900 [&_th]:font-semibold">
                       <tr>
                         <th className="px-4 py-1.5 text-left">Color</th>
                         <th className="px-4 py-1.5 text-left w-16">Esp.</th>
@@ -143,20 +143,20 @@ const ODCVidriosModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
                         <th className="px-4 py-1.5 text-left w-40">Asesor</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50">
+                    <tbody className="divide-y divide-slate-100">
                       {grupo.map((item, i) => (
                         <tr key={item.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}>
-                          <td className="px-4 py-1.5 text-slate-600">{item.color || '—'}</td>
-                          <td className="px-4 py-1.5 text-slate-600">{item.espesor || '—'}</td>
-                          <td className="px-4 py-1.5 font-mono text-slate-700">
+                          <td className="px-4 py-1.5 text-slate-800">{item.color || '—'}</td>
+                          <td className="px-4 py-1.5 text-slate-800">{item.espesor || '—'}</td>
+                          <td className="px-4 py-1.5 font-mono text-slate-800 whitespace-nowrap">
                             {item.ancho_mm && item.alto_mm ? `${item.ancho_mm}×${item.alto_mm}` : '—'}
                           </td>
-                          <td className="px-4 py-1.5 text-center font-bold text-slate-700">{item.cantidad}</td>
-                          <td className="px-4 py-1.5 font-bold text-indigo-600">{item.ODP?.numero_odp || '—'}</td>
-                          <td className="px-4 py-1.5 text-slate-600 truncate max-w-[180px]">
+                          <td className="px-4 py-1.5 text-center font-semibold text-slate-900">{item.cantidad}</td>
+                          <td className="px-4 py-1.5 font-semibold text-indigo-700 whitespace-nowrap">{item.ODP?.numero_odp || '—'}</td>
+                          <td className="px-4 py-1.5 text-slate-800 truncate max-w-[180px]">
                             {item.ODP?.cliente?.nombre_razon_social || '—'}
                           </td>
-                          <td className="px-4 py-1.5 text-slate-400 text-[10px] truncate max-w-[160px]">
+                          <td className="px-4 py-1.5 text-slate-700 text-[11px] truncate max-w-[160px]">
                             {item.ODP?.asesor?.nombre_completo || '—'}
                           </td>
                         </tr>
@@ -171,8 +171,8 @@ const ODCVidriosModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
           {/* Campos ODC */}
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                N° ODC <span className="text-red-400">*</span>
+              <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">
+                N° ODC <span className="text-red-600">*</span>
               </label>
               <input
                 value={numeroOdc}
@@ -183,8 +183,8 @@ const ODCVidriosModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                Proveedor <span className="text-red-400">*</span>
+              <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">
+                Proveedor <span className="text-red-600">*</span>
               </label>
               <input
                 value={proveedor}
@@ -194,7 +194,7 @@ const ODCVidriosModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+              <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">
                 Notas (opcional)
               </label>
               <input
@@ -212,14 +212,14 @@ const ODCVidriosModal: React.FC<Props> = ({ items, onClose, onRefresh }) => {
         <div className="flex gap-3 px-6 py-4 border-t border-slate-100 shrink-0">
           <button
             onClick={onClose}
-            className="flex-1 py-3 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+            className="flex-1 py-3 font-semibold text-slate-800 border border-slate-300 rounded-xl hover:bg-slate-50 transition"
           >
             Cancelar
           </button>
           <button
             onClick={handleCrear}
             disabled={loading || !proveedor.trim() || !numeroOdc.trim()}
-            className="flex-1 py-3 font-bold text-white bg-cyan-600 rounded-xl hover:bg-cyan-700 transition disabled:opacity-40"
+            className="flex-1 py-3 font-semibold text-white bg-cyan-600 rounded-xl hover:bg-cyan-700 transition disabled:opacity-40"
           >
             {loading ? 'Creando...' : `Crear ODC con ${items.length} ítem(s)`}
           </button>

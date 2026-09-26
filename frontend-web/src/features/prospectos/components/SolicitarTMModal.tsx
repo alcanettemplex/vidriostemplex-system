@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { X, Ruler } from 'lucide-react';
+import { X, Ruler } from '../../../components/ui/icons';
 
 import API from '../../../services/config';
 
@@ -57,21 +57,21 @@ const SolicitarTMModal: React.FC<Props> = ({ prospecto, onClose, onCreada }) => 
               <Ruler className="w-4 h-4 text-amber-600" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-800">Solicitar Visita Técnica</h2>
-              <p className="text-xs text-slate-500">{prospecto.numero_prospecto} · {contacto}</p>
+              <h2 className="text-base font-bold text-slate-900">Solicitar Visita Técnica</h2>
+              <p className="text-xs text-slate-700">{prospecto.numero_prospecto} · {contacto}</p>
             </div>
           </div>
-          <button onClick={onClose}><X className="w-5 h-5 text-slate-400" /></button>
+          <button onClick={onClose}><X className="w-5 h-5 text-slate-700" /></button>
         </div>
 
         <div className="p-6 space-y-4">
-          <p className="text-xs text-slate-500 bg-amber-50 border border-amber-100 rounded-xl p-3">
+          <p className="text-xs text-slate-700 bg-amber-50 border border-amber-100 rounded-xl p-3">
             Se creará una toma de medidas en estado <span className="font-bold text-amber-700">Solicitada</span>.
             El jefe de producción la verá en su panel y le asignará fecha de visita.
           </p>
 
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Dirección del proyecto</label>
+            <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">Dirección del proyecto</label>
             <input
               value={form.direccion}
               onChange={e => set('direccion', e.target.value)}
@@ -82,7 +82,7 @@ const SolicitarTMModal: React.FC<Props> = ({ prospecto, onClose, onCreada }) => 
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Contacto en obra</label>
+              <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">Contacto en obra</label>
               <input
                 value={form.nombre_contacto}
                 onChange={e => set('nombre_contacto', e.target.value)}
@@ -91,7 +91,7 @@ const SolicitarTMModal: React.FC<Props> = ({ prospecto, onClose, onCreada }) => 
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Teléfono</label>
+              <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">Teléfono</label>
               <input
                 value={form.telefono_contacto}
                 onChange={e => set('telefono_contacto', e.target.value)}
@@ -102,7 +102,7 @@ const SolicitarTMModal: React.FC<Props> = ({ prospecto, onClose, onCreada }) => 
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">Observaciones para el técnico</label>
+            <label className="block text-xs font-semibold text-slate-900 mb-1.5 uppercase tracking-wider">Observaciones para el técnico</label>
             <textarea
               value={form.observaciones}
               onChange={e => set('observaciones', e.target.value)}
@@ -116,7 +116,7 @@ const SolicitarTMModal: React.FC<Props> = ({ prospecto, onClose, onCreada }) => 
         <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
           <button
             onClick={onClose}
-            className="flex-1 py-3 font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm"
+            className="flex-1 py-3 font-bold text-slate-900 border border-slate-200 rounded-xl hover:bg-slate-50 transition text-sm"
           >
             Cancelar
           </button>

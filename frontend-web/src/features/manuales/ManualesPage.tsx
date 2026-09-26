@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
-import { BookOpen, Lock, Eye, HardDrive, Users } from 'lucide-react';
+import { BookOpen, Lock, Eye, HardDrive, Users } from '../../components/ui/icons';
 import ManualVisor from './components/ManualVisor';
 import { TOC_USUARIO, TOC_TECNICO } from './data/toc';
 
@@ -25,7 +25,7 @@ const ManualesPage: React.FC = () => {
       icon: Users,
       gradient: 'from-indigo-500 to-violet-600',
       bgLight: 'bg-indigo-50',
-      textAccent: 'text-indigo-600',
+      textAccent: 'text-indigo-700',
       borderAccent: 'border-indigo-200',
       locked: false,
     },
@@ -54,8 +54,8 @@ const ManualesPage: React.FC = () => {
             <BookOpen className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-800">Manuales del Sistema</h1>
-            <p className="text-sm text-slate-500">Documentación oficial de Vidrios Templex ERP</p>
+            <h1 className="text-xl font-bold text-slate-900">Manuales del Sistema</h1>
+            <p className="text-sm text-slate-700">Documentación oficial de Vidrios Templex ERP</p>
           </div>
         </div>
       </div>
@@ -67,8 +67,8 @@ const ManualesPage: React.FC = () => {
           return (
             <div
               key={card.tipo}
-              className={`relative bg-white rounded-2xl border ${card.borderAccent} shadow-sm overflow-hidden flex flex-col
-                ${card.locked ? 'opacity-60' : 'hover:shadow-md transition-shadow'}`}
+              className={`relative bg-white rounded-2xl border ${card.borderAccent} shadow-card overflow-hidden flex flex-col
+                ${card.locked ? 'opacity-60' : 'hover:shadow-card-hover transition-shadow'}`}
             >
               {/* Card top gradient band */}
               <div className={`h-2 w-full bg-gradient-to-r ${card.gradient}`} />
@@ -81,25 +81,25 @@ const ManualesPage: React.FC = () => {
                   </div>
                   {card.locked && (
                     <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-full">
-                      <Lock className="w-3 h-3 text-slate-400" />
-                      <span className="text-xs text-slate-500 font-medium">Acceso restringido</span>
+                      <Lock className="w-3 h-3 text-slate-500" />
+                      <span className="text-xs text-slate-800 font-medium">Acceso restringido</span>
                     </div>
                   )}
                 </div>
 
-                <h2 className="text-lg font-bold text-slate-800 mb-0.5">{card.titulo}</h2>
+                <h2 className="text-lg font-bold text-slate-900 mb-0.5">{card.titulo}</h2>
                 <p className={`text-xs font-semibold mb-3 ${card.textAccent}`}>{card.subtitulo}</p>
-                <p className="text-sm text-slate-500 flex-1 leading-relaxed">{card.description}</p>
+                <p className="text-sm text-slate-800 flex-1 leading-relaxed">{card.description}</p>
 
                 {/* Meta */}
                 <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-100">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                    <span className="text-xs text-slate-400">{card.pages} páginas</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                    <span className="text-xs text-slate-700">{card.pages} páginas</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                    <span className="text-xs text-slate-400">PDF</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                    <span className="text-xs text-slate-700">PDF</span>
                   </div>
                 </div>
 
@@ -118,8 +118,8 @@ const ManualesPage: React.FC = () => {
 
                 {card.locked && (
                   <div className="mt-4 flex items-center gap-2 px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                    <Lock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    <p className="text-xs text-slate-400">
+                    <Lock className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                    <p className="text-xs text-slate-700">
                       Disponible para admin, gerencia y jefe de producción
                     </p>
                   </div>
@@ -133,8 +133,8 @@ const ManualesPage: React.FC = () => {
       {/* Tip */}
       <div className="max-w-4xl mx-auto mt-8">
         <div className="flex items-start gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
-          <BookOpen className="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-indigo-700 leading-relaxed">
+          <BookOpen className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-indigo-900 leading-relaxed">
             <span className="font-semibold">Consejo:</span> Usa el buscador dentro del visor para encontrar rápidamente
             cualquier acción o módulo. Escribe lo que necesitas hacer, por ejemplo{' '}
             <em>"crear toma de medidas"</em> o <em>"registrar abono"</em>.
