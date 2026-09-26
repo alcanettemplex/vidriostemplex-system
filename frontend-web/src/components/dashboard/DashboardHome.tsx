@@ -25,8 +25,8 @@ const DashboardHome: React.FC = () => {
   // Fallbacks visuales para otros roles por ahora si llegan aquí
   return (
     <div className="p-10 text-center">
-      <h2 className="text-2xl font-bold text-slate-800">Bienvenido, {user.nombre_completo}</h2>
-      <p className="text-slate-500 mt-2">Visita la sección de ODPs para gestionar tu trabajo.</p>
+      <h2 className="text-2xl font-bold text-slate-900">Bienvenido, {user.nombre_completo}</h2>
+      <p className="text-slate-700 mt-2">Visita la sección de ODPs para gestionar tu trabajo.</p>
     </div>
   );
 };

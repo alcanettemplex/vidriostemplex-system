@@ -4,7 +4,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableRow,
   Chip, CircularProgress, Box, Typography,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { X as CloseIcon } from '../../ui/icons';
 import axios from 'axios';
 
 import API from '../../../services/config';
@@ -67,11 +67,11 @@ const CarteraVencidaModal: React.FC<Props> = ({ onClose, onVerODP }) => {
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
         <Box>
           <Typography variant="h6" fontWeight={700} color="error.main">Cartera Vencida</Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="#3f4858">
             Créditos con FE emitida hace más de {umbral} días sin cancelar
           </Typography>
         </Box>
-        <IconButton onClick={onClose} size="small"><CloseIcon fontSize="small" /></IconButton>
+        <IconButton onClick={onClose} size="small"><CloseIcon size={20} /></IconButton>
       </DialogTitle>
 
       <DialogContent dividers sx={{ p: 0 }}>
@@ -81,35 +81,35 @@ const CarteraVencidaModal: React.FC<Props> = ({ onClose, onVerODP }) => {
           </Box>
         ) : (
           <Box>
-            <Box display="flex" gap={2} px={3} py={2} bgcolor="#fafafa" borderBottom="1px solid #e2e8f0" flexWrap="wrap">
+            <Box display="flex" gap={2} px={3} py={2} bgcolor="#fafafa" borderBottom="1px solid #e1e5eb" flexWrap="wrap">
               <Box>
-                <Typography variant="caption" color="text.secondary" display="block">Total vencido</Typography>
+                <Typography variant="caption" color="#111620" fontWeight={600} display="block">Total vencido</Typography>
                 <Typography variant="h6" fontWeight={700} color="error.main">{fmtCOP(total)}</Typography>
               </Box>
-              <Box sx={{ width: '1px', bgcolor: '#e2e8f0' }} />
+              <Box sx={{ width: '1px', bgcolor: '#e1e5eb' }} />
               <Box>
-                <Typography variant="caption" color="text.secondary" display="block">ODPs</Typography>
-                <Typography variant="h6" fontWeight={700}>{items.length}</Typography>
+                <Typography variant="caption" color="#111620" fontWeight={600} display="block">ODPs</Typography>
+                <Typography variant="h6" fontWeight={800} color="#111620" sx={{ fontVariantNumeric: 'tabular-nums' }}>{items.length}</Typography>
               </Box>
-              <Box sx={{ width: '1px', bgcolor: '#e2e8f0' }} />
+              <Box sx={{ width: '1px', bgcolor: '#e1e5eb' }} />
               <Box>
-                <Typography variant="caption" color="text.secondary" display="block">Clientes</Typography>
-                <Typography variant="h6" fontWeight={700}>{clientes}</Typography>
+                <Typography variant="caption" color="#111620" fontWeight={600} display="block">Clientes</Typography>
+                <Typography variant="h6" fontWeight={800} color="#111620" sx={{ fontVariantNumeric: 'tabular-nums' }}>{clientes}</Typography>
               </Box>
               {criticos > 0 && (
                 <Box display="flex" alignItems="center" gap={2}>
-                  <Box sx={{ width: '1px', bgcolor: '#e2e8f0', alignSelf: 'stretch' }} />
+                  <Box sx={{ width: '1px', bgcolor: '#e1e5eb', alignSelf: 'stretch' }} />
                   <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">Críticos ({'>'}{umbral * 2} días)</Typography>
+                    <Typography variant="caption" color="#111620" fontWeight={600} display="block">Críticos ({'>'}{umbral * 2} días)</Typography>
                     <Typography variant="h6" fontWeight={700} color="#991b1b">{criticos}</Typography>
                   </Box>
                 </Box>
               )}
               {alertas > 0 && (
                 <Box display="flex" alignItems="center" gap={2}>
-                  <Box sx={{ width: '1px', bgcolor: '#e2e8f0', alignSelf: 'stretch' }} />
+                  <Box sx={{ width: '1px', bgcolor: '#e1e5eb', alignSelf: 'stretch' }} />
                   <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">En alerta ({'>'}{Math.round(umbral * 1.5)} días)</Typography>
+                    <Typography variant="caption" color="#111620" fontWeight={600} display="block">En alerta ({'>'}{Math.round(umbral * 1.5)} días)</Typography>
                     <Typography variant="h6" fontWeight={700} color="#c2410c">{alertas}</Typography>
                   </Box>
                 </Box>
@@ -118,13 +118,13 @@ const CarteraVencidaModal: React.FC<Props> = ({ onClose, onVerODP }) => {
 
             {items.length === 0 ? (
               <Box display="flex" justifyContent="center" alignItems="center" py={8}>
-                <Typography color="text.secondary">Sin créditos vencidos en este momento.</Typography>
+                <Typography color="#3f4858">Sin créditos vencidos en este momento.</Typography>
               </Box>
             ) : (
               <Box sx={{ overflowX: 'auto' }}>
                 <Table size="small" stickyHeader>
                   <TableHead>
-                    <TableRow sx={{ '& th': { bgcolor: '#f8fafc', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' } }}>
+                    <TableRow sx={{ '& th': { bgcolor: '#f6f7f9', fontWeight: 600, fontSize: 11, color: '#111620', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e1e5eb' } }}>
                       <TableCell>ODP</TableCell>
                       <TableCell>Cliente</TableCell>
                       <TableCell>FE No.</TableCell>
@@ -161,7 +161,7 @@ const CarteraVencidaModal: React.FC<Props> = ({ onClose, onVerODP }) => {
                             <Chip
                               label={rc.label}
                               size="small"
-                              sx={{ bgcolor: rc.bg, color: rc.color, fontWeight: 700, fontSize: 11, height: 22 }}
+                              sx={{ bgcolor: rc.bg, color: rc.color, fontWeight: 600, fontSize: 11, height: 22 }}
                             />
                           </TableCell>
                           <TableCell align="right" sx={{ fontWeight: 700, fontSize: 13, color: '#dc2626' }}>

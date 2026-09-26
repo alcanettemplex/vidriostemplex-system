@@ -30,7 +30,7 @@ const DonutChart: React.FC<Props> = ({ data, nameKey, dataKey, colors, height = 
           </Pie>
           <Tooltip 
             formatter={(value: any) => [`${value}%`, 'Porcentaje']}
-            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+            contentStyle={{ borderRadius: '12px', border: '1px solid #e1e5eb', background: '#ffffff', boxShadow: '0 12px 28px -6px rgba(17,22,32,0.14)', fontSize: 12, color: '#111620' }} itemStyle={{ color: '#111620' }}
           />
         </PieChart>
       </ResponsiveContainer>

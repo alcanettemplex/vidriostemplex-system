@@ -33,15 +33,15 @@ const KPICard: React.FC<KPICardProps> = ({
                 </div>
             </div>
 
-            <h3 className="text-sm font-medium text-slate-500 mb-1 z-10">{title}</h3>
-            <p className="text-3xl font-bold text-slate-800 z-10 mb-2">{value}</p>
+            <h3 className="text-sm font-semibold text-slate-900 mb-1 z-10">{title}</h3>
+            <p className="text-3xl font-extrabold text-slate-900 z-10 mb-2 whitespace-nowrap">{value}</p>
 
             {trend && (
                 <div className="flex items-center text-sm z-10 mt-auto">
-                    <span className={`flex items-center font-medium ${trendUp ? 'text-emerald-500' : 'text-rose-500'}`}>
+                    <span className={`flex items-center font-medium ${trendUp ? 'text-emerald-700' : 'text-rose-700'}`}>
                         {trendUp ? '↑' : '↓'} {trend}
                     </span>
-                    <span className="text-slate-400 ml-2">vs mes anterior</span>
+                    <span className="text-slate-700 ml-2">vs mes anterior</span>
                 </div>
             )}
         </motion.div>

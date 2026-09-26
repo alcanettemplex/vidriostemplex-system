@@ -10,7 +10,7 @@ import { PanelEquipo }         from './panels/PanelEquipo';
 import { PanelAlertas }        from './panels/PanelAlertas';
 import { PanelCotizaciones }   from './panels/PanelCotizaciones';
 import ODPFichaModal from '../../features/odp/components/ODPFichaModal';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw } from '../ui/icons';
 
 const ROLES_COTIZACIONES = ['admin', 'gerencia', 'root'];
 
@@ -69,60 +69,60 @@ export const GerenciaDashboard: React.FC = () => {
       {/* ─── HEADER ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-800">Dashboard Gerencial</h1>
-          <p className="text-[12px] text-slate-500 mt-0.5 font-medium">{periodLabel}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard Gerencial</h1>
+          <p className="text-[13px] text-slate-700 mt-0.5">{periodLabel}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {error && (
-            <span className="text-[12px] font-bold bg-rose-100 text-rose-700 px-2 py-1 rounded border border-rose-200">
+            <span className="text-[12px] font-semibold bg-rose-100 text-rose-700 px-2 py-1 rounded border border-rose-200">
               Error de conexión
             </span>
           )}
 
           {/* ── Selector de periodo ─────────────────────────────────────── */}
-          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-1.5">
-            <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Desde</span>
+          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl shadow-card px-3 py-1.5">
+            <span className="text-[11px] font-semibold text-slate-900 uppercase tracking-wide">Desde</span>
             <select
               value={period.mesInicio}
               onChange={e => handlePeriodChange('mesInicio', Number(e.target.value))}
-              className="bg-transparent text-[12px] font-bold text-slate-700 outline-none cursor-pointer"
+              className="bg-transparent text-[12px] font-semibold text-slate-900 outline-none cursor-pointer"
             >
               {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
             </select>
             <select
               value={period.anioInicio}
               onChange={e => handlePeriodChange('anioInicio', Number(e.target.value))}
-              className="bg-transparent text-[12px] font-bold text-slate-700 outline-none cursor-pointer"
+              className="bg-transparent text-[12px] font-semibold text-slate-900 outline-none cursor-pointer"
             >
               {YEARS.map(y => <option key={y}>{y}</option>)}
             </select>
 
-            <span className="text-slate-200 font-light mx-0.5">|</span>
+            <span className="text-slate-300 font-light mx-0.5">|</span>
 
-            <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wide">Hasta</span>
+            <span className="text-[11px] font-semibold text-slate-900 uppercase tracking-wide">Hasta</span>
             <select
               value={period.mesFin}
               onChange={e => handlePeriodChange('mesFin', Number(e.target.value))}
-              className="bg-transparent text-[12px] font-bold text-slate-700 outline-none cursor-pointer"
+              className="bg-transparent text-[12px] font-semibold text-slate-900 outline-none cursor-pointer"
             >
               {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
             </select>
             <select
               value={period.anioFin}
               onChange={e => handlePeriodChange('anioFin', Number(e.target.value))}
-              className="bg-transparent text-[12px] font-bold text-slate-700 outline-none cursor-pointer"
+              className="bg-transparent text-[12px] font-semibold text-slate-900 outline-none cursor-pointer"
             >
               {YEARS.map(y => <option key={y}>{y}</option>)}
             </select>
           </div>
 
-          <span className="text-[12px] font-medium text-slate-500 hidden sm:flex items-center gap-1.5 bg-white border border-slate-200 px-2 py-1 rounded">
+          <span className="text-[12px] text-slate-700 hidden sm:flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg">
             Auto-actualización
           </span>
           <button
             onClick={handleRefetch}
-            className={`p-1.5 bg-white border border-slate-200 rounded text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors focus:outline-none ${isRefreshing ? 'animate-spin text-indigo-500' : ''}`}
+            className={`p-2 bg-white border border-slate-200 rounded-lg shadow-card text-slate-700 hover:text-indigo-600 hover:bg-indigo-50 transition-colors focus:outline-none ${isRefreshing ? 'animate-spin text-indigo-500' : ''}`}
             title="Sincronizar datos"
           >
             <RefreshCw className="w-4 h-4" />

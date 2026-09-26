@@ -4,7 +4,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableRow, TableSortLabel,
   Chip, CircularProgress, Box, Typography,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { X as CloseIcon } from '../../ui/icons';
 import axios from 'axios';
 
 import API from '../../../services/config';
@@ -121,9 +121,9 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
         <Box>
           <Typography variant="h6" fontWeight={700} color="primary.main">{cfg.titulo}</Typography>
-          <Typography variant="caption" color="text.secondary">{cfg.criterio}</Typography>
+          <Typography variant="caption" color="#3f4858">{cfg.criterio}</Typography>
         </Box>
-        <IconButton onClick={onClose} size="small"><CloseIcon fontSize="small" /></IconButton>
+        <IconButton onClick={onClose} size="small"><CloseIcon size={20} /></IconButton>
       </DialogTitle>
 
       <DialogContent dividers sx={{ p: 0 }}>
@@ -133,27 +133,27 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
           </Box>
         ) : (
           <Box>
-            <Box display="flex" gap={2} px={3} py={2} bgcolor="#fafafa" borderBottom="1px solid #e2e8f0" flexWrap="wrap">
+            <Box display="flex" gap={2} px={3} py={2} bgcolor="#fafafa" borderBottom="1px solid #e1e5eb" flexWrap="wrap">
               <Box>
-                <Typography variant="caption" color="text.secondary" display="block">Total cobrado</Typography>
+                <Typography variant="caption" color="#111620" fontWeight={600} display="block">Total cobrado</Typography>
                 <Typography variant="h6" fontWeight={700} color="primary.main">{fmtCOP(total)}</Typography>
               </Box>
-              <Box sx={{ width: '1px', bgcolor: '#e2e8f0' }} />
+              <Box sx={{ width: '1px', bgcolor: '#e1e5eb' }} />
               <Box>
-                <Typography variant="caption" color="text.secondary" display="block">ODPs</Typography>
-                <Typography variant="h6" fontWeight={700}>{items.length}</Typography>
+                <Typography variant="caption" color="#111620" fontWeight={600} display="block">ODPs</Typography>
+                <Typography variant="h6" fontWeight={800} color="#111620" sx={{ fontVariantNumeric: 'tabular-nums' }}>{items.length}</Typography>
               </Box>
             </Box>
 
             {items.length === 0 ? (
               <Box display="flex" justifyContent="center" alignItems="center" py={8}>
-                <Typography color="text.secondary">Sin pedidos facturados para este criterio en el período seleccionado.</Typography>
+                <Typography color="#3f4858">Sin pedidos facturados para este criterio en el período seleccionado.</Typography>
               </Box>
             ) : (
               <Box sx={{ overflowX: 'auto' }}>
                 <Table size="small" stickyHeader>
                   <TableHead>
-                    <TableRow sx={{ '& th': { bgcolor: '#f8fafc', fontWeight: 700, fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' } }}>
+                    <TableRow sx={{ '& th': { bgcolor: '#f6f7f9', fontWeight: 600, fontSize: 11, color: '#111620', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e1e5eb' } }}>
                       {COLUMNS.map(col => (
                         <TableCell key={col.field} align={col.align}>
                           <TableSortLabel
@@ -170,7 +170,7 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
                   </TableHead>
                   <TableBody>
                     {sortedItems.map(item => {
-                      const cc = CAJA_CONFIG[item.estado_caja] || { label: item.estado_caja, color: '#475569', bg: '#f1f5f9' };
+                      const cc = CAJA_CONFIG[item.estado_caja] || { label: item.estado_caja, color: '#3f4858', bg: '#eef0f4' };
                       return (
                         <TableRow key={item.id} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
                           <TableCell>
@@ -181,7 +181,7 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
                               {item.numero_odp}
                             </span>
                             {modo === 'facturadas_rango' && item.numero_fe && (
-                              <div style={{ fontSize: 10, color: '#64748b', fontFamily: 'monospace', marginTop: 2 }}>
+                              <div style={{ fontSize: 11, color: '#3f4858', fontFamily: 'monospace', marginTop: 2 }}>
                                 FE-{item.numero_fe}{item.tipo_fe === 'Adicional' ? ' · adic.' : ''}
                               </div>
                             )}
@@ -195,7 +195,7 @@ const PedidosFacturadosModal: React.FC<Props> = ({ modo, period, onClose, onVerO
                             <Chip
                               label={cc.label}
                               size="small"
-                              sx={{ bgcolor: cc.bg, color: cc.color, fontWeight: 700, fontSize: 11, height: 22 }}
+                              sx={{ bgcolor: cc.bg, color: cc.color, fontWeight: 600, fontSize: 11, height: 22 }}
                             />
                           </TableCell>
                           <TableCell align="right" sx={{ fontWeight: 700, fontSize: 13, color: '#4338ca' }}>

@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 // corta porque van dentro de tarjetas densas.
 import { ESTADO_LABELS_CORTOS as ESTADO_LABEL } from '../../../utils/estadosODP';
 
-const SERVICIO_COLORS = ['#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6','#64748b','#06b6d4'];
+const SERVICIO_COLORS = ['#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6','#555f71','#06b6d4'];
 
 // Renombres y fusiones para el dashboard (sin tocar la BD)
 const SERVICIO_LABEL: Record<string, string> = {
@@ -42,15 +42,15 @@ const cardVar: any = {
 const Chip: React.FC<{ label: string; value: string | number; desc: string; accent?: boolean; pulse?: boolean; index: number }> =
   ({ label, value, desc, accent, pulse, index }) => (
     <motion.div custom={index} variants={cardVar} initial="hidden" animate="visible"
-      className={`rounded-2xl p-4 border flex flex-col justify-between ${accent
+      className={`rounded-2xl p-4 border shadow-card flex flex-col justify-start min-w-0 ${accent
         ? 'bg-rose-50 border-rose-200'
         : 'bg-white border-slate-200'}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-600">{label}</p>
-      <div className="flex items-center gap-2 my-1">
+      <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-900 leading-[18px] min-h-[36px] line-clamp-2">{label}</p>
+      <div className="flex items-center gap-2 mt-1 mb-2">
         {pulse && <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" /></span>}
-        <p className={`text-[24px] font-semibold leading-none tabular-nums ${accent ? 'text-rose-600' : 'text-slate-800'}`}>{value}</p>
+        <p className={`text-[28px] font-extrabold tracking-tight leading-none tabular-nums whitespace-nowrap ${accent ? 'text-rose-700' : 'text-slate-900'}`}>{value}</p>
       </div>
-      <p className="text-[12px] text-slate-500 leading-tight">{desc}</p>
+      <p className="text-[12px] text-slate-700 leading-snug">{desc}</p>
     </motion.div>
   );
 
@@ -72,7 +72,7 @@ export const PanelProduccion: React.FC<{ data: any; isLoading: boolean; onViewOd
       );
     }
 
-    if (!data) return <div className="p-10 text-center text-slate-500 text-sm">Sin datos disponibles</div>;
+    if (!data) return <div className="p-10 text-center text-slate-700 text-sm">Sin datos disponibles</div>;
 
     const checks   = (data.checks_progreso || []).slice().sort((a: any, b: any) => a.pct - b.pct);
     const servicios = processServicios(data.servicios_distribucion || []);
@@ -84,7 +84,7 @@ export const PanelProduccion: React.FC<{ data: any; isLoading: boolean; onViewOd
       <div className="space-y-3">
 
         {/* ── ROW 1: 6 KPI chips ─────────────────────────────────────── */}
-        <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
           <Chip index={0} label="En Taller" value={data.odps_en_taller ?? 0}
             desc="ODPs en fabricación actualmente" />
           <Chip index={1} label="Vencen esta semana" value={data.odps_vencen_esta_semana ?? 0}
@@ -104,11 +104,11 @@ export const PanelProduccion: React.FC<{ data: any; isLoading: boolean; onViewOd
 
           {/* Avance de checks de producción */}
           <motion.div custom={6} variants={cardVar} initial="hidden" animate="visible"
-            className="col-span-12 lg:col-span-8 bg-white border border-slate-200 rounded-2xl p-5">
+            className="col-span-12 lg:col-span-8 bg-white border border-slate-200 rounded-2xl shadow-card p-5">
             <div className="mb-3">
-              <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Avance de Checks de Producción</p>
-              <p className="text-[12px] text-slate-500 mt-0.5">
-                Cuántas de las <span className="font-semibold text-slate-600">{checks[0]?.total ?? 0} ODPs activas</span> completaron cada etapa de taller — ordenadas de menor a mayor avance
+              <p className="text-[15px] font-semibold text-slate-900">Avance de Checks de Producción</p>
+              <p className="text-[12px] text-slate-700 mt-1">
+                Cuántas de las <span className="font-semibold text-slate-900">{checks[0]?.total ?? 0} ODPs activas</span> completaron cada etapa de taller — ordenadas de menor a mayor avance
               </p>
             </div>
             <div className="space-y-2.5">
@@ -117,8 +117,8 @@ export const PanelProduccion: React.FC<{ data: any; isLoading: boolean; onViewOd
                 const wPct  = Math.max(c.pct, c.total > 0 ? 1.5 : 0);
                 return (
                   <div key={c.campo} className="flex items-center gap-3 text-[12px]">
-                    <span className="w-[118px] shrink-0 text-slate-600 truncate">{c.label}</span>
-                    <div className="flex-1 h-5 bg-slate-50 rounded-lg overflow-hidden relative">
+                    <span className="w-[118px] shrink-0 text-slate-800 truncate">{c.label}</span>
+                    <div className="flex-1 h-5 bg-slate-100 rounded-lg overflow-hidden relative">
                       <motion.div className="absolute inset-y-0 left-0 rounded-lg"
                         style={{ background: color + '33' }}
                         initial={{ width: 0 }}
@@ -130,25 +130,25 @@ export const PanelProduccion: React.FC<{ data: any; isLoading: boolean; onViewOd
                         animate={{ width: `${Math.max(wPct - 3, 0)}%` }}
                         transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.1 + i * 0.06 }} />
                     </div>
-                    <span className="shrink-0 tabular-nums text-slate-500 w-[80px] text-right text-[12px]">
+                    <span className="shrink-0 tabular-nums text-slate-800 w-[84px] text-right text-[12px] whitespace-nowrap">
                       {c.completadas}/{c.total}&nbsp;
-                      <span style={{ color }} className="font-bold">({c.pct}%)</span>
+                      <span style={{ color }} className="font-semibold">({c.pct}%)</span>
                     </span>
                   </div>
                 );
               })}
               {checks.length === 0 && (
-                <p className="text-slate-500 text-[12px] text-center py-6">Sin ODPs activas en producción</p>
+                <p className="text-slate-700 text-[12px] text-center py-6">Sin ODPs activas en producción</p>
               )}
             </div>
           </motion.div>
 
           {/* ODPs por servicio */}
           <motion.div custom={7} variants={cardVar} initial="hidden" animate="visible"
-            className="col-span-12 lg:col-span-4 bg-white border border-slate-200 rounded-2xl p-5 flex flex-col">
+            className="col-span-12 lg:col-span-4 bg-white border border-slate-200 rounded-2xl shadow-card p-5 flex flex-col">
             <div className="mb-4">
-              <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">ODPs por Servicio</p>
-              <p className="text-[12px] text-slate-500 mt-0.5">Distribución del período ({totalServicios} total)</p>
+              <p className="text-[15px] font-semibold text-slate-900">ODPs por Servicio</p>
+              <p className="text-[12px] text-slate-700 mt-1">Distribución del período ({totalServicios} total)</p>
             </div>
             <div className="flex-1 space-y-2.5 overflow-y-auto">
               {servicios.map((s: any, i: number) => {
@@ -160,10 +160,10 @@ export const PanelProduccion: React.FC<{ data: any; isLoading: boolean; onViewOd
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="w-2 h-2 rounded-sm shrink-0"
                           style={{ background: SERVICIO_COLORS[i % SERVICIO_COLORS.length] }} />
-                        <span className="text-slate-600 truncate font-medium">{s.label}</span>
+                        <span className="text-slate-800 truncate">{s.label}</span>
                       </div>
-                      <span className="shrink-0 ml-2 tabular-nums text-slate-700 font-semibold">
-                        {s.cantidad} <span className="text-slate-500 font-normal">({s.pct}%)</span>
+                      <span className="shrink-0 ml-2 tabular-nums text-slate-900 font-semibold">
+                        {s.cantidad} <span className="text-slate-700 font-normal">({s.pct}%)</span>
                       </span>
                     </div>
                     <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -184,34 +184,34 @@ export const PanelProduccion: React.FC<{ data: any; isLoading: boolean; onViewOd
         <div className="grid grid-cols-12 gap-3">
           {(data.odps_mas_antiguas?.length > 0) && (
             <motion.div custom={8} variants={cardVar} initial="hidden" animate="visible"
-              className="col-span-12 lg:col-span-6 bg-white border border-slate-200 rounded-2xl overflow-hidden">
+              className="col-span-12 lg:col-span-6 bg-white border border-slate-200 rounded-2xl shadow-card overflow-hidden">
               <div className="px-5 py-3 border-b border-slate-100">
-                <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">ODPs más Antiguas en Producción</p>
+                <p className="text-[15px] font-semibold text-slate-900">ODPs más Antiguas en Producción</p>
               </div>
               <table className="w-full text-left border-collapse">
                 <thead className="bg-slate-50">
-                  <tr className="text-[11px] text-slate-600 uppercase tracking-wider">
+                  <tr className="text-[11px] text-slate-900 uppercase tracking-wide">
                     <th className="py-2 px-4 font-semibold"># ODP</th>
                     <th className="py-2 px-4 font-semibold">Cliente</th>
                     <th className="py-2 px-4 font-semibold">Estado</th>
                     <th className="py-2 px-4 font-semibold text-center">Días</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-100">
                   {data.odps_mas_antiguas.map((odp: any, i: number) => (
                     <motion.tr key={i}
                       initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                       transition={{ delay: 0.1 + i * 0.05 }}
                       onClick={() => onViewOdp?.(odp.odp_id)}
                       className={`text-[12px] cursor-pointer hover:bg-slate-50 transition-colors ${odp.dias_en_sistema > 30 ? 'bg-rose-50/40' : ''}`}>
-                      <td className="py-2 px-4 font-semibold text-slate-700">{odp.numero_odp}</td>
-                      <td className="py-2 px-4 text-slate-600 max-w-[100px] truncate">{odp.cliente}</td>
+                      <td className="py-2 px-4 font-semibold text-slate-900 whitespace-nowrap">{odp.numero_odp}</td>
+                      <td className="py-2 px-4 text-slate-800 max-w-[160px] truncate">{odp.cliente}</td>
                       <td className="py-2 px-4">
-                        <span className="text-[11px] px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded-full uppercase tracking-wide">
+                        <span className="text-[11px] font-semibold px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-800 rounded-full uppercase tracking-wide whitespace-nowrap">
                           {ESTADO_LABEL[odp.estado_produccion] || odp.estado_produccion}
                         </span>
                       </td>
-                      <td className={`py-2 px-4 text-center font-bold tabular-nums ${odp.dias_en_sistema > 30 ? 'text-rose-600' : odp.dias_en_sistema > 15 ? 'text-amber-500' : 'text-slate-600'}`}>
+                      <td className={`py-2 px-4 text-center font-semibold tabular-nums ${odp.dias_en_sistema > 30 ? 'text-rose-700' : odp.dias_en_sistema > 15 ? 'text-amber-700' : 'text-slate-800'}`}>
                         {odp.dias_en_sistema}d
                       </td>
                     </motion.tr>
@@ -222,33 +222,33 @@ export const PanelProduccion: React.FC<{ data: any; isLoading: boolean; onViewOd
           )}
 
           <motion.div custom={9} variants={cardVar} initial="hidden" animate="visible"
-            className={`col-span-12 ${data.odps_mas_antiguas?.length > 0 ? 'lg:col-span-6' : ''} bg-white border border-slate-200 rounded-2xl overflow-hidden`}>
+            className={`col-span-12 ${data.odps_mas_antiguas?.length > 0 ? 'lg:col-span-6' : ''} bg-white border border-slate-200 rounded-2xl shadow-card overflow-hidden`}>
             <div className="px-5 py-3 border-b border-slate-100">
-              <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-widest">Próximas a Vencer — 7 días</p>
+              <p className="text-[15px] font-semibold text-slate-900">Próximas a Vencer — 7 días</p>
             </div>
             <table className="w-full text-left border-collapse">
               <thead className="bg-slate-50">
-                <tr className="text-[11px] text-slate-600 uppercase tracking-wider">
+                <tr className="text-[11px] text-slate-900 uppercase tracking-wide">
                   <th className="py-2 px-4 font-semibold"># ODP</th>
                   <th className="py-2 px-4 font-semibold">Cliente</th>
                   <th className="py-2 px-4 font-semibold text-center">Faltan</th>
                   <th className="py-2 px-4 font-semibold text-center">Riesgo</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-100">
                 {(data.odps_proximas_vencer || []).map((odp: any, i: number) => (
                   <motion.tr key={i}
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                     transition={{ delay: 0.1 + i * 0.05 }}
                     onClick={() => onViewOdp?.(odp.odp_id)}
                     className={`text-[12px] cursor-pointer hover:bg-slate-50 transition-colors ${odp.dias_restantes <= 2 ? 'bg-rose-50/50' : ''}`}>
-                    <td className="py-2 px-4 font-semibold text-slate-700">{odp.numero_odp}</td>
-                    <td className="py-2 px-4 text-slate-600 max-w-[100px] truncate">{odp.cliente}</td>
-                    <td className={`py-2 px-4 text-center font-bold tabular-nums ${odp.dias_restantes <= 2 ? 'text-rose-600' : odp.dias_restantes <= 5 ? 'text-amber-500' : 'text-emerald-600'}`}>
+                    <td className="py-2 px-4 font-semibold text-slate-900 whitespace-nowrap">{odp.numero_odp}</td>
+                    <td className="py-2 px-4 text-slate-800 max-w-[160px] truncate">{odp.cliente}</td>
+                    <td className={`py-2 px-4 text-center font-semibold tabular-nums ${odp.dias_restantes <= 2 ? 'text-rose-700' : odp.dias_restantes <= 5 ? 'text-amber-700' : 'text-emerald-700'}`}>
                       {odp.dias_restantes}d
                     </td>
                     <td className="py-2 px-4 text-center">
-                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold uppercase ${
                         odp.riesgo === 'alto' ? 'bg-rose-100 text-rose-700'
                           : odp.riesgo === 'medio' ? 'bg-amber-100 text-amber-700'
                             : 'bg-emerald-100 text-emerald-700'
@@ -258,7 +258,7 @@ export const PanelProduccion: React.FC<{ data: any; isLoading: boolean; onViewOd
                 ))}
                 {(!data.odps_proximas_vencer || data.odps_proximas_vencer.length === 0) && (
                   <tr>
-                    <td colSpan={4} className="py-6 text-center text-[12px] text-slate-500">
+                    <td colSpan={4} className="py-6 text-center text-[12px] text-slate-700">
                       No hay ODPs próximas a vencer en los próximos 7 días
                     </td>
                   </tr>

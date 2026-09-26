@@ -16,11 +16,11 @@ const BarrasHorizontales: React.FC<Props> = ({
     <div style={{ width: '100%', height: 280 }}>
       <ResponsiveContainer>
         <BarChart layout="vertical" data={data} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e1e5eb" />
           <XAxis 
             type="number"
             tickFormatter={xFormatter}
-            tick={{ fontSize: 11, fill: '#64748b' }}
+            tick={{ fontSize: 11, fill: '#3f4858' }}
             axisLine={false}
             tickLine={false}
           />
@@ -29,12 +29,12 @@ const BarrasHorizontales: React.FC<Props> = ({
             type="category" 
             axisLine={false} 
             tickLine={false}
-            tick={{ fontSize: 12, fill: '#475569', fontWeight: 600 }}
+            tick={{ fontSize: 12, fill: '#2f3746', fontWeight: 600 }}
             width={120} // Espacio para nombres largos ("Ana Rodríguez max")
           />
           <Tooltip 
-            cursor={{ fill: '#f8fafc' }}
-            contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+            cursor={{ fill: '#f6f7f9' }}
+            contentStyle={{ borderRadius: '12px', border: '1px solid #e1e5eb', background: '#ffffff', boxShadow: '0 12px 28px -6px rgba(17,22,32,0.14)', fontSize: 12, color: '#111620' }} labelStyle={{ color: '#111620', fontWeight: 600 }}
             formatter={(value: any) => [xFormatter(value as number), '']}
           />
           <Bar dataKey={barsKey} fill="#4f46e5" radius={[0, 4, 4, 0]} barSize={24} />

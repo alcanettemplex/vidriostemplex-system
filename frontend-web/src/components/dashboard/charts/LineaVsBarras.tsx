@@ -17,23 +17,23 @@ const LineaVsBarras: React.FC<Props> = ({
     <div style={{ width: '100%', height: 250 }}>
       <ResponsiveContainer>
         <ComposedChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e1e5eb" />
           <XAxis 
             dataKey={xKey} 
             axisLine={false} 
             tickLine={false} 
-            tick={{ fontSize: 12, fill: '#64748b' }}
+            tick={{ fontSize: 12, fill: '#3f4858' }}
           />
           <YAxis 
             axisLine={false} 
             tickLine={false} 
             tickFormatter={yAxisFormatter}
-            tick={{ fontSize: 11, fill: '#64748b' }}
+            tick={{ fontSize: 11, fill: '#3f4858' }}
             width={65}
           />
           <Tooltip 
-            cursor={{ fill: '#f8fafc' }}
-            contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+            cursor={{ fill: '#f6f7f9' }}
+            contentStyle={{ borderRadius: '12px', border: '1px solid #e1e5eb', background: '#ffffff', boxShadow: '0 12px 28px -6px rgba(17,22,32,0.14)', fontSize: 12, color: '#111620' }} labelStyle={{ color: '#111620', fontWeight: 600 }}
             formatter={(value: any, name: any) => {
               const val = typeof value === 'number' ? yAxisFormatter(value) : value;
               return [val, name === barsKey ? 'Real' : 'Meta'];
@@ -43,7 +43,7 @@ const LineaVsBarras: React.FC<Props> = ({
           <Line 
             type="monotone" 
             dataKey={lineKey} 
-            stroke="#94a3b8" 
+            stroke="#6f7a8c" 
             strokeWidth={2} 
             strokeDasharray="5 5" 
             dot={{ r: 4, strokeWidth: 2 }} 
